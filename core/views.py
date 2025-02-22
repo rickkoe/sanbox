@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from models import Config
-from forms import ConfigForm
+from .models import Config
+from .forms import ConfigForm
 
 def home(request):
     return HttpResponse("Hello from Core App!")
