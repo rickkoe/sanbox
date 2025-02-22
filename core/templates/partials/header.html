@@ -1,0 +1,110 @@
+{% load static %}
+{% block header%}
+        <header id="page-topbar">
+            <div class="navbar-header">
+                <div class="d-flex">
+                    <!-- LOGO -->
+                    <div class="navbar-brand-box">
+                        <a href="{% url 'index' %}" class="logo logo-dark">
+                            <span class="logo-sm">
+                                <img src="{% static 'images/logo.svg' %}" alt="" height="22">
+                            </span>
+                            <span class="logo-lg">
+                                <img src="{% static 'images/logo-dark.png' %}" alt="" height="17">
+                            </span>
+                        </a>
+
+                        <a href="{% url 'index' %}" class="logo logo-light">
+                            <span class="logo-sm">
+                                <img src="{% static 'images/logo-light.png' %}" alt="" height="22">
+                            </span>
+                            <span class="logo-lg">
+                                <img src="{% static 'images/logo-light.png' %}" alt="" height="40">
+                            </span>
+                        </a>
+                    </div>
+
+                    <button type="button" class="btn btn-sm px-3 font-size-16 header-item waves-effect" id="vertical-menu-btn">
+                        <i class="fa fa-fw fa-bars"></i>
+                    </button>
+
+                </div>
+                <div id="active-customer-placeholder">
+                    <h1>
+                    {% if active_project %}
+                        <a class="nav-item nav-link active-customer">{{ active_project.customer.name }}: {{ active_project.name }}</a>
+                    {% else %}
+                        <a class="nav-item nav-link" href="#">No Active Customer</a>
+                    {% endif %}
+                    </h1>
+                </div>
+                <div class="d-flex">
+
+                    <div class="dropdown d-inline-block d-lg-none ms-2">
+                        <button type="button" class="btn header-item noti-icon waves-effect" id="page-header-search-dropdown"
+                        data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="mdi mdi-magnify"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end p-0"
+                            aria-labelledby="page-header-search-dropdown">
+
+                            <form class="p-3">
+                                <div class="form-group m-0">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" placeholder="Search ..." aria-label="Recipient's username">
+                                        <div class="input-group-append">
+                                            <button class="btn btn-primary" type="submit"><i class="mdi mdi-magnify"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        
+                    </div>
+                    
+                    
+                    <div class="dropdown d-none d-lg-inline-block ms-1">
+                        <button type="button" class="btn header-item noti-icon waves-effect" data-bs-toggle="fullscreen">
+                            <i class="bx bx-fullscreen"></i>
+                        </button>
+                    </div>
+
+
+
+                    <div class="dropdown d-inline-block">
+                        <button type="button" class="btn header-item waves-effect" id="page-header-user-dropdown"
+                        data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <img class="rounded-circle header-profile-user" src="{% static 'images/users/user-dummy-img.jpg' %}"
+                                alt="Header Avatar">
+                            <span class="d-none d-xl-inline-block ms-1">{{user.username}}</span>
+                            <i class="mdi mdi-chevron-down d-none d-xl-inline-block"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <!-- item-->
+                            <a class="dropdown-item" href="{% url 'config' %}"><i class="bx bx-lock-open font-size-16 align-middle me-1"></i> <span key="t-lock-screen">Lock Screen</span></a>
+                            <div class="dropdown-divider"></div>
+                            {% if user.is_authenticated %}
+
+                                {% if user.has_usable_password %}
+                                <a class="dropdown-item" href="{% url 'config'  %}"><i class="bx bx-key font-size-16 align-middle me-1"></i> Change Password</a>
+                                {% else %}
+                                <a class="dropdown-item" href="{% url 'config' %}"><i class="bx bx-key font-size-16 align-middle me-1"></i> Set Password</a>
+                                {% endif %}
+                                <a class="dropdown-item text-danger" href="{% url 'config' %}?next={% url 'config' %}"><i class="bx bx-power-off font-size-16 align-middle me-1 text-danger"></i>Log Out</a>
+                                {% else %}
+                                <a class="dropdown-item" href="{% url 'config' %}"><i
+                                        class="bx bx-log-in font-size-16 align-middle me-1 "></i> Log In</a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div clacalendar-full.htmls="dropdown d-inline-block">
+                        <button type="button" class="btn header-item noti-icon right-bar-toggle waves-effect">
+                            <i class="bx bx-cog bx-spin"></i>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </header>
+{% endblock %}
