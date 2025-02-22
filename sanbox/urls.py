@@ -19,9 +19,8 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('core.urls')),
-    path('', include('customers.urls')),
-    path('', include('san.urls')),
-    path('', include('storage.urls')),
-
+    path('', include('core.urls')),  # Main landing page
+    path('customers/', include('customers.urls')),
+    path('san/', include('san.urls')),
+    path('storage/', include('storage.urls')),
 ]
