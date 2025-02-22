@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import landing_page
+from .views import index
 
 app_name = 'customers'
 
 urlpatterns = [
-    path('', landing_page, name='customers_landing'),  # Handles "/customers/"
+    path('', index, name='index'),  # Handles "/customers/"
 ]

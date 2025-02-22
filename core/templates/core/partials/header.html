@@ -1,0 +1,12 @@
+<nav class="navbar">
+    <div class="navbar-container">
+        <a href="{% url 'core:index' %}" class="navbar-logo">Sanbox</a>
+        <ul class="navbar-menu">
+            <li><a href="{% url 'core:index' %}">Home</a></li>
+            <li><a href="{% url 'core:config' %}">Configuration</a></li>
+            <li><a href="{% url 'customers:index' %}">Customers</a></li>
+            <li><a href="{% url 'san:index' %}">SAN</a></li>
+            <li><a href="{% url 'storage:index' %}">Storage</a></li>
+        </ul>
+    </div>
+</nav>

@@ -1,4 +1,4 @@
 from django.shortcuts import render
 
-def landing_page(request):
-    return render(request, 'customers/landing.html')
+def index(request):
+    return render(request, 'customers/index.html')
