@@ -7,7 +7,7 @@ def home(request):
     return HttpResponse("Hello from Core App!")
 
 def index(request):
-    return render(request, 'index.html')
+    return render(request, 'core/index.html')
 
 def config(request):
     config_instance, created = Config.objects.get_or_create(pk=1)  # Get or create a single instance
@@ -26,5 +26,5 @@ def config(request):
         'heading': 'Config',
         'pageview': 'Settings'
         }
-    return render(request, 'config.html', context)
+    return render(request, 'core/config.html', context)
     
