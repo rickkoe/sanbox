@@ -1,10 +1,16 @@
 {% extends 'core/partials/base.html' %} 
 
-{% load static %}  <!-- Load static files -->
-
 {% block content %}
-     <main>
-        <h2>Home Page</h2>
-        <p>Welcome to the main landing page of Sanbox!</p>
-    </main>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            {% include 'core/partials/sidebar.html' %}
+        </div>
+        <div class="col-md-9">
+            <h1>Welcome to SANBox</h1>
+            <p class="lead">Manage your SAN and Storage resources efficiently.</p>
+            <button class="btn btn-primary">Get Started</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
