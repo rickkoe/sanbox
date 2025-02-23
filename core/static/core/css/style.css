@@ -1,0 +1,74 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+.navbar {
+    background-color: #333; /* Dark background color */
+    color: white; /* White text color */
+    padding: 10px 20px; /* Padding for the navbar */
+    position: sticky; /* Sticks the navbar to the top on scroll */
+    top: 0; /* Positions it at the top */
+    z-index: 1000; /* Ensures it stays above other elements */
+}
+
+.navbar-container {
+    display: flex; /* Flexbox for alignment */
+    justify-content: space-between; /* Space between logo and menu */
+    align-items: center; /* Center items vertically */
+}
+
+.navbar-logo {
+    color: white; /* White text for the logo */
+    text-decoration: none; /* Remove underline from link */
+    font-size: 24px; /* Font size for the logo */
+}
+
+.navbar-menu {
+    list-style: none; /* Remove bullet points */
+    margin: 0; /* Remove default margin */
+    padding: 0; /* Remove default padding */
+    display: flex; /* Flexbox for horizontal layout */
+}
+
+.navbar-menu li {
+    margin-left: 20px; /* Space between menu items */
+}
+
+.navbar-menu a {
+    color: white; /* White text for menu items */
+    text-decoration: none; /* Remove underline from links */
+    padding: 8px 12px; /* Padding for menu items */
+    transition: background-color 0.3s; /* Transition effect for hover */
+}
+
+.navbar-menu a:hover {
+    background-color: #575757; /* Darker background on hover */
+    border-radius: 4px; /* Rounded corners on hover */
+}
+
+@media (max-width: 768px) {
+    .navbar-menu {
+        flex-direction: column; /* Stack menu items vertically */
+        display: none; /* Hide menu by default */
+        width: 100%; /* Full width */
+    }
+
+    .navbar-menu.active {
+        display: flex; /* Show menu when active */
+    }
+
+    .navbar-container {
+        flex-direction: column; /* Stack logo and menu */
+        align-items: flex-start; /* Align items to the left */
+    }
+
+    .navbar-toggle {
+        display: block; /* Show toggle button */
+        cursor: pointer; /* Change cursor */
+        background: none; /* Remove default styling */
+        border: none; /* Remove border */
+        color: white; /* White text */
+        font-size: 18px; /* Font size for toggle */
+    }
+}
