@@ -6,10 +6,10 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
-                <li class="nav-item"><a class="nav-link" href="#">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="#">Customers</a></li>
-                <li class="nav-item"><a class="nav-link" href="#">Storage</a></li>
-                <li class="nav-item"><a class="nav-link" href="#">SAN</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'core:index' %}">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'customers:index' %}">Customers</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'storage:index' %}">Storage</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'san:index' %}">SAN</a></li>
             </ul>
         </div>
     </div>
