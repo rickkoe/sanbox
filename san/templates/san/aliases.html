@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+{% extends "core/partials/base.html" %}
+{% load static %}
+{% block content %}
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col">
+        <button id="submit-data" class="btn btn-secondary btn-sm">Save Changes</button>
+        <button onclick="location.href='{% url 'san:create_aliases' %}'" type="button" class="btn btn-secondary btn-sm">
+          Create Alias Commands
+        </button>
+      </div>
+    </div>
+  </div>
+{% endblock %}

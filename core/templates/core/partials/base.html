@@ -8,11 +8,14 @@
     <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/handsontable@12.3.1/dist/handsontable.full.min.js"></script>
     {% load static %}  <!-- Load static files -->
 
 </head>
 <body>
     {% include 'core/partials/header.html' %}  <!-- Include the header -->
+    {% include 'core/partials/secondary_toolbar.html' %} <!-- Include the secondary toolbar-->
     
     <div class="container">
         <div class="sidebar">

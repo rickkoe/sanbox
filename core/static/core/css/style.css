@@ -72,3 +72,27 @@ body {
         font-size: 18px; /* Font size for toggle */
     }
 }
+
+
+/* SECONDARY TOOLBAR */
+.secondary-toolbar {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+.secondary-toolbar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+}
+.secondary-toolbar li {
+    margin-right: 15px;
+}
+.secondary-toolbar a {
+    text-decoration: none;
+    color: #007bff;
+}
+.secondary-toolbar a:hover {
+    text-decoration: underline;
+}

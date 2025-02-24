@@ -1,15 +1,14 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
-        <a class="navbar-brand" href="#">SANBox</a>
+        <a class="navbar-brand" href="{% url 'core:index' %}">SANBox</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
-                <li class="nav-item"><a class="nav-link" href="{% url 'core:index' %}">Home</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'customers:index' %}">Customers</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url 'storage:index' %}">Storage</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'san:index' %}">SAN</a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url 'san:aliases' %}">Zoning</a></li>
             </ul>
         </div>
     </div>

@@ -1,0 +1,13 @@
+{% if toolbar_options %}
+<nav class="navbar navbar-expand-lg bg-light border-bottom">
+    <div class="container">  
+        <ul class="navbar-nav">
+            {% for option in toolbar_options %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ option.url }}">{{ option.label }}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</nav>
+{% endif %}
