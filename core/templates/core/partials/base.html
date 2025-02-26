@@ -13,6 +13,8 @@
     {% load static %}  <!-- Load static files -->
 
 </head>
+{% block extra_head %}
+{% endblock %}
 <body>
     {% include 'core/partials/header.html' %}  <!-- Include the header -->
     {% include 'core/partials/secondary_toolbar.html' %} <!-- Include the secondary toolbar-->
@@ -25,6 +27,8 @@
             {% block content %}{% endblock %}  <!-- Block for main content -->
         </div>
     </div>
+    {% block extra_js %}
+    {% endblock %}
 
 
 </body>

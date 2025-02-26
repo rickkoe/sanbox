@@ -1,10 +1,106 @@
-{% extends 'core/partials/base.html' %} 
-
-{% load static %}  <!-- Load static files -->
-
+<!DOCTYPE html>
+{% extends "core/partials/base.html" %}
+{% block extra_head%}
+<title>Config Options</title>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{% endblock %}
 {% block content %}
-     <main>
-        <h2>Home Page</h2>
-        <p>Welcome to the Config Page!</p>
-    </main>
+
+<div class="form-container">
+<form id="config-form" method="POST" action="">
+  {% csrf_token %}
+
+  <div class="form-group">
+    <label for="{{ form.project.id_for_label }}">Active Project:</label>
+    {{ form.project }}
+    <span class="error-message">{{ form.project.errors }}</span>
+  </div>
+
+  <div class="form-group">
+    <label for="{{ form.san_vendor.id_for_label }}">SAN Vendor:</label>
+    {{ form.san_vendor }}
+    <span class="error-message">{{ form.san_vendor.errors }}</span>
+  </div>
+
+  <div class="form-group">
+    <label for="{{ form.zoning_job_name.id_for_label }}">Zoning Job Name:</label>
+    {{ form.zoning_job_name }}
+    <span class="error-message">{{ form.zoning_job_name.errors }}</span>
+  </div>
+
+  <div id="cisco-fields-container" class="form-group">
+    <label for="{{ form.cisco_alias.id_for_label }}">Cisco Alias Type:</label>
+    {{ form.cisco_alias }}
+    <span class="error-message">{{ form.cisco_alias.errors }}</span>
+
+    <label for="{{ form.cisco_zoning_mode.id_for_label }}">Cisco Zoning Mode:</label>
+    {{ form.cisco_zoning_mode }}
+    <span class="error-message">{{ form.cisco_zoning_mode.errors }}</span>
+  </div>
+
+  <div class="form-group">
+    <label for="{{ form.zone_ratio.id_for_label }}">Zone Ratio:</label>
+    {{ form.zone_ratio }}
+    <span class="error-message">{{ form.zone_ratio.errors }}</span>
+  </div>
+
+  <div class="form-group">
+    <label for="{{ form.smartzone_prefix.id_for_label }}">Smart Zone Prefix:</label>
+    {{ form.smartzone_prefix }}
+    <span class="error-message">{{ form.smartzone_prefix.errors }}</span>
+  </div>
+
+  <div class="form-group">
+    <label for="{{ form.alias_max_zones.id_for_label }}">Max Zones per Alias:</label>
+    {{ form.alias_max_zones }}
+    <span class="error-message">{{ form.alias_max_zones.errors }}</span>
+  </div>
+
+  <!-- Optional: Add a submit button -->
+  <!-- <button id="submit-btn" type="submit">Save</button> -->
+</form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    
+  $(document).ready(function() {
+      var ciscoFieldsContainer = $('#cisco-fields-container');
+      var configForm = $('#config-form');
+
+      var sanVendorValue = $('#id_san_vendor').val();
+      if (sanVendorValue !== 'CI') {
+          ciscoFieldsContainer.hide();
+      }
+
+      // Submit the form via AJAX when any input value changes
+      configForm.find(':input').on('input', function() {
+          $.ajax({
+              type: 'POST',
+              url: configForm.attr('action'),
+              data: configForm.serialize(), // Serialize the form data
+              success: function(response) {
+                  // Handle the success response, if needed
+                  console.log('Form data saved successfully.');
+              },
+              error: function(xhr, errmsg, err) {
+                  // Handle the error, if needed
+                  console.log('Form data failed to save.');
+              }
+          });
+      });
+
+      $('#id_san_vendor').on('input', function() {
+          var updatedValue = $(this).val();
+
+          if (updatedValue === 'CI') {
+              ciscoFieldsContainer.show();
+          } else {
+              ciscoFieldsContainer.hide();
+          }
+      });
+  });
+</script>
 {% endblock %}
