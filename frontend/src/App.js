@@ -1,5 +1,6 @@
 import React from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, useLocation } from "react-router-dom";
+import SanNavbar from "./components/SanNavbar";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import CustomersPage from "./pages/CustomersPage";
@@ -9,14 +10,16 @@ import ZoningPage from "./pages/ZoningPage";
 import StoragePage from "./pages/StoragePage";
 import FabricPage from "./pages/FabricPage";
 import ConfigPage from "./pages/ConfigPage";
-
+import { SanVendorProvider } from "./context/SanVendorContext";
 
 function App() {
   return (
-        <Router>
+    <Router>
+      <SanVendorProvider>  {/* ✅ Now inside Router */}
         <Navbar />
+        <SanNavbarWrapper /> {/* ✅ Conditionally render SanNavbar */}
         <div className="container mt-4">
-            <Routes>
+          <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/san" element={<SanPage />} />
@@ -24,12 +27,18 @@ function App() {
             <Route path="/san/zones" element={<ZoningPage />} />
             <Route path="/storage" element={<StoragePage />} />
             <Route path="/san/fabrics" element={<FabricPage />} />
-            <Route path="/storage" element={<StoragePage />} />
             <Route path="/config" element={<ConfigPage />} />
-            </Routes>
+          </Routes>
         </div>
-        </Router>
+      </SanVendorProvider>
+    </Router>
   );
 }
+
+// ✅ Wrapper to conditionally show SanNavbar only on `/san/*` routes
+const SanNavbarWrapper = () => {
+  const location = useLocation();
+  return location.pathname.startsWith("/san/") ? <SanNavbar /> : null;
+};
 
 export default App;

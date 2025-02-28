@@ -5,7 +5,6 @@ import SanNavbar from "../components/SanNavbar";
 const FabricPage = () => {
   return (
     <div className="container mt-4">
-      <SanNavbar />
       <FabricTable />
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "axios";
+import { useLocation } from "react-router-dom";
 
 const SanVendorContext = createContext();
 
@@ -8,17 +9,20 @@ export const useSanVendor = () => useContext(SanVendorContext);
 export const SanVendorProvider = ({ children }) => {
     const [sanVendor, setSanVendor] = useState(null);
     const apiUrl = "http://127.0.0.1:8000/api/core/config/";
+    const location = useLocation(); // ✅ Get the current route
 
-    // Fetch SAN Vendor once and store it
+    // ✅ Fetch SAN Vendor whenever the app loads OR when a SAN page is visited
     useEffect(() => {
-        axios.get(apiUrl)
-            .then(response => {
-                setSanVendor(response.data.san_vendor);
-            })
-            .catch(error => console.error("Error fetching SAN vendor:", error));
-    }, []);
+        if (location.pathname.startsWith("/san/")) {
+            axios.get(apiUrl)
+                .then(response => {
+                    setSanVendor(response.data.san_vendor);
+                })
+                .catch(error => console.error("Error fetching SAN vendor:", error));
+        }
+    }, [location.pathname]);  // ✅ Re-fetch when navigating
 
-    // Function to update SAN Vendor
+    // ✅ Function to update SAN Vendor
     const updateSanVendor = (newSanVendor) => {
         axios.get(apiUrl)
             .then(response => {
