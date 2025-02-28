@@ -20,11 +20,14 @@ const SanNavbar = () => {
 
         <div className="collapse navbar-collapse" id="sanNavbarNav">
           <ul className="navbar-nav">
-            <li className="nav-item">
-              <NavLink className="nav-link" to="/san/alias">Alias</NavLink>
+          <li className="nav-item">
+              <NavLink className="nav-link" to="/san/fabrics">Fabrics</NavLink>
             </li>
             <li className="nav-item">
-              <NavLink className="nav-link" to="/san/zoning">Zoning</NavLink>
+              <NavLink className="nav-link" to="/san/aliases">Aliases</NavLink>
+            </li>
+            <li className="nav-item">
+              <NavLink className="nav-link" to="/san/zones">Zones</NavLink>
             </li>
           </ul>
         </div>

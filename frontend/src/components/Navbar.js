@@ -23,9 +23,6 @@ const Navbar = () => {
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto">
             <li className="nav-item">
-              <NavLink className="nav-link" to="/">Home</NavLink>
-            </li>
-            <li className="nav-item">
               <NavLink className="nav-link" to="/customers">Customers</NavLink>
             </li>
 
@@ -42,8 +39,9 @@ const Navbar = () => {
                 SAN
               </Link>
               <ul className="dropdown-menu" aria-labelledby="sanDropdown">
-                <li><NavLink className="dropdown-item" to="/san/alias">Alias</NavLink></li>
-                <li><NavLink className="dropdown-item" to="/san/zoning">Zoning</NavLink></li>
+                <li><NavLink className="dropdown-item" to="/san/fabrics">Fabrics</NavLink></li>
+                <li><NavLink className="dropdown-item" to="/san/aliases">Aliases</NavLink></li>
+                <li><NavLink className="dropdown-item" to="/san/zones">Zones</NavLink></li>
               </ul>
             </li>
 
