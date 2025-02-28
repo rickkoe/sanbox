@@ -56,9 +56,14 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Allow React frontend to access Django backend
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000"
+    "http://localhost:3000",  # React frontend
+    "http://127.0.0.1:3000",
 ]
+
+# OR, if you want to allow all origins during development:
+CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'sanbox.urls'
 
