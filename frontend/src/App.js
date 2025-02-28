@@ -6,6 +6,7 @@ import Customers from "./pages/Customers";
 import SanPage from "./pages/SanPage";
 import AliasPage from "./pages/AliasPage";
 import ZoningPage from "./pages/ZoningPage";
+import StoragePage from "./pages/StoragePage";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/san" element={<SanPage />} />
           <Route path="/san/alias" element={<AliasPage />} />
           <Route path="/san/zoning" element={<ZoningPage />} />
+          <Route path="/storage" element={<StoragePage />} />
         </Routes>
       </div>
     </Router>
