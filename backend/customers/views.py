@@ -1,4 +1,10 @@
-from django.shortcuts import render
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import Customer
+from .serializer import CustomerSerializer  # Ensure this is correctly named
 
-def index(request):
-    return render(request, 'customers/index.html')
+@api_view(['GET'])
+def customer_list(request):
+    customers = Customer.objects.all()
+    serializer = CustomerSerializer(customers, many=True)
+    return Response(serializer.data)

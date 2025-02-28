@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Customer
 
-class ReactSerializer(serializers.ModelSerializer):
+class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = ['name']
+        fields = '__all__'  # Or specify fields: ['id', 'name', 'email']
