@@ -13,22 +13,22 @@ import ConfigPage from "./pages/ConfigPage";
 
 function App() {
   return (
-    <Router>
-      <Navbar />
-      <div className="container mt-4">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/san" element={<SanPage />} />
-          <Route path="/san/aliases" element={<AliasPage />} />
-          <Route path="/san/zones" element={<ZoningPage />} />
-          <Route path="/storage" element={<StoragePage />} />
-          <Route path="/san/fabrics" element={<FabricPage />} />
-          <Route path="/storage" element={<StoragePage />} />
-          <Route path="/config" element={<ConfigPage />} />
-        </Routes>
-      </div>
-    </Router>
+        <Router>
+        <Navbar />
+        <div className="container mt-4">
+            <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/san" element={<SanPage />} />
+            <Route path="/san/aliases" element={<AliasPage />} />
+            <Route path="/san/zones" element={<ZoningPage />} />
+            <Route path="/storage" element={<StoragePage />} />
+            <Route path="/san/fabrics" element={<FabricPage />} />
+            <Route path="/storage" element={<StoragePage />} />
+            <Route path="/config" element={<ConfigPage />} />
+            </Routes>
+        </div>
+        </Router>
   );
 }
 

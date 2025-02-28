@@ -5,20 +5,22 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./SanNavbar.css";  // ✅ Import custom styles
 
 const SanNavbar = () => {
-    const [sanVendor, setSanVendor] = useState("BR"); // Default to Brocade
+    const [sanVendor, setSanVendor] = useState(null); // ✅ Start as null (no flicker)
     const apiUrl = "http://127.0.0.1:8000/api/core/config/";
 
     // Fetch current SAN Vendor from Config
     useEffect(() => {
         axios.get(apiUrl)
             .then(response => {
-                setSanVendor(response.data.san_vendor);
+                setSanVendor(response.data.san_vendor); // ✅ Set actual vendor from API
             })
             .catch(error => console.error("Error fetching SAN vendor:", error));
     }, []);
 
     // Handle Toggle Change
     const handleToggle = () => {
+        if (sanVendor === null) return;  // ✅ Prevent toggle action before API data loads
+
         const newSanVendor = sanVendor === "BR" ? "CI" : "BR"; // Toggle value
 
         // ✅ Fetch full config before updating
@@ -49,16 +51,18 @@ const SanNavbar = () => {
                 </ul>
 
                 {/* ✅ Custom Toggle Switch for Brocade/Cisco */}
-                <div className="san-toggle-container">
-                    <span className={`san-toggle-label ${sanVendor === "BR" ? "active" : ""}`}>Brocade</span>
-                    <div 
-                        className={`san-toggle-switch ${sanVendor === "CI" ? "switch-right" : "switch-left"}`} 
-                        onClick={handleToggle}
-                    >
-                        <div className="san-toggle-thumb"></div>
+                {sanVendor !== null && (  // ✅ Prevent rendering before API data loads
+                    <div className="san-toggle-container">
+                        <span className={`san-toggle-label ${sanVendor === "BR" ? "active" : ""}`}>Brocade</span>
+                        <div 
+                            className={`san-toggle-switch ${sanVendor === "CI" ? "switch-right" : "switch-left"}`} 
+                            onClick={handleToggle}
+                        >
+                            <div className="san-toggle-thumb"></div>
+                        </div>
+                        <span className={`san-toggle-label ${sanVendor === "CI" ? "active" : ""}`}>Cisco</span>
                     </div>
-                    <span className={`san-toggle-label ${sanVendor === "CI" ? "active" : ""}`}>Cisco</span>
-                </div>
+                )}
             </div>
         </nav>
     );
