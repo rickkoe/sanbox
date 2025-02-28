@@ -26,23 +26,25 @@ const ConfigForm = () => {
         fetchConfig();
     }, []);
 
-    // Handle form input changes
-    const handleChange = (e) => {
-        setConfig({
-            ...config,
-            [e.target.name]: e.target.value
-        });
-    };
+    // Handle auto-save when a field is changed
+    const handleSave = (updatedConfig) => {
+        setConfig(updatedConfig); // ✅ Update local state first
 
-    // Handle form submission
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        axios.put(apiUrl, config)
+        axios.put(apiUrl, updatedConfig)
             .then(response => {
-                setConfig(response.data);
-                alert("Configuration saved successfully!");
+                setConfig(response.data); // ✅ Ensure the state syncs with API response
             })
             .catch(error => console.error("Error updating config:", error));
+    };
+
+    // Handle input changes and save on blur
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        const updatedConfig = { ...config, [name]: value };
+
+        // ✅ Ensure state updates before calling API
+        setConfig(updatedConfig);
+        handleSave(updatedConfig);
     };
 
     return (
@@ -53,63 +55,103 @@ const ConfigForm = () => {
             {error && <div className="alert alert-danger">{error}</div>}
 
             {config && (
-                <form onSubmit={handleSubmit}>
+                <form>
                     {/* SAN Vendor Dropdown */}
                     <div className="mb-3">
                         <label className="form-label">SAN Vendor</label>
-                        <select className="form-control" name="san_vendor" value={config.san_vendor} onChange={handleChange}>
+                        <select
+                            className="form-control"
+                            name="san_vendor"
+                            value={config.san_vendor}
+                            onChange={handleChange}
+                        >
                             <option value="BR">Brocade</option>
                             <option value="CI">Cisco</option>
                         </select>
                     </div>
 
-                    {/* Cisco Alias Dropdown */}
-                    <div className="mb-3">
-                        <label className="form-label">Cisco Alias</label>
-                        <select className="form-control" name="cisco_alias" value={config.cisco_alias} onChange={handleChange}>
-                            <option value="device-alias">device-alias</option>
-                            <option value="fcalias">fcalias</option>
-                            <option value="wwpn">wwpn</option>
-                        </select>
-                    </div>
+                    {/* Cisco-Specific Fields (Only Show When Vendor is Cisco) */}
+                    {config.san_vendor === "CI" && (
+                        <>
+                            {/* Cisco Alias Dropdown */}
+                            <div className="mb-3">
+                                <label className="form-label">Cisco Alias</label>
+                                <select
+                                    className="form-control"
+                                    name="cisco_alias"
+                                    value={config.cisco_alias}
+                                    onChange={handleChange}
+                                >
+                                    <option value="device-alias">device-alias</option>
+                                    <option value="fcalias">fcalias</option>
+                                    <option value="wwpn">wwpn</option>
+                                </select>
+                            </div>
 
-                    {/* Cisco Zoning Mode Dropdown */}
-                    <div className="mb-3">
-                        <label className="form-label">Cisco Zoning Mode</label>
-                        <select className="form-control" name="cisco_zoning_mode" value={config.cisco_zoning_mode} onChange={handleChange}>
-                            <option value="basic">Basic</option>
-                            <option value="enhanced">Enhanced</option>
-                        </select>
-                    </div>
+                            {/* Cisco Zoning Mode Dropdown */}
+                            <div className="mb-3">
+                                <label className="form-label">Cisco Zoning Mode</label>
+                                <select
+                                    className="form-control"
+                                    name="cisco_zoning_mode"
+                                    value={config.cisco_zoning_mode}
+                                    onChange={handleChange}
+                                >
+                                    <option value="basic">Basic</option>
+                                    <option value="enhanced">Enhanced</option>
+                                </select>
+                            </div>
+                        </>
+                    )}
 
                     {/* Zone Ratio Dropdown */}
                     <div className="mb-3">
                         <label className="form-label">Zone Ratio</label>
-                        <select className="form-control" name="zone_ratio" value={config.zone_ratio} onChange={handleChange}>
+                        <select
+                            className="form-control"
+                            name="zone_ratio"
+                            value={config.zone_ratio}
+                            onChange={handleChange}
+                        >
                             <option value="one-to-one">One-to-One</option>
                             <option value="one-to-many">One-to-Many</option>
                             <option value="all-to-all">All-to-All</option>
                         </select>
                     </div>
 
-                    {/* Text Inputs */}
+                    {/* Other Fields */}
                     <div className="mb-3">
                         <label className="form-label">Zoning Job Name</label>
-                        <input type="text" className="form-control" name="zoning_job_name" value={config.zoning_job_name} onChange={handleChange} />
+                        <input
+                            type="text"
+                            className="form-control"
+                            name="zoning_job_name"
+                            value={config.zoning_job_name}
+                            onChange={handleChange}
+                        />
                     </div>
 
                     <div className="mb-3">
                         <label className="form-label">SmartZone Prefix</label>
-                        <input type="text" className="form-control" name="smartzone_prefix" value={config.smartzone_prefix} onChange={handleChange} />
+                        <input
+                            type="text"
+                            className="form-control"
+                            name="smartzone_prefix"
+                            value={config.smartzone_prefix}
+                            onChange={handleChange}
+                        />
                     </div>
 
                     <div className="mb-3">
                         <label className="form-label">Alias Max Zones</label>
-                        <input type="number" className="form-control" name="alias_max_zones" value={config.alias_max_zones} onChange={handleChange} />
+                        <input
+                            type="number"
+                            className="form-control"
+                            name="alias_max_zones"
+                            value={config.alias_max_zones}
+                            onChange={handleChange}
+                        />
                     </div>
-
-                    {/* Submit Button */}
-                    <button type="submit" className="btn btn-primary">Save Configuration</button>
                 </form>
             )}
         </div>
