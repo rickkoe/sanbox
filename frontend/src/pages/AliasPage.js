@@ -5,10 +5,7 @@ import SanNavbar from "../components/SanNavbar"; // Import the secondary SAN Nav
 const AliasPage = () => {
   return (
     <div className="container mt-4">
-      <SanNavbar />  {/* ✅ Displays the SAN Navbar */}
-      <h1>Aliases</h1>
-      
-      {/* ✅ Alias Table is now included */}
+      <SanNavbar /> 
       <AliasTable />
     </div>
   );

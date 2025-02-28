@@ -1,12 +1,12 @@
 import React from "react";
+import ZoneTable from "../components/ZoneTable";
 import SanNavbar from "../components/SanNavbar";
 
 const ZoningPage = () => {
   return (
     <div className="container mt-4">
       <SanNavbar />
-      <h1>Zoning Configuration</h1>
-      <p>Configure zoning for SAN environments.</p>
+      <ZoneTable />
     </div>
   );
 };

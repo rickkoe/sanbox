@@ -23,13 +23,9 @@ const Navbar = () => {
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto">
             <li className="nav-item">
-              <NavLink className="nav-link" to="/">Home</NavLink>
-            </li>
-            <li className="nav-item">
               <NavLink className="nav-link" to="/customers">Customers</NavLink>
             </li>
 
-            {/* ✅ FIX: Properly formatted SAN Dropdown */}
             <li className="nav-item dropdown">
               <Link 
                 className="nav-link dropdown-toggle" 
@@ -47,7 +43,6 @@ const Navbar = () => {
               </ul>
             </li>
 
-            {/* ✅ FIX: Restore Storage Link */}
             <li className="nav-item">
               <NavLink className="nav-link" to="/storage">Storage</NavLink>
             </li>
