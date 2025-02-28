@@ -57,7 +57,6 @@ const StorageTable = () => {
 
     return (
         <div className="container mt-4">
-            <h2>Storage Devices</h2>
 
             {loading && <div className="alert alert-info">Loading storages...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
