@@ -4,18 +4,22 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Customers from "./pages/Customers";
 import SanPage from "./pages/SanPage";
-import StoragePage from "./pages/StoragePage";
+import AliasPage from "./pages/AliasPage";
+import ZoningPage from "./pages/ZoningPage";
 
 function App() {
   return (
     <Router>
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/customers" element={<Customers />} />
-        <Route path="/san" element={<SanPage />} />
-        <Route path="/storage" element={<StoragePage />} />
-      </Routes>
+      <div className="container mt-4">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/customers" element={<Customers />} />
+          <Route path="/san" element={<SanPage />} />
+          <Route path="/san/alias" element={<AliasPage />} />
+          <Route path="/san/zoning" element={<ZoningPage />} />
+        </Routes>
+      </div>
     </Router>
   );
 }

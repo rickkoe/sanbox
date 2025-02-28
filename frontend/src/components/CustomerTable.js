@@ -85,7 +85,6 @@ const CustomerTable = () => {
 
     return (
         <div className="container mt-4">
-            <h2>Customers</h2>
 
             {loading && <div className="alert alert-info">Loading customers...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
@@ -94,16 +93,17 @@ const CustomerTable = () => {
                 <HotTable
                     ref={tableRef}
                     data={customers}
-                    colHeaders={["ID", "Name"]}
+                    colHeaders={["ID", "Customer Name"]}
                     columns={[
                         { data: "id", readOnly: true },
                         { data: "name" }
                     ]}
                     licenseKey="non-commercial-and-evaluation"
                     afterChange={handleTableChange}  // Handle edits
-                    className="handsontable"
+                    className="handsontable htMaterial"
                     dropdownMenu={true}  // Enables filtering menu
                     filters={true}  // Enables filtering
+                    sort={true}
                     rowHeaders={false}  // Removes row headers
                 />
             )}
