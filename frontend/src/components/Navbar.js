@@ -45,9 +45,26 @@ const Navbar = () => {
               </ul>
             </li>
 
-            {/* Storage Link */}
+            {/* Storage Dropdown */}
+            <li className="nav-item dropdown">
+              <Link 
+                className="nav-link dropdown-toggle" 
+                to="#" 
+                id="storageDropdown" 
+                role="button" 
+                data-bs-toggle="dropdown" 
+                aria-expanded="false"
+              >
+                Storage
+              </Link>
+              <ul className="dropdown-menu" aria-labelledby="storageDropdown">
+                <li><NavLink className="dropdown-item" to="/storage">DS8000</NavLink></li>
+                <li><NavLink className="dropdown-item" to="/storage">FlashSystem</NavLink></li>
+              </ul>
+            </li>
+
             <li className="nav-item">
-              <NavLink className="nav-link" to="/storage">Storage</NavLink>
+              <NavLink className="nav-link" to="/config">Config</NavLink>
             </li>
 
             {/* ✅ Django Admin Link (Opens in a New Tab) */}

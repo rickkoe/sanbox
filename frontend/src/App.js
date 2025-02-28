@@ -2,12 +2,14 @@ import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
-import Customers from "./pages/Customers";
+import CustomersPage from "./pages/CustomersPage";
 import SanPage from "./pages/SanPage";
 import AliasPage from "./pages/AliasPage";
 import ZoningPage from "./pages/ZoningPage";
 import StoragePage from "./pages/StoragePage";
 import FabricPage from "./pages/FabricPage";
+import ConfigPage from "./pages/ConfigPage";
+
 
 function App() {
   return (
@@ -16,13 +18,14 @@ function App() {
       <div className="container mt-4">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/customers" element={<Customers />} />
+          <Route path="/customers" element={<CustomersPage />} />
           <Route path="/san" element={<SanPage />} />
           <Route path="/san/aliases" element={<AliasPage />} />
           <Route path="/san/zones" element={<ZoningPage />} />
           <Route path="/storage" element={<StoragePage />} />
           <Route path="/san/fabrics" element={<FabricPage />} />
           <Route path="/storage" element={<StoragePage />} />
+          <Route path="/config" element={<ConfigPage />} />
         </Routes>
       </div>
     </Router>

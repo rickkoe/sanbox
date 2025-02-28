@@ -1,7 +1,7 @@
 import React from "react";
 import CustomerTable from "../components/CustomerTable";
 
-const Customers = () => {
+const CustomersPage = () => {
   return (
     <div className="container mt-4">
 
@@ -11,4 +11,4 @@ const Customers = () => {
   );
 };
 
-export default Customers;
+export default CustomersPage;
