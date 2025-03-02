@@ -88,14 +88,31 @@ def fabric_update(request, pk):
 
 
 @api_view(["GET"])
-def fabrics_for_config_project(request):
+def fabrics_for_customer(request):
     try:
-        config = Config.objects.first()  # ✅ Get the single Config model
+        config = Config.objects.first()  # ✅ Get the single Config instance
         if not config:
             return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
 
-        fabrics = Fabric.objects.filter(project=config.project)  # ✅ Filter Fabrics by Project
+        project = config.project  # ✅ Get the project from Config
+        customer = project.customer  # ✅ Get the customer that owns the project
+
+        fabrics = Fabric.objects.filter(project__customer=customer)  # ✅ Filter by customer
         serializer = FabricSerializer(fabrics, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(["GET"])
+def aliases_for_active_project(request):
+    try:
+        config = Config.objects.first()  # ✅ Get the single Config instance
+        if not config:
+            return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
+
+        aliases = Alias.objects.filter(fabric__project=config.project)  # ✅ Filter by project
+        serializer = AliasSerializer(aliases, many=True)
         return Response(serializer.data)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

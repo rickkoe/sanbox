@@ -9,14 +9,14 @@ registerAllModules();
 
 const AliasTable = () => {
     const [aliases, setAliases] = useState([]);
-    const [fabrics, setFabrics] = useState([]);  // ✅ Store fabrics for dropdown
+    const [fabrics, setFabrics] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const tableRef = useRef(null);
     const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/";
-    const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/config/";  // ✅ Fetch fabrics based on Config project
+    const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";  // ✅ Fetch fabrics based on the customer
 
-    // ✅ Fetch all aliases
+    // ✅ Fetch aliases
     const fetchAliases = () => {
         setLoading(true);
         axios.get(aliasApiUrl)
@@ -42,36 +42,12 @@ const AliasTable = () => {
 
     useEffect(() => {
         fetchAliases();
-        fetchFabrics();  // ✅ Fetch available fabrics
+        fetchFabrics();
     }, []);
-
-    // ✅ Handle table edits and update Django backend
-    const handleTableChange = (changes, source) => {
-        if (source === "edit" && changes) {
-            const updatedAliases = [...aliases];
-
-            changes.forEach(([visualRow, prop, oldValue, newValue]) => {
-                if (oldValue !== newValue) {
-                    const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
-                    if (physicalRow === null) return;
-
-                    // ✅ Ensure we send fabric names instead of object IDs
-                    const updatedAlias = { ...updatedAliases[physicalRow], [prop]: newValue };
-
-                    updatedAliases[physicalRow] = updatedAlias;
-                    setAliases(updatedAliases);
-
-                    // ✅ Send update request to Django
-                    axios.put(`${aliasApiUrl}${updatedAlias.id}/`, updatedAlias)
-                        .catch(error => console.error("Error updating alias:", error));
-                }
-            });
-        }
-    };
 
     return (
         <div className="container mt-4">
-            <h2>Aliases</h2>
+            <h2>Aliases for Customer’s Projects</h2>
 
             {loading && <div className="alert alert-info">Loading aliases...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
@@ -91,7 +67,6 @@ const AliasTable = () => {
                         { data: "include_in_zoning", type: "checkbox" },
                     ]}
                     licenseKey="non-commercial-and-evaluation"
-                    afterChange={handleTableChange}
                     className="handsontable"
                     dropdownMenu={true}
                     filters={true}

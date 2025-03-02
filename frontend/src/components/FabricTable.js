@@ -12,11 +12,12 @@ const FabricTable = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const tableRef = useRef(null);
+    const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";  // ✅ Fetch fabrics for active customer
 
-    // ✅ Fetch fabrics from the updated `/api/san/fabrics/` API
+    // ✅ Fetch fabrics for the active customer
     const fetchFabrics = () => {
         setLoading(true);
-        axios.get("http://127.0.0.1:8000/api/san/fabrics/")
+        axios.get(fabricApiUrl)
             .then(response => {
                 setFabrics(response.data);
                 setLoading(false);
@@ -28,35 +29,14 @@ const FabricTable = () => {
             });
     };
 
-    // Fetch fabrics when the component mounts
     useEffect(() => {
         fetchFabrics();
     }, []);
 
-    // Handle table edits and update Django backend
-    const handleTableChange = (changes, source) => {
-        if (source === "edit" && changes) {
-            const updatedFabrics = [...fabrics];
-
-            changes.forEach(([visualRow, prop, oldValue, newValue]) => {
-                if (oldValue !== newValue) {
-                    const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
-                    if (physicalRow === null) return;
-
-                    const updatedFabric = { ...updatedFabrics[physicalRow], [prop]: newValue };
-                    updatedFabrics[physicalRow] = updatedFabric;
-                    setFabrics(updatedFabrics);
-
-                    // ✅ Send update request to `/api/san/fabrics/`
-                    axios.put(`http://127.0.0.1:8000/api/san/fabrics/${updatedFabric.id}/`, updatedFabric)
-                        .catch(error => console.error("Error updating fabric:", error));
-                }
-            });
-        }
-    };
-
     return (
         <div className="container mt-4">
+            <h2>Fabrics for Active Customer</h2>
+
             {loading && <div className="alert alert-info">Loading fabrics...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
 
@@ -70,10 +50,9 @@ const FabricTable = () => {
                         { data: "name" },
                         { data: "zoneset_name" },
                         { data: "vsan", type: "numeric" },
-                        { data: "exists", type: "checkbox" },  // Checkbox for boolean
+                        { data: "exists", type: "checkbox" },
                     ]}
                     licenseKey="non-commercial-and-evaluation"
-                    afterChange={handleTableChange}
                     className="handsontable"
                     dropdownMenu={true}
                     filters={true}
