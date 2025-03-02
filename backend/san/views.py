@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Alias, Zone, Fabric
+from core.models import Config
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer
 
 @api_view(["GET", "POST"])
@@ -84,3 +85,17 @@ def fabric_update(request, pk):
         serializer.save()
         return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET"])
+def fabrics_for_config_project(request):
+    try:
+        config = Config.objects.first()  # ✅ Get the single Config model
+        if not config:
+            return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
+
+        fabrics = Fabric.objects.filter(project=config.project)  # ✅ Filter Fabrics by Project
+        serializer = FabricSerializer(fabrics, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

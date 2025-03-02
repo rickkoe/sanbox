@@ -9,14 +9,17 @@ registerAllModules();
 
 const AliasTable = () => {
     const [aliases, setAliases] = useState([]);
+    const [fabrics, setFabrics] = useState([]);  // ✅ Store fabrics for dropdown
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const tableRef = useRef(null);
+    const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/";
+    const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/config/";  // ✅ Fetch fabrics based on Config project
 
-    // ✅ Fetch aliases from the updated `/api/san/aliases/` API
+    // ✅ Fetch all aliases
     const fetchAliases = () => {
         setLoading(true);
-        axios.get("http://127.0.0.1:8000/api/san/aliases/")
+        axios.get(aliasApiUrl)
             .then(response => {
                 setAliases(response.data);
                 setLoading(false);
@@ -28,12 +31,21 @@ const AliasTable = () => {
             });
     };
 
-    // Fetch aliases when the component mounts
+    // ✅ Fetch fabrics for dropdown
+    const fetchFabrics = () => {
+        axios.get(fabricApiUrl)
+            .then(response => {
+                setFabrics(response.data.map(fabric => fabric.name));  // ✅ Extract fabric names for dropdown
+            })
+            .catch(error => console.error("Error fetching fabrics:", error));
+    };
+
     useEffect(() => {
         fetchAliases();
+        fetchFabrics();  // ✅ Fetch available fabrics
     }, []);
 
-    // Handle table edits and update Django backend
+    // ✅ Handle table edits and update Django backend
     const handleTableChange = (changes, source) => {
         if (source === "edit" && changes) {
             const updatedAliases = [...aliases];
@@ -43,12 +55,14 @@ const AliasTable = () => {
                     const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
                     if (physicalRow === null) return;
 
+                    // ✅ Ensure we send fabric names instead of object IDs
                     const updatedAlias = { ...updatedAliases[physicalRow], [prop]: newValue };
+
                     updatedAliases[physicalRow] = updatedAlias;
                     setAliases(updatedAliases);
 
-                    // ✅ Send update request to `/api/san/aliases/`
-                    axios.put(`http://127.0.0.1:8000/api/san/aliases/${updatedAlias.id}/`, updatedAlias)
+                    // ✅ Send update request to Django
+                    axios.put(`${aliasApiUrl}${updatedAlias.id}/`, updatedAlias)
                         .catch(error => console.error("Error updating alias:", error));
                 }
             });
@@ -57,6 +71,8 @@ const AliasTable = () => {
 
     return (
         <div className="container mt-4">
+            <h2>Aliases</h2>
+
             {loading && <div className="alert alert-info">Loading aliases...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
 
@@ -64,14 +80,15 @@ const AliasTable = () => {
                 <HotTable
                     ref={tableRef}
                     data={aliases}
-                    colHeaders={["ID", "Name", "WWPN", "Use", "Create", "Include in Zoning"]}
+                    colHeaders={["ID", "Name", "WWPN", "Fabric", "Use", "Create", "Include in Zoning"]}
                     columns={[
                         { data: "id", readOnly: true },
                         { data: "name" },
                         { data: "wwpn" },
-                        { data: "use", type: "dropdown", source: ["init", "target", "both"] },  // Dropdown for choices
-                        { data: "create", type: "checkbox" },  // Checkbox for boolean
-                        { data: "include_in_zoning", type: "checkbox" },  // Checkbox for boolean
+                        { data: "fabric", type: "dropdown", source: fabrics },  // ✅ Dropdown for fabrics
+                        { data: "use", type: "dropdown", source: ["init", "target", "both"] },
+                        { data: "create", type: "checkbox" },
+                        { data: "include_in_zoning", type: "checkbox" },
                     ]}
                     licenseKey="non-commercial-and-evaluation"
                     afterChange={handleTableChange}
