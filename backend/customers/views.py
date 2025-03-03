@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Customer
-from .serializer import CustomerSerializer
+from .serializers import CustomerSerializer
 
 @api_view(["GET", "POST"])
 def customer_list(request):

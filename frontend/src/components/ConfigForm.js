@@ -2,158 +2,122 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 
 const ConfigForm = () => {
-    const [config, setConfig] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const apiUrl = "http://127.0.0.1:8000/api/core/config/";
+    const [config, setConfig] = useState({ customer: "", project: "" });
+    const [customers, setCustomers] = useState([]);
+    const [projects, setProjects] = useState([]);
 
-    // Fetch config from Django API
-    const fetchConfig = () => {
+    const apiUrl = "http://127.0.0.1:8000/api/core/config/";
+    const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
+    const projectsApiUrl = "http://127.0.0.1:8000/api/core/projects/";
+
+    // Fetch initial config data
+    useEffect(() => {
         axios.get(apiUrl)
             .then(response => {
-                setConfig(response.data);
-                setLoading(false);
+                const configData = response.data;
+                setConfig({
+                    customer: configData.customer ? String(configData.customer.id) : "",
+                    project: configData.project ? String(configData.project.id) : "",
+                });
+                if (configData.customer) fetchProjects(configData.customer.id);
             })
-            .catch(error => {
-                console.error("Error fetching config:", error);
-                setError("Failed to load configuration.");
-                setLoading(false);
-            });
-    };
-
-    // Fetch config when the component mounts
-    useEffect(() => {
-        fetchConfig();
+            .catch(error => console.error("Error fetching config:", error));
     }, []);
 
-    // Handle auto-save when a field is changed
-    const handleSave = (updatedConfig) => {
-        setConfig(updatedConfig); // ✅ Update local state first
+    // Fetch customers
+    useEffect(() => {
+        axios.get(customersApiUrl)
+            .then(response => setCustomers(response.data))
+            .catch(error => console.error("Error fetching customers:", error));
+    }, []);
 
-        axios.put(apiUrl, updatedConfig)
-            .then(response => {
-                setConfig(response.data); // ✅ Ensure the state syncs with API response
-            })
-            .catch(error => console.error("Error updating config:", error));
+// ✅ Fetch Projects for a selected customer
+const fetchProjects = (customerId) => {
+    if (!customerId) return;
+
+    axios.get(`${projectsApiUrl}${customerId}/`)
+        .then(response => {
+            setProjects(response.data);  // ✅ Ensure state updates with available projects
+        })
+        .catch(error => console.error("Error fetching projects:", error));
+};
+
+    // Handle customer selection change
+    const handleCustomerChange = (e) => {
+        const newCustomerId = e.target.value;
+        setConfig(prevConfig => ({
+            ...prevConfig,
+            customer: newCustomerId,
+            project: "" // Reset project selection when customer changes
+        }));
+        fetchProjects(newCustomerId);
     };
 
-    // Handle input changes and save on blur
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        const updatedConfig = { ...config, [name]: value };
+    // Handle project selection change
+const handleProjectChange = (e) => {
+    const newProjectId = e.target.value;
 
-        // ✅ Ensure state updates before calling API
-        setConfig(updatedConfig);
-        handleSave(updatedConfig);
-    };
+    setConfig(prevConfig => {
+        const updatedConfig = { 
+            ...prevConfig, 
+            project: newProjectId  // ✅ Only update the project, keep customer unchanged
+        };
+
+        // ✅ Send only the project update to the backend
+        axios.put(apiUrl, { project: newProjectId })  
+            .then(response => setConfig(response.data))  // ✅ Update state with response
+            .catch(error => console.error("Error updating project in config:", error));
+
+        return updatedConfig;
+    });
+};
 
     return (
         <div className="container mt-4">
             <h2>Configuration Settings</h2>
+            <form>
+                {/* Customer Dropdown */}
+                <div className="mb-3">
+                    <label className="form-label">Customer</label>
+                    <select
+                        className="form-control"
+                        name="customer"
+                        value={config.customer}
+                        onChange={handleCustomerChange}
+                    >
+                        <option value="">Select a Customer</option>
+                        {customers.map(customer => (
+                            <option key={customer.id} value={String(customer.id)}>
+                                {customer.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
 
-            {loading && <div className="alert alert-info">Loading configuration...</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
-
-            {config && (
-                <form>
-                    {/* SAN Vendor Dropdown */}
-                    <div className="mb-3">
-                        <label className="form-label">SAN Vendor</label>
-                        <select
-                            className="form-control"
-                            name="san_vendor"
-                            value={config.san_vendor}
-                            onChange={handleChange}
-                        >
-                            <option value="BR">Brocade</option>
-                            <option value="CI">Cisco</option>
-                        </select>
-                    </div>
-
-                    {/* Cisco-Specific Fields (Only Show When Vendor is Cisco) */}
-                    {config.san_vendor === "CI" && (
-                        <>
-                            {/* Cisco Alias Dropdown */}
-                            <div className="mb-3">
-                                <label className="form-label">Cisco Alias</label>
-                                <select
-                                    className="form-control"
-                                    name="cisco_alias"
-                                    value={config.cisco_alias}
-                                    onChange={handleChange}
-                                >
-                                    <option value="device-alias">device-alias</option>
-                                    <option value="fcalias">fcalias</option>
-                                    <option value="wwpn">wwpn</option>
-                                </select>
-                            </div>
-
-                            {/* Cisco Zoning Mode Dropdown */}
-                            <div className="mb-3">
-                                <label className="form-label">Cisco Zoning Mode</label>
-                                <select
-                                    className="form-control"
-                                    name="cisco_zoning_mode"
-                                    value={config.cisco_zoning_mode}
-                                    onChange={handleChange}
-                                >
-                                    <option value="basic">Basic</option>
-                                    <option value="enhanced">Enhanced</option>
-                                </select>
-                            </div>
-                        </>
-                    )}
-
-                    {/* Zone Ratio Dropdown */}
-                    <div className="mb-3">
-                        <label className="form-label">Zone Ratio</label>
-                        <select
-                            className="form-control"
-                            name="zone_ratio"
-                            value={config.zone_ratio}
-                            onChange={handleChange}
-                        >
-                            <option value="one-to-one">One-to-One</option>
-                            <option value="one-to-many">One-to-Many</option>
-                            <option value="all-to-all">All-to-All</option>
-                        </select>
-                    </div>
-
-                    {/* Other Fields */}
-                    <div className="mb-3">
-                        <label className="form-label">Zoning Job Name</label>
-                        <input
-                            type="text"
-                            className="form-control"
-                            name="zoning_job_name"
-                            value={config.zoning_job_name}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="mb-3">
-                        <label className="form-label">SmartZone Prefix</label>
-                        <input
-                            type="text"
-                            className="form-control"
-                            name="smartzone_prefix"
-                            value={config.smartzone_prefix}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    <div className="mb-3">
-                        <label className="form-label">Alias Max Zones</label>
-                        <input
-                            type="number"
-                            className="form-control"
-                            name="alias_max_zones"
-                            value={config.alias_max_zones}
-                            onChange={handleChange}
-                        />
-                    </div>
-                </form>
-            )}
+                {/* Project Dropdown */}
+{/* ✅ Project Dropdown (Now correctly displays projects for the selected customer) */}
+<div className="mb-3">
+    <label className="form-label">Project</label>
+    <select
+        className="form-control"
+        name="project"
+        value={config.project || ""}
+        onChange={handleProjectChange}  // ✅ Allows users to change project
+        disabled={!config.customer || projects.length === 0}  // ✅ Disable if no customer is selected or no projects found
+    >
+        <option value="">Select a Project</option>
+        {projects.length > 0 ? (
+            projects.map(project => (
+                <option key={project.id} value={String(project.id)}>
+                    {project.name}
+                </option>
+            ))
+        ) : (
+            <option disabled>No projects available</option>
+        )}
+    </select>
+</div>
+            </form>
         </div>
     );
 };

@@ -1,8 +1,10 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Config
-from .serializers import ConfigSerializer
+from .models import Config, Project
+from customers.models import Customer 
+from .serializers import ConfigSerializer, ProjectSerializer
+from customers.serializers import CustomerSerializer 
 
 @api_view(["GET", "PUT"])
 def config_detail(request):
@@ -21,3 +23,18 @@ def config_detail(request):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+# ✅ Fetch all customers
+@api_view(["GET"])
+def customer_list(request):
+    customers = Customer.objects.all()
+    serializer = CustomerSerializer(customers, many=True)
+    return Response(serializer.data)
+
+# ✅ Fetch projects for a selected customer
+@api_view(["GET"])
+def projects_for_customer(request, customer_id):
+    projects = Project.objects.filter(customer_id=customer_id)  # ✅ Ensure this works
+    serializer = ProjectSerializer(projects, many=True)
+    return Response(serializer.data)
