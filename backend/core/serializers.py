@@ -16,15 +16,20 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = ["id", "name", "customer"]
 
-# ✅ Serializer for Config (including Project with Customer)
+
 class ConfigSerializer(serializers.ModelSerializer):
-    project = ProjectSerializer(read_only=True)  # ✅ Include project details
-    customer = serializers.SerializerMethodField()  # ✅ Add customer from project
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())
+    customer = serializers.SerializerMethodField()  # ✅ Add customer as a top-level field
 
     class Meta:
         model = Config
         fields = "__all__"
 
-    # ✅ Get customer from project
     def get_customer(self, obj):
-        return {"id": obj.customer.id, "name": obj.customer.name} if obj.customer else None
+        return {"id": obj.project.customer.id, "name": obj.project.customer.name} if obj.project else None
+
+    def update(self, instance, validated_data):
+        """Ensure project updates correctly"""
+        instance.project = validated_data.get("project", instance.project)
+        instance.save()  # ✅ Force save to database
+        return instance
