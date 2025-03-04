@@ -30,3 +30,13 @@ def customer_update(request, pk):
         serializer.save()
         return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(["POST"])
+def customer_create(request):
+    """Create a new customer."""
+    serializer = CustomerSerializer(data=request.data)
+    if serializer.is_valid():
+        customer = serializer.save()
+        return Response(CustomerSerializer(customer).data, status=status.HTTP_201_CREATED)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -18,7 +18,9 @@ const CustomerTable = () => {
         setLoading(true);
         axios.get("http://127.0.0.1:8000/api/customers/")
             .then(response => {
-                setCustomers(response.data);
+                const customerData = response.data;
+                customerData.push({ id: "", name: "" });  // ✅ Ensure empty row for new entries
+                setCustomers(customerData);
                 setLoading(false);
             })
             .catch(error => {
@@ -58,28 +60,32 @@ const CustomerTable = () => {
     const handleTableChange = (changes, source) => {
         if (source === "edit" && changes) {
             const updatedCustomers = [...customers];
-            const filtersPlugin = tableRef.current.hotInstance.getPlugin("Filters");
     
             changes.forEach(([visualRow, prop, oldValue, newValue]) => {
                 if (oldValue !== newValue) {
-                    // Get the correct row from the original dataset
                     const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
                     if (physicalRow === null) return;
     
                     const updatedCustomer = { ...updatedCustomers[physicalRow], [prop]: newValue };
     
-                    // Update React state
-                    updatedCustomers[physicalRow] = updatedCustomer;
-                    setCustomers(updatedCustomers);
-    
-                    // Send update request to Django
-                    axios.put(`http://127.0.0.1:8000/api/customers/${updatedCustomer.id}/`, updatedCustomer)
-                        .then(() => {
-                            setTimeout(() => filtersPlugin.filter(), 50); // Keep filters applied
-                        })
-                        .catch(error => console.error("Error updating customer:", error));
+                    if (!updatedCustomer.id) {
+                        // ✅ POST request to create new customer
+                        axios.post("http://127.0.0.1:8000/api/customers/create/", updatedCustomer)
+                            .then(response => {
+                                updatedCustomers[physicalRow] = response.data;
+                                updatedCustomers.push({ id: "", name: "" });  // ✅ Keep empty row
+                                setCustomers(updatedCustomers);
+                            })
+                            .catch(error => console.error("❌ Error adding customer:", error));
+                    } else {
+                        // ✅ PUT request to update existing customer
+                        axios.put(`http://127.0.0.1:8000/api/customers/${updatedCustomer.id}/`, updatedCustomer)
+                            .catch(error => console.error("❌ Error updating customer:", error));
+                    }
                 }
             });
+    
+            setCustomers(updatedCustomers);
         }
     };
 
