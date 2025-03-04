@@ -11,7 +11,11 @@ const ConfigForm = () => {
     const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
     const projectsApiUrl = "http://127.0.0.1:8000/api/core/projects/";
 
-    // ✅ Fetch Config Data
+    // 	Runs once when the page loads (useEffect([]))
+	// 	Calls GET /api/core/config/ to fetch the config from Django.
+	// 	Converts customer and project IDs into strings (because dropdown values are strings).
+	// 	Stores the fetched data in state (setConfig & setUnsavedConfig).
+	// 	If a customer is found, it calls fetchProjects() to get their projects.
     useEffect(() => {
         axios.get(apiUrl)
             .then(response => {
@@ -20,28 +24,33 @@ const ConfigForm = () => {
                 const configData = response.data;
                 setConfig({
                     ...configData,
-                    customer: configData.customer ? String(configData.customer.id) : "",  // ✅ Now correctly extracts customer
-                    project: configData.project ? String(configData.project.id) : "",
+                    customer: configData.customer ? String(configData.customer.id) : "",  
+                    project: configData.project_details ? String(configData.project_details.id) : "",  // ✅ Now extracts from `project_details`
                 });
     
                 setUnsavedConfig({
                     customer: configData.customer ? String(configData.customer.id) : "",
-                    project: configData.project ? String(configData.project.id) : "",
+                    project: configData.project_details ? String(configData.project_details.id) : "",  // ✅ Ensures project loads correctly
                 });
+    
+                console.log("🚀 `unsavedConfig` on Load:", configData);  // ✅ Debugging log
     
                 if (configData.customer) fetchProjects(configData.customer.id);
             })
             .catch(error => console.error("❌ Error fetching config on load:", error));
     }, []);
-
-    // ✅ Fetch Customers
+    // 	Runs once when the page loads.
+    // Calls GET /api/customers/ to fetch all customers.
+    // Stores the response in setCustomers.
     useEffect(() => {
         axios.get(customersApiUrl)
             .then(response => setCustomers(response.data))
             .catch(error => console.error("Error fetching customers:", error));
     }, []);
 
-    // ✅ Fetch Projects for a selected customer
+    // 	When a customer is selected, this function is called.
+    //  Calls GET /api/core/projects/{customerId}/ to fetch only that customer’s projects.
+    //  Stores the projects in setProjects.
     const fetchProjects = (customerId) => {
         if (!customerId) return;
 

@@ -28,6 +28,7 @@ def config_detail(request):
             partial_data["project"] = int(partial_data["project"])
 
         serializer = ConfigSerializer(config, data=partial_data, partial=True)
+        print(f'PUT SERIALIZER:\n  {serializer}\nEND SERIALIZER')
         if serializer.is_valid():
             serializer.save()
 
@@ -41,6 +42,7 @@ def config_detail(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     serializer = ConfigSerializer(config)
+    print(f'GET SERIALIZER:\n{serializer}')
     return Response(serializer.data)
 
 # ✅ Fetch all customers
