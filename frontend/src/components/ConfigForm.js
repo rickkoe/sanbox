@@ -80,6 +80,7 @@ const ConfigForm = () => {
 
             {config && unsavedConfig && (
                 <form>
+                    {/* ✅ Customer Dropdown */}
                     <div className="mb-3">
                         <label className="form-label">Customer</label>
                         <select
@@ -97,6 +98,7 @@ const ConfigForm = () => {
                         </select>
                     </div>
 
+                    {/* ✅ Project Dropdown */}
                     <div className="mb-3">
                         <label className="form-label">Project</label>
                         <select
@@ -114,15 +116,10 @@ const ConfigForm = () => {
                         </select>
                     </div>
 
-                    {/* Additional Config Fields */}
+                    {/* ✅ SAN Vendor */}
                     <div className="mb-3">
                         <label className="form-label">SAN Vendor</label>
-                        <select
-                            className="form-control"
-                            name="san_vendor"
-                            value={unsavedConfig.san_vendor}
-                            onChange={handleInputChange}
-                        >
+                        <select className="form-control" name="san_vendor" value={unsavedConfig.san_vendor} onChange={handleInputChange}>
                             <option value="BR">Brocade</option>
                             <option value="CI">Cisco</option>
                         </select>
@@ -130,6 +127,7 @@ const ConfigForm = () => {
 
                     {unsavedConfig.san_vendor === "CI" && (
                         <>
+                            {/* ✅ Cisco Alias */}
                             <div className="mb-3">
                                 <label className="form-label">Cisco Alias</label>
                                 <select className="form-control" name="cisco_alias" value={unsavedConfig.cisco_alias} onChange={handleInputChange}>
@@ -139,6 +137,7 @@ const ConfigForm = () => {
                                 </select>
                             </div>
 
+                            {/* ✅ Cisco Zoning Mode */}
                             <div className="mb-3">
                                 <label className="form-label">Cisco Zoning Mode</label>
                                 <select className="form-control" name="cisco_zoning_mode" value={unsavedConfig.cisco_zoning_mode} onChange={handleInputChange}>
@@ -148,6 +147,32 @@ const ConfigForm = () => {
                             </div>
                         </>
                     )}
+
+                    {/* ✅ Zone Ratio */}
+                    <div className="mb-3">
+                        <label className="form-label">Zone Ratio</label>
+                        <select className="form-control" name="zone_ratio" value={unsavedConfig.zone_ratio} onChange={handleInputChange}>
+                            <option value="one-to-one">One-to-One</option>
+                            <option value="one-to-many">One-to-Many</option>
+                            <option value="all-to-all">All-to-All</option>
+                        </select>
+                    </div>
+
+                    {/* ✅ Other Fields */}
+                    <div className="mb-3">
+                        <label className="form-label">Zoning Job Name</label>
+                        <input type="text" className="form-control" name="zoning_job_name" value={unsavedConfig.zoning_job_name} onChange={handleInputChange} />
+                    </div>
+
+                    <div className="mb-3">
+                        <label className="form-label">SmartZone Prefix</label>
+                        <input type="text" className="form-control" name="smartzone_prefix" value={unsavedConfig.smartzone_prefix} onChange={handleInputChange} />
+                    </div>
+
+                    <div className="mb-3">
+                        <label className="form-label">Alias Max Zones</label>
+                        <input type="number" className="form-control" name="alias_max_zones" value={unsavedConfig.alias_max_zones} onChange={handleInputChange} />
+                    </div>
 
                     <button type="button" className="btn btn-primary" onClick={handleSave}>
                         Save Configuration
