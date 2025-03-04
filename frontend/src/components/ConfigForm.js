@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import "bootstrap/dist/css/bootstrap.min.css";  // ✅ Import Bootstrap
 
 const ConfigForm = () => {
     const [config, setConfig] = useState(null);
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
     const [unsavedConfig, setUnsavedConfig] = useState(null);  
+    const [saveStatus, setSaveStatus] = useState("");  // ✅ Save status message
 
     const apiUrl = "http://127.0.0.1:8000/api/core/config/";
     const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
@@ -66,12 +68,29 @@ const ConfigForm = () => {
 
     const handleSave = () => {
         console.log("📤 Saving Config:", unsavedConfig);
+        setSaveStatus("Saving...");  // ✅ Show "Saving..." message
+    
         axios.put(apiUrl, unsavedConfig)
             .then(response => {
                 console.log("✅ API Response:", response.data);
                 setConfig(response.data);
+                setSaveStatus("Configuration saved successfully! ✅");
+    
+                document.querySelectorAll("input, select").forEach(el => {
+                    el.classList.add("saved-highlight");
+                });
+    
+                setTimeout(() => {
+                    setSaveStatus("");  // ✅ Reset status
+                    document.querySelectorAll("input, select").forEach(el => {
+                        el.classList.remove("saved-highlight");
+                    });
+                }, 3000);
             })
-            .catch(error => console.error("❌ Error saving config:", error));
+            .catch(error => {
+                console.error("❌ Error saving config:", error);
+                setSaveStatus("⚠️ Error saving configuration! Please try again.");
+            });
     };
 
     return (
@@ -174,9 +193,22 @@ const ConfigForm = () => {
                         <input type="number" className="form-control" name="alias_max_zones" value={unsavedConfig.alias_max_zones} onChange={handleInputChange} />
                     </div>
 
-                    <button type="button" className="btn btn-primary" onClick={handleSave}>
-                        Save Configuration
+                    <button type="button" className={`btn ${saveStatus === "Saving..." ? "btn-secondary" : "btn-primary"}`} onClick={handleSave} disabled={saveStatus === "Saving..."}>
+                        {saveStatus === "Saving..." ? (
+                            <> <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving... </>
+                        ) : saveStatus.includes("successfully") ? (
+                            <> ✅ Saved </>
+                        ) : (
+                            <> Save Configuration </>
+                        )}
                     </button>
+
+                    {/* ✅ Bootstrap Alert for Save Status */}
+                    {saveStatus && (
+                        <div className={`alert ${saveStatus.includes("Error") ? "alert-danger" : "alert-success"} mt-2`} role="alert">
+                            {saveStatus}
+                        </div>
+                    )}
                 </form>
             )}
         </div>
