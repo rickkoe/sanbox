@@ -1,0 +1,13 @@
+/* ✅ Style the sidebar toggle button */
+.sidebar-toggle-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    margin-right: 10px;
+    cursor: pointer;
+}
+
+.sidebar-toggle-btn:hover {
+    color: #ddd;
+}

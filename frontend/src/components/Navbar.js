@@ -1,12 +1,19 @@
 import React from "react";
 import { NavLink, Link } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
+import "./Navbar.css"; // ✅ Import styles
 
-const Navbar = () => {
+const Navbar = ({ toggleSidebar }) => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
       <div className="container">
-        <NavLink className="navbar-brand" to="/">SANBox</NavLink>
+
+        {/* ✅ Sidebar Toggle Button */}
+        <button className="sidebar-toggle-btn" onClick={toggleSidebar}>
+          ☰
+        </button>
+
+        <NavLink className="navbar-brand ms-2" to="/">SANBox</NavLink>
 
         <button 
           className="navbar-toggler" 

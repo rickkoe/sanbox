@@ -1,0 +1,74 @@
+/* ✅ Sidebar Container */
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 56px; /* ✅ Adjust to match the navbar height */
+    width: 250px;
+    height: 100%;
+    background: #343a40;
+    color: white;
+    transition: transform 0.3s ease-in-out;
+    transform: translateX(-100%);
+}
+
+.sidebar.open {
+    transform: translateX(0);
+}
+
+.sidebar.closed {
+    transform: translateX(-100%);
+}
+
+/* ✅ Sidebar Links */
+.sidebar ul {
+    list-style: none;
+    padding: 10px;
+}
+
+.sidebar ul li {
+    padding: 12px;
+}
+
+.sidebar ul li a {
+    color: white;
+    text-decoration: none;
+    font-size: 18px;
+}
+
+.sidebar ul li a:hover {
+    text-decoration: underline;
+}
+
+/* ✅ Adjust main content when sidebar is open */
+.content {
+    transition: margin-left 0.3s ease-in-out;
+    margin-left: 0;
+}
+
+.content.shifted {
+    margin-left: 250px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ✅ Adjust main content when sidebar is open */
+.app-container {
+    transition: margin-left 0.3s ease-in-out;
+    margin-left: 0;
+}
+
+.app-container.shifted {
+    margin-left: 250px; /* ✅ Push content right */
+}
+
+
