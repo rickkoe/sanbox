@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Route, Routes, useLocation } from "react-router-dom";
 import SanNavbar from "./components/SanNavbar";
 import Navbar from "./components/Navbar";
+import Breadcrumbs from "./components/Breadcrumbs"; 
 import Home from "./pages/Home";
 import CustomersPage from "./pages/CustomersPage";
 import SanPage from "./pages/SanPage";
@@ -17,6 +18,7 @@ function App() {
     <Router>
       <SanVendorProvider>  {/* ✅ Now inside Router */}
         <Navbar />
+        <Breadcrumbs /> {/* ✅ Display breadcrumb below the navbar */}
         <SanNavbarWrapper /> {/* ✅ Conditionally render SanNavbar */}
         <div className="container mt-4">
           <Routes>

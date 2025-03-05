@@ -95,8 +95,6 @@ const ConfigForm = () => {
 
     return (
         <div className="container mt-4">
-            <h2>Configuration Settings</h2>
-
             {config && unsavedConfig && (
                 <form>
                     {/* ✅ Customer Dropdown */}

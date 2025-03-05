@@ -141,9 +141,7 @@ const CustomerTable = () => {
     };
 
     return (
-        <div className="container mt-4">
-            <h2>Customers</h2>
-
+        <div className="container">
             {loading && <div className="alert alert-info">Loading customers...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
 

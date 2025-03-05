@@ -1,0 +1,23 @@
+/* ✅ Style the breadcrumb container */
+.breadcrumb-container {
+    /* padding: 10px 15px; */
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+/* ✅ Style the breadcrumb links */
+.breadcrumb a {
+    text-decoration: none;
+    color: #007bff;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+    color: #0056b3;
+}
+
+/* ✅ Style the active breadcrumb item */
+.breadcrumb .active {
+    font-weight: bold;
+    color: #495057;
+}

@@ -35,7 +35,6 @@ const FabricTable = () => {
 
     return (
         <div className="container mt-4">
-            <h2>Fabrics for Active Customer</h2>
 
             {loading && <div className="alert alert-info">Loading fabrics...</div>}
             {error && <div className="alert alert-danger">{error}</div>}

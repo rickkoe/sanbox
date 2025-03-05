@@ -47,7 +47,6 @@ const AliasTable = () => {
 
     return (
         <div className="container mt-4">
-            <h2>Aliases for Customer’s Projects</h2>
 
             {loading && <div className="alert alert-info">Loading aliases...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
