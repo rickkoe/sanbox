@@ -5,7 +5,6 @@ from django.contrib.auth.models import User
 
 class Storage(models.Model):
     project = models.ForeignKey(Project, related_name='storages', on_delete=models.CASCADE)
-    users = models.ManyToManyField(User, related_name='storage_users')
     name = models.CharField(max_length=64)
     storage_type = models.CharField(
         max_length=20,
@@ -38,7 +37,6 @@ class Storage(models.Model):
 
 class Host(models.Model):
     project = models.ForeignKey(Project, related_name='host_project', on_delete=models.CASCADE)
-    users = models.ManyToManyField(User, related_name='host_users')
     name = models.CharField(max_length=200)
     storage = models.ForeignKey(Storage, related_name="owning_storage", on_delete=models.CASCADE, null=True,blank=True)
 

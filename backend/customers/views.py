@@ -40,3 +40,12 @@ def customer_create(request):
         return Response(CustomerSerializer(customer).data, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(["DELETE"])
+def customer_delete(request, pk):
+    try:
+        customer = Customer.objects.get(pk=pk)
+        customer.delete()
+        return Response({"message": "Customer deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    except Customer.DoesNotExist:
+        return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)

@@ -6,7 +6,6 @@ from django.contrib.auth.models import User
 class Project(models.Model):
     customer = models.ForeignKey(Customer, related_name='projects', on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
-    users = models.ManyToManyField(User, related_name='project_users')
 
     class Meta:
         ordering = ['customer', 'name']
