@@ -150,7 +150,7 @@ const CustomerTable = () => {
                     {/* ✅ Save Button */}
                     <button
                         type="button"
-                        className={`btn ${saveStatus === "Saving..." ? "btn-secondary" : "btn-secondary"} mb-2`}
+                        className={`btn btn-sm ${saveStatus === "Saving..." ? "btn-secondary" : "btn-secondary"} mb-2`}
                         onClick={handleSave}
                         disabled={saveStatus === "Saving..."}
                     >

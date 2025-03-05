@@ -191,13 +191,13 @@ const ConfigForm = () => {
                         <input type="number" className="form-control" name="alias_max_zones" value={unsavedConfig.alias_max_zones} onChange={handleInputChange} />
                     </div>
 
-                    <button type="button" className={`btn ${saveStatus === "Saving..." ? "btn-secondary" : "btn-primary"}`} onClick={handleSave} disabled={saveStatus === "Saving..."}>
+                    <button type="button" className={`btn btn-sm ${saveStatus === "Saving..." ? "btn-secondary" : "btn-secondary"}`} onClick={handleSave} disabled={saveStatus === "Saving..."}>
                         {saveStatus === "Saving..." ? (
                             <> <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving... </>
                         ) : saveStatus.includes("successfully") ? (
                             <> ✅ Saved </>
                         ) : (
-                            <> Save Configuration </>
+                            <> Save </>
                         )}
                     </button>
 

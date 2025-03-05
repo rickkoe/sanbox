@@ -6,7 +6,7 @@ import "./Navbar.css"; // ✅ Import styles
 const Navbar = ({ toggleSidebar }) => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
-      <div className="container">
+      <div className="container-fluid">
 
         {/* ✅ Sidebar Toggle Button */}
         <button className="sidebar-toggle-btn" onClick={toggleSidebar}>
