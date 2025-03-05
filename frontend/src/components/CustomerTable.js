@@ -15,8 +15,9 @@ const CustomerTable = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [saveStatus, setSaveStatus] = useState("");  
+    const [selectedRows, setSelectedRows] = useState([]);  // ✅ Store multiple selected row indexes
     const [showModal, setShowModal] = useState(false);  
-    const [deleteRowIndex, setDeleteRowIndex] = useState(null);  
+    const [deleteRowIndex, setDeleteRowIndex] = useState(null);
     const tableRef = useRef(null);
 
     // ✅ Fetch customers from Django API
@@ -70,37 +71,50 @@ const CustomerTable = () => {
     };
 
     // ✅ Show delete confirmation modal
-    const confirmDeleteRow = (rowIndex) => {
-        setDeleteRowIndex(rowIndex);
+    const confirmDeleteRows = (selection) => {
+        const rowIndexes = selection.map(sel => [...Array(sel.end.row - sel.start.row + 1).keys()].map(i => sel.start.row + i)).flat();  // ✅ Get all selected row indexes
+        const selectedCustomers = rowIndexes.map(index => unsavedCustomers[index]);  // ✅ Get customer objects
+    
+        console.log("🛠 Selected Rows for Deletion:", selectedCustomers);  // ✅ Debugging
+    
+        setSelectedRows(selectedCustomers);  // ✅ Store all selected customers
         setShowModal(true);
     };
 
     // ✅ Handle row deletion
     const handleDelete = () => {
+        setShowModal(false);
+    
+        if (selectedRows.length === 0) return;  // ✅ Prevent errors if no rows are selected
+    
         const updatedCustomers = [...unsavedCustomers];
-        const deletedCustomer = updatedCustomers[deleteRowIndex];
-
-        setShowModal(false);  
-
-        if (deletedCustomer.id) {
-            // ✅ Send DELETE request to Django
-            axios.delete(`http://127.0.0.1:8000/api/customers/delete/${deletedCustomer.id}`)
+        const customersToDelete = selectedRows.filter(customer => customer.id);  // ✅ Only delete saved customers
+    
+        if (customersToDelete.length > 0) {
+            console.log("🛠 Sending DELETE requests for:", customersToDelete.map(c => c.id));
+    
+            const deletePromises = customersToDelete.map(customer => 
+                axios.delete(`http://127.0.0.1:8000/api/customers/delete/${customer.id}`)
+            );
+    
+            Promise.all(deletePromises)
                 .then(() => {
-                    updatedCustomers.splice(deleteRowIndex, 1);  
-                    setUnsavedCustomers(updatedCustomers);
-                    setSaveStatus("Customer deleted successfully! ✅");
+                    console.log("✅ Successfully deleted customers:", customersToDelete.map(c => c.id));
+                    const remainingCustomers = updatedCustomers.filter(c => !selectedRows.includes(c));
+                    setUnsavedCustomers([...remainingCustomers]);  // ✅ Update state
+                    setSaveStatus("Customers deleted successfully! ✅");
                     setTimeout(() => setSaveStatus(""), 3000);
                 })
                 .catch(error => {
-                    console.error("❌ Error deleting customer:", error);
-                    setSaveStatus("⚠️ Error deleting customer!");
+                    console.error("❌ Error deleting customers:", error);
+                    setSaveStatus("⚠️ Error deleting customers!");
                 });
         } else {
-            updatedCustomers.splice(deleteRowIndex, 1);  
-            setUnsavedCustomers(updatedCustomers);
+            console.log("🛠 Deleting unsaved rows.");
+            const remainingCustomers = updatedCustomers.filter(c => !selectedRows.includes(c));
+            setUnsavedCustomers([...remainingCustomers]);  // ✅ Remove unsaved rows
         }
     };
-
     // ✅ Handle save button click
     const handleSave = () => {
         setSaveStatus("Saving...");
@@ -144,14 +158,13 @@ const CustomerTable = () => {
                             { data: "name" }
                         ]}
                         licenseKey="non-commercial-and-evaluation"
-                        afterChange={handleTableChange}  
+                        afterChange={handleTableChange}
                         contextMenu={{
                             items: {
-                                "remove_row": {
-                                    name: "Delete Row",
+                                "remove_rows": {
+                                    name: "Delete Selected Rows",  // ✅ Updated label for multiple deletion
                                     callback: (key, selection) => {
-                                        const rowIndex = selection[0].start.row;
-                                        confirmDeleteRow(rowIndex);  
+                                        confirmDeleteRows(selection);  // ✅ Handle multiple row deletion
                                     }
                                 }
                             }
@@ -160,7 +173,8 @@ const CustomerTable = () => {
                         dropdownMenu={true}
                         filters={true}
                         sort={true}
-                        rowHeaders={true}
+                        rowHeaders={false}  
+                        selectionMode="multiple"  // ✅ Enables multi-row selection
                     />
 
                     {/* ✅ Save Button */}
@@ -185,7 +199,12 @@ const CustomerTable = () => {
                             <Modal.Title>Confirm Deletion</Modal.Title>
                         </Modal.Header>
                         <Modal.Body>
-                            Are you sure you want to delete this customer?
+                            Are you sure you want to delete the following customers?
+                            <ul>
+                                {selectedRows.map((customer, index) => (
+                                    <li key={index}>{customer.name || "Unnamed Customer"}</li>
+                                ))}
+                            </ul>
                         </Modal.Body>
                         <Modal.Footer>
                             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
