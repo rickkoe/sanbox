@@ -149,6 +149,22 @@ const CustomerTable = () => {
 
             {!loading && !error && (
                 <>
+                    {/* ✅ Save Button */}
+                    <button
+                        type="button"
+                        className={`btn ${saveStatus === "Saving..." ? "btn-secondary" : "btn-secondary"} mb-2`}
+                        onClick={handleSave}
+                        disabled={saveStatus === "Saving..."}
+                    >
+                        {saveStatus === "Saving..." ? (
+                            <> <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving... </>
+                        ) : saveStatus.includes("successfully") ? (
+                            <> ✅ Saved </>
+                        ) : (
+                            <> Save </>
+                        )}
+                    </button>
+
                     <HotTable
                         ref={tableRef}
                         data={unsavedCustomers}  
@@ -176,22 +192,6 @@ const CustomerTable = () => {
                         rowHeaders={false}  
                         selectionMode="multiple"  // ✅ Enables multi-row selection
                     />
-
-                    {/* ✅ Save Button */}
-                    <button
-                        type="button"
-                        className={`btn ${saveStatus === "Saving..." ? "btn-secondary" : "btn-primary"} mt-3`}
-                        onClick={handleSave}
-                        disabled={saveStatus === "Saving..."}
-                    >
-                        {saveStatus === "Saving..." ? (
-                            <> <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving... </>
-                        ) : saveStatus.includes("successfully") ? (
-                            <> ✅ Saved </>
-                        ) : (
-                            <> Save </>
-                        )}
-                    </button>
 
                     {/* ✅ Bootstrap Delete Confirmation Modal */}
                     <Modal show={showModal} onHide={() => setShowModal(false)}>
