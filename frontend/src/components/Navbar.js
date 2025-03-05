@@ -1,9 +1,26 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, Link } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
+import axios from "axios";
 import "./Navbar.css"; // ✅ Import styles
 
 const Navbar = ({ toggleSidebar }) => {
+  const [customer, setCustomer] = useState(null);
+  const [project, setProject] = useState(null);
+  const apiUrl = "http://127.0.0.1:8000/api/core/config/";
+
+  // ✅ Fetch Config Data on Load
+  useEffect(() => {
+    axios.get(apiUrl)
+      .then(response => {
+        const configData = response.data;
+        console.log(configData)
+        setCustomer(configData.customer ? configData.customer.name : "No Customer");
+        setProject(configData.project ? configData.project_details.name : "No Project");
+      })
+      .catch(error => console.error("Error fetching config:", error));
+  }, []);
+
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
       <div className="container-fluid">
@@ -14,6 +31,12 @@ const Navbar = ({ toggleSidebar }) => {
         </button>
 
         <NavLink className="navbar-brand ms-2" to="/">SANBox</NavLink>
+
+        {/* ✅ Display Active Customer & Project */}
+        <div className="navbar-config">
+          <span className="navbar-text">Customer: <strong>{customer}</strong></span>
+          <span className="navbar-text ms-3">Project: <strong>{project}</strong></span>
+        </div>
 
         <button 
           className="navbar-toggler" 
