@@ -84,7 +84,7 @@ const CustomerTable = () => {
 
         if (deletedCustomer.id) {
             // ✅ Send DELETE request to Django
-            axios.delete(`http://127.0.0.1:8000/api/customers/delete/${deletedCustomer.id}/`)
+            axios.delete(`http://127.0.0.1:8000/api/customers/delete/${deletedCustomer.id}`)
                 .then(() => {
                     updatedCustomers.splice(deleteRowIndex, 1);  
                     setUnsavedCustomers(updatedCustomers);
