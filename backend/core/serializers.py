@@ -5,14 +5,14 @@ from customers.models import Customer
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = ["id", "name"]
+        fields = "__all__" 
 
 class ProjectSerializer(serializers.ModelSerializer):
     customer = CustomerSerializer(read_only=True)
 
     class Meta:
         model = Project
-        fields = ["id", "name", "customer"]
+        fields = "__all__" 
 
 
 class ConfigSerializer(serializers.ModelSerializer):
@@ -22,7 +22,7 @@ class ConfigSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Config
-        fields = "__all__"  # ✅ Includes all fields from Config model
+        fields = "__all__" 
 
     def get_customer(self, obj):
         """Retrieve customer from project"""
