@@ -13,7 +13,7 @@ const AliasTable = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const tableRef = useRef(null);
-    const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/";
+    const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";  // ✅ Fetch fabrics based on the customer
 
     // ✅ Fetch aliases

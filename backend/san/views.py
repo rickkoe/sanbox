@@ -102,17 +102,32 @@ def fabrics_for_customer(request):
         return Response(serializer.data)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
 
 @api_view(["GET"])
-def aliases_for_active_project(request):
+def aliases_for_project(request):
     try:
         config = Config.objects.first()  # ✅ Get the single Config instance
         if not config:
             return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
 
-        aliases = Alias.objects.filter(fabric__project=config.project)  # ✅ Filter by project
+        project = config.project  # ✅ Get the project from Config
+        aliases = Alias.objects.filter(fabric__project=project)  # ✅ Filter by customer
         serializer = AliasSerializer(aliases, many=True)
         return Response(serializer.data)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
+
+@api_view(["GET"])
+def zones_for_project(request):
+    try:
+        config = Config.objects.first()  # ✅ Get the single Config instance
+        if not config:
+            return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
+
+        project = config.project  # ✅ Get the project from Config
+        aliases = Alias.objects.filter(fabric__project=project)  # ✅ Filter by customer
+        print(aliases)
+        serializer = AliasSerializer(aliases, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
