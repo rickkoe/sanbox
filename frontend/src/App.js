@@ -13,6 +13,7 @@ import StoragePage from "./pages/StoragePage";
 import FabricPage from "./pages/FabricPage";
 import ConfigPage from "./pages/ConfigPage";
 import { SanVendorProvider } from "./context/SanVendorContext";
+import { ConfigProvider } from "./context/ConfigContext";
 
 function App() {
   // ✅ Load sidebar state from localStorage
@@ -27,28 +28,30 @@ function App() {
 
   return (
     <Router>
-      <SanVendorProvider> 
-        <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-        <Sidebar isOpen={isSidebarOpen} />
-        
-        {/* ✅ Shift content when sidebar is open */}
-        <div className={`app-container ${isSidebarOpen ? "shifted" : ""}`}>
-          <Breadcrumbs />
-          <SanNavbarWrapper />
-          <div className="container mt-4">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/customers" element={<CustomersPage />} />
-              <Route path="/san" element={<SanPage />} />
-              <Route path="/san/aliases" element={<AliasPage />} />
-              <Route path="/san/zones" element={<ZoningPage />} />
-              <Route path="/storage" element={<StoragePage />} />
-              <Route path="/san/fabrics" element={<FabricPage />} />
-              <Route path="/config" element={<ConfigPage />} />
-            </Routes>
+      <ConfigProvider>
+        <SanVendorProvider> 
+          <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+          <Sidebar isOpen={isSidebarOpen} />
+          
+          {/* ✅ Shift content when sidebar is open */}
+          <div className={`app-container ${isSidebarOpen ? "shifted" : ""}`}>
+            <Breadcrumbs />
+            <SanNavbarWrapper />
+            <div className="container mt-4">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/customers" element={<CustomersPage />} />
+                <Route path="/san" element={<SanPage />} />
+                <Route path="/san/aliases" element={<AliasPage />} />
+                <Route path="/san/zones" element={<ZoningPage />} />
+                <Route path="/storage" element={<StoragePage />} />
+                <Route path="/san/fabrics" element={<FabricPage />} />
+                <Route path="/config" element={<ConfigPage />} />
+              </Routes>
+            </div>
           </div>
-        </div>
-      </SanVendorProvider>
+        </SanVendorProvider>
+      </ConfigProvider>
     </Router>
   );
 }

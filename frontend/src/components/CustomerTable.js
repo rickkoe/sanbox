@@ -4,35 +4,42 @@ import { HotTable } from "@handsontable/react";
 import { Modal, Button } from "react-bootstrap";
 
 const CustomerTable = () => {
+    // Customers fetched from the API (initial data)
     const [customers, setCustomers] = useState([]);
+    // Unsaved changes made by the user
     const [unsavedCustomers, setUnsavedCustomers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [saveStatus, setSaveStatus] = useState("");
+    const [loading, setLoading] = useState(true);  // Loading status
+    const [error, setError] = useState(null);      // Error message state
+    const [saveStatus, setSaveStatus] = useState("");  // Save status feedback
+
+    // Manage row selections for deletion
     const [selectedRows, setSelectedRows] = useState([]);
     const [showModal, setShowModal] = useState(false);
-    const tableRef = useRef(null);
 
+    const tableRef = useRef(null);  // Reference to the Handsontable instance
+
+    // Fetch initial customers data from Django API
     const fetchCustomers = () => {
         setLoading(true);
         axios.get("http://127.0.0.1:8000/api/customers/")
             .then(response => {
                 const customerData = response.data;
-                customerData.push({ id: "", name: "" });
+                customerData.push({ id: "", name: "" });  // Adds empty row for new entries
                 setCustomers(customerData);
                 setUnsavedCustomers([...customerData]);
                 setLoading(false);
             })
-            .catch(() => {
+            .catch(error => {
                 setError("Failed to load customers.");
                 setLoading(false);
             });
     };
 
     useEffect(() => {
-        fetchCustomers();
+        fetchCustomers();  // Initial data fetch
     }, []);
 
+    // Handle changes in the table (not immediately saved)
     const handleTableChange = (changes, source) => {
         if (source === "edit" && changes) {
             const updatedCustomers = [...unsavedCustomers];
@@ -43,8 +50,9 @@ const CustomerTable = () => {
                     const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
                     if (physicalRow === null) return;
 
-                    updatedCustomers[physicalRow] = { ...updatedCustomers[physicalRow], [prop]: newValue };
+                    updatedCustomers[physicalRow][prop] = newValue;
 
+                    // Add new blank row automatically when the last row is edited
                     if (physicalRow === updatedCustomers.length - 1 && newValue.trim() !== "") {
                         shouldAddNewRow = true;
                     }
@@ -59,41 +67,51 @@ const CustomerTable = () => {
         }
     };
 
+    // Prepare deletion modal with selected rows
     const confirmDeleteRows = (selection) => {
-        const rowIndexes = selection.flatMap(sel => Array.from({ length: sel.end.row - sel.start.row + 1 }, (_, i) => sel.start.row + i));
+        const rowIndexes = selection.flatMap(sel =>
+            [...Array(sel.end.row - sel.start.row + 1).keys()].map(i => sel.start.row + i)
+        );
+
         const selectedCustomers = rowIndexes.map(index => unsavedCustomers[index]);
         setSelectedRows(selectedCustomers);
         setShowModal(true);
     };
 
+    // Handle confirmed row deletion
     const handleDelete = () => {
         setShowModal(false);
 
-        if (selectedRows.length === 0) return;
-
-        const updatedCustomers = unsavedCustomers.filter(c => !selectedRows.includes(c));
         const customersToDelete = selectedRows.filter(customer => customer.id);
 
         if (customersToDelete.length > 0) {
-            Promise.all(customersToDelete.map(customer => axios.delete(`http://127.0.0.1:8000/api/customers/delete/${customer.id}`)))
+            const deletePromises = customersToDelete.map(customer =>
+                axios.delete(`http://127.0.0.1:8000/api/customers/delete/${customer.id}`)
+            );
+
+            Promise.all(deletePromises)
                 .then(() => {
-                    setUnsavedCustomers(updatedCustomers);
                     setSaveStatus("Customers deleted successfully! ✅");
+                    fetchCustomers();
                     setTimeout(() => setSaveStatus(""), 3000);
                 })
-                .catch(error => setSaveStatus("⚠️ Error deleting customers!"));
+                .catch(() => setSaveStatus("⚠️ Error deleting customers!"));
         } else {
-            setUnsavedCustomers(updatedCustomers);
+            const remainingCustomers = unsavedCustomers.filter(c => !selectedRows.includes(c));
+            setUnsavedCustomers(remainingCustomers);
         }
     };
 
+    // Save all unsaved changes to Django API
     const handleSave = () => {
         setSaveStatus("Saving...");
 
         const savePromises = unsavedCustomers.map(customer => {
             if (!customer.id && customer.name.trim() !== "") {
+                // New customer entry (POST request)
                 return axios.post("http://127.0.0.1:8000/api/customers/create/", customer);
             } else if (customer.id) {
+                // Existing customer update (PUT request)
                 return axios.put(`http://127.0.0.1:8000/api/customers/${customer.id}/`, customer);
             }
             return Promise.resolve();
@@ -105,9 +123,7 @@ const CustomerTable = () => {
                 fetchCustomers();
                 setTimeout(() => setSaveStatus(""), 3000);
             })
-            .catch(() => {
-                setSaveStatus("⚠️ Error saving customers! Please try again.");
-            });
+            .catch(() => setSaveStatus("⚠️ Error saving customers!"));
     };
 
     return (
@@ -117,8 +133,8 @@ const CustomerTable = () => {
 
             {!loading && !error && (
                 <>
+                    {/* Save Button */}
                     <button
-                        type="button"
                         className={`btn btn-sm ${saveStatus === "Saving..." ? "btn-secondary" : "btn-primary"} mb-2`}
                         onClick={handleSave}
                         disabled={saveStatus === "Saving..."}
@@ -126,6 +142,7 @@ const CustomerTable = () => {
                         {saveStatus || "Save"}
                     </button>
 
+                    {/* Customer Table (Handsontable) */}
                     <HotTable
                         ref={tableRef}
                         data={unsavedCustomers}
@@ -138,7 +155,7 @@ const CustomerTable = () => {
                         afterChange={handleTableChange}
                         contextMenu={{
                             items: {
-                                remove_rows: {
+                                "remove_rows": {
                                     name: "Delete Selected Rows",
                                     callback: (key, selection) => confirmDeleteRows(selection)
                                 }
@@ -152,14 +169,17 @@ const CustomerTable = () => {
                         selectionMode="multiple"
                     />
 
+                    {/* Deletion confirmation modal */}
                     <Modal show={showModal} onHide={() => setShowModal(false)}>
                         <Modal.Header closeButton>
                             <Modal.Title>Confirm Deletion</Modal.Title>
                         </Modal.Header>
                         <Modal.Body>
-                            Are you sure you want to delete the selected customers?
+                            Are you sure you want to delete the following customers?
                             <ul>
-                                {selectedRows.map((customer, index) => <li key={index}>{customer.name || "Unnamed Customer"}</li>)}
+                                {selectedRows.map((customer, index) => (
+                                    <li key={index}>{customer.name || "Unnamed Customer"}</li>
+                                ))}
                             </ul>
                         </Modal.Body>
                         <Modal.Footer>

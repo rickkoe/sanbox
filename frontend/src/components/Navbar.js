@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { NavLink, Link } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import axios from "axios";
 import "./Navbar.css"; // ✅ Import styles
+import { ConfigContext } from "../context/ConfigContext";
 
 const Navbar = ({ toggleSidebar }) => {
+  const { config } = useContext(ConfigContext);
   const [customer, setCustomer] = useState(null);
   const [project, setProject] = useState(null);
   const apiUrl = "http://127.0.0.1:8000/api/core/config/";
@@ -34,8 +36,8 @@ const Navbar = ({ toggleSidebar }) => {
 
         {/* ✅ Display Active Customer & Project */}
         <div className="navbar-config">
-          <span className="navbar-text">Customer: <strong>{customer}</strong></span>
-          <span className="navbar-text ms-3">Project: <strong>{project}</strong></span>
+          <span className="navbar-text">Customer: <strong>{config?.customer?.name}</strong></span>
+          <span className="navbar-text ms-3">Project: <strong>{config?.project_details?.name}</strong></span>
         </div>
 
         <button 

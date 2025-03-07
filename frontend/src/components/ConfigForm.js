@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
-import "bootstrap/dist/css/bootstrap.min.css";  // ✅ Import Bootstrap
+import { ConfigContext } from "../context/ConfigContext";
 
 const ConfigForm = () => {
     const [config, setConfig] = useState(null);
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
     const [unsavedConfig, setUnsavedConfig] = useState(null);  
-    const [saveStatus, setSaveStatus] = useState("");  // ✅ Save status message
+    const [saveStatus, setSaveStatus] = useState(""); 
+    const {refreshConfig} = useContext(ConfigContext);
 
     const apiUrl = "http://127.0.0.1:8000/api/core/config/";
     const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
@@ -75,6 +76,7 @@ const ConfigForm = () => {
                 console.log("✅ API Response:", response.data);
                 setConfig(response.data);
                 setSaveStatus("Configuration saved successfully! ✅");
+                refreshConfig();
     
                 document.querySelectorAll("input, select").forEach(el => {
                     el.classList.add("saved-highlight");
