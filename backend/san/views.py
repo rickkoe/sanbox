@@ -94,10 +94,9 @@ def fabrics_for_customer(request):
         if not config:
             return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
 
-        project = config.project  # ✅ Get the project from Config
-        customer = project.customer  # ✅ Get the customer that owns the project
+        customer = config.project.customer  # ✅ Get the customer that owns the project
 
-        fabrics = Fabric.objects.filter(project__customer=customer)  # ✅ Filter by customer
+        fabrics = Fabric.objects.filter(customer=customer)  # ✅ Filter by customer
         serializer = FabricSerializer(fabrics, many=True)
         return Response(serializer.data)
     except Exception as e:
@@ -126,7 +125,6 @@ def zones_for_project(request):
 
         project = config.project  # ✅ Get the project from Config
         aliases = Alias.objects.filter(fabric__project=project)  # ✅ Filter by customer
-        print(aliases)
         serializer = AliasSerializer(aliases, many=True)
         return Response(serializer.data)
     except Exception as e:

@@ -1,12 +1,12 @@
 from django.db import models
-from core.models import Project
+from core.models import Project, Customer
 from storage.models import Storage, Host
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User 
 
 # Create your models here.
 class Fabric(models.Model):
-    project = models.ForeignKey(Project, related_name='fabrics', on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customer, related_name='fabric_customer', on_delete=models.CASCADE)
     name = models.CharField(max_length=64)
     zoneset_name = models.CharField(max_length=200)
     vsan = models.IntegerField(blank=True, null=True)
@@ -14,10 +14,10 @@ class Fabric(models.Model):
     users = models.ManyToManyField(User, related_name='fabric_users')
 
     def __str__(self):
-        return f'{self.project}: {self.name}'
+        return f'{self.customer}: {self.name}'
     
     class Meta:
-        unique_together = ['project', 'name']
+        unique_together = ['customer', 'name']
 
 
 class Alias(models.Model):
@@ -35,9 +35,6 @@ class Alias(models.Model):
     include_in_zoning = models.BooleanField(default=False)
     host = models.ForeignKey(Host, on_delete=models.SET_NULL, related_name='alias_host', null=True, blank=True)
 
-    @property
-    def project(self):
-        return self.fabric.project if self.fabric else None
     
     class Meta:
         ordering = ['name']
@@ -47,7 +44,7 @@ class Alias(models.Model):
         ]
     
     def __str__(self):
-        return f'{self.fabric.project}: {self.name}'
+        return f'{self.fabric.customer}: {self.name}'
 
 
 class ZoneGroup(models.Model):
@@ -63,7 +60,7 @@ class ZoneGroup(models.Model):
     exists = models.BooleanField(default=False)
 
     def __str__(self):
-        return f'{self.fabric.project}: {self.name}'
+        return f'{self.fabric.customer}: {self.name}'
 
 
 class Zone(models.Model):
@@ -77,14 +74,6 @@ class Zone(models.Model):
     ])
     members = models.ManyToManyField(Alias)
 
-    @property
-    def project(self):
-        return self.fabric.project
 
     def __str__(self):
-        return f'{self.fabric.project}: {self.name}'
-    
-    def clean(self):
-        # Check if there is any other Zone with the same name for the same project
-        if Zone.objects.filter(name=self.name, fabric__project=self.project).exists():
-            raise ValidationError('Zone with this name already exists for this project.')
+        return f'{self.fabric.customer}: {self.name}'
