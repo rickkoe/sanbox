@@ -98,6 +98,9 @@ const Navbar = ({ toggleSidebar }) => {
             <li className="nav-item">
               <NavLink className="nav-link" to="/config">Config</NavLink>
             </li>
+            <li className="nav-item">
+              <NavLink className="nav-link" to="/tools">Tools</NavLink>
+            </li>
 
             {/* ✅ Django Admin Link (Opens in a New Tab) */}
             <li className="nav-item">

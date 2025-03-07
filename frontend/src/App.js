@@ -12,6 +12,7 @@ import ZoningPage from "./pages/ZoningPage";
 import StoragePage from "./pages/StoragePage";
 import FabricPage from "./pages/FabricPage";
 import ConfigPage from "./pages/ConfigPage";
+import ToolsPage from "./pages/ToolsPage";
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
 import NotFound from "./pages/NotFound";
@@ -48,6 +49,7 @@ function App() {
                 <Route path="/storage" element={<StoragePage />} />
                 <Route path="/san/fabrics" element={<FabricPage />} />
                 <Route path="/config" element={<ConfigPage />} />
+                <Route path="/tools" element={<ToolsPage />} />
 
                 {/* ✅ Catch-all 404 Route */}
                 <Route path="*" element={<NotFound />} />
