@@ -109,8 +109,7 @@ def aliases_for_project(request):
         if not config:
             return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
 
-        project = config.project  # ✅ Get the project from Config
-        aliases = Alias.objects.filter(fabric__project=project)  # ✅ Filter by customer
+        aliases = Alias.objects.filter(projects=config.project)
         serializer = AliasSerializer(aliases, many=True)
         return Response(serializer.data)
     except Exception as e:
@@ -123,9 +122,8 @@ def zones_for_project(request):
         if not config:
             return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
 
-        project = config.project  # ✅ Get the project from Config
-        aliases = Alias.objects.filter(fabric__project=project)  # ✅ Filter by customer
-        serializer = AliasSerializer(aliases, many=True)
+        zones = Zone.objects.filter(projects=config.project)  # ✅ Filter by customer
+        serializer = ZoneSerializer(zones, many=True)
         return Response(serializer.data)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 

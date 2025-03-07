@@ -16,7 +16,7 @@ const ZoneTable = () => {
     // ✅ Fetch zones from the updated `/api/san/zones/` API
     const fetchZones = () => {
         setLoading(true);
-        axios.get("http://127.0.0.1:8000/api/san/zones/")
+        axios.get("http://127.0.0.1:8000/api/san/zones/project/")
             .then(response => {
                 setZones(response.data);
                 setLoading(false);
@@ -59,7 +59,7 @@ const ZoneTable = () => {
         <div className="container mt-4">
             {loading && <div className="alert alert-info">Loading zones...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
-
+            <h2>Zones for Project</h2>
             {!loading && !error && (
                 <HotTable
                     ref={tableRef}

@@ -22,6 +22,7 @@ class Fabric(models.Model):
 
 class Alias(models.Model):
     fabric = models.ForeignKey(Fabric, on_delete=models.CASCADE)
+    projects = models.ManyToManyField(Project, related_name='alias_projects')
     storage = models.ForeignKey(Storage, on_delete=models.CASCADE, related_name='aliases', null=True, blank=True)
     USE_CHOICES = [
         ('init', 'Initiator'),
@@ -66,6 +67,7 @@ class ZoneGroup(models.Model):
 class Zone(models.Model):
     fabric = models.ForeignKey(Fabric, on_delete=models.CASCADE)
     name = models.CharField(max_length=100, unique=False)
+    projects = models.ManyToManyField(Project, related_name='zone_projects')
     create = models.BooleanField(default=False)
     exists = models.BooleanField(default=False)
     zone_type = models.CharField(max_length=100,choices=[
