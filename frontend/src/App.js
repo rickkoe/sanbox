@@ -14,6 +14,7 @@ import FabricPage from "./pages/FabricPage";
 import ConfigPage from "./pages/ConfigPage";
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
+import NotFound from "./pages/NotFound";
 
 function App() {
   // ✅ Load sidebar state from localStorage
@@ -47,6 +48,9 @@ function App() {
                 <Route path="/storage" element={<StoragePage />} />
                 <Route path="/san/fabrics" element={<FabricPage />} />
                 <Route path="/config" element={<ConfigPage />} />
+
+                {/* ✅ Catch-all 404 Route */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
           </div>
