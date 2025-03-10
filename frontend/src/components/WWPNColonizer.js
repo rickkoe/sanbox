@@ -10,7 +10,7 @@ registerAllModules();
 const removeColons = (value) => value.replace(/:/g, '').trim();
 
 const addColons = (wwpn) => {
-  const cleaned = wwpn.replace(/[^a-fA-F0-9]/g, '');
+  const cleaned = removeColons(wwpn);
   return cleaned.length === 16 ? cleaned.match(/.{1,2}/g).join(':').toLowerCase() : cleaned;
 };
 
@@ -22,25 +22,37 @@ const WWPNFormatterTable = () => {
   const handleTableChange = (changes, source) => {
     if (source === 'edit' || source === 'CopyPaste.paste') {
       setData((prevData) => {
-        const updatedData = [...prevData];
-
+        const updatedData = prevData.map(row => [...row]);
+        
         changes.forEach(([row, , , newValue]) => {
-          if (newValue) {
+          if (updatedData[row]) {
             updatedData[row][0] = newValue;
           }
         });
-
+        
         if (updatedData[updatedData.length - 1][0].trim() !== '') {
           updatedData.push(['']);
         }
+        
+        return updatedData;
+      });
+    }
+  };
 
+  const handlePaste = (event) => {
+    const clipboardData = event.clipboardData.getData('Text');
+    const pastedRows = clipboardData.split(/\r?\n/).map(row => row.trim()).filter(row => row !== '');
+
+    if (pastedRows.length > 0) {
+      setData((prevData) => {
+        const updatedData = [...prevData.filter(row => row[0].trim() !== ''), ...pastedRows.map(row => [row]), ['']];
         return updatedData;
       });
     }
   };
 
   return (
-    <div className="container mt-4">
+    <div className="container mt-4" onPaste={handlePaste}>
       <h3>WWPN Formatter</h3>
       <Button 
         variant="primary" 
