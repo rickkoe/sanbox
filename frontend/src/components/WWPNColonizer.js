@@ -77,6 +77,9 @@ const WWPNFormatterTable = () => {
 
   return (
     <div className="container mt-4" onPaste={handlePaste}>
+      <div class="alert alert-info" role="alert">
+        Paste one or more valid WWPNs, and they will be automatically formatted based on the selected option (with or without colons).
+      </div>
       <Form>
         <Form.Check 
           type="switch" 
@@ -92,13 +95,13 @@ const WWPNFormatterTable = () => {
         ref={tableRef}
         data={data.map(row => row.length > 0 ? [showWithColons ? addColons(row[0]) : removeColons(row[0])] : [''])}
         colHeaders={["WWPN"]}
-        columns={[{ data: 0, type: "text" }]}
+        columns={[{ data: 0, type: "text", width: 200 }]}  // ✅ Adjust column width to fit WWPNs
         afterChange={handleTableChange}
         licenseKey="non-commercial-and-evaluation"
         className="handsontable htMaterial"
-        rowHeaders={true}
+        rowHeaders={false}
         width="100%"
-        stretchH="all"
+        stretchH="none"
       />
     </div>
   );
