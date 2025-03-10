@@ -17,7 +17,6 @@ const ConfigForm = () => {
     useEffect(() => {
         axios.get(apiUrl)
             .then(response => {
-                console.log("✅ API Config Response on Load:", response.data);
 
                 const configData = response.data;
                 setConfig(configData);
@@ -68,12 +67,10 @@ const ConfigForm = () => {
     };
 
     const handleSave = () => {
-        console.log("📤 Saving Config:", unsavedConfig);
         setSaveStatus("Saving...");  // ✅ Show "Saving..." message
     
         axios.put(apiUrl, unsavedConfig)
             .then(response => {
-                console.log("✅ API Response:", response.data);
                 setConfig(response.data);
                 setSaveStatus("Configuration saved successfully! ✅");
                 refreshConfig();

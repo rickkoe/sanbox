@@ -32,6 +32,18 @@ const WWPNFormatterTable = () => {
     }
   }, [error]);
 
+  useEffect(() => {
+    const handleWindowPaste = (event) => {
+        handlePaste(event);
+    };
+
+    window.addEventListener("paste", handleWindowPaste);
+
+    return () => {
+        window.removeEventListener("paste", handleWindowPaste);
+    };
+}, []);
+
   const handleTableChange = (changes, source) => {
     if (source === 'edit' || source === 'CopyPaste.paste') {
       setData((prevData) => {
@@ -56,24 +68,53 @@ const WWPNFormatterTable = () => {
   };
 
   const handlePaste = (event) => {
-    const clipboardData = event.clipboardData.getData('Text');
-    const pastedRows = clipboardData.split(/\r?\n/).map(row => row.trim()).filter(row => row !== '');
+    let clipboardData = event.clipboardData || window.clipboardData;
+
+    if (!clipboardData) {
+        console.error("❌ Clipboard data not available in Safari.");
+        return;
+    }
+
+    let pastedText = clipboardData.getData("text/plain");
+
+    // ✅ Normalize line breaks and remove spaces
+    pastedText = pastedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    const pastedRows = pastedText
+        .split(/\n/)
+        .map(row => row.replace(/\s/g, '').trim()) // Remove spaces
+        .filter(row => row.length > 0); // Remove empty rows
+
 
     if (pastedRows.length > 0) {
-      const validRows = pastedRows.filter(isValidWWPN);
-      const invalidRows = pastedRows.filter(row => !isValidWWPN(row));
-      
-      if (invalidRows.length > 0) {
-        setError("Some pasted WWPNs are invalid. Ensure they follow the correct format.");
-        return;
-      }
-      
-      setData((prevData) => {
-        const nonEmptyRows = prevData.filter(row => row[0] && row[0].trim() !== '');
-        return [...nonEmptyRows, ...validRows.map(row => [row]), ['']];
-      });
+        const validRows = pastedRows.filter(isValidWWPN);
+        const invalidRows = pastedRows.filter(row => !isValidWWPN(row));
+
+        if (invalidRows.length > 0) {
+            setError(`Some pasted WWPNs are invalid (${invalidRows.length} entries).`);
+        }
+
+        setData((prevData) => {
+            // ✅ Remove existing empty row before appending new data
+            const nonEmptyRows = prevData.filter(row => row[0] && row[0].trim() !== '');
+
+            // ✅ Prevent duplicates by checking if WWPN already exists
+            const uniqueValidRows = validRows.filter(wwpn => 
+                !nonEmptyRows.some(existingRow => existingRow[0] === wwpn)
+            );
+
+            // ✅ Combine existing data with unique new WWPNs
+            const newData = [...nonEmptyRows, ...uniqueValidRows.map(row => [row]), ['']];
+
+            return newData;
+        });
+
+        setError(null); // ✅ Clear error after successful paste
     }
-  };
+
+    // ✅ Prevent default behavior to avoid double triggering
+    event.preventDefault();
+};
 
   return (
     <div className="container mt-4" onPaste={handlePaste}>

@@ -16,7 +16,6 @@ const Navbar = ({ toggleSidebar }) => {
     axios.get(apiUrl)
       .then(response => {
         const configData = response.data;
-        console.log(configData)
         setCustomer(configData.customer ? configData.customer.name : "No Customer");
         setProject(configData.project ? configData.project_details.name : "No Project");
       })
