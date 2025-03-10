@@ -3,7 +3,7 @@ import { HotTable } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Button } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 
 registerAllModules();
 
@@ -53,14 +53,16 @@ const WWPNFormatterTable = () => {
 
   return (
     <div className="container mt-4" onPaste={handlePaste}>
-      <h3>WWPN Formatter</h3>
-      <Button 
-        variant="primary" 
-        className="mb-3" 
-        onClick={() => setShowWithColons(!showWithColons)}
-      >
-        Toggle Format ({showWithColons ? 'With Colons' : 'Without Colons'})
-      </Button>
+      <Form>
+        <Form.Check 
+          type="switch" 
+          id="format-toggle" 
+          label={showWithColons ? "Colons" : "No Colons"} 
+          checked={showWithColons} 
+          onChange={() => setShowWithColons(!showWithColons)} 
+          className="mb-3"
+        />
+      </Form>
       <HotTable
         ref={tableRef}
         data={data.map(row => [showWithColons ? addColons(row[0]) : removeColons(row[0])])}
