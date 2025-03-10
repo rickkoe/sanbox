@@ -13,6 +13,7 @@ import StoragePage from "./pages/StoragePage";
 import FabricPage from "./pages/FabricPage";
 import ConfigPage from "./pages/ConfigPage";
 import ToolsPage from "./pages/ToolsPage";
+import WwpnColonizerPage from "./pages/WWPNColonizerPage";
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
 import NotFound from "./pages/NotFound";
@@ -50,6 +51,7 @@ function App() {
                 <Route path="/san/fabrics" element={<FabricPage />} />
                 <Route path="/config" element={<ConfigPage />} />
                 <Route path="/tools" element={<ToolsPage />} />
+                <Route path="/tools/wwpn-colonizer" element={<WwpnColonizerPage />} />
 
                 {/* ✅ Catch-all 404 Route */}
                 <Route path="*" element={<NotFound />} />
