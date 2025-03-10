@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { HotTable } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
@@ -24,6 +24,13 @@ const WWPNFormatterTable = () => {
   const [showWithColons, setShowWithColons] = useState(true);
   const [error, setError] = useState(null);
   const tableRef = useRef(null);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const handleTableChange = (changes, source) => {
     if (source === 'edit' || source === 'CopyPaste.paste') {
@@ -70,7 +77,6 @@ const WWPNFormatterTable = () => {
 
   return (
     <div className="container mt-4" onPaste={handlePaste}>
-      <h3>WWPN Formatter</h3>
       <Form>
         <Form.Check 
           type="switch" 
