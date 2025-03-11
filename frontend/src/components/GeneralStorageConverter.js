@@ -1,93 +1,88 @@
 import React, { useState } from "react";
+import "../styles/tools.css"; // Ensure styles are applied
+
+const units = [
+  { label: "Bytes (B)", value: "bytes", factor: 1 },
+  { label: "Kilobytes (KB)", value: "kb", factor: 1000 },
+  { label: "Kibibytes (KiB)", value: "kib", factor: 1024 },
+  { label: "Megabytes (MB)", value: "mb", factor: 1000000 },
+  { label: "Mebibytes (MiB)", value: "mib", factor: 1048576 },
+  { label: "Gigabytes (GB)", value: "gb", factor: 1000000000 },
+  { label: "Gibibytes (GiB)", value: "gib", factor: 1073741824 },
+  { label: "Terabytes (TB)", value: "tb", factor: 1000000000000 },
+  { label: "Tebibytes (TiB)", value: "tib", factor: 1099511627776 },
+  { label: "Gigabits (Gb)", value: "gigabits", factor: 125000000 },
+  { label: "Megabits (Mb)", value: "megabits", factor: 125000 },
+  { label: "Terabits (Tb)", value: "terabits", factor: 125000000000 },
+];
 
 const GeneralStorageConverter = () => {
-  const [bytes, setBytes] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const [sourceUnit, setSourceUnit] = useState("bytes");
+  const [targetUnit, setTargetUnit] = useState("gb");
+  const [convertedValue, setConvertedValue] = useState("");
 
-  // Conversion Factors
-  const KB = 1000, KiB = 1024;
-  const MB = KB * 1000, MiB = KiB * 1024;
-  const GB = MB * 1000, GiB = MiB * 1024;
-  const TB = GB * 1000, TiB = GiB * 1024;
-  const Gb = GB * 8, Mb = MB * 8, Tb = TB * 8;
-
-  const updateValues = (newBytes) => {
-    if (!newBytes || isNaN(newBytes)) {
-      setBytes("");
-      return;
+  const handleInputChange = (e) => {
+    const value = e.target.value.replace(/[^0-9.]/g, ""); // Allow only numbers & decimal
+    setInputValue(value);
+    if (value) {
+      convertValue(value, sourceUnit, targetUnit);
+    } else {
+      setConvertedValue("");
     }
-    setBytes(newBytes);
   };
 
-  // Input handlers
-  const handleBytesChange = (e) => updateValues(parseFloat(e.target.value) || 0);
-  const handleKBChange = (e) => updateValues((parseFloat(e.target.value) || 0) * KB);
-  const handleKiBChange = (e) => updateValues((parseFloat(e.target.value) || 0) * KiB);
-  const handleMBChange = (e) => updateValues((parseFloat(e.target.value) || 0) * MB);
-  const handleMiBChange = (e) => updateValues((parseFloat(e.target.value) || 0) * MiB);
-  const handleGBChange = (e) => updateValues((parseFloat(e.target.value) || 0) * GB);
-  const handleGiBChange = (e) => updateValues((parseFloat(e.target.value) || 0) * GiB);
-  const handleTBChange = (e) => updateValues((parseFloat(e.target.value) || 0) * TB);
-  const handleTiBChange = (e) => updateValues((parseFloat(e.target.value) || 0) * TiB);
-  const handleGbChange = (e) => updateValues((parseFloat(e.target.value) || 0) * Gb / 8);
-  const handleMbChange = (e) => updateValues((parseFloat(e.target.value) || 0) * Mb / 8);
-  const handleTbChange = (e) => updateValues((parseFloat(e.target.value) || 0) * Tb / 8);
+  const handleSourceChange = (e) => {
+    setSourceUnit(e.target.value);
+    if (inputValue) {
+      convertValue(inputValue, e.target.value, targetUnit);
+    }
+  };
+
+  const handleTargetChange = (e) => {
+    setTargetUnit(e.target.value);
+    if (inputValue) {
+      convertValue(inputValue, sourceUnit, e.target.value);
+    }
+  };
+
+  const convertValue = (value, from, to) => {
+    const fromFactor = units.find((unit) => unit.value === from).factor;
+    const toFactor = units.find((unit) => unit.value === to).factor;
+
+    const converted = (parseFloat(value) * fromFactor) / toFactor;
+    setConvertedValue(converted % 1 === 0 ? converted.toString() : converted.toFixed(6).replace(/\.?0+$/, ""));
+  };
 
   return (
-    <div style={styles.container}>
+    <div className="calculator-card">
       <h2>General Storage Converter</h2>
 
-      <label>Bytes (B):</label>
-      <input type="text" value={bytes} onChange={handleBytesChange} />
+      <label>Enter Value:</label>
+      <input type="text" value={inputValue} onChange={handleInputChange} />
 
-      <label>Kilobytes (KB):</label>
-      <input type="text" value={bytes / KB} onChange={handleKBChange} />
+      <label>Convert From:</label>
+      <select value={sourceUnit} onChange={handleSourceChange}>
+        {units.map((unit) => (
+          <option key={unit.value} value={unit.value}>
+            {unit.label}
+          </option>
+        ))}
+      </select>
 
-      <label>Kibibytes (KiB):</label>
-      <input type="text" value={bytes / KiB} onChange={handleKiBChange} />
+      <label>Convert To:</label>
+      <select value={targetUnit} onChange={handleTargetChange}>
+        {units.map((unit) => (
+          <option key={unit.value} value={unit.value}>
+            {unit.label}
+          </option>
+        ))}
+      </select>
 
-      <label>Megabytes (MB):</label>
-      <input type="text" value={bytes / MB} onChange={handleMBChange} />
-
-      <label>Mebibytes (MiB):</label>
-      <input type="text" value={bytes / MiB} onChange={handleMiBChange} />
-
-      <label>Gigabytes (GB):</label>
-      <input type="text" value={bytes / GB} onChange={handleGBChange} />
-
-      <label>Gibibytes (GiB):</label>
-      <input type="text" value={bytes / GiB} onChange={handleGiBChange} />
-
-      <label>Terabytes (TB):</label>
-      <input type="text" value={bytes / TB} onChange={handleTBChange} />
-
-      <label>Tebibytes (TiB):</label>
-      <input type="text" value={bytes / TiB} onChange={handleTiBChange} />
-
-      <label>Gigabits (Gb):</label>
-      <input type="text" value={bytes * 8 / Gb} onChange={handleGbChange} />
-
-      <label>Megabits (Mb):</label>
-      <input type="text" value={bytes * 8 / Mb} onChange={handleMbChange} />
-
-      <label>Terabits (Tb):</label>
-      <input type="text" value={bytes * 8 / Tb} onChange={handleTbChange} />
+      <label>Converted Value:</label>
+      <input type="text" value={convertedValue} readOnly />
     </div>
   );
-};
-
-const styles = {
-  container: {
-    maxWidth: "400px",
-    margin: "20px auto",
-    padding: "20px",
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    background: "#fff",
-    boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
 };
 
 export default GeneralStorageConverter;

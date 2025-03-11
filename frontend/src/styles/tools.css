@@ -1,16 +1,49 @@
-/* Container Layout */
+/* Ensure full-screen layout */
 .tools-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    width: 100vw;
+    height: 100vh;
     padding: 20px;
+    overflow-x: hidden;
   }
   
-/* Filter Buttons */
-.filter-buttons {
+  /* Layout for multiple calculators */
+  .calculators-container {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 95vw;
+  }
+  
+  /* Common card styling */
+  .calculator-card {
+    flex: 1 1 calc(33.33% - 20px);
+    min-width: 300px;
+    max-width: 400px;
+    height: auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease-in-out;
+  }
+  
+  .calculator-card:hover {
+    transform: scale(1.03);
+  }
+  
+  /* Ensure buttons and inputs don’t break layout */
+  .filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
     gap: 10px;
+    justify-content: center;
     margin-bottom: 20px;
   }
   
@@ -35,37 +68,102 @@
     color: white;
   }
   
-  /* Calculator Cards */
-  .calculators-container {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
+  /* Input fields */
+  input,
+  select {
     width: 100%;
-    max-width: 1200px;
+    padding: 8px;
+    margin: 5px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
   }
   
-  .calculator-card {
-    flex: 1;
-    min-width: 350px;
-    max-width: 400px;
-    padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease-in-out, opacity 0.3s ease-in-out;
-    opacity: 1;
+  /* Responsive adjustments */
+  @media screen and (max-width: 1200px) {
+    .calculator-card {
+      flex: 1 1 calc(50% - 20px);
+    }
   }
   
-  .calculator-card.hidden {
+  @media screen and (max-width: 768px) {
+    .calculator-card {
+      flex: 1 1 100%;
+    }
+  }
+
+  /* Animation for fading in */
+@keyframes fadeIn {
+  from {
     opacity: 0;
-    visibility: hidden;
-    height: 0;
-    margin: 0;
-    padding: 0;
+    transform: scale(0.95);
   }
-  
-  .calculator-card:hover {
-    transform: scale(1.03);
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
+}
+
+/* Animation for fading out */
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+/* Apply animations */
+.calculator-card {
+  flex: 1 1 calc(33.33% - 20px);
+  min-width: 300px;
+  max-width: 400px;
+  height: auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out, opacity 0.5s ease-in-out;
+}
+
+.calculator-card.show {
+  display: block;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.calculator-card.hide {
+  animation: fadeOut 0.3s ease-in;
+  opacity: 0;
+  transform: scale(0.95);
+  pointer-events: none;
+}
+
+/* Hover effect */
+.calculator-card:hover {
+  transform: scale(1.03);
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 1200px) {
+  .calculator-card {
+    flex: 1 1 calc(50% - 20px);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .calculator-card {
+    flex: 1 1 100%;
+  }
+}
+
+
+
+
+
+
+
+
