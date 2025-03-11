@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import MainframeStorageCalculator from "../components/MainframeStorageCalculator";
 import IBMiStorageCalculator from "../components/IBMiStorageCalculator";
 import IBMiBlockConverter from "../components/IBMiBlockConverter";
+import DS8kCKDPool from "../components/DS8kCKDPool";
 import "../styles/tools.css";
 
 const IBMStorageCalculatorPage = () => {
@@ -55,6 +56,11 @@ const IBMStorageCalculatorPage = () => {
         {filters.mainframe && (
           <div className="calculator-card">
             <MainframeStorageCalculator />
+          </div>
+        )}
+        {filters.mainframe && (
+          <div className="calculator-card">
+            <DS8kCKDPool />
           </div>
         )}
         {filters.ibmi && (
