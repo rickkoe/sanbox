@@ -11,11 +11,13 @@ const diskModels = [
   { label: "3390-3 (MOD 3)", cylinders: 3339 },
   { label: "3390-9 (MOD 9)", cylinders: 10017 },
   { label: "3390-27 (MOD 27)", cylinders: 30051 },
+  { label: "3390-54 (MOD 54)", cylinders: 65520 },
 ];
 
-const StorageCalculator = () => {
+const MainframeStorageCalculator = () => {
   const [selectedModel, setSelectedModel] = useState(diskModels[0].cylinders);
   const [cylinders, setCylinders] = useState("");
+  const [quantity, setQuantity] = useState("1"); // New volume quantity field
   const [bytes, setBytes] = useState("");
   const [gigabytes, setGigabytes] = useState("");
   const [terabytes, setTerabytes] = useState("");
@@ -25,7 +27,7 @@ const StorageCalculator = () => {
     const modelCylinders = parseInt(e.target.value, 10);
     setSelectedModel(modelCylinders);
     if (modelCylinders > 0) {
-      updateValues(modelCylinders);
+      updateValues(modelCylinders, parseInt(quantity, 10));
     } else {
       resetValues();
     }
@@ -36,9 +38,17 @@ const StorageCalculator = () => {
     setCylinders(cyl);
     setSelectedModel(0); // Custom input mode
     if (cyl) {
-      updateValues(parseInt(cyl, 10));
+      updateValues(parseInt(cyl, 10), parseInt(quantity, 10));
     } else {
       resetValues();
+    }
+  };
+
+  const handleQuantityChange = (e) => {
+    const qty = e.target.value.replace(/\D/g, ""); // Allow only numbers
+    setQuantity(qty);
+    if (cylinders) {
+      updateValues(parseInt(cylinders, 10), parseInt(qty, 10));
     }
   };
 
@@ -46,7 +56,7 @@ const StorageCalculator = () => {
     const newBytes = parseFloat(e.target.value.replace(/,/g, "")) || 0;
     const cyl = newBytes / bytesPerCylinder;
     setSelectedModel(0);
-    updateValues(cyl);
+    updateValues(cyl, parseInt(quantity, 10));
   };
 
   const handleGBChange = (e) => {
@@ -54,7 +64,7 @@ const StorageCalculator = () => {
     const newBytes = gb * bytesPerGB;
     const cyl = newBytes / bytesPerCylinder;
     setSelectedModel(0);
-    updateValues(cyl);
+    updateValues(cyl, parseInt(quantity, 10));
   };
 
   const handleTBChange = (e) => {
@@ -62,11 +72,11 @@ const StorageCalculator = () => {
     const newBytes = tb * bytesPerTB;
     const cyl = newBytes / bytesPerCylinder;
     setSelectedModel(0);
-    updateValues(cyl);
+    updateValues(cyl, parseInt(quantity, 10));
   };
 
-  const updateValues = (cyl) => {
-    const newBytes = cyl * bytesPerCylinder;
+  const updateValues = (cyl, qty) => {
+    const newBytes = cyl * bytesPerCylinder * qty;
     setCylinders(cyl.toString());
     setBytes(newBytes.toLocaleString());
     setGigabytes((newBytes / bytesPerGB).toFixed(2));
@@ -95,6 +105,9 @@ const StorageCalculator = () => {
       <label>Cylinders:</label>
       <input type="text" value={cylinders} onChange={handleCylindersChange} />
 
+      <label>Quantity of Volumes:</label>
+      <input type="text" value={quantity} onChange={handleQuantityChange} />
+
       <label>Bytes:</label>
       <input type="text" value={bytes} onChange={handleBytesChange} />
 
@@ -121,4 +134,4 @@ const styles = {
   },
 };
 
-export default StorageCalculator;
+export default MainframeStorageCalculator;
