@@ -3,15 +3,19 @@ import React, { useState } from "react";
 const bytesPerCylinder = 849960; // IBM 3390 bytes per cylinder
 const bytesPerGiB = Math.pow(1024, 3);
 const bytesPerTiB = Math.pow(1024, 4);
+const bytesPerGB = Math.pow(10, 9);
+const bytesPerTB = Math.pow(10, 12);
 
 const DS8kCKDPool = () => {
   const [extents, setExtents] = useState("");
-  const [extentSize, setExtentSize] = useState(21); // Default to 21 cylinders
+  const [extentSize, setExtentSize] = useState(21);
   const [kmod1, setKmod1] = useState("");
   const [gib, setGib] = useState("");
   const [tib, setTib] = useState("");
+  const [gb, setGb] = useState("");
+  const [tb, setTb] = useState("");
 
-  // Handle Extents Input and Calculate KMod1, GiB, TiB
+  // Handle Extents Input and Calculate KMod1, GiB, TiB, GB, TB
   const handleExtentsChange = (e) => {
     const value = e.target.value.replace(/\D/g, ""); // Allow only numbers
     setExtents(value);
@@ -22,10 +26,12 @@ const DS8kCKDPool = () => {
       setKmod1("");
       setGib("");
       setTib("");
+      setGb("");
+      setTb("");
     }
   };
 
-  // Handle KMod1 Input and Calculate Extents, GiB, TiB
+  // Handle KMod1 Input and Calculate Extents, GiB, TiB, GB, TB
   const handleKMod1Change = (e) => {
     const value = e.target.value.replace(/[^0-9.]/g, ""); // Allow numbers & decimal
     setKmod1(value);
@@ -35,6 +41,8 @@ const DS8kCKDPool = () => {
       setExtents("");
       setGib("");
       setTib("");
+      setGb("");
+      setTb("");
     }
   };
 
@@ -65,13 +73,18 @@ const DS8kCKDPool = () => {
     calculateStorage(extentsValue, size);
   };
 
-  // Calculate GiB and TiB based on cylinders
+  // Calculate GiB, TiB, GB, TB based on cylinders
   const calculateStorage = (extents, size) => {
     const cylinders = parseInt(extents, 10) * size;
     const gibValue = (cylinders * bytesPerCylinder) / bytesPerGiB;
     const tibValue = gibValue / 1024;
+    const gbValue = (cylinders * bytesPerCylinder) / bytesPerGB;
+    const tbValue = gbValue / 1000;
+
     setGib(gibValue.toFixed(2));
     setTib(tibValue.toFixed(4));
+    setGb(gbValue.toFixed(2));
+    setTb(tbValue.toFixed(4));
   };
 
   return (
@@ -95,6 +108,12 @@ const DS8kCKDPool = () => {
 
       <label>TiB (Tebibytes):</label>
       <input type="text" value={tib} readOnly />
+
+      <label>GB (Gigabytes):</label>
+      <input type="text" value={gb} readOnly />
+
+      <label>TB (Terabytes):</label>
+      <input type="text" value={tb} readOnly />
     </div>
   );
 };
