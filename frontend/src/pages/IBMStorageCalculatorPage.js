@@ -3,12 +3,14 @@ import MainframeStorageCalculator from "../components/MainframeStorageCalculator
 import IBMiStorageCalculator from "../components/IBMiStorageCalculator";
 import IBMiBlockConverter from "../components/IBMiBlockConverter";
 import DS8kCKDPool from "../components/DS8kCKDPool";
+import GeneralStorageConverter from "../components/GeneralStorageConverter";
 import "../styles/tools.css";
 
 const IBMStorageCalculatorPage = () => {
   const [filters, setFilters] = useState({
     mainframe: true,
     ibmi: true,
+    general: true,
   });
 
   const handleFilterClick = (category, event) => {
@@ -49,6 +51,12 @@ const IBMStorageCalculatorPage = () => {
         >
           IBM i
         </button>
+        <button 
+          className={`filter-btn ${filters.general ? "active" : ""}`} 
+          onClick={(e) => handleFilterClick("general", e)}
+          >
+          General Storage
+        </button>
       </div>
 
       {/* Flexible Grid Layout */}
@@ -71,6 +79,11 @@ const IBMStorageCalculatorPage = () => {
         {filters.ibmi && (
           <div className="calculator-card">
             <IBMiBlockConverter />
+          </div>
+        )}
+        {filters.general && (
+          <div className="calculator-card">
+            <GeneralStorageConverter />
           </div>
         )}
       </div>
