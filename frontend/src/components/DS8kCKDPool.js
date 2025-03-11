@@ -1,29 +1,40 @@
 import React, { useState } from "react";
 
+const bytesPerCylinder = 849960; // IBM 3390 bytes per cylinder
+const bytesPerGiB = Math.pow(1024, 3);
+const bytesPerTiB = Math.pow(1024, 4);
+
 const DS8kCKDPool = () => {
   const [extents, setExtents] = useState("");
   const [extentSize, setExtentSize] = useState(21); // Default to 21 cylinders
   const [kmod1, setKmod1] = useState("");
+  const [gib, setGib] = useState("");
+  const [tib, setTib] = useState("");
 
-  // Handle Extents Input and Calculate KMod1
+  // Handle Extents Input and Calculate KMod1, GiB, TiB
   const handleExtentsChange = (e) => {
     const value = e.target.value.replace(/\D/g, ""); // Allow only numbers
     setExtents(value);
     if (value) {
       calculateKMod1(value, extentSize);
+      calculateStorage(value, extentSize);
     } else {
-      setKmod1(""); // Clear KMod1 if Extents is empty
+      setKmod1("");
+      setGib("");
+      setTib("");
     }
   };
 
-  // Handle KMod1 Input and Calculate Extents
+  // Handle KMod1 Input and Calculate Extents, GiB, TiB
   const handleKMod1Change = (e) => {
     const value = e.target.value.replace(/[^0-9.]/g, ""); // Allow numbers & decimal
     setKmod1(value);
     if (value) {
       calculateExtents(value, extentSize);
     } else {
-      setExtents(""); // Clear Extents if KMod1 is empty
+      setExtents("");
+      setGib("");
+      setTib("");
     }
   };
 
@@ -33,6 +44,7 @@ const DS8kCKDPool = () => {
     setExtentSize(value);
     if (extents) {
       calculateKMod1(extents, value);
+      calculateStorage(extents, value);
     } else if (kmod1) {
       calculateExtents(kmod1, value);
     }
@@ -47,9 +59,19 @@ const DS8kCKDPool = () => {
 
   // Calculate Extents based on KMod1
   const calculateExtents = (kmod1, size) => {
-    const cylinders = parseFloat(kmod1) * 1113 * 1000; // Reverse formula
+    const cylinders = parseFloat(kmod1) * 1113 * 1000;
     const extentsValue = Math.round(cylinders / size);
     setExtents(extentsValue.toString());
+    calculateStorage(extentsValue, size);
+  };
+
+  // Calculate GiB and TiB based on cylinders
+  const calculateStorage = (extents, size) => {
+    const cylinders = parseInt(extents, 10) * size;
+    const gibValue = (cylinders * bytesPerCylinder) / bytesPerGiB;
+    const tibValue = gibValue / 1024;
+    setGib(gibValue.toFixed(2));
+    setTib(tibValue.toFixed(4));
   };
 
   return (
@@ -67,6 +89,12 @@ const DS8kCKDPool = () => {
 
       <label>KMod1:</label>
       <input type="text" value={kmod1} onChange={handleKMod1Change} />
+
+      <label>GiB (Gibibytes):</label>
+      <input type="text" value={gib} readOnly />
+
+      <label>TiB (Tebibytes):</label>
+      <input type="text" value={tib} readOnly />
     </div>
   );
 };
