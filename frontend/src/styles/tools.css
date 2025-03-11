@@ -1,24 +1,71 @@
+/* Container Layout */
 .tools-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 20px;
   }
   
+/* Filter Buttons */
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  .filter-btn {
+    padding: 10px 15px;
+    font-size: 16px;
+    border: 1px solid #007bff;
+    background-color: white;
+    color: #007bff;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .filter-btn.active {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  .filter-btn:hover {
+    background-color: #0056b3;
+    color: white;
+  }
+  
+  /* Calculator Cards */
   .calculators-container {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 20px;
+    width: 100%;
+    max-width: 1200px;
   }
   
   .calculator-card {
     flex: 1;
-    min-width: 400px; /* Ensures cards don't get too small */
-    max-width: 500px; /* Controls max size */
+    min-width: 350px;
+    max-width: 400px;
     padding: 20px;
     border: 1px solid #ddd;
     border-radius: 8px;
-    background: #f9f9f9;
+    background: #fff;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease-in-out, opacity 0.3s ease-in-out;
+    opacity: 1;
+  }
+  
+  .calculator-card.hidden {
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .calculator-card:hover {
+    transform: scale(1.03);
   }
