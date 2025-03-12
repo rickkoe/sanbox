@@ -49,7 +49,7 @@
   
   .sidebar a:hover {
     background-color: rgba(255, 255, 255, 0.1);
-    text-decoration: underline;
+    text-decoration: none;
   }
   
   .sidebar-footer {
@@ -98,6 +98,7 @@
     color: #adb5bd;
     font-size: 0.85rem;
     z-index: 2;
+    font-weight: bold;
   }
   
   .toggle-switch {

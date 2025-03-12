@@ -12,30 +12,7 @@
     color: #ddd;
 }
 
-/* ✅ Style the customer & project display */
-/* .navbar-config {
-    color: white;
-    font-size: 14px;
-    margin-left: auto;
-    margin-right: 20px;
-} */
-
-/* .navbar-config .navbar-text {
-    font-weight: normal;
-    color: #ccc;
-}
-
-.navbar-config strong {
-    color: white;
-} */
-
-
-/* ✅ Stack customer & project vertically */
-.navbar {
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-  }
-/* ✅ Ensure Customer & Project always start 250px from the left */
-.navbar-config {
+  .navbar-config {
     display: flex;
     flex-direction: column; /* ✅ Stack items vertically */
     align-items: flex-start;  /* ✅ Align text to the right */
