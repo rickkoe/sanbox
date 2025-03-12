@@ -1,24 +1,24 @@
 from django.db import models
 from customers.models import Customer
-from django.contrib.auth.models import User 
 
-## Create your models here.
 class Project(models.Model):
-    customer = models.ForeignKey(Customer, related_name='projects', on_delete=models.CASCADE)
+    customer = models.ForeignKey(
+        Customer, related_name="projects", on_delete=models.CASCADE, db_index=True
+    )
     name = models.CharField(max_length=200)
 
     class Meta:
-        ordering = ['customer', 'name']
-    
-    class Meta:
-        unique_together = ['customer', 'name']
+        ordering = ["customer", "name"]
+        unique_together = ["customer", "name"]  # ✅ Merged into a single Meta class
 
     def __str__(self):
-        return f'{self.customer}: {self.name}'
+        return f"{self.customer}: {self.name}"
 
 
 class Config(models.Model):
-    project = models.ForeignKey(Project, related_name="configs", on_delete=models.CASCADE)
+    project = models.ForeignKey(
+        Project, related_name="configs", on_delete=models.CASCADE, db_index=True
+    )
 
     san_vendor = models.CharField(
         max_length=7,
@@ -59,3 +59,6 @@ class Config(models.Model):
     @property
     def customer(self):
         return self.project.customer if self.project else None
+
+    def __str__(self):
+        return f"Config for {self.project.name}"
