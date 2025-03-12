@@ -7,7 +7,6 @@ import {
 } from "react-router-dom";
 import Navbar from "./components/navigation/Navbar";
 import Sidebar from "./components/navigation/Sidebar";
-import SanNavbar from "./components/navigation/SanNavbar";
 import Breadcrumbs from "./components/navigation/Breadcrumbs";
 import Home from "./pages/Home";
 import CustomersPage from "./pages/CustomersPage";
@@ -45,7 +44,6 @@ function App() {
           {/* ✅ Shift content when sidebar is open */}
           <div className={`app-container ${isSidebarOpen ? "shifted" : ""}`}>
             <Breadcrumbs />
-            <SanNavbarWrapper />
             <div className="container mt-4">
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -77,10 +75,5 @@ function App() {
   );
 }
 
-// ✅ Wrapper to conditionally show SanNavbar only on `/san/*` routes
-const SanNavbarWrapper = () => {
-  const location = useLocation();
-  return location.pathname.startsWith("/san/") ? <SanNavbar /> : null;
-};
 
 export default App;
