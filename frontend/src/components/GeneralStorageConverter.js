@@ -4,15 +4,15 @@ import "../styles/tools.css"; // Ensure styles are applied
 const units = [
   { label: "Bytes (B)", value: "bytes", factor: 1 },
   { label: "Kilobytes (KB)", value: "kb", factor: 1000 },
-  { label: "Kibibytes (KiB)", value: "kib", factor: 1024 },
   { label: "Megabytes (MB)", value: "mb", factor: 1000000 },
-  { label: "Mebibytes (MiB)", value: "mib", factor: 1048576 },
   { label: "Gigabytes (GB)", value: "gb", factor: 1000000000 },
-  { label: "Gibibytes (GiB)", value: "gib", factor: 1073741824 },
   { label: "Terabytes (TB)", value: "tb", factor: 1000000000000 },
+  { label: "Kibibytes (KiB)", value: "kib", factor: 1024 },
+  { label: "Mebibytes (MiB)", value: "mib", factor: 1048576 },
+  { label: "Gibibytes (GiB)", value: "gib", factor: 1073741824 },
   { label: "Tebibytes (TiB)", value: "tib", factor: 1099511627776 },
-  { label: "Gigabits (Gb)", value: "gigabits", factor: 125000000 },
   { label: "Megabits (Mb)", value: "megabits", factor: 125000 },
+  { label: "Gigabits (Gb)", value: "gigabits", factor: 125000000 },
   { label: "Terabits (Tb)", value: "terabits", factor: 125000000000 },
 ];
 
