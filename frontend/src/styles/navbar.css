@@ -31,6 +31,9 @@
 
 
 /* ✅ Stack customer & project vertically */
+.navbar {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  }
 .navbar-config {
     display: flex;
     flex-direction: column; /* ✅ Stack items vertically */
@@ -50,3 +53,19 @@
 .navbar-config strong {
     color: white;
 }
+
+.nav-link.active {
+    font-weight: bold;
+    border-bottom: 2px solid #0d6efd; /* Bootstrap primary color */
+  }
+
+  .dropdown-menu {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  
+  .dropdown:hover .dropdown-menu {
+    opacity: 1;
+    transform: translateY(0);
+  }
