@@ -17,7 +17,7 @@ import WwpnColonizerPage from "./pages/WWPNColonizerPage";
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
 import NotFound from "./pages/NotFound";
-import IBMStorageCalculatorPage from "./pages/IBMStorageCalculatorPage";
+import StorageCalculatorPage from "./pages/StorageCalculatorPage";
 
 function App() {
   // ✅ Load sidebar state from localStorage
@@ -53,7 +53,7 @@ function App() {
                 <Route path="/config" element={<ConfigPage />} />
                 <Route path="/tools" element={<ToolsPage />} />
                 <Route path="/tools/wwpn-colonizer" element={<WwpnColonizerPage />} />
-                <Route path="/tools/ibm-storage-calculator" element={<IBMStorageCalculatorPage />} />
+                <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
 
                 {/* ✅ Catch-all 404 Route */}
                 <Route path="*" element={<NotFound />} />
