@@ -1,5 +1,5 @@
 import React from "react";
-import StorageTable from "../components/StorageTable";
+import StorageTable from "../components/tables/StorageTable";
 
 const StoragePage = () => {
   return (

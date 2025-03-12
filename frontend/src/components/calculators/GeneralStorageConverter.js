@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "../styles/tools.css"; // Ensure styles are applied
+import "../../styles/tools.css"; // Ensure styles are applied
 
 const units = [
   { label: "Bytes (B)", value: "bytes", factor: 1 },

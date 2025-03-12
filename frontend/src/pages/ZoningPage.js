@@ -1,5 +1,5 @@
 import React from "react";
-import ZoneTable from "../components/ZoneTable";
+import ZoneTable from "../components/tables/ZoneTable";
 
 const ZoningPage = () => {
   return (

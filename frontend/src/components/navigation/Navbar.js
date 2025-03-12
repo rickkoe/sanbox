@@ -2,8 +2,8 @@ import React, { useState, useEffect, useContext } from "react";
 import { NavLink, Link } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import axios from "axios";
-import "./Navbar.css"; // ✅ Import styles
-import { ConfigContext } from "../context/ConfigContext";
+import "../../styles/navbar.css"; // ✅ Import styles
+import { ConfigContext } from "../../context/ConfigContext";
 
 const Navbar = ({ toggleSidebar }) => {
   const { config } = useContext(ConfigContext);

@@ -1,6 +1,6 @@
 import React from "react";
-import FabricTable from "../components/FabricTable";
-import SanNavbar from "../components/SanNavbar";
+import FabricTable from "../components/tables/FabricTable";
+import SanNavbar from "../components/navigation/SanNavbar";
 
 const FabricPage = () => {
   return (

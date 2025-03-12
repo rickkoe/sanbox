@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
-import { ConfigContext } from "../context/ConfigContext";
+import { ConfigContext } from "../../context/ConfigContext";
 
 const ConfigForm = () => {
     const [config, setConfig] = useState(null);

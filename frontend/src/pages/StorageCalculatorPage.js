@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import MainframeStorageCalculator from "../components/MainframeStorageCalculator";
-import IBMiStorageCalculator from "../components/IBMiStorageCalculator";
-import IBMiBlockConverter from "../components/IBMiBlockConverter";
-import DS8kCKDPool from "../components/DS8kCKDPool";
-import GeneralStorageConverter from "../components/GeneralStorageConverter";
-import DataReplicationCalculator from "../components/DataReplicationCalculator";
+import MainframeStorageCalculator from "../components/calculators/MainframeStorageCalculator";
+import IBMiStorageCalculator from "../components/calculators/IBMiStorageCalculator";
+import IBMiBlockConverter from "../components/calculators/IBMiBlockConverter";
+import DS8kCKDPool from "../components/calculators/DS8kCKDPool";
+import GeneralStorageConverter from "../components/calculators/GeneralStorageConverter";
+import DataReplicationCalculator from "../components/calculators/DataReplicationCalculator";
 
 import "../styles/tools.css";
 

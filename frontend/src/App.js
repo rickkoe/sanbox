@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Route, Routes, useLocation } from "react-router-dom";
-import Navbar from "./components/Navbar";
-import Sidebar from "./components/Sidebar";
-import SanNavbar from "./components/SanNavbar";
-import Breadcrumbs from "./components/Breadcrumbs"; 
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
+import Navbar from "./components/navigation/Navbar";
+import Sidebar from "./components/navigation/Sidebar";
+import SanNavbar from "./components/navigation/SanNavbar";
+import Breadcrumbs from "./components/navigation/Breadcrumbs";
 import Home from "./pages/Home";
 import CustomersPage from "./pages/CustomersPage";
 import SanPage from "./pages/SanPage";
@@ -33,10 +38,10 @@ function App() {
   return (
     <Router>
       <ConfigProvider>
-        <SanVendorProvider> 
+        <SanVendorProvider>
           <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
           <Sidebar isOpen={isSidebarOpen} />
-          
+
           {/* ✅ Shift content when sidebar is open */}
           <div className={`app-container ${isSidebarOpen ? "shifted" : ""}`}>
             <Breadcrumbs />
@@ -52,8 +57,14 @@ function App() {
                 <Route path="/san/fabrics" element={<FabricPage />} />
                 <Route path="/config" element={<ConfigPage />} />
                 <Route path="/tools" element={<ToolsPage />} />
-                <Route path="/tools/wwpn-colonizer" element={<WwpnColonizerPage />} />
-                <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
+                <Route
+                  path="/tools/wwpn-colonizer"
+                  element={<WwpnColonizerPage />}
+                />
+                <Route
+                  path="/tools/ibm-storage-calculator"
+                  element={<StorageCalculatorPage />}
+                />
 
                 {/* ✅ Catch-all 404 Route */}
                 <Route path="*" element={<NotFound />} />

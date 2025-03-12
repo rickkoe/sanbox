@@ -1,5 +1,5 @@
 import React from "react";
-import WWPNFormatterTable from "../components/WWPNColonizer";
+import WWPNFormatterTable from "../components/tools/WWPNColonizer";
 
 const WWPNColonizerPage = () => {
   return (

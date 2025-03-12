@@ -1,6 +1,6 @@
 import React from "react";
-import AliasTable from "../components/AliasTable"; // Import AliasTable
-import SanNavbar from "../components/SanNavbar"; // Import the secondary SAN Navbar
+import AliasTable from "../components/tables/AliasTable"; // Import AliasTable
+import SanNavbar from "../components/navigation/SanNavbar"; // Import the secondary SAN Navbar
 
 const AliasPage = () => {
   return (
