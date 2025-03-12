@@ -1,18 +1,15 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useContext } from "react";
 import { Menu } from 'lucide-react';
 import { NavLink, Link, useLocation } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
-import axios from "axios";
 import "../../styles/navbar.css"; // ✅ Import styles
 import { ConfigContext } from "../../context/ConfigContext";
 
-const Navbar = ({ toggleSidebar }) => {
+const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   const { config } = useContext(ConfigContext);
-  const apiUrl = "http://127.0.0.1:8000/api/core/config/";
   const location = useLocation();
   const isSanActive = location.pathname.startsWith('/san');
   const isStorageActive = location.pathname.startsWith('/storage');
-
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -27,8 +24,8 @@ const Navbar = ({ toggleSidebar }) => {
           SANBox
         </NavLink>
 
-        {/* ✅ Display Active Customer & Project */}
-        <div className="navbar-config d-flex gap-1">
+        {/* ✅ Display Active Customer & Project (Adjusted to the right of Sidebar when open) */}
+        <div className="navbar-config">
           <span className="badge bg-secondary">Customer: {config?.customer?.name || 'None'}</span>
           <span className="badge bg-secondary">Project: {config?.project_details?.name || 'None'}</span>
         </div>
@@ -46,23 +43,23 @@ const Navbar = ({ toggleSidebar }) => {
         </button>
 
         <div className="collapse navbar-collapse" id="navbarNav">
-        <ul className="navbar-nav ms-auto gap-2">
+          <ul className="navbar-nav ms-auto gap-2">
             <li className="nav-item">
               <NavLink className="nav-link" to="/customers">Customers</NavLink>
             </li>
 
             {/* SAN Dropdown */}
             <li className="nav-item dropdown">
-            <Link 
-              className={`nav-link dropdown-toggle ${isSanActive ? 'active' : ''}`}
-              to="#"
-              id="sanDropdown"
-              role="button"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
-              SAN
-            </Link>
+              <Link 
+                className={`nav-link dropdown-toggle ${isSanActive ? 'active' : ''}`}
+                to="#" 
+                id="sanDropdown"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                SAN
+              </Link>
               <ul className="dropdown-menu" aria-labelledby="sanDropdown">
                 <li><NavLink className="dropdown-item" to="/san/fabrics">Fabrics</NavLink></li>
                 <li><NavLink className="dropdown-item" to="/san/aliases">Aliases</NavLink></li>
@@ -73,7 +70,7 @@ const Navbar = ({ toggleSidebar }) => {
             {/* Storage Dropdown */}
             <li className="nav-item dropdown">
               <Link 
-              className={`nav-link dropdown-toggle ${isStorageActive ? 'active' : ''}`}
+                className={`nav-link dropdown-toggle ${isStorageActive ? 'active' : ''}`}
                 to="#" 
                 id="storageDropdown" 
                 role="button" 
@@ -97,15 +94,15 @@ const Navbar = ({ toggleSidebar }) => {
 
             {/* ✅ Django Admin Link (Opens in a New Tab) */}
             <li className="nav-item">
-            <a
-              className="nav-link"
-              href="http://127.0.0.1:8000/admin/"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open Django Admin in a new tab"
-            >
-              Admin
-            </a>
+              <a
+                className="nav-link"
+                href="http://127.0.0.1:8000/admin/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open Django Admin in a new tab"
+              >
+                Admin
+              </a>
             </li>
           </ul>
         </div>

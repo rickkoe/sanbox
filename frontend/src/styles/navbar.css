@@ -34,15 +34,18 @@
 .navbar {
     box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
   }
+/* ✅ Ensure Customer & Project always start 250px from the left */
 .navbar-config {
     display: flex;
     flex-direction: column; /* ✅ Stack items vertically */
     align-items: flex-start;  /* ✅ Align text to the right */
-    color: white;
-    font-size: 14px;
-    margin-left: 40px;
-    margin-right: 20px;
-}
+    position: absolute;
+    left: 250px; /* 👈 Always 250px from the left */
+    top: 50%;
+    transform: translateY(-50%); /* ✅ Center vertically */
+    display: flex;
+    gap: 8px;
+  }
 
 .navbar-config .navbar-text {
     font-weight: normal;
