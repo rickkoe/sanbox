@@ -4,7 +4,7 @@ import "../../styles/sidebar.css"; // ✅ Import styles
 
 const Sidebar = ({ isOpen }) => {
     return (
-        <div className={`sidebar ${isOpen ? "open" : "closed"}`}>
+        <div className={`sidebar bg-dark ${isOpen ? "open" : "closed"}`}>
             <ul>
                 <li><Link to="/">Home</Link></li>
                 <li><Link to="/customers">Customers</Link></li>
