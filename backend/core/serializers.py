@@ -16,25 +16,15 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 
 class ConfigSerializer(serializers.ModelSerializer):
-    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all())  # ✅ Used for saving
-    project_details = serializers.SerializerMethodField()  # ✅ Used for GET responses
-    customer = serializers.SerializerMethodField()
-
+    customer = CustomerSerializer(read_only=True)
+    
     class Meta:
         model = Config
         fields = "__all__" 
 
-    def get_customer(self, obj):
-        """Retrieve customer from project"""
-        return {"id": obj.project.customer.id, "name": obj.project.customer.name} if obj.project else None
-
-    def get_project_details(self, obj):
-        """Retrieve full project details for GET requests"""
-        return {"id": obj.project.id, "name": obj.project.name} if obj.project else None
-
     def update(self, instance, validated_data):
         """Ensure project updates correctly"""
-        instance.project = validated_data.get("project", instance.project)  # ✅ Only update the project ID
+        # instance.project = validated_data.get("project", instance.project)  # ✅ Only update the project ID
         instance.san_vendor = validated_data.get("san_vendor", instance.san_vendor)
         instance.cisco_alias = validated_data.get("cisco_alias", instance.cisco_alias)
         instance.cisco_zoning_mode = validated_data.get("cisco_zoning_mode", instance.cisco_zoning_mode)

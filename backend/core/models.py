@@ -2,22 +2,23 @@ from django.db import models
 from customers.models import Customer
 
 class Project(models.Model):
-    customer = models.ForeignKey(
-        Customer, related_name="projects", on_delete=models.CASCADE, db_index=True
-    )
     name = models.CharField(max_length=200)
 
-    class Meta:
-        ordering = ["customer", "name"]
-        unique_together = ["customer", "name"]  # ✅ Merged into a single Meta class
-
     def __str__(self):
-        return f"{self.customer}: {self.name}"
+        return f"{self.name}"
 
 
 class Config(models.Model):
-    project = models.ForeignKey(
-        Project, related_name="configs", on_delete=models.CASCADE, db_index=True
+    customer = models.OneToOneField(
+        Customer, related_name="config", on_delete=models.CASCADE, db_index=True
+    )
+    active_project = models.ForeignKey(
+        "core.Project",
+        related_name="active_configs",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="The currently active project for this customer's config.",
     )
 
     san_vendor = models.CharField(
@@ -54,11 +55,18 @@ class Config(models.Model):
     zoning_job_name = models.CharField(max_length=40, default="default_job")
     smartzone_prefix = models.CharField(max_length=25, default="", blank=True, null=True)
     alias_max_zones = models.IntegerField(default=1)
-
-    # ✅ Automatically get customer from project
-    @property
-    def customer(self):
-        return self.project.customer if self.project else None
+    is_active = models.BooleanField(default=False)  # ✅ Track active config
 
     def __str__(self):
-        return f"Config for {self.project.name}"
+        return f"Config for {self.customer.name}"
+
+    def save(self, *args, **kwargs):
+        """Ensure only one config is active at a time per customer."""
+        if self.is_active:
+            Config.objects.exclude(pk=self.pk).update(is_active=False)
+
+        # Ensure active_project belongs to the customer
+        if self.active_project and self.active_project not in self.customer.projects.all():
+            raise ValueError("The active project must belong to the customer.")
+
+        super().save(*args, **kwargs)
