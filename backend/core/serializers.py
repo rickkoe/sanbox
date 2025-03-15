@@ -17,6 +17,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class ConfigSerializer(serializers.ModelSerializer):
     customer = CustomerSerializer(read_only=True)
+    active_project = ProjectSerializer(read_only=True) 
     
     class Meta:
         model = Config

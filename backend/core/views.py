@@ -6,7 +6,7 @@ from .models import Config, Project
 from customers.models import Customer 
 from .serializers import ConfigSerializer, ProjectSerializer
 from customers.serializers import CustomerSerializer 
-
+from django.http import JsonResponse
 
 class ConfigViewSet(viewsets.ModelViewSet):
     queryset = Config.objects.all()
@@ -14,7 +14,7 @@ class ConfigViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]  # ✅ Enables ?is_active=True filtering
     filterset_fields = ['is_active']
 
-    
+
 @api_view(["PUT", "GET"])
 def config_detail(request):
     """Get or update Config object"""
@@ -53,8 +53,13 @@ def customer_list(request):
     return Response(serializer.data)
 
 # ✅ Fetch projects for a selected customer
-@api_view(["GET"])
+
+
 def projects_for_customer(request, customer_id):
-    projects = Project.objects.filter(customer_id=customer_id)  # ✅ Ensure this works
-    serializer = ProjectSerializer(projects, many=True)
-    return Response(serializer.data)
+    try:
+        customer = Customer.objects.get(id=customer_id)
+        projects = customer.projects.all()  # ✅ Correct way to access ManyToManyField
+        project_data = [{"id": project.id, "name": project.name} for project in projects]
+        return JsonResponse(project_data, safe=False)
+    except Customer.DoesNotExist:
+        return JsonResponse({"error": "Customer not found"}, status=404)

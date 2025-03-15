@@ -8,22 +8,62 @@ const ConfigForm = () => {
     const [projects, setProjects] = useState([]);
     const [unsavedConfig, setUnsavedConfig] = useState(null);  
     const [saveStatus, setSaveStatus] = useState(""); 
-    const {refreshConfig} = useContext(ConfigContext);
+    const { refreshConfig } = useContext(ConfigContext);
 
-    const apiUrl = "http://127.0.0.1:8000/api/core/config/";
+    const apiUrl = "http://127.0.0.1:8000/api/core/configs/";
     const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
     const projectsApiUrl = "http://127.0.0.1:8000/api/core/projects/";
 
     useEffect(() => {
-        axios.get(apiUrl)
-            .then(response => {
+        fetchCustomers();
+    }, []);
 
-                const configData = response.data;
+    useEffect(() => {
+        if (unsavedConfig?.customer) {
+            fetchActiveConfig(unsavedConfig.customer);
+            fetchProjects(unsavedConfig.customer);
+        }
+    }, [unsavedConfig?.customer]);
+
+    const fetchCustomers = async () => {
+        try {
+            const response = await axios.get(customersApiUrl);
+            setCustomers(response.data);
+
+            // ✅ Auto-select the first customer and fetch config
+            if (response.data.length > 0) {
+                setUnsavedConfig(prev => ({ ...prev, customer: String(response.data[0].id) }));
+            }
+        } catch (error) {
+            console.error("❌ Error fetching customers:", error);
+        }
+    };
+
+    const fetchProjects = async (customerId) => {
+        if (!customerId) return;
+        try {
+            const response = await axios.get(`${projectsApiUrl}${customerId}/`);
+            setProjects(response.data);
+        } catch (error) {
+            console.error("❌ Error fetching projects:", error);
+        }
+    };
+
+    const fetchActiveConfig = async (customerId) => {
+        try {
+            console.log(`🔍 Fetching active config for customer ID: ${customerId}`);
+            const response = await axios.get(`${apiUrl}?is_active=True&customer_id=${customerId}`);
+            
+            console.log("✅ API Response:", response.data);
+    
+            if (response.data.length > 0) {
+                const configData = response.data[0];
+                console.log("🎯 Active Config Found:", configData);
+    
                 setConfig(configData);
-
                 setUnsavedConfig({
-                    customer: configData.customer ? String(configData.customer.id) : "",
-                    project: configData.project_details ? String(configData.project_details.id) : "",
+                    customer: String(configData.customer.id),
+                    project: configData.active_project ? String(configData.active_project.id) : "",  // ✅ Set project correctly
                     san_vendor: configData.san_vendor,
                     cisco_alias: configData.cisco_alias,
                     cisco_zoning_mode: configData.cisco_zoning_mode,
@@ -32,69 +72,58 @@ const ConfigForm = () => {
                     smartzone_prefix: configData.smartzone_prefix,
                     alias_max_zones: configData.alias_max_zones,
                 });
-
-                if (configData.customer) fetchProjects(configData.customer.id);
-            })
-            .catch(error => console.error("❌ Error fetching config on load:", error));
-    }, []);
-
-    useEffect(() => {
-        axios.get(customersApiUrl)
-            .then(response => setCustomers(response.data))
-            .catch(error => console.error("Error fetching customers:", error));
-    }, []);
-
-    const fetchProjects = (customerId) => {
-        if (!customerId) return;
-
-        axios.get(`${projectsApiUrl}${customerId}/`)
-            .then(response => setProjects(response.data))
-            .catch(error => console.error("Error fetching projects:", error));
+            } else {
+                console.warn("⚠️ No active config found for this customer.");
+                setConfig(null);
+                setUnsavedConfig(prev => ({ ...prev, project: "" }));
+            }
+        } catch (error) {
+            console.error("❌ Error fetching active config:", error);
+        }
     };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-    
         setUnsavedConfig(prevConfig => ({
             ...prevConfig,
             [name]: value,
-            ...(name === "customer" && { project: "" })  // ✅ Reset project when customer changes
+            ...(name === "customer" && { project: "" }) // ✅ Reset project when customer changes
         }));
-    
+
         if (name === "customer") {
-            fetchProjects(value);  // ✅ Fetch projects for the selected customer
+            fetchProjects(value);
+            fetchActiveConfig(value);
         }
     };
 
-    const handleSave = () => {
-        setSaveStatus("Saving...");  // ✅ Show "Saving..." message
-    
-        axios.put(apiUrl, unsavedConfig)
-            .then(response => {
-                setConfig(response.data);
-                setSaveStatus("Configuration saved successfully! ✅");
-                refreshConfig();
-    
-                document.querySelectorAll("input, select").forEach(el => {
-                    el.classList.add("saved-highlight");
-                });
-    
-                setTimeout(() => {
-                    setSaveStatus("");  // ✅ Reset status
-                    document.querySelectorAll("input, select").forEach(el => {
-                        el.classList.remove("saved-highlight");
-                    });
-                }, 3000);
-            })
-            .catch(error => {
-                console.error("❌ Error saving config:", error);
-                setSaveStatus("⚠️ Error saving configuration! Please try again.");
+    const handleSave = async () => {
+        setSaveStatus("Saving...");  
+
+        try {
+            const response = await axios.put(`${apiUrl}${config.id}/`, unsavedConfig);
+            setConfig(response.data);
+            setSaveStatus("Configuration saved successfully! ✅");
+            refreshConfig();
+
+            document.querySelectorAll("input, select").forEach(el => {
+                el.classList.add("saved-highlight");
             });
+
+            setTimeout(() => {
+                setSaveStatus("");  
+                document.querySelectorAll("input, select").forEach(el => {
+                    el.classList.remove("saved-highlight");
+                });
+            }, 3000);
+        } catch (error) {
+            console.error("❌ Error saving config:", error);
+            setSaveStatus("⚠️ Error saving configuration! Please try again.");
+        }
     };
 
     return (
         <div className="container mt-4">
-            {config && unsavedConfig && (
+            {unsavedConfig && (
                 <form>
                     {/* ✅ Customer Dropdown */}
                     <div className="mb-3">
@@ -105,7 +134,6 @@ const ConfigForm = () => {
                             value={unsavedConfig.customer || ""}
                             onChange={handleInputChange}
                         >
-                            <option value="">Select a Customer</option>
                             {customers.map(customer => (
                                 <option key={customer.id} value={String(customer.id)}>
                                     {customer.name}
@@ -174,38 +202,9 @@ const ConfigForm = () => {
                         </select>
                     </div>
 
-                    {/* ✅ Other Fields */}
-                    <div className="mb-3">
-                        <label className="form-label">Zoning Job Name</label>
-                        <input type="text" className="form-control" name="zoning_job_name" value={unsavedConfig.zoning_job_name} onChange={handleInputChange} />
-                    </div>
-
-                    <div className="mb-3">
-                        <label className="form-label">SmartZone Prefix</label>
-                        <input type="text" className="form-control" name="smartzone_prefix" value={unsavedConfig.smartzone_prefix} onChange={handleInputChange} />
-                    </div>
-
-                    <div className="mb-3">
-                        <label className="form-label">Alias Max Zones</label>
-                        <input type="number" className="form-control" name="alias_max_zones" value={unsavedConfig.alias_max_zones} onChange={handleInputChange} />
-                    </div>
-
-                    <button type="button" className={`btn btn-sm ${saveStatus === "Saving..." ? "btn-secondary" : "btn-secondary"}`} onClick={handleSave} disabled={saveStatus === "Saving..."}>
-                        {saveStatus === "Saving..." ? (
-                            <> <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving... </>
-                        ) : saveStatus.includes("successfully") ? (
-                            <> ✅ Saved </>
-                        ) : (
-                            <> Save </>
-                        )}
+                    <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={saveStatus === "Saving..."}>
+                        {saveStatus || "Save"}
                     </button>
-
-                    {/* ✅ Bootstrap Alert for Save Status */}
-                    {saveStatus && (
-                        <div className={`alert ${saveStatus.includes("Error") ? "alert-danger" : "alert-success"} mt-2`} role="alert">
-                            {saveStatus}
-                        </div>
-                    )}
                 </form>
             )}
         </div>
