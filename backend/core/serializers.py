@@ -26,15 +26,23 @@ class ActiveConfigSerializer(serializers.Serializer):
 
 class ConfigSerializer(serializers.ModelSerializer):
     customer = CustomerSerializer(read_only=True)
-    active_project = ProjectSerializer(read_only=True) 
-    
+    active_project = ProjectSerializer(read_only=True)  # ✅ Keeps full object in response
+    active_project_id = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.all(), source="active_project", write_only=True, required=False
+    )  # ✅ Allows updates using only `id`
+
     class Meta:
         model = Config
-        fields = "__all__" 
+        fields = "__all__"  # ✅ Includes `active_project_id` for writing
 
     def update(self, instance, validated_data):
-        """Ensure project updates correctly"""
-        # instance.project = validated_data.get("project", instance.project)  # ✅ Only update the project ID
+        """Ensure active_project and other fields update correctly"""
+
+        # ✅ Handle active_project updates
+        if "active_project" in validated_data:
+            instance.active_project = validated_data.get("active_project", instance.active_project)
+
+        # ✅ Update other fields
         instance.san_vendor = validated_data.get("san_vendor", instance.san_vendor)
         instance.cisco_alias = validated_data.get("cisco_alias", instance.cisco_alias)
         instance.cisco_zoning_mode = validated_data.get("cisco_zoning_mode", instance.cisco_zoning_mode)
@@ -42,5 +50,6 @@ class ConfigSerializer(serializers.ModelSerializer):
         instance.zoning_job_name = validated_data.get("zoning_job_name", instance.zoning_job_name)
         instance.smartzone_prefix = validated_data.get("smartzone_prefix", instance.smartzone_prefix)
         instance.alias_max_zones = validated_data.get("alias_max_zones", instance.alias_max_zones)
+        
         instance.save()
         return instance

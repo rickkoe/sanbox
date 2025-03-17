@@ -40,6 +40,7 @@ const ConfigForm = () => {
         setLoading(true);
         try {
             const response = await axios.get(customersApiUrl);
+            console.log("📌 Customers Received:", response.data); 
             setCustomers(response.data);
         } catch (error) {
             console.error("❌ Error fetching customers:", error);
@@ -61,19 +62,24 @@ const ConfigForm = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+    
         setUnsavedConfig(prevConfig => ({
             ...prevConfig,
             [name]: value,
-            ...(name === "customer" && { project: "" })  // ✅ Reset project when customer changes
+            ...(name === "customer" && { project: "", active_project_id: "" }),  // ✅ Reset project & active_project_id
+            ...(name === "project" && { active_project_id: value })  // ✅ Ensure active_project_id is set
         }));
-
+    
         if (name === "customer") {
-            fetchProjects(value);
+            fetchProjects(value);  // ✅ Load projects for new customer
         }
     };
 
     const handleSave = async () => {
         setSaveStatus("Saving...");
+
+        console.log("📌 Sending Data:", unsavedConfig); // ✅ Debugging
+
         try {
             await axios.put(`${apiUrl}${config.id}/`, unsavedConfig);
             setSaveStatus("Configuration saved successfully! ✅");
