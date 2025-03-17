@@ -14,6 +14,15 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = "__all__" 
 
+        
+class ActiveConfigSerializer(serializers.Serializer):
+    """Serializer that queries and returns the active config."""
+    def to_representation(self, instance):
+        config = Config.get_active_config()  # ✅ Query active config
+        if not config:
+            return {}  # ✅ Return empty object if no active config found
+
+        return ConfigSerializer(config).data  # ✅ Serialize active config
 
 class ConfigSerializer(serializers.ModelSerializer):
     customer = CustomerSerializer(read_only=True)

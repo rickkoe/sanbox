@@ -1,0 +1,7 @@
+/* ✅ Ensure full project names are visible in dropdown */
+.form-control option {
+    white-space: nowrap;    /* Prevent text wrapping */
+    overflow: visible;      /* Ensure full text visibility */
+    text-overflow: clip;    /* Avoid cutting off text */
+    max-width: none;        /* Ensure full width is used */
+}

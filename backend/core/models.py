@@ -70,3 +70,8 @@ class Config(models.Model):
             raise ValueError("The active project must belong to the customer.")
 
         super().save(*args, **kwargs)
+
+    @classmethod
+    def get_active_config(cls):
+        """Retrieve the active config, if it exists."""
+        return cls.objects.filter(is_active=True).first()  # ✅ Returns one active config or None

@@ -1,10 +1,11 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework import status, viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Config, Project
 from customers.models import Customer 
-from .serializers import ConfigSerializer, ProjectSerializer
+from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer
 from customers.serializers import CustomerSerializer 
 from django.http import JsonResponse
 
@@ -13,6 +14,14 @@ class ConfigViewSet(viewsets.ModelViewSet):
     serializer_class = ConfigSerializer
     filter_backends = [DjangoFilterBackend]  # ✅ Enables ?is_active=True filtering
     filterset_fields = ['is_active']
+
+
+class ActiveConfigView(APIView):
+    """View to return the active config."""
+    def get(self, request):
+        serializer = ActiveConfigSerializer()
+        data = serializer.to_representation(None)
+        return Response(data)
 
 
 @api_view(["PUT", "GET"])
