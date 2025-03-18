@@ -6,6 +6,7 @@ from .models import Alias, Zone, Fabric
 from customers.models import Customer
 from core.models import Config
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer
+from django.db import IntegrityError  # ✅ Catch unique constraint errors
 
 @api_view(["GET", "POST"])
 def alias_list(request):
@@ -139,6 +140,8 @@ class FabricsByCustomerView(APIView):
         serializer = FabricSerializer(fabrics, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+
+
 class SaveFabricsView(APIView):
     def post(self, request):
         customer_id = request.data.get("customer_id")
@@ -153,6 +156,8 @@ class SaveFabricsView(APIView):
             return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
 
         saved_fabrics = []
+        errors = []  # ✅ Collect errors
+
         for fabric_data in fabrics_data:
             fabric_id = fabric_data.get("id")
 
@@ -164,12 +169,25 @@ class SaveFabricsView(APIView):
                     if serializer.is_valid():
                         serializer.save()
                         saved_fabrics.append(serializer.data)
+                    else:
+                        errors.append({"fabric": fabric_data["name"], "errors": serializer.errors})
             else:
                 # ✅ Create new fabric
-                fabric_data["customer"] = customer.id  # ✅ Assign customer to new rows
+                fabric_data["customer"] = customer.id
                 serializer = FabricSerializer(data=fabric_data)
-                if serializer.is_valid():
-                    serializer.save()
-                    saved_fabrics.append(serializer.data)
+                try:
+                    if serializer.is_valid():
+                        serializer.save()
+                        saved_fabrics.append(serializer.data)
+                    else:
+                        errors.append({"fabric": fabric_data["name"], "errors": serializer.errors})
+                except IntegrityError:  # ✅ Catch duplicate errors
+                    errors.append({
+                        "fabric": fabric_data["name"],
+                        "errors": "A fabric with this name already exists for this customer."
+                    })
+
+        if errors:
+            return Response({"error": "Some fabrics could not be saved.", "details": errors}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"message": "Fabrics saved successfully!", "fabrics": saved_fabrics}, status=status.HTTP_200_OK)

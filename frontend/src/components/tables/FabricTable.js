@@ -89,7 +89,7 @@ const FabricTable = () => {
         setSaveStatus("Saving...");
     
         const payload = unsavedFabrics
-            .filter(fabric => fabric.name.trim())  // ✅ Ensure only valid entries are sent
+            .filter(fabric => fabric.name.trim())  // ✅ Only send valid entries
             .map(fabric => ({
                 ...fabric,
                 customer: config.customer.id,  // ✅ Assign customer to new rows
@@ -109,10 +109,23 @@ const FabricTable = () => {
             fetchFabrics(config.customer.id);  // ✅ Refresh table
         } catch (error) {
             console.error("❌ Error saving fabrics:", error);
+        
             if (error.response) {
-                console.error("❌ API Response Error:", error.response.data);
+                console.error("❌ API Response Error:", JSON.stringify(error.response.data, null, 2));
+        
+                if (error.response.data.details) {
+                    const errorMessages = error.response.data.details.map(e => {
+                        const errorText = Object.values(e.errors).flat().join(", "); // ✅ Convert error object to string
+                        return `Can't save fabric name: "${e.fabric}".  ${errorText}`;
+                    });
+        
+                    setSaveStatus(`⚠️ Error: ${errorMessages.join(" | ")}`);
+                } else {
+                    setSaveStatus("⚠️ Error saving fabrics! Please try again.");
+                }
+            } else {
+                setSaveStatus("⚠️ Network error. Try again.");
             }
-            setSaveStatus("⚠️ Error saving fabrics! Please try again.");
         }
     };
 
