@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
 from .models import Alias, Zone, Fabric
+from customers.models import Customer
 from core.models import Config
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer
 
@@ -137,3 +138,37 @@ class FabricsByCustomerView(APIView):
 
         serializer = FabricSerializer(fabrics, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class SaveFabricsView(APIView):
+    def post(self, request):
+        customer_id = request.data.get("customer_id")
+        fabrics_data = request.data.get("fabrics", [])
+
+        if not customer_id or not fabrics_data:
+            return Response({"error": "Customer ID and fabrics data are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
+            return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        saved_fabrics = []
+        for fabric_data in fabrics_data:
+            fabric_id = fabric_data.get("id")
+            if fabric_id:
+                # ✅ Update existing fabric
+                fabric = Fabric.objects.filter(id=fabric_id, customer=customer).first()
+                if fabric:
+                    serializer = FabricSerializer(fabric, data=fabric_data, partial=True)
+                    if serializer.is_valid():
+                        serializer.save()
+                        saved_fabrics.append(serializer.data)
+            else:
+                # ✅ Create new fabric
+                fabric_data["customer"] = customer.id  # Assign customer ID
+                serializer = FabricSerializer(data=fabric_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    saved_fabrics.append(serializer.data)
+
+        return Response({"message": "Fabrics saved successfully!", "fabrics": saved_fabrics}, status=status.HTTP_200_OK)
