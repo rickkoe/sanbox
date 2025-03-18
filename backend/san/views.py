@@ -155,6 +155,7 @@ class SaveFabricsView(APIView):
         saved_fabrics = []
         for fabric_data in fabrics_data:
             fabric_id = fabric_data.get("id")
+
             if fabric_id:
                 # ✅ Update existing fabric
                 fabric = Fabric.objects.filter(id=fabric_id, customer=customer).first()
@@ -165,7 +166,7 @@ class SaveFabricsView(APIView):
                         saved_fabrics.append(serializer.data)
             else:
                 # ✅ Create new fabric
-                fabric_data["customer"] = customer.id  # Assign customer ID
+                fabric_data["customer"] = customer.id  # ✅ Assign customer to new rows
                 serializer = FabricSerializer(data=fabric_data)
                 if serializer.is_valid():
                     serializer.save()

@@ -3,7 +3,7 @@ import axios from "axios";
 import { HotTable } from "@handsontable/react";
 import "handsontable/dist/handsontable.full.css";
 import { registerAllModules } from "handsontable/registry";
-import { ConfigContext } from "../../context/ConfigContext";  // ✅ Import ConfigContext
+import { ConfigContext } from "../../context/ConfigContext";
 import { Button, Alert } from "react-bootstrap";
 
 // Register all Handsontable modules
@@ -12,9 +12,10 @@ registerAllModules();
 const FabricTable = () => {
     const { config, loading: configLoading } = useContext(ConfigContext);
     const [fabrics, setFabrics] = useState([]);
+    const [unsavedFabrics, setUnsavedFabrics] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [saveStatus, setSaveStatus] = useState("");  // ✅ Save status
+    const [saveStatus, setSaveStatus] = useState("");
     const tableRef = useRef(null);
 
     useEffect(() => {
@@ -23,45 +24,87 @@ const FabricTable = () => {
         }
     }, [config]);
 
+    // ✅ Ensure a blank row is always present
+    const ensureBlankRow = (data) => {
+        if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
+            return [...data, { id: null, name: "", zoneset_name: "", vsan: "", exists: false }];
+        }
+        return data;
+    };
+
+    // ✅ Fetch fabrics for the active customer
     const fetchFabrics = async (customerId) => {
         setLoading(true);
         setError(null);
 
         try {
             const response = await axios.get(`http://127.0.0.1:8000/api/san/fabrics/customer/${customerId}/`);
-            const data = response.data.length > 0 ? response.data : [{ id: null, name: "", zoneset_name: "", vsan: "", exists: false }];
+            const data = ensureBlankRow(response.data);
             setFabrics(data);
+            setUnsavedFabrics([...data]);
         } catch (error) {
             console.error("❌ Error fetching fabrics:", error);
             setError("Failed to load fabrics.");
+            setFabrics(ensureBlankRow([]));  // Ensure at least one blank row
         } finally {
             setLoading(false);
         }
     };
 
-    // ✅ Add an empty row when changes are made
-    const handleAfterChange = (changes, source) => {
+    // ✅ Handle table edits & auto-add new row when needed
+    const handleTableChange = (changes, source) => {
         if (!changes || source === "loadData") return;
 
-        const lastRow = fabrics[fabrics.length - 1];
-        if (lastRow.name.trim() || lastRow.zoneset_name.trim()) {
-            setFabrics([...fabrics, { id: null, name: "", zoneset_name: "", vsan: "", exists: false }]);
+        const updatedFabrics = [...unsavedFabrics];
+        let shouldAddNewRow = false;
+
+        changes.forEach(([visualRow, prop, oldValue, newValue]) => {
+            if (oldValue !== newValue) {
+                const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
+                if (physicalRow === null) return;
+
+                updatedFabrics[physicalRow][prop] = newValue;
+
+                // ✅ If editing last row, add a new blank row
+                if (physicalRow === updatedFabrics.length - 1 && newValue.trim() !== "") {
+                    shouldAddNewRow = true;
+                }
+            }
+        });
+
+        if (shouldAddNewRow) {
+            updatedFabrics.push({ id: null, name: "", zoneset_name: "", vsan: "", exists: false });
         }
+
+        setUnsavedFabrics(updatedFabrics);
     };
 
-    // ✅ Save fabrics to the backend
+    // ✅ Save updated & new fabrics
     const handleSave = async () => {
+        if (!config?.customer?.id) {
+            setSaveStatus("⚠️ No active customer selected!");
+            return;
+        }
+    
         setSaveStatus("Saving...");
-
+    
         try {
+            // ✅ Ensure new fabrics include `customer_id`
+            const payload = unsavedFabrics
+                .filter(fabric => fabric.name.trim())  // ✅ Exclude empty rows
+                .map(fabric => ({
+                    ...fabric,
+                    customer: config.customer.id  // ✅ Assign customer to new rows
+                }));
+    
             const response = await axios.post(
                 `http://127.0.0.1:8000/api/san/fabrics/save/`,
-                { customer_id: config.customer.id, fabrics: fabrics.filter(fabric => fabric.name.trim()) }
+                { customer_id: config.customer.id, fabrics: payload }
             );
-
+    
             console.log("✅ Save Response:", response.data);
             setSaveStatus("Fabrics saved successfully! ✅");
-            fetchFabrics(config.customer.id);  // ✅ Refresh data after save
+            fetchFabrics(config.customer.id);  // ✅ Refresh table
         } catch (error) {
             console.error("❌ Error saving fabrics:", error);
             setSaveStatus("⚠️ Error saving fabrics! Please try again.");
@@ -82,7 +125,7 @@ const FabricTable = () => {
                 <>
                     <HotTable
                         ref={tableRef}
-                        data={fabrics}
+                        data={unsavedFabrics}
                         colHeaders={["ID", "Name", "Zoneset Name", "VSAN", "Exists"]}
                         columns={[
                             { data: "id", readOnly: true },
@@ -91,7 +134,7 @@ const FabricTable = () => {
                             { data: "vsan", type: "numeric" },
                             { data: "exists", type: "checkbox" },
                         ]}
-                        afterChange={handleAfterChange}  // ✅ Trigger empty row addition
+                        afterChange={handleTableChange}
                         licenseKey="non-commercial-and-evaluation"
                         className="handsontable"
                         dropdownMenu={true}
@@ -99,12 +142,10 @@ const FabricTable = () => {
                         rowHeaders={false}
                     />
 
-                    {/* ✅ Save Button */}
                     <Button variant="secondary" className="mt-3" onClick={handleSave}>
                         Save Fabrics
                     </Button>
 
-                    {/* ✅ Save Status Message */}
                     {saveStatus && (
                         <Alert variant={saveStatus.includes("Error") ? "danger" : "success"} className="mt-2">
                             {saveStatus}
