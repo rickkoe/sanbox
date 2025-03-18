@@ -33,7 +33,7 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
             <span className="text-light">Loading...</span>
           ) : config ? (
             <>
-              <span className="badge bg-secondary">
+              <span className=" bg-secondary">
                 Customer: <strong>{config.customer?.name || "None"}</strong>
               </span>
               <span className="badge bg-secondary">

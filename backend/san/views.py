@@ -1,5 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework import status
 from .models import Alias, Zone, Fabric
 from core.models import Config
@@ -126,4 +127,13 @@ def zones_for_project(request):
         serializer = ZoneSerializer(zones, many=True)
         return Response(serializer.data)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+class FabricsByCustomerView(APIView):
+    def get(self, request, customer_id):
+        fabrics = Fabric.objects.filter(customer_id=customer_id)  # ✅ Ensure filtering by customer ID
+        if not fabrics.exists():
+            return Response({"error": "No fabrics found for this customer."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = FabricSerializer(fabrics, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
