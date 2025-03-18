@@ -11,7 +11,6 @@ class Fabric(models.Model):
     zoneset_name = models.CharField(max_length=200)
     vsan = models.IntegerField(blank=True, null=True)
     exists = models.BooleanField(default=False)
-    users = models.ManyToManyField(User, related_name='fabric_users')
 
     def __str__(self):
         return f'{self.customer}: {self.name}'

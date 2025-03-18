@@ -88,15 +88,17 @@ const FabricTable = () => {
     
         setSaveStatus("Saving...");
     
-        try {
-            // ✅ Ensure new fabrics include `customer_id`
-            const payload = unsavedFabrics
-                .filter(fabric => fabric.name.trim())  // ✅ Exclude empty rows
-                .map(fabric => ({
-                    ...fabric,
-                    customer: config.customer.id  // ✅ Assign customer to new rows
-                }));
+        const payload = unsavedFabrics
+            .filter(fabric => fabric.name.trim())  // ✅ Ensure only valid entries are sent
+            .map(fabric => ({
+                ...fabric,
+                customer: config.customer.id,  // ✅ Assign customer to new rows
+                vsan: fabric.vsan === "" ? null : fabric.vsan  // ✅ Convert empty vsan to null
+            }));
     
+        console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
+    
+        try {
             const response = await axios.post(
                 `http://127.0.0.1:8000/api/san/fabrics/save/`,
                 { customer_id: config.customer.id, fabrics: payload }
@@ -107,6 +109,9 @@ const FabricTable = () => {
             fetchFabrics(config.customer.id);  // ✅ Refresh table
         } catch (error) {
             console.error("❌ Error saving fabrics:", error);
+            if (error.response) {
+                console.error("❌ API Response Error:", error.response.data);
+            }
             setSaveStatus("⚠️ Error saving fabrics! Please try again.");
         }
     };
