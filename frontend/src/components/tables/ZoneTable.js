@@ -10,26 +10,31 @@ import { Button, Alert } from "react-bootstrap";
 registerAllModules();
 
 const ZoneTable = () => {
-    const { config } = useContext(ConfigContext);  // ✅ Get active config (active project)
+    const { config } = useContext(ConfigContext);
     const [zones, setZones] = useState([]);
     const [unsavedZones, setUnsavedZones] = useState([]);
+    const [fabrics, setFabrics] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [saveStatus, setSaveStatus] = useState("");
     const tableRef = useRef(null);
 
     const zoneApiUrl = "http://127.0.0.1:8000/api/san/zones/project/";
+    const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
 
     useEffect(() => {
         if (config?.active_project?.id) {
             fetchZones(config.active_project.id);
+        }
+        if (config?.customer?.id) {
+            fetchFabrics(config.customer.id);
         }
     }, [config]);
 
     // ✅ Ensure a blank row is always present
     const ensureBlankRow = (data) => {
         if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
-            return [...data, { id: null, name: "", create: false, exists: false, zone_type: "" }];
+            return [...data, { id: null, name: "", fabric: "", create: false, exists: false, zone_type: "smart" }];
         }
         return data;
     };
@@ -50,6 +55,16 @@ const ZoneTable = () => {
             setZones(ensureBlankRow([]));  // Ensure at least one blank row
         } finally {
             setLoading(false);
+        }
+    };
+
+    // ✅ Fetch fabrics for the active customer
+    const fetchFabrics = async (customerId) => {
+        try {
+            const response = await axios.get(`${fabricApiUrl}${customerId}/`);
+            setFabrics(response.data.map(fabric => ({ id: fabric.id, name: fabric.name }))); // ✅ Ensure ID and Name
+        } catch (error) {
+            console.error("❌ Error fetching fabrics:", error);
         }
     };
 
@@ -75,7 +90,7 @@ const ZoneTable = () => {
         });
 
         if (shouldAddNewRow) {
-            updatedZones.push({ id: null, name: "", create: false, exists: false, zone_type: "" });
+            updatedZones.push({ id: null, name: "", fabric: "", create: false, exists: false, zone_type: "smart" });
         }
 
         setUnsavedZones(updatedZones);
@@ -95,6 +110,7 @@ const ZoneTable = () => {
             .map(zone => ({
                 ...zone,
                 projects: [config.active_project.id],  // ✅ Assign project
+                fabric: fabrics.find(f => f.name === zone.fabric_details.name)?.id,  // ✅ Convert fabric name back to ID
             }));
 
         console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
@@ -110,23 +126,7 @@ const ZoneTable = () => {
             fetchZones(config.active_project.id);  // ✅ Refresh table
         } catch (error) {
             console.error("❌ Error saving zones:", error);
-
-            if (error.response) {
-                console.error("❌ API Response Error:", JSON.stringify(error.response.data, null, 2));
-
-                if (error.response.data.details) {
-                    const errorMessages = error.response.data.details.map(e => {
-                        const errorText = Object.values(e.errors).flat().join(", "); // ✅ Convert error object to string
-                        return `Can't save zone name: "${e.zone}".  ${errorText}`;
-                    });
-
-                    setSaveStatus(`⚠️ Error: ${errorMessages.join(" | ")}`);
-                } else {
-                    setSaveStatus("⚠️ Error saving zones! Please try again.");
-                }
-            } else {
-                setSaveStatus("⚠️ Network error. Try again.");
-            }
+            setSaveStatus("⚠️ Error saving zones! Please try again.");
         }
     };
 
@@ -143,10 +143,15 @@ const ZoneTable = () => {
                     <HotTable
                         ref={tableRef}
                         data={unsavedZones}
-                        colHeaders={["ID", "Name", "Create", "Exists", "Zone Type"]}
+                        colHeaders={["ID", "Name", "Fabric", "Create", "Exists", "Zone Type"]}
                         columns={[
                             { data: "id", readOnly: true },
                             { data: "name" },
+                            { 
+                                data: "fabric_details.name", 
+                                type: "dropdown", 
+                                source: fabrics.map(f => f.name)  // ✅ Use fabric names
+                            },
                             { data: "create", type: "checkbox" },
                             { data: "exists", type: "checkbox" },
                             { data: "zone_type", type: "dropdown", source: ["smart", "standard"] },

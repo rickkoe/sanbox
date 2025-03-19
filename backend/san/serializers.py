@@ -65,6 +65,8 @@ class ZoneSerializer(serializers.ModelSerializer):
         queryset=Fabric.objects.all(), required=True
     )  # ✅ Allows assigning fabric by ID
 
+    fabric_details = FabricSerializer(source="fabric", read_only=True)  # ✅ Return full fabric details
+    
     class Meta:
         model = Zone
         fields = "__all__"
