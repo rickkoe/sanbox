@@ -5,11 +5,19 @@ from rest_framework import serializers
 from .models import Alias
 from core.models import Project
 
+
+
+class FabricSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Fabric
+        fields = '__all__'
+
 class AliasSerializer(serializers.ModelSerializer):
     projects = serializers.PrimaryKeyRelatedField(
         queryset=Project.objects.all(), many=True, required=False
     )  # ✅ Allows multiple projects to be assigned
 
+    fabric = FabricSerializer(read_only=True)
     class Meta:
         model = Alias
         fields = "__all__"
@@ -53,9 +61,4 @@ class AliasSerializer(serializers.ModelSerializer):
 class ZoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = Zone
-        fields = '__all__'
-
-class FabricSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Fabric
         fields = '__all__'

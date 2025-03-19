@@ -90,12 +90,12 @@ const AliasTable = () => {
         }
     
         setSaveStatus("Saving...");
-        const payload = aliases
-            .filter(alias => alias.name.trim())  // ✅ Remove empty rows
-            .map(alias => ({
-                ...alias,
-                projects: [config.active_project.id]  // ✅ Assign project ID as a list
-            }));
+        
+        const payload = aliases.map(alias => ({
+            ...alias,
+            projects: [config.active_project.id],  // ✅ Assign project ID as a list
+            fabric: fabrics.find(f => f.name === alias.fabric.name)?.id || alias.fabric.id  // ✅ Convert fabric name back to ID
+        }));
     
         console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
     
@@ -110,16 +110,7 @@ const AliasTable = () => {
             fetchAliases();  // ✅ Refresh table
         } catch (error) {
             console.error("❌ Error saving aliases:", error);
-            if (error.response) {
-                console.error("❌ API Response Error:", error.response.data);
-                if (error.response.data.details) {
-                    setSaveStatus(`⚠️ Error: ${error.response.data.details.map(e => `${e.alias}: ${e.errors}`).join(" | ")}`);
-                } else {
-                    setSaveStatus("⚠️ Error saving aliases! Please try again.");
-                }
-            } else {
-                setSaveStatus("⚠️ Network error. Try again.");
-            }
+            setSaveStatus("⚠️ Error saving aliases! Please try again.");
         }
     };
 
@@ -148,7 +139,7 @@ const AliasTable = () => {
                             { data: "id", readOnly: true },
                             { data: "name" },
                             { data: "wwpn" },
-                            { data: "fabric", type: "dropdown", source: fabrics },  // ✅ Dropdown for fabrics
+                            { data: "fabric.name", type: "dropdown", source: fabrics },  // ✅ Dropdown for fabrics
                             { data: "use", type: "dropdown", source: ["init", "target", "both"] },
                             { data: "create", type: "checkbox" },
                             { data: "include_in_zoning", type: "checkbox" },
