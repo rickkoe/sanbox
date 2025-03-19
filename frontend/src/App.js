@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  BrowserRouter as Router,
-  Route,
-  Routes,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/navigation/Navbar";
 import Sidebar from "./components/navigation/Sidebar";
 import Breadcrumbs from "./components/navigation/Breadcrumbs";
@@ -18,18 +13,18 @@ import FabricPage from "./pages/FabricPage";
 import ConfigPage from "./pages/ConfigPage";
 import ToolsPage from "./pages/ToolsPage";
 import WwpnColonizerPage from "./pages/WWPNColonizerPage";
+import StorageCalculatorPage from "./pages/StorageCalculatorPage";
+import NotFound from "./pages/NotFound";
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
-import NotFound from "./pages/NotFound";
-import StorageCalculatorPage from "./pages/StorageCalculatorPage";
+
+import "./App.css";
 
 function App() {
-  // ✅ Load sidebar state from localStorage
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     JSON.parse(localStorage.getItem("sidebarOpen")) || false
   );
 
-  // ✅ Save sidebar state to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem("sidebarOpen", JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
@@ -38,12 +33,18 @@ function App() {
     <Router>
       <ConfigProvider>
         <SanVendorProvider>
-          <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-          <Sidebar isOpen={isSidebarOpen} />
+          <div className="navbar">
+            <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+          </div>
 
-          {/* ✅ Shift content when sidebar is open */}
-          <div className={`app-container ${isSidebarOpen ? "shifted" : ""}`}>
-            <Breadcrumbs />
+          <div className={`sidebar ${isSidebarOpen ? "open" : "closed"}`}>
+            <Sidebar isOpen={isSidebarOpen} />
+          </div>
+
+          <div className="main-content">
+            <div className="breadcrumb-container">
+              <Breadcrumbs />
+            </div>
             <div className="container mt-4">
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -55,16 +56,8 @@ function App() {
                 <Route path="/san/fabrics" element={<FabricPage />} />
                 <Route path="/config" element={<ConfigPage />} />
                 <Route path="/tools" element={<ToolsPage />} />
-                <Route
-                  path="/tools/wwpn-colonizer"
-                  element={<WwpnColonizerPage />}
-                />
-                <Route
-                  path="/tools/ibm-storage-calculator"
-                  element={<StorageCalculatorPage />}
-                />
-
-                {/* ✅ Catch-all 404 Route */}
+                <Route path="/tools/wwpn-colonizer" element={<WwpnColonizerPage />} />
+                <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
@@ -74,6 +67,5 @@ function App() {
     </Router>
   );
 }
-
 
 export default App;

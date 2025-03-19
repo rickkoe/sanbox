@@ -2,7 +2,6 @@ import React, { useContext } from "react";
 import { Menu } from "lucide-react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "../../styles/navbar.css"; // ✅ Import styles
 import { ConfigContext } from "../../context/ConfigContext";
 
 const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
