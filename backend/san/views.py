@@ -253,7 +253,6 @@ class SaveAliasesView(APIView):
                     serializer = AliasSerializer(alias, data=alias_data, partial=True)
                     if serializer.is_valid():
                         alias = serializer.save()
-                        alias.projects.set(projects_list)  # ✅ Assign multiple projects
                         saved_aliases.append(serializer.data)
                         print(f"✅ Successfully updated Alias ID {alias_id}")
                     else:
@@ -278,3 +277,83 @@ class SaveAliasesView(APIView):
 
         print("✅ All aliases processed successfully.")
         return Response({"message": "Aliases saved successfully!", "aliases": saved_aliases}, status=status.HTTP_200_OK)
+    
+
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+from .models import Zone, Alias
+from core.models import Project
+from .serializers import ZoneSerializer
+
+class ZonesByProjectView(APIView):
+    """
+    Fetch zones belonging to a specific project.
+    """
+    def get(self, request, project_id):
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        zones = Zone.objects.filter(projects=project)  # ✅ Fetch zones linked to this project
+        serializer = ZoneSerializer(zones, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SaveZonesView(APIView):
+    """
+    Save or update zones for multiple projects.
+    """
+    def post(self, request):
+        project_id = request.data.get("project_id")
+        zones_data = request.data.get("zones", [])
+
+        print(f"🔍 Received project_id: {project_id}")
+        print(f"🔍 Received zones_data: {zones_data}")
+
+        if not project_id or not zones_data:
+            return Response({"error": "Project ID and zones data are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        saved_zones = []
+        errors = []
+
+        for zone_data in zones_data:
+            zone_id = zone_data.get("id")
+
+            # Ensure projects is a list (since it's many-to-many)
+            projects_list = zone_data.pop("projects", [project_id])  # ✅ Defaults to the current project
+            members_list = zone_data.pop("members", [])  # ✅ Handle members
+
+            if zone_id:
+                # ✅ Update existing zone
+                zone = Zone.objects.filter(id=zone_id).first()
+                if zone:
+                    serializer = ZoneSerializer(zone, data=zone_data, partial=True)
+                    if serializer.is_valid():
+                        zone = serializer.save()
+                        zone.projects.add(*projects_list)  # ✅ Append projects instead of overwriting
+                        zone.members.add(*members_list)  # ✅ Append members instead of overwriting
+                        saved_zones.append(serializer.data)
+                    else:
+                        errors.append({"zone": zone_data["name"], "errors": serializer.errors})
+            else:
+                # ✅ Create new zone
+                serializer = ZoneSerializer(data=zone_data)
+                if serializer.is_valid():
+                    zone = serializer.save()
+                    zone.projects.add(*projects_list)  # ✅ Append projects instead of overwriting
+                    zone.members.add(*members_list)  # ✅ Append members instead of overwriting
+                    saved_zones.append(serializer.data)
+                else:
+                    errors.append({"zone": zone_data["name"], "errors": serializer.errors})
+
+        if errors:
+            return Response({"error": "Some zones could not be saved.", "details": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"message": "Zones saved successfully!", "zones": saved_zones}, status=status.HTTP_200_OK)

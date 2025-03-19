@@ -37,7 +37,10 @@ class AliasSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update alias and handle many-to-many projects"""
+        print(f'VALIDATED DATA: {validated_data}')
+
         projects = validated_data.pop("projects", None)
+        print(f'PROJECTS TO REMOVE: {projects}')
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -45,11 +48,51 @@ class AliasSerializer(serializers.ModelSerializer):
         instance.save()
 
         if projects is not None:
-            instance.projects.set(projects)  # ✅ Update many-to-many relationship
+            instance.projects.set(*projects)  # ✅ Update many-to-many relationship
 
         return instance
 
 class ZoneSerializer(serializers.ModelSerializer):
+    projects = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.all(), many=True, required=False
+    )  # ✅ Allows multiple projects
+
+    members = serializers.PrimaryKeyRelatedField(
+        queryset=Alias.objects.all(), many=True, required=False
+    )  # ✅ Allows multiple aliases as members
+
+    fabric = serializers.PrimaryKeyRelatedField(
+        queryset=Fabric.objects.all(), required=True
+    )  # ✅ Allows assigning fabric by ID
+
     class Meta:
         model = Zone
-        fields = '__all__'
+        fields = "__all__"
+
+    def create(self, validated_data):
+        """Create zone and properly handle many-to-many fields"""
+        projects = validated_data.pop("projects", [])
+        members = validated_data.pop("members", [])
+
+        zone = Zone.objects.create(**validated_data)
+        zone.projects.add(*projects)  # ✅ Append projects instead of overwriting
+        zone.members.add(*members)  # ✅ Append members instead of overwriting
+        return zone
+
+    def update(self, instance, validated_data):
+        """Update zone and properly handle many-to-many fields"""
+        projects = validated_data.pop("projects", None)
+        members = validated_data.pop("members", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        if projects is not None:
+            instance.projects.add(*projects)  # ✅ Append instead of overwriting
+
+        if members is not None:
+            instance.members.add(*members)  # ✅ Append instead of overwriting
+
+        return instance
