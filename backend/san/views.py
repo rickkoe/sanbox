@@ -201,9 +201,7 @@ from .serializers import AliasSerializer
 from core.models import Project  # Ensure correct import
 
 class AliasListView(APIView):
-    """
-    Fetch aliases belonging to a specific project.
-    """
+    """Fetch aliases belonging to a specific project."""
     def get(self, request, project_id):
         try:
             project = Project.objects.get(id=project_id)
@@ -216,19 +214,24 @@ class AliasListView(APIView):
 
 
 class SaveAliasesView(APIView):
-    """
-    Save or update aliases for multiple projects.
-    """
+    """Save or update aliases for multiple projects."""
+    
     def post(self, request):
+        print("\n🔍 Received alias save request.")
+        print("📩 Request Data:", request.data)
+
         project_id = request.data.get("project_id")
         aliases_data = request.data.get("aliases", [])
 
         if not project_id or not aliases_data:
+            print("⚠️ Missing project_id or aliases_data in request.")
             return Response({"error": "Project ID and aliases data are required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             project = Project.objects.get(id=project_id)
+            print(f"✅ Found Project: {project}")
         except Project.DoesNotExist:
+            print(f"❌ Project ID {project_id} not found.")
             return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
 
         saved_aliases = []
@@ -236,32 +239,42 @@ class SaveAliasesView(APIView):
 
         for alias_data in aliases_data:
             alias_id = alias_data.get("id")
+            print("\n🔄 Processing Alias:", alias_data)
 
             # Ensure projects is a list (since it's many-to-many)
             projects_list = alias_data.pop("projects", [project_id])  # ✅ Defaults to the current project
+            print(f"📌 Projects Assigned: {projects_list}")
 
             if alias_id:
                 # ✅ Update existing alias
                 alias = Alias.objects.filter(id=alias_id).first()
                 if alias:
+                    print(f"✏️ Updating Alias ID {alias_id}: {alias}")
                     serializer = AliasSerializer(alias, data=alias_data, partial=True)
                     if serializer.is_valid():
                         alias = serializer.save()
                         alias.projects.set(projects_list)  # ✅ Assign multiple projects
                         saved_aliases.append(serializer.data)
+                        print(f"✅ Successfully updated Alias ID {alias_id}")
                     else:
                         errors.append({"alias": alias_data["name"], "errors": serializer.errors})
+                        print(f"❌ Alias update failed for {alias_data['name']}: {serializer.errors}")
             else:
                 # ✅ Create new alias
+                print(f"➕ Creating new alias: {alias_data}")
                 serializer = AliasSerializer(data=alias_data)
                 if serializer.is_valid():
                     alias = serializer.save()
                     alias.projects.set(projects_list)  # ✅ Assign multiple projects
                     saved_aliases.append(serializer.data)
+                    print(f"✅ Successfully created new alias: {alias}")
                 else:
                     errors.append({"alias": alias_data["name"], "errors": serializer.errors})
+                    print(f"❌ Alias creation failed for {alias_data['name']}: {serializer.errors}")
 
         if errors:
+            print("⚠️ Some aliases could not be saved.")
             return Response({"error": "Some aliases could not be saved.", "details": errors}, status=status.HTTP_400_BAD_REQUEST)
 
+        print("✅ All aliases processed successfully.")
         return Response({"message": "Aliases saved successfully!", "aliases": saved_aliases}, status=status.HTTP_200_OK)

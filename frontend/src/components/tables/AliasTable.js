@@ -4,16 +4,17 @@ import { HotTable } from "@handsontable/react";
 import "handsontable/dist/handsontable.full.css";
 import { registerAllModules } from "handsontable/registry";
 import { ConfigContext } from "../../context/ConfigContext";
-import { Button } from "react-bootstrap";
+import { Button, Alert } from "react-bootstrap";
 
 // Register all Handsontable modules
 registerAllModules();
 
 const AliasTable = () => {
-    const { config } = useContext(ConfigContext);  // ✅ Get active config (active project & customer)
+    const { config } = useContext(ConfigContext);
     const [aliases, setAliases] = useState([]);
+    const [unsavedAliases, setUnsavedAliases] = useState([]);
     const [fabrics, setFabrics] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [saveStatus, setSaveStatus] = useState("");
     const tableRef = useRef(null);
@@ -21,96 +22,127 @@ const AliasTable = () => {
     const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
 
-    // ✅ Fetch aliases based on the active project
-    const fetchAliases = async () => {
-        if (!config?.active_project?.id) return;
+    useEffect(() => {
+        if (config?.active_project?.id) {
+            fetchAliases(config.active_project.id);
+        }
+        if (config?.customer?.id) {
+            fetchFabrics(config.customer.id);
+        }
+    }, [config]);
+
+    // ✅ Ensure a blank row is always present
+    const ensureBlankRow = (data) => {
+        if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
+            return [...data, { id: null, name: "", wwpn: "", fabric: "", use: "", create: false, include_in_zoning: false }];
+        }
+        return data;
+    };
+
+    // ✅ Fetch aliases for the active project
+    const fetchAliases = async (projectId) => {
         setLoading(true);
+        setError(null);
+
         try {
-            const response = await axios.get(`${aliasApiUrl}${config.active_project.id}/`);
-            console.log("✅ API Response for Aliases:", response.data);  // 🔍 Debugging
-            const aliasData = response.data;
-            aliasData.push({ id: "", name: "", wwpn: "", fabric: "", use: "", create: false, include_in_zoning: false }); // ✅ Add blank row
-            setAliases(aliasData);
+            const response = await axios.get(`${aliasApiUrl}${projectId}/`);
+            const data = ensureBlankRow(response.data);
+            setAliases(data);
+            setUnsavedAliases([...data]);
         } catch (error) {
             console.error("❌ Error fetching aliases:", error);
             setError("Failed to load aliases.");
+            setAliases(ensureBlankRow([]));  // Ensure at least one blank row
         } finally {
             setLoading(false);
         }
     };
 
-    // ✅ Fetch fabrics based on the active customer
-    const fetchFabrics = async () => {
-        if (!config?.customer?.id) return;
+    // ✅ Fetch fabrics for the active customer
+    const fetchFabrics = async (customerId) => {
         try {
-            const response = await axios.get(`${fabricApiUrl}${config.customer.id}/`);
-            setFabrics(response.data.map(fabric => fabric.name));  // ✅ Extract fabric names for dropdown
+            const response = await axios.get(`${fabricApiUrl}${customerId}/`);
+            setFabrics(response.data.map(fabric => ({ id: fabric.id, name: fabric.name }))); // ✅ Ensure ID and Name
         } catch (error) {
             console.error("❌ Error fetching fabrics:", error);
         }
     };
 
-    useEffect(() => {
-        if (config?.active_project?.id) fetchAliases();
-        if (config?.customer?.id) fetchFabrics();
-    }, [config]);  // ✅ Re-fetch when the active config changes
-
-    // ✅ Handle table edits and dynamically add a new row
+    // ✅ Handle table edits & auto-add new row when needed
     const handleTableChange = (changes, source) => {
-        if (source === "edit" && changes) {
-            const updatedAliases = [...aliases];
-            let shouldAddNewRow = false;
+        if (!changes || source === "loadData") return;
 
-            changes.forEach(([visualRow, prop, oldValue, newValue]) => {
-                if (oldValue !== newValue) {
-                    const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
-                    if (physicalRow === null) return;
-                    updatedAliases[physicalRow][prop] = newValue;
+        const updatedAliases = [...unsavedAliases];
+        let shouldAddNewRow = false;
 
-                    // ✅ Add new blank row when the last row is edited
-                    if (physicalRow === updatedAliases.length - 1 && newValue.trim() !== "") {
-                        shouldAddNewRow = true;
-                    }
+        changes.forEach(([visualRow, prop, oldValue, newValue]) => {
+            if (oldValue !== newValue) {
+                const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
+                if (physicalRow === null) return;
+
+                updatedAliases[physicalRow][prop] = newValue;
+
+                // ✅ If editing last row, add a new blank row
+                if (physicalRow === updatedAliases.length - 1 && newValue.trim() !== "") {
+                    shouldAddNewRow = true;
                 }
-            });
-
-            if (shouldAddNewRow) {
-                updatedAliases.push({ id: "", name: "", wwpn: "", fabric: "", use: "", create: false, include_in_zoning: false });
             }
+        });
 
-            setAliases(updatedAliases);
+        if (shouldAddNewRow) {
+            updatedAliases.push({ id: null, name: "", wwpn: "", fabric: "", use: "", create: false, include_in_zoning: false });
         }
+
+        setUnsavedAliases(updatedAliases);
     };
 
-    // ✅ Save aliases to Django backend
+    // ✅ Save updated & new aliases
     const handleSave = async () => {
         if (!config?.active_project?.id) {
             setSaveStatus("⚠️ No active project selected!");
             return;
         }
-    
+
         setSaveStatus("Saving...");
-        
-        const payload = aliases.map(alias => ({
-            ...alias,
-            projects: [config.active_project.id],  // ✅ Assign project ID as a list
-            fabric: fabrics.find(f => f.name === alias.fabric.name)?.id || alias.fabric.id  // ✅ Convert fabric name back to ID
-        }));
-    
+
+        const payload = unsavedAliases
+            .filter(alias => alias.name.trim())  // ✅ Only send valid entries
+            .map(alias => ({
+                ...alias,
+                projects: [config.active_project.id],  // ✅ Assign project
+                fabric: fabrics.find(f => f.name === alias.fabric_details.name)?.id,  // ✅ Convert fabric name back to ID
+            }));
+
         console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
-    
+
         try {
-            const response = await axios.post(`http://127.0.0.1:8000/api/san/aliases/save/`, {
-                project_id: config.active_project.id,
-                aliases: payload
-            });
-    
+            const response = await axios.post(
+                `http://127.0.0.1:8000/api/san/aliases/save/`,
+                { project_id: config.active_project.id, aliases: payload }
+            );
+
             console.log("✅ Save Response:", response.data);
             setSaveStatus("Aliases saved successfully! ✅");
-            fetchAliases();  // ✅ Refresh table
+            fetchAliases(config.active_project.id);  // ✅ Refresh table
         } catch (error) {
             console.error("❌ Error saving aliases:", error);
-            setSaveStatus("⚠️ Error saving aliases! Please try again.");
+
+            if (error.response) {
+                console.error("❌ API Response Error:", JSON.stringify(error.response.data, null, 2));
+
+                if (error.response.data.details) {
+                    const errorMessages = error.response.data.details.map(e => {
+                        const errorText = Object.values(e.errors).flat().join(", "); // ✅ Convert error object to string
+                        return `Can't save alias name: "${e.alias}".  ${errorText}`;
+                    });
+
+                    setSaveStatus(`⚠️ Error: ${errorMessages.join(" | ")}`);
+                } else {
+                    setSaveStatus("⚠️ Error saving aliases! Please try again.");
+                }
+            } else {
+                setSaveStatus("⚠️ Network error. Try again.");
+            }
         }
     };
 
@@ -118,39 +150,46 @@ const AliasTable = () => {
         <div className="container mt-4">
             <h2>Aliases for {config?.active_project?.name || "Project"}</h2>
 
-            {loading && <div className="alert alert-info">Loading aliases...</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
-
-            {!loading && !error && (
+            {loading ? (
+                <Alert variant="info">Loading aliases...</Alert>
+            ) : error ? (
+                <Alert variant="danger">{error}</Alert>
+            ) : (
                 <>
-                    {/* ✅ Save Button */}
-                    <Button className={`btn btn-sm ${saveStatus === "Saving..." ? "btn-secondary" : "btn-primary"} mb-2`}
-                        onClick={handleSave}
-                        disabled={saveStatus === "Saving..."}>
-                        {saveStatus || "Save"}
-                    </Button>
-
-                    {/* ✅ Alias Table */}
                     <HotTable
                         ref={tableRef}
-                        data={aliases}
+                        data={unsavedAliases}
                         colHeaders={["ID", "Name", "WWPN", "Fabric", "Use", "Create", "Include in Zoning"]}
                         columns={[
                             { data: "id", readOnly: true },
                             { data: "name" },
                             { data: "wwpn" },
-                            { data: "fabric.name", type: "dropdown", source: fabrics },  // ✅ Dropdown for fabrics
+                            { 
+                                data: "fabric_details.name", 
+                                type: "dropdown", 
+                                source: fabrics.map(f => f.name)  // ✅ Use fabric names
+                            },
                             { data: "use", type: "dropdown", source: ["init", "target", "both"] },
                             { data: "create", type: "checkbox" },
                             { data: "include_in_zoning", type: "checkbox" },
                         ]}
-                        licenseKey="non-commercial-and-evaluation"
                         afterChange={handleTableChange}
+                        licenseKey="non-commercial-and-evaluation"
                         className="handsontable"
                         dropdownMenu={true}
                         filters={true}
                         rowHeaders={false}
                     />
+
+                    <Button variant="secondary" className="mt-3" onClick={handleSave}>
+                        Save Aliases
+                    </Button>
+
+                    {saveStatus && (
+                        <Alert variant={saveStatus.includes("Error") ? "danger" : "success"} className="mt-2">
+                            {saveStatus}
+                        </Alert>
+                    )}
                 </>
             )}
         </div>

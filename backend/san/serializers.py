@@ -12,30 +12,21 @@ class FabricSerializer(serializers.ModelSerializer):
         model = Fabric
         fields = '__all__'
 
+
 class AliasSerializer(serializers.ModelSerializer):
     projects = serializers.PrimaryKeyRelatedField(
         queryset=Project.objects.all(), many=True, required=False
-    )  # ✅ Allows multiple projects to be assigned
+    )  # ✅ Allows multiple projects
 
-    fabric = FabricSerializer(read_only=True)
+    fabric = serializers.PrimaryKeyRelatedField(
+        queryset=Fabric.objects.all(), required=True  # ✅ Allow writing fabric (ID) in request
+    )
+
+    fabric_details = FabricSerializer(source="fabric", read_only=True)  # ✅ Return full fabric details
+
     class Meta:
         model = Alias
-        fields = "__all__"
-
-    def validate(self, data):
-        """
-        Ensure the alias name is unique within the same fabric for any project.
-        """
-        fabric = data.get("fabric")
-        name = data.get("name")
-        alias_id = self.instance.id if self.instance else None  # Check for updates
-
-        if Alias.objects.filter(fabric=fabric, name=name).exclude(id=alias_id).exists():
-            raise serializers.ValidationError(
-                {"name": f"Alias '{name}' already exists within this fabric."}
-            )
-
-        return data
+        fields = "__all__"  # ✅ Includes both `fabric` (ID) and `fabric_details` (full object)
 
     def create(self, validated_data):
         """Create alias and properly handle many-to-many projects"""
