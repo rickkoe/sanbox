@@ -21,30 +21,23 @@ import { ConfigProvider } from "./context/ConfigContext";
 import "./App.css";
 
 function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(
-    JSON.parse(localStorage.getItem("sidebarOpen")) || false
-  );
-
-  useEffect(() => {
-    localStorage.setItem("sidebarOpen", JSON.stringify(isSidebarOpen));
-  }, [isSidebarOpen]);
 
   return (
     <Router>
       <ConfigProvider>
         <SanVendorProvider>
           <div className="navbar">
-            <Navbar toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+            <Navbar />
           </div>
 
-          <div className={`sidebar ${isSidebarOpen ? "open" : "closed"}`}>
-            <Sidebar isOpen={isSidebarOpen} />
+          <div className="sidebar">
+            <Sidebar />
           </div>
-
-          <div className="main-content">
-            <div className="breadcrumb-container">
+          <div className="breadcrumb-container">
               <Breadcrumbs />
             </div>
+          <div className="main-content">
+
             <div className="container mt-4">
               <Routes>
                 <Route path="/" element={<Home />} />
