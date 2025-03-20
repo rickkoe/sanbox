@@ -1,6 +1,6 @@
 import React from "react";
 import { FaServer, FaCalculator } from "react-icons/fa"; // Import icons from react-icons
-import "../styles/pages.css";
+import "../styles/tools.css";
 
 const ToolsPage = () => {
   return (

@@ -1,10 +1,13 @@
-/* ✅ Style the breadcrumb container */
+/* Breadcrumbs fixed (sticky) */
 .breadcrumb-container {
-    border-radius: 5px;
-    margin-top: 10px;
-}
-
-/* ✅ Style the breadcrumb links */
+    position: sticky;
+    top: 56px;
+    z-index: 1010;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  
+  /* ✅ Style the breadcrumb links */
 .breadcrumb a {
     text-decoration: none;
     color: #007bff;

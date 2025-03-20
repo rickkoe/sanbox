@@ -1,24 +1,38 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+// Navigation Components
 import Navbar from "./components/navigation/Navbar";
 import Sidebar from "./components/navigation/Sidebar";
 import Breadcrumbs from "./components/navigation/Breadcrumbs";
+
+// Pages
 import Home from "./pages/Home";
-import CustomersPage from "./pages/CustomersPage";
 import SanPage from "./pages/SanPage";
-import AliasPage from "./pages/AliasPage";
-import ZoningPage from "./pages/ZoningPage";
 import StoragePage from "./pages/StoragePage";
-import FabricPage from "./pages/FabricPage";
-import ConfigPage from "./pages/ConfigPage";
+import NotFound from "./pages/NotFound";
 import ToolsPage from "./pages/ToolsPage";
 import WwpnColonizerPage from "./pages/WWPNColonizerPage";
 import StorageCalculatorPage from "./pages/StorageCalculatorPage";
-import NotFound from "./pages/NotFound";
+
+// Tables
+import CustomerTable from "./components/tables/CustomerTable";
+import FabricTable from "./components/tables/FabricTable";
+import AliasTable from "./components/tables/AliasTable";
+import ZoneTable from "./components/tables/ZoneTable";
+
+// Forms
+import ConfigForm from "./components/forms/ConfigForm";
+
+// Context
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
 
+// Custom Styles
 import "./App.css";
+import "./styles/navbar.css";
+import "./styles/sidebar.css";
+import "./styles/breadcrumbs.css";
 
 function App() {
 
@@ -41,13 +55,13 @@ function App() {
             <div className="container mt-4">
               <Routes>
                 <Route path="/" element={<Home />} />
-                <Route path="/customers" element={<CustomersPage />} />
+                <Route path="/customers" element={<CustomerTable />} />
                 <Route path="/san" element={<SanPage />} />
-                <Route path="/san/aliases" element={<AliasPage />} />
-                <Route path="/san/zones" element={<ZoningPage />} />
+                <Route path="/san/aliases" element={<AliasTable />} />
+                <Route path="/san/zones" element={<ZoneTable />} />
                 <Route path="/storage" element={<StoragePage />} />
-                <Route path="/san/fabrics" element={<FabricPage />} />
-                <Route path="/config" element={<ConfigPage />} />
+                <Route path="/san/fabrics" element={<FabricTable />} />
+                <Route path="/config" element={<ConfigForm />} />
                 <Route path="/tools" element={<ToolsPage />} />
                 <Route path="/tools/wwpn-colonizer" element={<WwpnColonizerPage />} />
                 <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
