@@ -162,6 +162,10 @@ const AliasTable = () => {
                 <Alert variant="danger">{error}</Alert>
             ) : (
                 <>
+                    {/* Save Button */}
+                    <Button className="save-button" onClick={handleSave}>
+                        Save
+                    </Button>
 
                     <HotTable
                         ref={tableRef}
@@ -186,6 +190,11 @@ const AliasTable = () => {
                         dropdownMenu={true}
                         filters={true}
                         rowHeaders={false}
+                        colWidths={200}
+                        width="100%"
+                        height={320}
+                        autoWrapRow={true}
+                        autoWrapCol={true}
                     />
 
 

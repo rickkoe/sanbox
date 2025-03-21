@@ -1,47 +1,100 @@
-/* handsontable.css */
+/* tables.css - CRITICAL FIXES */
 
 /* Container for the Handsontable and save button */
 .table-container {
     width: 100%;
     height: calc(100vh - 220px); 
-    position: relative;
-    z-index: 30;
+    position: relative !important;
+    z-index: 1 !important;
   }
   
-  /* Ensure Handsontable fills its container */
+  /* Reset any problematic styles */
+  .handsontable * {
+    pointer-events: auto !important;
+  }
+  
+  /* Ensure the table itself is visible and interactive */
   .handsontable {
-  
-    z-index: 300;
+    position: relative !important;
+    z-index: 2 !important;
   }
   
-  /* Make the save button sticky so it stays at the top when scrolling */
-  .save-button {
-    position: sticky;
-    top: 0;
-    z-index: 400;
-    margin-bottom: 1rem;  /* Provides breathing room below the button */
+  /* Critical - this fixes the main interaction issue */
+  .handsontable .wtHolder {
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 1 !important;
   }
   
-  /* Force internal scroll handling */
-  .handsontable .ht_master .wtHolder {
-    overflow: auto !important;
-    z-index: 400;
-
-  }
-
-
-  /* Make the table headers sticky */
-  .handsontable .ht_clone_top {
-    position: sticky;
-    top: 0;
-    z-index: 400;
-
+  /* Make sure all table cells can receive events */
+  .handsontable td {
+    position: relative !important;
+    z-index: 1 !important;
   }
   
-  /* Optional: Style the header cells for a clear look */
+  /* Force all table elements to be accessible */
+  .handsontable .ht_master table,
+  .handsontable .ht_clone_left table,
+  .handsontable .ht_clone_top table,
+  .handsontable .ht_clone_corner table {
+    position: relative !important;
+    z-index: 2 !important;
+  }
+  
+  /* If anything might be covering the table */
+  .main-content {
+    overflow: visible !important;
+  }
+
+  /* Additional CSS to restore table headers */
+
+/* Ensure header row visibility */
+.handsontable .ht_clone_top {
+    position: relative !important;
+    z-index: 3 !important; /* Higher than the base table */
+    display: block !important;
+    visibility: visible !important;
+    overflow: visible !important;
+  }
+  
+  /* Style the header cells */
   .handsontable .ht_clone_top th {
-    background-color: #faf8f9; /* Choose a background that contrasts with the table body */
-    border-bottom: 1px solid #dee2e6;
-    z-index: 400;
-
+    background-color: #faf8f9 !important; 
+    border-bottom: 1px solid #dee2e6 !important;
+    position: relative !important;
+    visibility: visible !important;
+    display: table-cell !important;
   }
+  
+  /* Fix for the master table and its container */
+  .handsontable .ht_master {
+    position: relative !important;
+    z-index: 2 !important;
+    overflow: visible !important;
+  }
+  
+  /* Ensure colHeaders are visible */
+  .handsontable .colHeader {
+    visibility: visible !important;
+    display: table-cell !important;
+  }
+  
+  /* Special fix for the master table header row */
+  .handsontable .ht_master thead {
+    position: relative !important;
+    display: table-header-group !important;
+    visibility: visible !important;
+  }
+  
+  /* Make sure the container is tall enough */
+  .table-container {
+    min-height: 400px !important;
+  }
+
+  /* Fix for Handsontable scrolling */
+
+  .handsontable .hot {
+    overflow: scroll !important;
+  }
+  
+
