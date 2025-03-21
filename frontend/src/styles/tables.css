@@ -3,8 +3,7 @@
 /* Container for the Handsontable and save button */
 .table-container {
     width: 100%;
-    height: calc(100vh - 150px); /* Adjust this value to account for your navbar, breadcrumbs, etc. */
-    overflow: auto;
+    height: calc(100vh - 220px); 
     position: relative;
   }
   
@@ -12,6 +11,7 @@
   .handsontable {
     width: 100% !important;
     min-width: 100%;
+    height: 100%;
   }
   
   /* Make the save button sticky so it stays at the top when scrolling */
@@ -22,6 +22,12 @@
     margin-bottom: 1rem;  /* Provides breathing room below the button */
   }
   
+  /* Force internal scroll handling */
+  .handsontable .ht_master .wtHolder {
+    overflow: auto !important;
+  }
+
+
   /* Make the table headers sticky */
   .handsontable .ht_clone_top {
     position: sticky;
@@ -31,6 +37,6 @@
   
   /* Optional: Style the header cells for a clear look */
   .handsontable .ht_clone_top th {
-    background-color: #f8f9fa; /* Choose a background that contrasts with the table body */
+    background-color: #faf8f9; /* Choose a background that contrasts with the table body */
     border-bottom: 1px solid #dee2e6;
   }

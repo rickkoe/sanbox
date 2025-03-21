@@ -15,17 +15,16 @@
 .navbar {
   grid-area: navbar;
   width: 100%;
-  background-color:rgb(33, 33, 33)
+  background-color:rgb(33, 33, 33);
 }
 
 /* Sidebar on the left */
 .sidebar {
   grid-area: sidebar;
-  overflow-y: auto;
+  /* overflow-y: auto; */
   height: 100%;
   background-color:rgb(33, 33, 33)
 }
-
 
 /* Breadcrumbs or topbar below the navbar, spanning the width except sidebar */
 .topbar {
@@ -39,7 +38,7 @@
 /* Main content area for tables and pages */
 .main-content {
   grid-area: main-content;
-  overflow-y: auto;
+  /* overflow-y: auto; */
   padding: 1rem;
   background: #fff; /* Or another background color */
 }

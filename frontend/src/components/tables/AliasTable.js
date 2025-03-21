@@ -5,7 +5,7 @@ import "handsontable/dist/handsontable.full.css";
 import { registerAllModules } from "handsontable/registry";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Button, Alert } from "react-bootstrap";
-import "../../styles/tables.css";
+// import "../../styles/tables.css";
 
 // Register all Handsontable modules
 registerAllModules();
@@ -152,7 +152,9 @@ const AliasTable = () => {
     };
 
     return (
+        
         <div className="table-container">
+            
 
             {loading ? (
                 <Alert variant="info">Loading aliases...</Alert>
@@ -160,9 +162,6 @@ const AliasTable = () => {
                 <Alert variant="danger">{error}</Alert>
             ) : (
                 <>
-                    <Button className="save-button" onClick={handleSave}>
-                        Save
-                    </Button>
 
                     <HotTable
                         ref={tableRef}
