@@ -11,47 +11,29 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   const isStorageActive = location.pathname.startsWith("/storage");
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav className="navbar navbar-expand-lg navbar-dark ">
       <div className="container-fluid">
         
-        {/* ✅ Sidebar Toggle Button */}
-        <button
-          className="sidebar-toggle-btn btn btn-outline-light btn-sm"
-          onClick={toggleSidebar}
-        >
-          <Menu size={20} />
-        </button>
 
-        <NavLink className="navbar-brand ms-3 fw-bold fs-4" to="/">
-          SANBox
+        <NavLink className="navbar-brand ms-3" to="/">
+          <img src="/images/logo-light.png" alt="Logo" className="logo-image" />
         </NavLink>
 
         {/* ✅ Display Active Project */}
         <div className={`navbar-config ${isSidebarOpen ? "shifted" : ""}`}>
           {loading ? (
             <span className="text-light">Loading...</span>
-          ) : config && config.active_project ? (
+          ) : config && config.customer ? (
             <div className="active-project-card p-2 rounded">
               <span className="active-project">
-                {config.active_project.name}
+                {config.customer.name}
               </span>
             </div>
           ) : (
-            <span className="text-light">No active project</span>
+            <span className="text-light">No active customer</span>
           )}
         </div>
 
-        <button
-          className="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          aria-controls="navbarNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span className="navbar-toggler-icon"></span>
-        </button>
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto gap-2">

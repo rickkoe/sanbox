@@ -131,8 +131,7 @@ const ZoneTable = () => {
     };
 
     return (
-        <div className="container mt-4">
-            <h2>Zones for {config?.active_project?.name || "Project"}</h2>
+        <div className="table-container">
 
             {loading ? (
                 <Alert variant="info">Loading zones...</Alert>
@@ -140,6 +139,9 @@ const ZoneTable = () => {
                 <Alert variant="danger">{error}</Alert>
             ) : (
                 <>
+                    <Button className="save-button" onClick={handleSave}>
+                        Save
+                    </Button>
                     <HotTable
                         ref={tableRef}
                         data={unsavedZones}
@@ -164,12 +166,8 @@ const ZoneTable = () => {
                         rowHeaders={false}
                     />
 
-                    <Button variant="secondary" className="mt-3" onClick={handleSave}>
-                        Save Zones
-                    </Button>
-
                     {saveStatus && (
-                        <Alert variant={saveStatus.includes("Error") ? "danger" : "success"} className="mt-2">
+                        <Alert variant={saveStatus.includes("Error") ? "danger" : "success"}>
                             {saveStatus}
                         </Alert>
                     )}

@@ -152,8 +152,7 @@ const AliasTable = () => {
     };
 
     return (
-        <div className="container mt-4">
-            <h2>Aliases for {config?.active_project?.name || "Project"}</h2>
+        <div className="table-container">
 
             {loading ? (
                 <Alert variant="info">Loading aliases...</Alert>
@@ -161,8 +160,8 @@ const AliasTable = () => {
                 <Alert variant="danger">{error}</Alert>
             ) : (
                 <>
-                    <Button className="save-button mt-3 mb-3" onClick={handleSave}>
-                        Save Aliases
+                    <Button className="save-button" onClick={handleSave}>
+                        Save
                     </Button>
 
                     <HotTable

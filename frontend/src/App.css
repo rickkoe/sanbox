@@ -1,8 +1,45 @@
-/* Main content adjustments */
+/* appLayout.css */
+
+.app-layout {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  grid-template-columns: 250px 1fr; /* Sidebar fixed width and the rest for main content */
+  grid-template-areas:
+    "navbar navbar"
+    "sidebar topbar"
+    "sidebar main-content";
+  height: 100vh;
+}
+
+/* Navbar fixed to the top */
+.navbar {
+  grid-area: navbar;
+  width: 100%;
+  background-color:rgb(33, 33, 33)
+}
+
+/* Sidebar on the left */
+.sidebar {
+  grid-area: sidebar;
+  overflow-y: auto;
+  height: 100%;
+  background-color:rgb(33, 33, 33)
+}
+
+
+/* Breadcrumbs or topbar below the navbar, spanning the width except sidebar */
+.topbar {
+  grid-area: topbar;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa; /* Adjust to your design */
+  border-bottom: 1px solid #ddd;
+  height: 50px;
+}
+
+/* Main content area for tables and pages */
 .main-content {
-  height: calc(100vh - 56px); /* navbar height */
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  z-index: 1000;
+  grid-area: main-content;
+  overflow-y: auto;
+  padding: 1rem;
+  background: #fff; /* Or another background color */
 }

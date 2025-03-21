@@ -127,20 +127,16 @@ const CustomerTable = () => {
     };
 
     return (
-        <div className="container">
+        <div className="table-container">
             {loading && <div className="alert alert-info">Loading customers...</div>}
             {error && <div className="alert alert-danger">{error}</div>}
 
             {!loading && !error && (
                 <>
                     {/* Save Button */}
-                    <button
-                        className={`btn btn-sm ${saveStatus === "Saving..." ? "btn-secondary" : "btn-primary"} mb-2`}
-                        onClick={handleSave}
-                        disabled={saveStatus === "Saving..."}
-                    >
-                        {saveStatus || "Save"}
-                    </button>
+                    <Button className="save-button" onClick={handleSave}>
+                        Save
+                    </Button>
 
                     {/* Customer Table (Handsontable) */}
                     <HotTable

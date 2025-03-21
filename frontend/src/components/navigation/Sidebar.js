@@ -46,10 +46,10 @@ const Sidebar = () => {
   const { config, loading } = useContext(ConfigContext);
 
   return (
-    <div className="sidebar bg-dark">
+    <div className="sidebar">
       {config && config.customer && (
         <div className="active-customer-card text-white rounded shadow">
-          <p className="mb-0">{config.customer.name}</p>
+          <p className="mb-0">{config.active_project.name}</p>
         </div>
       )}
       <ul>

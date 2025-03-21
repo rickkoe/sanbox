@@ -9,8 +9,8 @@ const Breadcrumbs = () => {
     const paths = location.pathname.split("/").filter(path => path);
 
     return (
-        <Container>
-            <div className="breadcrumb-container">
+        
+            <div>
                 <Breadcrumb>
                     <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
                         Home
@@ -25,7 +25,6 @@ const Breadcrumbs = () => {
                     })}
                 </Breadcrumb>
             </div>
-        </Container>
     );
 };
 

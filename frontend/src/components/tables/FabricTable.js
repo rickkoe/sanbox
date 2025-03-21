@@ -130,8 +130,7 @@ const FabricTable = () => {
     };
 
     return (
-        <div className="container mt-4">
-            <h2>Fabrics for {config?.customer?.name || "Customer"}</h2>
+        <div className="table-container">
 
             {configLoading ? (
                 <Alert variant="info">Loading configuration...</Alert>
@@ -140,7 +139,11 @@ const FabricTable = () => {
             ) : error ? (
                 <Alert variant="danger">{error}</Alert>
             ) : (
-                <>
+                <> 
+
+                    <Button className="save-button" onClick={handleSave}>
+                        Save
+                    </Button>
                     <HotTable
                         ref={tableRef}
                         data={unsavedFabrics}
@@ -159,11 +162,6 @@ const FabricTable = () => {
                         filters={true}
                         rowHeaders={false}
                     />
-
-                    <Button variant="secondary" className="mt-3" onClick={handleSave}>
-                        Save Fabrics
-                    </Button>
-
                     {saveStatus && (
                         <Alert variant={saveStatus.includes("Error") ? "danger" : "success"} className="mt-2">
                             {saveStatus}
