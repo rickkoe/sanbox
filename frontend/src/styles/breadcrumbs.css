@@ -2,7 +2,6 @@
 .breadcrumb-container {
     position: sticky;
     top: 56px;
-    z-index: 1010;
     padding-top: 10px;
     padding-bottom: 10px;
   }

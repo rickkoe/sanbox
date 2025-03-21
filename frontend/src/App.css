@@ -9,6 +9,8 @@
     "sidebar topbar"
     "sidebar main-content";
   height: 100vh;
+  overflow: hidden;
+  z-index: 1; 
 }
 
 /* Navbar fixed to the top */
@@ -16,6 +18,8 @@
   grid-area: navbar;
   width: 100%;
   background-color:rgb(33, 33, 33);
+  z-index: 100;
+
 }
 
 /* Sidebar on the left */
@@ -23,7 +27,8 @@
   grid-area: sidebar;
   /* overflow-y: auto; */
   height: 100%;
-  background-color:rgb(33, 33, 33)
+  background-color:rgb(33, 33, 33);
+  z-index: 90;
 }
 
 /* Breadcrumbs or topbar below the navbar, spanning the width except sidebar */
@@ -33,6 +38,7 @@
   background: #f8f9fa; /* Adjust to your design */
   border-bottom: 1px solid #ddd;
   height: 50px;
+  z-index: 80;
 }
 
 /* Main content area for tables and pages */
@@ -41,4 +47,5 @@
   /* overflow-y: auto; */
   padding: 1rem;
   background: #fff; /* Or another background color */
+  z-index: 20; 
 }

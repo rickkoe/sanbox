@@ -30,6 +30,7 @@ import "./App.css";
 import "./styles/navbar.css";
 import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
+import "./styles/tables.css"
 
 function App() {
   return (
@@ -47,7 +48,6 @@ function App() {
               <Breadcrumbs />
             </div>
             <main className="main-content">
-              <div>
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/customers" element={<CustomerTable />} />
@@ -62,7 +62,6 @@ function App() {
                   <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </div>
             </main>
           </div>
         </SanVendorProvider>

@@ -7,42 +7,57 @@
     transform: translateY(-50%); /* ✅ Center vertically */
     display: flex;
     gap: 8px;
+    z-index: 100;
   }
   
   .navbar-config .navbar-text {
     font-weight: normal;
     color: #ccc;
     line-height: .2; /* ✅ Add spacing */
+    z-index: 100;
+
   }
   
   .navbar-config strong {
     color: white;
+    z-index: 100;
+
   }
   
   .nav-link.active {
     font-weight: bold;
     border-bottom: 2px solid #0d6efd; /* Bootstrap primary color */
+    z-index: 100;
+
   }
   
   .dropdown-menu {
     transition: opacity 0.2s ease, transform 0.2s ease;
     opacity: 0;
     transform: translateY(-10px);
+    z-index: 100;
+
   }
   
   .dropdown:hover .dropdown-menu {
     opacity: 1;
     transform: translateY(0);
+    z-index: 100;
+
   }
 
   .active-project {
     font-weight: bold;
     color: #ccc;
     font-size: 1.5rem; /* Increase the font size as desired */
+    z-index: 100;
+
   }
 
   .logo-image {
     height: 40px;
     width: auto;
+    z-index: 100;
+
   }
   
