@@ -26,21 +26,18 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
           SANBox
         </NavLink>
 
-        {/* ✅ Display Active Customer & Project (Adjust position when sidebar is open) */}
-        <div className={`navbar-config d-flex gap-2 ${isSidebarOpen ? "shifted" : ""}`}>
+        {/* ✅ Display Active Project */}
+        <div className={`navbar-config ${isSidebarOpen ? "shifted" : ""}`}>
           {loading ? (
             <span className="text-light">Loading...</span>
-          ) : config ? (
-            <>
-              <span className="badge bg-secondary">
-                Customer: <strong>{config.customer?.name || "None"}</strong>
+          ) : config && config.active_project ? (
+            <div className="active-project-card p-2 rounded">
+              <span className="active-project">
+                {config.active_project.name}
               </span>
-              <span className="badge bg-secondary">
-                Project: <strong>{config.active_project?.name || "None"}</strong>
-              </span>
-            </>
+            </div>
           ) : (
-            <span className="text-light">No active config</span>
+            <span className="text-light">No active project</span>
           )}
         </div>
 

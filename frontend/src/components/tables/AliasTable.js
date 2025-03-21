@@ -5,6 +5,7 @@ import "handsontable/dist/handsontable.full.css";
 import { registerAllModules } from "handsontable/registry";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Button, Alert } from "react-bootstrap";
+import "../../styles/tables.css";
 
 // Register all Handsontable modules
 registerAllModules();
@@ -30,6 +31,10 @@ const AliasTable = () => {
             fetchFabrics(config.customer.id);
         }
     }, [config]);
+
+    useEffect(() => {
+        console.log("AliasTable debug:", { loading, error, config });
+    }, [loading, error, config]);
 
     // ✅ Ensure a blank row is always present
     const ensureBlankRow = (data) => {
@@ -156,6 +161,10 @@ const AliasTable = () => {
                 <Alert variant="danger">{error}</Alert>
             ) : (
                 <>
+                    <Button className="save-button mt-3 mb-3" onClick={handleSave}>
+                        Save Aliases
+                    </Button>
+
                     <HotTable
                         ref={tableRef}
                         data={unsavedAliases}
@@ -181,9 +190,6 @@ const AliasTable = () => {
                         rowHeaders={false}
                     />
 
-                    <Button variant="secondary" className="mt-3" onClick={handleSave}>
-                        Save Aliases
-                    </Button>
 
                     {saveStatus && (
                         <Alert variant={saveStatus.includes("Error") ? "danger" : "success"} className="mt-2">

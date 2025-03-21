@@ -1,4 +1,3 @@
-
 /* Navbar fixed to the top */
 .navbar {
     position: fixed;
@@ -46,5 +45,10 @@
     opacity: 1;
     transform: translateY(0);
   }
-  
+
+  .active-project {
+    font-weight: bold;
+    color: #ccc;
+    font-size: 1.5rem; /* Increase the font size as desired */
+  }
   

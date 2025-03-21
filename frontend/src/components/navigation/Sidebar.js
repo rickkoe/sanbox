@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useContext } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useSanVendor } from "../../context/SanVendorContext";
+import { ConfigContext } from "../../context/ConfigContext";
 import { motion } from "framer-motion";
 
 const getSidebarLinks = (pathname) => {
@@ -38,14 +39,19 @@ const getSidebarLinks = (pathname) => {
   };
 };
 
-const Sidebar = ({ isOpen }) => {
+const Sidebar = () => {
   const location = useLocation();
   const { header, links } = getSidebarLinks(location.pathname);
   const { sanVendor, updateSanVendor } = useSanVendor();
+  const { config, loading } = useContext(ConfigContext);
 
   return (
-    <div className={`sidebar bg-dark ${isOpen ? "open" : "closed"}`}>
-      <h6 className="sidebar-header text-light px-3 pt-3">{header}</h6>
+    <div className="sidebar bg-dark">
+      {config && config.customer && (
+        <div className="active-customer-card text-white rounded shadow">
+          <p className="mb-0">{config.customer.name}</p>
+        </div>
+      )}
       <ul>
         {links.map((link) => (
           <li key={link.path}>

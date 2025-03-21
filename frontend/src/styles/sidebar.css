@@ -11,12 +11,22 @@
     color: white;
     z-index: 1020;
   }
+
+  .active-customer-card {
+    color: #fff;             /* White text for readability */
+    padding: 1rem;           /* Comfortable padding around the text */
+    border-radius: 0.25rem;  /* Slightly rounded corners for a modern look */
+    margin-bottom: 1rem;     /* Spacing below the card */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* A subtle shadow for depth */
+    font-weight: bold;
+    text-transform: uppercase;
+    border-top: 1px solid #495057;
+    border-bottom: 1px solid #495057;
+    font-size: 1.2rem; 
+  }
   
   .sidebar-header {
     padding: 15px;
-    border-bottom: 1px solid #495057;
-    font-weight: bold;
-    text-transform: uppercase;
   }
   
   .sidebar ul {
