@@ -186,6 +186,7 @@ const AliasTable = () => {
                             { data: "create", type: "checkbox" },
                             { data: "include_in_zoning", type: "checkbox" },
                         ]}
+                        columnSorting={true}
                         afterChange={handleTableChange}
                         licenseKey="non-commercial-and-evaluation"
                         className= "htMaterial"
