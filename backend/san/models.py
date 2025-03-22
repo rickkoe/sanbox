@@ -11,6 +11,7 @@ class Fabric(models.Model):
     zoneset_name = models.CharField(max_length=200)
     vsan = models.IntegerField(blank=True, null=True)
     exists = models.BooleanField(default=False)
+    notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.customer}: {self.name}'
@@ -34,7 +35,7 @@ class Alias(models.Model):
     create = models.BooleanField(default=False)
     include_in_zoning = models.BooleanField(default=False)
     host = models.ForeignKey(Host, on_delete=models.SET_NULL, related_name='alias_host', null=True, blank=True)
-
+    notes = models.TextField(null=True, blank=True)
     
     class Meta:
         ordering = ['name']
@@ -43,22 +44,6 @@ class Alias(models.Model):
             ('fabric', 'name'),
         ]
     
-    def __str__(self):
-        return f'{self.fabric.customer}: {self.name}'
-
-
-class ZoneGroup(models.Model):
-    fabric = models.ForeignKey(Fabric, on_delete=models.CASCADE)
-    storage = models.ForeignKey(Storage, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100, unique=False)
-    create = models.BooleanField(default=False)
-    aliases = models.ManyToManyField(Alias)
-    zone_type = models.CharField(max_length=100,choices=[
-        ('smart', 'smart'),
-        ('standard', 'standard'),
-    ])
-    exists = models.BooleanField(default=False)
-
     def __str__(self):
         return f'{self.fabric.customer}: {self.name}'
 
@@ -74,7 +59,7 @@ class Zone(models.Model):
         ('standard', 'standard'),
     ])
     members = models.ManyToManyField(Alias)
-
+    notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.fabric.customer}: {self.name}'

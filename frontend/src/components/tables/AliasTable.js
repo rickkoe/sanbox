@@ -167,12 +167,14 @@ const AliasTable = () => {
             ) : (
                 <>
                     {/* Save Button */}
-
+                    <Button className="save-button" onClick={handleSave}>
+                        Save
+                    </Button>
 
                     <HotTable
                         ref={tableRef}
                         data={unsavedAliases}
-                        colHeaders={["ID", "Name", "WWPN", "Fabric", "Use", "Create", "Include in Zoning"]}
+                        colHeaders={["ID", "Name", "WWPN", "Fabric", "Use", "Create", "Include in Zoning", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true },
                             { data: "name" },
@@ -185,6 +187,7 @@ const AliasTable = () => {
                             { data: "use", type: "dropdown", source: ["init", "target", "both"] },
                             { data: "create", type: "checkbox" },
                             { data: "include_in_zoning", type: "checkbox" },
+                            { data: "notes" },
                         ]}
                         columnSorting={true}
                         afterChange={handleTableChange}

@@ -30,7 +30,8 @@ import "./App.css";
 import "./styles/navbar.css";
 import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
-import "./styles/tables.css"
+import "./styles/tables.css";
+import "./styles/pages.css"
 
 function App() {
   return (

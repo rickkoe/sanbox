@@ -3,6 +3,7 @@ from customers.models import Customer
 
 class Project(models.Model):
     name = models.CharField(max_length=200)
+    notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.name}"

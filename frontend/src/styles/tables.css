@@ -13,3 +13,7 @@
     overflow: scroll;
 
   }
+
+  .save-button {
+    margin-bottom: 10px;
+  }

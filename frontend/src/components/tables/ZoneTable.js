@@ -145,7 +145,7 @@ const ZoneTable = () => {
                     <HotTable
                         ref={tableRef}
                         data={unsavedZones}
-                        colHeaders={["ID", "Name", "Fabric", "Create", "Exists", "Zone Type"]}
+                        colHeaders={["ID", "Name", "Fabric", "Create", "Exists", "Zone Type", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true },
                             { data: "name" },
@@ -157,6 +157,7 @@ const ZoneTable = () => {
                             { data: "create", type: "checkbox" },
                             { data: "exists", type: "checkbox" },
                             { data: "zone_type", type: "dropdown", source: ["smart", "standard"] },
+                            { data: "notes" },
                         ]}
                         columnSorting={true}
                         afterChange={handleTableChange}

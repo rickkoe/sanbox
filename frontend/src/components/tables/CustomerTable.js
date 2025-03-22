@@ -142,10 +142,11 @@ const CustomerTable = () => {
                     <HotTable
                         ref={tableRef}
                         data={unsavedCustomers}
-                        colHeaders={["ID", "Customer Name"]}
+                        colHeaders={["ID", "Customer Name", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true },
-                            { data: "name" }
+                            { data: "name" },
+                            { data: "notes" },
                         ]}
                         licenseKey="non-commercial-and-evaluation"
                         afterChange={handleTableChange}

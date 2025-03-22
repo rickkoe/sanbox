@@ -147,13 +147,14 @@ const FabricTable = () => {
                     <HotTable
                         ref={tableRef}
                         data={unsavedFabrics}
-                        colHeaders={["ID", "Name", "Zoneset Name", "VSAN", "Exists"]}
+                        colHeaders={["ID", "Name", "Zoneset Name", "VSAN", "Exists", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true },
                             { data: "name" },
                             { data: "zoneset_name" },
                             { data: "vsan", type: "numeric" },
                             { data: "exists", type: "checkbox" },
+                            { data: "notes" },
                         ]}
                         columnSorting={true}
                         afterChange={handleTableChange}

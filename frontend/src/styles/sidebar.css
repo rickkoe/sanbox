@@ -1,4 +1,4 @@
-  .active-customer-card {
+.active-customer-card {
     color: #fff;             /* White text for readability */
     padding: 1rem;           /* Comfortable padding around the text */
     border-radius: 0.25rem;  /* Slightly rounded corners for a modern look */
@@ -41,6 +41,9 @@
   }
   
   .sidebar-footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
     padding: 15px;
     border-top: 1px solid #495057;
   }
@@ -53,7 +56,7 @@
     flex: 1;
     font-size: 0.85rem;
   }
-    
+  
   .sidebar-link {
     display: block;
     padding: 10px 15px;
@@ -73,35 +76,28 @@
     border-left: 4px solid #ffffff; /* Adds a left border indicator */
     padding-left: 12px;
   }
-
+  
+  /* Improved SAN Vendor Toggle Styles */
   .toggle-switch {
     display: flex;
     align-items: center;
     justify-content: space-between;
     background-color: #495057;
-    border-radius: 25px;
-    padding: 5px;
-    cursor: pointer;
+    border-radius: 30px; /* Increased border radius for a smoother look */
+    padding: 8px; /* Adjusted padding */
+    margin: 10px; /* Add margin for spacing within the footer */
     position: relative;
-    user-select: none;
+    overflow: hidden;
+    cursor: pointer;
   }
   
   .toggle-label {
     flex: 1;
     text-align: center;
     color: #adb5bd;
-    font-size: 0.85rem;
+    font-size: 1rem; /* Slightly larger font for better readability */
     font-weight: bold;
-  }
-  
-  .toggle-switch {
-    position: relative;
-    display: flex;
-    width: 100%;
-    background-color: #495057;
-    border-radius: 20px;
-    overflow: hidden;
-    cursor: pointer;
+    z-index: 2; /* Ensure the label sits above the toggle thumb */
   }
   
   .toggle-thumb {
@@ -109,8 +105,9 @@
     width: 50%;
     height: 100%;
     background-color: #0d6efd;
-    border-radius: 4rem;
+    border-radius: 30px; /* Match the container's border radius */
     transition: transform 0.3s ease;
+    z-index: 1;
   }
   
   .toggle-switch.BR .toggle-label:first-child,
