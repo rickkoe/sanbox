@@ -1,70 +1,15 @@
-/* tables.css - CRITICAL FIXES */
-
-/* Container for the Handsontable and save button */
 .table-container {
     width: 100%;
-    height: calc(100vh - 200px); 
     position: relative;
     z-index: 1;
   }
   
-  /* Reset any problematic styles */
-  .htMaterial * {
-    pointer-events: auto;
-  }
-  
-  /* Ensure the table itself is visible and interactive */
-  .htMaterial {
-    position: relative;
-    z-index: 2;
-  }
-  
-  /* Critical - this fixes the main interaction issue */
   .handsontable .ht_master .wtHolder {
     overflow-x: auto !important;
     overflow-y: auto !important;
   }
 
-.htMaterial .ht_clone_top {
-    position: sticky;
-    top: 0;
-    z-index: 3; /* Higher than the base table */
-    display: block;
-    visibility: visible;
-    overflow: visible;
-  }
-  
-  /* Style the header cells */
-  .htMaterial .ht_clone_top th {
-    background-color: #faf8f9; 
-    border-bottom: 1px solid #dee2e6;
-    position: relative;
-    visibility: visible;
-  }
-  
   .htMaterial .hot {
     overflow: scroll;
 
   }
-  /* Fix for the master table and its container */
-  .htMaterial .ht_master {
-    position: relative;
-    z-index: 2;
-    overflow: visible;
-  }
-  
-  /* Ensure colHeaders are visible */
-  .htMaterial .colHeader {
-    visibility: visible;
-    display: table-cell;
-  }
-  
-  /* Special fix for the master table header row */
-  .htMaterial .ht_master thead {
-    position: sticky;
-    display: table-header-group;
-    visibility: visible;
-  }
-  
-  
-

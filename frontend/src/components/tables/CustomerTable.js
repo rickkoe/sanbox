@@ -157,13 +157,16 @@ const CustomerTable = () => {
                                 }
                             }
                         }}
-                        className="handsontable htMaterial"
-                        
-                        dropdownMenu
-                        filters
-                        sort
+                        columnSorting={true}
+                        className= "htMaterial"
+                        dropdownMenu={true}
+                        stretchH="all"
+                        filters={true}
                         rowHeaders={false}
-                        selectionMode="multiple"
+                        colWidths={200}
+                        height="calc(100vh - 200px)"
+                        dragToScroll={true}
+                        width="100%"
                     />
 
                     {/* Deletion confirmation modal */}

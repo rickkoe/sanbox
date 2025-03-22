@@ -73,12 +73,18 @@ const StorageTable = () => {
                         { data: "location" },
                         { data: "serial_number" },
                     ]}
-                    licenseKey="non-commercial-and-evaluation"
+                    columnSorting={true}
                     afterChange={handleTableChange}
-                    className="handsontable"
+                    licenseKey="non-commercial-and-evaluation"
+                    className= "htMaterial"
                     dropdownMenu={true}
+                    stretchH="all"
                     filters={true}
                     rowHeaders={false}
+                    colWidths={200}
+                    height="calc(100vh - 200px)"
+                    dragToScroll={true}
+                    width="100%"
                 />
             )}
         </div>

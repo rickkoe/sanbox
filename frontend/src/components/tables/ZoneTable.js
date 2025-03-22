@@ -158,12 +158,18 @@ const ZoneTable = () => {
                             { data: "exists", type: "checkbox" },
                             { data: "zone_type", type: "dropdown", source: ["smart", "standard"] },
                         ]}
+                        columnSorting={true}
                         afterChange={handleTableChange}
                         licenseKey="non-commercial-and-evaluation"
-                        className="handsontable"
+                        className= "htMaterial"
                         dropdownMenu={true}
+                        stretchH="all"
                         filters={true}
                         rowHeaders={false}
+                        colWidths={200}
+                        height="calc(100vh - 200px)"
+                        dragToScroll={true}
+                        width="100%"
                     />
 
                     {saveStatus && (
