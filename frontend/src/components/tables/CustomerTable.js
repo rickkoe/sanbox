@@ -158,6 +158,7 @@ const CustomerTable = () => {
                             }
                         }}
                         className="handsontable htMaterial"
+                        
                         dropdownMenu
                         filters
                         sort

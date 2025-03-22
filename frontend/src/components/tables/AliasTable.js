@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
-import { HotTable } from "@handsontable/react";
 import "handsontable/dist/handsontable.full.css";
 import { registerAllModules } from "handsontable/registry";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Button, Alert } from "react-bootstrap";
-// import "../../styles/tables.css";
+
+import { HotTable, HotColumn } from '@handsontable/react-wrapper';
+import 'handsontable/styles/handsontable.css';
+import 'handsontable/styles/ht-theme-main.css';
+import 'handsontable/styles/ht-theme-horizon.css';
+
 
 // Register all Handsontable modules
 registerAllModules();
@@ -163,9 +167,7 @@ const AliasTable = () => {
             ) : (
                 <>
                     {/* Save Button */}
-                    <Button className="save-button" onClick={handleSave}>
-                        Save
-                    </Button>
+
 
                     <HotTable
                         ref={tableRef}
@@ -186,15 +188,15 @@ const AliasTable = () => {
                         ]}
                         afterChange={handleTableChange}
                         licenseKey="non-commercial-and-evaluation"
-                        className="handsontable"
+                        className= "htMaterial"
                         dropdownMenu={true}
+                        stretchH="all"
                         filters={true}
                         rowHeaders={false}
                         colWidths={200}
+                        height="calc(100vh - 200px)"
+                        dragToScroll={true}
                         width="100%"
-                        height={320}
-                        autoWrapRow={true}
-                        autoWrapCol={true}
                     />
 
 
