@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import { HotTable } from "@handsontable/react";
+import { HotTable, HotColumn } from '@handsontable/react-wrapper';
 import "handsontable/dist/handsontable.full.css";
 import { registerAllModules } from "handsontable/registry";
 
