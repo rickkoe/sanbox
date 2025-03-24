@@ -286,19 +286,17 @@ from .models import Zone, Alias
 from core.models import Project
 from .serializers import ZoneSerializer
 
+
+
 class ZonesByProjectView(APIView):
-    """
-    Fetch zones belonging to a specific project.
-    """
     def get(self, request, project_id):
         try:
             project = Project.objects.get(id=project_id)
+            zones = Zone.objects.filter(projects=project)
+            serializer = ZoneSerializer(zones, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
             return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        zones = Zone.objects.filter(projects=project)  # ✅ Fetch zones linked to this project
-        serializer = ZoneSerializer(zones, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class SaveZonesView(APIView):
@@ -357,3 +355,15 @@ class SaveZonesView(APIView):
             return Response({"error": "Some zones could not be saved.", "details": errors}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"message": "Zones saved successfully!", "zones": saved_zones}, status=status.HTTP_200_OK)
+    
+
+
+class ZonesByProjectView(APIView):
+    def get(self, request, project_id):
+        try:
+            project = Project.objects.get(id=project_id)
+            zones = Zone.objects.filter(projects=project)
+            serializer = ZoneSerializer(zones, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)

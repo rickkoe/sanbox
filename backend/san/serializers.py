@@ -71,6 +71,10 @@ class ZoneSerializer(serializers.ModelSerializer):
         model = Zone
         fields = "__all__"
 
+    def get_members(self, obj):
+        """Return a list of member alias names."""
+        return [alias.name for alias in obj.members.all()]
+    
     def create(self, validated_data):
         """Create zone and properly handle many-to-many fields"""
         projects = validated_data.pop("projects", [])
@@ -98,3 +102,6 @@ class ZoneSerializer(serializers.ModelSerializer):
             instance.members.add(*members)  # ✅ Append instead of overwriting
 
         return instance
+
+
+

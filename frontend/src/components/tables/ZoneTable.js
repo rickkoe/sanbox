@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
-import { HotTable, HotColumn } from '@handsontable/react-wrapper';
+import { HotTable } from "@handsontable/react";
 import "handsontable/dist/handsontable.full.css";
 import { registerAllModules } from "handsontable/registry";
 import { ConfigContext } from "../../context/ConfigContext";
@@ -14,61 +14,80 @@ const ZoneTable = () => {
     const [zones, setZones] = useState([]);
     const [unsavedZones, setUnsavedZones] = useState([]);
     const [fabrics, setFabrics] = useState([]);
+    const [aliases, setAliases] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [saveStatus, setSaveStatus] = useState("");
+    const [memberColumns, setMemberColumns] = useState(1);
+    const [newColumnsCount, setNewColumnsCount] = useState(1); // To capture user input for new columns
     const tableRef = useRef(null);
 
     const zoneApiUrl = "http://127.0.0.1:8000/api/san/zones/project/";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
+    const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
 
     useEffect(() => {
         if (config?.active_project?.id) {
             fetchZones(config.active_project.id);
+            fetchAliases(config.active_project.id);
         }
         if (config?.customer?.id) {
             fetchFabrics(config.customer.id);
         }
     }, [config]);
 
-    // ✅ Ensure a blank row is always present
     const ensureBlankRow = (data) => {
         if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
-            return [...data, { id: null, name: "", fabric: "", create: false, exists: false, zone_type: "smart" }];
+            return [...data, { id: null, name: "", fabric: "", members: [], create: false, exists: false, zone_type: "smart" }];
         }
         return data;
     };
 
-    // ✅ Fetch zones for the active project
     const fetchZones = async (projectId) => {
         setLoading(true);
         setError(null);
-
         try {
             const response = await axios.get(`${zoneApiUrl}${projectId}/`);
-            const data = ensureBlankRow(response.data);
-            setZones(data);
-            setUnsavedZones([...data]);
+            const zones = response.data.map(zone => {
+                // Map members to separate columns
+                const zoneData = { ...zone };
+                zone.members.forEach((memberName, index) => {
+                    zoneData[`member_${index + 1}`] = memberName;
+                });
+                return zoneData;
+            });
+    
+            const dataWithBlankRow = ensureBlankRow(zones);
+            setZones(dataWithBlankRow);
+            setUnsavedZones([...dataWithBlankRow]);
+            setMemberColumns(Math.max(memberColumns, ...zones.map(zone => zone.members.length)));
         } catch (error) {
             console.error("❌ Error fetching zones:", error);
             setError("Failed to load zones.");
-            setZones(ensureBlankRow([]));  // Ensure at least one blank row
+            setZones(ensureBlankRow([]));
         } finally {
             setLoading(false);
         }
     };
 
-    // ✅ Fetch fabrics for the active customer
     const fetchFabrics = async (customerId) => {
         try {
             const response = await axios.get(`${fabricApiUrl}${customerId}/`);
-            setFabrics(response.data.map(fabric => ({ id: fabric.id, name: fabric.name }))); // ✅ Ensure ID and Name
+            setFabrics(response.data.map(fabric => ({ id: fabric.id, name: fabric.name })));
         } catch (error) {
             console.error("❌ Error fetching fabrics:", error);
         }
     };
 
-    // ✅ Handle table edits & auto-add new row when needed
+    const fetchAliases = async (projectId) => {
+        try {
+            const response = await axios.get(`${aliasApiUrl}${projectId}/`);
+            setAliases(response.data.map(alias => ({ id: alias.id, name: alias.name })));
+        } catch (error) {
+            console.error("❌ Error fetching aliases:", error);
+        }
+    };
+
     const handleTableChange = (changes, source) => {
         if (!changes || source === "loadData") return;
 
@@ -82,7 +101,6 @@ const ZoneTable = () => {
 
                 updatedZones[physicalRow][prop] = newValue;
 
-                // ✅ If editing last row, add a new blank row
                 if (physicalRow === updatedZones.length - 1 && newValue.trim() !== "") {
                     shouldAddNewRow = true;
                 }
@@ -90,13 +108,12 @@ const ZoneTable = () => {
         });
 
         if (shouldAddNewRow) {
-            updatedZones.push({ id: null, name: "", fabric: "", create: false, exists: false, zone_type: "smart" });
+            updatedZones.push({ id: null, name: "", fabric: "", members: [], create: false, exists: false, zone_type: "smart" });
         }
 
         setUnsavedZones(updatedZones);
     };
 
-    // ✅ Save updated & new zones
     const handleSave = async () => {
         if (!config?.active_project?.id) {
             setSaveStatus("⚠️ No active project selected!");
@@ -106,11 +123,17 @@ const ZoneTable = () => {
         setSaveStatus("Saving...");
 
         const payload = unsavedZones
-            .filter(zone => zone.name.trim())  // ✅ Only send valid entries
+            .filter(zone => zone.name.trim())
             .map(zone => ({
                 ...zone,
-                projects: [config.active_project.id],  // ✅ Assign project
-                fabric: fabrics.find(f => f.name === zone.fabric_details.name)?.id,  // ✅ Convert fabric name back to ID
+                projects: [config.active_project.id],
+                fabric: fabrics.find(f => f.name === zone.fabric)?.id,
+                members: Array.from({length: memberColumns}, (_, i) => zone[`member_${i + 1}`])
+                    .filter(Boolean)
+                    .map(memberName => {
+                        const foundAlias = aliases.find(alias => alias.name === memberName);
+                        return foundAlias ? foundAlias.id : null;
+                    }).filter(Boolean)
             }));
 
         console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
@@ -123,63 +146,51 @@ const ZoneTable = () => {
 
             console.log("✅ Save Response:", response.data);
             setSaveStatus("Zones saved successfully! ✅");
-            fetchZones(config.active_project.id);  // ✅ Refresh table
+            fetchZones(config.active_project.id);
         } catch (error) {
             console.error("❌ Error saving zones:", error);
             setSaveStatus("⚠️ Error saving zones! Please try again.");
         }
     };
 
+    const handleAddColumns = () => {
+        setMemberColumns(prev => prev + parseInt(newColumnsCount));
+        setNewColumnsCount(1);
+    };
+
     return (
-        <div className="table-container">
-
-            {loading ? (
-                <Alert variant="info">Loading zones...</Alert>
-            ) : error ? (
-                <Alert variant="danger">{error}</Alert>
-            ) : (
-                <>
-                    <Button className="save-button" onClick={handleSave}>
-                        Save
-                    </Button>
-                    <HotTable
-                        ref={tableRef}
-                        data={unsavedZones}
-                        colHeaders={["ID", "Name", "Fabric", "Create", "Exists", "Zone Type", "Notes"]}
-                        columns={[
-                            { data: "id", readOnly: true },
-                            { data: "name" },
-                            { 
-                                data: "fabric_details.name", 
-                                type: "dropdown", 
-                                source: fabrics.map(f => f.name)  // ✅ Use fabric names
-                            },
-                            { data: "create", type: "checkbox" },
-                            { data: "exists", type: "checkbox" },
-                            { data: "zone_type", type: "dropdown", source: ["smart", "standard"] },
-                            { data: "notes" },
-                        ]}
-                        columnSorting={true}
-                        afterChange={handleTableChange}
-                        licenseKey="non-commercial-and-evaluation"
-                        className= "htMaterial"
-                        dropdownMenu={true}
-                        stretchH="all"
-                        filters={true}
-                        rowHeaders={false}
-                        colWidths={200}
-                        height="calc(100vh - 200px)"
-                        dragToScroll={true}
-                        width="100%"
-                    />
-
-                    {saveStatus && (
-                        <Alert variant={saveStatus.includes("Error") ? "danger" : "success"}>
-                            {saveStatus}
-                        </Alert>
-                    )}
-                </>
-            )}
+        <div className="container mt-4">
+            <h2>Zones for {config?.active_project?.name || "Project"}</h2>
+            <div>
+                <input 
+                    type="number" 
+                    value={newColumnsCount} 
+                    onChange={(e) => setNewColumnsCount(e.target.value)} 
+                    min="1"
+                />
+                <Button onClick={handleAddColumns} className="ms-2">Add Columns</Button>
+            </div>
+            <Button className="save-button" onClick={handleSave}>Save</Button>
+            <HotTable
+                ref={tableRef}
+                data={unsavedZones}
+                colHeaders={["ID", "Name", "Fabric", "Create", "Exists", "Zone Type", "Notes", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
+                columns={[
+                    { data: "id", readOnly: true },
+                    { data: "name" },
+                    { data: "fabric", type: "dropdown", source: fabrics.map(f => f.name) },
+                    { data: "create", type: "checkbox" },
+                    { data: "exists", type: "checkbox" },
+                    { data: "zone_type", type: "dropdown", source: ["smart", "standard"] },
+                    { data: "notes" },
+                    ...Array.from({length: memberColumns}, (_, i) => ({ data: `member_${i + 1}`, type: "dropdown", source: aliases.map(alias => alias.name) })),
+                ]}
+                afterChange={handleTableChange}
+                licenseKey="non-commercial-and-evaluation"
+                dropdownMenu={true}
+                filters={true}
+                rowHeaders={false}
+            />
         </div>
     );
 };
