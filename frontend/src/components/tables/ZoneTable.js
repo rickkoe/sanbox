@@ -49,7 +49,6 @@ const ZoneTable = () => {
         try {
             const response = await axios.get(`${zoneApiUrl}${projectId}/`);
             const zones = response.data.map(zone => {
-                // Map members to separate columns
                 const zoneData = { ...zone };
                 zone.members.forEach((memberName, index) => {
                     zoneData[`member_${index + 1}`] = memberName;
@@ -60,7 +59,10 @@ const ZoneTable = () => {
             const dataWithBlankRow = ensureBlankRow(zones);
             setZones(dataWithBlankRow);
             setUnsavedZones([...dataWithBlankRow]);
-            setMemberColumns(Math.max(memberColumns, ...zones.map(zone => zone.members.length)));
+    
+            const maxMembers = Math.max(...zones.map(zone => zone.members.length), 1);
+            setMemberColumns(maxMembers);  // Ensure the columns match the maximum number of members in any zone
+    
         } catch (error) {
             console.error("❌ Error fetching zones:", error);
             setError("Failed to load zones.");
