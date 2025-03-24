@@ -61,6 +61,8 @@ class ZoneSerializer(serializers.ModelSerializer):
         queryset=Alias.objects.all(), many=True, required=False
     )  # ✅ Allows multiple aliases as members
 
+    members_details = serializers.SerializerMethodField()  # ✅ Add this line
+
     fabric = serializers.PrimaryKeyRelatedField(
         queryset=Fabric.objects.all(), required=True
     )  # ✅ Allows assigning fabric by ID
@@ -71,9 +73,9 @@ class ZoneSerializer(serializers.ModelSerializer):
         model = Zone
         fields = "__all__"
 
-    def get_members(self, obj):
+    def get_members_details(self, obj):
         """Return a list of member alias names."""
-        return [alias.name for alias in obj.members.all()]
+        return [{"id": alias.id, "name": alias.name} for alias in obj.members.all()]  # ✅ Returning list of alias objects
     
     def create(self, validated_data):
         """Create zone and properly handle many-to-many fields"""

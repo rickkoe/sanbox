@@ -50,8 +50,8 @@ const ZoneTable = () => {
             const response = await axios.get(`${zoneApiUrl}${projectId}/`);
             const zones = response.data.map(zone => {
                 const zoneData = { ...zone };
-                zone.members.forEach((memberName, index) => {
-                    zoneData[`member_${index + 1}`] = memberName;
+                zone.members_details.forEach((member, index) => {
+                    zoneData[`member_${index + 1}`] = member.name;
                 });
                 return zoneData;
             });
@@ -75,7 +75,7 @@ const ZoneTable = () => {
     const fetchFabrics = async (customerId) => {
         try {
             const response = await axios.get(`${fabricApiUrl}${customerId}/`);
-            setFabrics(response.data.map(fabric => ({ id: fabric.id, name: fabric.name })));
+            setFabrics(response.data.map(fabric_details => ({ id: fabric_details.id, name: fabric_details.name })));
         } catch (error) {
             console.error("❌ Error fetching fabrics:", error);
         }
@@ -180,12 +180,16 @@ const ZoneTable = () => {
                 columns={[
                     { data: "id", readOnly: true },
                     { data: "name" },
-                    { data: "fabric", type: "dropdown", source: fabrics.map(f => f.name) },
+                    { data: "fabric_details.name", type: "dropdown", source: fabrics.map(f => f.name) },
                     { data: "create", type: "checkbox" },
                     { data: "exists", type: "checkbox" },
                     { data: "zone_type", type: "dropdown", source: ["smart", "standard"] },
                     { data: "notes" },
-                    ...Array.from({length: memberColumns}, (_, i) => ({ data: `member_${i + 1}`, type: "dropdown", source: aliases.map(alias => alias.name) })),
+                    ...Array.from({length: memberColumns}, (_, i) => ({ 
+                        data: `member_${i + 1}`,
+                        type: "dropdown", 
+                        source: aliases.map(alias => alias.name)
+                    })),
                 ]}
                 afterChange={handleTableChange}
                 licenseKey="non-commercial-and-evaluation"
