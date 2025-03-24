@@ -161,18 +161,13 @@ const ZoneTable = () => {
     };
 
     return (
-        <div className="container mt-4">
+        <div className="table-container">
             <h2>Zones for {config?.active_project?.name || "Project"}</h2>
             <div>
-                <input 
-                    type="number" 
-                    value={newColumnsCount} 
-                    onChange={(e) => setNewColumnsCount(e.target.value)} 
-                    min="1"
-                />
-                <Button onClick={handleAddColumns} className="ms-2">Add Columns</Button>
+                <Button className="save-button" onClick={handleSave}>Save</Button>
+                <Button onClick={handleAddColumns} className="save-button">Add Member Columns</Button>
             </div>
-            <Button className="save-button" onClick={handleSave}>Save</Button>
+            
             <HotTable
                 ref={tableRef}
                 data={unsavedZones}
@@ -193,9 +188,16 @@ const ZoneTable = () => {
                 ]}
                 afterChange={handleTableChange}
                 licenseKey="non-commercial-and-evaluation"
+                columnSorting={true}
+                className= "htMaterial"
                 dropdownMenu={true}
+                stretchH="all"
                 filters={true}
                 rowHeaders={false}
+                colWidths={200}
+                height="calc(100vh - 200px)"
+                dragToScroll={true}
+                width="100%"
             />
         </div>
     );
