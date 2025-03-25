@@ -329,26 +329,31 @@ class SaveZonesView(APIView):
             members_list = zone_data.pop("members", [])  # ✅ Handle members
 
             if zone_id:
-                # ✅ Update existing zone
+                print(f'updating existing zone {zone_id}')
                 zone = Zone.objects.filter(id=zone_id).first()
                 if zone:
                     serializer = ZoneSerializer(zone, data=zone_data, partial=True)
                     if serializer.is_valid():
                         zone = serializer.save()
                         zone.projects.add(*projects_list)  # ✅ Append projects instead of overwriting
-                        zone.members.add(*members_list)  # ✅ Append members instead of overwriting
+                        member_ids = [member.get('alias') for member in members_list if member.get('alias')]
+                        zone.members.set(member_ids)
                         saved_zones.append(serializer.data)
                     else:
                         errors.append({"zone": zone_data["name"], "errors": serializer.errors})
             else:
-                # ✅ Create new zone
+                print(f'creating new zone {zone_data['name']}')
                 serializer = ZoneSerializer(data=zone_data)
+                print(f'SERIALIZER:{serializer}')
                 if serializer.is_valid():
+                    print(f'SERIALIZER:{serializer}')
                     zone = serializer.save()
                     zone.projects.add(*projects_list)  # ✅ Append projects instead of overwriting
-                    zone.members.add(*members_list)  # ✅ Append members instead of overwriting
+                    member_ids = [member.get('alias') for member in members_list if member.get('alias')]
+                    zone.members.set(member_ids)
                     saved_zones.append(serializer.data)
                 else:
+                    print("WAAAAAAA")
                     errors.append({"zone": zone_data["name"], "errors": serializer.errors})
 
         if errors:

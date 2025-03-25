@@ -49,7 +49,7 @@ const ZoneTable = () => {
         try {
             const response = await axios.get(`${zoneApiUrl}${projectId}/`);
             const zones = response.data.map(zone => {
-                const zoneData = { ...zone };
+                const zoneData = { ...zone, fabric: zone.fabric_details?.name || zone.fabric };
                 zone.members_details.forEach((member, index) => {
                     zoneData[`member_${index + 1}`] = member.name;
                 });
@@ -75,7 +75,7 @@ const ZoneTable = () => {
     const fetchFabrics = async (customerId) => {
         try {
             const response = await axios.get(`${fabricApiUrl}${customerId}/`);
-            setFabrics(response.data.map(fabric_details => ({ id: fabric_details.id, name: fabric_details.name })));
+            setFabrics(response.data.map(fabric => ({ id: fabric.id, name: fabric.name })));
         } catch (error) {
             console.error("❌ Error fetching fabrics:", error);
         }
@@ -84,7 +84,13 @@ const ZoneTable = () => {
     const fetchAliases = async (projectId) => {
         try {
             const response = await axios.get(`${aliasApiUrl}${projectId}/`);
-            setAliases(response.data.map(alias => ({ id: alias.id, name: alias.name })));
+            console.log("Aliases",response.data)
+            setAliases(response.data.map(alias => ({
+                id: alias.id,
+                name: alias.name,
+                fabric: alias.fabric_details?.name,
+                include_in_zoning: alias.include_in_zoning
+            })));
         } catch (error) {
             console.error("❌ Error fetching aliases:", error);
         }
@@ -130,17 +136,24 @@ const ZoneTable = () => {
                 ...zone,
                 projects: [config.active_project.id],
                 fabric: fabrics.find(f => f.name === zone.fabric)?.id,
-                members: Array.from({length: memberColumns}, (_, i) => zone[`member_${i + 1}`])
-                    .filter(Boolean)
-                    .map(memberName => {
-                        const foundAlias = aliases.find(alias => alias.name === memberName);
-                        return foundAlias ? foundAlias.id : null;
-                    }).filter(Boolean)
+                members: Array.from({ length: memberColumns }, (_, i) => {
+                    const memberName = zone[`member_${i + 1}`];
+                    if (!memberName) return null;
+                    const foundAlias = aliases.find(alias => alias.name === memberName);
+                    if (!foundAlias) return null;
+                    // If an existing member detail exists for this slot, include its id for updating
+                    if (zone.members_details && zone.members_details[i] && zone.members_details[i].id) {
+                        return { id: zone.members_details[i].id, alias: foundAlias.id };
+                    }
+                    // Otherwise, return the new member data
+                    return { alias: foundAlias.id };
+                }).filter(Boolean)
             }));
 
         console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
 
         try {
+            console.log("PROJECT ID", payload)
             const response = await axios.post(
                 `http://127.0.0.1:8000/api/san/zones/save/`,
                 { project_id: config.active_project.id, zones: payload }
@@ -166,35 +179,74 @@ const ZoneTable = () => {
             <div>
                 <Button className="save-button" onClick={handleSave}>Save</Button>
                 <Button onClick={handleAddColumns} className="save-button">Add Member Columns</Button>
+                <Button className="save-button"> Generate Zoning Scripts </Button>
             </div>
             
             <HotTable
                 ref={tableRef}
                 data={unsavedZones}
-                colHeaders={["ID", "Name", "Fabric", "Create", "Exists", "Zone Type", "Notes", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
+                colHeaders={["ID", "Name", "Fabric",  "Notes", "Create", "Exists", "Zone Type", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
                 columns={[
                     { data: "id", readOnly: true },
                     { data: "name" },
-                    { data: "fabric_details.name", type: "dropdown", source: fabrics.map(f => f.name) },
+                    { data: "fabric", type: "dropdown", source: fabrics.map(f => f.name) },
+                    { data: "notes" },
                     { data: "create", type: "checkbox" },
                     { data: "exists", type: "checkbox" },
                     { data: "zone_type", type: "dropdown", source: ["smart", "standard"] },
-                    { data: "notes" },
-                    ...Array.from({length: memberColumns}, (_, i) => ({ 
-                        data: `member_${i + 1}`,
-                        type: "dropdown", 
-                        source: aliases.map(alias => alias.name)
-                    })),
+                    ...Array.from({ length: memberColumns }, (_, i) => ({ data: `member_${i + 1}` })),
                 ]}
+                cells={(row, col) => {
+                    // Ensure the tableRef and its hotInstance are available
+                    if (!tableRef.current || !tableRef.current.hotInstance) {
+                      return {};
+                    }
+                    // Member columns are assumed to start at index 7
+                    if (col >= 7) {
+                      const rowData = tableRef.current.hotInstance.getSourceDataAtRow(row);
+                      if (!rowData) return {};
+                      const rowFabric = rowData.fabric_details?.name || rowData.fabric;
+                      // Determine which member field this is (e.g. member_1, member_2, etc.)
+                      const memberIndex = col - 6; // since col 7 -> member_1, etc.
+                      const currentValue = rowData[`member_${memberIndex}`];
+                  
+                      // Gather all alias names used in member columns from all rows except the current row.
+                      const allRows = tableRef.current.hotInstance.getSourceData();
+                      const usedAliases = new Set();
+                      allRows.forEach((data, idx) => {
+                        if (idx !== row) {
+                          for (let i = 1; i <= memberColumns; i++) {
+                            const aliasValue = data[`member_${i}`];
+                            if (aliasValue && aliasValue.trim() !== "") {
+                              usedAliases.add(aliasValue);
+                            }
+                          }
+                        }
+                      });
+                  
+                      return {
+                        type: "dropdown",
+                        source: aliases
+                          .filter(alias => 
+                            alias.fabric === rowFabric &&
+                            alias.include_in_zoning === true
+                          )
+                          .filter(alias => {
+                            // Always include the current selection even if it's used elsewhere
+                            if (alias.name === currentValue) return true;
+                            return !usedAliases.has(alias.name);
+                          })
+                          .map(alias => alias.name)
+                      };
+                    }
+                  }}
                 afterChange={handleTableChange}
                 licenseKey="non-commercial-and-evaluation"
                 columnSorting={true}
                 className= "htMaterial"
                 dropdownMenu={true}
-                stretchH="all"
                 filters={true}
                 rowHeaders={false}
-                colWidths={200}
                 height="calc(100vh - 200px)"
                 dragToScroll={true}
                 width="100%"
