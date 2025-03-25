@@ -44,8 +44,14 @@ const FabricTable = () => {
             setUnsavedFabrics([...data]);
         } catch (error) {
             console.error("❌ Error fetching fabrics:", error);
-            setError("Failed to load fabrics.");
-            setFabrics(ensureBlankRow([]));  // Ensure at least one blank row
+            if (error.response && error.response.status === 404) {
+                // If no fabrics exist, treat it as empty and ensure a blank row is present
+                setFabrics(ensureBlankRow([]));
+                setUnsavedFabrics(ensureBlankRow([]));
+            } else {
+                setError("Failed to load fabrics.");
+                setFabrics(ensureBlankRow([]));  // Ensure at least one blank row
+            }
         } finally {
             setLoading(false);
         }
@@ -140,10 +146,9 @@ const FabricTable = () => {
                 <Alert variant="danger">{error}</Alert>
             ) : (
                 <> 
-
-                    <Button className="save-button" onClick={handleSave}>
-                        Save
-                    </Button>
+                    <div>
+                        <Button className="save-button" onClick={handleSave}>Save</Button>
+                    </div>
                     <HotTable
                         ref={tableRef}
                         data={unsavedFabrics}

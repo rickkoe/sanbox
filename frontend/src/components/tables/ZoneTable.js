@@ -175,7 +175,6 @@ const ZoneTable = () => {
 
     return (
         <div className="table-container">
-            <h2>Zones for {config?.active_project?.name || "Project"}</h2>
             <div>
                 <Button className="save-button" onClick={handleSave}>Save</Button>
                 <Button onClick={handleAddColumns} className="save-button">Add Member Columns</Button>

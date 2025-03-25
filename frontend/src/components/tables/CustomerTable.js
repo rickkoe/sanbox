@@ -133,10 +133,9 @@ const CustomerTable = () => {
 
             {!loading && !error && (
                 <>
-                    {/* Save Button */}
-                    <Button className="save-button" onClick={handleSave}>
-                        Save
-                    </Button>
+                    <div>
+                        <Button className="save-button" onClick={handleSave}>Save</Button>
+                    </div>
 
                     {/* Customer Table (Handsontable) */}
                     <HotTable

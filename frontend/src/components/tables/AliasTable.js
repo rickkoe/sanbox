@@ -43,7 +43,7 @@ const AliasTable = () => {
     // ✅ Ensure a blank row is always present
     const ensureBlankRow = (data) => {
         if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
-            return [...data, { id: null, name: "", wwpn: "", fabric: "", use: "", create: false, include_in_zoning: false }];
+            return [...data, { id: null, name: "", wwpn: "",use: "", fabric: "", create: false, include_in_zoning: false, notes: "" }];
         }
         return data;
     };
@@ -99,7 +99,7 @@ const AliasTable = () => {
         });
 
         if (shouldAddNewRow) {
-            updatedAliases.push({ id: null, name: "", wwpn: "", fabric: "", use: "", create: false, include_in_zoning: false });
+            updatedAliases.push({ id: null, name: "", wwpn: "", use: "", fabric: "", create: false, include_in_zoning: false, notes: "" });
         }
 
         setUnsavedAliases(updatedAliases);
@@ -166,25 +166,25 @@ const AliasTable = () => {
                 <Alert variant="danger">{error}</Alert>
             ) : (
                 <>
-                    {/* Save Button */}
-                    <Button className="save-button" onClick={handleSave}>
-                        Save
-                    </Button>
+                <div>
+                    <Button className="save-button" onClick={handleSave}>Save</Button>
+                    <Button className="save-button"> Generate Alias Scripts </Button>
+                </div>
 
                     <HotTable
                         ref={tableRef}
                         data={unsavedAliases}
-                        colHeaders={["ID", "Name", "WWPN", "Fabric", "Use", "Create", "Include in Zoning", "Notes"]}
+                        colHeaders={["ID", "Name", "WWPN", "Use", "Fabric", "Create", "Include in Zoning", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true },
                             { data: "name" },
                             { data: "wwpn" },
+                            { data: "use", type: "dropdown", source: ["init", "target", "both"] },
                             { 
                                 data: "fabric_details.name", 
                                 type: "dropdown", 
                                 source: fabrics.map(f => f.name)  // ✅ Use fabric names
                             },
-                            { data: "use", type: "dropdown", source: ["init", "target", "both"] },
                             { data: "create", type: "checkbox" },
                             { data: "include_in_zoning", type: "checkbox" },
                             { data: "notes" },

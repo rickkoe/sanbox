@@ -32,8 +32,8 @@ class Alias(models.Model):
     name = models.CharField(max_length=100, unique=False)
     wwpn = models.CharField(max_length=23)
     use = models.CharField(max_length=6, choices=USE_CHOICES, null=True, blank=True)
-    create = models.BooleanField(default=False)
-    include_in_zoning = models.BooleanField(default=False)
+    create = models.BooleanField(default=False, null=True, blank=True)
+    include_in_zoning = models.BooleanField(default=False, null=True, blank=True)
     host = models.ForeignKey(Host, on_delete=models.SET_NULL, related_name='alias_host', null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
     
