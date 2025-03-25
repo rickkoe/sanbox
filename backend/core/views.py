@@ -89,3 +89,28 @@ def config_for_customer(request, customer_id):
         return Response({"error": "Config not found for customer"}, status=status.HTTP_404_NOT_FOUND)
     serializer = ConfigSerializer(config)
     return Response(serializer.data)
+
+@api_view(['PUT'])
+def update_config(request, customer_id):
+    """
+    Update a configuration by ID. The payload should include the updated values,
+    and this view will ensure that is_active is set to True.
+    """
+    try:
+        config = Config.objects.get(customer=customer_id)
+        print(config.active_project)
+    except Config.DoesNotExist:
+        return Response({"error": "Config not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Make sure to set is_active to True
+
+    data = request.data.copy()
+    print(data)
+    data['is_active'] = True
+    
+    serializer = ConfigSerializer(config, data=data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

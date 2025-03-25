@@ -24,6 +24,7 @@ const ConfigForm = () => {
             setUnsavedConfig({
                 customer: String(config.customer.id),
                 project: config.active_project ? String(config.active_project.id) : "",
+                active_project_id: config.active_project ? String(config.active_project.id) : "",
                 san_vendor: config.san_vendor,
                 cisco_alias: config.cisco_alias,
                 cisco_zoning_mode: config.cisco_zoning_mode,
@@ -118,10 +119,15 @@ const ConfigForm = () => {
 
     const handleSave = async () => {
         setSaveStatus("Saving...");
-
-
         try {
-            await axios.put(`${apiUrl}${config.id}/`, unsavedConfig);
+            const { customer, project, active_project_id } = unsavedConfig;
+            const payload = { 
+                ...unsavedConfig, 
+                active_project_id: active_project_id || project, // Use project value if active_project_id is empty
+                is_active: true // Mark the config as active when saving
+            };
+            console.log("PAYLOAD", payload);
+            await axios.put(`http://127.0.0.1:8000/api/core/config/update/${customer}/`, payload);
             setSaveStatus("Configuration saved successfully! ✅");
             refreshConfig();
         } catch (error) {
