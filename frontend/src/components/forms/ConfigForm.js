@@ -36,11 +36,14 @@ const ConfigForm = () => {
         }
     }, [config]); // ✅ Runs when `config` changes
 
+    useEffect(() => {
+        refreshConfig();
+    }, []);
+
     const fetchCustomers = async () => {
         setLoading(true);
         try {
             const response = await axios.get(customersApiUrl);
-            console.log("📌 Customers Received:", response.data); 
             setCustomers(response.data);
         } catch (error) {
             console.error("❌ Error fetching customers:", error);
@@ -53,32 +56,69 @@ const ConfigForm = () => {
         if (!customerId) return;
         try {
             const response = await axios.get(`${projectsApiUrl}${customerId}/`);
-            console.log("📌 Projects Received:", response.data); 
             setProjects(response.data);
         } catch (error) {
             console.error("❌ Error fetching projects:", error);
         }
     };
 
+    const fetchConfigForCustomer = async (customerId) => {
+        console.log("Fetching config for customer:", customerId);
+        try {
+            const response = await axios.get(`http://127.0.0.1:8000/api/core/config/customer/${customerId}/`);
+            console.log("Response from fetchConfigForCustomer:", response.data);
+            if (response.data && Object.keys(response.data).length > 0) {
+                // Assuming the response returns a single config object
+                const configForCustomer = response.data;
+                setUnsavedConfig(prevConfig => ({
+                    ...prevConfig,
+                    // Keep the selected customer, update other fields from the fetched config
+                    project: configForCustomer.active_project ? String(configForCustomer.active_project.id) : "",
+                    san_vendor: configForCustomer.san_vendor,
+                    cisco_alias: configForCustomer.cisco_alias,
+                    cisco_zoning_mode: configForCustomer.cisco_zoning_mode,
+                    zone_ratio: configForCustomer.zone_ratio,
+                    zoning_job_name: configForCustomer.zoning_job_name,
+                    smartzone_prefix: configForCustomer.smartzone_prefix,
+                    alias_max_zones: configForCustomer.alias_max_zones,
+                }));
+            } else {
+                // No config exists for this customer; update unsavedConfig with default values while preserving the customer
+                setUnsavedConfig(prevConfig => ({
+                    ...prevConfig,
+                    project: "",
+                    san_vendor: "",
+                    cisco_alias: "",
+                    cisco_zoning_mode: "",
+                    zone_ratio: "",
+                    zoning_job_name: "",
+                    smartzone_prefix: "",
+                    alias_max_zones: "",
+                }));
+            }
+        } catch (error) {
+            console.error("❌ Error fetching config for customer:", error);
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-    
         setUnsavedConfig(prevConfig => ({
             ...prevConfig,
             [name]: value,
-            ...(name === "customer" && { project: "", active_project_id: "" }),  // ✅ Reset project & active_project_id
-            ...(name === "project" && { active_project_id: value })  // ✅ Ensure active_project_id is set
+            ...(name === "customer" && { project: "", active_project_id: "" }),  // Reset project & active_project_id when customer changes
+            ...(name === "project" && { active_project_id: value })  // Ensure active_project_id is set
         }));
-    
+
         if (name === "customer") {
-            fetchProjects(value);  // ✅ Load projects for new customer
+            fetchProjects(value);  // Load projects for new customer
+            fetchConfigForCustomer(value);  // Load config for new customer immediately
         }
     };
 
     const handleSave = async () => {
         setSaveStatus("Saving...");
 
-        console.log("📌 Sending Data:", unsavedConfig); // ✅ Debugging
 
         try {
             await axios.put(`${apiUrl}${config.id}/`, unsavedConfig);
@@ -98,10 +138,10 @@ const ConfigForm = () => {
                 <>
                     {unsavedConfig && (
                         <form>
-                            {/* ✅ Customer Dropdown (Disabled since it's tied to active config) */}
+                            {/* ✅ Customer Dropdown */}
                             <div className="mb-3">
                                 <label className="form-label">Customer</label>
-                                <select className="form-control" disabled value={unsavedConfig.customer}>
+                                <select className="form-control" name="customer" value={unsavedConfig.customer} onChange={handleInputChange}>
                                     {customers.map(customer => (
                                         <option key={customer.id} value={String(customer.id)}>
                                             {customer.name}

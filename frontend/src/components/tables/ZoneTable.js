@@ -223,6 +223,16 @@ const ZoneTable = () => {
                           }
                         }
                       });
+                      
+                      // Also, gather alias names used in the current row, excluding the current cell
+                      for (let i = 1; i <= memberColumns; i++) {
+                        if (i !== memberIndex) {
+                          const aliasValue = rowData[`member_${i}`];
+                          if (aliasValue && aliasValue.trim() !== "") {
+                            usedAliases.add(aliasValue);
+                          }
+                        }
+                      }
                   
                       return {
                         type: "dropdown",

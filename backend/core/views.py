@@ -17,40 +17,49 @@ class ConfigViewSet(viewsets.ModelViewSet):
 
 
 class ActiveConfigView(APIView):
-    """View to return the active config."""
+    """View to return the active config, optionally filtered by customer"""
     def get(self, request):
-        serializer = ActiveConfigSerializer()
-        data = serializer.to_representation(None)
-        return Response(data)
+        customer_id = request.query_params.get('customer')
+        if customer_id:
+            config = Config.objects.filter(customer_id=customer_id, is_active=True).first()
+        else:
+            config = Config.objects.filter(is_active=True).first()
+        if config:
+            serializer = ConfigSerializer(config)
+            return Response(serializer.data)
+        else:
+            return Response({}, status=404)
 
 
 @api_view(["PUT", "GET"])
 def config_detail(request):
-    """Get or update Config object"""
-    try:
-        config = Config.get_active_config()
-        print(f"Active Customer: {config.customer.name}")
-        print(f"Active SAN Vendor: {config.san_vendor}")
-    except Config.DoesNotExist:
-        return Response({"error": "Config not found"}, status=status.HTTP_404_NOT_FOUND)
-
+    """Get or update Config object filtered by customer if provided"""
+    customer_id = request.query_params.get('customer')
+    if customer_id:
+        try:
+            # Get the active config for the specified customer
+            config = Config.objects.get(customer_id=customer_id, is_active=True)
+        except Config.DoesNotExist:
+            return Response({"error": "Active Config not found for customer"}, status=status.HTTP_404_NOT_FOUND)
+    else:
+        try:
+            config = Config.get_active_config()
+        except Config.DoesNotExist:
+            return Response({"error": "Config not found"}, status=status.HTTP_404_NOT_FOUND)
+    
     if request.method == "PUT":
         partial_data = request.data.copy()
-        # ✅ Convert project ID to integer
+        # Convert project ID to integer if present
         if "project" in partial_data:
             partial_data["project"] = int(partial_data["project"])
-
         serializer = ConfigSerializer(config, data=partial_data, partial=True)
         if serializer.is_valid():
             serializer.save()
-
-            # ✅ Manually reload from database to confirm save
+            # Reload from database to confirm save
             config.refresh_from_db()
-
             return Response(serializer.data)
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    
     serializer = ConfigSerializer(config)
     return Response(serializer.data)
 
@@ -62,8 +71,6 @@ def customer_list(request):
     return Response(serializer.data)
 
 # ✅ Fetch projects for a selected customer
-
-
 def projects_for_customer(request, customer_id):
     try:
         customer = Customer.objects.get(id=customer_id)
@@ -72,3 +79,13 @@ def projects_for_customer(request, customer_id):
         return JsonResponse(project_data, safe=False)
     except Customer.DoesNotExist:
         return JsonResponse({"error": "Customer not found"}, status=404)
+
+@api_view(["GET"])
+def config_for_customer(request, customer_id):
+    """Return the active config for the specified customer ID"""
+    try:
+        config = Config.objects.get(customer_id=customer_id)
+    except Config.DoesNotExist:
+        return Response({"error": "Config not found for customer"}, status=status.HTTP_404_NOT_FOUND)
+    serializer = ConfigSerializer(config)
+    return Response(serializer.data)

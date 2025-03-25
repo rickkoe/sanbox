@@ -18,7 +18,6 @@ export const ConfigProvider = ({ children }) => {
     
     try {
       const response = await axios.get("http://127.0.0.1:8000/api/core/active-config/");
-      console.log("🎯 Active Config Loaded:", response.data);
 
       if (Object.keys(response.data).length > 0) {
         setConfig(response.data);
