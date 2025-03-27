@@ -244,10 +244,10 @@ const ZoneTable = () => {
                     for (let i = 0; i < totalCols; i++) {
                         widths.push(tableRef.current.hotInstance.getColWidth(i));
                     }
-                    localStorage.setItem("aliasTableColumnWidths", JSON.stringify(widths));
+                    localStorage.setItem("zoneTableColumnWidths", JSON.stringify(widths));
                 }}
                 colWidths={(() => {
-                    const stored = localStorage.getItem("aliasTableColumnWidths");
+                    const stored = localStorage.getItem("zoneTableColumnWidths");
                     if (stored) {
                         try {
                             return JSON.parse(stored);

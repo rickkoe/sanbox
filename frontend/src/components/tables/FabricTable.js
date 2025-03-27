@@ -137,6 +137,31 @@ const FabricTable = () => {
         }
     };
 
+    const handleColumnResize = (currentColumn, newSize, isDoubleClick) => {
+        const totalCols = tableRef.current.hotInstance.countCols();
+        const widths = [];
+        for (let i = 0; i < totalCols; i++) {
+            widths.push(tableRef.current.hotInstance.getColWidth(i));
+        }
+        localStorage.setItem("fabricTableColumnWidths", JSON.stringify(widths));
+    };
+    const handleRemoveRows = (index, amount, physicalRows, source) => {
+            // For each row that is about to be removed, check if it has an ID.
+            physicalRows.forEach(rowIndex => {
+                const fabricToDelete = unsavedFabrics[rowIndex];
+                if (fabricToDelete && fabricToDelete.id) {
+                    // Call your backend delete endpoint.
+                    axios.delete(`${fabricDeleteApiUrl}${fabricToDelete.id}/`)
+                        .then(response => {
+                            console.log("Deleted fabric", fabricToDelete.id);
+                        })
+                        .catch(error => {
+                            console.error("Error deleting fabric", fabricToDelete.id, error);
+                        });
+                }
+            });
+        };
+
     return (
         <div className="table-container">
 
@@ -166,16 +191,9 @@ const FabricTable = () => {
                         contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
                         manualColumnResize={true}
                         autoColumnSize={true}
-                        afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
-                            const totalCols = tableRef.current.hotInstance.countCols();
-                            const widths = [];
-                            for (let i = 0; i < totalCols; i++) {
-                                widths.push(tableRef.current.hotInstance.getColWidth(i));
-                            }
-                            localStorage.setItem("aliasTableColumnWidths", JSON.stringify(widths));
-                        }}
+                        afterColumnResize={handleColumnResize}
                         colWidths={(() => {
-                            const stored = localStorage.getItem("aliasTableColumnWidths");
+                            const stored = localStorage.getItem("fabricTableColumnWidths");
                             if (stored) {
                                 try {
                                     return JSON.parse(stored);
@@ -187,22 +205,7 @@ const FabricTable = () => {
                         })()}
                         columnSorting={true}
                         afterChange={handleTableChange}
-                        beforeRemoveRow={(index, amount, physicalRows, source) => {
-                            // For each row that is about to be removed, check if it has an ID.
-                            physicalRows.forEach(rowIndex => {
-                                const fabricToDelete = unsavedFabrics[rowIndex];
-                                if (fabricToDelete && fabricToDelete.id) {
-                                    // Call your backend delete endpoint.
-                                    axios.delete(`${fabricDeleteApiUrl}${fabricToDelete.id}/`)
-                                        .then(response => {
-                                            console.log("Deleted fabric", fabricToDelete.id);
-                                        })
-                                        .catch(error => {
-                                            console.error("Error deleting fabric", fabricToDelete.id, error);
-                                        });
-                                }
-                            });
-                        }}
+                        beforeRemoveRow={handleRemoveRows}
                         licenseKey="non-commercial-and-evaluation"
                         className="htMaterial"
                         dropdownMenu={true}

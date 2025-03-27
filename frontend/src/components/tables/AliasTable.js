@@ -26,7 +26,9 @@ const AliasTable = () => {
 
     const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
-    const saveAliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/save/";
+    const aliasSaveApiUrl = "http://127.0.0.1:8000/api/san/aliases/save/";
+    const aliasDeleteApiUrl = "http://127.0.0.1:8000/api/san/alias/delete/";
+
 
     useEffect(() => {
         if (config?.active_project?.id) {
@@ -127,7 +129,7 @@ const AliasTable = () => {
 
         try {
             const response = await axios.post(
-                saveAliasApiUrl,
+                aliasSaveApiUrl,
                 { project_id: config.active_project.id, aliases: payload }
             );
 
