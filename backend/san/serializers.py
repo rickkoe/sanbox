@@ -37,10 +37,8 @@ class AliasSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update alias and handle many-to-many projects"""
-        print(f'VALIDATED DATA: {validated_data}')
 
         projects = validated_data.pop("projects", None)
-        print(f'PROJECTS TO REMOVE: {projects}')
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)

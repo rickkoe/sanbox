@@ -27,7 +27,7 @@ const AliasTable = () => {
     const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
     const aliasSaveApiUrl = "http://127.0.0.1:8000/api/san/aliases/save/";
-    const aliasDeleteApiUrl = "http://127.0.0.1:8000/api/san/alias/delete/";
+    const aliasDeleteApiUrl = "http://127.0.0.1:8000/api/san/aliases/delete/";
 
 
     useEffect(() => {
@@ -158,6 +158,23 @@ const AliasTable = () => {
         }
     };
 
+    const handleRemoveRows = (index, amount, physicalRows, source) => {
+        // For each row that is about to be removed, check if it has an ID.
+        physicalRows.forEach(rowIndex => {
+            const aliasToDelete = unsavedAliases[rowIndex];
+            if (aliasToDelete && aliasToDelete.id) {
+                // Call your backend delete endpoint.
+                axios.delete(`${aliasDeleteApiUrl}${aliasToDelete.id}/`)
+                    .then(response => {
+                        console.log("Deleted alias", aliasToDelete.id);
+                    })
+                    .catch(error => {
+                        console.error("Error deleting alias", aliasToDelete.id, error);
+                    });
+            }
+        });
+    };
+
     return (
         
         <div className="table-container">
@@ -192,6 +209,8 @@ const AliasTable = () => {
                         { data: "include_in_zoning", type: "checkbox" , className: "htCenter"},
                         { data: "notes" },
                     ]}
+                    contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
+                    beforeRemoveRow={handleRemoveRows}
                     manualColumnResize={true}
                     autoColumnSize={true}
                     afterColumnResize={(currentColumn, newSize, isDoubleClick) => {

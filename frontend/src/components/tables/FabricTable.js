@@ -189,6 +189,7 @@ const FabricTable = () => {
                             { data: "notes" },
                         ]}
                         contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
+                        beforeRemoveRow={handleRemoveRows}
                         manualColumnResize={true}
                         autoColumnSize={true}
                         afterColumnResize={handleColumnResize}
@@ -205,7 +206,6 @@ const FabricTable = () => {
                         })()}
                         columnSorting={true}
                         afterChange={handleTableChange}
-                        beforeRemoveRow={handleRemoveRows}
                         licenseKey="non-commercial-and-evaluation"
                         className="htMaterial"
                         dropdownMenu={true}

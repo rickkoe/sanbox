@@ -98,14 +98,12 @@ def update_config(request, customer_id):
     """
     try:
         config = Config.objects.get(customer=customer_id)
-        print(config.active_project)
     except Config.DoesNotExist:
         return Response({"error": "Config not found"}, status=status.HTTP_404_NOT_FOUND)
     
     # Make sure to set is_active to True
 
     data = request.data.copy()
-    print(data)
     data['is_active'] = True
     
     serializer = ConfigSerializer(config, data=data, partial=True)
