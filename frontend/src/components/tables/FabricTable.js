@@ -154,13 +154,35 @@ const FabricTable = () => {
                         data={unsavedFabrics}
                         colHeaders={["ID", "Name", "Zoneset Name", "VSAN", "Exists", "Notes"]}
                         columns={[
-                            { data: "id", readOnly: true },
+                            { data: "id", readOnly: true, className: "htCenter" },
                             { data: "name" },
                             { data: "zoneset_name" },
-                            { data: "vsan", type: "numeric" },
-                            { data: "exists", type: "checkbox" },
+                            { data: "vsan", type: "numeric", className: "htCenter" },
+                            { data: "exists", type: "checkbox", className: "htCenter" },
                             { data: "notes" },
                         ]}
+                        manualColumnResize={true}
+                        autoColumnSize={true}
+                        afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
+                            // Retrieve the number of columns
+                            const totalCols = tableRef.current.hotInstance.countCols();
+                            const widths = [];
+                            for (let i = 0; i < totalCols; i++) {
+                                widths.push(tableRef.current.hotInstance.getColWidth(i));
+                            }
+                            localStorage.setItem("aliasTableColumnWidths", JSON.stringify(widths));
+                        }}
+                        colWidths={(() => {
+                            const stored = localStorage.getItem("aliasTableColumnWidths");
+                            if (stored) {
+                                try {
+                                    return JSON.parse(stored);
+                                } catch (e) {
+                                    return 200;
+                                }
+                            }
+                            return 200;
+                        })()}
                         columnSorting={true}
                         afterChange={handleTableChange}
                         licenseKey="non-commercial-and-evaluation"
@@ -169,7 +191,6 @@ const FabricTable = () => {
                         stretchH="all"
                         filters={true}
                         rowHeaders={false}
-                        colWidths={200}
                         height="calc(100vh - 200px)"
                         dragToScroll={true}
                         width="100%"

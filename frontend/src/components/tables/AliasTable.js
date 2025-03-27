@@ -171,37 +171,58 @@ const AliasTable = () => {
                     <Button className="save-button"> Generate Alias Scripts </Button>
                 </div>
 
-                    <HotTable
-                        ref={tableRef}
-                        data={unsavedAliases}
-                        colHeaders={["ID", "Name", "WWPN", "Use", "Fabric", "Create", "Include in Zoning", "Notes"]}
-                        columns={[
-                            { data: "id", readOnly: true },
-                            { data: "name" },
-                            { data: "wwpn" },
-                            { data: "use", type: "dropdown", source: ["init", "target", "both"] },
-                            { 
-                                data: "fabric_details.name", 
-                                type: "dropdown", 
-                                source: fabrics.map(f => f.name)  // ✅ Use fabric names
-                            },
-                            { data: "create", type: "checkbox" },
-                            { data: "include_in_zoning", type: "checkbox" },
-                            { data: "notes" },
-                        ]}
-                        columnSorting={true}
-                        afterChange={handleTableChange}
-                        licenseKey="non-commercial-and-evaluation"
-                        className= "htMaterial"
-                        dropdownMenu={true}
-                        stretchH="all"
-                        filters={true}
-                        rowHeaders={false}
-                        colWidths={200}
-                        height="calc(100vh - 200px)"
-                        dragToScroll={true}
-                        width="100%"
-                    />
+                <HotTable
+                    ref={tableRef}
+                    data={unsavedAliases}
+                    colHeaders={["ID", "Name", "WWPN", "Use", "Fabric", "Create", "Include in Zoning", "Notes"]}
+                    columns={[
+                        { data: "id", readOnly: true, className: "htCenter" },
+                        { data: "name" },
+                        { data: "wwpn" },
+                        { data: "use", type: "dropdown", source: ["init", "target", "both"], className: "htCenter" },
+                        { 
+                            data: "fabric_details.name", 
+                            type: "dropdown", 
+                            source: fabrics.map(f => f.name) 
+                        },
+                        { data: "create", type: "checkbox", className: "htCenter" },
+                        { data: "include_in_zoning", type: "checkbox" , className: "htCenter"},
+                        { data: "notes" },
+                    ]}
+                    manualColumnResize={true}
+                    autoColumnSize={true}
+                    afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
+                        // Retrieve the number of columns
+                        const totalCols = tableRef.current.hotInstance.countCols();
+                        const widths = [];
+                        for (let i = 0; i < totalCols; i++) {
+                            widths.push(tableRef.current.hotInstance.getColWidth(i));
+                        }
+                        localStorage.setItem("aliasTableColumnWidths", JSON.stringify(widths));
+                    }}
+                    colWidths={(() => {
+                        const stored = localStorage.getItem("aliasTableColumnWidths");
+                        if (stored) {
+                            try {
+                                return JSON.parse(stored);
+                            } catch (e) {
+                                return 200;
+                            }
+                        }
+                        return 200;
+                    })()}
+                    columnSorting={true}
+                    afterChange={handleTableChange}
+                    licenseKey="non-commercial-and-evaluation"
+                    className="htMaterial"
+                    dropdownMenu={true}
+                    stretchH="all"
+                    filters={true}
+                    rowHeaders={false}
+                    dragToScroll={true}
+                    width="100%"
+                    height="calc(100vh - 200px)"
+                />
 
 
                     {saveStatus && (

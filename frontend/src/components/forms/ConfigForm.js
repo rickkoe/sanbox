@@ -14,6 +14,7 @@ const ConfigForm = () => {
     const apiUrl = "http://127.0.0.1:8000/api/core/configs/";
     const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
     const projectsApiUrl = "http://127.0.0.1:8000/api/core/projects/";
+    const configForCustomerApiUrl = "http://127.0.0.1:8000/api/core/config/customer/${customerId}/"
 
     useEffect(() => {
         fetchCustomers();
@@ -35,7 +36,7 @@ const ConfigForm = () => {
             });
             fetchProjects(config.customer.id);
         }
-    }, [config]); // ✅ Runs when `config` changes
+    }, [config]);
 
     useEffect(() => {
         refreshConfig();
@@ -69,11 +70,9 @@ const ConfigForm = () => {
             const response = await axios.get(`http://127.0.0.1:8000/api/core/config/customer/${customerId}/`);
             console.log("Response from fetchConfigForCustomer:", response.data);
             if (response.data && Object.keys(response.data).length > 0) {
-                // Assuming the response returns a single config object
                 const configForCustomer = response.data;
                 setUnsavedConfig(prevConfig => ({
                     ...prevConfig,
-                    // Keep the selected customer, update other fields from the fetched config
                     project: configForCustomer.active_project ? String(configForCustomer.active_project.id) : "",
                     san_vendor: configForCustomer.san_vendor,
                     cisco_alias: configForCustomer.cisco_alias,
@@ -84,7 +83,6 @@ const ConfigForm = () => {
                     alias_max_zones: configForCustomer.alias_max_zones,
                 }));
             } else {
-                // No config exists for this customer; update unsavedConfig with default values while preserving the customer
                 setUnsavedConfig(prevConfig => ({
                     ...prevConfig,
                     project: "",
@@ -107,13 +105,13 @@ const ConfigForm = () => {
         setUnsavedConfig(prevConfig => ({
             ...prevConfig,
             [name]: value,
-            ...(name === "customer" && { project: "", active_project_id: "" }),  // Reset project & active_project_id when customer changes
-            ...(name === "project" && { active_project_id: value })  // Ensure active_project_id is set
+            ...(name === "customer" && { project: "", active_project_id: "" }),
+            ...(name === "project" && { active_project_id: value })
         }));
 
         if (name === "customer") {
-            fetchProjects(value);  // Load projects for new customer
-            fetchConfigForCustomer(value);  // Load config for new customer immediately
+            fetchProjects(value);
+            fetchConfigForCustomer(value);
         }
     };
 
@@ -123,8 +121,8 @@ const ConfigForm = () => {
             const { customer, project, active_project_id } = unsavedConfig;
             const payload = { 
                 ...unsavedConfig, 
-                active_project_id: active_project_id || project, // Use project value if active_project_id is empty
-                is_active: true // Mark the config as active when saving
+                active_project_id: active_project_id || project,
+                is_active: true
             };
             console.log("PAYLOAD", payload);
             await axios.put(`http://127.0.0.1:8000/api/core/config/update/${customer}/`, payload);
@@ -144,7 +142,6 @@ const ConfigForm = () => {
                 <>
                     {unsavedConfig && (
                         <form>
-                            {/* ✅ Customer Dropdown */}
                             <div className="mb-3">
                                 <label className="form-label">Customer</label>
                                 <select className="form-control" name="customer" value={unsavedConfig.customer} onChange={handleInputChange}>
@@ -156,7 +153,6 @@ const ConfigForm = () => {
                                 </select>
                             </div>
 
-                            {/* ✅ Project Dropdown */}
                             <div className="mb-3">
                                 <label className="form-label">Project</label>
                                 <select
@@ -174,7 +170,6 @@ const ConfigForm = () => {
                                 </select>
                             </div>
 
-                            {/* ✅ SAN Vendor */}
                             <div className="mb-3">
                                 <label className="form-label">SAN Vendor</label>
                                 <select
@@ -190,7 +185,6 @@ const ConfigForm = () => {
 
                             {unsavedConfig.san_vendor === "CI" && (
                                 <>
-                                    {/* ✅ Cisco Alias */}
                                     <div className="mb-3">
                                         <label className="form-label">Cisco Alias</label>
                                         <select className="form-control" name="cisco_alias" value={unsavedConfig.cisco_alias} onChange={handleInputChange}>
@@ -200,7 +194,6 @@ const ConfigForm = () => {
                                         </select>
                                     </div>
 
-                                    {/* ✅ Cisco Zoning Mode */}
                                     <div className="mb-3">
                                         <label className="form-label">Cisco Zoning Mode</label>
                                         <select className="form-control" name="cisco_zoning_mode" value={unsavedConfig.cisco_zoning_mode} onChange={handleInputChange}>
@@ -211,7 +204,6 @@ const ConfigForm = () => {
                                 </>
                             )}
 
-                            {/* ✅ Zone Ratio */}
                             <div className="mb-3">
                                 <label className="form-label">Zone Ratio</label>
                                 <select className="form-control" name="zone_ratio" value={unsavedConfig.zone_ratio} onChange={handleInputChange}>
@@ -219,6 +211,42 @@ const ConfigForm = () => {
                                     <option value="one-to-many">One-to-Many</option>
                                     <option value="all-to-all">All-to-All</option>
                                 </select>
+                            </div>
+
+                            {/* ✅ Zoning Job Name */}
+                            <div className="mb-3">
+                                <label className="form-label">Zoning Job Name</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    name="zoning_job_name"
+                                    value={unsavedConfig.zoning_job_name || ""}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+
+                            {/* ✅ Smartzone Prefix */}
+                            <div className="mb-3">
+                                <label className="form-label">Smartzone Prefix</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    name="smartzone_prefix"
+                                    value={unsavedConfig.smartzone_prefix || ""}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+
+                            {/* ✅ Alias Max Zones */}
+                            <div className="mb-3">
+                                <label className="form-label">Alias Max Zones</label>
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    name="alias_max_zones"
+                                    value={unsavedConfig.alias_max_zones || ""}
+                                    onChange={handleInputChange}
+                                />
                             </div>
 
                             <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={saveStatus === "Saving..."}>

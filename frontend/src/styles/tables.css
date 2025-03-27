@@ -17,3 +17,11 @@
   .save-button {
     margin: 10px;
   }
+
+  .table-container .ht_master .htCore tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+  }
+  
+  .table-container .ht_master .htCore tbody tr:nth-child(even) {
+    background-color: #f2f2f2;
+  }

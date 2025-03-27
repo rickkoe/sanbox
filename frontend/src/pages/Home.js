@@ -6,15 +6,10 @@ import "../styles/pages.css";
 const Home = () => {
   return (
     <div className="container mt-5">
-      {/* Hero Section */}
-      <div className="hero text-center mb-5">
-        <h1>Welcome to SANBox</h1>
-        <p>Your unified dashboard for SAN and Storage scripts.</p>
-      </div>
+
 
       {/* Quick Access Cards */}
       <div className="quick-access">
-        <h2 className="mb-4">Quick Access</h2>
         <div className="row">
           {/* Config Card (should be first) */}
           <div className="col-md-4 mb-4">

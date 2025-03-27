@@ -5,3 +5,8 @@
     text-overflow: clip;    /* Avoid cutting off text */
     max-width: none;        /* Ensure full width is used */
 }
+
+.container {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}

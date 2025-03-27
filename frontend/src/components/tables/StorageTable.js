@@ -73,6 +73,28 @@ const StorageTable = () => {
                         { data: "location" },
                         { data: "serial_number" },
                     ]}
+                    manualColumnResize={true}
+                    autoColumnSize={true}
+                    afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
+                        // Retrieve the number of columns
+                        const totalCols = tableRef.current.hotInstance.countCols();
+                        const widths = [];
+                        for (let i = 0; i < totalCols; i++) {
+                            widths.push(tableRef.current.hotInstance.getColWidth(i));
+                        }
+                        localStorage.setItem("aliasTableColumnWidths", JSON.stringify(widths));
+                    }}
+                    colWidths={(() => {
+                        const stored = localStorage.getItem("aliasTableColumnWidths");
+                        if (stored) {
+                            try {
+                                return JSON.parse(stored);
+                            } catch (e) {
+                                return 200;
+                            }
+                        }
+                        return 200;
+                    })()}
                     columnSorting={true}
                     afterChange={handleTableChange}
                     licenseKey="non-commercial-and-evaluation"
@@ -81,7 +103,6 @@ const StorageTable = () => {
                     stretchH="all"
                     filters={true}
                     rowHeaders={false}
-                    colWidths={200}
                     height="calc(100vh - 200px)"
                     dragToScroll={true}
                     width="100%"

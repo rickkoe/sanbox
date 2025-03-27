@@ -109,8 +109,20 @@ const ZoneTable = () => {
 
                 updatedZones[physicalRow][prop] = newValue;
 
-                if (physicalRow === updatedZones.length - 1 && newValue.trim() !== "") {
-                    shouldAddNewRow = true;
+                if (physicalRow === updatedZones.length - 1) {
+                    let isNotEmpty = false;
+                    if (typeof newValue === "string") {
+                        isNotEmpty = newValue.trim() !== "";
+                    } else if (typeof newValue === "boolean") {
+                        isNotEmpty = newValue === true;
+                    } else if (typeof newValue === "number") {
+                        isNotEmpty = newValue !== 0;
+                    } else {
+                        isNotEmpty = newValue !== null && newValue !== undefined;
+                    }
+                    if (isNotEmpty) {
+                        shouldAddNewRow = true;
+                    }
                 }
             }
         });
@@ -123,15 +135,23 @@ const ZoneTable = () => {
     };
 
     const handleSave = async () => {
+        // Validate: if an existing zone has a blank name, show an error and abort save.
+        const invalidZone = unsavedZones.find(zone => zone.id && (!zone.name || zone.name.trim() === ""));
+        if (invalidZone) {
+            setSaveStatus("⚠️ Zone name is required for existing zones. Please restore the original name or remove the zone.");
+            return;
+        }
+    
         if (!config?.active_project?.id) {
             setSaveStatus("⚠️ No active project selected!");
             return;
         }
-
+    
         setSaveStatus("Saving...");
-
+    
+        // Only filter out new zones with a blank name; existing zones are always included.
         const payload = unsavedZones
-            .filter(zone => zone.name.trim())
+            .filter(zone => zone.id || (zone.name && zone.name.trim() !== ""))
             .map(zone => ({
                 ...zone,
                 projects: [config.active_project.id],
@@ -149,16 +169,15 @@ const ZoneTable = () => {
                     return { alias: foundAlias.id };
                 }).filter(Boolean)
             }));
-
+    
         console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
-
+    
         try {
-            console.log("PROJECT ID", payload)
             const response = await axios.post(
                 `http://127.0.0.1:8000/api/san/zones/save/`,
                 { project_id: config.active_project.id, zones: payload }
             );
-
+    
             console.log("✅ Save Response:", response.data);
             setSaveStatus("Zones saved successfully! ✅");
             fetchZones(config.active_project.id);
@@ -169,8 +188,28 @@ const ZoneTable = () => {
     };
 
     const handleAddColumns = () => {
-        setMemberColumns(prev => prev + parseInt(newColumnsCount));
+        const newCount = memberColumns + parseInt(newColumnsCount);
+        setMemberColumns(newCount);
         setNewColumnsCount(1);
+        setTimeout(() => {
+            if (tableRef.current && tableRef.current.hotInstance) {
+                const totalCols = tableRef.current.hotInstance.countCols();
+                const newWidths = [];
+                // Assume the first 7 columns are static, and member columns come afterward.
+                for (let i = 0; i < totalCols; i++) {
+                    if (i < 7) {
+                        // Preserve existing width for static columns.
+                        newWidths[i] = tableRef.current.hotInstance.getColWidth(i);
+                    } else {
+                        // Set member columns to 200px.
+                        newWidths[i] = 200;
+                    }
+                }
+                tableRef.current.hotInstance.updateSettings({ colWidths: newWidths });
+                tableRef.current.hotInstance.render();
+                localStorage.setItem("aliasTableColumnWidths", JSON.stringify(newWidths));
+            }
+        }, 0);
     };
 
     return (
@@ -186,15 +225,37 @@ const ZoneTable = () => {
                 data={unsavedZones}
                 colHeaders={["ID", "Name", "Fabric",  "Notes", "Create", "Exists", "Zone Type", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
                 columns={[
-                    { data: "id", readOnly: true },
+                    { data: "id", readOnly: true, className: "htCenter" },
                     { data: "name" },
                     { data: "fabric", type: "dropdown", source: fabrics.map(f => f.name) },
                     { data: "notes" },
-                    { data: "create", type: "checkbox" },
-                    { data: "exists", type: "checkbox" },
-                    { data: "zone_type", type: "dropdown", source: ["smart", "standard"] },
+                    { data: "create", type: "checkbox", className: "htCenter" },
+                    { data: "exists", type: "checkbox", className: "htCenter" },
+                    { data: "zone_type", type: "dropdown", source: ["smart", "standard"], className: "htCenter" },
                     ...Array.from({ length: memberColumns }, (_, i) => ({ data: `member_${i + 1}` })),
                 ]}
+                manualColumnResize={true}
+                autoColumnSize={true}
+                afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
+                    // Retrieve the number of columns
+                    const totalCols = tableRef.current.hotInstance.countCols();
+                    const widths = [];
+                    for (let i = 0; i < totalCols; i++) {
+                        widths.push(tableRef.current.hotInstance.getColWidth(i));
+                    }
+                    localStorage.setItem("aliasTableColumnWidths", JSON.stringify(widths));
+                }}
+                colWidths={(() => {
+                    const stored = localStorage.getItem("aliasTableColumnWidths");
+                    if (stored) {
+                        try {
+                            return JSON.parse(stored);
+                        } catch (e) {
+                            return 200;
+                        }
+                    }
+                    return 200;
+                })()}
                 cells={(row, col) => {
                     // Ensure the tableRef and its hotInstance are available
                     if (!tableRef.current || !tableRef.current.hotInstance) {
