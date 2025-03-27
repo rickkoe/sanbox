@@ -25,6 +25,7 @@ const ZoneTable = () => {
     const zoneApiUrl = "http://127.0.0.1:8000/api/san/zones/project/";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
     const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
+    const zoneSaveApiUrl = "http://127.0.0.1:8000/api/san/zones/save/";
 
     useEffect(() => {
         if (config?.active_project?.id) {
@@ -174,7 +175,7 @@ const ZoneTable = () => {
     
         try {
             const response = await axios.post(
-                `http://127.0.0.1:8000/api/san/zones/save/`,
+                zoneSaveApiUrl,
                 { project_id: config.active_project.id, zones: payload }
             );
     

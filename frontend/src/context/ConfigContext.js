@@ -7,6 +7,7 @@ export const ConfigProvider = ({ children }) => {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const activeConfigApiUrl = "http://127.0.0.1:8000/api/core/active-config/";
 
   useEffect(() => {
     fetchActiveConfig();
@@ -17,7 +18,7 @@ export const ConfigProvider = ({ children }) => {
     setError(null);
     
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/core/active-config/");
+      const response = await axios.get(activeConfigApiUrl);
 
       if (Object.keys(response.data).length > 0) {
         setConfig(response.data);

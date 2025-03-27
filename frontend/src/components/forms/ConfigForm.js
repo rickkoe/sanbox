@@ -11,10 +11,10 @@ const ConfigForm = () => {
     const [saveStatus, setSaveStatus] = useState(""); 
     const [loading, setLoading] = useState(true);
     
-    const apiUrl = "http://127.0.0.1:8000/api/core/configs/";
     const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
     const projectsApiUrl = "http://127.0.0.1:8000/api/core/projects/";
-    const configForCustomerApiUrl = "http://127.0.0.1:8000/api/core/config/customer/${customerId}/"
+    const configForCustomerApiUrl = "http://127.0.0.1:8000/api/core/config/customer/${customerId}/";
+    const updateCustomerUrl = "http://127.0.0.1:8000/api/core/config/update/";
 
     useEffect(() => {
         fetchCustomers();
@@ -67,7 +67,7 @@ const ConfigForm = () => {
     const fetchConfigForCustomer = async (customerId) => {
         console.log("Fetching config for customer:", customerId);
         try {
-            const response = await axios.get(`http://127.0.0.1:8000/api/core/config/customer/${customerId}/`);
+            const response = await axios.get(configForCustomerApiUrl);
             console.log("Response from fetchConfigForCustomer:", response.data);
             if (response.data && Object.keys(response.data).length > 0) {
                 const configForCustomer = response.data;
@@ -125,7 +125,7 @@ const ConfigForm = () => {
                 is_active: true
             };
             console.log("PAYLOAD", payload);
-            await axios.put(`http://127.0.0.1:8000/api/core/config/update/${customer}/`, payload);
+            await axios.put(`${updateCustomerUrl}${customer}/`, payload);
             setSaveStatus("Configuration saved successfully! ✅");
             refreshConfig();
         } catch (error) {

@@ -1,135 +1,26 @@
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status
+from rest_framework import status, generics
 from .models import Alias, Zone, Fabric
 from customers.models import Customer
-from core.models import Config
+from core.models import Config, Project
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer
-from django.db import IntegrityError  # ✅ Catch unique constraint errors
-
-@api_view(["GET", "POST"])
-def alias_list(request):
-    if request.method == "GET":
-        aliases = Alias.objects.all()
-        serializer = AliasSerializer(aliases, many=True)
-        return Response(serializer.data)
-    
-    elif request.method == "POST":
-        serializer = AliasSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(["PUT"])
-def alias_update(request, pk):
-    try:
-        alias = Alias.objects.get(pk=pk)
-    except Alias.DoesNotExist:
-        return Response({"error": "Alias not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = AliasSerializer(alias, data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(["GET", "POST"])
-def zone_list(request):
-    if request.method == "GET":
-        zones = Zone.objects.all()
-        serializer = ZoneSerializer(zones, many=True)
-        return Response(serializer.data)
-    
-    elif request.method == "POST":
-        serializer = ZoneSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(["PUT"])
-def zone_update(request, pk):
-    try:
-        zone = Zone.objects.get(pk=pk)
-    except Zone.DoesNotExist:
-        return Response({"error": "Zone not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = ZoneSerializer(zone, data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(["GET", "POST"])
-def fabric_list(request):
-    if request.method == "GET":
-        fabrics = Fabric.objects.all()
-        serializer = FabricSerializer(fabrics, many=True)
-        return Response(serializer.data)
-    
-    elif request.method == "POST":
-        serializer = FabricSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(["PUT"])
-def fabric_update(request, pk):
-    try:
-        fabric = Fabric.objects.get(pk=pk)
-    except Fabric.DoesNotExist:
-        return Response({"error": "Fabric not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = FabricSerializer(fabric, data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+from django.db import IntegrityError
 
 
-@api_view(["GET"])
-def fabrics_for_customer(request):
-    try:
-        config = Config.objects.first()  # ✅ Get the single Config instance
-        if not config:
-            return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
-
-        customer = config.project.customer  # ✅ Get the customer that owns the project
-
-        fabrics = Fabric.objects.filter(customer=customer)  # ✅ Filter by customer
-        serializer = FabricSerializer(fabrics, many=True)
-        return Response(serializer.data)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(["GET"])
-def aliases_for_project(request):
-    try:
-        config = Config.objects.first()  # ✅ Get the single Config instance
-        if not config:
-            return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
-
-        aliases = Alias.objects.filter(projects=config.project)
-        serializer = AliasSerializer(aliases, many=True)
-        return Response(serializer.data)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
-
-@api_view(["GET"])
-def zones_for_project(request):
-    try:
-        config = Config.objects.first()  # ✅ Get the single Config instance
-        if not config:
-            return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
-
-        zones = Zone.objects.filter(projects=config.project)  # ✅ Filter by customer
-        serializer = ZoneSerializer(zones, many=True)
-        return Response(serializer.data)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class FabricsForCustomerView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            config = Config.objects.first()  # Get the single Config instance
+            if not config:
+                return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
+            customer = config.project.customer  # Get the customer that owns the project
+            fabrics = Fabric.objects.filter(customer=customer)  # Filter by customer
+            serializer = FabricSerializer(fabrics, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
     
 class FabricsByCustomerView(APIView):
     def get(self, request, customer_id):
@@ -140,7 +31,6 @@ class FabricsByCustomerView(APIView):
         serializer = FabricSerializer(fabrics, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-
 
 class SaveFabricsView(APIView):
     def post(self, request):
@@ -194,11 +84,7 @@ class SaveFabricsView(APIView):
     
 
     from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status
-from .models import Alias
-from .serializers import AliasSerializer
-from core.models import Project  # Ensure correct import
+
 
 class AliasListView(APIView):
     """Fetch aliases belonging to a specific project."""
@@ -279,15 +165,6 @@ class SaveAliasesView(APIView):
         return Response({"message": "Aliases saved successfully!", "aliases": saved_aliases}, status=status.HTTP_200_OK)
     
 
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status
-from .models import Zone, Alias
-from core.models import Project
-from .serializers import ZoneSerializer
-
-
-
 class ZonesByProjectView(APIView):
     def get(self, request, project_id):
         try:
@@ -362,7 +239,6 @@ class SaveZonesView(APIView):
         return Response({"message": "Zones saved successfully!", "zones": saved_zones}, status=status.HTTP_200_OK)
     
 
-
 class ZonesByProjectView(APIView):
     def get(self, request, project_id):
         try:
@@ -372,3 +248,14 @@ class ZonesByProjectView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
             return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class DeleteFabricView(generics.DestroyAPIView):
+    queryset = Fabric.objects.all()
+    serializer_class = FabricSerializer
+
+    def delete(self, request, *args, **kwargs):
+        print('here')
+        fabric = self.get_object()
+        fabric.delete()
+        return Response({"message": "Fabric deleted successfully."}, status=status.HTTP_200_OK)

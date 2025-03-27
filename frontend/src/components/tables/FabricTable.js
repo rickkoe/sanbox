@@ -17,7 +17,9 @@ const FabricTable = () => {
     const [error, setError] = useState(null);
     const [saveStatus, setSaveStatus] = useState("");
     const tableRef = useRef(null);
-
+    const fabricsForCustomerApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
+    const fabricSaveApiUrl = "http://127.0.0.1:8000/api/san/fabrics/save/";
+    const fabricDeleteApiUrl = "http://127.0.0.1:8000/api/san/fabrics/delete/";
     useEffect(() => {
         if (config?.customer?.id) {
             fetchFabrics(config.customer.id);
@@ -38,7 +40,7 @@ const FabricTable = () => {
         setError(null);
 
         try {
-            const response = await axios.get(`http://127.0.0.1:8000/api/san/fabrics/customer/${customerId}/`);
+            const response = await axios.get(`${fabricsForCustomerApiUrl}${customerId}/`);
             const data = ensureBlankRow(response.data);
             setFabrics(data);
             setUnsavedFabrics([...data]);
@@ -106,7 +108,7 @@ const FabricTable = () => {
     
         try {
             const response = await axios.post(
-                `http://127.0.0.1:8000/api/san/fabrics/save/`,
+                fabricSaveApiUrl,
                 { customer_id: config.customer.id, fabrics: payload }
             );
     
@@ -161,10 +163,10 @@ const FabricTable = () => {
                             { data: "exists", type: "checkbox", className: "htCenter" },
                             { data: "notes" },
                         ]}
+                        contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
                         manualColumnResize={true}
                         autoColumnSize={true}
                         afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
-                            // Retrieve the number of columns
                             const totalCols = tableRef.current.hotInstance.countCols();
                             const widths = [];
                             for (let i = 0; i < totalCols; i++) {
@@ -185,8 +187,24 @@ const FabricTable = () => {
                         })()}
                         columnSorting={true}
                         afterChange={handleTableChange}
+                        beforeRemoveRow={(index, amount, physicalRows, source) => {
+                            // For each row that is about to be removed, check if it has an ID.
+                            physicalRows.forEach(rowIndex => {
+                                const fabricToDelete = unsavedFabrics[rowIndex];
+                                if (fabricToDelete && fabricToDelete.id) {
+                                    // Call your backend delete endpoint.
+                                    axios.delete(`${fabricDeleteApiUrl}${fabricToDelete.id}/`)
+                                        .then(response => {
+                                            console.log("Deleted fabric", fabricToDelete.id);
+                                        })
+                                        .catch(error => {
+                                            console.error("Error deleting fabric", fabricToDelete.id, error);
+                                        });
+                                }
+                            });
+                        }}
                         licenseKey="non-commercial-and-evaluation"
-                        className= "htMaterial"
+                        className="htMaterial"
                         dropdownMenu={true}
                         stretchH="all"
                         filters={true}
@@ -194,7 +212,7 @@ const FabricTable = () => {
                         height="calc(100vh - 200px)"
                         dragToScroll={true}
                         width="100%"
-                    />
+                        />
                     {saveStatus && (
                         <Alert variant={saveStatus.includes("Error") ? "danger" : "success"} className="mt-2">
                             {saveStatus}

@@ -3,12 +3,13 @@ import axios from "axios";
 import { useLocation } from "react-router-dom";
 
 const SanVendorContext = createContext();
+const configApiUrl = "http://127.0.0.1:8000/api/core/config/";
 
 export const useSanVendor = () => useContext(SanVendorContext);
 
 export const SanVendorProvider = ({ children }) => {
     const [sanVendor, setSanVendor] = useState(null);
-    const apiUrl = "http://127.0.0.1:8000/api/core/config/";
+    const apiUrl = configApiUrl;
     const location = useLocation(); // ✅ Get the current route
 
     // ✅ Fetch SAN Vendor whenever the app loads OR when a SAN page is visited

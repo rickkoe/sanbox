@@ -1,0 +1,35 @@
+    # ConfigForm.js
+        const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
+        const projectsApiUrl = "http://127.0.0.1:8000/api/core/projects/";
+        const configForCustomerApiUrl = "http://127.0.0.1:8000/api/core/config/customer/${customerId}/";
+        const updateCustomerUrl = "http://127.0.0.1:8000/api/core/config/update/";
+
+    # AliasTable.js
+        const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
+        const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
+        const saveAliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/save/";
+    
+    # CustomerTable.js
+        const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
+        const customerDeleteApiUrl = "http://127.0.0.1:8000/api/customers/delete/";
+        const customerCreateApiUrl = "http://127.0.0.1:8000/api/customers/create/";
+        const customerSaveApiUrl = "http://127.0.0.1:8000/api/customers/";
+
+    # FabricTable.js
+        const fabricsForCustomerApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
+        const fabricSaveApiUrl = "http://127.0.0.1:8000/api/san/fabrics/save/";
+
+    # StorageTable.js
+        const storageListApiUrl = "http://127.0.0.1:8000/api/storage/";
+
+    # ZoneTable.js
+        const zoneApiUrl = "http://127.0.0.1:8000/api/san/zones/project/";
+        const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
+        const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
+        const zoneSaveApiUrl = "http://127.0.0.1:8000/api/san/zones/save/";
+
+    # ConfigContext.js
+        const activeConfigApiUrl = "http://127.0.0.1:8000/api/core/active-config/";
+
+    # SanVendorContext.js
+        const configApiUrl = "http://127.0.0.1:8000/api/core/config/";

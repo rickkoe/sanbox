@@ -12,11 +12,12 @@ const StorageTable = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const tableRef = useRef(null);
+    const storageListApiUrl = "http://127.0.0.1:8000/api/storage/";
 
     // ✅ Fetch storages from the updated `/api/storage/storages/` API
     const fetchStorages = () => {
         setLoading(true);
-        axios.get("http://127.0.0.1:8000/api/storage/storages/")
+        axios.get(storageListApiUrl)
             .then(response => {
                 setStorages(response.data);
                 setLoading(false);
@@ -48,7 +49,7 @@ const StorageTable = () => {
                     setStorages(updatedStorages);
 
                     // ✅ Send update request to `/api/storage/storages/`
-                    axios.put(`http://127.0.0.1:8000/api/storage/storages/${updatedStorage.id}/`, updatedStorage)
+                    axios.put(`${storageListApiUrl}${updatedStorage.id}/`, updatedStorage)
                         .catch(error => console.error("Error updating storage:", error));
                 }
             });

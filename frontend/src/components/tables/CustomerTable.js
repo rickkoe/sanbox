@@ -17,11 +17,15 @@ const CustomerTable = () => {
     const [showModal, setShowModal] = useState(false);
 
     const tableRef = useRef(null);  // Reference to the Handsontable instance
+    const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
+    const customerDeleteApiUrl = "http://127.0.0.1:8000/api/customers/delete/";
+    const customerCreateApiUrl = "http://127.0.0.1:8000/api/customers/create/";
+    const customerSaveApiUrl = "http://127.0.0.1:8000/api/customers/";
 
     // Fetch initial customers data from Django API
     const fetchCustomers = () => {
         setLoading(true);
-        axios.get("http://127.0.0.1:8000/api/customers/")
+        axios.get(customersApiUrl)
             .then(response => {
                 const customerData = response.data;
                 customerData.push({ id: "", name: "" });  // Adds empty row for new entries
@@ -86,7 +90,7 @@ const CustomerTable = () => {
 
         if (customersToDelete.length > 0) {
             const deletePromises = customersToDelete.map(customer =>
-                axios.delete(`http://127.0.0.1:8000/api/customers/delete/${customer.id}`)
+                axios.delete(`${customerDeleteApiUrl}${customer.id}`)
             );
 
             Promise.all(deletePromises)
@@ -109,10 +113,10 @@ const CustomerTable = () => {
         const savePromises = unsavedCustomers.map(customer => {
             if (!customer.id && customer.name.trim() !== "") {
                 // New customer entry (POST request)
-                return axios.post("http://127.0.0.1:8000/api/customers/create/", customer);
+                return axios.post(customerCreateApiUrl, customer);
             } else if (customer.id) {
                 // Existing customer update (PUT request)
-                return axios.put(`http://127.0.0.1:8000/api/customers/${customer.id}/`, customer);
+                return axios.put(`${customerSaveApiUrl}${customer.id}/`, customer);
             }
             return Promise.resolve();
         });
