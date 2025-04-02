@@ -194,7 +194,7 @@ const AliasTable = () => {
                 <HotTable
                     ref={tableRef}
                     data={unsavedAliases}
-                    colHeaders={["ID", "Name", "WWPN", "Use", "Fabric", "Create", "Include in Zoning", "Notes"]}
+                    colHeaders={["ID", "Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", "Include in Zoning", "Notes"]}
                     columns={[
                         { data: "id", readOnly: true, className: "htCenter" },
                         { data: "name" },
@@ -205,6 +205,7 @@ const AliasTable = () => {
                             type: "dropdown", 
                             source: fabrics.map(f => f.name) 
                         },
+                        { data: "cisco_alias", type: "dropdown", source: ["device-alias", "fcalias", "wwpn"], className: "htCenter"},
                         { data: "create", type: "checkbox", className: "htCenter" },
                         { data: "include_in_zoning", type: "checkbox" , className: "htCenter"},
                         { data: "notes" },

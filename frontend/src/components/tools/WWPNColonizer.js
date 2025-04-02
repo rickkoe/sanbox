@@ -1,9 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { HotTable } from '@handsontable/react';
-import { registerAllModules } from 'handsontable/registry';
-import 'handsontable/dist/handsontable.full.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import { Form, Alert } from 'react-bootstrap';
+import React, { useEffect, useState, useRef } from "react";
+import "handsontable/dist/handsontable.full.css";
+import { registerAllModules } from "handsontable/registry";
+import { Form, Alert } from "react-bootstrap";
+
+import { HotTable } from '@handsontable/react-wrapper';
+import 'handsontable/styles/handsontable.css';
+import 'handsontable/styles/ht-theme-main.css';
+import 'handsontable/styles/ht-theme-horizon.css';
+
 
 registerAllModules();
 
@@ -117,8 +121,8 @@ const WWPNFormatterTable = () => {
 };
 
   return (
-    <div className="container mt-4" onPaste={handlePaste}>
-      <div class="alert alert-info" role="alert">
+    <div className="table-container" onPaste={handlePaste}>
+      <div className="alert alert-info" role="alert">
         Paste one or more valid WWPNs, and they will be automatically formatted based on the selected option (with or without colons).
       </div>
       <Form>
@@ -136,13 +140,18 @@ const WWPNFormatterTable = () => {
         ref={tableRef}
         data={data.map(row => row.length > 0 ? [showWithColons ? addColons(row[0]) : removeColons(row[0])] : [''])}
         colHeaders={["WWPN"]}
+        contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
         columns={[{ data: 0, type: "text", width: 200 }]}  // ✅ Adjust column width to fit WWPNs
         afterChange={handleTableChange}
+        columnSorting={true}
         licenseKey="non-commercial-and-evaluation"
-        className="handsontable htMaterial"
-        rowHeaders={false}
+        className="htMaterial"
+        dropdownMenu={true}
+        filters={true}
+        rowHeaders={true}
+        dragToScroll={true}
         width="100%"
-        stretchH="none"
+        height="calc(100vh - 300px)"
       />
     </div>
   );

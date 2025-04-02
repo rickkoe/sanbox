@@ -13,13 +13,13 @@ import SanPage from "./pages/SanPage";
 import StoragePage from "./pages/StoragePage";
 import NotFound from "./pages/NotFound";
 import ToolsPage from "./pages/ToolsPage";
-import WwpnColonizerPage from "./pages/WWPNColonizerPage";
 import StorageCalculatorPage from "./pages/StorageCalculatorPage";
 import CustomerTable from "./components/tables/CustomerTable";
 import FabricTable from "./components/tables/FabricTable";
 import AliasTable from "./components/tables/AliasTable";
 import ZoneTable from "./components/tables/ZoneTable";
 import ConfigForm from "./components/forms/ConfigForm";
+import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
@@ -59,7 +59,7 @@ function App() {
                   <Route path="/san/fabrics" element={<FabricTable />} />
                   <Route path="/config" element={<ConfigForm />} />
                   <Route path="/tools" element={<ToolsPage />} />
-                  <Route path="/tools/wwpn-colonizer" element={<WwpnColonizerPage />} />
+                  <Route path="/tools/wwpn-colonizer" element={<WWPNFormatterTable />} />
                   <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
