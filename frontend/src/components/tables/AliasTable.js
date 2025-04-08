@@ -46,7 +46,7 @@ const AliasTable = () => {
     // ✅ Ensure a blank row is always present
     const ensureBlankRow = (data) => {
         if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
-            return [...data, { id: null, name: "", wwpn: "",use: "", fabric: "", create: false, include_in_zoning: false, notes: "" }];
+            return [...data, { id: null, name: "", wwpn: "", use: "", fabric: "", create: false, include_in_zoning: false, notes: "" }];
         }
         return data;
     };
@@ -158,6 +158,24 @@ const AliasTable = () => {
         }
     };
 
+    // ✅ Generate alias scripts for rows with 'Include_in_zoning' checked
+    const handleGenerateScripts = async () => {
+        if (!config?.active_project?.id) {
+            alert("No active project selected!");
+            return;
+        }
+        try {
+            // This endpoint should generate alias creation commands on the backend
+            const response = await axios.get(`http://127.0.0.1:8000/api/san/alias-scripts/${config.active_project.id}/`);
+            console.log("Alias Scripts generated:", response.data);
+            // For demonstration, alert the user; you may want to display the scripts in a modal or new page
+            alert("Alias Scripts generated! Check the console for details.");
+        } catch (error) {
+            console.error("Error generating alias scripts:", error);
+            alert("Error generating alias scripts. Check the console for details.");
+        }
+    };
+
     const handleRemoveRows = (index, amount, physicalRows, source) => {
         // For each row that is about to be removed, check if it has an ID.
         physicalRows.forEach(rowIndex => {
@@ -188,7 +206,7 @@ const AliasTable = () => {
                 <>
                 <div>
                     <Button className="save-button" onClick={handleSave}>Save</Button>
-                    <Button className="save-button"> Generate Alias Scripts </Button>
+                    <Button className="save-button" onClick={handleGenerateScripts}>Generate Alias Scripts</Button>
                 </div>
 
                 <HotTable

@@ -20,6 +20,7 @@ import AliasTable from "./components/tables/AliasTable";
 import ZoneTable from "./components/tables/ZoneTable";
 import ConfigForm from "./components/forms/ConfigForm";
 import WWPNFormatterTable from "./components/tools/WWPNColonizer";
+import AliasScriptsPage from "./pages/AliasScriptsPage";
 
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
@@ -61,6 +62,7 @@ function App() {
                   <Route path="/tools" element={<ToolsPage />} />
                   <Route path="/tools/wwpn-colonizer" element={<WWPNFormatterTable />} />
                   <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
+                  <Route path="/scripts/alias-scripts" element={<AliasScriptsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
             </main>
