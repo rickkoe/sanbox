@@ -57,3 +57,43 @@
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
   }
+
+/* Green Screen Style Inspired by Old Mainframe Terminals */
+
+/* Code Block Style */
+.code-block {
+  background-color: #212529;
+  color: #fff;                   /* Bright green text */
+  padding: 20px 40px 10px;
+  font-family: "Courier New", Consolas, monospace;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.code-block pre {
+  margin: 0;
+}
+
+/* Tabs Styling */
+.custom-tabs .nav-link {
+  color: #212529;                   /* Bright green text */
+  border: 1px solid #212529;        /* Green border */
+  margin-right: 2px;
+  padding: 8px 16px;
+  font-weight: bold;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.custom-tabs .nav-link:hover {
+  background-color: #fff;
+  color: #000;
+}
+
+.custom-tabs .nav-link.active {
+  background-color: #0d6efd;
+  color: #fff;
+}
+
+.navbar-dark {
+  color: #fff;     
+}

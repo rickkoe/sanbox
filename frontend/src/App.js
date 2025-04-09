@@ -62,7 +62,7 @@ function App() {
                   <Route path="/tools" element={<ToolsPage />} />
                   <Route path="/tools/wwpn-colonizer" element={<WWPNFormatterTable />} />
                   <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
-                  <Route path="/scripts/alias-scripts" element={<AliasScriptsPage />} />
+                  <Route path="/san/aliases/alias-scripts" element={<AliasScriptsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
             </main>
