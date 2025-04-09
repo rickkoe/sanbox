@@ -9,9 +9,7 @@ from django.db import IntegrityError
 from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-
-# Import the helper functions from your services module
-from .san_utils import build_device_alias_commands, build_fcalias_commands
+from .san_utils import build_device_alias_commands, build_fcalias_commands, generate_alias_commands
 
 class AliasListView(APIView):
     """Fetch aliases belonging to a specific project."""
@@ -235,14 +233,11 @@ class FabricDeleteView(generics.DestroyAPIView):
         fabric.delete()
         return Response({"message": "Fabric deleted successfully."}, status=status.HTTP_200_OK)
   
-
 @require_http_methods(["GET"])
 def generate_alias_scripts(request, project_id):
-    # Get the project ID from the query parameters
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
-    
-    # Fetch alias records that have include_in_zoning set to True and match the project
+
     try:
         aliases = Alias.objects.filter(create=True)
         print('DEBUG: Fetched aliases:', [
@@ -257,32 +252,10 @@ def generate_alias_scripts(request, project_id):
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
-    # Retrieve configuration (e.g., vendor settings, alias type, etc.)
     config = Config.get_active_config()
     if not config:
         return JsonResponse({"error": "Configuration is missing."}, status=500)
 
-    # Create a dictionary to store commands grouped by fabric name.
-    alias_command_dict = defaultdict(list)
-
-    # Loop over each alias and build the necessary command(s) based on the vendor and alias type.
-    for alias in aliases:
-        key = alias.fabric.name
-        if config.san_vendor == 'CI':
-            if config.cisco_alias == 'device-alias':
-                build_device_alias_commands(alias, alias_command_dict[key])
-            elif config.cisco_alias == 'fcalias':
-                build_fcalias_commands(alias, alias_command_dict[key])
-        elif config.san_vendor == 'BR':
-            alias_command_dict[key].append(f'alicreate "{alias.name}", "{alias.wwpn}"')
+    commands = generate_alias_commands(aliases, config)
     
-    # If necessary, add a commit command at the end (for Cisco device-alias)
-    if config.san_vendor == 'CI' and config.cisco_alias == 'device-alias':
-        for key in alias_command_dict:
-            alias_command_dict[key].append('device-alias commit')
-
-    # Optionally sort the command dictionary by fabric name before returning
-    sorted_dict = dict(sorted(alias_command_dict.items()))
-    
-    # Return the generated alias scripts as JSON
-    return JsonResponse({"alias_scripts": sorted_dict}, safe=False)
+    return JsonResponse({"alias_scripts": commands}, safe=False)
