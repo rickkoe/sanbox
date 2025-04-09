@@ -3,12 +3,15 @@ import axios from "axios";
 import { Tabs, Tab, Alert, Spinner, Button } from "react-bootstrap";
 import { ConfigContext } from "../context/ConfigContext";
 import { useNavigate } from "react-router-dom";
+import { useSanVendor } from "../context/SanVendorContext";
 
 const AliasScriptsPage = () => {
   const { config } = useContext(ConfigContext);
+  const { sanVendor } = useSanVendor();
   const [scripts, setScripts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [copyButtonText, setCopyButtonText] = useState("Copy to clipboard");
   const [activeTab, setActiveTab] = useState(null);
   const navigate = useNavigate();
 
@@ -27,7 +30,7 @@ const AliasScriptsPage = () => {
     const fetchScripts = async () => {
       try {
         const response = await axios.get(
-          `http://127.0.0.1:8000/api/san/alias-scripts/${config.active_project.id}/`
+          `http://127.0.0.1:8000/api/san/alias-scripts/${config.active_project.id}/?vendor=${sanVendor}`
         );
         const aliasScripts = response.data.alias_scripts || {};
         setScripts(aliasScripts);
@@ -43,7 +46,7 @@ const AliasScriptsPage = () => {
     };
   
     fetchScripts();
-  }, [config]);
+  }, [config, sanVendor]);
 
   const handleCopyToClipboard = () => {
     if (activeTab && scripts[activeTab]) {
@@ -52,11 +55,12 @@ const AliasScriptsPage = () => {
       const textToCopy = `${header}\n${commandsText}`;
       navigator.clipboard.writeText(textToCopy)
         .then(() => {
-          alert('Copied to clipboard!');
+          setCopyButtonText("Copied!");
+          setTimeout(() => setCopyButtonText("Copy to clipboard"), 5000);
         })
         .catch((err) => {
-          alert('Failed to copy to clipboard.');
           console.error('Clipboard copy failed:', err);
+          alert('Failed to copy to clipboard.');
         });
     } else {
       alert('No active code block to copy.');
@@ -84,7 +88,13 @@ const AliasScriptsPage = () => {
   return (
     <div className="table-container">
     <div>
-        <Button className="save-button" onClick={handleCopyToClipboard}>Copy to clipboard</Button>
+        <Button
+          className="save-button"
+          onClick={handleCopyToClipboard}
+          style={copyButtonText === "Copied!" ? { backgroundColor: 'white', color: 'black', borderColor: 'black' } : {}}
+        >
+          {copyButtonText === "Copied!" ? (<span>&#x2714; Copied!</span>) : "Copy to clipboard"}
+        </Button>
         <Button className="save-button" onClick={() => navigate("/san/aliases")}>Back to Aliases</Button>
       </div>
       {scripts && Object.keys(scripts).length > 0 ? (
