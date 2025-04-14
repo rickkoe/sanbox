@@ -25,3 +25,39 @@
   .table-container .ht_master .htCore tbody tr:nth-child(even) {
     background-color: #f2f2f2;
   }
+
+    /* Ensure the header background is dark and text is light */
+  .ht_clone_top th {
+    background-color: #212529 !important; /* A dark gray similar to Bootstrap's bg-dark */
+    color: #fff !important;               /* White text for contrast */
+    font-weight: bold;
+    border-right: 1px solid #fff; 
+  }
+
+  /* Remove the border from the last header cell */
+  .ht_clone_top th:last-child {
+    border-right: none;
+  }
+
+  .htDropdownMenu {
+    z-index: 9999 !important;
+  }
+
+  .htDropdownMenu {
+    background-color: #001f00 !important; /* Green screen background */
+    color: #00ff00 !important;             /* Bright green text */
+    border: 1px solid #00ff00 !important;   /* Bright green border */
+  }
+  .htDropdownMenu li {
+    background-color: transparent;
+    border: none;
+  }
+  .htDropdownMenu li:hover {
+    background-color: #002b00;
+  }
+
+  /* Force the filter dropdown button to show */
+.htDropdownMenuButton {
+  display: block !important;
+  z-index: 10000;
+}

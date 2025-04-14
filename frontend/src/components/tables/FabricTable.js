@@ -1,13 +1,8 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
 import { HotTable, HotColumn } from '@handsontable/react-wrapper';
-import "handsontable/dist/handsontable.full.css";
-import { registerAllModules } from "handsontable/registry";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Button, Alert } from "react-bootstrap";
-
-// Register all Handsontable modules
-registerAllModules();
 
 const FabricTable = () => {
     const { config, loading: configLoading } = useContext(ConfigContext);

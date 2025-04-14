@@ -1,19 +1,9 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
-import "handsontable/dist/handsontable.full.css";
-import { registerAllModules } from "handsontable/registry";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Button, Alert } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-
 import { HotTable, HotColumn } from '@handsontable/react-wrapper';
-import 'handsontable/styles/handsontable.css';
-import 'handsontable/styles/ht-theme-main.css';
-import 'handsontable/styles/ht-theme-horizon.css';
-
-
-// Register all Handsontable modules
-registerAllModules();
 
 const AliasTable = () => {
     const { config } = useContext(ConfigContext);
@@ -242,9 +232,9 @@ const AliasTable = () => {
                     afterChange={handleTableChange}
                     licenseKey="non-commercial-and-evaluation"
                     className="htMaterial"
+                    filters={true}
                     dropdownMenu={true}
                     stretchH="all"
-                    filters={true}
                     rowHeaders={false}
                     dragToScroll={true}
                     width="100%"
