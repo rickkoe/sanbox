@@ -1,26 +1,31 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
-import { Button, Alert } from "react-bootstrap";
+import { Button, Alert, Modal } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { HotTable, HotColumn } from '@handsontable/react-wrapper';
+import { UNSAFE_NavigationContext as NavigationContext } from 'react-router-dom';
 
 const AliasTable = () => {
     const { config } = useContext(ConfigContext);
     const navigate = useNavigate();
+    const { navigator } = useContext(NavigationContext);
+    const [lastTx, setLastTx] = useState(null);
     const [aliases, setAliases] = useState([]);
     const [unsavedAliases, setUnsavedAliases] = useState([]);
     const [fabrics, setFabrics] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [saveStatus, setSaveStatus] = useState("");
+    const [isDirty, setIsDirty] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [nextPath, setNextPath] = useState(null);
     const tableRef = useRef(null);
 
     const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
     const aliasSaveApiUrl = "http://127.0.0.1:8000/api/san/aliases/save/";
     const aliasDeleteApiUrl = "http://127.0.0.1:8000/api/san/aliases/delete/";
-
 
     useEffect(() => {
         if (config?.active_project?.id) {
@@ -35,7 +40,77 @@ const AliasTable = () => {
         console.log("AliasTable debug:", { loading, error, config });
     }, [loading, error, config]);
 
-    // ✅ Ensure a blank row is always present
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (isDirty) {
+                event.preventDefault();
+                event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [isDirty]);
+
+    useEffect(() => {
+        if (!isDirty) return;
+        if (typeof navigator.block !== 'function') {
+            console.warn("navigator.block is not supported in this version of react-router.");
+            return;
+        }
+        const unblock = navigator.block((tx) => {
+            // Block the transition and show the modal
+            setShowModal(true);
+            setLastTx(tx);
+            return false;
+        });
+        return () => {
+            if (typeof unblock === 'function') {
+                unblock();
+            }
+        };
+    }, [isDirty, navigator]);
+
+    // Custom global navigation blocker: Intercept pushState to catch internal navigation (e.g., Link clicks)
+    useEffect(() => {
+        if (!isDirty) return;
+        const originalPushState = window.history.pushState;
+        window.history.pushState = function(state, title, url) {
+            // Instead of allowing navigation, show the modal and store the intended URL
+            setNextPath(url);
+            setShowModal(true);
+            // Do not call the original pushState to block navigation
+        };
+        return () => {
+            window.history.pushState = originalPushState;
+        };
+    }, [isDirty]);
+
+    // Custom global navigation blocker: Intercept popstate events for browser back/forward buttons
+    useEffect(() => {
+        if (!isDirty) return;
+        const handlePopState = (e) => {
+            // Prevent navigation by pushing the current location back into history
+            e.preventDefault();
+            window.history.pushState(null, "", window.location.pathname);
+            // Store the attempted URL (from event.state, if available, or current location) and show the modal
+            setNextPath(window.location.pathname);
+            setShowModal(true);
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, [isDirty]);
+
+    const handleNavigationAttempt = (path) => {
+        if (isDirty) {
+            setShowModal(true);
+            setNextPath(path);
+        } else {
+            navigate(path);
+        }
+    };
+
     const ensureBlankRow = (data) => {
         if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
             return [...data, { id: null, name: "", wwpn: "", use: "", fabric: "", create: false, include_in_zoning: false, notes: "" }];
@@ -43,7 +118,6 @@ const AliasTable = () => {
         return data;
     };
 
-    // ✅ Fetch aliases for the active project
     const fetchAliases = async (projectId) => {
         setLoading(true);
         setError(null);
@@ -62,7 +136,6 @@ const AliasTable = () => {
         }
     };
 
-    // ✅ Fetch fabrics for the active customer
     const fetchFabrics = async (customerId) => {
         try {
             const response = await axios.get(`${fabricApiUrl}${customerId}/`);
@@ -72,7 +145,6 @@ const AliasTable = () => {
         }
     };
 
-    // ✅ Handle table edits & auto-add new row when needed
     const handleTableChange = (changes, source) => {
         if (!changes || source === "loadData") return;
 
@@ -86,7 +158,6 @@ const AliasTable = () => {
 
                 updatedAliases[physicalRow][prop] = newValue;
 
-                // ✅ If editing last row, add a new blank row
                 if (physicalRow === updatedAliases.length - 1 && newValue.trim() !== "") {
                     shouldAddNewRow = true;
                 }
@@ -97,10 +168,10 @@ const AliasTable = () => {
             updatedAliases.push({ id: null, name: "", wwpn: "", use: "", fabric: "", create: false, include_in_zoning: false, notes: "" });
         }
 
+        setIsDirty(true);
         setUnsavedAliases(updatedAliases);
     };
 
-    // ✅ Save updated & new aliases
     const handleSave = async () => {
         if (!config?.active_project?.id) {
             setSaveStatus("⚠️ No active project selected!");
@@ -127,6 +198,7 @@ const AliasTable = () => {
 
             console.log("✅ Save Response:", response.data);
             setSaveStatus("Aliases saved successfully! ✅");
+            setIsDirty(false);
             fetchAliases(config.active_project.id);  // ✅ Refresh table
         } catch (error) {
             console.error("❌ Error saving aliases:", error);
@@ -150,14 +222,10 @@ const AliasTable = () => {
         }
     };
 
-    
-
     const handleRemoveRows = (index, amount, physicalRows, source) => {
-        // For each row that is about to be removed, check if it has an ID.
         physicalRows.forEach(rowIndex => {
             const aliasToDelete = unsavedAliases[rowIndex];
             if (aliasToDelete && aliasToDelete.id) {
-                // Call your backend delete endpoint.
                 axios.delete(`${aliasDeleteApiUrl}${aliasToDelete.id}/`)
                     .then(response => {
                         console.log("Deleted alias", aliasToDelete.id);
@@ -170,10 +238,7 @@ const AliasTable = () => {
     };
 
     return (
-        
         <div className="table-container">
-            
-
             {loading ? (
                 <Alert variant="info">Loading aliases...</Alert>
             ) : error ? (
@@ -182,12 +247,13 @@ const AliasTable = () => {
                 <>
                 <div>
                     <Button className="save-button" onClick={handleSave}>Save</Button>
-                    <Button className="save-button" onClick={() => navigate("alias-scripts")}>Generate Alias Scripts</Button>
+                    <Button className="save-button" onClick={() => handleNavigationAttempt("alias-scripts")}>Generate Alias Scripts</Button>
                 </div>
 
                 <HotTable
                     ref={tableRef}
                     data={unsavedAliases}
+                    fixedColumnsLeft={2}
                     colHeaders={["ID", "Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", "Include in Zoning", "Notes"]}
                     columns={[
                         { data: "id", readOnly: true, className: "htCenter" },
@@ -209,7 +275,6 @@ const AliasTable = () => {
                     manualColumnResize={true}
                     autoColumnSize={true}
                     afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
-                        // Retrieve the number of columns
                         const totalCols = tableRef.current.hotInstance.countCols();
                         const widths = [];
                         for (let i = 0; i < totalCols; i++) {
@@ -241,7 +306,6 @@ const AliasTable = () => {
                     height="calc(100vh - 200px)"
                 />
 
-
                     {saveStatus && (
                         <Alert variant={saveStatus.includes("Error") ? "danger" : "success"} className="mt-2">
                             {saveStatus}
@@ -249,6 +313,31 @@ const AliasTable = () => {
                     )}
                 </>
             )}
+            <Modal show={showModal} onHide={() => setShowModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Unsaved Changes</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    You have unsaved changes. Are you sure you want to leave?
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowModal(false)}>
+                        Stay on this page
+                    </Button>
+                    <Button variant="primary" onClick={() => {
+                        setIsDirty(false);
+                        setShowModal(false);
+                        if (lastTx) {
+                            lastTx.retry();
+                            setLastTx(null);
+                        } else if (nextPath) {
+                            navigate(nextPath);
+                        }
+                    }}>
+                        Leave
+                    </Button>
+                </Modal.Footer>
+            </Modal>
         </div>
     );
 };

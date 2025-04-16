@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { HotTable, HotColumn } from '@handsontable/react-wrapper';
 import { Modal, Button } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 
 const CustomerTable = () => {
     // Customers fetched from the API (initial data)
@@ -15,6 +16,10 @@ const CustomerTable = () => {
     // Manage row selections for deletion
     const [selectedRows, setSelectedRows] = useState([]);
     const [showModal, setShowModal] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
+    const [showNavigationModal, setShowNavigationModal] = useState(false);
+    const [nextPath, setNextPath] = useState(null);
+    const navigate = useNavigate();
 
     const tableRef = useRef(null);  // Reference to the Handsontable instance
     const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
@@ -43,6 +48,42 @@ const CustomerTable = () => {
         fetchCustomers();  // Initial data fetch
     }, []);
 
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (isDirty) {
+                event.preventDefault();
+                event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [isDirty]);
+
+    useEffect(() => {
+        if (!isDirty) return;
+        const originalPushState = window.history.pushState;
+        window.history.pushState = function(state, title, url) {
+            setNextPath(url);
+            setShowNavigationModal(true);
+            // Do not call originalPushState to block navigation
+        };
+        return () => {
+            window.history.pushState = originalPushState;
+        };
+    }, [isDirty]);
+
+    useEffect(() => {
+        if (!isDirty) return;
+        const handlePopState = (e) => {
+            e.preventDefault();
+            window.history.pushState(null, "", window.location.pathname);
+            setNextPath(window.location.pathname);
+            setShowNavigationModal(true);
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [isDirty]);
+
     // Handle changes in the table (not immediately saved)
     const handleTableChange = (changes, source) => {
         if (source === "edit" && changes) {
@@ -67,6 +108,7 @@ const CustomerTable = () => {
                 updatedCustomers.push({ id: "", name: "" });
             }
 
+            setIsDirty(true);
             setUnsavedCustomers(updatedCustomers);
         }
     };
@@ -122,12 +164,22 @@ const CustomerTable = () => {
         });
 
         Promise.all(savePromises)
-            .then(() => {
-                setSaveStatus("Customers saved successfully! ✅");
-                fetchCustomers();
-                setTimeout(() => setSaveStatus(""), 3000);
-            })
-            .catch(() => setSaveStatus("⚠️ Error saving customers!"));
+        .then(() => {
+            setSaveStatus("Customers saved successfully! ✅");
+            setIsDirty(false); // Reset dirty flag after successful save
+            fetchCustomers();
+            setTimeout(() => setSaveStatus(""), 3000);
+        })
+        .catch(() => setSaveStatus("⚠️ Error saving customers!"));
+    };
+
+    const handleNavigationAttempt = (path) => {
+        if (isDirty) {
+            setNextPath(path);
+            setShowNavigationModal(true);
+        } else {
+            navigate(path);
+        }
     };
 
     return (
@@ -145,6 +197,7 @@ const CustomerTable = () => {
                     <HotTable
                         ref={tableRef}
                         data={unsavedCustomers}
+                        fixedColumnsLeft={2}
                         colHeaders={["ID", "Customer Name", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true },
@@ -210,6 +263,28 @@ const CustomerTable = () => {
                         <Modal.Footer>
                             <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
                             <Button variant="danger" onClick={handleDelete}>Delete</Button>
+                        </Modal.Footer>
+                    </Modal>
+
+                    {/* Navigation blocking modal */}
+                    <Modal show={showNavigationModal} onHide={() => setShowNavigationModal(false)}>
+                        <Modal.Header closeButton>
+                            <Modal.Title>Unsaved Changes</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body>
+                            You have unsaved changes. Are you sure you want to leave?
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="secondary" onClick={() => setShowNavigationModal(false)}>
+                                Stay on this page
+                            </Button>
+                            <Button variant="primary" onClick={() => {
+                                setIsDirty(false);
+                                setShowNavigationModal(false);
+                                navigate(nextPath);
+                            }}>
+                                Leave
+                            </Button>
                         </Modal.Footer>
                     </Modal>
                 </>

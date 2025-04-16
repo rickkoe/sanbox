@@ -14,6 +14,7 @@ const AliasScriptsPage = () => {
   const [copyButtonText, setCopyButtonText] = useState("Copy to clipboard");
   const [activeTab, setActiveTab] = useState(null);
   const navigate = useNavigate();
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     // Wait until we actually have config loaded (assuming that an empty config means it's not loaded yet).
@@ -116,7 +117,7 @@ const AliasScriptsPage = () => {
           ))}
         </Tabs>
       ) : (
-        <Alert variant="info">No alias scripts available.</Alert>
+        <Alert variant="info">No alias scripts available.  Verify the column "Create" is checked for the aliases you want to include.</Alert>
       )}
 
     </div>

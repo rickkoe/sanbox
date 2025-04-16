@@ -237,24 +237,17 @@ class FabricDeleteView(generics.DestroyAPIView):
 def generate_alias_scripts(request, project_id):
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
-
-    try:
-        aliases = Alias.objects.filter(create=True)
-        print('DEBUG: Fetched aliases:', [
-            {
-                'id': alias.id,
-                'name': alias.name,
-                'wwpn': alias.wwpn,
-                'fabric': alias.fabric.name if alias.fabric else None,
-                'include_in_zoning': alias.include_in_zoning
-            } for alias in aliases
-        ])
-    except Exception as e:
-        return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
-
+    
     config = Config.get_active_config()
     if not config:
         return JsonResponse({"error": "Configuration is missing."}, status=500)
+    print(config.active_project)
+
+
+    try:
+        aliases = Alias.objects.filter(create=True, projects=config.active_project)
+    except Exception as e:
+        return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
     commands = generate_alias_commands(aliases, config)
     

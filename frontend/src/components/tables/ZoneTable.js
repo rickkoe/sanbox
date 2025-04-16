@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
 import { HotTable } from "@handsontable/react";
 import { ConfigContext } from "../../context/ConfigContext";
-import { Button, Alert } from "react-bootstrap";
+import { Button, Alert, Modal } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 
 const ZoneTable = () => {
     const { config } = useContext(ConfigContext);
@@ -15,7 +16,11 @@ const ZoneTable = () => {
     const [saveStatus, setSaveStatus] = useState("");
     const [memberColumns, setMemberColumns] = useState(1);
     const [newColumnsCount, setNewColumnsCount] = useState(1); // To capture user input for new columns
+    const [isDirty, setIsDirty] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [nextPath, setNextPath] = useState(null);
     const tableRef = useRef(null);
+    const navigate = useNavigate();
 
     const zoneApiUrl = "http://127.0.0.1:8000/api/san/zones/project/";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
@@ -31,6 +36,51 @@ const ZoneTable = () => {
             fetchFabrics(config.customer.id);
         }
     }, [config]);
+
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (isDirty) {
+                event.preventDefault();
+                event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [isDirty]);
+
+    useEffect(() => {
+        if (!isDirty) return;
+        const originalPushState = window.history.pushState;
+        window.history.pushState = function(state, title, url) {
+            setNextPath(url);
+            setShowModal(true);
+            // Do not call originalPushState to block navigation
+        };
+        return () => {
+            window.history.pushState = originalPushState;
+        };
+    }, [isDirty]);
+
+    useEffect(() => {
+        if (!isDirty) return;
+        const handlePopState = (e) => {
+            e.preventDefault();
+            window.history.pushState(null, "", window.location.pathname);
+            setNextPath(window.location.pathname);
+            setShowModal(true);
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [isDirty]);
+
+    const handleNavigationAttempt = (path) => {
+        if (isDirty) {
+            setNextPath(path);
+            setShowModal(true);
+        } else {
+            navigate(path);
+        }
+    };
 
     const ensureBlankRow = (data) => {
         if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
@@ -127,6 +177,7 @@ const ZoneTable = () => {
             updatedZones.push({ id: null, name: "", fabric: "", members: [], create: false, exists: false, zone_type: "smart" });
         }
 
+        setIsDirty(true);
         setUnsavedZones(updatedZones);
     };
 
@@ -213,12 +264,13 @@ const ZoneTable = () => {
             <div>
                 <Button className="save-button" onClick={handleSave}>Save</Button>
                 <Button onClick={handleAddColumns} className="save-button">Add Member Columns</Button>
-                <Button className="save-button"> Generate Zoning Scripts </Button>
+                <Button className="save-button" onClick={() => handleNavigationAttempt("/san/zoning-scripts")}> Generate Zoning Scripts </Button>
             </div>
             
             <HotTable
                 ref={tableRef}
                 data={unsavedZones}
+                fixedColumnsLeft={2}
                 colHeaders={["ID", "Name", "Fabric",  "Notes", "Create", "Exists", "Zone Type", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
                 columns={[
                     { data: "id", readOnly: true, className: "htCenter" },
@@ -317,6 +369,26 @@ const ZoneTable = () => {
                 dragToScroll={true}
                 width="100%"
             />
+            <Modal show={showModal} onHide={() => setShowModal(false)}>
+              <Modal.Header closeButton>
+                <Modal.Title>Unsaved Changes</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                You have unsaved changes. Are you sure you want to leave?
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onClick={() => setShowModal(false)}>
+                  Stay on this page
+                </Button>
+                <Button variant="primary" onClick={() => {
+                  setIsDirty(false);
+                  setShowModal(false);
+                  navigate(nextPath);
+                }}>
+                  Leave
+                </Button>
+              </Modal.Footer>
+            </Modal>
         </div>
     );
 };

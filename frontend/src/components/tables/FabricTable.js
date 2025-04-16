@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
 import { HotTable, HotColumn } from '@handsontable/react-wrapper';
 import { ConfigContext } from "../../context/ConfigContext";
-import { Button, Alert } from "react-bootstrap";
+import { Button, Alert, Modal } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 
 const FabricTable = () => {
     const { config, loading: configLoading } = useContext(ConfigContext);
@@ -11,10 +12,15 @@ const FabricTable = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [saveStatus, setSaveStatus] = useState("");
+    const [isDirty, setIsDirty] = useState(false);
+    const [showNavigationModal, setShowNavigationModal] = useState(false);
+    const [nextPath, setNextPath] = useState(null);
     const tableRef = useRef(null);
+    const navigate = useNavigate();
     const fabricsForCustomerApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
     const fabricSaveApiUrl = "http://127.0.0.1:8000/api/san/fabrics/save/";
     const fabricDeleteApiUrl = "http://127.0.0.1:8000/api/san/fabrics/delete/";
+    
     useEffect(() => {
         if (config?.customer?.id) {
             fetchFabrics(config.customer.id);
@@ -79,6 +85,7 @@ const FabricTable = () => {
             updatedFabrics.push({ id: null, name: "", zoneset_name: "", vsan: "", exists: false });
         }
 
+        setIsDirty(true);
         setUnsavedFabrics(updatedFabrics);
     };
 
@@ -109,6 +116,7 @@ const FabricTable = () => {
     
             console.log("✅ Save Response:", response.data);
             setSaveStatus("Fabrics saved successfully! ✅");
+            setIsDirty(false);
             fetchFabrics(config.customer.id);  // ✅ Refresh table
         } catch (error) {
             console.error("❌ Error saving fabrics:", error);
@@ -157,6 +165,51 @@ const FabricTable = () => {
             });
         };
 
+    const handleNavigationAttempt = (path) => {
+        if (isDirty) {
+            setNextPath(path);
+            setShowNavigationModal(true);
+        } else {
+            navigate(path);
+        }
+    };
+
+    useEffect(() => {
+        const handleBeforeUnload = (event) => {
+            if (isDirty) {
+                event.preventDefault();
+                event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [isDirty]);
+
+    useEffect(() => {
+        if (!isDirty) return;
+        const originalPushState = window.history.pushState;
+        window.history.pushState = function(state, title, url) {
+            setNextPath(url);
+            setShowNavigationModal(true);
+            // Do not call originalPushState to block navigation
+        };
+        return () => {
+            window.history.pushState = originalPushState;
+        };
+    }, [isDirty]);
+
+    useEffect(() => {
+        if (!isDirty) return;
+        const handlePopState = (e) => {
+            e.preventDefault();
+            window.history.pushState(null, "", window.location.pathname);
+            setNextPath(window.location.pathname);
+            setShowNavigationModal(true);
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [isDirty]);
+
     return (
         <div className="table-container">
 
@@ -174,6 +227,7 @@ const FabricTable = () => {
                     <HotTable
                         ref={tableRef}
                         data={unsavedFabrics}
+                        fixedColumnsLeft={2}
                         colHeaders={["ID", "Name", "Zoneset Name", "VSAN", "Exists", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true, className: "htCenter" },
@@ -218,6 +272,26 @@ const FabricTable = () => {
                     )}
                 </>
             )}
+            <Modal show={showNavigationModal} onHide={() => setShowNavigationModal(false)}>
+              <Modal.Header closeButton>
+                <Modal.Title>Unsaved Changes</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                You have unsaved changes. Are you sure you want to leave?
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onClick={() => setShowNavigationModal(false)}>
+                  Stay on this page
+                </Button>
+                <Button variant="primary" onClick={() => {
+                  setIsDirty(false);
+                  setShowNavigationModal(false);
+                  navigate(nextPath);
+                }}>
+                  Leave
+                </Button>
+              </Modal.Footer>
+            </Modal>
         </div>
     );
 };
