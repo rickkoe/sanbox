@@ -60,14 +60,17 @@
 
 /* Green Screen Style Inspired by Old Mainframe Terminals */
 
-/* Code Block Style */
 .code-block {
   background-color: #212529;
-  color: #fff;                   /* Bright green text */
+  color: #fff;
   padding: 20px 40px 10px;
   font-family: "Courier New", Consolas, monospace;
   font-size: 1rem;
   line-height: 1.4;
+  overflow: auto;
+  height: calc(100vh - 250px); /* your formula here */
+  border-radius: 4px;
+  white-space: pre;
 }
 
 .code-block pre {

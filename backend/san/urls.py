@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import FabricsForCustomerView, FabricsByCustomerView, FabricSaveView, generate_alias_scripts
+from .views import FabricsForCustomerView, FabricsByCustomerView, FabricSaveView, generate_alias_scripts, generate_zone_scripts
 from .views import AliasListView, AliasSaveView, ZonesByProjectView, ZoneSaveView, FabricDeleteView, AliasDeleteView
 urlpatterns = [
     path("aliases/project/<int:project_id>/", AliasListView.as_view(), name="alias-list"),
@@ -9,6 +9,7 @@ urlpatterns = [
 
     path("zones/project/<int:project_id>/", ZonesByProjectView.as_view(), name="zones-by-project"),
     path("zones/save/", ZoneSaveView.as_view(), name="save-zones"),
+    path('zone-scripts/<int:project_id>/', generate_zone_scripts, name='zone-scripts'),
 
     path("fabrics/customer/", FabricsForCustomerView.as_view(), name="fabrics-for-customer"),  
     path("fabrics/customer/<int:customer_id>/", FabricsByCustomerView.as_view(), name="fabrics-by-customer"),

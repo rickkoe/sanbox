@@ -21,6 +21,7 @@ import ZoneTable from "./components/tables/ZoneTable";
 import ConfigForm from "./components/forms/ConfigForm";
 import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 import AliasScriptsPage from "./pages/AliasScriptsPage";
+import ZoneScriptsPage from "./pages/ZoneScriptsPage";
 
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
@@ -63,6 +64,7 @@ function App() {
                   <Route path="/tools/wwpn-colonizer" element={<WWPNFormatterTable />} />
                   <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
                   <Route path="/san/aliases/alias-scripts" element={<AliasScriptsPage />} />
+                  <Route path="/san/zones/zone-scripts" element={<ZoneScriptsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
             </main>

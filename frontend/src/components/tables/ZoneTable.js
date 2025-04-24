@@ -227,6 +227,7 @@ const ZoneTable = () => {
     
             console.log("✅ Save Response:", response.data);
             setSaveStatus("Zones saved successfully! ✅");
+            setIsDirty(false);
             fetchZones(config.active_project.id);
         } catch (error) {
             console.error("❌ Error saving zones:", error);
@@ -263,8 +264,23 @@ const ZoneTable = () => {
         <div className="table-container">
             <div>
                 <Button className="save-button" onClick={handleSave}>Save</Button>
-                <Button onClick={handleAddColumns} className="save-button">Add Member Columns</Button>
-                <Button className="save-button" onClick={() => handleNavigationAttempt("/san/zoning-scripts")}> Generate Zoning Scripts </Button>
+                <Button className="save-button" onClick={handleAddColumns}>Add Member Columns</Button>
+                <Button
+                  className="save-button"
+                  onClick={async () => {
+                    if (isDirty) {
+                      await handleSave();
+                      if (!isDirty) {
+                        alert("Zones saved successfully! Redirecting to script generation...");
+                        navigate("/san/zones/zone-scripts");
+                      }
+                    } else {
+                      navigate("/san/zones/zone-scripts");
+                    }
+                  }}
+                >
+                  Generate Zoning Scripts
+                </Button>
             </div>
             
             <HotTable

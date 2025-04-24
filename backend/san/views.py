@@ -9,7 +9,7 @@ from django.db import IntegrityError
 from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from .san_utils import build_device_alias_commands, build_fcalias_commands, generate_alias_commands
+from .san_utils import generate_alias_commands, generate_zone_commands
 
 class AliasListView(APIView):
     """Fetch aliases belonging to a specific project."""
@@ -252,3 +252,19 @@ def generate_alias_scripts(request, project_id):
     commands = generate_alias_commands(aliases, config)
     
     return JsonResponse({"alias_scripts": commands}, safe=False)
+
+@require_http_methods(["GET"])
+def generate_zone_scripts(request, project_id):
+    if not project_id:
+        return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
+    
+    config = Config.get_active_config()
+    if not config:
+        return JsonResponse({"error": "Configuration is missing."}, status=500)
+    try:
+        zones = Zone.objects.filter(create=True, projects=config.active_project)
+    except Exception as e:
+        return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
+
+    commands = generate_zone_commands(zones, config)
+    return JsonResponse({"zone_scripts": commands}, safe=False)

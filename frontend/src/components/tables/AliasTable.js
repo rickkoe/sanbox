@@ -247,7 +247,7 @@ const AliasTable = () => {
                 <>
                 <div>
                     <Button className="save-button" onClick={handleSave}>Save</Button>
-                    <Button className="save-button" onClick={() => handleNavigationAttempt("alias-scripts")}>Generate Alias Scripts</Button>
+                    <Button className="save-button" onClick={() => handleNavigationAttempt("/san/aliases/alias-scripts")}>Generate Alias Scripts</Button>
                 </div>
 
                 <HotTable
