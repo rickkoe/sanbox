@@ -26,7 +26,9 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
           ) : config && config.customer ? (
             <div className="active-project-card p-2 rounded">
               <span className="active-project">
-                {config.customer.name}
+                <a href={`https://insights.ibm.com/cui/${config.customer.insights_tenant}`} target="_blank" rel="noopener noreferrer">
+                  {config.customer.name}
+                </a>
               </span>
             </div>
           ) : (

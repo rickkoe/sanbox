@@ -1,17 +1,17 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
 import { HotTable, HotColumn } from '@handsontable/react-wrapper';
 import { Modal, Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import { ConfigContext } from "../../context/ConfigContext";
 
 const CustomerTable = () => {
-    // Customers fetched from the API (initial data)
+    const { config } = useContext(ConfigContext);
     const [customers, setCustomers] = useState([]);
-    // Unsaved changes made by the user
     const [unsavedCustomers, setUnsavedCustomers] = useState([]);
-    const [loading, setLoading] = useState(true);  // Loading status
-    const [error, setError] = useState(null);      // Error message state
-    const [saveStatus, setSaveStatus] = useState("");  // Save status feedback
+    const [loading, setLoading] = useState(true); 
+    const [error, setError] = useState(null);
+    const [saveStatus, setSaveStatus] = useState(""); 
 
     // Manage row selections for deletion
     const [selectedRows, setSelectedRows] = useState([]);
@@ -151,7 +151,6 @@ const CustomerTable = () => {
     // Save all unsaved changes to Django API
     const handleSave = () => {
         setSaveStatus("Saving...");
-
         const savePromises = unsavedCustomers.map(customer => {
             if (!customer.id && customer.name.trim() !== "") {
                 // New customer entry (POST request)
@@ -198,10 +197,31 @@ const CustomerTable = () => {
                         ref={tableRef}
                         data={unsavedCustomers}
                         fixedColumnsLeft={2}
-                        colHeaders={["ID", "Customer Name", "Notes"]}
+                        colHeaders={["ID", "Customer Name", "Storage Insights Tenant", "Storage Insights API Key", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true },
-                            { data: "name" },
+                            {
+                              data: "name",
+                              renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                                const customer = instance.getSourceDataAtRow(row);
+                                if (customer.insights_tenant) {
+                                    td.innerHTML = `<a href="https://insights.ibm.com/cui/${customer.insights_tenant}" target="_blank" rel="noopener noreferrer">${value}</a>`;
+                                } else {
+                                  td.innerText = value || "";
+                                }
+                                return td;
+                              }
+                            },
+                            { data: "insights_tenant"},
+                            {
+                                data: "insights_api_key",
+                                renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                                    const customer = instance.getSourceDataAtRow(row);
+                                    const displayValue = customer.id ? "••••••••••" : value;
+                                    td.innerText = displayValue || "";
+                                    return td;
+                                }
+                            },
                             { data: "notes" },
                         ]}
                         manualColumnResize={true}

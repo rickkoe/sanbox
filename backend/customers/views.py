@@ -34,11 +34,15 @@ def customer_update(request, pk):
 @api_view(["POST"])
 def customer_create(request):
     """Create a new customer."""
+    print(request.data)
     serializer = CustomerSerializer(data=request.data)
+    print(serializer)
     if serializer.is_valid():
+        print("VALID")
         customer = serializer.save()
         return Response(CustomerSerializer(customer).data, status=status.HTTP_201_CREATED)
-
+    else:
+        print("NOT VALID")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(["DELETE"])

@@ -60,4 +60,8 @@
     z-index: 100;
 
   }
-  
+
+  .active-project a {
+      text-decoration: underline;
+      color: inherit;
+  }

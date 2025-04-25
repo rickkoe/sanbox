@@ -35,9 +35,9 @@ def generate_alias_commands(aliases, config):
     for alias in aliases:
         key = alias.fabric.name
         if config.san_vendor == 'CI':
-            if config.cisco_alias == 'device-alias':
+            if alias.cisco_alias == 'device-alias':
                 build_device_alias_commands(alias, alias_command_dict[key])
-            elif config.cisco_alias == 'fcalias':
+            elif alias.cisco_alias == 'fcalias':
                 build_fcalias_commands(alias, alias_command_dict[key])
         elif config.san_vendor == 'BR':
             alias_command_dict[key].append(f'alicreate "{alias.name}", "{alias.wwpn}"')
@@ -55,9 +55,7 @@ def generate_zone_commands(zones,config):
     zoneset_command_dict = defaultdict(list)
     alias_command_dict = generate_alias_commands(all_aliases, config)
 
-
     # Create Zone Commands
-    alias_type = config.cisco_alias
     all_zones = Zone.objects.select_related('fabric').prefetch_related('members').filter(create='True', projects=config.active_project).order_by('id')
     firstpass = False # Set trigger for Cisco config t command
     for zone in all_zones:
@@ -82,19 +80,17 @@ def generate_zone_commands(zones,config):
                 if zone.exists == False:
                     zoneset_command_dict[key].append(f'member {zone.name}')
                 for zone_member in zone_members:
-                    print(config.cisco_alias)
-                    if config.cisco_alias == 'fcalias':  
-                        zone_command_dict[key].append(f'member {alias_type} {zone_member.name}')
-                    elif config.cisco_alias == 'device-alias' and zone.zone_type == 'smart':
-                        zone_command_dict[key].append(f'member {alias_type} {zone_member.name} {zone_member.use}')
-                    elif config.cisco_alias == 'device-alias' and zone.zone_type == 'standard':
-                        zone_command_dict[key].append(f'member {alias_type} {zone_member.name}')
-                    elif config.cisco_alias == 'wwpn':
+                    if zone_member.cisco_alias == 'fcalias':  
+                        zone_command_dict[key].append(f'member {zone_member.cisco_alias} {zone_member.name}')
+                    elif zone_member.cisco_alias == 'device-alias' and zone.zone_type == 'smart':
+                        zone_command_dict[key].append(f'member {zone_member.cisco_alias} {zone_member.name} {zone_member.use}')
+                    elif zone_member.cisco_alias == 'device-alias' and zone.zone_type == 'standard':
+                        zone_command_dict[key].append(f'member {zone_member.cisco_alias} {zone_member.name}')
+                    elif zone_member.cisco_alias == 'wwpn':
                         if zone.zone_type == 'smart':
                             zone_command_dict[key].append(f'member pwwn {zone_member.wwpn} {zone_member.use}')
                         elif zone.zone_type == 'standard':
                             zone_command_dict[key].append(f'member pwwn {zone_member.wwpn}')
-                print(f"ZONE COMMAND DICT: {zone_command_dict}")
             elif config.san_vendor == 'BR':
                 if zone.zone_type == 'standard':
                     zone_member_list = ';'.join(zone_member_list)
@@ -137,6 +133,5 @@ def generate_zone_commands(zones,config):
     command_dict = dict(command_dict)
     # Sort by fabric names
     sorted_command_dict = dict(sorted(command_dict.items()))
-    print(sorted_command_dict)
     return sorted_command_dict
 
