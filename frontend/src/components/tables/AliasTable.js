@@ -20,6 +20,8 @@ const AliasTable = () => {
     const [isDirty, setIsDirty] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [nextPath, setNextPath] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [rowsToDelete, setRowsToDelete] = useState([]);
     const tableRef = useRef(null);
 
     const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
@@ -225,9 +227,21 @@ const AliasTable = () => {
         }
     };
 
-    const handleRemoveRows = (index, amount, physicalRows, source) => {
-        physicalRows.forEach(rowIndex => {
-            const aliasToDelete = unsavedAliases[rowIndex];
+    // Handle row removal with a Bootstrap modal instead of window.confirm
+    const handleRemoveRows = (index, amount, physicalRows, source, event) => {
+        if (event) {
+            event.preventDefault(); // 🛑 Prevent immediate deletion
+        }
+        setRowsToDelete(physicalRows);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDeleteRows = () => {
+        const updatedAliases = [...unsavedAliases];
+        const wasDirty = isDirty; // Save current dirty status
+
+        rowsToDelete.forEach(rowIndex => {
+            const aliasToDelete = updatedAliases[rowIndex];
             if (aliasToDelete && aliasToDelete.id) {
                 axios.delete(`${aliasDeleteApiUrl}${aliasToDelete.id}/`)
                     .then(response => {
@@ -238,6 +252,16 @@ const AliasTable = () => {
                     });
             }
         });
+
+        const remainingAliases = updatedAliases.filter((_, idx) => !rowsToDelete.includes(idx));
+        setUnsavedAliases(remainingAliases);
+
+        if (wasDirty) {
+            setIsDirty(true); // Leave as dirty
+        } else {
+            setIsDirty(false); // Stay clean if no prior changes
+        }
+        setShowDeleteModal(false);
     };
 
     return (
@@ -306,7 +330,14 @@ const AliasTable = () => {
                         { data: "notes" },
                     ]}
                     contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
-                    beforeRemoveRow={handleRemoveRows}
+                    beforeRemoveRow={(index, amount, physicalRows, source, event) => {
+                        if (event) {
+                            event.preventDefault();
+                        }
+                        setRowsToDelete(physicalRows);
+                        setShowDeleteModal(true);
+                        return false; // 🛑 prevent Handsontable from removing rows automatically
+                    }}
                     manualColumnResize={true}
                     autoColumnSize={true}
                     afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
@@ -370,6 +401,26 @@ const AliasTable = () => {
                         }
                     }}>
                         Leave
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Confirm Deletion</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    Are you sure you want to delete the following {rowsToDelete.length} alias{rowsToDelete.length > 1 ? "es" : ""}?
+                    <br />
+                    <strong>
+                        {rowsToDelete.map(idx => unsavedAliases[idx]?.name).filter(name => name).join(", ")}
+                    </strong>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+                        Cancel
+                    </Button>
+                    <Button variant="danger" onClick={confirmDeleteRows}>
+                        Delete
                     </Button>
                 </Modal.Footer>
             </Modal>
