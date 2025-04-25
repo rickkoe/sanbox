@@ -26,20 +26,6 @@
     background-color: #f2f2f2;
   }
 
-    /* Ensure the header background is dark and text is light */
-  .ht_clone_top th {
-    background-color: #212529 !important; /* A dark gray similar to Bootstrap's bg-dark */
-    color: #fff !important;               /* White text for contrast */
-    font-weight: bold;
-    border-right: 1px solid #fff; 
-  }
-
-
-  /* Remove the border from the last header cell */
-  .ht_clone_top th:last-child {
-    border-right: none;
-  }
-
   .htDropdownMenu {
     z-index: 9999 !important;
   }
@@ -63,9 +49,19 @@
   z-index: 10000;
 }
 
-.ht_clone_left .wtHolder table thead th {
+/* Apply to ALL Handsontable theads */
+.handsontable thead th {
   background-color: #212529 !important;
   color: #fff !important;
   font-weight: bold !important;
   border-right: 1px solid #fff !important;
+}
+
+/* Match fixed columns left (body cells) to normal table striping */
+.ht_clone_left .wtHolder table tbody td {
+  background-color: #ffffff;
+}
+
+.ht_clone_left .wtHolder table tbody tr:nth-child(even) td {
+  background-color: #f2f2f2;
 }

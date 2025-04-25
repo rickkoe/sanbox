@@ -95,7 +95,7 @@ const ZoneTable = () => {
         try {
             const response = await axios.get(`${zoneApiUrl}${projectId}/`);
             const zones = response.data.map(zone => {
-                const zoneData = { ...zone, fabric: zone.fabric_details?.name || zone.fabric };
+                const zoneData = { ...zone, fabric: zone.fabric_details?.name || zone.fabric, saved: true };
                 zone.members_details.forEach((member, index) => {
                     zoneData[`member_${index + 1}`] = member.name;
                 });
@@ -263,7 +263,16 @@ const ZoneTable = () => {
     return (
         <div className="table-container">
             <div>
-                <Button className="save-button" onClick={handleSave}>Save</Button>
+            <Button className="save-button" onClick={handleSave} disabled={loading || saveStatus === "Saving..."}>
+            {saveStatus === "Saving..." ? (
+                <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Saving...
+                </>
+            ) : (
+                "Save"
+            )}
+            </Button>
                 <Button className="save-button" onClick={handleAddColumns}>Add Member Columns</Button>
                 <Button
                   className="save-button"
@@ -286,12 +295,35 @@ const ZoneTable = () => {
             <HotTable
                 ref={tableRef}
                 data={unsavedZones}
-                fixedColumnsLeft={2}
-                colHeaders={["ID", "Name", "Fabric",  "Notes", "Create", "Exists", "Zone Type", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
+                fixedColumnsLeft={1}
+                colHeaders={["Name", "Fabric",  "Imported", "Notes", "Create", "Exists", "Zone Type", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
                 columns={[
-                    { data: "id", readOnly: true, className: "htCenter" },
-                    { data: "name" },
+                    {
+                        data: "name",
+                        renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                          const rowData = instance.getSourceDataAtRow(row);
+                          if (rowData?.saved && value) {
+                            td.innerHTML = `<strong>${value}</strong>`;
+                          } else {
+                            td.innerText = value || "";
+                          }
+                          return td;
+                        }
+                    },
                     { data: "fabric", type: "dropdown", source: fabrics.map(f => f.name) },
+                    { 
+                        data: "imported", 
+                        readOnly: true,
+                        renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                          if (value) {
+                            const date = new Date(value);
+                            td.innerText = date.toLocaleString(); // or customize formatting
+                          } else {
+                            td.innerText = "";
+                          }
+                          return td;
+                        }
+                    },
                     { data: "notes" },
                     { data: "create", type: "checkbox", className: "htCenter" },
                     { data: "exists", type: "checkbox", className: "htCenter" },
@@ -312,14 +344,17 @@ const ZoneTable = () => {
                 colWidths={(() => {
                     const stored = localStorage.getItem("zoneTableColumnWidths");
                     if (stored) {
-                        try {
-                            return JSON.parse(stored);
-                        } catch (e) {
-                            return 200;
-                        }
+                      try {
+                        return JSON.parse(stored);
+                      } catch (e) {
+                        // fall through to below
+                      }
                     }
-                    return 200;
-                })()}
+                    const staticColumns = [200, 150, 180, 200, 100, 100, 120]; // Name, Fabric, Imported, Notes, Create, Exists, Zone Type
+                    const dynamicMemberColumns = Array.from({ length: memberColumns }, () => 250);
+                    return [...staticColumns, ...dynamicMemberColumns];
+                  })()}
+                  
                 cells={(row, col) => {
                     // Ensure the tableRef and its hotInstance are available
                     if (!tableRef.current || !tableRef.current.hotInstance) {

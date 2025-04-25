@@ -124,7 +124,9 @@ const AliasTable = () => {
 
         try {
             const response = await axios.get(`${aliasApiUrl}${projectId}/`);
-            const data = ensureBlankRow(response.data);
+            const data = ensureBlankRow(
+                response.data.map(alias => ({ ...alias, saved: true }))
+              );
             setAliases(data);
             setUnsavedAliases([...data]);
         } catch (error) {
@@ -157,6 +159,7 @@ const AliasTable = () => {
                 if (physicalRow === null) return;
 
                 updatedAliases[physicalRow][prop] = newValue;
+                updatedAliases[physicalRow].saved = false; // 👈 mark as dirty
 
                 if (physicalRow === updatedAliases.length - 1 && newValue.trim() !== "") {
                     shouldAddNewRow = true;
@@ -246,18 +249,37 @@ const AliasTable = () => {
             ) : (
                 <>
                 <div>
-                    <Button className="save-button" onClick={handleSave}>Save</Button>
+                    <Button className="save-button" onClick={handleSave} disabled={loading || saveStatus === "Saving..."}>
+                    {saveStatus === "Saving..." ? (
+                        <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Saving...
+                        </>
+                    ) : (
+                        "Save"
+                    )}
+                    </Button>
                     <Button className="save-button" onClick={() => handleNavigationAttempt("/san/aliases/alias-scripts")}>Generate Alias Scripts</Button>
                 </div>
 
                 <HotTable
                     ref={tableRef}
                     data={unsavedAliases}
-                    fixedColumnsLeft={2}
-                    colHeaders={["ID", "Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", "Include in Zoning", "Notes"]}
+                    fixedColumnsLeft={1}
+                    colHeaders={["Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", "Include in Zoning", "Imported", "Notes"]}
                     columns={[
-                        { data: "id", readOnly: true, className: "htCenter" },
-                        { data: "name" },
+                        {
+                            data: "name",
+                            renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                              td.innerText = value || "";
+                              if (unsavedAliases[row]?.saved) {
+                                td.style.fontWeight = "bold";
+                              } else {
+                                td.style.fontWeight = "normal";
+                              }
+                              return td;
+                            }
+                          },
                         { data: "wwpn" },
                         { data: "use", type: "dropdown", source: ["init", "target", "both"], className: "htCenter" },
                         { 
@@ -268,6 +290,19 @@ const AliasTable = () => {
                         { data: "cisco_alias", type: "dropdown", source: ["device-alias", "fcalias", "wwpn"], className: "htCenter"},
                         { data: "create", type: "checkbox", className: "htCenter" },
                         { data: "include_in_zoning", type: "checkbox" , className: "htCenter"},
+                        { 
+                            data: "imported", 
+                            readOnly: true,
+                            renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                              if (value) {
+                                const date = new Date(value);
+                                td.innerText = date.toLocaleString(); // or customize formatting
+                              } else {
+                                td.innerText = "";
+                              }
+                              return td;
+                            }
+                        },
                         { data: "notes" },
                     ]}
                     contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
