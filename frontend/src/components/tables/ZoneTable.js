@@ -21,11 +21,15 @@ const ZoneTable = () => {
     const [nextPath, setNextPath] = useState(null);
     const tableRef = useRef(null);
     const navigate = useNavigate();
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [rowsToDelete, setRowsToDelete] = useState([]);
 
     const zoneApiUrl = "http://127.0.0.1:8000/api/san/zones/project/";
     const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
     const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
     const zoneSaveApiUrl = "http://127.0.0.1:8000/api/san/zones/save/";
+    const zoneDeleteApiUrl = "http://127.0.0.1:8000/api/san/zones/delete/";
+
 
     useEffect(() => {
         if (config?.active_project?.id) {
@@ -234,6 +238,14 @@ const ZoneTable = () => {
             setSaveStatus("⚠️ Error saving zones! Please try again.");
         }
     };
+    // Handle row removal with a Bootstrap modal instead of window.confirm
+    const handleRemoveRows = (index, amount, physicalRows, source, event) => {
+      if (event) {
+          event.preventDefault(); // 🛑 Prevent immediate deletion
+      }
+      setRowsToDelete(physicalRows);
+      setShowDeleteModal(true);
+    };
 
     const handleAddColumns = () => {
         const newCount = memberColumns + parseInt(newColumnsCount);
@@ -255,10 +267,37 @@ const ZoneTable = () => {
                 }
                 tableRef.current.hotInstance.updateSettings({ colWidths: newWidths });
                 tableRef.current.hotInstance.render();
-                localStorage.setItem("aliasTableColumnWidths", JSON.stringify(newWidths));
+                localStorage.setItem("zoneTableColumnWidths", JSON.stringify(newWidths));
             }
         }, 0);
     };
+    const confirmDeleteRows = () => {
+      const updatedZones = [...unsavedZones];
+      const wasDirty = isDirty; // Save current dirty status
+
+      rowsToDelete.forEach(rowIndex => {
+          const zoneToDelete = updatedZones[rowIndex];
+          if (zoneToDelete && zoneToDelete.id) {
+              axios.delete(`${zoneDeleteApiUrl}${zoneToDelete.id}/`)
+                  .then(response => {
+                      console.log("Deleted zone", zoneToDelete.id);
+                  })
+                  .catch(error => {
+                      console.error("Error deleting zone", zoneToDelete.id, error);
+                  });
+          }
+      });
+
+      const remainingZones = updatedZones.filter((_, idx) => !rowsToDelete.includes(idx));
+      setUnsavedZones(remainingZones);
+
+      if (wasDirty) {
+          setIsDirty(true); // Leave as dirty
+      } else {
+          setIsDirty(false); // Stay clean if no prior changes
+      }
+      setShowDeleteModal(false);
+  };
 
     return (
         <div className="table-container">
@@ -296,7 +335,7 @@ const ZoneTable = () => {
                 ref={tableRef}
                 data={unsavedZones}
                 fixedColumnsLeft={1}
-                colHeaders={["Name", "Fabric",  "Imported", "Notes", "Create", "Exists", "Zone Type", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
+                colHeaders={["Name", "Fabric", "Create", "Exists", "Zone Type","Imported", "Updated", "Notes", ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)]}
                 columns={[
                     {
                         data: "name",
@@ -311,23 +350,36 @@ const ZoneTable = () => {
                         }
                     },
                     { data: "fabric", type: "dropdown", source: fabrics.map(f => f.name) },
-                    { 
-                        data: "imported", 
-                        readOnly: true,
-                        renderer: (instance, td, row, col, prop, value, cellProperties) => {
-                          if (value) {
-                            const date = new Date(value);
-                            td.innerText = date.toLocaleString(); // or customize formatting
-                          } else {
-                            td.innerText = "";
-                          }
-                          return td;
-                        }
-                    },
-                    { data: "notes" },
                     { data: "create", type: "checkbox", className: "htCenter" },
                     { data: "exists", type: "checkbox", className: "htCenter" },
                     { data: "zone_type", type: "dropdown", source: ["smart", "standard"], className: "htCenter" },
+                    { 
+                      data: "imported", 
+                      readOnly: true,
+                      renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                        if (value) {
+                          const date = new Date(value);
+                          td.innerText = date.toLocaleString(); // or customize formatting
+                        } else {
+                          td.innerText = "";
+                        }
+                        return td;
+                      }
+                  },
+                  { 
+                    data: "updated", 
+                    readOnly: true,
+                    renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                      if (value) {
+                        const date = new Date(value);
+                        td.innerText = date.toLocaleString(); // or customize formatting
+                      } else {
+                        td.innerText = "";
+                      }
+                      return td;
+                    }
+                },
+                  { data: "notes" },
                     ...Array.from({ length: memberColumns }, (_, i) => ({ data: `member_${i + 1}` })),
                 ]}
                 manualColumnResize={true}
@@ -409,6 +461,15 @@ const ZoneTable = () => {
                       };
                     }
                   }}
+                contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
+                beforeRemoveRow={(index, amount, physicalRows, source, event) => {
+                    if (event) {
+                        event.preventDefault();
+                    }
+                    setRowsToDelete(physicalRows);
+                    setShowDeleteModal(true);
+                    return false; // 🛑 prevent Handsontable from removing rows automatically
+                }}
                 afterChange={handleTableChange}
                 licenseKey="non-commercial-and-evaluation"
                 columnSorting={true}
@@ -439,6 +500,26 @@ const ZoneTable = () => {
                   Leave
                 </Button>
               </Modal.Footer>
+            </Modal>
+            <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Confirm Deletion</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    Are you sure you want to delete the following {rowsToDelete.length} zone{rowsToDelete.length > 1 ? "s" : ""}?
+                    <br />
+                    <strong>
+                        {rowsToDelete.map(idx => unsavedZones[idx]?.name).filter(name => name).join(", ")}
+                    </strong>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+                        Cancel
+                    </Button>
+                    <Button variant="danger" onClick={confirmDeleteRows}>
+                        Delete
+                    </Button>
+                </Modal.Footer>
             </Modal>
         </div>
     );

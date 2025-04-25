@@ -290,7 +290,7 @@ const AliasTable = () => {
                     ref={tableRef}
                     data={unsavedAliases}
                     fixedColumnsLeft={1}
-                    colHeaders={["Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", "Include in Zoning", "Imported", "Notes"]}
+                    colHeaders={["Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", "Include in Zoning", "Imported", "Updated", "Notes"]}
                     columns={[
                         {
                             data: "name",
@@ -316,6 +316,19 @@ const AliasTable = () => {
                         { data: "include_in_zoning", type: "checkbox" , className: "htCenter"},
                         { 
                             data: "imported", 
+                            readOnly: true,
+                            renderer: (instance, td, row, col, prop, value, cellProperties) => {
+                              if (value) {
+                                const date = new Date(value);
+                                td.innerText = date.toLocaleString(); // or customize formatting
+                              } else {
+                                td.innerText = "";
+                              }
+                              return td;
+                            }
+                        },
+                        { 
+                            data: "updated", 
                             readOnly: true,
                             renderer: (instance, td, row, col, prop, value, cellProperties) => {
                               if (value) {

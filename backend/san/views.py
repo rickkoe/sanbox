@@ -10,6 +10,7 @@ from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from .san_utils import generate_alias_commands, generate_zone_commands
+from django.utils import timezone
 
 class AliasListView(APIView):
     """Fetch aliases belonging to a specific project."""
@@ -49,20 +50,30 @@ class AliasSaveView(APIView):
             projects_list = alias_data.pop("projects", [project_id])  # ✅ Defaults to the current project
 
             if alias_id:
-                # ✅ Update existing alias
                 alias = Alias.objects.filter(id=alias_id).first()
                 if alias:
                     serializer = AliasSerializer(alias, data=alias_data, partial=True)
                     if serializer.is_valid():
+                        # Manual dirty check
+                        dirty = False
+                        for field, value in serializer.validated_data.items():
+                            if getattr(alias, field) != value:
+                                dirty = True
+                                break
                         alias = serializer.save()
-                        saved_aliases.append(serializer.data)
+                        if dirty:
+                            alias.updated = timezone.now()
+                            alias.save(update_fields=["updated"])
+                        saved_aliases.append(AliasSerializer(alias).data)
                     else:
-                        errors.append({"alias": alias_data["name"], "errors": serializer.errors})
+                        errors.append({"alias": alias_data.get("name", "Unknown"), "errors": serializer.errors})
             else:
                 # ✅ Create new alias
                 serializer = AliasSerializer(data=alias_data)
                 if serializer.is_valid():
                     alias = serializer.save()
+                    alias.updated = timezone.now()
+                    alias.save(update_fields=["updated"])
                     alias.projects.set(projects_list)  # ✅ Assign multiple projects
                     saved_aliases.append(serializer.data)
                 else:
@@ -101,7 +112,6 @@ class ZoneSaveView(APIView):
         project_id = request.data.get("project_id")
         zones_data = request.data.get("zones", [])
 
-
         if not project_id or not zones_data:
             return Response({"error": "Project ID and zones data are required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -125,21 +135,32 @@ class ZoneSaveView(APIView):
                 if zone:
                     serializer = ZoneSerializer(zone, data=zone_data, partial=True)
                     if serializer.is_valid():
+                        # Manual dirty check
+                        dirty = False
+                        for field, value in serializer.validated_data.items():
+                            if getattr(zone, field) != value:
+                                dirty = True
+                                break
                         zone = serializer.save()
+                        if dirty:
+                            zone.updated = timezone.now()
+                            zone.save(update_fields=["updated"])
                         zone.projects.add(*projects_list)  # ✅ Append projects instead of overwriting
                         member_ids = [member.get('alias') for member in members_list if member.get('alias')]
                         zone.members.set(member_ids)
-                        saved_zones.append(serializer.data)
+                        saved_zones.append(ZoneSerializer(zone).data)
                     else:
                         errors.append({"zone": zone_data["name"], "errors": serializer.errors})
             else:
                 serializer = ZoneSerializer(data=zone_data)
                 if serializer.is_valid():
                     zone = serializer.save()
+                    zone.updated = timezone.now()
+                    zone.save(update_fields=["updated"])
                     zone.projects.add(*projects_list)  # ✅ Append projects instead of overwriting
                     member_ids = [member.get('alias') for member in members_list if member.get('alias')]
                     zone.members.set(member_ids)
-                    saved_zones.append(serializer.data)
+                    saved_zones.append(ZoneSerializer(zone).data)
                 else:
                     errors.append({"zone": zone_data["name"], "errors": serializer.errors})
 
@@ -148,6 +169,16 @@ class ZoneSaveView(APIView):
 
         return Response({"message": "Zones saved successfully!", "zones": saved_zones}, status=status.HTTP_200_OK)
    
+class ZoneDeleteView(generics.DestroyAPIView):
+    queryset = Zone.objects.all()
+    serializer_class = ZoneSerializer
+
+    def delete(self, request, *args, **kwargs):
+        zone = self.get_object()
+        print(f'Deleting Zone: {zone.name}')
+        zone.delete()
+        return Response({"message": "Zone deleted successfully."}, status=status.HTTP_200_OK)
+    
 class FabricsForCustomerView(APIView):
     def get(self, request, *args, **kwargs):
         try:

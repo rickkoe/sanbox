@@ -47,6 +47,8 @@ class Alias(models.Model):
     host = models.ForeignKey(Host, on_delete=models.SET_NULL, related_name='alias_host', null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)
+    updated = models.DateTimeField(null=True, blank=True)
+
     
     class Meta:
         ordering = ['name']
@@ -72,6 +74,7 @@ class Zone(models.Model):
     members = models.ManyToManyField(Alias)
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)
+    updated = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.fabric.customer}: {self.name}'

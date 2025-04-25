@@ -37,16 +37,24 @@ class AliasSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update alias and handle many-to-many projects"""
-
         projects = validated_data.pop("projects", None)
 
+        updated = False
+
         for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+            old_value = getattr(instance, attr)
+            if old_value != value:
+                setattr(instance, attr, value)
+                updated = True
+
+        if updated:
+            from django.utils import timezone
+            instance.updated = timezone.now()
 
         instance.save()
 
         if projects is not None:
-            instance.projects.set(*projects)  # ✅ Update many-to-many relationship
+            instance.projects.set(projects)
 
         return instance
 
