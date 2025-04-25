@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import "../../styles/configform.css"
+import { Modal, Button, Form as BootstrapForm } from "react-bootstrap";
 
 const ConfigForm = () => {
     const { config, refreshConfig } = useContext(ConfigContext);
@@ -10,6 +11,46 @@ const ConfigForm = () => {
     const [unsavedConfig, setUnsavedConfig] = useState(null);
     const [saveStatus, setSaveStatus] = useState(""); 
     const [loading, setLoading] = useState(true);
+    const [showProjectModal, setShowProjectModal] = useState(false);
+    const [newProjectName, setNewProjectName] = useState("");
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [newCustomerName, setNewCustomerName] = useState("");
+    const handleAddCustomer = async () => {
+        try {
+            const response = await axios.post("http://127.0.0.1:8000/api/customers/create/", {
+                name: newCustomerName
+            });
+            const newCustomer = response.data;
+            setCustomers(prev => [...prev, newCustomer]);
+            setUnsavedConfig(prev => ({
+                ...prev,
+                customer: String(newCustomer.id),
+                project: "",
+                active_project_id: ""
+            }));
+            fetchProjects(newCustomer.id);
+            fetchConfigForCustomer(newCustomer.id);
+            setShowCustomerModal(false);
+            setNewCustomerName("");
+        } catch (error) {
+            console.error("❌ Error adding customer:", error);
+        }
+    };
+    const handleAddProject = async () => {
+        try {
+            const response = await axios.post("http://127.0.0.1:8000/api/core/projects/", {
+                name: newProjectName,
+                customer: parseInt(unsavedConfig.customer)
+            });
+            const newProject = response.data;
+            setProjects(prev => [...prev, newProject]);
+            setUnsavedConfig(prev => ({ ...prev, project: String(newProject.id), active_project_id: String(newProject.id) }));
+            setShowProjectModal(false);
+            setNewProjectName("");
+        } catch (error) {
+            console.error("❌ Error adding project:", error);
+        }
+    };
     
     const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
     const projectsApiUrl = "http://127.0.0.1:8000/api/core/projects/";
@@ -144,30 +185,36 @@ const ConfigForm = () => {
                         <form>
                             <div className="mb-3">
                                 <label className="form-label">Customer</label>
-                                <select className="form-control" name="customer" value={unsavedConfig.customer} onChange={handleInputChange}>
-                                    {customers.map(customer => (
-                                        <option key={customer.id} value={String(customer.id)}>
-                                            {customer.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="d-flex gap-2">
+                                    <select className="form-control" name="customer" value={unsavedConfig.customer} onChange={handleInputChange}>
+                                        {customers.map(customer => (
+                                            <option key={customer.id} value={String(customer.id)}>
+                                                {customer.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <Button variant="outline-primary" onClick={() => setShowCustomerModal(true)}>+ Add</Button>
+                                </div>
                             </div>
 
                             <div className="mb-3">
                                 <label className="form-label">Project</label>
-                                <select
-                                    className="form-control"
-                                    name="project"
-                                    value={unsavedConfig.project || ""}
-                                    onChange={handleInputChange}
-                                >
-                                    <option value="">Select a Project</option>
-                                    {projects.map(project => (
-                                        <option key={project.id} value={String(project.id)}>
-                                            {project.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="d-flex gap-2">
+                                    <select
+                                        className="form-control"
+                                        name="project"
+                                        value={unsavedConfig.project || ""}
+                                        onChange={handleInputChange}
+                                    >
+                                        <option value="">Select a Project</option>
+                                        {projects.map(project => (
+                                            <option key={project.id} value={String(project.id)}>
+                                                {project.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <Button variant="outline-primary" onClick={() => setShowProjectModal(true)}>+ Add</Button>
+                                </div>
                             </div>
 
                             <div className="mb-3">
@@ -252,6 +299,46 @@ const ConfigForm = () => {
                             <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={saveStatus === "Saving..."}>
                                 {saveStatus || "Save"}
                             </button>
+                            <Modal show={showProjectModal} onHide={() => setShowProjectModal(false)}>
+                                <Modal.Header closeButton>
+                                    <Modal.Title>Add New Project</Modal.Title>
+                                </Modal.Header>
+                                <Modal.Body>
+                                    <BootstrapForm.Group>
+                                        <BootstrapForm.Label>Project Name</BootstrapForm.Label>
+                                        <BootstrapForm.Control
+                                            type="text"
+                                            value={newProjectName}
+                                            onChange={(e) => setNewProjectName(e.target.value)}
+                                            placeholder="Enter project name"
+                                        />
+                                    </BootstrapForm.Group>
+                                </Modal.Body>
+                                <Modal.Footer>
+                                    <Button variant="secondary" onClick={() => setShowProjectModal(false)}>Cancel</Button>
+                                    <Button variant="primary" onClick={handleAddProject}>Add Project</Button>
+                                </Modal.Footer>
+                            </Modal>
+                            <Modal show={showCustomerModal} onHide={() => setShowCustomerModal(false)}>
+                                <Modal.Header closeButton>
+                                    <Modal.Title>Add New Customer</Modal.Title>
+                                </Modal.Header>
+                                <Modal.Body>
+                                    <BootstrapForm.Group>
+                                        <BootstrapForm.Label>Customer Name</BootstrapForm.Label>
+                                        <BootstrapForm.Control
+                                            type="text"
+                                            value={newCustomerName}
+                                            onChange={(e) => setNewCustomerName(e.target.value)}
+                                            placeholder="Enter customer name"
+                                        />
+                                    </BootstrapForm.Group>
+                                </Modal.Body>
+                                <Modal.Footer>
+                                    <Button variant="secondary" onClick={() => setShowCustomerModal(false)}>Cancel</Button>
+                                    <Button variant="primary" onClick={handleAddCustomer}>Add Customer</Button>
+                                </Modal.Footer>
+                            </Modal>
                         </form>
                     )}
                 </>

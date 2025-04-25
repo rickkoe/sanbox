@@ -112,3 +112,28 @@ def update_config(request, customer_id):
         return Response(serializer.data)
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def create_project_for_customer(request):
+    """
+    Create a new project and assign it to a customer's projects (ManyToMany).
+    """
+    name = request.data.get('name')
+    customer_id = request.data.get('customer')
+
+    if not name or not customer_id:
+        return Response({"error": "Both 'name' and 'customer' fields are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # ✅ Create the project without referencing customer
+    project = Project.objects.create(name=name)
+
+    # ✅ Add it to the customer's ManyToMany field
+    customer.projects.add(project)
+
+    serializer = ProjectSerializer(project)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)

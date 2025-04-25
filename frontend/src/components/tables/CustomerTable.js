@@ -217,8 +217,8 @@ const CustomerTable = () => {
                                 data: "insights_api_key",
                                 renderer: (instance, td, row, col, prop, value, cellProperties) => {
                                     const customer = instance.getSourceDataAtRow(row);
-                                    const displayValue = customer.id ? "••••••••••" : value;
-                                    td.innerText = displayValue || "";
+                                    const displayValue = customer.id && value ? "••••••••••" : "";
+                                    td.innerText = displayValue;
                                     return td;
                                 }
                             },

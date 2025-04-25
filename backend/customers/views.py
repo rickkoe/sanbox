@@ -40,6 +40,8 @@ def customer_create(request):
     if serializer.is_valid():
         print("VALID")
         customer = serializer.save()
+        from core.models import Config
+        Config.objects.create(customer=customer)
         return Response(CustomerSerializer(customer).data, status=status.HTTP_201_CREATED)
     else:
         print("NOT VALID")
