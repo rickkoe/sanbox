@@ -100,3 +100,57 @@
 .navbar-dark {
   color: #fff;     
 }
+
+
+.form-container {
+  background-color: #ffffff; /* Clean white background */
+  padding: 2rem; /* Nice even padding around the form */
+  border-radius: 8px; /* Slightly rounded corners */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Soft shadow for depth */
+  max-width: 800px; /* Keep it from being too wide */
+  margin: 0 auto; /* Center it horizontally */
+  font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif; /* Modern font */
+}
+
+/* Improve spacing between fields */
+.form-container .mb-3 {
+  margin-bottom: 1rem; /* Tighten vertical spacing between fields */
+}
+
+/* Style labels consistently */
+.form-container .form-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #212529;
+}
+
+/* Style inputs and selects */
+.form-container .form-control {
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  font-size: 1rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-container .form-control:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Align the + Add buttons next to select fields */
+.form-container .d-flex.gap-2 {
+  align-items: flex-end;
+}
+
+/* Buttons inside forms */
+.form-container .btn {
+  white-space: nowrap; /* Keeps the + Add or Save buttons from wrapping */
+}
+
+/* Modal input spacing */
+.modal-body .form-group {
+  margin-bottom: 1rem;
+}

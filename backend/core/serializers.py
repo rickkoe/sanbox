@@ -48,7 +48,6 @@ class ConfigSerializer(serializers.ModelSerializer):
         instance.cisco_zoning_mode = validated_data.get("cisco_zoning_mode", instance.cisco_zoning_mode)
         instance.zone_ratio = validated_data.get("zone_ratio", instance.zone_ratio)
         instance.zoning_job_name = validated_data.get("zoning_job_name", instance.zoning_job_name)
-        instance.smartzone_prefix = validated_data.get("smartzone_prefix", instance.smartzone_prefix)
         instance.alias_max_zones = validated_data.get("alias_max_zones", instance.alias_max_zones)
         
         # Update is_active if provided

@@ -72,7 +72,6 @@ const ConfigForm = () => {
                 cisco_zoning_mode: config.cisco_zoning_mode,
                 zone_ratio: config.zone_ratio,
                 zoning_job_name: config.zoning_job_name,
-                smartzone_prefix: config.smartzone_prefix,
                 alias_max_zones: config.alias_max_zones,
             });
             fetchProjects(config.customer.id);
@@ -120,7 +119,6 @@ const ConfigForm = () => {
                     cisco_zoning_mode: configForCustomer.cisco_zoning_mode,
                     zone_ratio: configForCustomer.zone_ratio,
                     zoning_job_name: configForCustomer.zoning_job_name,
-                    smartzone_prefix: configForCustomer.smartzone_prefix,
                     alias_max_zones: configForCustomer.alias_max_zones,
                 }));
             } else {
@@ -132,7 +130,6 @@ const ConfigForm = () => {
                     cisco_zoning_mode: "",
                     zone_ratio: "",
                     zoning_job_name: "",
-                    smartzone_prefix: "",
                     alias_max_zones: "",
                 }));
             }
@@ -176,7 +173,7 @@ const ConfigForm = () => {
     };
 
     return (
-        <div className="container mt-4">
+        <div className="form-container mt-4">
             {loading ? (
                 <p>Loading...</p>
             ) : (
@@ -268,18 +265,6 @@ const ConfigForm = () => {
                                     className="form-control"
                                     name="zoning_job_name"
                                     value={unsavedConfig.zoning_job_name || ""}
-                                    onChange={handleInputChange}
-                                />
-                            </div>
-
-                            {/* ✅ Smartzone Prefix */}
-                            <div className="mb-3">
-                                <label className="form-label">Smartzone Prefix</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="smartzone_prefix"
-                                    value={unsavedConfig.smartzone_prefix || ""}
                                     onChange={handleInputChange}
                                 />
                             </div>

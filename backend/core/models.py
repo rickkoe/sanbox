@@ -54,7 +54,6 @@ class Config(models.Model):
         default="one-to-one",
     )
     zoning_job_name = models.CharField(max_length=40, default="default_job")
-    smartzone_prefix = models.CharField(max_length=25, default="", blank=True, null=True)
     alias_max_zones = models.IntegerField(default=1)
     is_active = models.BooleanField(default=False)  # ✅ Track active config
 

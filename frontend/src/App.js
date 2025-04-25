@@ -22,6 +22,8 @@ import ConfigForm from "./components/forms/ConfigForm";
 import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 import AliasScriptsPage from "./pages/AliasScriptsPage";
 import ZoneScriptsPage from "./pages/ZoneScriptsPage";
+import ImportSwitchConfig from "./components/forms/ImportSwitchConfig";
+
 
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
@@ -65,6 +67,7 @@ function App() {
                   <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
                   <Route path="/san/aliases/alias-scripts" element={<AliasScriptsPage />} />
                   <Route path="/san/zones/zone-scripts" element={<ZoneScriptsPage />} />
+                  <Route path="/san/import" element={<ImportSwitchConfig />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
             </main>
