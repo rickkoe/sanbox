@@ -67,7 +67,7 @@ function App() {
                   <Route path="/tools/ibm-storage-calculator" element={<StorageCalculatorPage />} />
                   <Route path="/san/aliases/alias-scripts" element={<AliasScriptsPage />} />
                   <Route path="/san/zones/zone-scripts" element={<ZoneScriptsPage />} />
-                  <Route path="/san/import" element={<ImportSwitchConfig />} />
+                  <Route path="/import-data" element={<ImportSwitchConfig />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
             </main>

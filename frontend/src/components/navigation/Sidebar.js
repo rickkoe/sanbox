@@ -12,7 +12,6 @@ const getSidebarLinks = (pathname) => {
         { path: "/san/fabrics", label: "Fabrics" },
         { path: "/san/aliases", label: "Aliases" },
         { path: "/san/zones", label: "Zones" },
-        { path: "/san/import", label: "Import" },
       ],
     };
   }
