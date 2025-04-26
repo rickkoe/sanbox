@@ -39,77 +39,10 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto gap-2">
-            <li className="nav-item">
-              <NavLink className="nav-link" to="/customers">
-                Customers
-              </NavLink>
-            </li>
-
-            {/* SAN Dropdown */}
-            <li className="nav-item dropdown">
-              <Link
-                className={`nav-link dropdown-toggle ${isSanActive ? "active" : ""}`}
-                to="#"
-                id="sanDropdown"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                SAN
-              </Link>
-              <ul className="dropdown-menu" aria-labelledby="sanDropdown">
-                <li>
-                  <NavLink className="dropdown-item" to="/san/fabrics">
-                    Fabrics
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink className="dropdown-item" to="/san/aliases">
-                    Aliases
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink className="dropdown-item" to="/san/zones">
-                    Zones
-                  </NavLink>
-                </li>
-              </ul>
-            </li>
-
-            {/* Storage Dropdown */}
-            <li className="nav-item dropdown">
-              <Link
-                className={`nav-link dropdown-toggle ${isStorageActive ? "active" : ""}`}
-                to="#"
-                id="storageDropdown"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Storage
-              </Link>
-              <ul className="dropdown-menu" aria-labelledby="storageDropdown">
-                <li>
-                  <NavLink className="dropdown-item" to="/storage">
-                    DS8000
-                  </NavLink>
-                </li>
-                <li>
-                  <NavLink className="dropdown-item" to="/storage">
-                    FlashSystem
-                  </NavLink>
-                </li>
-              </ul>
-            </li>
 
             <li className="nav-item">
               <NavLink className="nav-link" to="/config">
                 Config
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink className="nav-link" to="/tools">
-                Tools
               </NavLink>
             </li>
 

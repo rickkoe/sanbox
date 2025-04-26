@@ -34,7 +34,6 @@ const getSidebarLinks = (pathname) => {
       { path: "/customers", label: "Customers" },
       { path: "/san", label: "SAN" },
       { path: "/storage", label: "Storage" },
-      { path: "/config", label: "Configuration" },
       { path: "/tools", label: "Tools" },
     ],
   };
