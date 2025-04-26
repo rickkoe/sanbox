@@ -158,6 +158,7 @@ const ZoneTable = () => {
                 if (physicalRow === null) return;
 
                 updatedZones[physicalRow][prop] = newValue;
+                updatedZones[physicalRow].saved = false;
 
                 if (physicalRow === updatedZones.length - 1) {
                     let isNotEmpty = false;
