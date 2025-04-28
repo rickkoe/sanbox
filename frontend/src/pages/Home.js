@@ -39,7 +39,7 @@ const Home = () => {
   };
 
   return (
-    <div className="container mt-5">
+    <div className="container mt-2">
       {/* Loading Spinner */}
       {loading && (
         <div className="text-center my-5">
@@ -55,8 +55,8 @@ const Home = () => {
             <div className="card p-4 shadow-sm card-hover">
               <div className="row">
                 <div className="col-md-6 mb-3 mb-md-0">
-                  <h5>Customer: {config?.customer?.name || "N/A"}</h5>
-                  <h5>Project: {config?.active_project?.name || "N/A"}</h5>
+                  <h5><strong>Customer: </strong>{config?.customer?.name || "N/A"}</h5>
+                  <h5><strong>Project: </strong>{config?.active_project?.name || "N/A"}</h5>
                 </div>
                 <div className="col-md-6 text-md-end">
                   <h6>
@@ -76,9 +76,9 @@ const Home = () => {
                   <h6>
                     API Key Exists:&nbsp;
                     {config?.customer?.insights_api_key ? (
-                      <span style={{ color: "green", fontWeight: "bold" }}>✅</span>
+                      <span className="api-indicator" style={{ color: "green" }}>✅</span>
                     ) : (
-                      <span style={{ color: "red", fontWeight: "bold" }}>❌</span>
+                      <span className="api-indicator" style={{ color: "red" }}>❌</span>
                     )}
                   </h6>
                 </div>
@@ -173,31 +173,6 @@ const Home = () => {
           </div>
         </>
       )}
-      <style>{`
-        .dashboard-count-link {
-          text-decoration: none;
-          color: inherit;
-          cursor: pointer;
-        }
-        .dashboard-count-link:hover {
-          text-decoration: underline;
-        }
-        .dashboard-section-title {
-          font-size: 1.4rem;
-          font-weight: 600;
-          margin-bottom: 1.2rem;
-        }
-        .card-hover {
-          transition: box-shadow 0.2s;
-          border-radius: 0.6rem;
-        }
-        .card-hover:hover {
-          box-shadow: 0 4px 24px rgba(0,0,0,0.10);
-        }
-        .api-indicator {
-          font-weight: bold;
-        }
-      `}</style>
     </div>
   );
 };
