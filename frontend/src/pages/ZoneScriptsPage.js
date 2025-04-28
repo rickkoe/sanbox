@@ -91,13 +91,18 @@ const ZoneScriptsPage = () => {
     <div className="table-container">
     <div>
         <Button
-          className="save-button"
-          onClick={handleCopyToClipboard}
-          style={copyButtonText === "Copied!" ? { backgroundColor: 'white', color: 'black', borderColor: 'black' } : {}}
-        >
-          {copyButtonText === "Copied!" ? (<span>&#x2714; Copied!</span>) : "Copy to clipboard"}
-        </Button>
-        <Button className="save-button" onClick={() => navigate("/san/zones")}>Back to zones</Button>
+                   className="back-button"
+                     onClick={() => navigate("/san/zones")}
+                   >
+                     <span className="arrow">←</span> Back
+                   </Button>
+               <Button
+                 className="save-button"
+                 onClick={handleCopyToClipboard}
+                 style={copyButtonText === "Copied!" ? { backgroundColor: 'white', color: 'black', borderColor: 'black' } : {}}
+               >
+                 {copyButtonText === "Copied!" ? (<span>&#x2714; Copied!</span>) : "Copy to clipboard"}
+               </Button>
       </div>
       {scripts && Object.keys(scripts).length > 0 ? (
         <Tabs

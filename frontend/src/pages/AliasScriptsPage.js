@@ -4,6 +4,7 @@ import { Tabs, Tab, Alert, Spinner, Button } from "react-bootstrap";
 import { ConfigContext } from "../context/ConfigContext";
 import { useNavigate } from "react-router-dom";
 import { useSanVendor } from "../context/SanVendorContext";
+import "../styles/sidebar.css"
 
 const AliasScriptsPage = () => {
   const { config } = useContext(ConfigContext);
@@ -89,6 +90,12 @@ const AliasScriptsPage = () => {
   return (
     <div className="table-container">
     <div>
+    <Button
+            className="back-button"
+              onClick={() => navigate("/san/aliases")}
+            >
+              <span className="arrow">←</span> Back
+            </Button>
         <Button
           className="save-button"
           onClick={handleCopyToClipboard}
@@ -96,7 +103,6 @@ const AliasScriptsPage = () => {
         >
           {copyButtonText === "Copied!" ? (<span>&#x2714; Copied!</span>) : "Copy to clipboard"}
         </Button>
-        <Button className="save-button" onClick={() => navigate("/san/aliases")}>Back to Aliases</Button>
       </div>
       {scripts && Object.keys(scripts).length > 0 ? (
         <Tabs
