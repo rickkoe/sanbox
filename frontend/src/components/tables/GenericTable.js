@@ -3,7 +3,7 @@ import { HotTable } from '@handsontable/react-wrapper';
 import { Modal, Button } from "react-bootstrap";
 import axios from "axios";
 
-const GenericEditableTable = ({
+const GenericTable = ({
   apiUrl,
   columns,
   colHeaders,
@@ -179,4 +179,4 @@ const GenericEditableTable = ({
   );
 };
 
-export default GenericEditableTable;
+export default GenericTable;

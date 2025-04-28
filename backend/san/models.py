@@ -9,6 +9,14 @@ class Fabric(models.Model):
     customer = models.ForeignKey(Customer, related_name='fabric_customer', on_delete=models.CASCADE)
     name = models.CharField(max_length=64)
     zoneset_name = models.CharField(max_length=200)
+    san_vendor = models.CharField(
+        max_length=7,
+        choices=[
+            ("BR", "Brocade"),
+            ("CI", "Cisco"),
+        ],
+        default="BR",
+    )
     vsan = models.IntegerField(blank=True, null=True)
     exists = models.BooleanField(default=False)
     notes = models.TextField(null=True, blank=True)

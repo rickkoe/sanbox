@@ -219,6 +219,7 @@ const StorageTable = () => {
             <HotTable
                 ref={tableRef}
                 data={unsavedStorages}
+                fixedColumnsLeft={1}
                 colHeaders={["ID", "Name", "Type", "Location", "Serial Number"]}
                 columns={[
                     { data: "id", readOnly: true },
