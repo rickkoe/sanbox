@@ -1,0 +1,183 @@
+.active-customer-card {
+    color: #fff;             /* White text for readability */
+    padding: 1rem;           /* Comfortable padding around the text */
+    border-radius: 0.25rem;  /* Slightly rounded corners for a modern look */
+    margin-bottom: 1rem;     /* Spacing below the card */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* A subtle shadow for depth */
+    font-weight: bold;
+    text-transform: uppercase;
+    border-top: 1px solid #495057;
+    border-bottom: 1px solid #495057;
+    font-size: 1.2rem;
+    height: 50px;
+  }
+  
+  .sidebar-header {
+    padding: 15px;
+  }
+  
+  .sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+  }
+  
+  .sidebar li {
+    padding: 5px 15px;
+  }
+  
+  .sidebar a {
+    display: block;
+    padding: 8px;
+    border-radius: 4px;
+    color: white;
+    text-decoration: none;
+  }
+  
+  .sidebar a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    text-decoration: none;
+  }
+  
+  .sidebar-footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 15px;
+    border-top: 1px solid #495057;
+  }
+  
+  .sidebar-footer .btn-group {
+    width: 100%;
+  }
+  
+  .sidebar-footer .btn {
+    flex: 1;
+    font-size: 0.85rem;
+  }
+  
+  .sidebar-link {
+    display: block;
+    padding: 10px 15px;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background 0.3s ease-in-out;
+  }
+  
+  .sidebar-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .sidebar-link.active {
+    background-color: #0d6efd; /* Bootstrap primary color */
+    font-weight: bold;
+    border-left: 4px solid #ffffff; /* Adds a left border indicator */
+    padding-left: 12px;
+  }
+  
+  /* Improved SAN Vendor Toggle Styles */
+  .toggle-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #495057;
+    border-radius: 30px; /* Increased border radius for a smoother look */
+    padding: 8px; /* Adjusted padding */
+    margin: 10px; /* Add margin for spacing within the footer */
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  
+  .toggle-label {
+    flex: 1;
+    text-align: center;
+    color: #adb5bd;
+    font-size: 1rem; /* Slightly larger font for better readability */
+    font-weight: bold;
+    z-index: 2; /* Ensure the label sits above the toggle thumb */
+  }
+  
+  .toggle-thumb {
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    background-color: #0d6efd;
+    border-radius: 30px; /* Match the container's border radius */
+    transition: transform 0.3s ease;
+    z-index: 1;
+  }
+  
+  .toggle-switch.BR .toggle-label:first-child,
+  .toggle-switch.CI .toggle-label:last-child {
+    color: white;
+  }
+  
+  .toggle-switch.BR .toggle-thumb {
+    transform: translateX(0%);
+  }
+  
+  .toggle-switch.CI .toggle-thumb {
+    transform: translateX(100%);
+  }
+
+  .sidebar-back-button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0.75rem 1rem;
+    width: 90%;
+    margin: 0.5rem auto;
+    font-size: 1rem;
+    font-weight: 500;
+    background-color: transparent;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.3s;
+  }
+  
+  .sidebar-back-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .sidebar-back-button .arrow {
+    margin-right: 0.5rem;
+    display: inline-block;
+    transition: transform 0.3s;
+  }
+  
+  .sidebar-back-button:hover .arrow {
+    animation: wiggle 0.5s ease forwards;
+  }
+
+  @keyframes wiggle {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(0); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+  }
+
+  .sidebar-footer .vendor-toggle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem;
+    background-color: #f8f9fa; /* Light background */
+    border-radius: 8px;
+    font-size: 0.85rem;
+    width: 90%;
+    margin: 1rem auto;
+    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .vendor-toggle select {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }

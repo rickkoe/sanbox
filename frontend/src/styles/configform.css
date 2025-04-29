@@ -1,0 +1,18 @@
+.form-container {
+    max-height: calc(100vh - 200px); /* your formula here */
+    overflow-y: auto;
+    padding-right: 10px; /* optional, to prevent scrollbar overlapping text */
+  }
+
+/* ✅ Ensure full project names are visible in dropdown */
+.form-control option {
+    white-space: nowrap;    /* Prevent text wrapping */
+    overflow: visible;      /* Ensure full text visibility */
+    text-overflow: clip;    /* Avoid cutting off text */
+    max-width: none;        /* Ensure full width is used */
+}
+
+.container {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}

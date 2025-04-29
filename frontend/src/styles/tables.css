@@ -1,0 +1,88 @@
+.table-container {
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .handsontable .ht_master .wtHolder {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+  }
+
+  .htMaterial .hot {
+    overflow: scroll;
+
+  }
+
+  .save-button {
+    margin: 10px;
+  }
+
+  .back-button {
+    margin: 10px;
+  }
+  .back-button .arrow {
+    margin-right: 0.5rem;
+    display: inline-block;
+    transition: transform 0.3s;
+  }
+
+  .back-button:hover .arrow {
+    animation: wiggle 0.5s ease forwards;
+  }
+
+  @keyframes wiggle {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(0); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+  }
+
+  .table-container .ht_master .htCore tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+  }
+  
+  .table-container .ht_master .htCore tbody tr:nth-child(even) {
+    background-color: #f2f2f2;
+  }
+
+  .htDropdownMenu {
+    z-index: 9999 !important;
+  }
+
+  .htDropdownMenu {
+    background-color: #001f00 !important; /* Green screen background */
+    color: #00ff00 !important;             /* Bright green text */
+    border: 1px solid #00ff00 !important;   /* Bright green border */
+  }
+  .htDropdownMenu li {
+    background-color: transparent;
+    border: none;
+  }
+  .htDropdownMenu li:hover {
+    background-color: #002b00;
+  }
+
+  /* Force the filter dropdown button to show */
+.htDropdownMenuButton {
+  display: block !important;
+  z-index: 10000;
+}
+
+/* Apply to ALL Handsontable theads */
+.handsontable thead th {
+  background-color: #212529 !important;
+  color: #fff !important;
+  font-weight: bold !important;
+  border-right: 1px solid #fff !important;
+}
+
+/* Match fixed columns left (body cells) to normal table striping */
+.ht_clone_left .wtHolder table tbody td {
+  background-color: #ffffff;
+}
+
+.ht_clone_left .wtHolder table tbody tr:nth-child(even) td {
+  background-color: #f2f2f2;
+}
