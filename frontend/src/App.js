@@ -18,6 +18,7 @@ import CustomerTable from "./components/tables/CustomerTable";
 import FabricTable from "./components/tables/FabricTable";
 import AliasTable from "./components/tables/AliasTable";
 import ZoneTable from "./components/tables/ZoneTable";
+import NewZoneTable from "./components/tables/newZoneTable";
 import ConfigForm from "./components/forms/ConfigForm";
 import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 import AliasScriptsPage from "./pages/AliasScriptsPage";
@@ -59,6 +60,7 @@ function App() {
                   <Route path="/san" element={<SanPage />} />
                   <Route path="/san/aliases" element={<AliasTable />} />
                   <Route path="/san/zones" element={<ZoneTable />} />
+                  <Route path="/san/new-zones" element={<NewZoneTable />} />
                   <Route path="/storage" element={<StoragePage />} />
                   <Route path="/san/fabrics" element={<FabricTable />} />
                   <Route path="/config" element={<ConfigForm />} />

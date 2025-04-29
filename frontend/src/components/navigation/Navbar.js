@@ -28,7 +28,7 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
             <div className="active-project-card p-2 rounded">
               <span className="active-project">
                 <a href={`https://insights.ibm.com/cui/${config.customer.insights_tenant}`} target="_blank" rel="noopener noreferrer">
-                  {config.customer.name}
+                  {config.customer.name}: {config.customer.id}
                 </a>
               </span>
             </div>
