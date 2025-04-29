@@ -3,6 +3,28 @@ import { HotTable } from '@handsontable/react';
 import { Modal, Button, Spinner, Alert } from "react-bootstrap";
 import axios from "axios";
 
+/**
+ * A generic reusable table component for all CRUD operations
+ * @param {Object} props - Component props
+ * @param {string} props.apiUrl - URL for fetching data
+ * @param {string} props.saveUrl - URL for saving data
+ * @param {string} props.deleteUrl - URL for deleting data
+ * @param {Array} props.columns - Column definitions for the table
+ * @param {Array} props.colHeaders - Column header texts
+ * @param {Object} props.newRowTemplate - Template for new row
+ * @param {Object} props.dropdownSources - Sources for dropdown fields
+ * @param {Function} props.onBuildPayload - Function to build payload for saving
+ * @param {Function} props.onSave - Custom save handler if needed
+ * @param {string} props.navigationRedirectPath - Path to redirect after save
+ * @param {Object} props.customRenderers - Custom cell renderers
+ * @param {Function} props.preprocessData - Function to preprocess data before rendering
+ * @param {Array} props.colWidths - Column widths
+ * @param {Function} props.getCellsConfig - Function to get dynamic cell configuration
+ * @param {number} props.fixedColumnsLeft - Number of columns to fix on the left
+ * @param {boolean} props.columnSorting - Enable column sorting
+ * @param {boolean} props.filters - Enable column filters
+ * @param {React.Ref} ref - Forwarded ref
+ */
 const GenericTable = forwardRef(({
   apiUrl,
   saveUrl,
@@ -12,15 +34,20 @@ const GenericTable = forwardRef(({
   newRowTemplate,
   dropdownSources = {},
   onBuildPayload,
-  onSave, // Custom save handler if needed
+  onSave,
   navigationRedirectPath,
   customRenderers = {},
-  preprocessData, // Function to preprocess data before rendering
-  colWidths, // Optional column widths
-  getCellsConfig, // Function to get dynamic cell configuration
+  preprocessData,
+  colWidths,
+  getCellsConfig,
   fixedColumnsLeft = 0,
   columnSorting = false,
-  filters = false
+  filters = false,
+  beforeSave,
+  afterSave,
+  additionalButtons,
+  storageKey,
+  height = "calc(100vh - 200px)"
 }, ref) => {
   const [data, setData] = useState([]);
   const [unsavedData, setUnsavedData] = useState([]);
@@ -36,7 +63,9 @@ const GenericTable = forwardRef(({
   // Expose the table reference and methods to the parent component
   useImperativeHandle(ref, () => ({
     hotInstance: tableRef.current?.hotInstance,
-    refreshData: fetchData
+    refreshData: fetchData,
+    isDirty,
+    setIsDirty
   }));
 
   // Fetch data
@@ -68,6 +97,8 @@ const GenericTable = forwardRef(({
 
   // Helper to ensure there's always a blank row at the end
   const ensureBlankRow = (rows) => {
+    if (!Array.isArray(rows)) return [{ ...newRowTemplate }];
+    
     if (rows.length === 0 || hasNonEmptyValues(rows[rows.length - 1])) {
       return [...rows, { ...newRowTemplate }];
     }
@@ -81,6 +112,7 @@ const GenericTable = forwardRef(({
     return Object.keys(row).some(key => {
       // Skip id field in the check
       if (key === 'id') return false;
+      if (key === 'saved') return false;
       
       const value = row[key];
       if (value === null || value === undefined) return false;
@@ -102,21 +134,39 @@ const GenericTable = forwardRef(({
     
     const updated = [...unsavedData];
     let dataChanged = false;
+    let shouldAddNewRow = false;
     
     changes.forEach(([visualRow, prop, oldVal, newVal]) => {
       if (oldVal !== newVal) {
         const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
         if (physicalRow !== null) {
-          updated[physicalRow] = { ...updated[physicalRow], [prop]: newVal };
+          updated[physicalRow] = { ...updated[physicalRow], [prop]: newVal, saved: false };
           dataChanged = true;
+          
+          // If editing the last row and it now has content, prepare to add a new row
+          if (physicalRow === updated.length - 1) {
+            const isNotEmpty = Boolean(
+              typeof newVal === "string" ? newVal.trim() : 
+              typeof newVal === "boolean" ? newVal : 
+              typeof newVal === "number" ? newVal !== 0 : 
+              newVal !== null && newVal !== undefined
+            );
+            
+            if (isNotEmpty) {
+              shouldAddNewRow = true;
+            }
+          }
         }
       }
     });
 
     if (dataChanged) {
-      // Check if the last row has any data and add a new blank row if needed
-      const dataWithBlankRow = ensureBlankRow(updated);
-      setUnsavedData(dataWithBlankRow);
+      // Add a new blank row if needed
+      if (shouldAddNewRow) {
+        updated.push({ ...newRowTemplate });
+      }
+      
+      setUnsavedData(updated);
       setIsDirty(true);
     }
   };
@@ -126,6 +176,15 @@ const GenericTable = forwardRef(({
     if (!isDirty) {
       setSaveStatus("⚠️ No changes to save.");
       return;
+    }
+
+    // Run pre-save validation if provided
+    if (beforeSave && typeof beforeSave === 'function') {
+      const validationResult = beforeSave(unsavedData);
+      if (validationResult !== true) {
+        setSaveStatus(`⚠️ ${validationResult}`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -138,6 +197,9 @@ const GenericTable = forwardRef(({
         setSaveStatus(result.message);
         if (result.success) {
           await fetchData();
+          if (afterSave && typeof afterSave === 'function') {
+            afterSave();
+          }
           handleSuccessfulSave();
         }
       } else {
@@ -147,7 +209,7 @@ const GenericTable = forwardRef(({
         unsavedData.forEach(row => {
           const isNew = row.id == null;
           const original = data.find(d => d.id === row.id);
-          const isModified = JSON.stringify(row) !== JSON.stringify(original);
+          const isModified = original ? JSON.stringify(row) !== JSON.stringify(original) : false;
 
           if ((isNew && hasNonEmptyValues(row)) || (original && isModified)) {
             payload.push(onBuildPayload ? onBuildPayload(row) : row);
@@ -164,14 +226,20 @@ const GenericTable = forwardRef(({
           if (row.id == null) {
             const postData = { ...row };
             delete postData.id;
+            delete postData.saved;
             return axios.post(saveUrl, postData);
           } else {
-            return axios.put(`${saveUrl}${row.id}/`, row);
+            const putData = { ...row };
+            delete putData.saved;
+            return axios.put(`${saveUrl}${row.id}/`, putData);
           }
         }));
 
         setSaveStatus("✅ Save successful!");
         await fetchData();
+        if (afterSave && typeof afterSave === 'function') {
+          afterSave();
+        }
         handleSuccessfulSave();
       }
     } catch (error) {
@@ -322,7 +390,7 @@ const GenericTable = forwardRef(({
       for (let i = 0; i < totalCols; i++) {
         widths.push(tableRef.current.hotInstance.getColWidth(i));
       }
-      localStorage.setItem("zoneTableColumnWidths", JSON.stringify(widths));
+      localStorage.setItem(storageKey || "tableColumnWidths", JSON.stringify(widths));
     }
   };
 
@@ -336,6 +404,10 @@ const GenericTable = forwardRef(({
             "Save"
           )}
         </Button>
+        
+        {/* Render additional buttons if provided */}
+        {additionalButtons && additionalButtons}
+        
         {saveStatus && (
           <Alert variant={saveStatus.includes("❌") ? "danger" : saveStatus.includes("⚠️") ? "warning" : "success"} 
                  className="mt-2 py-1 save-status">
@@ -361,7 +433,7 @@ const GenericTable = forwardRef(({
           afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
           beforeRemoveRow={() => false} // Prevent automatic row removal
           stretchH="all"
-          height="calc(100vh - 200px)"
+          height={height}
           licenseKey="non-commercial-and-evaluation"
           rowHeaders={false}
           filters={filters}
