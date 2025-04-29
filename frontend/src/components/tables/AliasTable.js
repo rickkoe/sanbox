@@ -1,444 +1,215 @@
-import React, { useEffect, useState, useRef, useContext } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
-import { Button, Alert, Modal } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import { HotTable, HotColumn } from '@handsontable/react-wrapper';
-import { UNSAFE_NavigationContext as NavigationContext } from 'react-router-dom';
+import GenericTable from "./GenericTable";
+
+// API endpoints
+const API_ENDPOINTS = {
+  aliases: "http://127.0.0.1:8000/api/san/aliases/project/",
+  fabrics: "http://127.0.0.1:8000/api/san/fabrics/customer/",
+  aliasSave: "http://127.0.0.1:8000/api/san/aliases/save/",
+  aliasDelete: "http://127.0.0.1:8000/api/san/aliases/delete/"
+};
+
+// Template for new rows
+const NEW_ALIAS_TEMPLATE = {
+  id: null,
+  name: "",
+  wwpn: "",
+  use: "",
+  fabric: "",
+  cisco_alias: "device-alias",
+  create: false,
+  include_in_zoning: false,
+  notes: "",
+  imported: null,
+  updated: null,
+  saved: false
+};
 
 const AliasTable = () => {
-    const { config } = useContext(ConfigContext);
-    const navigate = useNavigate();
-    const { navigator } = useContext(NavigationContext);
-    const [lastTx, setLastTx] = useState(null);
-    const [aliases, setAliases] = useState([]);
-    const [unsavedAliases, setUnsavedAliases] = useState([]);
-    const [fabrics, setFabrics] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [saveStatus, setSaveStatus] = useState("");
-    const [isDirty, setIsDirty] = useState(false);
-    const [showModal, setShowModal] = useState(false);
-    const [nextPath, setNextPath] = useState(null);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [rowsToDelete, setRowsToDelete] = useState([]);
-    const tableRef = useRef(null);
+  const { config } = useContext(ConfigContext);
+  const [fabricOptions, setFabricOptions] = useState([]);
+  const tableRef = useRef(null);
+  const navigate = useNavigate();
 
-    const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
-    const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
-    const aliasSaveApiUrl = "http://127.0.0.1:8000/api/san/aliases/save/";
-    const aliasDeleteApiUrl = "http://127.0.0.1:8000/api/san/aliases/delete/";
+  const activeProjectId = config?.active_project?.id;
+  const activeCustomerId = config?.customer?.id;
 
-    useEffect(() => {
-        if (config?.active_project?.id) {
-            fetchAliases(config.active_project.id);
-        }
-        if (config?.customer?.id) {
-            fetchFabrics(config.customer.id);
-        }
-    }, [config]);
+  // Load fabrics
+  useEffect(() => {
+    if (activeCustomerId) {
+      axios.get(`${API_ENDPOINTS.fabrics}${activeCustomerId}/`)
+        .then(res => setFabricOptions(res.data.map(f => ({ id: f.id, name: f.name }))))
+        .catch(err => console.error("Error fetching fabrics:", err));
+    }
+  }, [activeCustomerId]);
 
-    useEffect(() => {
-        console.log("AliasTable debug:", { loading, error, config });
-    }, [loading, error, config]);
+  if (!activeProjectId) {
+    return <div className="alert alert-warning">No active project selected.</div>;
+  }
 
-    useEffect(() => {
-        const handleBeforeUnload = (event) => {
-            if (isDirty) {
-                event.preventDefault();
-                event.returnValue = "You have unsaved changes. Are you sure you want to leave?";
-            }
-        };
-        window.addEventListener("beforeunload", handleBeforeUnload);
-        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [isDirty]);
-
-    useEffect(() => {
-        if (!isDirty) return;
-        if (typeof navigator.block !== 'function') {
-            console.warn("navigator.block is not supported in this version of react-router.");
-            return;
-        }
-        const unblock = navigator.block((tx) => {
-            // Block the transition and show the modal
-            setShowModal(true);
-            setLastTx(tx);
-            return false;
-        });
-        return () => {
-            if (typeof unblock === 'function') {
-                unblock();
-            }
-        };
-    }, [isDirty, navigator]);
-
-    // Custom global navigation blocker: Intercept pushState to catch internal navigation (e.g., Link clicks)
-    useEffect(() => {
-        if (!isDirty) return;
-        const originalPushState = window.history.pushState;
-        window.history.pushState = function(state, title, url) {
-            // Instead of allowing navigation, show the modal and store the intended URL
-            setNextPath(url);
-            setShowModal(true);
-            // Do not call the original pushState to block navigation
-        };
-        return () => {
-            window.history.pushState = originalPushState;
-        };
-    }, [isDirty]);
-
-    // Custom global navigation blocker: Intercept popstate events for browser back/forward buttons
-    useEffect(() => {
-        if (!isDirty) return;
-        const handlePopState = (e) => {
-            // Prevent navigation by pushing the current location back into history
-            e.preventDefault();
-            window.history.pushState(null, "", window.location.pathname);
-            // Store the attempted URL (from event.state, if available, or current location) and show the modal
-            setNextPath(window.location.pathname);
-            setShowModal(true);
-        };
-        window.addEventListener('popstate', handlePopState);
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
-    }, [isDirty]);
-
-    const handleNavigationAttempt = (path) => {
-        if (isDirty) {
-            setShowModal(true);
-            setNextPath(path);
+  // Table configuration
+  const tableConfig = {
+    colHeaders: [
+      "Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", 
+      "Include in Zoning", "Imported", "Updated", "Notes"
+    ],
+    columns: [
+      { data: "name" },
+      { data: "wwpn" },
+      { data: "use", type: "dropdown", className: "htCenter" },
+      { data: "fabric_details.name", type: "dropdown" },
+      { data: "cisco_alias", type: "dropdown", className: "htCenter" },
+      { data: "create", type: "checkbox", className: "htCenter" },
+      { data: "include_in_zoning", type: "checkbox", className: "htCenter" },
+      { data: "imported", readOnly: true },
+      { data: "updated", readOnly: true },
+      { data: "notes" }
+    ],
+    dropdownSources: {
+      "use": ["init", "target", "both"],
+      "fabric_details.name": fabricOptions.map(f => f.name),
+      "cisco_alias": ["device-alias", "fcalias", "wwpn"]
+    },
+    // Process data for display
+    preprocessData: (data) => {
+      return data.map(alias => ({
+        ...alias,
+        saved: true
+      }));
+    },
+    // Custom renderers
+    customRenderers: {
+      name: (instance, td, row, col, prop, value) => {
+        const rowData = instance.getSourceDataAtRow(row);
+        td.innerText = value || "";
+        if (rowData?.saved) {
+          td.style.fontWeight = "bold";
         } else {
-            navigate(path);
+          td.style.fontWeight = "normal";
         }
-    };
-
-    const ensureBlankRow = (data) => {
-        if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
-            return [...data, { id: null, name: "", wwpn: "", use: "", fabric: "", create: false, include_in_zoning: false, notes: "" }];
+        return td;
+      },
+      imported: (instance, td, row, col, prop, value) => {
+        td.innerText = value ? new Date(value).toLocaleString() : "";
+        return td;
+      },
+      updated: (instance, td, row, col, prop, value) => {
+        td.innerText = value ? new Date(value).toLocaleString() : "";
+        return td;
+      }
+    },
+    // Prepare payload for saving
+    onBuildPayload: (row) => {
+      // Get fabric ID from name
+      const fabricId = fabricOptions.find(f => f.name === (row.fabric_details?.name || row.fabric))?.id;
+      
+      // Clean up payload
+      const payload = { ...row };
+      delete payload.saved;
+      delete payload.fabric_details;
+      
+      return {
+        ...payload,
+        projects: [activeProjectId],
+        fabric: fabricId
+      };
+    },
+    // Custom save handler
+    onSave: async (unsavedData) => {
+      try {
+        // WWPN validation
+        const invalidWWPN = unsavedData.find(alias => 
+          alias.name && alias.name.trim() !== "" && 
+          (!alias.wwpn || !/^([0-9a-fA-F]{2}:){7}[0-9a-fA-F]{2}$|^[0-9a-fA-F]{16}$/.test(alias.wwpn))
+        );
+        
+        if (invalidWWPN) {
+          return { 
+            success: false, 
+            message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}"`
+          };
         }
-        return data;
-    };
-
-    const fetchAliases = async (projectId) => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            const response = await axios.get(`${aliasApiUrl}${projectId}/`);
-            const data = ensureBlankRow(
-                response.data.map(alias => ({ ...alias, saved: true }))
-              );
-            setAliases(data);
-            setUnsavedAliases([...data]);
-        } catch (error) {
-            console.error("❌ Error fetching aliases:", error);
-            setError("Failed to load aliases.");
-            setAliases(ensureBlankRow([]));  // Ensure at least one blank row
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchFabrics = async (customerId) => {
-        try {
-            const response = await axios.get(`${fabricApiUrl}${customerId}/`);
-            setFabrics(response.data.map(fabric => ({ id: fabric.id, name: fabric.name }))); // ✅ Ensure ID and Name
-        } catch (error) {
-            console.error("❌ Error fetching fabrics:", error);
-        }
-    };
-
-    const handleTableChange = (changes, source) => {
-        if (!changes || source === "loadData") return;
-
-        const updatedAliases = [...unsavedAliases];
-        let shouldAddNewRow = false;
-
-        changes.forEach(([visualRow, prop, oldValue, newValue]) => {
-            if (oldValue !== newValue) {
-                const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
-                if (physicalRow === null) return;
-
-                updatedAliases[physicalRow][prop] = newValue;
-                updatedAliases[physicalRow].saved = false; // 👈 mark as dirty
-
-                if (physicalRow === updatedAliases.length - 1 && newValue.trim() !== "") {
-                    shouldAddNewRow = true;
-                }
-            }
+        
+        const payload = unsavedData
+          .filter(alias => alias.id || (alias.name && alias.name.trim() !== ""))
+          .map(tableConfig.onBuildPayload);
+        
+        await axios.post(API_ENDPOINTS.aliasSave, { 
+          project_id: activeProjectId, 
+          aliases: payload 
         });
-
-        if (shouldAddNewRow) {
-            updatedAliases.push({ id: null, name: "", wwpn: "", use: "", fabric: "", create: false, include_in_zoning: false, notes: "" });
+        
+        return { success: true, message: "Aliases saved successfully! ✅" };
+      } catch (error) {
+        console.error("Error saving aliases:", error);
+        // Handle structured error response from API
+        if (error.response?.data?.details) {
+          const errorMessages = error.response.data.details.map(e => {
+            const errorText = Object.values(e.errors).flat().join(", ");
+            return `Can't save alias "${e.alias}": ${errorText}`;
+          });
+          return { success: false, message: `⚠️ ${errorMessages.join(" | ")}` };
         }
+        
+        return { 
+          success: false, 
+          message: `⚠️ Error: ${error.response?.data?.message || error.message}` 
+        };
+      }
+    },
+    // Pre-save validation
+    beforeSave: (data) => {
+      // Validate fabric is selected for aliases with a name
+      const invalidAlias = data.find(alias => 
+        alias.name && alias.name.trim() !== "" && 
+        (!alias.fabric_details?.name && !alias.fabric)
+      );
+      
+      if (invalidAlias) {
+        return `Alias "${invalidAlias.name}" must have a fabric selected`;
+      }
+      
+      return true;
+    }
+  };
 
-        setIsDirty(true);
-        setUnsavedAliases(updatedAliases);
-    };
-
-    const handleSave = async () => {
-        if (!config?.active_project?.id) {
-            setSaveStatus("⚠️ No active project selected!");
-            return;
-        }
-
-        setSaveStatus("Saving...");
-
-        const payload = unsavedAliases
-            .filter(alias => alias.name.trim())  // ✅ Only send valid entries
-            .map(alias => ({
-                ...alias,
-                projects: [config.active_project.id],  // ✅ Assign project
-                fabric: fabrics.find(f => f.name === alias.fabric_details.name)?.id,  // ✅ Convert fabric name back to ID
-            }));
-
-        console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
-
-        try {
-            const response = await axios.post(
-                aliasSaveApiUrl,
-                { project_id: config.active_project.id, aliases: payload }
-            );
-
-            console.log("✅ Save Response:", response.data);
-            setSaveStatus("Aliases saved successfully! ✅");
-            setIsDirty(false);
-            fetchAliases(config.active_project.id);  // ✅ Refresh table
-        } catch (error) {
-            console.error("❌ Error saving aliases:", error);
-
-            if (error.response) {
-                console.error("❌ API Response Error:", JSON.stringify(error.response.data, null, 2));
-
-                if (error.response.data.details) {
-                    const errorMessages = error.response.data.details.map(e => {
-                        const errorText = Object.values(e.errors).flat().join(", "); // ✅ Convert error object to string
-                        return `Can't save alias name: "${e.alias}".  ${errorText}`;
-                    });
-
-                    setSaveStatus(`⚠️ Error: ${errorMessages.join(" | ")}`);
-                } else {
-                    setSaveStatus("⚠️ Error saving aliases! Please try again.");
+  return (
+    <div className="alias-table-container">
+      <GenericTable
+        ref={tableRef}
+        apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}
+        saveUrl={API_ENDPOINTS.aliasSave}
+        deleteUrl={API_ENDPOINTS.aliasDelete}
+        newRowTemplate={NEW_ALIAS_TEMPLATE}
+        fixedColumnsLeft={1}
+        columnSorting={true}
+        filters={true}
+        storageKey="aliasTableColumnWidths"
+        {...tableConfig}
+        additionalButtons={
+          <Button
+            className="save-button"
+            onClick={() => {
+              if (tableRef.current?.isDirty) {
+                if (window.confirm("You have unsaved changes. Save before generating scripts?")) {
+                  // Save first
+                  tableRef.current.refreshData().then(() => navigate("/san/aliases/alias-scripts"));
                 }
-            } else {
-                setSaveStatus("⚠️ Network error. Try again.");
-            }
+              } else {
+                navigate("/san/aliases/alias-scripts");
+              }
+            }}
+          >
+            Generate Alias Scripts
+          </Button>
         }
-    };
-
-    // Handle row removal with a Bootstrap modal instead of window.confirm
-    const handleRemoveRows = (index, amount, physicalRows, source, event) => {
-        if (event) {
-            event.preventDefault(); // 🛑 Prevent immediate deletion
-        }
-        setRowsToDelete(physicalRows);
-        setShowDeleteModal(true);
-    };
-
-    const confirmDeleteRows = () => {
-        const updatedAliases = [...unsavedAliases];
-        const wasDirty = isDirty; // Save current dirty status
-
-        rowsToDelete.forEach(rowIndex => {
-            const aliasToDelete = updatedAliases[rowIndex];
-            if (aliasToDelete && aliasToDelete.id) {
-                axios.delete(`${aliasDeleteApiUrl}${aliasToDelete.id}/`)
-                    .then(response => {
-                        console.log("Deleted alias", aliasToDelete.id);
-                    })
-                    .catch(error => {
-                        console.error("Error deleting alias", aliasToDelete.id, error);
-                    });
-            }
-        });
-
-        const remainingAliases = updatedAliases.filter((_, idx) => !rowsToDelete.includes(idx));
-        setUnsavedAliases(remainingAliases);
-
-        if (wasDirty) {
-            setIsDirty(true); // Leave as dirty
-        } else {
-            setIsDirty(false); // Stay clean if no prior changes
-        }
-        setShowDeleteModal(false);
-    };
-
-    return (
-        <div className="table-container">
-            {loading ? (
-                <Alert variant="info">Loading aliases...</Alert>
-            ) : error ? (
-                <Alert variant="danger">{error}</Alert>
-            ) : (
-                <>
-                <div>
-                    <Button className="save-button" onClick={handleSave} disabled={loading || saveStatus === "Saving..."}>
-                    {saveStatus === "Saving..." ? (
-                        <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        Saving...
-                        </>
-                    ) : (
-                        "Save"
-                    )}
-                    </Button>
-                    <Button className="save-button" onClick={() => handleNavigationAttempt("/san/aliases/alias-scripts")}>Generate Alias Scripts</Button>
-                </div>
-
-                <HotTable
-                    ref={tableRef}
-                    data={unsavedAliases}
-                    fixedColumnsLeft={1}
-                    colHeaders={["Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", "Include in Zoning", "Imported", "Updated", "Notes"]}
-                    columns={[
-                        {
-                            data: "name",
-                            renderer: (instance, td, row, col, prop, value, cellProperties) => {
-                              td.innerText = value || "";
-                              if (unsavedAliases[row]?.saved) {
-                                td.style.fontWeight = "bold";
-                              } else {
-                                td.style.fontWeight = "normal";
-                              }
-                              return td;
-                            }
-                          },
-                        { data: "wwpn" },
-                        { data: "use", type: "dropdown", source: ["init", "target", "both"], className: "htCenter" },
-                        { 
-                            data: "fabric_details.name", 
-                            type: "dropdown", 
-                            source: fabrics.map(f => f.name) 
-                        },
-                        { data: "cisco_alias", type: "dropdown", source: ["device-alias", "fcalias", "wwpn"], className: "htCenter"},
-                        { data: "create", type: "checkbox", className: "htCenter" },
-                        { data: "include_in_zoning", type: "checkbox" , className: "htCenter"},
-                        { 
-                            data: "imported", 
-                            readOnly: true,
-                            renderer: (instance, td, row, col, prop, value, cellProperties) => {
-                              if (value) {
-                                const date = new Date(value);
-                                td.innerText = date.toLocaleString(); // or customize formatting
-                              } else {
-                                td.innerText = "";
-                              }
-                              return td;
-                            }
-                        },
-                        { 
-                            data: "updated", 
-                            readOnly: true,
-                            renderer: (instance, td, row, col, prop, value, cellProperties) => {
-                              if (value) {
-                                const date = new Date(value);
-                                td.innerText = date.toLocaleString(); // or customize formatting
-                              } else {
-                                td.innerText = "";
-                              }
-                              return td;
-                            }
-                        },
-                        { data: "notes" },
-                    ]}
-                    contextMenu={['row_above', 'row_below', 'remove_row', '---------', 'undo', 'redo']}
-                    beforeRemoveRow={(index, amount, physicalRows, source, event) => {
-                        if (event) {
-                            event.preventDefault();
-                        }
-                        setRowsToDelete(physicalRows);
-                        setShowDeleteModal(true);
-                        return false; // 🛑 prevent Handsontable from removing rows automatically
-                    }}
-                    manualColumnResize={true}
-                    autoColumnSize={true}
-                    afterColumnResize={(currentColumn, newSize, isDoubleClick) => {
-                        const totalCols = tableRef.current.hotInstance.countCols();
-                        const widths = [];
-                        for (let i = 0; i < totalCols; i++) {
-                            widths.push(tableRef.current.hotInstance.getColWidth(i));
-                        }
-                        localStorage.setItem("aliasTableColumnWidths", JSON.stringify(widths));
-                    }}
-                    colWidths={(() => {
-                        const stored = localStorage.getItem("aliasTableColumnWidths");
-                        if (stored) {
-                            try {
-                                return JSON.parse(stored);
-                            } catch (e) {
-                                return 200;
-                            }
-                        }
-                        return 200;
-                    })()}
-                    columnSorting={true}
-                    afterChange={handleTableChange}
-                    licenseKey="non-commercial-and-evaluation"
-                    className="htMaterial"
-                    filters={true}
-                    dropdownMenu={true}
-                    stretchH="all"
-                    rowHeaders={false}
-                    dragToScroll={true}
-                    width="100%"
-                    height="calc(100vh - 200px)"
-                />
-
-                    {saveStatus && (
-                        <Alert variant={saveStatus.includes("Error") ? "danger" : "success"} className="mt-2">
-                            {saveStatus}
-                        </Alert>
-                    )}
-                </>
-            )}
-            <Modal show={showModal} onHide={() => setShowModal(false)}>
-                <Modal.Header closeButton>
-                    <Modal.Title>Unsaved Changes</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    You have unsaved changes. Are you sure you want to leave?
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowModal(false)}>
-                        Stay on this page
-                    </Button>
-                    <Button variant="primary" onClick={() => {
-                        setIsDirty(false);
-                        setShowModal(false);
-                        if (lastTx) {
-                            lastTx.retry();
-                            setLastTx(null);
-                        } else if (nextPath) {
-                            navigate(nextPath);
-                        }
-                    }}>
-                        Leave
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
-                <Modal.Header closeButton>
-                    <Modal.Title>Confirm Deletion</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    Are you sure you want to delete the following {rowsToDelete.length} alias{rowsToDelete.length > 1 ? "es" : ""}?
-                    <br />
-                    <strong>
-                        {rowsToDelete.map(idx => unsavedAliases[idx]?.name).filter(name => name).join(", ")}
-                    </strong>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
-                        Cancel
-                    </Button>
-                    <Button variant="danger" onClick={confirmDeleteRows}>
-                        Delete
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-        </div>
-    );
+      />
+    </div>
+  );
 };
 
 export default AliasTable;

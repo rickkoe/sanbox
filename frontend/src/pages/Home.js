@@ -51,12 +51,20 @@ const Home = () => {
         <>
           {/* Active Customer & Project */}
           <div className="dashboard-section mb-5">
-            <h3 className="dashboard-section-title mb-4">Active Customer & Project</h3>
+            <h3 className="dashboard-section-title mb-4">
+              Active Customer & Project
+            </h3>
             <div className="card p-4 shadow-sm card-hover">
               <div className="row">
                 <div className="col-md-6 mb-3 mb-md-0">
-                  <h5><strong>Customer: </strong>{config?.customer?.name || "N/A"}</h5>
-                  <h5><strong>Project: </strong>{config?.active_project?.name || "N/A"}</h5>
+                  <h5>
+                    <strong>Customer: </strong>
+                    {config?.customer?.name || "N/A"}
+                  </h5>
+                  <h5>
+                    <strong>Project: </strong>
+                    {config?.active_project?.name || "N/A"}
+                  </h5>
                 </div>
                 <div className="col-md-6 text-md-end">
                   <h6>
@@ -76,9 +84,16 @@ const Home = () => {
                   <h6>
                     API Key Exists:&nbsp;
                     {config?.customer?.insights_api_key ? (
-                      <span className="api-indicator" style={{ color: "green" }}>✅</span>
+                      <span
+                        className="api-indicator"
+                        style={{ color: "green" }}
+                      >
+                        ✅
+                      </span>
                     ) : (
-                      <span className="api-indicator" style={{ color: "red" }}>❌</span>
+                      <span className="api-indicator" style={{ color: "red" }}>
+                        ❌
+                      </span>
                     )}
                   </h6>
                 </div>
@@ -93,25 +108,54 @@ const Home = () => {
               <div className="col-md-4 mb-4">
                 <div className="card text-center p-4 shadow-sm card-hover">
                   <h5>Fabrics</h5>
-                <NavLink to="/san/fabrics">
-                  <h2 className="dashboard-count-link">{animatedCount(fabricCount)}</h2>
-                </NavLink>
+                  <NavLink to="/san/fabrics">
+                    <h2 className="dashboard-count-link">
+                      {animatedCount(fabricCount)}
+                    </h2>
+                  </NavLink>
                 </div>
               </div>
               <div className="col-md-4 mb-4">
                 <div className="card text-center p-4 shadow-sm card-hover">
                   <h5>Aliases</h5>
-                <NavLink to="/san/aliases">
-                  <h2 className="dashboard-count-link">{animatedCount(aliasCount)}</h2>
-                </NavLink>
+                  <NavLink to="/san/aliases">
+                    <h2 className="dashboard-count-link">
+                      {animatedCount(aliasCount)}
+                    </h2>
+                  </NavLink>
                 </div>
               </div>
               <div className="col-md-4 mb-4">
                 <div className="card text-center p-4 shadow-sm card-hover">
                   <h5>Zones</h5>
-                <NavLink to="/san/zones">
-                  <h2 className="dashboard-count-link">{animatedCount(zoneCount)}</h2>
-                </NavLink>
+                  <NavLink to="/san/zones">
+                    <h2 className="dashboard-count-link">
+                      {animatedCount(zoneCount)}
+                    </h2>
+                  </NavLink>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Storage Summary */}
+          <div className="dashboard-section mb-5">
+            <h3 className="dashboard-section-title mb-4">Storage Summary</h3>
+            <div className="row">
+              <div className="col-md-4 mb-4">
+                <div className="card text-center p-4 shadow-sm card-hover">
+                  <h5>DS8000</h5>
+                  <NavLink to="/storage/ds8000">
+                    <h2 className="dashboard-count-link">0</h2>
+                  </NavLink>
+                </div>
+              </div>
+              <div className="col-md-4 mb-4">
+                <div className="card text-center p-4 shadow-sm card-hover">
+                  <h5>FlashSystem</h5>
+                  <NavLink to="/storage/flashsystem">
+                    <h2 className="dashboard-count-link">0</h2>
+                  </NavLink>
                 </div>
               </div>
             </div>
@@ -122,7 +166,10 @@ const Home = () => {
             <h3 className="dashboard-section-title mb-4">Shortcuts</h3>
             <div className="row">
               <div className="col-md-4 mb-4">
-                <NavLink to="/config" className="home-card card text-center h-100 p-4 shadow-sm card-hover">
+                <NavLink
+                  to="/config"
+                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
+                >
                   <div className="card-body">
                     <FaCogs size={36} className="home-icon mb-3" />
                     <h6 className="card-title">Config</h6>
@@ -130,7 +177,10 @@ const Home = () => {
                 </NavLink>
               </div>
               <div className="col-md-4 mb-4">
-                <NavLink to="/san/fabrics" className="home-card card text-center h-100 p-4 shadow-sm card-hover">
+                <NavLink
+                  to="/san/fabrics"
+                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
+                >
                   <div className="card-body">
                     <FaNetworkWired size={36} className="home-icon mb-3" />
                     <h6 className="card-title">Fabrics</h6>
@@ -138,7 +188,10 @@ const Home = () => {
                 </NavLink>
               </div>
               <div className="col-md-4 mb-4">
-                <NavLink to="/san/aliases" className="home-card card text-center h-100 p-4 shadow-sm card-hover">
+                <NavLink
+                  to="/san/aliases"
+                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
+                >
                   <div className="card-body">
                     <FaAddressBook size={36} className="home-icon mb-3" />
                     <h6 className="card-title">Aliases</h6>
@@ -146,7 +199,10 @@ const Home = () => {
                 </NavLink>
               </div>
               <div className="col-md-4 mb-4">
-                <NavLink to="/san/zones" className="home-card card text-center h-100 p-4 shadow-sm card-hover">
+                <NavLink
+                  to="/san/zones"
+                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
+                >
                   <div className="card-body">
                     <FaProjectDiagram size={36} className="home-icon mb-3" />
                     <h6 className="card-title">Zones</h6>
@@ -154,7 +210,10 @@ const Home = () => {
                 </NavLink>
               </div>
               <div className="col-md-4 mb-4">
-                <NavLink to="/storage" className="home-card card text-center h-100 p-4 shadow-sm card-hover">
+                <NavLink
+                  to="/storage"
+                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
+                >
                   <div className="card-body">
                     <FaServer size={36} className="home-icon mb-3" />
                     <h6 className="card-title">Storage</h6>
@@ -162,7 +221,10 @@ const Home = () => {
                 </NavLink>
               </div>
               <div className="col-md-4 mb-4">
-                <NavLink to="/tools" className="home-card card text-center h-100 p-4 shadow-sm card-hover">
+                <NavLink
+                  to="/tools"
+                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
+                >
                   <div className="card-body">
                     <FaTools size={36} className="home-icon mb-3" />
                     <h6 className="card-title">Tools</h6>
