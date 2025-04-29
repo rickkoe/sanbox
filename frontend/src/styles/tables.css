@@ -1,70 +1,69 @@
 .table-container {
-    width: 100%;
-    position: relative;
-    z-index: 1;
-  }
-  
-  .handsontable .ht_master .wtHolder {
-    overflow-x: auto !important;
-    overflow-y: auto !important;
-  }
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
 
-  .htMaterial .hot {
-    overflow: scroll;
+.handsontable .ht_master .wtHolder {
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+}
 
-  }
+.htMaterial .hot {
+  overflow: scroll;
+}
 
-  .save-button {
-    margin: 10px;
-  }
+.save-button {
+  margin: 10px;
+}
 
-  .back-button {
-    margin: 10px;
-  }
-  .back-button .arrow {
-    margin-right: 0.5rem;
-    display: inline-block;
-    transition: transform 0.3s;
-  }
+.back-button {
+  margin: 10px;
+}
+.back-button .arrow {
+  margin-right: 0.5rem;
+  display: inline-block;
+  transition: transform 0.3s;
+}
 
-  .back-button:hover .arrow {
-    animation: wiggle 0.5s ease forwards;
-  }
+.back-button:hover .arrow {
+  animation: wiggle 0.5s ease forwards;
+}
 
-  @keyframes wiggle {
-    0% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    50% { transform: translateX(0); }
-    75% { transform: translateX(-5px); }
-    100% { transform: translateX(0); }
-  }
+@keyframes wiggle {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(0); }
+  75% { transform: translateX(-5px); }
+  100% { transform: translateX(0); }
+}
 
-  .table-container .ht_master .htCore tbody tr:nth-child(odd) {
-    background-color: #ffffff;
-  }
-  
-  .table-container .ht_master .htCore tbody tr:nth-child(even) {
-    background-color: #f2f2f2;
-  }
+.table-container .ht_master .htCore tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
 
-  .htDropdownMenu {
-    z-index: 9999 !important;
-  }
+.table-container .ht_master .htCore tbody tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
 
-  .htDropdownMenu {
-    background-color: #001f00 !important; /* Green screen background */
-    color: #00ff00 !important;             /* Bright green text */
-    border: 1px solid #00ff00 !important;   /* Bright green border */
-  }
-  .htDropdownMenu li {
-    background-color: transparent;
-    border: none;
-  }
-  .htDropdownMenu li:hover {
-    background-color: #002b00;
-  }
+.htDropdownMenu {
+  z-index: 9999 !important;
+}
 
-  /* Force the filter dropdown button to show */
+.htDropdownMenu {
+  background-color: #001f00 !important; /* Green screen background */
+  color: #00ff00 !important;             /* Bright green text */
+  border: 1px solid #00ff00 !important;   /* Bright green border */
+}
+.htDropdownMenu li {
+  background-color: transparent;
+  border: none;
+}
+.htDropdownMenu li:hover {
+  background-color: #002b00;
+}
+
+/* Force the filter dropdown button to show */
 .htDropdownMenuButton {
   display: block !important;
   z-index: 10000;
@@ -85,4 +84,48 @@
 
 .ht_clone_left .wtHolder table tbody tr:nth-child(even) td {
   background-color: #f2f2f2;
+}
+
+/* Fixed header and scrollable table container styles */
+.storage-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px);
+  overflow: hidden;
+}
+
+.fixed-header {
+  flex: 0 0 auto;
+  padding-bottom: 10px;
+}
+
+.scrollable-table-container {
+  flex: 1 1 auto;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Ensure HotTable takes full height of container */
+.scrollable-table-container .handsontable {
+  height: 100% !important;
+}
+
+/* Button container */
+.button-container {
+  display: flex;
+  gap: 10px;
+}
+
+/* Debug info section */
+.debug-info {
+  margin-top: 15px;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+}
+
+.debug-info pre {
+  max-height: 200px;
+  overflow: auto;
 }

@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import axios from "axios";
 import { Button } from "react-bootstrap";
+import { ConfigContext } from "../../context/ConfigContext";
 import GenericTable from "./GenericTable";
 
 // API endpoints
@@ -26,7 +27,12 @@ const NEW_STORAGE_TEMPLATE = {
 };
 
 const StorageTable = () => {
+  const { config } = useContext(ConfigContext);
   const tableRef = useRef(null);
+  const [debug, setDebug] = useState(null);
+  
+  // Get the customer ID from the config context
+  const customerId = config?.customer?.id;
 
   // Table configuration
   const tableConfig = {
@@ -69,70 +75,142 @@ const StorageTable = () => {
         }
         td.innerText = value || "";
         return td;
-      },
-      // Mask some fields for security display
-      primary_ip: (instance, td, row, col, prop, value) => {
-        // Only mask if it's an actual value
-        if (value && value.length > 4) {
-          const firstPart = value.substring(0, 4);
-          td.innerText = `${firstPart}...`;
-        } else {
-          td.innerText = value || "";
-        }
-        return td;
-      },
-      secondary_ip: (instance, td, row, col, prop, value) => {
-        // Only mask if it's an actual value
-        if (value && value.length > 4) {
-          const firstPart = value.substring(0, 4);
-          td.innerText = `${firstPart}...`;
-        } else {
-          td.innerText = value || "";
-        }
-        return td;
       }
     },
-    // Prepare payload for saving
+    // Prepare payload for saving - inject customer ID
     onBuildPayload: (row) => {
       // Clean up payload
       const payload = { ...row };
       delete payload.saved;
       
+      // Ensure required fields are present and non-empty
+      if (!payload.name || payload.name.trim() === "") {
+        payload.name = "Unnamed Storage"; // Default name to prevent validation error
+      }
+      
+      if (!payload.storage_type || payload.storage_type.trim() === "") {
+        payload.storage_type = "DS8000"; // Default type to prevent validation error
+      }
+      
+      // Add the customer ID from the context
+      payload.customer = customerId;
+      
+      // Convert empty strings to null for optional fields
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === "" && key !== "name" && key !== "storage_type") {
+          payload[key] = null;
+        }
+      });
+      
+      console.log("Sending storage payload:", payload);
+      
       return payload;
     },
-    // Custom save handler
+    // Custom save handler with improved error handling
     onSave: async (unsavedData) => {
       try {
+        // Check if customer ID is available
+        if (!customerId) {
+          return { 
+            success: false, 
+            message: "No active customer selected. Please select a customer in configuration." 
+          };
+        }
+        
+        // Only include rows with data - skip completely empty rows
         const payload = unsavedData
-          .filter(storage => storage.id || (storage.name && storage.name.trim() !== ""))
+          .filter(storage => {
+            // If it has an ID, include it
+            if (storage.id) return true;
+            
+            // For new rows, check if ANY field has data
+            const hasData = Object.entries(storage).some(([key, value]) => {
+              return key !== 'id' && key !== 'saved' && value && value.toString().trim() !== '';
+            });
+            
+            return hasData;
+          })
           .map(tableConfig.onBuildPayload);
         
-        // For each storage item, send appropriate request
-        const savePromises = payload.map(storage => {
-          if (storage.id) {
-            // Update existing storage
-            return axios.put(`${API_ENDPOINTS.storage}${storage.id}/`, storage);
-          } else {
-            // Create new storage
-            const newStorage = { ...storage };
-            delete newStorage.id;
-            return axios.post(API_ENDPOINTS.storage, newStorage);
-          }
-        });
+        // For debugging, store the payload we're sending
+        setDebug({ sending: payload });
         
-        await Promise.all(savePromises);
+        if (payload.length === 0) {
+          return { success: true, message: "No changes to save" };
+        }
+        
+        // Create an array to collect all errors
+        const errors = [];
+        
+        // For each storage item, send appropriate request
+        for (const storage of payload) {
+          try {
+            if (storage.id) {
+              // Update existing storage
+              await axios.put(`${API_ENDPOINTS.storage}${storage.id}/`, storage);
+            } else {
+              // Create new storage
+              const newStorage = { ...storage };
+              delete newStorage.id;
+              await axios.post(API_ENDPOINTS.storage, newStorage);
+            }
+          } catch (error) {
+            // Capture detailed error information
+            const errorDetails = {
+              id: storage.id || 'new',
+              name: storage.name,
+              error: error.response?.data || error.message
+            };
+            
+            console.error(`Error saving storage ${storage.name}:`, errorDetails);
+            errors.push(errorDetails);
+          }
+        }
+        
+        // If we encountered any errors
+        if (errors.length > 0) {
+          setDebug(prev => ({ ...prev, errors }));
+          
+          // Format a user-friendly error message
+          let errorMessage = `Error saving ${errors.length} storage items:`;
+          
+          errors.forEach(err => {
+            errorMessage += `\n- ${err.name || 'New item'}: `;
+            
+            if (typeof err.error === 'object') {
+              // Format field errors nicely
+              const fieldErrors = Object.entries(err.error)
+                .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+                .join('; ');
+                
+              errorMessage += fieldErrors;
+            } else {
+              errorMessage += err.error;
+            }
+          });
+          
+          return { 
+            success: false, 
+            message: errorMessage
+          };
+        }
         
         return { success: true, message: "Storage saved successfully! ✅" };
       } catch (error) {
-        console.error("Error saving storage:", error);
+        console.error("General save error:", error);
         return { 
           success: false, 
-          message: `⚠️ Error: ${error.response?.data?.message || error.message}` 
+          message: `⚠️ Error: ${error.message}` 
         };
       }
     },
     // Pre-save validation
     beforeSave: (data) => {
+      // Check if we have an active customer
+      if (!customerId) {
+        return "No active customer selected. Please select a customer in configuration.";
+      }
+      
       // Validate storage type is selected for items with a name
       const invalidStorage = data.find(storage => 
         storage.name && storage.name.trim() !== "" && 
@@ -147,11 +225,22 @@ const StorageTable = () => {
     }
   };
 
+  // We need to also modify the API URL to filter by customer when loading
+  const apiUrl = customerId ? `${API_ENDPOINTS.storage}?customer=${customerId}` : API_ENDPOINTS.storage;
+
+  if (!customerId) {
+    return (
+      <div className="alert alert-warning">
+        No active customer selected. Please select a customer in configuration.
+      </div>
+    );
+  }
+
   return (
     <div className="storage-table-container">
       <GenericTable
         ref={tableRef}
-        apiUrl={API_ENDPOINTS.storage}
+        apiUrl={apiUrl}
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
@@ -161,6 +250,16 @@ const StorageTable = () => {
         storageKey="storageTableColumnWidths"
         {...tableConfig}
       />
+      
+      {/* Debug information (only visible during development) */}
+      {debug && process.env.NODE_ENV === 'development' && (
+        <div className="debug-info mt-3 p-3 border rounded bg-light">
+          <h5>Debug Information</h5>
+          <pre style={{ maxHeight: '200px', overflow: 'auto' }}>
+            {JSON.stringify(debug, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 };

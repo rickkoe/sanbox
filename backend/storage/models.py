@@ -1,10 +1,12 @@
 from django.db import models
 from core.models import Project
+from customers.models import Customer
 from django.contrib.auth.models import User 
 
 
 class Storage(models.Model):
-    project = models.ForeignKey(Project, related_name='storages', on_delete=models.CASCADE, blank=True, null=True)
+    # Replace project with customer
+    customer = models.ForeignKey(Customer, related_name='storages', on_delete=models.CASCADE, blank=True, null=True)
     name = models.CharField(max_length=64)
     storage_type = models.CharField(
         max_length=20,
@@ -20,19 +22,21 @@ class Storage(models.Model):
     serial_number = models.CharField(max_length=100, blank=True, null=True)
     system_id = models.CharField(max_length=16, blank=True, null=True)
     wwnn = models.CharField(max_length=23, blank=True, null=True)
-    firmware_level = models.CharField(max_length=16, blank=True, null=True)
+    firmware_level = models.CharField(max_length=60, blank=True, null=True)
     primary_ip = models.CharField(max_length=11, blank=True, null=True)
     secondary_ip = models.CharField(max_length=11, blank=True, null=True)
+    uuid = models.CharField(max_length=36, blank=True, null=True)
+
 
     def storage_image(self):
         storage_image = f'IBM.2107-{self.serial_number[:-1] + "1"}'
         return storage_image
     
     def __str__(self):
-        return f'{self.project}: {self.name}' 
+        return f'{self.customer}: {self.name}' if self.customer else self.name
     
     class Meta:
-        unique_together = ['project', 'name']
+        unique_together = ['customer', 'name']
 
 
 class Host(models.Model):
