@@ -58,7 +58,11 @@ const GenericTable = forwardRef(({
   const [rowsToDelete, setRowsToDelete] = useState([]);
   const [showNavModal, setShowNavModal] = useState(false);
   const [nextPath, setNextPath] = useState(null);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
+  const [isAtTop, setIsAtTop] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(false);
   const tableRef = useRef(null);
+  const containerRef = useRef(null);
 
   // Expose the table reference and methods to the parent component
   useImperativeHandle(ref, () => ({
@@ -67,6 +71,50 @@ const GenericTable = forwardRef(({
     isDirty,
     setIsDirty
   }));
+
+  // Set up scroll detection to show/hide scroll buttons
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      // Only show buttons if there's enough content to scroll
+      const hasScrollableContent = container.scrollHeight > container.clientHeight;
+      setShowScrollButtons(hasScrollableContent);
+      
+      // Check if we're at the top or bottom
+      if (hasScrollableContent) {
+        setIsAtTop(container.scrollTop <= 10);
+        setIsAtBottom(container.scrollTop + container.clientHeight >= container.scrollHeight - 10);
+      }
+    };
+
+    // Initial check
+    handleScroll();
+    
+    // Add event listener
+    container.addEventListener('scroll', handleScroll);
+    
+    // Cleanup
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [unsavedData]); // Re-check when data changes
+
+  // Scroll functions
+  const scrollToTop = () => {
+    const container = containerRef.current;
+    if (container) {
+      container.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const scrollToBottom = () => {
+    const container = containerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+  };
 
   // Fetch data
   const fetchData = async () => {
@@ -394,6 +442,39 @@ const GenericTable = forwardRef(({
     }
   };
 
+  // Styles for the scroll buttons
+  const scrollButtonsStyles = {
+    container: {
+      position: 'fixed',
+      right: '20px',
+      zIndex: 1000,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px'
+    },
+    button: {
+      width: '40px',
+      height: '40px',
+      borderRadius: '50%',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(13, 110, 253, 0.8)',
+      color: 'white',
+      border: 'none',
+      cursor: 'pointer',
+      boxShadow: '0 2px 5px rgba(0, 0, 0, 0.2)',
+      transition: 'all 0.3s ease',
+      fontSize: '1.5rem',
+      opacity: 0.7
+    },
+    buttonHover: {
+      backgroundColor: 'rgba(13, 110, 253, 1)',
+      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
+      opacity: 1
+    }
+  };
+
   return (
     <div className="table-container">
       <div className="table-header">
@@ -416,37 +497,94 @@ const GenericTable = forwardRef(({
         )}
       </div>
 
-      {loading && !unsavedData.length ? (
-        <div className="loading-indicator">
-          <Spinner animation="border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </Spinner>
-        </div>
-      ) : (
-        <HotTable
-          ref={tableRef}
-          data={unsavedData}
-          colHeaders={colHeaders}
-          columns={enhancedColumns}
-          afterChange={handleAfterChange}
-          contextMenu={{ items: { remove_row: { name: "Remove row(s)" } } }}
-          afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
-          beforeRemoveRow={() => false} // Prevent automatic row removal
-          stretchH="all"
-          height={height}
-          licenseKey="non-commercial-and-evaluation"
-          rowHeaders={false}
-          filters={filters}
-          dropdownMenu={true}
-          autoColumnSize={true}
-          manualColumnResize={true}
-          fixedColumnsLeft={fixedColumnsLeft}
-          columnSorting={columnSorting}
-          colWidths={colWidths}
-          cells={getCellsConfig ? cellsFunc : undefined}
-          afterColumnResize={handleAfterColumnResize}
-        />
-      )}
+      {/* Table with scrollable container */}
+      <div 
+        ref={containerRef} 
+        style={{ 
+          position: 'relative', 
+          height, 
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}
+      >
+        {loading && !unsavedData.length ? (
+          <div className="loading-indicator">
+            <Spinner animation="border" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </Spinner>
+          </div>
+        ) : (
+          <HotTable
+            ref={tableRef}
+            data={unsavedData}
+            colHeaders={colHeaders}
+            columns={enhancedColumns}
+            afterChange={handleAfterChange}
+            contextMenu={{ items: { remove_row: { name: "Remove row(s)" } } }}
+            afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
+            beforeRemoveRow={() => false} // Prevent automatic row removal
+            stretchH="all"
+            licenseKey="non-commercial-and-evaluation"
+            rowHeaders={false}
+            filters={filters}
+            dropdownMenu={true}
+            autoColumnSize={true}
+            manualColumnResize={true}
+            fixedColumnsLeft={fixedColumnsLeft}
+            columnSorting={columnSorting}
+            colWidths={colWidths}
+            cells={getCellsConfig ? cellsFunc : undefined}
+            afterColumnResize={handleAfterColumnResize}
+          />
+        )}
+
+        {/* Scroll buttons */}
+        {showScrollButtons && (
+          <div style={{
+            ...scrollButtonsStyles.container,
+            bottom: '20px'
+          }}>
+            {!isAtTop && (
+              <button
+                onClick={scrollToTop}
+                style={scrollButtonsStyles.button}
+                onMouseOver={e => {
+                  e.currentTarget.style.backgroundColor = scrollButtonsStyles.buttonHover.backgroundColor;
+                  e.currentTarget.style.boxShadow = scrollButtonsStyles.buttonHover.boxShadow;
+                  e.currentTarget.style.opacity = scrollButtonsStyles.buttonHover.opacity;
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.backgroundColor = scrollButtonsStyles.button.backgroundColor;
+                  e.currentTarget.style.boxShadow = scrollButtonsStyles.button.boxShadow;
+                  e.currentTarget.style.opacity = scrollButtonsStyles.button.opacity;
+                }}
+                title="Scroll to top"
+              >
+                ↑
+              </button>
+            )}
+            {!isAtBottom && (
+              <button
+                onClick={scrollToBottom}
+                style={scrollButtonsStyles.button}
+                onMouseOver={e => {
+                  e.currentTarget.style.backgroundColor = scrollButtonsStyles.buttonHover.backgroundColor;
+                  e.currentTarget.style.boxShadow = scrollButtonsStyles.buttonHover.boxShadow;
+                  e.currentTarget.style.opacity = scrollButtonsStyles.buttonHover.opacity;
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.backgroundColor = scrollButtonsStyles.button.backgroundColor;
+                  e.currentTarget.style.boxShadow = scrollButtonsStyles.button.boxShadow;
+                  e.currentTarget.style.opacity = scrollButtonsStyles.button.opacity;
+                }}
+                title="Scroll to bottom"
+              >
+                ↓
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Delete Confirmation Modal */}
       <Modal show={showDeleteModal} onHide={cancelDelete} backdrop="static">

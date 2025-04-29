@@ -129,3 +129,60 @@
   max-height: 200px;
   overflow: auto;
 }
+
+/* Scroll button styles */
+.scroll-buttons-container {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scroll-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(13, 110, 253, 0.8);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  font-size: 1.5rem;
+  opacity: 0.7;
+}
+
+.scroll-button:hover {
+  background-color: rgba(13, 110, 253, 1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  opacity: 1;
+}
+
+/* Animation for appearing/disappearing */
+.scroll-button-enter {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.scroll-button-enter-active {
+  opacity: 0.7;
+  transform: scale(1);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.scroll-button-exit {
+  opacity: 0.7;
+  transform: scale(1);
+}
+
+.scroll-button-exit-active {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 300ms, transform 300ms;
+}
