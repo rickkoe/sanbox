@@ -178,7 +178,7 @@ const AliasTable = () => {
   };
 
   return (
-    <div className="alias-table-container">
+    <div className="table-container">
       <GenericTable
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}

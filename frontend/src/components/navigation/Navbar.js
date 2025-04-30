@@ -14,8 +14,6 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark ">
       <div className="container-fluid">
-        
-
         <NavLink className="navbar-brand ms-3" to="/">
           <img src="/images/logo-light.png" alt="Logo" className="logo-image" />
         </NavLink>
@@ -27,8 +25,13 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
           ) : config && config.customer ? (
             <div className="active-project-card p-2 rounded">
               <span className="active-project">
-                <a href={`https://insights.ibm.com/cui/${config.customer.insights_tenant}`} target="_blank" rel="noopener noreferrer">
-                  {config.customer.name}: {config.customer.id}
+                <a
+                  href="/config"
+                  className="text-light"
+                  title="Active Project"
+                  rel="noopener noreferrer"
+                >
+                  {config.customer.name}:  {config.active_project.name}
                 </a>
               </span>
             </div>
@@ -37,12 +40,14 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
           )}
         </div>
 
-
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto gap-3 align-items-center d-flex">
-
             <li className="nav-item">
-              <NavLink className="nav-link" to="/import-data" title="Import Data">
+              <NavLink
+                className="nav-link"
+                to="/import-data"
+                title="Import Data"
+              >
                 <Upload size={28} />
               </NavLink>
             </li>
@@ -72,7 +77,10 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Admin <span style={{ fontSize: "0.8em", marginLeft: "4px" }}>🔗</span>
+                    Admin{" "}
+                    <span style={{ fontSize: "0.8em", marginLeft: "4px" }}>
+                      🔗
+                    </span>
                   </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown>

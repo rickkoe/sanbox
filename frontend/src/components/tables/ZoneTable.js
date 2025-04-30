@@ -223,7 +223,7 @@ const ZoneTable = () => {
   };
 
   return (
-    <div className="zone-table-container">
+    <div className="table-container">
       <GenericTable
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}

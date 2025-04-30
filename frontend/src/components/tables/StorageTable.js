@@ -22,7 +22,6 @@ const NEW_STORAGE_TEMPLATE = {
   wwnn: "",
   firmware_level: "",
   primary_ip: "",
-  secondary_ip: "",
   saved: false
 };
 
@@ -38,7 +37,7 @@ const StorageTable = () => {
   const tableConfig = {
     colHeaders: [
       "ID", "Name", "Type", "Location", "Machine Type", "Model", 
-      "Serial Number", "System ID", "WWNN", "Firmware", "Primary IP", "Secondary IP"
+      "Serial Number", "System ID", "WWNN", "Firmware", "Primary IP"
     ],
     columns: [
       { data: "id", readOnly: true },
@@ -51,9 +50,7 @@ const StorageTable = () => {
       { data: "system_id" },
       { data: "wwnn" },
       { data: "firmware_level" },
-      { data: "primary_ip" },
-      { data: "secondary_ip" }
-    ],
+      { data: "primary_ip" }    ],
     dropdownSources: {
       "storage_type": ["FlashSystem", "DS8000", "Switch", "Data Domain"]
     },
@@ -237,7 +234,7 @@ const StorageTable = () => {
   }
 
   return (
-    <div className="storage-table-container">
+    <div className="table-container">
       <GenericTable
         ref={tableRef}
         apiUrl={apiUrl}

@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 const getSidebarLinks = (pathname) => {
   if (pathname.startsWith("/san")) {
     return {
-      header: "SAN Management",
+      header: "SAN",
       showBackButton: true,
       links: [
         { path: "/san/fabrics", label: "Fabrics" },
@@ -56,7 +56,7 @@ const Sidebar = () => {
         <div className="sidebar-content">
           {config && config.customer && (
             <div className="active-customer-card text-white rounded shadow">
-              <p className="mb-0">{config.active_project.name}</p>
+              <p className="mb-0">{header}</p>
             </div>
           )}
           {showBackButton && (

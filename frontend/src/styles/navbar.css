@@ -49,9 +49,8 @@
   .active-project {
     font-weight: bold;
     color: #ccc;
-    font-size: 1.5rem; /* Increase the font size as desired */
+    font-size: 2rem; /* Increase the font size as desired */
     z-index: 100;
-
   }
 
   .logo-image {
@@ -64,4 +63,5 @@
   .active-project a {
       text-decoration: underline;
       color: inherit;
+      text-decoration: none;
   }
