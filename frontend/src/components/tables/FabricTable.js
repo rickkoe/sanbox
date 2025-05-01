@@ -5,6 +5,12 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { Button, Alert, Modal } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 
+// Vendor options for SAN vendor dropdown
+const vendorOptions = [
+  { code: 'CI', name: 'Cisco' },
+  { code: 'BR', name: 'Brocade' }
+];
+
 const FabricTable = () => {
     const { config, loading: configLoading } = useContext(ConfigContext);
     const [fabrics, setFabrics] = useState([]);
@@ -30,7 +36,7 @@ const FabricTable = () => {
     // ✅ Ensure a blank row is always present
     const ensureBlankRow = (data) => {
         if (data.length === 0 || data[data.length - 1].name.trim() !== "") {
-            return [...data, { id: null, name: "", zoneset_name: "", vsan: "", exists: false }];
+            return [...data, { id: null, name: "", san_vendor: "", zoneset_name: "", vsan: "", exists: false }];
         }
         return data;
     };
@@ -42,7 +48,11 @@ const FabricTable = () => {
 
         try {
             const response = await axios.get(`${fabricsForCustomerApiUrl}${customerId}/`);
-            const data = ensureBlankRow(response.data);
+            const fetched = response.data.map(fabric => ({
+              ...fabric,
+              san_vendor: vendorOptions.find(o => o.code === fabric.san_vendor)?.name || fabric.san_vendor
+            }));
+            const data = ensureBlankRow(fetched);
             setFabrics(data);
             setUnsavedFabrics([...data]);
         } catch (error) {
@@ -82,7 +92,7 @@ const FabricTable = () => {
         });
 
         if (shouldAddNewRow) {
-            updatedFabrics.push({ id: null, name: "", zoneset_name: "", vsan: "", exists: false });
+            updatedFabrics.push({ id: null, name: "", san_vendor: "", zoneset_name: "", vsan: "", exists: false });
         }
 
         setIsDirty(true);
@@ -100,11 +110,15 @@ const FabricTable = () => {
     
         const payload = unsavedFabrics
             .filter(fabric => fabric.name.trim())  // ✅ Only send valid entries
-            .map(fabric => ({
-                ...fabric,
-                customer: config.customer.id,  // ✅ Assign customer to new rows
-                vsan: fabric.vsan === "" ? null : fabric.vsan  // ✅ Convert empty vsan to null
-            }));
+            .map(fabric => {
+                const sanVendorCode = vendorOptions.find(o => o.name === fabric.san_vendor)?.code || fabric.san_vendor;
+                return {
+                    ...fabric,
+                    san_vendor: sanVendorCode,
+                    customer: config.customer.id,  // ✅ Assign customer to new rows
+                    vsan: fabric.vsan === "" ? null : fabric.vsan  // ✅ Convert empty vsan to null
+                };
+            });
     
         console.log("🔍 Payload being sent to API:", JSON.stringify(payload, null, 2));
     
@@ -228,10 +242,11 @@ const FabricTable = () => {
                         ref={tableRef}
                         data={unsavedFabrics}
                         fixedColumnsLeft={2}
-                        colHeaders={["ID", "Name", "Zoneset Name", "VSAN", "Exists", "Notes"]}
+                        colHeaders={["ID", "Name", "Vendor", "Zoneset Name", "VSAN", "Exists", "Notes"]}
                         columns={[
                             { data: "id", readOnly: true, className: "htCenter" },
                             { data: "name" },
+                            { data: "san_vendor", type: "dropdown", source: vendorOptions.map(o => o.name), strict: true },
                             { data: "zoneset_name" },
                             { data: "vsan", type: "numeric", className: "htCenter" },
                             { data: "exists", type: "checkbox", className: "htCenter" },

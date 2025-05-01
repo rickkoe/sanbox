@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import { Tabs, Tab, Alert, Spinner, Button } from "react-bootstrap";
+import { Badge } from "react-bootstrap";
 import { ConfigContext } from "../context/ConfigContext";
 import { useNavigate } from "react-router-dom";
 import { useSanVendor } from "../context/SanVendorContext";
@@ -111,10 +112,22 @@ const AliasScriptsPage = () => {
           id="alias-scripts-tabs"
           className="custom-tabs"
         >
-          {Object.entries(scripts).map(([fabric, commands]) => (
-            <Tab eventKey={fabric} title={fabric} key={fabric}>
+          {Object.entries(scripts).map(([fabricName, commands]) => (
+            <Tab
+              eventKey={fabricName}
+              key={fabricName}
+              title={
+                <>
+                  <Badge pill variant={sanVendor === "CI" ? "info" : "warning"}>
+                    {sanVendor === "CI" ? "Cisco" : "Brocade"}
+                  </Badge>{" "}
+                  {fabricName}
+                </>
+              }
+            >
+            
               <div className="code-block">
-                <pre>### {fabric.toUpperCase()} ALIAS COMMANDS</pre>
+                <pre>### {fabricName.toUpperCase()} ALIAS COMMANDS</pre>
                 {commands.map((command, index) => (
                   <pre key={index}>{command}</pre>
                 ))}
