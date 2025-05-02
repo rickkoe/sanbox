@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
-import { Tabs, Tab, Alert, Spinner, Button } from "react-bootstrap";
-import { Badge } from "react-bootstrap";
+import { Tabs, Tab, Alert, Spinner, Button, Badge } from "react-bootstrap";
 import { ConfigContext } from "../context/ConfigContext";
 import { useNavigate } from "react-router-dom";
 import { useSanVendor } from "../context/SanVendorContext";
@@ -16,7 +15,6 @@ const AliasScriptsPage = () => {
   const [copyButtonText, setCopyButtonText] = useState("Copy to clipboard");
   const [activeTab, setActiveTab] = useState(null);
   const navigate = useNavigate();
-  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     // Wait until we actually have config loaded (assuming that an empty config means it's not loaded yet).
@@ -35,10 +33,30 @@ const AliasScriptsPage = () => {
         const response = await axios.get(
           `http://127.0.0.1:8000/api/san/alias-scripts/${config.active_project.id}/?vendor=${sanVendor}`
         );
-        const aliasScripts = response.data.alias_scripts || {};
-        setScripts(aliasScripts);
-        if (!activeTab && Object.keys(aliasScripts).length > 0) {
-          setActiveTab(Object.keys(aliasScripts)[0]);
+        
+        // Handle both old and new response formats
+        let processedScripts = {};
+        
+        if (response.data.alias_scripts) {
+          // Process the response based on its structure
+          if (typeof Object.values(response.data.alias_scripts)[0] === 'object') {
+            // New format with fabric_info
+            processedScripts = response.data.alias_scripts;
+          } else {
+            // Old format (array of commands)
+            processedScripts = Object.entries(response.data.alias_scripts).reduce((acc, [key, value]) => {
+              acc[key] = {
+                commands: value,
+                fabric_info: { san_vendor: sanVendor }  // Default to global context
+              };
+              return acc;
+            }, {});
+          }
+        }
+        
+        setScripts(processedScripts);
+        if (!activeTab && Object.keys(processedScripts).length > 0) {
+          setActiveTab(Object.keys(processedScripts)[0]);
         }
       } catch (err) {
         console.error("Error fetching alias scripts:", err);
@@ -54,8 +72,11 @@ const AliasScriptsPage = () => {
   const handleCopyToClipboard = () => {
     if (activeTab && scripts[activeTab]) {
       const header = `### ${activeTab.toUpperCase()} ALIAS COMMANDS`;
-      const commandsText = scripts[activeTab].join('\n');
+      const commands = scripts[activeTab].commands || scripts[activeTab];
+      const commandsText = Array.isArray(commands) ? commands.join('\n') : '';
+      
       const textToCopy = `${header}\n${commandsText}`;
+      
       navigator.clipboard.writeText(textToCopy)
         .then(() => {
           setCopyButtonText("Copied!");
@@ -90,13 +111,13 @@ const AliasScriptsPage = () => {
 
   return (
     <div className="table-container">
-    <div>
-    <Button
-            className="back-button"
-              onClick={() => navigate("/san/aliases")}
-            >
-              <span className="arrow">←</span> Back
-            </Button>
+      <div>
+        <Button
+          className="back-button"
+          onClick={() => navigate("/san/aliases")}
+        >
+          <span className="arrow">←</span> Back
+        </Button>
         <Button
           className="save-button"
           onClick={handleCopyToClipboard}
@@ -105,6 +126,7 @@ const AliasScriptsPage = () => {
           {copyButtonText === "Copied!" ? (<span>&#x2714; Copied!</span>) : "Copy to clipboard"}
         </Button>
       </div>
+      
       {scripts && Object.keys(scripts).length > 0 ? (
         <Tabs
           activeKey={activeTab}
@@ -112,33 +134,40 @@ const AliasScriptsPage = () => {
           id="alias-scripts-tabs"
           className="custom-tabs"
         >
-          {Object.entries(scripts).map(([fabricName, commands]) => (
-            <Tab
-              eventKey={fabricName}
-              key={fabricName}
-              title={
-                <>
-                  <Badge pill variant={sanVendor === "CI" ? "info" : "warning"}>
-                    {sanVendor === "CI" ? "Cisco" : "Brocade"}
-                  </Badge>{" "}
-                  {fabricName}
-                </>
-              }
-            >
+          {Object.entries(scripts).map(([fabricName, fabricData]) => {
+            // Handle both new format (object with commands and fabric_info) and old format (array of commands)
+            const commands = Array.isArray(fabricData) ? fabricData : fabricData.commands;
             
-              <div className="code-block">
-                <pre>### {fabricName.toUpperCase()} ALIAS COMMANDS</pre>
-                {commands.map((command, index) => (
-                  <pre key={index}>{command}</pre>
-                ))}
-              </div>
-            </Tab>
-          ))}
+            // Get vendor from fabric info or fall back to global context
+            const fabricInfo = fabricData.fabric_info || { san_vendor: sanVendor };
+            const vendor = fabricInfo.san_vendor;
+            
+            return (
+              <Tab
+                eventKey={fabricName}
+                key={fabricName}
+                title={
+                  <>
+                    <Badge pill bg={vendor === "CI" ? "info" : "danger"}>
+                      {vendor === "CI" ? "Cisco" : "Brocade"}
+                    </Badge>{" "}
+                    {fabricName}
+                  </>
+                }
+              >
+                <div className="code-block">
+                  <pre>### {fabricName.toUpperCase()} ALIAS COMMANDS</pre>
+                  {commands.map((command, index) => (
+                    <pre key={index}>{command}</pre>
+                  ))}
+                </div>
+              </Tab>
+            );
+          })}
         </Tabs>
       ) : (
-        <Alert variant="info">No alias scripts available.  Verify the column "Create" is checked for the aliases you want to include.</Alert>
+        <Alert variant="info">No alias scripts available. Verify the column "Create" is checked for the aliases you want to include.</Alert>
       )}
-
     </div>
   );
 };

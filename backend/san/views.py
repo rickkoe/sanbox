@@ -272,17 +272,24 @@ def generate_alias_scripts(request, project_id):
     config = Config.get_active_config()
     if not config:
         return JsonResponse({"error": "Configuration is missing."}, status=500)
-    print(config.active_project)
-
-
+    
     try:
         aliases = Alias.objects.filter(create=True, projects=config.active_project)
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
-    commands = generate_alias_commands(aliases, config)
+    command_data = generate_alias_commands(aliases, config)
     
-    return JsonResponse({"alias_scripts": commands}, safe=False)
+    # Transform the new structure to maintain backward compatibility
+    result = {}
+    for fabric_name, fabric_data in command_data.items():
+        result[fabric_name] = {
+            "commands": fabric_data["commands"],
+            "fabric_info": fabric_data["fabric_info"]
+        }
+    
+    return JsonResponse({"alias_scripts": result}, safe=False)
+
 
 @require_http_methods(["GET"])
 def generate_zone_scripts(request, project_id):
@@ -297,5 +304,5 @@ def generate_zone_scripts(request, project_id):
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
-    commands = generate_zone_commands(zones, config)
-    return JsonResponse({"zone_scripts": commands}, safe=False)
+    command_data = generate_zone_commands(zones, config)
+    return JsonResponse({"zone_scripts": command_data}, safe=False)

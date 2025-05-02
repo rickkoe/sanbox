@@ -11,27 +11,51 @@ const Home = () => {
   const { config, loading } = useContext(ConfigContext);
 
   const [fabricCount, setFabricCount] = useState(0);
+  const [brocadeFabricCount, setBrocadeFabricCount] = useState(0);
+  const [ciscoFabricCount, setCiscoFabricCount] = useState(0);
   const [aliasCount, setAliasCount] = useState(0);
   const [zoneCount, setZoneCount] = useState(0);
+  const [ds8000Count, setDs8000Count] = useState(0);
+  const [flashSystemCount, setFlashSystemCount] = useState(0);
 
   const fetchCounts = async () => {
     try {
-    const fabrics = await axios.get(`http://127.0.0.1:8000/api/san/fabrics/customer/${config?.customer?.id}/`);
-    const aliases = await axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${config?.active_project?.id}/`);
-    const zones = await axios.get(`http://127.0.0.1:8000/api/san/zones/project/${config?.active_project?.id}/`);
+      // Fetch SAN counts
+      const fabrics = await axios.get(`http://127.0.0.1:8000/api/san/fabrics/customer/${config?.customer?.id}/`);
+      const aliases = await axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${config?.active_project?.id}/`);
+      const zones = await axios.get(`http://127.0.0.1:8000/api/san/zones/project/${config?.active_project?.id}/`);
+      
+      // Fetch storage counts
+      const storage = await axios.get(`http://127.0.0.1:8000/api/storage/?customer=${config?.customer?.id}`);
+      
+      // Set SAN counts
       setFabricCount(fabrics.data.length);
       setAliasCount(aliases.data.length);
       setZoneCount(zones.data.length);
+      
+      // Count fabrics by vendor type
+      const brocadeFabrics = fabrics.data.filter(fabric => fabric.san_vendor === "BR").length;
+      const ciscoFabrics = fabrics.data.filter(fabric => fabric.san_vendor === "CI").length;
+      
+      setBrocadeFabricCount(brocadeFabrics);
+      setCiscoFabricCount(ciscoFabrics);
+      
+      // Count storage by type
+      const ds8000 = storage.data.filter(item => item.storage_type === "DS8000").length;
+      const flashSystem = storage.data.filter(item => item.storage_type === "FlashSystem").length;
+      
+      setDs8000Count(ds8000);
+      setFlashSystemCount(flashSystem);
     } catch (error) {
       console.error("Error fetching counts:", error);
     }
   };
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && config?.customer?.id) {
       fetchCounts();
     }
-  }, [loading]);
+  }, [loading, config]);
 
   const animatedCount = (target) => {
     // Simple placeholder animation - you can later replace it with react-countup
@@ -105,6 +129,7 @@ const Home = () => {
           <div className="dashboard-section mb-5">
             <h3 className="dashboard-section-title mb-4">SAN Summary</h3>
             <div className="row">
+              {/* Fabrics Card */}
               <div className="col-md-4 mb-4">
                 <div className="card text-center p-4 shadow-sm card-hover">
                   <h5>Fabrics</h5>
@@ -113,6 +138,18 @@ const Home = () => {
                       {animatedCount(fabricCount)}
                     </h2>
                   </NavLink>
+                  <div className="mt-2">
+                    {brocadeFabricCount > 0 && (
+                      <div className="badge bg-danger text-light m-1">
+                        Brocade: {brocadeFabricCount}
+                      </div>
+                    )}
+                    {ciscoFabricCount > 0 && (
+                      <div className="badge bg-info text-dark m-1">
+                        Cisco: {ciscoFabricCount}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="col-md-4 mb-4">
@@ -142,22 +179,37 @@ const Home = () => {
           <div className="dashboard-section mb-5">
             <h3 className="dashboard-section-title mb-4">Storage Summary</h3>
             <div className="row">
-              <div className="col-md-4 mb-4">
-                <div className="card text-center p-4 shadow-sm card-hover">
-                  <h5>DS8000</h5>
-                  <NavLink to="/storage/ds8000">
-                    <h2 className="dashboard-count-link">0</h2>
-                  </NavLink>
+              {ds8000Count > 0 && (
+                <div className="col-md-4 mb-4">
+                  <div className="card text-center p-4 shadow-sm card-hover">
+                    <h5>DS8000</h5>
+                    <NavLink to="/storage">
+                      <h2 className="dashboard-count-link">
+                        {animatedCount(ds8000Count)}
+                      </h2>
+                    </NavLink>
+                  </div>
                 </div>
-              </div>
-              <div className="col-md-4 mb-4">
-                <div className="card text-center p-4 shadow-sm card-hover">
-                  <h5>FlashSystem</h5>
-                  <NavLink to="/storage/flashsystem">
-                    <h2 className="dashboard-count-link">0</h2>
-                  </NavLink>
+              )}
+              {flashSystemCount > 0 && (
+                <div className="col-md-4 mb-4">
+                  <div className="card text-center p-4 shadow-sm card-hover">
+                    <h5>FlashSystem</h5>
+                    <NavLink to="/storage">
+                      <h2 className="dashboard-count-link">
+                        {animatedCount(flashSystemCount)}
+                      </h2>
+                    </NavLink>
+                  </div>
                 </div>
-              </div>
+              )}
+              {ds8000Count === 0 && flashSystemCount === 0 && (
+                <div className="col-md-12 mb-4">
+                  <div className="card text-center p-4 shadow-sm">
+                    <h5>No storage systems configured</h5>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
