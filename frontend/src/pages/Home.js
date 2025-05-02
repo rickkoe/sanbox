@@ -1,294 +1,380 @@
-import React, { useContext } from "react";
-import { useState, useEffect } from "react";
-import axios from "axios";
-import { NavLink } from "react-router-dom";
-import { FaCogs, FaNetworkWired, FaAddressBook, FaProjectDiagram, FaServer, FaTools } from "react-icons/fa";
-import "../styles/pages.css";
+import React, { useState, useEffect } from "react";
+import { 
+  FaCogs, FaNetworkWired, FaAddressBook, FaProjectDiagram, 
+  FaServer, FaTools, FaExternalLinkAlt, FaCheckCircle, 
+  FaTimesCircle, FaBars, FaChartLine, FaInfoCircle
+} from "react-icons/fa";
 import { ConfigContext } from "../context/ConfigContext";
-import Spinner from "react-bootstrap/Spinner";
+// Chart components
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 
-const Home = () => {
-  const { config, loading } = useContext(ConfigContext);
+const Dashboard = () => {
+  // State for the dashboard data
+  const [loading, setLoading] = useState(false);
+  const [config, setConfig] = useState({
+    customer: { 
+      name: "XYZ Corporation", 
+      insights_tenant: "xyz123", 
+      insights_api_key: true 
+    },
+    active_project: { name: "SAN Migration 2025" }
+  });
+  
+  const [stats, setStats] = useState({
+    fabricCount: 6,
+    brocadeFabricCount: 4,
+    ciscoFabricCount: 2,
+    aliasCount: 124,
+    zoneCount: 48,
+    ds8000Count: 2,
+    flashSystemCount: 3,
+    otherStorageCount: 1
+  });
 
-  const [fabricCount, setFabricCount] = useState(0);
-  const [brocadeFabricCount, setBrocadeFabricCount] = useState(0);
-  const [ciscoFabricCount, setCiscoFabricCount] = useState(0);
-  const [aliasCount, setAliasCount] = useState(0);
-  const [zoneCount, setZoneCount] = useState(0);
-  const [ds8000Count, setDs8000Count] = useState(0);
-  const [flashSystemCount, setFlashSystemCount] = useState(0);
+  // Mock data for charts
+  const fabricData = [
+    { name: 'Brocade', value: stats.brocadeFabricCount, color: '#dc3545' },
+    { name: 'Cisco', value: stats.ciscoFabricCount, color: '#0dcaf0' }
+  ];
 
-  const fetchCounts = async () => {
-    try {
-      // Fetch SAN counts
-      const fabrics = await axios.get(`http://127.0.0.1:8000/api/san/fabrics/customer/${config?.customer?.id}/`);
-      const aliases = await axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${config?.active_project?.id}/`);
-      const zones = await axios.get(`http://127.0.0.1:8000/api/san/zones/project/${config?.active_project?.id}/`);
-      
-      // Fetch storage counts
-      const storage = await axios.get(`http://127.0.0.1:8000/api/storage/?customer=${config?.customer?.id}`);
-      
-      // Set SAN counts
-      setFabricCount(fabrics.data.length);
-      setAliasCount(aliases.data.length);
-      setZoneCount(zones.data.length);
-      
-      // Count fabrics by vendor type
-      const brocadeFabrics = fabrics.data.filter(fabric => fabric.san_vendor === "BR").length;
-      const ciscoFabrics = fabrics.data.filter(fabric => fabric.san_vendor === "CI").length;
-      
-      setBrocadeFabricCount(brocadeFabrics);
-      setCiscoFabricCount(ciscoFabrics);
-      
-      // Count storage by type
-      const ds8000 = storage.data.filter(item => item.storage_type === "DS8000").length;
-      const flashSystem = storage.data.filter(item => item.storage_type === "FlashSystem").length;
-      
-      setDs8000Count(ds8000);
-      setFlashSystemCount(flashSystem);
-    } catch (error) {
-      console.error("Error fetching counts:", error);
-    }
-  };
+  const storageData = [
+    { name: 'DS8000', value: stats.ds8000Count, color: '#6610f2' },
+    { name: 'FlashSystem', value: stats.flashSystemCount, color: '#fd7e14' },
+    { name: 'Other', value: stats.otherStorageCount, color: '#20c997' }
+  ];
 
-  useEffect(() => {
-    if (!loading && config?.customer?.id) {
-      fetchCounts();
-    }
-  }, [loading, config]);
+  const zoneAliasComparisonData = [
+    { name: 'Fabrics', count: stats.fabricCount, color: '#0d6efd' },
+    { name: 'Zones', count: stats.zoneCount, color: '#ffc107' },
+    { name: 'Aliases', count: stats.aliasCount, color: '#198754' }
+  ];
 
-  const animatedCount = (target) => {
-    // Simple placeholder animation - you can later replace it with react-countup
-    return target;
-  };
+  // Activity trend mock data
+  const activityTrendData = [
+    { day: 'Mon', zones: 5, aliases: 12 },
+    { day: 'Tue', zones: 7, aliases: 8 },
+    { day: 'Wed', zones: 10, aliases: 15 },
+    { day: 'Thu', zones: 8, aliases: 10 },
+    { day: 'Fri', zones: 12, aliases: 18 },
+    { day: 'Today', zones: 9, aliases: 14 }
+  ];
+
+  // Quick actions
+  const quickActions = [
+    { title: "Configure", icon: <FaCogs className="quick-action-icon" />, path: "/config" },
+    { title: "Fabrics", icon: <FaNetworkWired className="quick-action-icon" />, path: "/san/fabrics" },
+    { title: "Aliases", icon: <FaAddressBook className="quick-action-icon" />, path: "/san/aliases" },
+    { title: "Zones", icon: <FaProjectDiagram className="quick-action-icon" />, path: "/san/zones" },
+    { title: "Storage", icon: <FaServer className="quick-action-icon" />, path: "/storage" },
+    { title: "Tools", icon: <FaTools className="quick-action-icon" />, path: "/tools" }
+  ];
+
+  // Dummy link component for demo
+  const NavLink = ({ to, children, className }) => (
+    <a href={to} className={className}>{children}</a>
+  );
 
   return (
-    <div className="container mt-2">
-      {/* Loading Spinner */}
-      {loading && (
-        <div className="text-center my-5">
-          <Spinner animation="border" variant="primary" />
+    <div className="dashboard-container bg-light p-4">
+      {loading ? (
+        <div className="loading-overlay d-flex justify-content-center align-items-center bg-white bg-opacity-75 position-absolute top-0 start-0 w-100 h-100 rounded">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="ms-3 mb-0">Loading dashboard data...</p>
         </div>
-      )}
-
-      {!loading && (
+      ) : (
         <>
-          {/* Active Customer & Project */}
-          <div className="dashboard-section mb-5">
-            <h3 className="dashboard-section-title mb-4">
-              Active Customer & Project
-            </h3>
-            <div className="card p-4 shadow-sm card-hover">
-              <div className="row">
-                <div className="col-md-6 mb-3 mb-md-0">
-                  <h5>
-                    <strong>Customer: </strong>
-                    {config?.customer?.name || "N/A"}
-                  </h5>
-                  <h5>
-                    <strong>Project: </strong>
-                    {config?.active_project?.name || "N/A"}
-                  </h5>
-                </div>
-                <div className="col-md-6 text-md-end">
-                  <h6>
-                    Storage Insights Tenant:&nbsp;
-                    {config?.customer?.insights_tenant ? (
-                      <a
-                        href={`https://insights.ibm.com/cui/${config.customer.insights_tenant}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {config.customer.insights_tenant}
-                      </a>
-                    ) : (
-                      "N/A"
-                    )}
-                  </h6>
-                  <h6>
-                    API Key Exists:&nbsp;
-                    {config?.customer?.insights_api_key ? (
-                      <span
-                        className="api-indicator"
-                        style={{ color: "green" }}
-                      >
-                        ✅
-                      </span>
-                    ) : (
-                      <span className="api-indicator" style={{ color: "red" }}>
-                        ❌
-                      </span>
-                    )}
-                  </h6>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* SAN Summary */}
-          <div className="dashboard-section mb-5">
-            <h3 className="dashboard-section-title mb-4">SAN Summary</h3>
-            <div className="row">
-              {/* Fabrics Card */}
-              <div className="col-md-4 mb-4">
-                <div className="card text-center p-4 shadow-sm card-hover">
-                  <h5>Fabrics</h5>
-                  <NavLink to="/san/fabrics">
-                    <h2 className="dashboard-count-link">
-                      {animatedCount(fabricCount)}
-                    </h2>
-                  </NavLink>
-                  <div className="mt-2">
-                    {brocadeFabricCount > 0 && (
-                      <div className="badge bg-danger text-light m-1">
-                        Brocade: {brocadeFabricCount}
+          {/* Customer & Project Info Card */}
+          <div className="dashboard-header mb-4">
+            <div className="customer-project-card bg-white rounded shadow-sm">
+              <div className="card-body p-4">
+                <div className="d-flex justify-content-between align-items-center flex-wrap">
+                  <div className="mb-3 mb-md-0">
+                    <h5 className="text-muted mb-1 small text-uppercase">Active Customer</h5>
+                    <h3 className="fw-bold">{config?.customer?.name || "No Customer Selected"}</h3>
+                  </div>
+                  <div className="vertical-divider d-none d-md-block" style={{ width: "1px", height: "50px", background: "#e0e0e0" }}></div>
+                  <div className="mb-3 mb-md-0">
+                    <h5 className="text-muted mb-1 small text-uppercase">Active Project</h5>
+                    <h3 className="fw-bold">{config?.active_project?.name || "No Project Selected"}</h3>
+                  </div>
+                  <div className="vertical-divider d-none d-md-block" style={{ width: "1px", height: "50px", background: "#e0e0e0" }}></div>
+                  <div>
+                    <h5 className="text-muted mb-1 small text-uppercase">IBM Storage Insights</h5>
+                    <div className="d-flex align-items-center">
+                      {config?.customer?.insights_tenant ? (
+                        <a
+                          href={`https://insights.ibm.com/cui/${config.customer.insights_tenant}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary text-decoration-none fw-medium"
+                        >
+                          {config.customer.insights_tenant} <FaExternalLinkAlt size={12} />
+                        </a>
+                      ) : (
+                        <span className="text-muted">Not configured</span>
+                      )}
+                      <div className="ms-3">
+                        {config?.customer?.insights_api_key ? (
+                          <span className="badge bg-success d-flex align-items-center">
+                            <FaCheckCircle className="me-1" /> API Key
+                          </span>
+                        ) : (
+                          <span className="badge bg-danger d-flex align-items-center">
+                            <FaTimesCircle className="me-1" /> No API Key
+                          </span>
+                        )}
                       </div>
-                    )}
-                    {ciscoFabricCount > 0 && (
-                      <div className="badge bg-info text-dark m-1">
-                        Cisco: {ciscoFabricCount}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Dashboard Main Content */}
+          <div className="dashboard-content">
+            <div className="row">
+              {/* Left column - 8 units */}
+              <div className="col-lg-8">
+                {/* Key Metrics Section */}
+                <div className="row mb-4">
+                  {/* Fabric Count */}
+                  <div className="col-md-4 mb-4 mb-md-0">
+                    <div className="bg-white rounded shadow-sm p-4 h-100 position-relative">
+                      <div className="d-flex align-items-center">
+                        <div className="rounded-circle p-3 me-3" style={{ backgroundColor: "rgba(13, 110, 253, 0.1)" }}>
+                          <FaNetworkWired className="text-primary" size={24} />
+                        </div>
+                        <div>
+                          <h3 className="fw-bold mb-0">{stats.fabricCount}</h3>
+                          <p className="text-muted mb-0">SAN Fabrics</p>
+                        </div>
                       </div>
-                    )}
+                      <NavLink to="/san/fabrics" className="position-absolute top-0 end-0 m-3 text-muted">
+                        <FaBars />
+                      </NavLink>
+                    </div>
+                  </div>
+                  
+                  {/* Alias Count */}
+                  <div className="col-md-4 mb-4 mb-md-0">
+                    <div className="bg-white rounded shadow-sm p-4 h-100 position-relative">
+                      <div className="d-flex align-items-center">
+                        <div className="rounded-circle p-3 me-3" style={{ backgroundColor: "rgba(25, 135, 84, 0.1)" }}>
+                          <FaAddressBook className="text-success" size={24} />
+                        </div>
+                        <div>
+                          <h3 className="fw-bold mb-0">{stats.aliasCount}</h3>
+                          <p className="text-muted mb-0">Aliases</p>
+                        </div>
+                      </div>
+                      <NavLink to="/san/aliases" className="position-absolute top-0 end-0 m-3 text-muted">
+                        <FaBars />
+                      </NavLink>
+                    </div>
+                  </div>
+                  
+                  {/* Zone Count */}
+                  <div className="col-md-4">
+                    <div className="bg-white rounded shadow-sm p-4 h-100 position-relative">
+                      <div className="d-flex align-items-center">
+                        <div className="rounded-circle p-3 me-3" style={{ backgroundColor: "rgba(255, 193, 7, 0.1)" }}>
+                          <FaProjectDiagram className="text-warning" size={24} />
+                        </div>
+                        <div>
+                          <h3 className="fw-bold mb-0">{stats.zoneCount}</h3>
+                          <p className="text-muted mb-0">Zones</p>
+                        </div>
+                      </div>
+                      <NavLink to="/san/zones" className="position-absolute top-0 end-0 m-3 text-muted">
+                        <FaBars />
+                      </NavLink>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="col-md-4 mb-4">
-                <div className="card text-center p-4 shadow-sm card-hover">
-                  <h5>Aliases</h5>
-                  <NavLink to="/san/aliases">
-                    <h2 className="dashboard-count-link">
-                      {animatedCount(aliasCount)}
-                    </h2>
-                  </NavLink>
-                </div>
-              </div>
-              <div className="col-md-4 mb-4">
-                <div className="card text-center p-4 shadow-sm card-hover">
-                  <h5>Zones</h5>
-                  <NavLink to="/san/zones">
-                    <h2 className="dashboard-count-link">
-                      {animatedCount(zoneCount)}
-                    </h2>
-                  </NavLink>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Storage Summary */}
-          <div className="dashboard-section mb-5">
-            <h3 className="dashboard-section-title mb-4">Storage Summary</h3>
-            <div className="row">
-              {ds8000Count > 0 && (
-                <div className="col-md-4 mb-4">
-                  <div className="card text-center p-4 shadow-sm card-hover">
-                    <h5>DS8000</h5>
-                    <NavLink to="/storage">
-                      <h2 className="dashboard-count-link">
-                        {animatedCount(ds8000Count)}
-                      </h2>
-                    </NavLink>
+                {/* Activity Trend Chart */}
+                <div className="bg-white rounded shadow-sm mb-4 p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="mb-0"><FaChartLine className="me-2 text-primary" /> Activity Trend</h5>
+                    <div>
+                      <button className="btn btn-sm btn-outline-secondary">This Week</button>
+                    </div>
+                  </div>
+                  <div style={{ height: "300px" }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={activityTrendData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                        <XAxis dataKey="day" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="zones" stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="aliases" stroke="#82ca9d" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-              )}
-              {flashSystemCount > 0 && (
-                <div className="col-md-4 mb-4">
-                  <div className="card text-center p-4 shadow-sm card-hover">
-                    <h5>FlashSystem</h5>
-                    <NavLink to="/storage">
-                      <h2 className="dashboard-count-link">
-                        {animatedCount(flashSystemCount)}
-                      </h2>
-                    </NavLink>
-                  </div>
-                </div>
-              )}
-              {ds8000Count === 0 && flashSystemCount === 0 && (
-                <div className="col-md-12 mb-4">
-                  <div className="card text-center p-4 shadow-sm">
-                    <h5>No storage systems configured</h5>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Shortcuts */}
-          <div className="dashboard-section mb-5">
-            <h3 className="dashboard-section-title mb-4">Shortcuts</h3>
-            <div className="row">
-              <div className="col-md-4 mb-4">
-                <NavLink
-                  to="/config"
-                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
-                >
-                  <div className="card-body">
-                    <FaCogs size={36} className="home-icon mb-3" />
-                    <h6 className="card-title">Config</h6>
+                {/* SAN Resources Comparison */}
+                <div className="bg-white rounded shadow-sm p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="mb-0"><FaInfoCircle className="me-2 text-primary" /> SAN Resources Overview</h5>
                   </div>
-                </NavLink>
+                  <div style={{ height: "300px" }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={zoneAliasComparisonData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="count" name="Count">
+                          {zoneAliasComparisonData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
-              <div className="col-md-4 mb-4">
-                <NavLink
-                  to="/san/fabrics"
-                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
-                >
-                  <div className="card-body">
-                    <FaNetworkWired size={36} className="home-icon mb-3" />
-                    <h6 className="card-title">Fabrics</h6>
+
+              {/* Right column - 4 units */}
+              <div className="col-lg-4">
+                {/* Quick Actions */}
+                <div className="bg-white rounded shadow-sm mb-4">
+                  <div className="p-3 border-bottom">
+                    <h5 className="mb-0">Quick Actions</h5>
                   </div>
-                </NavLink>
-              </div>
-              <div className="col-md-4 mb-4">
-                <NavLink
-                  to="/san/aliases"
-                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
-                >
-                  <div className="card-body">
-                    <FaAddressBook size={36} className="home-icon mb-3" />
-                    <h6 className="card-title">Aliases</h6>
+                  <div className="p-3">
+                    <div className="d-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)", gap: "15px" }}>
+                      {quickActions.map((action, index) => (
+                        <NavLink key={index} to={action.path} className="text-decoration-none">
+                          <div className="p-3 rounded text-center transition-all hover-shadow" style={{ border: "1px solid #e0e0e0" }}>
+                            <div className="mb-2">
+                              {React.cloneElement(action.icon, { size: 24, className: "text-primary" })}
+                            </div>
+                            <span className="d-block text-dark">{action.title}</span>
+                          </div>
+                        </NavLink>
+                      ))}
+                    </div>
                   </div>
-                </NavLink>
-              </div>
-              <div className="col-md-4 mb-4">
-                <NavLink
-                  to="/san/zones"
-                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
-                >
-                  <div className="card-body">
-                    <FaProjectDiagram size={36} className="home-icon mb-3" />
-                    <h6 className="card-title">Zones</h6>
+                </div>
+
+                {/* Fabric Distribution */}
+                <div className="bg-white rounded shadow-sm mb-4 p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="mb-0">Fabric Distribution</h5>
                   </div>
-                </NavLink>
-              </div>
-              <div className="col-md-4 mb-4">
-                <NavLink
-                  to="/storage"
-                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
-                >
-                  <div className="card-body">
-                    <FaServer size={36} className="home-icon mb-3" />
-                    <h6 className="card-title">Storage</h6>
+                  <div className="text-center" style={{ height: "200px" }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={fabricData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                          label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {fabricData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="d-flex justify-content-center mt-2">
+                      {fabricData.map((entry, index) => (
+                        <div key={index} className="d-flex align-items-center me-3">
+                          <div className="rounded-circle me-1" style={{ width: "12px", height: "12px", backgroundColor: entry.color }}></div>
+                          <span className="small">{entry.name}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </NavLink>
-              </div>
-              <div className="col-md-4 mb-4">
-                <NavLink
-                  to="/tools"
-                  className="home-card card text-center h-100 p-4 shadow-sm card-hover"
-                >
-                  <div className="card-body">
-                    <FaTools size={36} className="home-icon mb-3" />
-                    <h6 className="card-title">Tools</h6>
+                </div>
+
+                {/* Storage Distribution */}
+                <div className="bg-white rounded shadow-sm p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="mb-0">Storage Distribution</h5>
                   </div>
-                </NavLink>
+                  <div className="text-center" style={{ height: "200px" }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={storageData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                          label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {storageData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="d-flex justify-content-center mt-2">
+                      {storageData.map((entry, index) => (
+                        <div key={index} className="d-flex align-items-center me-3">
+                          <div className="rounded-circle me-1" style={{ width: "12px", height: "12px", backgroundColor: entry.color }}></div>
+                          <span className="small">{entry.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Status Summary */}
+                <div className="bg-white rounded shadow-sm p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="mb-0">System Status</h5>
+                  </div>
+                  <div className="list-group list-group-flush">
+                    <div className="list-group-item d-flex justify-content-between align-items-center px-0">
+                      <span>Backend API</span>
+                      <span className="badge bg-success rounded-pill">Online</span>
+                    </div>
+                    <div className="list-group-item d-flex justify-content-between align-items-center px-0">
+                      <span>IBM Storage Insights</span>
+                      <span className="badge bg-success rounded-pill">Connected</span>
+                    </div>
+                    <div className="list-group-item d-flex justify-content-between align-items-center px-0">
+                      <span>Last Data Sync</span>
+                      <span className="text-muted small">Today, 14:30</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </>
       )}
+      <style jsx>{`
+        .hover-shadow:hover {
+          box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+          transform: translateY(-3px);
+        }
+        .transition-all {
+          transition: all 0.3s ease;
+        }
+      `}</style>
     </div>
   );
 };
 
-export default Home;
+export default Dashboard;

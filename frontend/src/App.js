@@ -37,6 +37,7 @@ import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
 import "./styles/tables.css";
 import "./styles/pages.css";
+import "./styles/home.css";
 
 function App() {
   return (
