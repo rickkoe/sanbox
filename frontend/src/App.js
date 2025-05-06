@@ -25,6 +25,7 @@ import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 import AliasScriptsPage from "./pages/AliasScriptsPage";
 import ZoneScriptsPage from "./pages/ZoneScriptsPage";
 import ImportSwitchConfig from "./components/forms/ImportSwitchConfig";
+import StorageInsightsImporter from "./pages/StorageInsightsImporter";
 
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
@@ -67,6 +68,10 @@ function App() {
                 <Route path="/san/fabrics" element={<FabricTable />} />
                 <Route path="/config" element={<ConfigForm />} />
                 <Route path="/tools" element={<ToolsPage />} />
+                <Route
+                  path="/insights/importer"
+                  element={<StorageInsightsImporter />}
+                />
                 <Route
                   path="/tools/wwpn-colonizer"
                   element={<WWPNFormatterTable />}

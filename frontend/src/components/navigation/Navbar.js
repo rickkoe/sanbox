@@ -45,7 +45,7 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
             <li className="nav-item">
               <NavLink
                 className="nav-link"
-                to="/import-data"
+                to="/insights/importer"
                 title="Import Data"
               >
                 <Upload size={28} />
