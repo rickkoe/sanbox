@@ -10,7 +10,6 @@ import Breadcrumbs from "./components/navigation/Breadcrumbs";
 // Pages and Tables...
 import Home from "./pages/Home";
 import SanPage from "./pages/SanPage";
-import StoragePage from "./pages/StoragePage";
 import NotFound from "./pages/NotFound";
 import ToolsPage from "./pages/ToolsPage";
 import StorageCalculatorPage from "./pages/StorageCalculatorPage";
@@ -18,8 +17,7 @@ import CustomerTable from "./components/tables/CustomerTable";
 import FabricTable from "./components/tables/FabricTable";
 import AliasTable from "./components/tables/AliasTable";
 import ZoneTable from "./components/tables/ZoneTable";
-import OldZoneTable from "./components/tables/old/OldZoneTable";
-import OldAliasTable from "./components/tables/old/OldAliasTable";
+import StorageTable from "./components/tables/StorageTable";
 import ConfigForm from "./components/forms/ConfigForm";
 import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 import AliasScriptsPage from "./pages/AliasScriptsPage";
@@ -62,9 +60,7 @@ function App() {
                 <Route path="/san" element={<SanPage />} />
                 <Route path="/san/aliases" element={<AliasTable />} />
                 <Route path="/san/zones" element={<ZoneTable />} />
-                <Route path="/san/old-aliases" element={<OldAliasTable />} />
-                <Route path="/san/old-zones" element={<OldZoneTable />} />
-                <Route path="/storage" element={<StoragePage />} />
+                <Route path="/storage" element={<StorageTable />} />
                 <Route path="/san/fabrics" element={<FabricTable />} />
                 <Route path="/config" element={<ConfigForm />} />
                 <Route path="/tools" element={<ToolsPage />} />

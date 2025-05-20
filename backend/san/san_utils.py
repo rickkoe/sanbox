@@ -118,6 +118,7 @@ def generate_zone_commands(zones, config):
         fabric_info = {
             "name": zone.fabric.name,
             "san_vendor": zone.fabric.san_vendor,
+            "zoneset_name": zone.fabric.zoneset_name,
             "vsan": zone.fabric.vsan
         }
         
@@ -192,7 +193,7 @@ def generate_zone_commands(zones, config):
                 if config.cisco_zoning_mode == 'enhanced':
                     zoneset_command_dict[key]["commands"].append(f'zone commit vsan {fabric_info["vsan"]}')
             elif fabric_info and fabric_info["san_vendor"] == 'BR':
-                zoneset_command_dict[key]["commands"].append(f'cfgenable "{fabric_info["name"]}"')
+                zoneset_command_dict[key]["commands"].append(f'cfgenable "{fabric_info["zoneset_name"]}"')
     
     # Convert the old format alias commands to new format
     alias_command_dict = {}

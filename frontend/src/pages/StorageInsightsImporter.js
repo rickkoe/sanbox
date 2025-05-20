@@ -88,12 +88,12 @@ const StorageInsightsImporter = () => {
     setSelectedSystems(newSelections);
   };
 
-  // Import selected storage systems
+  // Import selected storage systems (one-by-one, like StorageTable)
   const handleImport = async () => {
     const selectedSystemIds = Object.entries(selectedSystems)
       .filter(([_, isSelected]) => isSelected)
       .map(([id, _]) => id);
-    
+
     if (selectedSystemIds.length === 0) {
       setImportStatus({
         type: "warning",
@@ -101,30 +101,69 @@ const StorageInsightsImporter = () => {
       });
       return;
     }
-    
+
     setLoading(true);
     setImportStatus(null);
-    
+
     try {
-      const response = await axios.post(
-        "http://127.0.0.1:8000/api/storage/import-from-insights/",
-        {
-          customer_id: config.customer.id,
-          system_ids: selectedSystemIds,
-          token: token
+      const payload = storageSystemsData
+        .filter(system => selectedSystemIds.includes(system.storage_system_id))
+        .map(system => {
+          const storage = {
+            name: system.name || "Unnamed Storage",
+            storage_type:
+              system.type?.startsWith("FlashSystem") ||
+              system.type?.startsWith("flashsystem")
+                ? "FlashSystem"
+                : system.type?.startsWith("DS")
+                ? "DS8000"
+                : "Unknown",
+            storage_system_id: system.storage_system_id || null,
+            location: system.location || null,
+            machine_type: system.type?.match(/\d{4}$/)?.[0] || null,
+            model: system.model || null,
+            serial_number: system.serial_number || null,
+            // system_id: system.storage_system_id || null,
+            wwnn: null,
+            firmware_level: system.firmware || null,
+            primary_ip: system.ip_address?.split(",")[0]?.trim() || null,
+            customer: config.customer.id,
+          };
+          return storage;
+        });
+
+      const errors = [];
+      let importedCount = 0;
+
+      for (const storage of payload) {
+        try {
+          await axios.post("http://127.0.0.1:8000/api/storage/", storage);
+          importedCount++;
+        } catch (error) {
+          const detail = {
+            name: storage.name,
+            error: error.response?.data || error.message
+          };
+          console.error(`Error importing ${storage.name}`, detail);
+          errors.push(detail);
         }
-      );
-      
-      setImportStatus({
-        type: "success",
-        message: `Successfully imported ${response.data.imported_count} storage systems.`
-      });
-      
-      // Reset selections
-      handleSelectAll(false);
-      
+      }
+
+      if (errors.length > 0) {
+        let message = `Error importing ${errors.length} storage items:\n`;
+        errors.forEach(err => {
+          message += `- ${err.name}: ${JSON.stringify(err.error)}\n`;
+        });
+        setImportStatus({ type: "danger", message });
+      } else {
+        setImportStatus({
+          type: "success",
+          message: `Successfully imported ${importedCount} storage systems.`
+        });
+        handleSelectAll(false);
+      }
     } catch (err) {
-      console.error("Error importing storage systems:", err);
+      console.error("Import failed:", err);
       setImportStatus({
         type: "danger",
         message: err.response?.data?.message || "Failed to import storage systems."

@@ -36,11 +36,10 @@ const StorageTable = () => {
   // Table configuration
   const tableConfig = {
     colHeaders: [
-      "ID", "Name", "Type", "Location", "Machine Type", "Model", 
+      "Name", "Type", "Location", "Machine Type", "Model", 
       "Serial Number", "System ID", "WWNN", "Firmware", "Primary IP"
     ],
     columns: [
-      { data: "id", readOnly: true },
       { data: "name" },
       { data: "storage_type", type: "dropdown" },
       { data: "location" },
@@ -241,22 +240,12 @@ const StorageTable = () => {
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
-        fixedColumnsLeft={2}
+        fixedColumnsLeft={1}
         columnSorting={true}
         filters={true}
-        storageKey="storageTableColumnWidths"
+        storageKey="zoneTableColumnWidths"
         {...tableConfig}
       />
-      
-      {/* Debug information (only visible during development) */}
-      {debug && process.env.NODE_ENV === 'development' && (
-        <div className="debug-info mt-3 p-3 border rounded bg-light">
-          <h5>Debug Information</h5>
-          <pre style={{ maxHeight: '200px', overflow: 'auto' }}>
-            {JSON.stringify(debug, null, 2)}
-          </pre>
-        </div>
-      )}
     </div>
   );
 };

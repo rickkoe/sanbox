@@ -17,7 +17,7 @@ const API_ENDPOINTS = {
 // Template for new rows
 const NEW_ZONE_TEMPLATE = {
   id: null, name: "", fabric: "", create: false, exists: false,
-  zone_type: "smart", notes: "", imported: null, updated: null, saved: false
+  zone_type: "", notes: "", imported: null, updated: null, saved: false
 };
 
 const ZoneTable = () => {
@@ -118,7 +118,7 @@ const ZoneTable = () => {
     },
     // Cell configuration for member dropdowns
     getCellsConfig: (hot, row, col, prop) => {
-      if (col >= 8 && prop?.startsWith('member_')) {
+      if (col >= 8 && typeof prop === 'string' && prop.startsWith('member_')) {
         const rowData = hot.getSourceDataAtRow(row);
         if (!rowData) return {};
         
@@ -265,7 +265,7 @@ const ZoneTable = () => {
             </Button>
           </>
         }
-      />
+                />
     </div>
   );
 };

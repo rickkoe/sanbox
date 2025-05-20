@@ -20,7 +20,7 @@ const NEW_ALIAS_TEMPLATE = {
   wwpn: "",
   use: "",
   fabric: "",
-  cisco_alias: "device-alias",
+  cisco_alias: "",
   create: false,
   include_in_zoning: false,
   notes: "",
