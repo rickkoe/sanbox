@@ -79,13 +79,39 @@ const StorageInsightsImporter = () => {
     }));
   };
 
-  // Select/deselect all systems
+  // Select/deselect all systems (only those with storage_type === "block")
   const handleSelectAll = (selectAll) => {
     const newSelections = {};
     storageSystemsData.forEach(system => {
-      newSelections[system.storage_system_id] = selectAll;
+      if (system.storage_type === "block") {
+        newSelections[system.storage_system_id] = selectAll;
+      }
     });
     setSelectedSystems(newSelections);
+  };
+
+  // Build storage payload from system data
+  const buildStoragePayload = (system) => {
+    return {
+      name: system.name || "Unnamed Storage",
+      storage_type:
+        system.type?.startsWith("FlashSystem") ||
+        system.type?.startsWith("flashsystem")
+          ? "FlashSystem"
+          : system.type?.startsWith("DS")
+          ? "DS8000"
+          : "Unknown",
+      storage_system_id: system.storage_system_id || null,
+      location: system.location || null,
+      machine_type: system.type?.match(/\d{4}$/)?.[0] || null,
+      model: system.model || null,
+      serial_number: system.serial_number || null,
+      // system_id: system.storage_system_id || null,
+      wwnn: null,
+      firmware_level: system.firmware || null,
+      primary_ip: system.ip_address?.split(",")[0]?.trim() || null,
+      customer: config.customer.id,
+    };
   };
 
   // Import selected storage systems (one-by-one, like StorageTable)
@@ -108,29 +134,7 @@ const StorageInsightsImporter = () => {
     try {
       const payload = storageSystemsData
         .filter(system => selectedSystemIds.includes(system.storage_system_id))
-        .map(system => {
-          const storage = {
-            name: system.name || "Unnamed Storage",
-            storage_type:
-              system.type?.startsWith("FlashSystem") ||
-              system.type?.startsWith("flashsystem")
-                ? "FlashSystem"
-                : system.type?.startsWith("DS")
-                ? "DS8000"
-                : "Unknown",
-            storage_system_id: system.storage_system_id || null,
-            location: system.location || null,
-            machine_type: system.type?.match(/\d{4}$/)?.[0] || null,
-            model: system.model || null,
-            serial_number: system.serial_number || null,
-            // system_id: system.storage_system_id || null,
-            wwnn: null,
-            firmware_level: system.firmware || null,
-            primary_ip: system.ip_address?.split(",")[0]?.trim() || null,
-            customer: config.customer.id,
-          };
-          return storage;
-        });
+        .map(buildStoragePayload);
 
       const errors = [];
       let importedCount = 0;
@@ -150,11 +154,7 @@ const StorageInsightsImporter = () => {
       }
 
       if (errors.length > 0) {
-        let message = `Error importing ${errors.length} storage items:\n`;
-        errors.forEach(err => {
-          message += `- ${err.name}: ${JSON.stringify(err.error)}\n`;
-        });
-        setImportStatus({ type: "danger", message });
+        setImportStatus({ type: "danger", errors });
       } else {
         setImportStatus({
           type: "success",
@@ -214,7 +214,20 @@ const StorageInsightsImporter = () => {
               </p>
               
               {error && <Alert variant="danger">{error}</Alert>}
-              {importStatus && <Alert variant={importStatus.type}>{importStatus.message}</Alert>}
+              {importStatus && importStatus.errors ? (
+                <Alert variant={importStatus.type}>
+                  <p>Error importing the following storage systems:</p>
+                  <ul>
+                    {importStatus.errors.map((err, idx) => (
+                      <li key={idx}>
+                        <strong>{err.name}</strong>: {JSON.stringify(err.error)}
+                      </li>
+                    ))}
+                  </ul>
+                </Alert>
+              ) : (
+                importStatus && <Alert variant={importStatus.type}>{importStatus.message}</Alert>
+              )}
               
               <div className="d-flex justify-content-between mb-3">
                 <Button 

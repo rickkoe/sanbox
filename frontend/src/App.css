@@ -58,3 +58,8 @@
   position: relative;
   z-index: 3;
 }
+
+.dropdown-menu {
+  z-index: 2000 !important; /* Boost higher than sticky thead/fixed col */
+  position: absolute !important;
+}

@@ -9,7 +9,10 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
+  z-index: 20;
 }
+
 
 .handsontable .ht_master .wtHolder {
   overflow-x: auto !important;
@@ -93,13 +96,6 @@
   background-color: #f2f2f2;
 }
 
-/* Fixed header and scrollable table container styles */
-.storage-page {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 160px);
-  overflow: hidden;
-}
 
 .fixed-header {
   flex: 0 0 auto;
@@ -108,8 +104,9 @@
 
 .scrollable-table-container {
   flex: 1 1 auto;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
+  z-index: 0;
 }
 
 /* Ensure HotTable takes full height of container */
@@ -192,4 +189,15 @@
   opacity: 0;
   transform: scale(0.8);
   transition: opacity 300ms, transform 300ms;
+}
+/* Ensure dropdown menus appear above other content */
+.dropdown-menu {
+  z-index: 9999 !important;
+}
+
+/* Push Handsontable overlays beneath dropdowns */
+.ht_clone_left,
+.ht_clone_top,
+.ht_clone_top_left_corner {
+  z-index: 3 !important;
 }

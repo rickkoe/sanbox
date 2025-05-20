@@ -1,8 +1,6 @@
 import React, { useContext } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useSanVendor } from "../../context/SanVendorContext";
 import { ConfigContext } from "../../context/ConfigContext";
-import { motion } from "framer-motion";
 
 const getSidebarLinks = (pathname) => {
   if (pathname.startsWith("/san")) {
@@ -46,7 +44,6 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { header, links, showBackButton } = getSidebarLinks(location.pathname);
-  const { sanVendor, updateSanVendor } = useSanVendor();
   const { config, loading } = useContext(ConfigContext);
 
   return (
@@ -80,36 +77,6 @@ const Sidebar = () => {
               </li>
             ))}
           </ul>
-        </div>
-        <div className="sidebar-footer">
-          {location.pathname.startsWith("/san") && sanVendor && (
-            <div
-              className={`toggle-switch ${sanVendor}`}
-              onClick={() => updateSanVendor(sanVendor === "BR" ? "CI" : "BR")}
-            >
-              <motion.div
-                layout
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className="toggle-thumb"
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  height: "100%",
-                  width: "50%",
-                  backgroundColor: "#0d6efd",
-                  borderRadius: "1rem",
-                  transform: sanVendor === "BR" ? "translateX(0%)" : "translateX(100%)",
-                }}
-              />
-              <span className={`toggle-label ${sanVendor === "BR" ? "text-light" : "text-muted"}`} style={{ zIndex: 1 }}>
-                Brocade
-              </span>
-              <span className={`toggle-label ${sanVendor === "CI" ? "text-light" : "text-muted"}`} style={{ zIndex: 1 }}>
-                Cisco
-              </span>
-            </div>
-          )}
         </div>
       </div>
     </div>
