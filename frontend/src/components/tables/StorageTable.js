@@ -235,6 +235,7 @@ const StorageTable = () => {
   return (
     <div className="table-container">
       <GenericTable
+        getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Storage Table.csv`}
         ref={tableRef}
         apiUrl={apiUrl}
         saveUrl={API_ENDPOINTS.storage}

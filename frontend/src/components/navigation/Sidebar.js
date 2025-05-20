@@ -13,7 +13,6 @@ const getSidebarLinks = (pathname) => {
         { path: "/san/fabrics", label: "Fabrics" },
         { path: "/san/aliases", label: "Aliases" },
         { path: "/san/zones", label: "Zones" },
-        { path: "/storage", label: "Storage" },
       ],
     };
   }
@@ -23,9 +22,6 @@ const getSidebarLinks = (pathname) => {
       header: "Storage",
       showBackButton: true,
       links: [
-        { path: "/san/fabrics", label: "Fabrics" },
-        { path: "/san/aliases", label: "Aliases" },
-        { path: "/san/zones", label: "Zones" },
         { path: "/storage", label: "Storage" },
         { path: "/storage/ds8000", label: "DS8000" },
         { path: "/storage/flashsystem", label: "FlashSystem" },

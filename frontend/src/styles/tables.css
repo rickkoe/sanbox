@@ -5,12 +5,10 @@
 }
 
 .table-header {
-  position: sticky;
-  top: 0;
-  background-color: white;
-  z-index: 5;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid #ccc;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .handsontable .ht_master .wtHolder {

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { HotTable } from '@handsontable/react';
-import { Modal, Button, Spinner, Alert } from "react-bootstrap";
+import { Modal, Button, Spinner, Alert, Dropdown, DropdownButton } from "react-bootstrap";
 import axios from "axios";
+import * as XLSX from "xlsx";
 
 /**
  * A generic reusable table component for all CRUD operations
@@ -47,7 +48,8 @@ const GenericTable = forwardRef(({
   afterSave,
   additionalButtons,
   storageKey,
-  height = "calc(100vh - 200px)"
+  height = "calc(100vh - 200px)",
+  getExportFilename
 }, ref) => {
   const [data, setData] = useState([]);
   const [unsavedData, setUnsavedData] = useState([]);
@@ -475,6 +477,59 @@ const GenericTable = forwardRef(({
     }
   };
 
+  // Export CSV handler
+  const handleExportCSV = () => {
+    if (!unsavedData.length) return;
+
+    const headers = colHeaders.join(",");
+    const rows = unsavedData
+      .filter(row => hasNonEmptyValues(row))
+      .map(row => columns.map(col => {
+        const val = row[col.data];
+        if (typeof val === "string") return `"${val.replace(/"/g, '""')}"`;
+        return val ?? "";
+      }).join(","));
+
+    const csvContent = [headers, ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const filename = typeof getExportFilename === 'function'
+      ? getExportFilename()
+      : "table_export.csv";
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportExcel = () => {
+    if (!unsavedData.length) return;
+  
+    const filteredData = unsavedData.filter(row => hasNonEmptyValues(row));
+  
+    const exportData = filteredData.map(row =>
+      columns.reduce((acc, col) => {
+        const val = row[col.data];
+        acc[col.data] = val ?? "";
+        return acc;
+      }, {})
+    );
+  
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+  
+    const filename = typeof getExportFilename === "function"
+      ? getExportFilename().replace(/\.csv$/, ".xlsx")
+      : "table_export.xlsx";
+  
+    XLSX.writeFile(workbook, filename);
+  };
+
   return (
     <div className="table-container">
       <div className="table-header">
@@ -485,6 +540,15 @@ const GenericTable = forwardRef(({
             "Save"
           )}
         </Button>
+        <DropdownButton
+          id="export-dropdown"
+          title="Export"
+          variant="secondary"
+          className="ms-2"
+        >
+          <Dropdown.Item onClick={handleExportCSV}>Export as CSV</Dropdown.Item>
+          <Dropdown.Item onClick={handleExportExcel}>Export as Excel</Dropdown.Item>
+        </DropdownButton>
         
         {/* Render additional buttons if provided */}
         {additionalButtons && additionalButtons}

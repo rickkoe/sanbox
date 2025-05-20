@@ -180,6 +180,7 @@ const AliasTable = () => {
   return (
     <div className="table-container">
       <GenericTable
+        getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Alias Table.csv`}
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}
         saveUrl={API_ENDPOINTS.aliasSave}
