@@ -20,7 +20,14 @@ def storage_list(request):
         return Response(serializer.data)
     
     elif request.method == "POST":
-        serializer = StorageSerializer(data=request.data)
+        customer = request.data.get("customer")
+        name = request.data.get("name")
+        try:
+            storage = Storage.objects.get(customer_id=customer, name=name)
+            serializer = StorageSerializer(storage, data=request.data)
+        except Storage.DoesNotExist:
+            serializer = StorageSerializer(data=request.data)
+        
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -189,112 +196,3 @@ def storage_insights_systems(request):
             {"message": f"Failed to fetch storage systems: {str(e)}"}, 
             status=500
         )
-
-@api_view(['POST'])
-def import_from_insights(request):
-    """Import selected storage systems from IBM Storage Insights."""
-    from .models import Storage
-    from customers.models import Customer
-    print(f'DATA: {request.data}')
-    customer_id = request.data.get('customer_id')
-    system_ids = request.data.get('system_ids', [])
-    token = request.data.get('token')
-    
-    if not customer_id or not system_ids or not token:
-        return Response(
-            {"message": "Customer ID, system IDs, and token are required"}, 
-            status=400
-        )
-    
-    try:
-        customer = Customer.objects.get(id=customer_id)
-    except Customer.DoesNotExist:
-        return Response({"message": "Customer not found"}, status=404)
-    
-    tenant = customer.insights_tenant
-    if not tenant:
-        return Response({"message": "Customer has no Storage Insights tenant configured"}, status=400)
-    
-    rest_api_host = f"https://insights.ibm.com/restapi/v1/tenants{tenant}"
-    
-    # Fetch details for each selected system
-    imported_count = 0
-    errors = []
-    
-    for system_id in system_ids:
-        try:
-            # Get detailed system info
-            system_url = f"{rest_api_host}/api/resources/storage-systems/{system_id}"
-            
-            response = requests.get(
-                system_url,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Accept": "application/json"
-                },
-                timeout=30
-            )
-            
-            response.raise_for_status()
-            system_data = response.json().get('data', {})
-            
-            if not system_data:
-                errors.append({
-                    "system_id": system_id,
-                    "error": "Empty system data returned from API"
-                })
-                continue
-            
-            # Map Storage Insights fields to your Storage model fields
-            storage_type_mapping = {
-                '2145': 'FlashSystem',
-                '2107': 'DS8000',
-                '2076': 'Storwize',
-                '1814': 'XIV',
-                # Add more mappings as needed
-            }
-            
-            machine_type = system_data.get('machine_type', '')
-            
-            storage_data = {
-                'customer': customer,
-                'name': system_data.get('name', f"Storage-{system_id}"),
-                'storage_type': storage_type_mapping.get(machine_type, 'Unknown'),
-                'machine_type': machine_type,
-                'model': system_data.get('model', ''),
-                'serial_number': system_data.get('serial_number', ''),
-                'firmware_level': system_data.get('code_level', ''),
-                'wwnn': system_data.get('wwnn', ''),
-                'system_id': system_id,
-                'primary_ip': system_data.get('ip_address', ''),
-                'location': system_data.get('location', '')
-            }
-            
-            # Try to find existing storage entry, update it or create new one
-            storage, created = Storage.objects.update_or_create(
-                customer=customer,
-                system_id=system_id,
-                defaults=storage_data
-            )
-            
-            logger.info(f"{'Created' if created else 'Updated'} storage system: {storage.name}")
-            imported_count += 1
-            
-        except requests.RequestException as e:
-            logger.error(f"API error for system {system_id}: {str(e)}")
-            errors.append({
-                "system_id": system_id,
-                "error": str(e)
-            })
-        except Exception as e:
-            logger.exception(f"Processing error for system {system_id}")
-            errors.append({
-                "system_id": system_id,
-                "error": str(e)
-            })
-    
-    return Response({
-        "imported_count": imported_count,
-        "total": len(system_ids),
-        "errors": errors
-    })

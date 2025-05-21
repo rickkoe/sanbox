@@ -90,27 +90,117 @@ const StorageInsightsImporter = () => {
     setSelectedSystems(newSelections);
   };
 
-  // Build storage payload from system data
+  // Build storage payload from system data (expanded for all Storage fields)
   const buildStoragePayload = (system) => {
+    const storage_type =
+      system.type?.startsWith("FlashSystem") ||
+      system.type?.startsWith("flashsystem")
+        ? "FlashSystem"
+        : system.type?.startsWith("DS")
+        ? "DS8000"
+        : "Unknown";
+
     return {
+      customer: config.customer.id,
       name: system.name || "Unnamed Storage",
-      storage_type:
-        system.type?.startsWith("FlashSystem") ||
-        system.type?.startsWith("flashsystem")
-          ? "FlashSystem"
-          : system.type?.startsWith("DS")
-          ? "DS8000"
-          : "Unknown",
+      storage_type,
       storage_system_id: system.storage_system_id || null,
       location: system.location || null,
       machine_type: system.type?.match(/\d{4}$/)?.[0] || null,
       model: system.model || null,
       serial_number: system.serial_number || null,
-      // system_id: system.storage_system_id || null,
       wwnn: null,
       firmware_level: system.firmware || null,
       primary_ip: system.ip_address?.split(",")[0]?.trim() || null,
-      customer: config.customer.id,
+      secondary_ip: system.ip_address?.split(",")[1]?.trim() || null,
+      uuid: system.storage_system_id || null,
+      written_capacity_limit_bytes: system.written_capacity_limit_bytes,
+      unmapped_capacity_percent: system.unmapped_capacity_percent,
+      last_successful_probe: system.last_successful_probe,
+      provisioned_written_capacity_percent: system.provisioned_written_capacity_percent,
+      capacity_savings_bytes: system.capacity_savings_bytes,
+      raw_capacity_bytes: system.raw_capacity_bytes,
+      provisioned_capacity_percent: system.provisioned_capacity_percent,
+      mapped_capacity_percent: system.mapped_capacity_percent,
+      available_written_capacity_bytes: system.available_written_capacity_bytes,
+      mapped_capacity_bytes: system.mapped_capacity_bytes,
+      probe_status: system.probe_status,
+      available_volume_capacity_bytes: system.available_volume_capacity_bytes,
+      capacity_savings_percent: system.capacity_savings_percent,
+      overhead_capacity_bytes: system.overhead_capacity_bytes,
+      customer_country_code: system.customer_country_code,
+      events_status: system.events_status,
+      unmapped_capacity_bytes: system.unmapped_capacity_bytes,
+      last_successful_monitor: system.last_successful_monitor,
+      remote_relationships_count: system.remote_relationships_count,
+      condition: system.condition,
+      customer_number: system.customer_number,
+      capacity_bytes: system.capacity_bytes,
+      used_written_capacity_percent: system.used_written_capacity_percent,
+      pools_count: system.pools_count,
+      pm_status: system.pm_status,
+      shortfall_percent: system.shortfall_percent,
+      used_written_capacity_bytes: system.used_written_capacity_bytes,
+      available_system_capacity_bytes: system.available_system_capacity_bytes,
+      used_capacity_bytes: system.used_capacity_bytes,
+      volumes_count: system.volumes_count,
+      deduplication_savings_percent: system.deduplication_savings_percent,
+      data_collection: system.data_collection,
+      available_capacity_bytes: system.available_capacity_bytes,
+      used_capacity_percent: system.used_capacity_percent,
+      disks_count: system.disks_count,
+      unprotected_volumes_count: system.unprotected_volumes_count,
+      provisioned_capacity_bytes: system.provisioned_capacity_bytes,
+      available_system_capacity_percent: system.available_system_capacity_percent,
+      deduplication_savings_bytes: system.deduplication_savings_bytes,
+      vendor: system.vendor,
+      recent_fill_rate: system.recent_fill_rate,
+      recent_growth: system.recent_growth,
+      time_zone: system.time_zone,
+      fc_ports_count: system.fc_ports_count,
+      staas_environment: system.staas_environment,
+      element_manager_url: system.element_manager_url,
+      probe_schedule: system.probe_schedule,
+      acknowledged: system.acknowledged,
+      safe_guarded_capacity_bytes: system.safe_guarded_capacity_bytes,
+      read_cache_bytes: system.read_cache_bytes,
+      write_cache_bytes: system.write_cache_bytes,
+      compressed: system.compressed,
+      callhome_system: system.callhome_system,
+      ransomware_threat_detection: system.ransomware_threat_detection,
+      threat_notification_recipients: system.threat_notification_recipients,
+      current_power_usage_watts: system.current_power_usage_watts,
+      system_temperature_celsius: system.system_temperature_celsius,
+      system_temperature_Fahrenheit: system.system_temperature_Fahrenheit,
+      power_efficiency: system.power_efficiency,
+      co2_emission: system.co2_emission,
+      safeguarded_virtual_capacity_bytes: system.safeguarded_virtual_capacity_bytes,
+      safeguarded_used_capacity_percentage: system.safeguarded_used_capacity_percentage,
+      data_collection_type: system.data_collection_type,
+      data_reduction_savings_percent: system.data_reduction_savings_percent,
+      data_reduction_savings_bytes: system.data_reduction_savings_bytes,
+      data_reduction_ratio: system.data_reduction_ratio,
+      total_compression_ratio: system.total_compression_ratio,
+      host_connections_count: system.host_connections_count,
+      drive_compression_savings_percent: system.drive_compression_savings_percent,
+      remaining_unallocated_capacity_bytes: system.remaining_unallocated_capacity_bytes,
+      pool_compression_savings_bytes: system.pool_compression_savings_bytes,
+      compression_savings_bytes: system.compression_savings_bytes,
+      compression_savings_percent: system.compression_savings_percent,
+      ip_ports_count: system.ip_ports_count,
+      overprovisioned_capacity_bytes: system.overprovisioned_capacity_bytes,
+      unallocated_volume_capacity_bytes: system.unallocated_volume_capacity_bytes,
+      managed_disks_count: system.managed_disks_count,
+      drive_compression_savings_bytes: system.drive_compression_savings_bytes,
+      pool_compression_savings_percent: system.pool_compression_savings_percent,
+      drive_compression_ratio: system.drive_compression_ratio,
+      pool_compression_ratio: system.pool_compression_ratio,
+      topology: system.topology,
+      cluster_id_alias: system.cluster_id_alias,
+      snapshot_written_capacity_bytes: system.snapshot_written_capacity_bytes,
+      snapshot_provisioned_capacity_bytes: system.snapshot_provisioned_capacity_bytes,
+      total_savings_ratio: system.total_savings_ratio,
+      volume_groups_count: system.volume_groups_count,
     };
   };
 
