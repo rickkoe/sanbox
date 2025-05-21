@@ -37,7 +37,7 @@ const StorageTable = () => {
   const tableConfig = {
     colHeaders: [
       "Name", "Type", "Location", "Machine Type", "Model", 
-      "Serial Number", "System ID", "WWNN", "Firmware", "Primary IP"
+      "Serial Number", "Storage System ID", "WWNN", "Firmware", "Primary IP"
     ],
     columns: [
       { data: "name" },
@@ -46,7 +46,7 @@ const StorageTable = () => {
       { data: "machine_type" },
       { data: "model" },
       { data: "serial_number" },
-      { data: "system_id" },
+      { data: "storage_system_id" },
       { data: "wwnn" },
       { data: "firmware_level" },
       { data: "primary_ip" }    ],

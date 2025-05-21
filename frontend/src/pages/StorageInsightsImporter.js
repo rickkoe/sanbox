@@ -271,10 +271,10 @@ const StorageInsightsImporter = () => {
                         <th style={{ width: "50px" }}>Select</th>
                         <th>Name</th>
                         <th>Type</th>
-                        <th>Machine Type</th>
                         <th>Model</th>
                         <th>Serial Number</th>
-                        <th>Status</th>
+                        <th>Storage System ID</th>
+                        <th>SI Probe Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -294,12 +294,12 @@ const StorageInsightsImporter = () => {
                             </td>
                             <td>{system.name}</td>
                             <td>{formatStorageType(system.type)}</td>
-                            <td>{system.machine_type}</td>
                             <td>{system.model}</td>
                             <td>{system.serial_number}</td>
+                            <td>{system.storage_system_id}</td>
                             <td>
-                              <span className={`badge bg-${system.status === "ONLINE" ? "success" : "warning"}`}>
-                                {system.status || "Unknown"}
+                              <span className={`badge bg-${system.probe_status === "successful" ? "success" : "warning"}`}>
+                                {system.probe_status || "Unknown"}
                               </span>
                             </td>
                           </tr>
