@@ -34,3 +34,18 @@ class VolumeAdmin(admin.ModelAdmin):
     )
     search_fields = ("name", "volume_id", "unique_id", "storage__name")
     list_filter = ("format", "pool_name", "storage")
+
+
+# Host admin registration
+@admin.register(Host)
+class HostAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "status",
+        "host_type",
+        "storage_system",
+        "fc_ports_count",
+        "vols_count",
+    )
+    search_fields = ("name", "storage_system", "host_type", "volume_group")
+    list_filter = ("host_type", "status", "storage_system")

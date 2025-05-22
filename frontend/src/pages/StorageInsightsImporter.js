@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useLocation } from "react";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
-import { Form, Button, Card, Alert, Spinner, Table } from "react-bootstrap";
+import { Form, Button, Card, Alert, Spinner, Table, Modal } from "react-bootstrap";
 import usePaginatedFetch from "../components/hooks/usePaginatedFetch";
 
 const StorageInsightsImporter = () => {
@@ -14,12 +14,17 @@ const StorageInsightsImporter = () => {
   const [token, setToken] = useState(null);
   const [loadingVolumesId, setLoadingVolumesId] = useState(null);
   const { fetchAllPages } = usePaginatedFetch();
+  const [summaryModal, setSummaryModal] = useState({ show: false, results: [] });
+  const [progressModal, setProgressModal] = useState({ show: false, items: [] });
+  const [importCancelled, setImportCancelled] = useState(false);
 
   // Check if customer has Insights credentials
   const hasInsightsCredentials = !!(
     config?.customer?.insights_tenant && 
     config?.customer?.insights_api_key
   );
+
+
 
   // Fetch storage systems from Insights API
   const fetchStorageSystems = async () => {
@@ -214,9 +219,15 @@ const StorageInsightsImporter = () => {
       .map(([id, _]) => id);
 
     if (selectedSystemIds.length === 0) {
-      setImportStatus({
-        type: "warning",
-        message: "Please select at least one storage system to import."
+      setSummaryModal({
+        show: true,
+        results: [
+          {
+            name: "No storage system selected",
+            volumeCount: null,
+            error: "Please select at least one storage system to import."
+          }
+        ]
       });
       return;
     }
@@ -229,32 +240,144 @@ const StorageInsightsImporter = () => {
         .filter(system => selectedSystemIds.includes(system.storage_system_id))
         .map(buildStoragePayload);
 
-      const errors = [];
-      let importedCount = 0;
+      const summaryResults = [];
 
       for (const storage of payload) {
         try {
           await axios.post("http://127.0.0.1:8000/api/storage/", storage);
-          importedCount++;
+          summaryResults.push({
+            name: storage.name,
+            volumeCount: null,
+            error: false
+          });
         } catch (error) {
           const detail = {
             name: storage.name,
             error: error.response?.data || error.message
           };
           console.error(`Error importing ${storage.name}`, detail);
-          errors.push(detail);
+          summaryResults.push({
+            name: storage.name,
+            volumeCount: null,
+            error: detail.error
+          });
         }
       }
 
-      if (errors.length > 0) {
-        setImportStatus({ type: "danger", errors });
-      } else {
-        setImportStatus({
-          type: "success",
-          message: `Successfully imported ${importedCount} storage systems.`
-        });
-        handleSelectAll(false);
+      setSummaryModal({ show: true, results: summaryResults });
+      handleSelectAll(false);
+    } catch (err) {
+      console.error("Import failed:", err);
+      setSummaryModal({
+        show: true,
+        results: [
+          {
+            name: "Import failed",
+            volumeCount: null,
+            error: err.response?.data?.message || "Failed to import storage systems."
+          }
+        ]
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Import selected storage systems and immediately fetch and save their volumes, showing a summary modal after completion
+  const handleImportWithVolumes = async () => {
+    const selectedSystemIds = Object.entries(selectedSystems)
+      .filter(([_, isSelected]) => isSelected)
+      .map(([id, _]) => id);
+
+    if (selectedSystemIds.length === 0) {
+      setImportStatus({
+        type: "warning",
+        message: "Please select at least one storage system to import."
+      });
+      return;
+    }
+
+    setImportCancelled(false);
+    setLoading(true);
+    setProgressModal({ show: true, items: [] });
+    setImportStatus(null);
+
+    try {
+      const payload = storageSystemsData
+        .filter(system => selectedSystemIds.includes(system.storage_system_id))
+        .map(buildStoragePayload);
+
+      const summaryResults = [];
+
+      for (const storage of payload) {
+        // Check for cancellation before proceeding
+        if (importCancelled) {
+          summaryResults.push({
+            name: storage.name,
+            volumeCount: null,
+            error: "Import cancelled"
+          });
+          break; // Exit loop immediately
+        }
+
+        // Add progress item
+        setProgressModal(prev => ({
+          ...prev,
+          items: [...prev.items, { name: storage.name, step: 'Importing storage...', status: 'pending' }]
+        }));
+
+        try {
+          await axios.post("http://127.0.0.1:8000/api/storage/", storage);
+          // Check for cancellation before proceeding to volumes
+          if (importCancelled) {
+            summaryResults.push({
+              name: storage.name,
+              volumeCount: null,
+              error: "Import cancelled"
+            });
+            break;
+          }
+
+          // Update progress to importing volumes
+          setProgressModal(prev => {
+            const updated = [...prev.items];
+            const idx = updated.findIndex(i => i.name === storage.name);
+            if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Importing volumes...', status: 'pending' };
+            return { ...prev, items: updated };
+          });
+
+          const volumeResult = await fetchVolumesForSystem(storage.uuid);
+
+          setProgressModal(prev => {
+            const updated = [...prev.items];
+            const idx = updated.findIndex(i => i.name === storage.name);
+            if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Completed', status: 'success' };
+            return { ...prev, items: updated };
+          });
+
+          summaryResults.push({
+            name: storage.name,
+            volumeCount: volumeResult.volumeCount,
+            error: volumeResult.error || false
+          });
+        } catch (error) {
+          setProgressModal(prev => {
+            const updated = [...prev.items];
+            const idx = updated.findIndex(i => i.name === storage.name);
+            if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Failed', status: 'error' };
+            return { ...prev, items: updated };
+          });
+
+          summaryResults.push({
+            name: storage.name,
+            volumeCount: 0,
+            error: true
+          });
+        }
       }
+
+      setSummaryModal({ show: true, results: summaryResults });
+      handleSelectAll(false);
     } catch (err) {
       console.error("Import failed:", err);
       setImportStatus({
@@ -263,6 +386,9 @@ const StorageInsightsImporter = () => {
       });
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        setProgressModal({ show: false, items: [] });
+      }, 1000);
     }
   };
 
@@ -272,7 +398,7 @@ const StorageInsightsImporter = () => {
     if (!token) {
       console.error("Token not available. Please fetch storage systems first.");
       setLoadingVolumesId(null);
-      return;
+      return { systemId, systemName: systemId, volumeCount: 0 };
     }
 
     const system = storageSystemsData.find(s => s.storage_system_id === systemId);
@@ -287,11 +413,10 @@ const StorageInsightsImporter = () => {
 
       const importedCount = response.data.imported_count || 0;
       console.log(`Imported ${importedCount} volumes for system ${systemName}`);
-
-      alert(`Successfully saved ${importedCount} volumes for system ${systemName}`);
+      return { systemId, systemName, volumeCount: importedCount };
     } catch (error) {
       console.error("Failed to fetch volumes:", error);
-      alert("Failed to fetch volumes from backend.");
+      return { systemId, systemName, volumeCount: 0, error: true };
     } finally {
       setLoadingVolumesId(null);
     }
@@ -336,22 +461,14 @@ const StorageInsightsImporter = () => {
                 This tool connects to IBM Storage Insights to import storage systems for the current customer: 
                 <strong> {config?.customer?.name}</strong>
               </p>
+              <p>
+                <a href="https://insights.ibm.com/restapi/docs/" target="_blank" rel="noopener noreferrer">
+                  View IBM Storage Insights REST API Swagger Docs
+                </a>
+              </p>
               
               {error && <Alert variant="danger">{error}</Alert>}
-              {importStatus && importStatus.errors ? (
-                <Alert variant={importStatus.type}>
-                  <p>Error importing the following storage systems:</p>
-                  <ul>
-                    {importStatus.errors.map((err, idx) => (
-                      <li key={idx}>
-                        <strong>{err.name}</strong>: {JSON.stringify(err.error)}
-                      </li>
-                    ))}
-                  </ul>
-                </Alert>
-              ) : (
-                importStatus && <Alert variant={importStatus.type}>{importStatus.message}</Alert>
-              )}
+              {/* importStatus is no longer shown; summaryModal is used for reporting results */}
               
               <div className="d-flex justify-content-between mb-3">
                 <Button 
@@ -464,6 +581,20 @@ const StorageInsightsImporter = () => {
                         "Import Selected Systems"
                       )}
                     </Button>
+                    <Button 
+                      variant="secondary" 
+                      onClick={handleImportWithVolumes}
+                      disabled={loading || Object.values(selectedSystems).every(v => !v)}
+                      className="ms-2"
+                    >
+                      {loading ? (
+                        <>
+                          <Spinner as="span" animation="border" size="sm" /> Importing...
+                        </>
+                      ) : (
+                        "Import Selected Systems + Volumes"
+                      )}
+                    </Button>
                   </div>
                 </>
               ) : (
@@ -477,6 +608,61 @@ const StorageInsightsImporter = () => {
           )}
         </Card.Body>
       </Card>
+    {/* Summary Modal */}
+    {summaryModal.show && (
+      <Modal show onHide={() => setSummaryModal({ show: false, results: [] })}>
+        <Modal.Header closeButton>
+          <Modal.Title>Import Summary</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <ul>
+            {summaryModal.results.map((result, idx) => (
+              <li key={idx}>
+                <strong>{result.name}</strong> –{" "}
+                {result.volumeCount === null
+                  ? "Storage imported (no volumes)"
+                  : `${result.volumeCount} volumes imported`}{" "}
+                {result.error ? "(Error occurred)" : ""}
+              </li>
+            ))}
+          </ul>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setSummaryModal({ show: false, results: [] })}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    )}
+    {/* Progress Modal */}
+    {progressModal.show && (
+      <Modal show backdrop="static" keyboard={false}>
+        <Modal.Header>
+          <Modal.Title>Importing...</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <ul>
+            {progressModal.items.map((item, idx) => (
+              <li key={idx}>
+                <strong>{item.name}</strong>: {item.step}
+                {item.status === 'success' && ' ✅'}
+                {item.status === 'error' && ' ❌'}
+                {item.status === 'pending' && ' ⏳'}
+              </li>
+            ))}
+          </ul>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="danger" onClick={() => {
+            setImportCancelled(true);
+            setProgressModal({ show: false, items: [] });
+            window.location.reload();
+          }}>
+            Cancel Import
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    )}
     </div>
   );
 };

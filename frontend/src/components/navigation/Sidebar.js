@@ -22,7 +22,7 @@ const getSidebarLinks = (pathname) => {
         header: "Storage System",
         showBackButton: true,
         links: [
-          { path: `/storage/${storageIdMatch[1]}`, label: "Overview" },
+          { path: `/storage/${storageIdMatch[1]}`, label: "Properties" },
           { path: `/storage/${storageIdMatch[1]}/volumes`, label: "Volumes" },
         ],
       };
@@ -76,7 +76,7 @@ const Sidebar = () => {
                   fontSize: "clamp(0.4rem, 1.2vw, 1rem)",
                   maxWidth: "100%",
                   whiteSpace: "nowrap",
-                  overflow: "hidden"
+                  overflow: "hidden",
                 }}
               >
                 {dynamicHeader}
@@ -87,7 +87,8 @@ const Sidebar = () => {
             <button
               className="sidebar-back-button"
               onClick={() => {
-                const isSpecificStoragePage = location.pathname.match(/^\/storage\/\d+/);
+                const isSpecificStoragePage =
+                  location.pathname.match(/^\/storage\/\d+/);
                 if (isSpecificStoragePage) {
                   navigate("/storage");
                 } else if (location.pathname.startsWith("/storage")) {
@@ -105,7 +106,7 @@ const Sidebar = () => {
               <li key={link.path}>
                 <NavLink
                   to={link.path}
-                  end={link.label === "Overview"}
+                  end={link.label === "Properties"}
                   className={({ isActive }) =>
                     isActive ? "sidebar-link active" : "sidebar-link"
                   }

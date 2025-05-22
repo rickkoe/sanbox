@@ -135,6 +135,20 @@ class Host(models.Model):
     name = models.CharField(max_length=200)
     storage = models.ForeignKey(Storage, related_name="owning_storage", on_delete=models.CASCADE, null=True, blank=True)
 
+    # Storage Insights fields
+    acknowledged = models.CharField(max_length=10, blank=True, null=True)
+    wwpns = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=32, blank=True, null=True)
+    storage_system = models.CharField(max_length=64, blank=True, null=True)
+    associated_resource = models.CharField(max_length=100, blank=True, null=True)
+    host_type = models.CharField(max_length=64, blank=True, null=True)
+    vols_count = models.IntegerField(blank=True, null=True)
+    fc_ports_count = models.IntegerField(blank=True, null=True)
+    last_data_collection = models.BigIntegerField(blank=True, null=True)
+    volume_group = models.CharField(max_length=100, blank=True, null=True)
+    natural_key = models.CharField(max_length=64, blank=True, null=True)
+    volumes = models.ManyToManyField('Volume', related_name='hosts', blank=True)
+
     class Meta:
         unique_together = ['project', 'name']
 

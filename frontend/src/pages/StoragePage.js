@@ -46,7 +46,7 @@ const StoragePage = () => {
 
   return (
     <div className="container">
-      <h3>{storage.name} Overview</h3>
+      <h3>{storage.name} Properties</h3>
       <form className="card p-4">
         <div className="mb-3">
           <button type="button" className="btn btn-primary" onClick={handleSave}>
