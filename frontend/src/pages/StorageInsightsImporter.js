@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useLocation } from "react";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
 import { Form, Button, Card, Alert, Spinner, Table } from "react-bootstrap";
+import usePaginatedFetch from "../components/hooks/usePaginatedFetch";
 
 const StorageInsightsImporter = () => {
   const { config } = useContext(ConfigContext);
@@ -11,6 +12,7 @@ const StorageInsightsImporter = () => {
   const [selectedSystems, setSelectedSystems] = useState({});
   const [importStatus, setImportStatus] = useState(null);
   const [token, setToken] = useState(null);
+  const { fetchAllPages } = usePaginatedFetch();
 
   // Check if customer has Insights credentials
   const hasInsightsCredentials = !!(

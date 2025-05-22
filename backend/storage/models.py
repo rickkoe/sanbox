@@ -129,10 +129,11 @@ class Storage(models.Model):
         unique_together = ['customer', 'name']
 
 
+
 class Host(models.Model):
     project = models.ForeignKey(Project, related_name='host_project', on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
-    storage = models.ForeignKey(Storage, related_name="owning_storage", on_delete=models.CASCADE, null=True,blank=True)
+    storage = models.ForeignKey(Storage, related_name="owning_storage", on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         unique_together = ['project', 'name']
@@ -140,3 +141,79 @@ class Host(models.Model):
     def __str__(self):
         return f'{self.project}: {self.name}'
 
+
+# Volume model
+class Volume(models.Model):
+    storage = models.ForeignKey(Storage, related_name='volumes', on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    volume_id = models.CharField(max_length=16)
+    volume_number = models.IntegerField(blank=True, null=True)
+    volser = models.CharField(max_length=20, blank=True, null=True)
+    format = models.CharField(max_length=10, blank=True, null=True)
+    natural_key = models.CharField(max_length=50, blank=True, null=True)
+
+    capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    used_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    used_capacity_percent = models.FloatField(blank=True, null=True)
+    available_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    written_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    written_capacity_percent = models.FloatField(blank=True, null=True)
+    reserved_volume_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+
+    tier0_flash_capacity_percent = models.FloatField(blank=True, null=True)
+    tier1_flash_capacity_percent = models.FloatField(blank=True, null=True)
+    scm_capacity_percent = models.FloatField(blank=True, null=True)
+    enterprise_hdd_capacity_percent = models.FloatField(blank=True, null=True)
+    nearline_hdd_capacity_percent = models.FloatField(blank=True, null=True)
+    tier_distribution_percent = models.FloatField(blank=True, null=True)
+
+    tier0_flash_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    tier1_flash_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    scm_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    enterprise_hdd_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    nearline_hdd_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+
+    safeguarded_virtual_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    safeguarded_used_capacity_percentage = models.FloatField(blank=True, null=True)
+    safeguarded_allocation_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+
+    shortfall_percent = models.FloatField(blank=True, null=True)
+    warning_level_percent = models.FloatField(blank=True, null=True)
+
+    compression_saving_percent = models.FloatField(blank=True, null=True)
+    grain_size_bytes = models.BigIntegerField(blank=True, null=True)
+    compressed = models.BooleanField(blank=True, null=True)
+    thin_provisioned = models.CharField(max_length=32, blank=True, null=True)
+
+    encryption = models.CharField(max_length=10, blank=True, null=True)
+    flashcopy = models.CharField(max_length=10, blank=True, null=True)
+    auto_expand = models.BooleanField(blank=True, null=True)
+    easy_tier = models.CharField(max_length=32, blank=True, null=True)
+    easy_tier_status = models.CharField(max_length=32, blank=True, null=True)
+
+    pool_name = models.CharField(max_length=64, blank=True, null=True)
+    pool_id = models.CharField(max_length=64, blank=True, null=True)
+    lss_lcu = models.CharField(max_length=10, blank=True, null=True)
+    node = models.CharField(max_length=32, blank=True, null=True)
+    block_size = models.IntegerField(blank=True, null=True)
+
+    unique_id = models.CharField(max_length=64, unique=True)
+    acknowledged = models.BooleanField(blank=True, null=True)
+    status_label = models.CharField(max_length=32, blank=True, null=True)
+    raid_level = models.CharField(max_length=32, blank=True, null=True)
+    copy_id = models.IntegerField(blank=True, null=True)
+    safeguarded = models.CharField(max_length=16, blank=True, null=True)
+
+    last_data_collection = models.BigIntegerField(blank=True, null=True)
+
+    scm_available_capacity_bytes = models.BigIntegerField(blank=True, null=True)
+    io_group = models.CharField(max_length=32, blank=True, null=True)
+    formatted = models.CharField(max_length=10, blank=True, null=True)
+    virtual_disk_type = models.CharField(max_length=32, blank=True, null=True)
+    fast_write_state = models.CharField(max_length=32, blank=True, null=True)
+    vdisk_mirror_copies = models.CharField(max_length=10, blank=True, null=True)
+    vdisk_mirror_role = models.CharField(max_length=16, blank=True, null=True)
+    deduplicated = models.CharField(max_length=10, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
