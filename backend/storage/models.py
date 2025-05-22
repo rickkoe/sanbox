@@ -116,6 +116,8 @@ class Storage(models.Model):
     total_savings_ratio = models.FloatField(blank=True, null=True)
     volume_groups_count = models.IntegerField(blank=True, null=True)
     notes = models.TextField(null=True, blank=True)
+    imported = models.DateTimeField(null=True, blank=True)
+    updated = models.DateTimeField(null=True, blank=True)
 
 
     def storage_image(self):
@@ -148,6 +150,8 @@ class Host(models.Model):
     volume_group = models.CharField(max_length=100, blank=True, null=True)
     natural_key = models.CharField(max_length=64, blank=True, null=True)
     volumes = models.ManyToManyField('Volume', related_name='hosts', blank=True)
+    imported = models.DateTimeField(null=True, blank=True)
+    updated = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ['project', 'name']
@@ -228,6 +232,8 @@ class Volume(models.Model):
     vdisk_mirror_copies = models.CharField(max_length=10, blank=True, null=True)
     vdisk_mirror_role = models.CharField(max_length=16, blank=True, null=True)
     deduplicated = models.CharField(max_length=10, blank=True, null=True)
+    imported = models.DateTimeField(null=True, blank=True)
+    updated = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
