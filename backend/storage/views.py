@@ -257,3 +257,14 @@ def storage_insights_volumes(request):
     except Exception as e:
         logger.exception("Failed to fetch volumes from Storage Insights")
         return Response({"message": f"Failed to fetch volumes: {str(e)}"}, status=500)
+    
+@api_view(["GET"])
+def volume_list(request):
+    """Return volumes filtered by storage system ID."""
+    system_id = request.query_params.get("storage_system_id")
+    if not system_id:
+        return Response({"error": "Missing storage_system_id"}, status=status.HTTP_400_BAD_REQUEST)
+
+    volumes = Volume.objects.filter(storage__storage_system_id=system_id)
+    serializer = VolumeSerializer(volumes, many=True)
+    return Response(serializer.data)

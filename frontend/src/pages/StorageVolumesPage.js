@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom";
+import VolumeTable from "../components/tables/VolumeTable";
 import Breadcrumbs from "../components/navigation/Breadcrumbs";
 import axios from "axios";
 import { BreadcrumbContext } from "../context/BreadcrumbContext";
 
-const StoragePage = () => {
+const StorageVolumesPage = () => {
   const { id } = useParams();
   const [storage, setStorage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,10 +25,10 @@ const StoragePage = () => {
     };
 
     fetchStorage();
-  }, [id, setBreadcrumbMap]);
+  }, [id]);
 
   if (loading) {
-    return <p>Loading storage system details...</p>;
+    return <p>Loading volumes for storage system...</p>;
   }
 
   if (!storage) {
@@ -36,10 +37,10 @@ const StoragePage = () => {
 
   return (
     <div>
-      <h3>{storage.name}</h3>
-      <p>Storage system dashboard coming soon...</p>
+      <h3>{storage.name} – Volumes</h3>
+      <VolumeTable storage={storage} />
     </div>
   );
 };
 
-export default StoragePage;
+export default StorageVolumesPage;

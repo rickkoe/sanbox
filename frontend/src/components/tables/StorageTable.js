@@ -3,6 +3,7 @@ import axios from "axios";
 import { Button } from "react-bootstrap";
 import { ConfigContext } from "../../context/ConfigContext";
 import GenericTable from "./GenericTable";
+import { useNavigate } from "react-router-dom";
 
 // API endpoints
 const API_ENDPOINTS = {
@@ -26,8 +27,9 @@ const NEW_STORAGE_TEMPLATE = {
 };
 
 const StorageTable = () => {
-  const { config } = useContext(ConfigContext);
+  const { config, setActiveStorageSystem } = useContext(ConfigContext);
   const tableRef = useRef(null);
+  const navigate = useNavigate();
   const [debug, setDebug] = useState(null);
   
   // Get the customer ID from the config context
@@ -64,12 +66,18 @@ const StorageTable = () => {
     customRenderers: {
       name: (instance, td, row, col, prop, value) => {
         const rowData = instance.getSourceDataAtRow(row);
-        if (rowData && rowData.id !== null && value) {
-          td.style.fontWeight = "bold";
-        } else {
-          td.style.fontWeight = "normal";
-        }
-        td.innerText = value || "";
+        td.style.fontWeight = rowData?.id !== null ? "bold" : "normal";
+        td.style.cursor = "pointer";
+        td.innerHTML = `<a href="#" style="text-decoration:none">${value || ""}</a>`;
+
+        td.onclick = (e) => {
+          e.preventDefault();
+          if (rowData && rowData.id) {
+            setActiveStorageSystem(rowData);
+            navigate(`/storage/${rowData.id}`); // Placeholder route
+          }
+        };
+
         return td;
       }
     },

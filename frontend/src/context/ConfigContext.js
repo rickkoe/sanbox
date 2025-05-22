@@ -5,6 +5,7 @@ export const ConfigContext = createContext();
 
 export const ConfigProvider = ({ children }) => {
   const [config, setConfig] = useState(null);
+  const [activeStorageSystem, setActiveStorageSystem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const activeConfigApiUrl = "http://127.0.0.1:8000/api/core/active-config/";
@@ -34,7 +35,14 @@ export const ConfigProvider = ({ children }) => {
   };
 
   return (
-    <ConfigContext.Provider value={{ config, loading, error, refreshConfig: fetchActiveConfig }}>
+    <ConfigContext.Provider value={{
+      config,
+      loading,
+      error,
+      refreshConfig: fetchActiveConfig,
+      activeStorageSystem,
+      setActiveStorageSystem
+    }}>
       {children}
     </ConfigContext.Provider>
   );

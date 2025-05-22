@@ -31,7 +31,7 @@ const DEFAULT_VISIBLE = [
   "name", "unique_id", "capacity_bytes", "used_capacity_bytes", "pool_name", "thin_provisioned"
 ];
 
-const VolumeTable = () => {
+const VolumeTable = ({ storage }) => {
   const [visibleCols, setVisibleCols] = useState(() => {
     const saved = localStorage.getItem("volumeTableColumns");
     return saved ? JSON.parse(saved) : DEFAULT_VISIBLE;
@@ -48,29 +48,17 @@ const VolumeTable = () => {
   const columns = ALL_COLUMNS.filter(col => visibleCols.includes(col.data));
   const colHeaders = columns.map(col => col.title);
 
+  if (!storage || !storage.storage_system_id) return <p>No storage system selected.</p>;
+  const systemId = storage.storage_system_id;
+
+  const apiUrl = `http://127.0.0.1:8000/api/storage/volumes/?storage_system_id=${systemId}`;
+
   return (
     <>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <h4>Volumes</h4>
-        <DropdownButton title="Columns" variant="outline-secondary">
-          {ALL_COLUMNS.map(col => (
-            <Dropdown.Item key={col.data} as="div">
-              <Form.Check
-                type="checkbox"
-                label={col.title}
-                id={`col-${col.data}`}
-                checked={visibleCols.includes(col.data)}
-                onChange={() => toggleCol(col.data)}
-              />
-            </Dropdown.Item>
-          ))}
-        </DropdownButton>
-      </div>
-
       <GenericTable
-        apiUrl="/api/volumes/"
-        saveUrl="/api/volumes/"
-        deleteUrl="/api/volumes/"
+        apiUrl={apiUrl}
+        saveUrl="http://127.0.0.1:8000/api/storage/volumes/"
+        deleteUrl="http://127.0.0.1:8000/api/storage/volumes/"
         columns={columns}
         colHeaders={colHeaders}
         newRowTemplate={{}}
@@ -79,6 +67,23 @@ const VolumeTable = () => {
         columnSorting={true}
         filters={true}
         storageKey="volumeTableWidths"
+        additionalButtons={
+          <div className="d-flex justify-content-end">
+            <DropdownButton title="Columns" variant="outline-secondary">
+              {ALL_COLUMNS.map(col => (
+                <Dropdown.Item key={col.data} as="div">
+                  <Form.Check
+                    type="checkbox"
+                    label={col.title}
+                    id={`col-${col.data}`}
+                    checked={visibleCols.includes(col.data)}
+                    onChange={() => toggleCol(col.data)}
+                  />
+                </Dropdown.Item>
+              ))}
+            </DropdownButton>
+          </div>
+        }
       />
     </>
   );

@@ -1,30 +1,43 @@
-import React from "react";
+import React, { useContext } from "react";
+import { BreadcrumbContext } from "../../context/BreadcrumbContext";
 import { Link, useLocation } from "react-router-dom";
-import { Breadcrumb, Container } from "react-bootstrap";
+import { Breadcrumb } from "react-bootstrap";
 
 const Breadcrumbs = () => {
+    const { breadcrumbMap } = useContext(BreadcrumbContext);
     const location = useLocation();
-
-    // ✅ Convert the pathname into breadcrumb items
     const paths = location.pathname.split("/").filter(path => path);
 
     return (
-        
-            <div>
-                <Breadcrumb>
-                    <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
-                        Home
-                    </Breadcrumb.Item>
-                    {paths.map((path, index) => {
-                        const routeTo = "/" + paths.slice(0, index + 1).join("/");
-                        return (
-                            <Breadcrumb.Item key={index} linkAs={Link} linkProps={{ to: routeTo }} active={index === paths.length - 1}>
-                                {path.toLowerCase() === "san" ? "SAN" : path.charAt(0).toUpperCase() + path.slice(1)}
-                            </Breadcrumb.Item>
-                        );
-                    })}
-                </Breadcrumb>
-            </div>
+        <div>
+            <Breadcrumb>
+                <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>
+                    Home
+                </Breadcrumb.Item>
+                {paths.map((path, index) => {
+                    const routeTo = "/" + paths.slice(0, index + 1).join("/");
+                    const displayName =
+                        breadcrumbMap[path] && isNaN(path)
+                            ? breadcrumbMap[path]
+                            : !isNaN(path) && breadcrumbMap[path]
+                            ? breadcrumbMap[path]
+                            : path.toLowerCase() === "san"
+                            ? "SAN"
+                            : path.charAt(0).toUpperCase() + path.slice(1);
+
+                    return (
+                        <Breadcrumb.Item
+                            key={index}
+                            linkAs={Link}
+                            linkProps={{ to: routeTo }}
+                            active={index === paths.length - 1}
+                        >
+                            {displayName}
+                        </Breadcrumb.Item>
+                    );
+                })}
+            </Breadcrumb>
+        </div>
     );
 };
 

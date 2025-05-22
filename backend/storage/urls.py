@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import storage_list, storage_detail
+from .views import storage_list, storage_detail, volume_list
 from .views import storage_insights_auth, storage_insights_systems, storage_insights_volumes
 
 urlpatterns = [
@@ -8,4 +8,5 @@ urlpatterns = [
     path("insights/auth/", storage_insights_auth, name="storage-insights-auth"),
     path("insights/storage-systems/", storage_insights_systems, name="storage-insights-systems"),
     path("insights/volumes/", storage_insights_volumes, name="storage-insights-volumes"),
+    path("volumes/", volume_list, name="volume_list"),
 ]
