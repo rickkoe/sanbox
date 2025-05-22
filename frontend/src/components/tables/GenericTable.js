@@ -63,8 +63,22 @@ const GenericTable = forwardRef(({
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(false);
+  const [selectedCount, setSelectedCount] = useState(0);
   const tableRef = useRef(null);
   const containerRef = useRef(null);
+  // Helper to update selected row count
+  const updateSelectedCount = () => {
+    const hot = tableRef.current?.hotInstance;
+    if (!hot) return;
+    const sel = hot.getSelected() || [];
+    const rowSet = new Set();
+    sel.forEach(([r1, , r2]) => {
+      const start = Math.min(r1, r2);
+      const end = Math.max(r1, r2);
+      for (let row = start; row <= end; row++) rowSet.add(row);
+    });
+    setSelectedCount(rowSet.size);
+  };
 
   // Expose the table reference and methods to the parent component
   useImperativeHandle(ref, () => ({
@@ -532,27 +546,33 @@ const GenericTable = forwardRef(({
 
   return (
     <div className="table-container">
-      <div className="table-header">
-        <Button className="save-button" onClick={handleSaveChanges} disabled={loading}>
-          {loading ? (
-            <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-          ) : (
-            "Save"
-          )}
-        </Button>
-        <DropdownButton
-          id="export-dropdown"
-          title="Export"
-          variant="secondary"
-          className="ms-2"
-        >
-          <Dropdown.Item onClick={handleExportCSV}>Export as CSV</Dropdown.Item>
-          <Dropdown.Item onClick={handleExportExcel}>Export as Excel</Dropdown.Item>
-        </DropdownButton>
-        
-        {/* Render additional buttons if provided */}
-        {additionalButtons && additionalButtons}
-        
+      <div className="table-header d-flex align-items-center justify-content-between">
+        <div className="d-flex align-items-center">
+          <Button className="save-button" onClick={handleSaveChanges} disabled={loading}>
+            {loading ? (
+              <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+            ) : (
+              "Save"
+            )}
+          </Button>
+          <DropdownButton
+            id="export-dropdown"
+            title="Export"
+            variant="secondary"
+            className="ms-2"
+          >
+            <Dropdown.Item onClick={handleExportCSV}>Export as CSV</Dropdown.Item>
+            <Dropdown.Item onClick={handleExportExcel}>Export as Excel</Dropdown.Item>
+          </DropdownButton>
+          
+          {/* Render additional buttons if provided */}
+          {additionalButtons && additionalButtons}
+        </div>
+        <div className="counts">
+          <em>
+            <strong>{unsavedData.filter(row => hasNonEmptyValues(row)).length}</strong> total items | <strong>{selectedCount}</strong> selected
+          </em>
+        </div>
         {saveStatus && (
           <Alert variant={saveStatus.includes("❌") ? "danger" : saveStatus.includes("⚠️") ? "warning" : "success"} 
                  className="mt-2 py-1 save-status">
@@ -599,6 +619,8 @@ const GenericTable = forwardRef(({
             colWidths={colWidths}
             cells={getCellsConfig ? cellsFunc : undefined}
             afterColumnResize={handleAfterColumnResize}
+            afterSelection={(r, c, r2, c2) => updateSelectedCount()}
+            afterDeselect={() => setSelectedCount(0)}
           />
         )}
 
