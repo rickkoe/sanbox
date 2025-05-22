@@ -6,7 +6,6 @@ from .serializers import StorageSerializer, VolumeSerializer
 
 @api_view(["GET", "POST"])
 def storage_list(request):
-    print(f'storage_list DATA: {request.data}')
     if request.method == "GET":
         # Get all storage items
         storages = Storage.objects.all()
@@ -33,10 +32,8 @@ def storage_list(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(["PUT", "DELETE", "GET"])
+@api_view(["GET", "PUT", "PATCH", "DELETE"])
 def storage_detail(request, pk):
-    print(f'PK: {pk}')
-    print(f'storage_detail DATA: {request.data}')
     try:
         storage = Storage.objects.get(pk=pk)
     except Storage.DoesNotExist:
@@ -46,8 +43,8 @@ def storage_detail(request, pk):
         serializer = StorageSerializer(storage)
         return Response(serializer.data)
     
-    elif request.method == "PUT":
-        serializer = StorageSerializer(storage, data=request.data)
+    elif request.method in ["PUT", "PATCH"]:
+        serializer = StorageSerializer(storage, data=request.data, partial=(request.method == "PATCH"))
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ConfigContext } from "../../context/ConfigContext";
+import { BreadcrumbContext } from "../../context/BreadcrumbContext";
 
 const getSidebarLinks = (pathname) => {
   if (pathname.startsWith("/san")) {
@@ -33,9 +33,6 @@ const getSidebarLinks = (pathname) => {
       showBackButton: true,
       links: [
         { path: "/storage", label: "Storage" },
-        { path: "/storage/ds8000", label: "DS8000" },
-        { path: "/storage/flashsystem", label: "FlashSystem" },
-        { path: "/storage/volumes", label: "Volumes" },
       ],
     };
   }
@@ -57,30 +54,48 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { header, links, showBackButton } = getSidebarLinks(location.pathname);
-  const { config, loading, activeStorageSystem } = useContext(ConfigContext);
+  const storageIdMatch = location.pathname.match(/^\/storage\/(\d+)/);
+
+  const { breadcrumbMap } = useContext(BreadcrumbContext);
 
   const dynamicHeader =
-    location.pathname.startsWith("/storage/") && activeStorageSystem?.name
-      ? activeStorageSystem.name
+    location.pathname.startsWith("/storage/") && storageIdMatch
+      ? breadcrumbMap[storageIdMatch[1]] || `Storage ${storageIdMatch[1]}`
       : header;
 
   return (
     <div className="sidebar">
       <div className="sidebar-inner">
         <div className="sidebar-content">
-          {config && config.customer && (
+          {dynamicHeader && (
             <div className="active-customer-card text-white rounded shadow">
-              <p className="mb-0">{dynamicHeader}</p>
+              <p
+                className="mb-0 text-truncate storage-name-tooltip"
+                title={dynamicHeader}
+                style={{
+                  fontSize: "clamp(0.4rem, 1.2vw, 1rem)",
+                  maxWidth: "100%",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden"
+                }}
+              >
+                {dynamicHeader}
+              </p>
             </div>
           )}
           {showBackButton && (
             <button
               className="sidebar-back-button"
-              onClick={() =>
-                location.pathname.startsWith("/storage")
-                  ? navigate("/storage")
-                  : navigate("/")
-              }
+              onClick={() => {
+                const isSpecificStoragePage = location.pathname.match(/^\/storage\/\d+/);
+                if (isSpecificStoragePage) {
+                  navigate("/storage");
+                } else if (location.pathname.startsWith("/storage")) {
+                  navigate("/");
+                } else {
+                  navigate("/");
+                }
+              }}
             >
               <span className="arrow">←</span> Back
             </button>
