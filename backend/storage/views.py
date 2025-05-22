@@ -1,8 +1,8 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Storage
-from .serializers import StorageSerializer
+from .models import Storage, Volume
+from .serializers import StorageSerializer, VolumeSerializer
 
 @api_view(["GET", "POST"])
 def storage_list(request):
@@ -227,7 +227,32 @@ def storage_insights_volumes(request):
             next_link = next((l["uri"] for l in result.get("links", []) if l["params"].get("rel") == "next"), None)
             url = next_link
 
-        return Response({"volumes": all_volumes, "count": len(all_volumes)})
+        imported_count = 0
+        for volume_data in all_volumes:
+            try:
+                # Match the related storage system
+                storage = Storage.objects.get(storage_system_id=system_id)
+                # Inject foreign key relation
+
+                volume_data['storage'] = storage.id
+
+                # Match by unique_id
+                volume_obj = Volume.objects.filter(unique_id=volume_data['unique_id']).first()
+                serializer = VolumeSerializer(instance=volume_obj, data=volume_data)
+
+                if serializer.is_valid():
+                    serializer.save()
+                    imported_count += 1
+                else:
+                    logger.warning(f"Invalid volume data for {volume_data.get('name')}: {serializer.errors}")
+
+            except Exception as ve:
+                logger.warning(f"Failed to import volume {volume_data.get('name')}: {ve}")
+
+        return Response({
+            "imported_count": imported_count,
+            "message": f"Imported {imported_count} volume records"
+        })
     
     except Exception as e:
         logger.exception("Failed to fetch volumes from Storage Insights")

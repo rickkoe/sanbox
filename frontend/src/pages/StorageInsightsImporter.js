@@ -12,6 +12,7 @@ const StorageInsightsImporter = () => {
   const [selectedSystems, setSelectedSystems] = useState({});
   const [importStatus, setImportStatus] = useState(null);
   const [token, setToken] = useState(null);
+  const [loadingVolumesId, setLoadingVolumesId] = useState(null);
   const { fetchAllPages } = usePaginatedFetch();
 
   // Check if customer has Insights credentials
@@ -265,12 +266,17 @@ const StorageInsightsImporter = () => {
     }
   };
 
-  // Fetch all volumes for a given systemId using internal Django backend
+  // Fetch all volumes for a given systemId using internal Django backend, and save them to backend
   const fetchVolumesForSystem = async (systemId) => {
+    setLoadingVolumesId(systemId);
     if (!token) {
       console.error("Token not available. Please fetch storage systems first.");
+      setLoadingVolumesId(null);
       return;
     }
+
+    const system = storageSystemsData.find(s => s.storage_system_id === systemId);
+    const systemName = system?.name || systemId;
 
     try {
       const response = await axios.post("http://127.0.0.1:8000/api/storage/insights/volumes/", {
@@ -279,11 +285,15 @@ const StorageInsightsImporter = () => {
         system_id: systemId
       });
 
-      const volumes = response.data.volumes || [];
-      console.log(`Fetched ${volumes.length} volumes for system ${systemId}`);
-      // You can extend this to save volumes or pass to another handler
+      const importedCount = response.data.imported_count || 0;
+      console.log(`Imported ${importedCount} volumes for system ${systemName}`);
+
+      alert(`Successfully saved ${importedCount} volumes for system ${systemName}`);
     } catch (error) {
       console.error("Failed to fetch volumes:", error);
+      alert("Failed to fetch volumes from backend.");
+    } finally {
+      setLoadingVolumesId(null);
     }
   };
 
@@ -422,8 +432,16 @@ const StorageInsightsImporter = () => {
                                 size="sm"
                                 variant="outline-info"
                                 onClick={() => fetchVolumesForSystem(system.storage_system_id)}
+                                disabled={loadingVolumesId === system.storage_system_id}
                               >
-                                Volumes
+                                {loadingVolumesId === system.storage_system_id ? (
+                                  <>
+                                    <Spinner as="span" animation="border" size="sm" className="me-1" />
+                                    Fetching...
+                                  </>
+                                ) : (
+                                  "Volumes"
+                                )}
                               </Button>
                             </td>
                           </tr>
