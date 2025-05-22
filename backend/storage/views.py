@@ -196,3 +196,39 @@ def storage_insights_systems(request):
             {"message": f"Failed to fetch storage systems: {str(e)}"}, 
             status=500
         )
+@api_view(['POST'])
+def storage_insights_volumes(request):
+    """Fetch all volumes from IBM Storage Insights for a given storage system."""
+    token = request.data.get("token")
+    tenant = request.data.get("tenant")
+    system_id = request.data.get("system_id")
+
+    if not token or not tenant or not system_id:
+        return Response({"message": "token, tenant, and system_id are required"}, status=400)
+
+    base_url = f"https://insights.ibm.com/restapi/v1/tenants/{tenant}/storage-systems/{system_id}/volumes?limit=500&offset=1"
+    headers = {
+        "x-api-token": token,
+        "Accept": "application/json"
+    }
+
+    all_volumes = []
+
+    try:
+        url = base_url
+        while url:
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+
+            all_volumes.extend(result.get("data", []))
+
+            # Get the next page from links
+            next_link = next((l["uri"] for l in result.get("links", []) if l["params"].get("rel") == "next"), None)
+            url = next_link
+
+        return Response({"volumes": all_volumes, "count": len(all_volumes)})
+    
+    except Exception as e:
+        logger.exception("Failed to fetch volumes from Storage Insights")
+        return Response({"message": f"Failed to fetch volumes: {str(e)}"}, status=500)

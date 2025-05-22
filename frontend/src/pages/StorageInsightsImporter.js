@@ -265,6 +265,28 @@ const StorageInsightsImporter = () => {
     }
   };
 
+  // Fetch all volumes for a given systemId using internal Django backend
+  const fetchVolumesForSystem = async (systemId) => {
+    if (!token) {
+      console.error("Token not available. Please fetch storage systems first.");
+      return;
+    }
+
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/api/storage/insights/volumes/", {
+        token,
+        tenant: config.customer.insights_tenant,
+        system_id: systemId
+      });
+
+      const volumes = response.data.volumes || [];
+      console.log(`Fetched ${volumes.length} volumes for system ${systemId}`);
+      // You can extend this to save volumes or pass to another handler
+    } catch (error) {
+      console.error("Failed to fetch volumes:", error);
+    }
+  };
+
   // Create a formatted display of storage type
   const formatStorageType = (type) => {
     const typeMap = {
@@ -367,6 +389,7 @@ const StorageInsightsImporter = () => {
                         <th>Serial Number</th>
                         <th>Storage System ID</th>
                         <th>SI Probe Status</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -393,6 +416,15 @@ const StorageInsightsImporter = () => {
                               <span className={`badge bg-${system.probe_status === "successful" ? "success" : "warning"}`}>
                                 {system.probe_status || "Unknown"}
                               </span>
+                            </td>
+                            <td>
+                              <Button
+                                size="sm"
+                                variant="outline-info"
+                                onClick={() => fetchVolumesForSystem(system.storage_system_id)}
+                              >
+                                Volumes
+                              </Button>
                             </td>
                           </tr>
                         );
