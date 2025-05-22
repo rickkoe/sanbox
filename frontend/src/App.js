@@ -18,6 +18,7 @@ import FabricTable from "./components/tables/FabricTable";
 import AliasTable from "./components/tables/AliasTable";
 import ZoneTable from "./components/tables/ZoneTable";
 import StorageTable from "./components/tables/StorageTable";
+import VolumeTable from "./components/tables/VolumeTable";
 import ConfigForm from "./components/forms/ConfigForm";
 import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 import AliasScriptsPage from "./pages/AliasScriptsPage";
@@ -61,6 +62,7 @@ function App() {
                 <Route path="/san/aliases" element={<AliasTable />} />
                 <Route path="/san/zones" element={<ZoneTable />} />
                 <Route path="/storage" element={<StorageTable />} />
+                <Route path="/storage/volumes" element={<VolumeTable />} />
                 <Route path="/san/fabrics" element={<FabricTable />} />
                 <Route path="/config" element={<ConfigForm />} />
                 <Route path="/tools" element={<ToolsPage />} />

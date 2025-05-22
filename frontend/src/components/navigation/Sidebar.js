@@ -23,6 +23,7 @@ const getSidebarLinks = (pathname) => {
         { path: "/storage", label: "Storage" },
         { path: "/storage/ds8000", label: "DS8000" },
         { path: "/storage/flashsystem", label: "FlashSystem" },
+        { path: "/storage/volumes", label: "Volumes" },
       ],
     };
   }
