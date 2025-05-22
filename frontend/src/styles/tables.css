@@ -27,6 +27,10 @@
   margin: 10px;
 }
 
+.export-button {
+  margin: 10px;
+}
+
 .back-button {
   margin: 10px;
 }
@@ -200,4 +204,15 @@
 .ht_clone_top,
 .ht_clone_top_left_corner {
   z-index: 3 !important;
+}
+
+/* Scrollable Columns Dropdown Menu */
+.column-picker-menu {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* Optional: ensure the toggle and menu align neatly */
+.column-picker .dropdown-toggle {
+  margin: 10px;
 }

@@ -5,7 +5,6 @@ from django.contrib.auth.models import User
 
 
 class Storage(models.Model):
-    # Replace project with customer
     customer = models.ForeignKey(Customer, related_name='storages', on_delete=models.CASCADE, blank=True, null=True)
     name = models.CharField(max_length=64)
     storage_type = models.CharField(

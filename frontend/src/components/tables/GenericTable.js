@@ -559,7 +559,7 @@ const GenericTable = forwardRef(({
             id="export-dropdown"
             title="Export"
             variant="secondary"
-            className="ms-2"
+            className="export-button"
           >
             <Dropdown.Item onClick={handleExportCSV}>Export as CSV</Dropdown.Item>
             <Dropdown.Item onClick={handleExportExcel}>Export as Excel</Dropdown.Item>

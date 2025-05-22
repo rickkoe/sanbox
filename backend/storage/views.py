@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Storage, Volume
 from .serializers import StorageSerializer, VolumeSerializer
+from django.utils import timezone
 
 @api_view(["GET", "POST"])
 def storage_list(request):
@@ -28,7 +29,9 @@ def storage_list(request):
             serializer = StorageSerializer(data=request.data)
         
         if serializer.is_valid():
-            serializer.save()
+            storage_instance = serializer.save()
+            storage_instance.imported = timezone.now()
+            storage_instance.save(update_fields=['imported'])
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -46,7 +49,9 @@ def storage_detail(request, pk):
     elif request.method in ["PUT", "PATCH"]:
         serializer = StorageSerializer(storage, data=request.data, partial=(request.method == "PATCH"))
         if serializer.is_valid():
-            serializer.save()
+            storage_instance = serializer.save()
+            storage_instance.updated = timezone.now()
+            storage_instance.save(update_fields=['updated'])
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
@@ -238,7 +243,9 @@ def storage_insights_volumes(request):
                 serializer = VolumeSerializer(instance=volume_obj, data=volume_data)
 
                 if serializer.is_valid():
-                    serializer.save()
+                    volume_obj = serializer.save()
+                    volume_obj.imported = timezone.now()
+                    volume_obj.save(update_fields=['imported'])
                     imported_count += 1
                 else:
                     logger.warning(f"Invalid volume data for {volume_data.get('name')}: {serializer.errors}")

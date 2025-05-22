@@ -7,6 +7,7 @@ import "handsontable/dist/handsontable.full.css";
 import { registerAllModules } from "handsontable/registry";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 
 // ✅ Register all Handsontable modules globally
 registerAllModules();
