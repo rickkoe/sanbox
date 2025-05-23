@@ -13,6 +13,7 @@ const StorageInsightsImporter = () => {
   const [importStatus, setImportStatus] = useState(null);
   const [token, setToken] = useState(null);
   const [loadingVolumesId, setLoadingVolumesId] = useState(null);
+  const [loadingHostsId, setLoadingHostsId] = useState(null);
   const { fetchAllPages } = usePaginatedFetch();
   const [summaryModal, setSummaryModal] = useState({ show: false, results: [] });
   const [progressModal, setProgressModal] = useState({ show: false, items: [] });
@@ -422,6 +423,37 @@ const StorageInsightsImporter = () => {
     }
   };
 
+  // Fetch all host connections for a given systemId using internal Django backend, and save them to backend
+  const fetchHostConnectionsForSystem = async (systemId) => {
+    setLoadingHostsId(systemId);
+    if (!token) {
+      console.error("Token not available. Please fetch storage systems first.");
+      setLoadingHostsId(null);
+      return { systemId, systemName: systemId, importedCount: 0 };
+    }
+    const system = storageSystemsData.find(s => s.storage_system_id === systemId);
+    const systemName = system?.name || systemId;
+    try {
+      const response = await axios.post(
+        "http://127.0.0.1:8000/api/storage/insights/host-connections/",
+        {
+          token,
+          tenant: config.customer.insights_tenant,
+          system_id: systemId
+        }
+      );
+      const importedCount = response.data.imported_count || 0;
+      alert(`Imported ${importedCount} host connections for system ${systemName}`);
+      return { systemId, systemName, importedCount };
+    } catch (error) {
+      console.error("Failed to fetch host connections:", error);
+      alert(`Failed to import host connections for ${systemName}: ${error.message}`);
+      return { systemId, systemName, importedCount: 0, error: true };
+    } finally {
+      setLoadingHostsId(null);
+    }
+  };
+
   // Create a formatted display of storage type
   const formatStorageType = (type) => {
     const typeMap = {
@@ -558,6 +590,22 @@ const StorageInsightsImporter = () => {
                                   </>
                                 ) : (
                                   "Volumes"
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline-info"
+                                className="ms-2"
+                                onClick={() => fetchHostConnectionsForSystem(system.storage_system_id)}
+                                disabled={loadingHostsId === system.storage_system_id}
+                              >
+                                {loadingHostsId === system.storage_system_id ? (
+                                  <>
+                                    <Spinner as="span" animation="border" size="sm" className="me-1" />
+                                    Fetching Hosts...
+                                  </>
+                                ) : (
+                                  "Host Connections"
                                 )}
                               </Button>
                             </td>

@@ -1,6 +1,7 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status, generics
+from rest_framework.decorators import api_view
 from .models import Alias, Zone, Fabric
 from customers.models import Customer
 from core.models import Config, Project
@@ -179,80 +180,52 @@ class ZoneDeleteView(generics.DestroyAPIView):
         zone.delete()
         return Response({"message": "Zone deleted successfully."}, status=status.HTTP_200_OK)
     
-class FabricsForCustomerView(APIView):
-    def get(self, request, *args, **kwargs):
+
+# Unified fabric management view
+@api_view(["GET", "POST", "PUT"])
+def fabric_management(request, pk=None):
+    """
+    GET  /fabrics/                -> List all fabrics (optionally filter by customer via query param)
+    GET  /fabrics/{pk}/           -> Retrieve a single fabric
+    POST /fabrics/                -> Create a new fabric (requires customer_id in payload)
+    PUT  /fabrics/{pk}/           -> Update an existing fabric
+    """
+    # List or retrieve
+    print(pk, request.method)
+    if request.method == "GET":
+        customer_id = request.query_params.get("customer_id")
+        if pk:
+            try:
+                fabric = Fabric.objects.get(pk=pk)
+                serializer = FabricSerializer(fabric)
+                return Response(serializer.data)
+            except Fabric.DoesNotExist:
+                return Response({"error": "Fabric not found"}, status=status.HTTP_404_NOT_FOUND)
+        qs = Fabric.objects.all()
+        if customer_id:
+            qs = qs.filter(customer_id=customer_id)
+        serializer = FabricSerializer(qs, many=True)
+        return Response(serializer.data)
+    # Create
+    if request.method == "POST":
+        serializer = FabricSerializer(data=request.data)
+        if serializer.is_valid():
+            fabric = serializer.save()
+            return Response(FabricSerializer(fabric).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # Update
+    if request.method == "PUT":
+        if not pk:
+            return Response({"error": "Missing fabric ID"}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            config = Config.objects.first()  # Get the single Config instance
-            if not config:
-                return Response({"error": "No config found"}, status=status.HTTP_404_NOT_FOUND)
-            customer = config.project.customer  # Get the customer that owns the project
-            fabrics = Fabric.objects.filter(customer=customer)  # Filter by customer
-            serializer = FabricSerializer(fabrics, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-class FabricsByCustomerView(APIView):
-    def get(self, request, customer_id):
-        fabrics = Fabric.objects.filter(customer_id=customer_id)  # ✅ Ensure filtering by customer ID
-        if not fabrics.exists():
-            return Response({"error": "No fabrics found for this customer."}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = FabricSerializer(fabrics, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-class FabricSaveView(APIView):
-    def post(self, request):
-        customer_id = request.data.get("customer_id")
-        fabrics_data = request.data.get("fabrics", [])
-
-        if not customer_id or not fabrics_data:
-            return Response({"error": "Customer ID and fabrics data are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            customer = Customer.objects.get(id=customer_id)
-        except Customer.DoesNotExist:
-            return Response({"error": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        saved_fabrics = []
-        errors = []  # ✅ Collect errors
-
-        for fabric_data in fabrics_data:
-            fabric_id = fabric_data.get("id")
-
-            if fabric_id:
-                # ✅ Update existing fabric
-                fabric = Fabric.objects.filter(id=fabric_id, customer=customer).first()
-                if fabric:
-                    serializer = FabricSerializer(fabric, data=fabric_data, partial=True)
-                    if serializer.is_valid():
-                        serializer.save()
-                        saved_fabrics.append(serializer.data)
-                    else:
-                        errors.append({"fabric": fabric_data["name"], "errors": serializer.errors})
-            else:
-                # ✅ Create new fabric
-                fabric_data["customer"] = customer.id
-                serializer = FabricSerializer(data=fabric_data)
-                try:
-                    if serializer.is_valid():
-                        serializer.save()
-                        saved_fabrics.append(serializer.data)
-                    else:
-                        errors.append({"fabric": fabric_data["name"], "errors": serializer.errors})
-                except IntegrityError:  # ✅ Catch duplicate errors
-                    errors.append({
-                        "fabric": fabric_data["name"],
-                        "errors": "A fabric with this name already exists for this customer."
-                    })
-
-        if errors:
-            return Response({"error": "Some fabrics could not be saved.", "details": errors}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response({"message": "Fabrics saved successfully!", "fabrics": saved_fabrics}, status=status.HTTP_200_OK)
-    
-
-    from rest_framework.response import Response
+            fabric = Fabric.objects.get(pk=pk)
+        except Fabric.DoesNotExist:
+            return Response({"error": "Fabric not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = FabricSerializer(fabric, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response(FabricSerializer(updated).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class FabricDeleteView(generics.DestroyAPIView):
     queryset = Fabric.objects.all()

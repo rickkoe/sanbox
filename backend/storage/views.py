@@ -1,8 +1,8 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Storage, Volume
-from .serializers import StorageSerializer, VolumeSerializer
+from .models import Storage, Volume, Host
+from .serializers import StorageSerializer, VolumeSerializer, HostSerializer
 from django.utils import timezone
 
 @api_view(["GET", "POST"])
@@ -262,6 +262,57 @@ def storage_insights_volumes(request):
         logger.exception("Failed to fetch volumes from Storage Insights")
         return Response({"message": f"Failed to fetch volumes: {str(e)}"}, status=500)
     
+@api_view(['POST'])
+def storage_insights_host_connections(request):
+    """Fetch all host connections from IBM Storage Insights for a given storage system."""
+    token = request.data.get("token")
+    tenant = request.data.get("tenant")
+    system_id = request.data.get("system_id")
+
+    if not token or not tenant or not system_id:
+        return Response({"message": "token, tenant, and system_id are required"}, status=400)
+
+    base_url = f"https://insights.ibm.com/restapi/v1/tenants/{tenant}/storage-systems/{system_id}/host-connections?limit=500&offset=1"
+    headers = {
+        "x-api-token": token,
+        "Accept": "application/json"
+    }
+
+    all_connections = []
+    try:
+        url = base_url
+        while url:
+            resp = requests.get(url, headers=headers, timeout=30)
+            resp.raise_for_status()
+            result = resp.json()
+            all_connections.extend(result.get("data", []))
+            next_link = next((l["uri"] for l in result.get("links", []) if l["params"].get("rel") == "next"), None)
+            url = next_link
+
+        imported_count = 0
+        storage_obj = Storage.objects.get(storage_system_id=system_id)
+        for conn in all_connections:
+            conn['storage'] = storage_obj.id
+            existing = Host.objects.filter(storage=storage_obj, name=conn.get("name")).first()
+            serializer = HostSerializer(instance=existing, data=conn)
+            if serializer.is_valid():
+                hc_obj = serializer.save()
+                hc_obj.imported = timezone.now()
+                hc_obj.save(update_fields=['imported'])
+                imported_count += 1
+            else:
+                logger.warning(f"Invalid host connection data for {conn.get('port')}: {serializer.errors}")
+
+        return Response({
+            "imported_count": imported_count,
+            "message": f"Imported {imported_count} host connection records"
+        })
+    except Storage.DoesNotExist:
+        return Response({"message": "Storage system not found"}, status=404)
+    except Exception as e:
+        logger.exception("Failed to fetch host connections from Storage Insights")
+        return Response({"message": f"Failed to fetch host connections: {str(e)}"}, status=500)
+
 @api_view(["GET"])
 def volume_list(request):
     """Return volumes filtered by storage system ID."""

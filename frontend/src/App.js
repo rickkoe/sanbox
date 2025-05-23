@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import ToolsPage from "./pages/ToolsPage";
 import StorageCalculatorPage from "./pages/StorageCalculatorPage";
 import StoragePage from "./pages/StoragePage";
+import ScriptsPage from "./pages/ScriptsPage";
 import CustomerTable from "./components/tables/CustomerTable";
 import FabricTable from "./components/tables/FabricTable";
 import AliasTable from "./components/tables/AliasTable";
@@ -24,6 +25,8 @@ import StorageVolumesPage from "./pages/StorageVolumesPage";
 import ConfigForm from "./components/forms/ConfigForm";
 import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 import AliasScriptsPage from "./pages/AliasScriptsPage";
+import DS8000ScriptsPage from "./pages/DS8000ScriptsPage";
+import FlashsystemscriptsPage from "./pages/FlashsystemScriptsPage";
 import ZoneScriptsPage from "./pages/ZoneScriptsPage";
 import ImportSwitchConfig from "./components/forms/ImportSwitchConfig";
 import StorageInsightsImporter from "./pages/StorageInsightsImporter";
@@ -72,6 +75,11 @@ function App() {
                   <Route path="/san/fabrics" element={<FabricTable />} />
                   <Route path="/config" element={<ConfigForm />} />
                   <Route path="/tools" element={<ToolsPage />} />
+                  <Route path="/scripts" element={<ScriptsPage />} />
+                  <Route path="/scripts/zoning" element={<ZoneScriptsPage />} />
+                  <Route path="/scripts/ds8000" element={<DS8000ScriptsPage />} />
+                  <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
+                  
                   <Route
                     path="/insights/importer"
                     element={<StorageInsightsImporter />}
