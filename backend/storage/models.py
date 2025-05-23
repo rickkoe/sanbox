@@ -116,7 +116,15 @@ class Storage(models.Model):
     volume_groups_count = models.IntegerField(blank=True, null=True)
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)
+
     updated = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def db_volumes_count(self):
+        """
+        Returns the count of Volume records related to this Storage in the database.
+        """
+        return self.volumes.count()
 
 
     def storage_image(self):

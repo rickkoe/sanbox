@@ -4,6 +4,12 @@ import { Button, DropdownButton, Dropdown, Form } from "react-bootstrap";
 import { ConfigContext } from "../../context/ConfigContext";
 import GenericTable from "./GenericTable";
 import { useNavigate } from "react-router-dom";
+import Handsontable from 'handsontable'; // <- Make sure this is here
+import { registerAllModules } from 'handsontable/registry';
+import 'handsontable/dist/handsontable.full.css';
+
+registerAllModules();
+window.Handsontable = Handsontable; // helpful for debugging
 
 // API endpoints
 const API_ENDPOINTS = {
@@ -28,7 +34,6 @@ const NEW_STORAGE_TEMPLATE = {
 
 // All possible Storage fields for column picker
 const ALL_STORAGE_COLUMNS = [
-  { data: "customer", title: "Customer" },
   { data: "id", title: "ID" },
   { data: "name", title: "Name" },
   { data: "storage_type", title: "Type" },
@@ -37,6 +42,7 @@ const ALL_STORAGE_COLUMNS = [
   { data: "machine_type", title: "Machine Type" },
   { data: "model", title: "Model" },
   { data: "serial_number", title: "Serial Number" },
+  { data: "db_volumes_count", title: "DB Volumes Count" },
   { data: "system_id", title: "System ID" },
   { data: "wwnn", title: "WWNN" },
   { data: "firmware_level", title: "Firmware Level" },
@@ -72,7 +78,7 @@ const ALL_STORAGE_COLUMNS = [
   { data: "used_written_capacity_bytes", title: "Used Written Capacity (Bytes)" },
   { data: "available_system_capacity_bytes", title: "Available System Capacity (Bytes)" },
   { data: "used_capacity_bytes", title: "Used Capacity (Bytes)" },
-  { data: "volumes_count", title: "Volumes Count" },
+  { data: "volumes_count", title: "SI Volumes Count" },
   { data: "deduplication_savings_percent", title: "Deduplication Savings (%)" },
   { data: "data_collection", title: "Data Collection" },
   { data: "available_capacity_bytes", title: "Available Capacity (Bytes)" },
@@ -407,13 +413,16 @@ const StorageTable = () => {
         {...tableConfig}
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Storage Table.csv`}
         ref={tableRef}
+        licenseKey="non-commercial-and-evaluation"
+
         apiUrl={apiUrl}
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
         fixedColumnsLeft={1}
         columnSorting={true}
-        filters={true}
+        filters={true}       
+        dropdownMenu={true}
         storageKey="zoneTableColumnWidths"
         colHeaders={displayedHeaders}
         columns={displayedColumns}

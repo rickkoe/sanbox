@@ -3,7 +3,11 @@ import { HotTable } from '@handsontable/react';
 import { Modal, Button, Spinner, Alert, Dropdown, DropdownButton } from "react-bootstrap";
 import axios from "axios";
 import * as XLSX from "xlsx";
+import Handsontable from 'handsontable'; // <- Make sure this is here
+import { registerAllModules } from 'handsontable/registry';
+import 'handsontable/dist/handsontable.full.css';
 
+registerAllModules();
 /**
  * A generic reusable table component for all CRUD operations
  * @param {Object} props - Component props
@@ -44,6 +48,7 @@ const GenericTable = forwardRef(({
   fixedColumnsLeft = 0,
   columnSorting = false,
   filters = false,
+  dropdownMenu = false,
   beforeSave,
   afterSave,
   additionalButtons,
@@ -609,7 +614,7 @@ const GenericTable = forwardRef(({
             beforeRemoveRow={() => false} // Prevent automatic row removal
             stretchH="all"
             licenseKey="non-commercial-and-evaluation"
-            rowHeaders={false}
+            rowHeaders={true}
             filters={filters}
             dropdownMenu={true}
             autoColumnSize={true}

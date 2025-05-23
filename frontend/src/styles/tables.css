@@ -216,3 +216,26 @@
 .column-picker .dropdown-toggle {
   margin: 10px;
 }
+
+
+/* Force filter button to render and be visible */
+.htDropdownMenuButton {
+  display: block !important;
+  position: absolute !important;
+  top: 4px;
+  right: 4px;
+  z-index: 10000 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Ensure th does not clip overflow */
+.handsontable .ht_master .htCore thead th {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+/* Prevent clipping from parent wrappers */
+.handsontable, .ht_master, .wtHolder {
+  overflow: visible !important;
+}
