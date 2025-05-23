@@ -71,7 +71,7 @@ const GenericTable = forwardRef(({
   const [selectedCount, setSelectedCount] = useState(0);
   const tableRef = useRef(null);
   const containerRef = useRef(null);
-  // Helper to update selected row count
+  // Helper to update selected row count (only count rows with a non-null id)
   const updateSelectedCount = () => {
     const hot = tableRef.current?.hotInstance;
     if (!hot) return;
@@ -80,7 +80,13 @@ const GenericTable = forwardRef(({
     sel.forEach(([r1, , r2]) => {
       const start = Math.min(r1, r2);
       const end = Math.max(r1, r2);
-      for (let row = start; row <= end; row++) rowSet.add(row);
+      for (let row = start; row <= end; row++) {
+        const physicalRow = hot.toPhysicalRow(row);
+        const rowData = unsavedData[physicalRow];
+        if (rowData && rowData.id != null) {
+          rowSet.add(physicalRow);
+        }
+      }
     });
     setSelectedCount(rowSet.size);
   };
@@ -611,12 +617,18 @@ const GenericTable = forwardRef(({
             afterChange={handleAfterChange}
             contextMenu={{ items: { remove_row: { name: "Remove row(s)" } } }}
             afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
-            beforeRemoveRow={() => false} // Prevent automatic row removal
+            beforeRemoveRow={() => false}
             stretchH="all"
             licenseKey="non-commercial-and-evaluation"
             rowHeaders={true}
-            filters={filters}
+            
+            // CRITICAL: Enable filters and dropdownMenu properly
+            filters={true}
             dropdownMenu={true}
+            
+            // Alternative: Use explicit dropdownMenu configuration
+            // dropdownMenu={['filter_by_condition', 'filter_by_value', 'filter_action_bar']}
+            
             autoColumnSize={true}
             manualColumnResize={true}
             fixedColumnsLeft={fixedColumnsLeft}
@@ -626,6 +638,10 @@ const GenericTable = forwardRef(({
             afterColumnResize={handleAfterColumnResize}
             afterSelection={(r, c, r2, c2) => updateSelectedCount()}
             afterDeselect={() => setSelectedCount(0)}
+            
+            // Add these settings to ensure proper rendering
+            viewportRowRenderingOffset={30}
+            viewportColumnRenderingOffset={30}
           />
         )}
 

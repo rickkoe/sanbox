@@ -229,13 +229,79 @@
   visibility: visible !important;
 }
 
-/* Ensure th does not clip overflow */
+/* Prevent clipping from parent wrappers */
+.handsontable, .ht_master, .wtHolder {
+  overflow: visible !important;
+}
+
+/* Remove or comment out these problematic CSS rules */
+
+/* REMOVE THIS - it's breaking the filter button visibility */
+/*
 .handsontable .ht_master .htCore thead th {
   overflow: visible !important;
   position: relative !important;
 }
+*/
 
-/* Prevent clipping from parent wrappers */
-.handsontable, .ht_master, .wtHolder {
+/* CRITICAL: Fix the dropdown menu z-index */
+.htDropdownMenu {
+  z-index: 9999 !important;
+  position: absolute !important;
+  display: block !important;
+}
+
+/* Ensure filter button is visible */
+.htDropdownMenuButton {
+  display: block !important;
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  z-index: 10000 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background: #007bff !important;
+  border: 1px solid #ccc !important;
+  width: 14px !important;
+  height: 14px !important;
+  cursor: pointer !important;
+}
+
+/* Fix table header z-index issues */
+.handsontable thead th {
+  background-color: #212529 !important;
+  color: #fff !important;
+  font-weight: bold !important;
+  border-right: 1px solid #fff !important;
+  position: relative !important;
   overflow: visible !important;
+}
+
+/* Ensure the filter dropdown appears above everything */
+.htFiltersConditionsMenu,
+.htFiltersMenuConditionType,
+.htFiltersMenuValue {
+  z-index: 10001 !important;
+}
+
+/* Fix any container overflow issues */
+.table-container {
+  overflow: visible !important;
+}
+
+.handsontable,
+.ht_master,
+.wtHolder {
+  overflow: visible !important;
+}
+
+/* Override any competing z-index rules */
+.ht_clone_top,
+.ht_clone_left,
+.ht_clone_top_left_corner {
+  z-index: 3 !important;
+}
+
+.htContextMenu {
+  z-index: 9998 !important;
 }
