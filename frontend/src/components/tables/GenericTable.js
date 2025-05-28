@@ -632,7 +632,6 @@ const GenericTable = forwardRef(({
   
   // Basic functionality
   width="100%"
-  height="600px"
   afterChange={handleAfterChange}
   afterSelection={(r, c, r2, c2) => updateSelectedCount()}
   afterDeselect={() => setSelectedCount(0)}
@@ -640,7 +639,15 @@ const GenericTable = forwardRef(({
   // Column functionality
   manualColumnResize={true}
   afterColumnResize={handleAfterColumnResize}
-  
+    // Add this callback to fix alignment after scroll
+  afterScrollHorizontally={() => {
+    // Force a small re-render to sync headers
+    setTimeout(() => {
+      if (tableRef.current?.hotInstance) {
+        tableRef.current.hotInstance.render();
+      }
+    }, 10);
+  }}
   // Add these back one by one and test
   stretchH="all"
   contextMenu={{ items: { remove_row: { name: "Remove row(s)" } } }}
@@ -648,8 +655,8 @@ const GenericTable = forwardRef(({
   beforeRemoveRow={() => false}
   colWidths={colWidths}
   cells={getCellsConfig ? cellsFunc : undefined}
-  // viewportRowRenderingOffset={30}
-  // viewportColumnRenderingOffset={30}
+  viewportRowRenderingOffset={30}
+  viewportColumnRenderingOffset={30}
   preventOverflow={false}
 />
         </>

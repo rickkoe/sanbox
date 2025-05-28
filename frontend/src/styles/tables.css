@@ -35,3 +35,39 @@
 .htFiltersMenuValue .htUIMultipleSelectHot tbody td > span {
   display: contents !important;
 }
+
+/* Scrollbar styling */
+.handsontable .wtHolder::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.handsontable .wtHolder::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+}
+
+.handsontable .wtHolder::-webkit-scrollbar-thumb {
+  background: #c1c1c1 !important;
+  border-radius: 4px !important;
+}
+
+.handsontable .wtHolder::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8 !important;
+}
+
+/* Striped rows */
+.handsontable tbody tr:nth-child(even) td {
+  background-color: #cdd9e5ae !important;
+}
+
+.handsontable tbody tr:nth-child(odd) td {
+  background-color: white !important;
+}
+
+.handsontable thead th {
+  background: linear-gradient(180deg, #e0e2e3 0%, #bec4c8 100%) !important;
+  color: #141515 !important;
+  font-weight: 600 !important;
+  text-align: center !important;
+  font-size: 13px !important;
+}
