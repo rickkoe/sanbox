@@ -71,3 +71,15 @@
   text-align: center !important;
   font-size: 13px !important;
 }
+
+/* Row hover effect */
+.handsontable tbody tr:hover td {
+  background-color: #e3f2fd !important;
+}
+
+/* Selected cell highlight */
+.handsontable tbody td.current {
+  background-color: #cce5ff !important;
+  border: 3px solid #007bff !important;
+}
+

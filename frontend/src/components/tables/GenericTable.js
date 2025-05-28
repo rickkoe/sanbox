@@ -74,6 +74,183 @@ const GenericTable = forwardRef(({
   const [selectedCount, setSelectedCount] = useState(0);
   const tableRef = useRef(null);
   const containerRef = useRef(null);
+  const enhancedContextMenu = {
+  items: {
+    // Row operations
+    "add_row_above": {
+      name: "Insert row above",
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot && selection && selection.length > 0) {
+          const row = selection[0].start.row;
+          hot.alter('insert_row_above', row);
+          setIsDirty(true);
+        }
+      }
+    },
+    "add_row_below": {
+      name: "Insert row below", 
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot && selection && selection.length > 0) {
+          const row = selection[0].end.row;
+          hot.alter('insert_row_below', row);
+          setIsDirty(true);
+        }
+      }
+    },
+    "hsep1": "---------",
+    
+    // Copy/Paste operations
+    "copy": {
+      name: "Copy",
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot) {
+          hot.getPlugin('copyPaste').copy();
+        }
+      }
+    },
+    "cut": {
+      name: "Cut",
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot) {
+          hot.getPlugin('copyPaste').cut();
+        }
+      }
+    },
+    "paste": {
+      name: "Paste",
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot) {
+          hot.getPlugin('copyPaste').paste();
+        }
+      }
+    },
+    "hsep2": "---------",
+    
+    // Clear operations
+    "clear_cell": {
+      name: "Clear content",
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot && selection && selection.length > 0) {
+          selection.forEach(range => {
+            for (let row = range.start.row; row <= range.end.row; row++) {
+              for (let col = range.start.col; col <= range.end.col; col++) {
+                hot.setDataAtCell(row, col, '');
+              }
+            }
+          });
+          setIsDirty(true);
+        }
+      }
+    },
+    "hsep3": "---------",
+    
+    // Selection operations
+    "select_all": {
+      name: "Select all",
+      callback: () => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot) {
+          hot.selectAll();
+        }
+      }
+    },
+    "hsep4": "---------",
+    
+    // Row deletion (your existing functionality enhanced)
+    "remove_row": {
+      name: "Delete selected rows",
+      callback: (key, selection) => handleAfterContextMenu(key, selection),
+      disabled: (key, selection) => {
+        // Disable if no rows with IDs are selected
+        if (!selection || selection.length === 0) return true;
+        const physicalRows = selection.map(range => 
+          Array.from({length: range.end.row - range.start.row + 1}, 
+            (_, i) => tableRef.current?.hotInstance?.toPhysicalRow(range.start.row + i))
+        ).flat().filter(r => r !== null && r < unsavedData.length);
+        
+        return !physicalRows.some(r => unsavedData[r]?.id !== null);
+      }
+    },
+    "hsep5": "---------",
+    
+    // Data operations
+    "duplicate_row": {
+      name: "Duplicate row",
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot && selection && selection.length > 0) {
+          const sourceRow = selection[0].start.row;
+          const physicalRow = hot.toPhysicalRow(sourceRow);
+          if (physicalRow !== null && physicalRow < unsavedData.length) {
+            const rowData = { ...unsavedData[physicalRow] };
+            // Clear ID so it becomes a new row
+            rowData.id = null;
+            rowData.saved = false;
+            // Clear unique fields that shouldn't be duplicated
+            if (rowData.name) rowData.name = `${rowData.name}_copy`;
+            
+            // Insert the duplicated row
+            const newData = [...unsavedData];
+            newData.splice(physicalRow + 1, 0, rowData);
+            setUnsavedData(newData);
+            setIsDirty(true);
+          }
+        }
+      },
+      disabled: (key, selection) => {
+        // Only enable if single row is selected
+        return !selection || selection.length !== 1 || 
+               selection[0].start.row !== selection[0].end.row;
+      }
+    },
+    "export_selected": {
+      name: "Export selected rows",
+      callback: (key, selection) => {
+        if (!selection || selection.length === 0) return;
+        
+        const hot = tableRef.current?.hotInstance;
+        if (!hot) return;
+        
+        const selectedData = [];
+        selection.forEach(range => {
+          for (let row = range.start.row; row <= range.end.row; row++) {
+            const physicalRow = hot.toPhysicalRow(row);
+            if (physicalRow !== null && physicalRow < unsavedData.length) {
+              selectedData.push(unsavedData[physicalRow]);
+            }
+          }
+        });
+        
+        // Export as CSV
+        const headers = colHeaders.join(",");
+        const rows = selectedData.map(row => 
+          columns.map(col => {
+            const val = row[col.data];
+            if (typeof val === "string") return `"${val.replace(/"/g, '""')}"`;
+            return val ?? "";
+          }).join(",")
+        );
+        
+        const csvContent = [headers, ...rows].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "selected_rows.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+  }
+};
   // Helper to update selected row count (only count rows with a non-null id)
   const updateSelectedCount = () => {
     const hot = tableRef.current?.hotInstance;
@@ -650,7 +827,7 @@ const GenericTable = forwardRef(({
   }}
   // Add these back one by one and test
   stretchH="all"
-  contextMenu={{ items: { remove_row: { name: "Remove row(s)" } } }}
+  contextMenu={enhancedContextMenu}
   afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
   beforeRemoveRow={() => false}
   colWidths={colWidths}
