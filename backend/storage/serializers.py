@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Storage, Volume
+from .models import Storage, Volume, Host
 from customers.serializers import CustomerSerializer
 
 class StorageSerializer(serializers.ModelSerializer):
@@ -14,4 +14,10 @@ class StorageSerializer(serializers.ModelSerializer):
 class VolumeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Volume
+        fields = '__all__'
+
+
+class HostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Host
         fields = '__all__'

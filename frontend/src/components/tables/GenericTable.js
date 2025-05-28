@@ -34,6 +34,7 @@ const GenericTable = forwardRef(({
   apiUrl,
   saveUrl,
   deleteUrl,
+  saveTransform,
   columns,
   colHeaders,
   newRowTemplate,
@@ -279,9 +280,13 @@ const GenericTable = forwardRef(({
         }
       } else {
         // Default save implementation
+        // Apply saveTransform if provided
+        const transformedData = typeof saveTransform === 'function' ? saveTransform(unsavedData) : unsavedData;
+        console.log("Transformed save data:", transformedData);
+
         const payload = [];
 
-        unsavedData.forEach(row => {
+        transformedData.forEach(row => {
           const isNew = row.id == null;
           const original = data.find(d => d.id === row.id);
           const isModified = original ? JSON.stringify(row) !== JSON.stringify(original) : false;
@@ -302,10 +307,12 @@ const GenericTable = forwardRef(({
             const postData = { ...row };
             delete postData.id;
             delete postData.saved;
-            return axios.post(saveUrl, postData);
+            // Ensure saveUrl ends with a trailing slash for POST, but don't duplicate slashes
+            return axios.post(saveUrl.endsWith("/") ? saveUrl : `${saveUrl}/`, postData);
           } else {
             const putData = { ...row };
             delete putData.saved;
+            // Ensure trailing slash for PUT
             return axios.put(`${saveUrl}${row.id}/`, putData);
           }
         }));
@@ -620,7 +627,7 @@ const GenericTable = forwardRef(({
             beforeRemoveRow={() => false}
             stretchH="all"
             licenseKey="non-commercial-and-evaluation"
-            rowHeaders={true}
+            rowHeaders={false}
             
             // CRITICAL: Enable filters and dropdownMenu properly
             filters={true}
