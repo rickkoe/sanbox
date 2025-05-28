@@ -618,75 +618,39 @@ const GenericTable = forwardRef(({
           </div>
         ) : (
             <>
-        <HotTable
+<HotTable
   ref={tableRef}
   data={unsavedData}
   colHeaders={colHeaders}
   columns={enhancedColumns}
-  afterChange={handleAfterChange}
-  contextMenu={{ items: { remove_row: { name: "Remove row(s)" } } }}
-  afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
-  beforeRemoveRow={() => false}
   licenseKey="non-commercial-and-evaluation"
   rowHeaders={false}
   
-  stretchH="all"
+  // Working filters
+  filters={true}
+  dropdownMenu={true}
+  
+  // Basic functionality
   width="100%"
-  height="100%"
-  
-  filters={filters}
-  dropdownMenu={filters || dropdownMenu}
-  columnSorting={columnSorting}
-  
-  manualColumnResize={true}
-  fixedRowsTop={0}
-  fixedColumnsLeft={fixedColumnsLeft}
-  
-  colWidths={colWidths}
-  cells={getCellsConfig ? cellsFunc : undefined}
-  afterColumnResize={handleAfterColumnResize}
+  height="600px"
+  afterChange={handleAfterChange}
   afterSelection={(r, c, r2, c2) => updateSelectedCount()}
   afterDeselect={() => setSelectedCount(0)}
   
-  viewportRowRenderingOffset={30}
-  viewportColumnRenderingOffset={30}
-  preventOverflow={false}
+  // Column functionality
+  manualColumnResize={true}
+  afterColumnResize={handleAfterColumnResize}
   
-  // ADD THIS CALLBACK:
-afterRender={() => {
-    console.log("HotTable afterRender fired");
-    
-    // Use a longer delay to ensure everything is loaded
-    setTimeout(() => {
-      const hot = tableRef.current?.hotInstance;
-      console.log("Hot instance in afterRender:", hot);
-      
-      if (hot) {
-        console.log("Filters plugin loaded:", hot.getPlugin('filters'));
-        console.log("DropdownMenu plugin loaded:", hot.getPlugin('dropdownMenu'));
-        
-        const filtersPlugin = hot.getPlugin('filters');
-        const dropdownPlugin = hot.getPlugin('dropdownMenu');
-        
-        console.log("Filters plugin exists:", !!filtersPlugin);
-        console.log("Filters plugin enabled:", filtersPlugin?.isEnabled());
-        console.log("DropdownMenu plugin exists:", !!dropdownPlugin);
-        console.log("DropdownMenu plugin enabled:", dropdownPlugin?.isEnabled());
-        
-        // Check for filter buttons
-        const filterButtons = document.querySelectorAll('.htDropdownMenuButton');
-        console.log("Filter buttons found:", filterButtons.length);
-        
-        // Also check headers
-        const headers = document.querySelectorAll('.handsontable thead th');
-        console.log("Table headers found:", headers.length);
-        headers.forEach((header, index) => {
-          const button = header.querySelector('.htDropdownMenuButton');
-          console.log(`Header ${index} has filter button:`, !!button);
-        });
-      }
-    }, 2000); // Longer delay
-  }}
+  // Add these back one by one and test
+  stretchH="all"
+  contextMenu={{ items: { remove_row: { name: "Remove row(s)" } } }}
+  afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
+  beforeRemoveRow={() => false}
+  colWidths={colWidths}
+  cells={getCellsConfig ? cellsFunc : undefined}
+  // viewportRowRenderingOffset={30}
+  // viewportColumnRenderingOffset={30}
+  preventOverflow={false}
 />
         </>
         )}

@@ -10,3 +10,28 @@
 .export-button {
   margin: 10px;
 }
+/* Nuclear option - completely restructure the layout */
+.htFiltersMenuValue .htUIMultipleSelectHot tbody td {
+  position: relative !important;
+  padding: 4px 8px 4px 32px !important;
+  color: #000 !important;
+  background: white !important;
+  font-size: 13px !important;
+  line-height: 20px !important;
+  min-height: 24px !important;
+}
+
+.htFiltersMenuValue .htUIMultipleSelectHot tbody td input[type="checkbox"] {
+  position: absolute !important;
+  left: 8px !important;
+  top: 4px !important;
+  margin: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Hide any wrapper elements that might be interfering */
+.htFiltersMenuValue .htUIMultipleSelectHot tbody td > div,
+.htFiltersMenuValue .htUIMultipleSelectHot tbody td > span {
+  display: contents !important;
+}

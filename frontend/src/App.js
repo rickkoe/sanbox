@@ -30,8 +30,7 @@ import FlashsystemscriptsPage from "./pages/FlashsystemScriptsPage";
 import ZoneScriptsPage from "./pages/ZoneScriptsPage";
 import ImportSwitchConfig from "./components/forms/ImportSwitchConfig";
 import StorageInsightsImporter from "./pages/StorageInsightsImporter";
-import GenericTable from "./components/tables/GenericTable";
-
+import TestFilters from "./components/tables/TestFilters";
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
@@ -80,18 +79,15 @@ function App() {
                   <Route path="/scripts/zoning" element={<ZoneScriptsPage />} />
                   <Route path="/scripts/ds8000" element={<DS8000ScriptsPage />} />
                   <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
-                  <Route
-                    path="/generic"
-                    element={<GenericTable />}
-                  />
+                  <Route path="/test" element={<TestFilters />} />
                   <Route
                     path="/insights/importer"
                     element={<StorageInsightsImporter />}
                   />
-                  <Route
+                  {/* <Route
                     path="/tools/wwpn-colonizer"
                     element={<WWPNFormatterTable />}
-                  />
+                  /> */}
                   <Route
                     path="/tools/ibm-storage-calculator"
                     element={<StorageCalculatorPage />}
