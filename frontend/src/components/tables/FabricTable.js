@@ -127,7 +127,6 @@ const FabricTable = () => {
                 columns={columns}
                 filters
                 dropdownMenu
-                fixedColumnsLeft={2}
                 manualColumnResize
                 columnSorting
                 stretchH="all"

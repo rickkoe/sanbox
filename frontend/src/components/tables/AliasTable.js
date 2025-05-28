@@ -43,7 +43,6 @@ const AliasTable = () => {
     if (activeCustomerId) {
       axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`)
         .then(res => {
-          console.log("Fetched fabrics:", res.data); // Debug log
           setFabricOptions(res.data.map(f => ({ id: f.id, name: f.name })));
         })
         .catch(err => console.error("Error fetching fabrics:", err));
@@ -53,7 +52,6 @@ const AliasTable = () => {
   // Update dropdown sources when fabricOptions change
   useEffect(() => {
     if (fabricOptions.length > 0) {
-      console.log("Updated fabric dropdown sources:", fabricOptions.map(f => f.name)); // Debug log
     }
   }, [fabricOptions]);
 
@@ -196,16 +194,11 @@ const AliasTable = () => {
         saveUrl={API_ENDPOINTS.aliasSave}
         deleteUrl={API_ENDPOINTS.aliasDelete}
         newRowTemplate={NEW_ALIAS_TEMPLATE}
-        fixedColumnsLeft={1}
+        // fixedColumnsLeft={1}
         columnSorting={true}
         filters={true}
         storageKey="aliasTableColumnWidths"
         {...tableConfig}
-        dropdownSources={{
-          "use": ["init", "target", "both"],
-          "fabric_details.name": fabricOptions.map(f => f.name),
-          "cisco_alias": ["device-alias", "fcalias", "wwpn"]
-        }}
         additionalButtons={
           <Button
             className="save-button"

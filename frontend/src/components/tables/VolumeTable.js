@@ -134,7 +134,7 @@ const VolumeTable = ({ storage }) => {
         colHeaders={colHeaders}
         newRowTemplate={{}}
         getExportFilename={() => "volumes_export.csv"}
-        fixedColumnsLeft={1}
+        // fixedColumnsLeft={1}
         columnSorting={true}
         filters={true}
         storageKey="volumeTableWidths"

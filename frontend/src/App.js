@@ -30,6 +30,7 @@ import FlashsystemscriptsPage from "./pages/FlashsystemScriptsPage";
 import ZoneScriptsPage from "./pages/ZoneScriptsPage";
 import ImportSwitchConfig from "./components/forms/ImportSwitchConfig";
 import StorageInsightsImporter from "./pages/StorageInsightsImporter";
+import GenericTable from "./components/tables/GenericTable";
 
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
@@ -79,7 +80,10 @@ function App() {
                   <Route path="/scripts/zoning" element={<ZoneScriptsPage />} />
                   <Route path="/scripts/ds8000" element={<DS8000ScriptsPage />} />
                   <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
-                  
+                  <Route
+                    path="/generic"
+                    element={<GenericTable />}
+                  />
                   <Route
                     path="/insights/importer"
                     element={<StorageInsightsImporter />}

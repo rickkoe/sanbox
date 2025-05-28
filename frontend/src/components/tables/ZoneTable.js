@@ -231,9 +231,9 @@ const ZoneTable = () => {
         saveUrl={API_ENDPOINTS.zoneSave}
         deleteUrl={API_ENDPOINTS.zoneDelete}
         newRowTemplate={NEW_ZONE_TEMPLATE}
-        fixedColumnsLeft={1}
-        columnSorting={true}
-        filters={true}
+        // fixedColumnsLeft={1}
+        // columnSorting={true}
+        // filters={true}
         storageKey="zoneTableColumnWidths"
         {...tableConfig}
         additionalButtons={
