@@ -37,14 +37,25 @@ const getSidebarLinks = (pathname) => {
     };
   }
 
+  if (pathname.startsWith("/scripts")) {
+    return {
+      header: "Script Builder",
+      showBackButton: true,
+      links: [
+        { path: "/scripts/ds8000", label: "DS8000" },
+        { path: "/scripts/flashsystem", label: "FlashSystem" },
+        { path: "/scripts/zoning", label: "SAN Zoning" },
+      ],
+    };
+  }
+
   return {
     header: "General",
     showBackButton: false,
     links: [
-      { path: "/", label: "Home" },
-      { path: "/customers", label: "Customers" },
       { path: "/san", label: "SAN" },
       { path: "/storage", label: "Storage" },
+      { path: "/customers", label: "Customers" },
       { path: "/tools", label: "Tools" },
     ],
   };
@@ -102,19 +113,23 @@ const Sidebar = () => {
             </button>
           )}
           <ul>
-            {links.map((link) => (
-              <li key={link.path}>
-                <NavLink
-                  to={link.path}
-                  end={link.label === "Properties"}
-                  className={({ isActive }) =>
-                    isActive ? "sidebar-link active" : "sidebar-link"
-                  }
-                >
-                  {link.label}
-                </NavLink>
-              </li>
-            ))}
+            {links.map((link, index) =>
+              link.divider ? (
+                <hr key={`divider-${index}`} className="sidebar-divider" />
+              ) : (
+                <li key={link.path}>
+                  <NavLink
+                    to={link.path}
+                    end={link.label === "Properties"}
+                    className={({ isActive }) =>
+                      isActive ? "sidebar-link active" : "sidebar-link"
+                    }
+                  >
+                    {link.label}
+                  </NavLink>
+                </li>
+              )
+            )}
           </ul>
         </div>
       </div>

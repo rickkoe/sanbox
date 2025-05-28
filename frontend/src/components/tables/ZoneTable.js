@@ -8,7 +8,7 @@ import GenericTable from "./GenericTable";
 // API endpoints
 const API_ENDPOINTS = {
   zones: "http://127.0.0.1:8000/api/san/zones/project/",
-  fabrics: "http://127.0.0.1:8000/api/san/fabrics/customer/",
+  fabrics: "http://127.0.0.1:8000/api/san/fabrics/",
   aliases: "http://127.0.0.1:8000/api/san/aliases/project/",
   zoneSave: "http://127.0.0.1:8000/api/san/zones/save/",
   zoneDelete: "http://127.0.0.1:8000/api/san/zones/delete/"
@@ -35,7 +35,7 @@ const ZoneTable = () => {
   // Load data
   useEffect(() => {
     if (activeCustomerId) {
-      axios.get(`${API_ENDPOINTS.fabrics}${activeCustomerId}/`)
+      axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`)
         .then(res => setFabricOptions(res.data.map(f => ({ id: f.id, name: f.name }))))
         .catch(err => console.error("Error fetching fabrics:", err));
     }

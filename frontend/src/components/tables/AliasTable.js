@@ -8,7 +8,7 @@ import GenericTable from "./GenericTable";
 // API endpoints
 const API_ENDPOINTS = {
   aliases: "http://127.0.0.1:8000/api/san/aliases/project/",
-  fabrics: "http://127.0.0.1:8000/api/san/fabrics/customer/",
+  fabrics: "http://127.0.0.1:8000/api/san/fabrics/",
   aliasSave: "http://127.0.0.1:8000/api/san/aliases/save/",
   aliasDelete: "http://127.0.0.1:8000/api/san/aliases/delete/"
 };
@@ -41,11 +41,21 @@ const AliasTable = () => {
   // Load fabrics
   useEffect(() => {
     if (activeCustomerId) {
-      axios.get(`${API_ENDPOINTS.fabrics}${activeCustomerId}/`)
-        .then(res => setFabricOptions(res.data.map(f => ({ id: f.id, name: f.name }))))
+      axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`)
+        .then(res => {
+          console.log("Fetched fabrics:", res.data); // Debug log
+          setFabricOptions(res.data.map(f => ({ id: f.id, name: f.name })));
+        })
         .catch(err => console.error("Error fetching fabrics:", err));
     }
   }, [activeCustomerId]);
+
+  // Update dropdown sources when fabricOptions change
+  useEffect(() => {
+    if (fabricOptions.length > 0) {
+      console.log("Updated fabric dropdown sources:", fabricOptions.map(f => f.name)); // Debug log
+    }
+  }, [fabricOptions]);
 
   if (!activeProjectId) {
     return <div className="alert alert-warning">No active project selected.</div>;
@@ -61,7 +71,7 @@ const AliasTable = () => {
       { data: "name" },
       { data: "wwpn" },
       { data: "use", type: "dropdown", className: "htCenter" },
-      { data: "fabric_details.name", type: "dropdown" },
+      { data: "fabric_details.name", type: "dropdown" }, // Keep this as is - the dropdown source will handle it
       { data: "cisco_alias", type: "dropdown", className: "htCenter" },
       { data: "create", type: "checkbox", className: "htCenter" },
       { data: "include_in_zoning", type: "checkbox", className: "htCenter" },
@@ -71,7 +81,7 @@ const AliasTable = () => {
     ],
     dropdownSources: {
       "use": ["init", "target", "both"],
-      "fabric_details.name": fabricOptions.map(f => f.name),
+      "fabric_details.name": fabricOptions.map(f => f.name), // This will be updated dynamically
       "cisco_alias": ["device-alias", "fcalias", "wwpn"]
     },
     // Process data for display
@@ -191,6 +201,11 @@ const AliasTable = () => {
         filters={true}
         storageKey="aliasTableColumnWidths"
         {...tableConfig}
+        dropdownSources={{
+          "use": ["init", "target", "both"],
+          "fabric_details.name": fabricOptions.map(f => f.name),
+          "cisco_alias": ["device-alias", "fcalias", "wwpn"]
+        }}
         additionalButtons={
           <Button
             className="save-button"

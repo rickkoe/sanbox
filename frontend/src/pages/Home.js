@@ -43,7 +43,7 @@ const Dashboard = () => {
     setLoading(true);
     
     // Fetch SAN fabrics data
-    const fetchFabrics = axios.get(`http://127.0.0.1:8000/api/san/fabrics/customer/${config.customer.id}/`);
+    const fetchFabrics = axios.get(`http://127.0.0.1:8000/api/san/fabrics/?customer_id=${config.customer.id}`);
     
     // Fetch zones for active project
     const fetchZones = config.active_project?.id 
