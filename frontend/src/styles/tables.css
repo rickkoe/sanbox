@@ -83,3 +83,61 @@
   border: 3px solid #007bff !important;
 }
 
+.htContextMenu {
+  background: white !important;
+  border: 1px solid #ddd !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  padding: 4px 0 !important;
+  min-width: 180px !important;
+}
+
+.htContextMenu tbody td {
+  padding: 8px 16px !important;
+  font-size: 13px !important;
+  color: #333 !important;
+  border: none !important;
+  background: white !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.htContextMenu tbody td:hover {
+  background-color: #f8f9fa !important;
+}
+
+.htContextMenu tbody td.htDisabled {
+  color: #999 !important;
+  cursor: not-allowed !important;
+}
+
+.htContextMenu tbody td.htDisabled:hover {
+  background-color: white !important;
+}
+
+.htContextMenu tbody td.htSeparator {
+  border-top: 1px solid #eee !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: 4px 0 !important;
+}
+
+/* Fix context menu alternating backgrounds */
+.htContextMenu tbody tr {
+  background-color: white !important;
+}
+
+.htContextMenu tbody tr:nth-child(even) td,
+.htContextMenu tbody tr:nth-child(odd) td {
+  background-color: white !important;
+}
+
+/* Override any zebra striping for context menus */
+.htContextMenu tbody td {
+  background: white !important;
+}
+
+.htContextMenu tbody td:hover {
+  background-color: #f8f9fa !important;
+}

@@ -166,49 +166,11 @@ const GenericTable = forwardRef(({
     "remove_row": {
       name: "Delete selected rows",
       callback: (key, selection) => handleAfterContextMenu(key, selection),
-      disabled: (key, selection) => {
-        // Disable if no rows with IDs are selected
-        if (!selection || selection.length === 0) return true;
-        const physicalRows = selection.map(range => 
-          Array.from({length: range.end.row - range.start.row + 1}, 
-            (_, i) => tableRef.current?.hotInstance?.toPhysicalRow(range.start.row + i))
-        ).flat().filter(r => r !== null && r < unsavedData.length);
-        
-        return !physicalRows.some(r => unsavedData[r]?.id !== null);
-      }
+      // disabled: () => false  // Always enabled
     },
+    
     "hsep5": "---------",
     
-    // Data operations
-    "duplicate_row": {
-      name: "Duplicate row",
-      callback: (key, selection) => {
-        const hot = tableRef.current?.hotInstance;
-        if (hot && selection && selection.length > 0) {
-          const sourceRow = selection[0].start.row;
-          const physicalRow = hot.toPhysicalRow(sourceRow);
-          if (physicalRow !== null && physicalRow < unsavedData.length) {
-            const rowData = { ...unsavedData[physicalRow] };
-            // Clear ID so it becomes a new row
-            rowData.id = null;
-            rowData.saved = false;
-            // Clear unique fields that shouldn't be duplicated
-            if (rowData.name) rowData.name = `${rowData.name}_copy`;
-            
-            // Insert the duplicated row
-            const newData = [...unsavedData];
-            newData.splice(physicalRow + 1, 0, rowData);
-            setUnsavedData(newData);
-            setIsDirty(true);
-          }
-        }
-      },
-      disabled: (key, selection) => {
-        // Only enable if single row is selected
-        return !selection || selection.length !== 1 || 
-               selection[0].start.row !== selection[0].end.row;
-      }
-    },
     "export_selected": {
       name: "Export selected rows",
       callback: (key, selection) => {
