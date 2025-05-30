@@ -73,13 +73,18 @@ class Zone(models.Model):
     fabric = models.ForeignKey(Fabric, on_delete=models.CASCADE)
     name = models.CharField(max_length=100, unique=False)
     projects = models.ManyToManyField(Project, related_name='zone_projects')
-    create = models.BooleanField(default=False)
-    exists = models.BooleanField(default=False)
-    zone_type = models.CharField(max_length=100,choices=[
-        ('smart', 'smart'),
-        ('standard', 'standard'),
-    ])
-    members = models.ManyToManyField(Alias)
+    create = models.BooleanField(default=False, null=True, blank=True)
+    exists = models.BooleanField(default=False, null=True, blank=True)
+    zone_type = models.CharField(
+        max_length=100,
+        choices=[
+            ('smart', 'smart'),
+            ('standard', 'standard'),
+        ],
+        null=True, 
+        blank=True
+    )
+    members = models.ManyToManyField(Alias, blank=True)
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from core.models import Config
 from san.models import Alias, Zone, Fabric
+from .san_tools import wwpn_colonizer
 
 def merge_dicts(*dicts):
     merged_dict = {}
@@ -19,7 +20,7 @@ def build_device_alias_commands(alias, command_list):
     """
     if not command_list:
         command_list.extend(['config t', 'device-alias database'])
-    command_list.append(f'device-alias name {alias.name} pwwn {alias.wwpn}')
+    command_list.append(f'device-alias name {alias.name} pwwn {wwpn_colonizer(alias.wwpn)}')
     return command_list
 
 
@@ -57,7 +58,7 @@ def generate_alias_commands(aliases, config):
             if alias.cisco_alias == 'device-alias':
                 if not device_alias_command_dict[key]["commands"]:
                     device_alias_command_dict[key]["commands"].extend(['config t', 'device-alias database'])
-                device_alias_command_dict[key]["commands"].append(f'device-alias name {alias.name} pwwn {alias.wwpn}')
+                device_alias_command_dict[key]["commands"].append(f'device-alias name {alias.name} pwwn {wwpn_colonizer(alias.wwpn)}')
             elif alias.cisco_alias == 'fcalias':
                 fcalias_command_dict[key]["commands"].append(f'fcalias name {alias.name} vsan {alias.fabric.vsan} ; member pwwn {alias.wwpn} {alias.use}')
         elif alias.fabric.san_vendor == 'BR':
@@ -129,9 +130,9 @@ def generate_zone_commands(zones, config):
             zoneset_command_dict[key]["fabric_info"] = fabric_info
         
         if key not in zone_command_dict or not zone_command_dict[key]["commands"]:
-            zone_command_dict[key]["commands"].extend(['', f'### ZONE COMMANDS FOR {key.upper()} '])
+            zone_command_dict[key]["commands"].extend([f'### ZONE COMMANDS FOR {key.upper()} '])
         if key not in zoneset_command_dict or not zoneset_command_dict[key]["commands"]:
-            zoneset_command_dict[key]["commands"].extend(['', f'### ZONESET COMMANDS FOR {key.upper()} '])
+            zoneset_command_dict[key]["commands"].extend([f'### ZONESET COMMANDS FOR {key.upper()} '])
             
         if zone_member_length > 0:
             if zone.fabric.san_vendor == 'CI':
@@ -139,6 +140,7 @@ def generate_zone_commands(zones, config):
                     zone_command_dict[key]["commands"].append('config t')
                     firstpass = True
                 if len(zoneset_command_dict[key]["commands"]) == 2:
+                    print(zoneset_command_dict[key]["commands"])
                     zoneset_command_dict[key]["commands"].append(f'zoneset name {zone.fabric.zoneset_name} vsan {zone.fabric.vsan}')
                 zone_command_dict[key]["commands"].append(f'zone name {zone.name} vsan {zone.fabric.vsan}')
                 if zone.exists == False:

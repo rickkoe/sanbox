@@ -141,3 +141,32 @@
 .htContextMenu tbody td:hover {
   background-color: #f8f9fa !important;
 }
+
+/* Remove all previous checkbox CSS and use this exact targeting */
+
+/* Target the exact classes Safari shows */
+td.htCenter.htAutocomplete input[type="checkbox"] {
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+/* Alternative - be more specific with the full path */
+.handsontable tbody td.htCenter.htAutocomplete {
+  text-align: center !important;
+}
+
+.handsontable tbody td.htCenter.htAutocomplete input[type="checkbox"] {
+  display: block !important;
+  margin: 0 auto !important;
+}
+
+/* Nuclear option - target any td with htCenter class regardless of other classes */
+.handsontable [class*="htCenter"] input[type="checkbox"] {
+  display: block !important;
+  margin: 0 auto !important;
+  text-align: center !important;
+}
+
+.handsontable [class*="htCenter"] {
+  text-align: center !important;
+}

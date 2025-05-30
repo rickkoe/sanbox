@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import Handsontable from 'handsontable'; // <- Make sure this is here
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
+import context from "react-bootstrap/esm/AccordionContext";
 console.log("Handsontable version:", Handsontable.version);
 
 registerAllModules();
@@ -163,11 +164,14 @@ const GenericTable = forwardRef(({
     "hsep4": "---------",
     
     // Row deletion (your existing functionality enhanced)
-    "remove_row": {
-      name: "Delete selected rows",
-      callback: (key, selection) => handleAfterContextMenu(key, selection),
-      // disabled: () => false  // Always enabled
-    },
+   "remove_row": {
+  name: "Delete selected rows",
+  callback: (key, selection, clickEvent) => {
+    console.log("Delete menu clicked - Key:", key, "Selection:", selection);
+    handleAfterContextMenu(key, selection);
+  }
+  // No disabled function - always enabled
+},
     
     "hsep5": "---------",
     
@@ -482,72 +486,134 @@ const GenericTable = forwardRef(({
   };
 
   const handleAfterContextMenu = (key, selection) => {
-    if (key === "remove_row") {
-      if (!selection || selection.length === 0) return;
-      
-      const physicalRows = selection.map(([visualRow]) => {
-        return tableRef.current.hotInstance.toPhysicalRow(visualRow);
-      }).filter(r => r !== null && r < unsavedData.length);
-      
-      // Get unique rows in descending order (to avoid index shifting issues when deleting)
-      const uniqueRows = [...new Set(physicalRows)].sort((a, b) => b - a);
-      
-      // Split rows into those with IDs (requiring server deletion) and those without
-      const rowsWithId = uniqueRows.filter(r => unsavedData[r].id !== null);
-      const rowsWithoutId = uniqueRows.filter(r => unsavedData[r].id === null);
-      
-      // For rows without IDs, remove them directly
-      if (rowsWithoutId.length > 0) {
-        const updated = [...unsavedData];
-        rowsWithoutId.forEach(rowIndex => {
-          updated.splice(rowIndex, 1);
-        });
-        
-        // Ensure we still have a blank row at the end
-        const dataWithBlankRow = ensureBlankRow(updated);
-        setUnsavedData(dataWithBlankRow);
-        setIsDirty(true);
-      }
-      
-      // For rows with IDs, show confirmation modal
-      if (rowsWithId.length > 0) {
-        setRowsToDelete(rowsWithId.map(r => unsavedData[r]));
-        setShowDeleteModal(true);
-      }
+  console.log("Context menu action:", key, "Selection:", selection);
+  
+  if (key === "remove_row") {
+    if (!selection || selection.length === 0) {
+      console.log("No selection found");
+      return;
     }
-  };
-
-  const confirmDelete = async () => {
-    setLoading(true);
-    try {
-      // Delete each item on the server
-      await Promise.all(rowsToDelete.map(row => axios.delete(`${deleteUrl}${row.id}/`)));
+    
+    const hot = tableRef.current?.hotInstance;
+    if (!hot) {
+      console.log("No hot instance found");
+      return;
+    }
+    
+    // Get all selected row indices (visual rows)
+    const visualRows = [];
+    selection.forEach(range => {
+      for (let row = range.start.row; row <= range.end.row; row++) {
+        visualRows.push(row);
+      }
+    });
+    
+    console.log("Visual rows selected:", visualRows);
+    
+    // Convert to physical rows and filter valid ones
+    const physicalRows = visualRows
+      .map(visualRow => hot.toPhysicalRow(visualRow))
+      .filter(physicalRow => physicalRow !== null && physicalRow < unsavedData.length)
+      .filter((row, index, arr) => arr.indexOf(row) === index); // Remove duplicates
+    
+    console.log("Physical rows:", physicalRows);
+    console.log("Unsaved data length:", unsavedData.length);
+    
+    if (physicalRows.length === 0) {
+      console.log("No valid rows to delete");
+      return;
+    }
+    
+    // Sort in descending order to avoid index shifting issues when deleting
+    const sortedRows = [...physicalRows].sort((a, b) => b - a);
+    
+    // Split rows into those with IDs (requiring server deletion) and those without
+    const rowsWithId = [];
+    const rowsWithoutId = [];
+    
+    sortedRows.forEach(rowIndex => {
+      const rowData = unsavedData[rowIndex];
+      console.log(`Row ${rowIndex}:`, rowData);
       
-      // Remove deleted items from local data
-      const updatedData = unsavedData.filter(item => 
-        !rowsToDelete.some(deleteItem => deleteItem.id === item.id)
-      );
+      if (rowData && rowData.id !== null && rowData.id !== undefined) {
+        rowsWithId.push(rowIndex);
+      } else {
+        rowsWithoutId.push(rowIndex);
+      }
+    });
+    
+    console.log("Rows with ID (need server deletion):", rowsWithId);
+    console.log("Rows without ID (local deletion only):", rowsWithoutId);
+    
+    // For rows without IDs, remove them directly
+    if (rowsWithoutId.length > 0) {
+      const updated = [...unsavedData];
+      rowsWithoutId.forEach(rowIndex => {
+        console.log(`Removing local row at index ${rowIndex}`);
+        updated.splice(rowIndex, 1);
+      });
       
       // Ensure we still have a blank row at the end
-      const dataWithBlankRow = ensureBlankRow(updatedData);
+      const dataWithBlankRow = ensureBlankRow(updated);
       setUnsavedData(dataWithBlankRow);
-      
-      setSaveStatus("✅ Items deleted successfully!");
       setIsDirty(true);
-    } catch (error) {
-      console.error("Delete error:", error);
-      setSaveStatus(`❌ Delete failed: ${error.message}`);
-    } finally {
-      setShowDeleteModal(false);
-      setRowsToDelete([]);
-      setLoading(false);
+      
+      if (rowsWithId.length === 0) {
+        setSaveStatus("✅ Rows deleted successfully!");
+      }
     }
-  };
+    
+    // For rows with IDs, show confirmation modal
+    if (rowsWithId.length > 0) {
+      const rowsToDeleteData = rowsWithId.map(rowIndex => unsavedData[rowIndex]);
+      console.log("Rows to delete from server:", rowsToDeleteData);
+      setRowsToDelete(rowsToDeleteData);
+      setShowDeleteModal(true);
+    }
+  }
+};
+
+const confirmDelete = async () => {
+  console.log("Confirming delete for:", rowsToDelete);
+  setLoading(true);
+  
+  try {
+    // Delete each item on the server
+    const deletePromises = rowsToDelete.map(row => {
+      console.log(`Deleting row with ID ${row.id} from server`);
+      return axios.delete(`${deleteUrl}${row.id}/`);
+    });
+    
+    await Promise.all(deletePromises);
+    
+    // Remove deleted items from local data
+    const updatedData = unsavedData.filter(item => 
+      !rowsToDelete.some(deleteItem => deleteItem.id === item.id)
+    );
+    
+    console.log("Updated data after server deletion:", updatedData.length, "rows remaining");
+    
+    // Ensure we still have a blank row at the end
+    const dataWithBlankRow = ensureBlankRow(updatedData);
+    setUnsavedData(dataWithBlankRow);
+    
+    setSaveStatus("✅ Items deleted successfully!");
+    setIsDirty(true);
+  } catch (error) {
+    console.error("Delete error:", error);
+    setSaveStatus(`❌ Delete failed: ${error.response?.data?.message || error.message}`);
+  } finally {
+    setShowDeleteModal(false);
+    setRowsToDelete([]);
+    setLoading(false);
+  }
+};
 
   const cancelDelete = () => {
     setShowDeleteModal(false);
     setRowsToDelete([]);
   };
+
 
   // 🚨 Handle navigation away with unsaved changes
   useEffect(() => {
