@@ -3,36 +3,13 @@ import { HotTable } from '@handsontable/react';
 import { Modal, Button, Spinner, Alert, Dropdown, DropdownButton } from "react-bootstrap";
 import axios from "axios";
 import * as XLSX from "xlsx";
-import Handsontable from 'handsontable'; // <- Make sure this is here
+import Handsontable from 'handsontable';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
-import context from "react-bootstrap/esm/AccordionContext";
-console.log("Handsontable version:", Handsontable.version);
 
+console.log("Handsontable version:", Handsontable.version);
 registerAllModules();
-console.log("Registered plugins:", Object.keys(Handsontable.plugins));
-/**
- * A generic reusable table component for all CRUD operations
- * @param {Object} props - Component props
- * @param {string} props.apiUrl - URL for fetching data
- * @param {string} props.saveUrl - URL for saving data
- * @param {string} props.deleteUrl - URL for deleting data
- * @param {Array} props.columns - Column definitions for the table
- * @param {Array} props.colHeaders - Column header texts
- * @param {Object} props.newRowTemplate - Template for new row
- * @param {Object} props.dropdownSources - Sources for dropdown fields
- * @param {Function} props.onBuildPayload - Function to build payload for saving
- * @param {Function} props.onSave - Custom save handler if needed
- * @param {string} props.navigationRedirectPath - Path to redirect after save
- * @param {Object} props.customRenderers - Custom cell renderers
- * @param {Function} props.preprocessData - Function to preprocess data before rendering
- * @param {Array} props.colWidths - Column widths
- * @param {Function} props.getCellsConfig - Function to get dynamic cell configuration
- * @param {number} props.fixedColumnsLeft - Number of columns to fix on the left
- * @param {boolean} props.columnSorting - Enable column sorting
- * @param {boolean} props.filters - Enable column filters
- * @param {React.Ref} ref - Forwarded ref
- */
+
 const GenericTable = forwardRef(({
   apiUrl,
   saveUrl,
@@ -75,149 +52,142 @@ const GenericTable = forwardRef(({
   const [selectedCount, setSelectedCount] = useState(0);
   const tableRef = useRef(null);
   const containerRef = useRef(null);
+
   const enhancedContextMenu = {
-  items: {
-    // Row operations
-    "add_row_above": {
-      name: "Insert row above",
-      callback: (key, selection) => {
-        const hot = tableRef.current?.hotInstance;
-        if (hot && selection && selection.length > 0) {
-          const row = selection[0].start.row;
-          hot.alter('insert_row_above', row);
-          setIsDirty(true);
+    items: {
+      "add_row_above": {
+        name: "Insert row above",
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot && selection && selection.length > 0) {
+            const row = selection[0].start.row;
+            hot.alter('insert_row_above', row);
+            setIsDirty(true);
+          }
         }
-      }
-    },
-    "add_row_below": {
-      name: "Insert row below", 
-      callback: (key, selection) => {
-        const hot = tableRef.current?.hotInstance;
-        if (hot && selection && selection.length > 0) {
-          const row = selection[0].end.row;
-          hot.alter('insert_row_below', row);
-          setIsDirty(true);
+      },
+      "add_row_below": {
+        name: "Insert row below", 
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot && selection && selection.length > 0) {
+            const row = selection[0].end.row;
+            hot.alter('insert_row_below', row);
+            setIsDirty(true);
+          }
         }
-      }
-    },
-    "hsep1": "---------",
-    
-    // Copy/Paste operations
-    "copy": {
-      name: "Copy",
-      callback: (key, selection) => {
-        const hot = tableRef.current?.hotInstance;
-        if (hot) {
-          hot.getPlugin('copyPaste').copy();
+      },
+      "hsep1": { name: "---------" },
+      "copy": {
+        name: "Copy",
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot) {
+            hot.getPlugin('copyPaste').copy();
+          }
         }
-      }
-    },
-    "cut": {
-      name: "Cut",
-      callback: (key, selection) => {
-        const hot = tableRef.current?.hotInstance;
-        if (hot) {
-          hot.getPlugin('copyPaste').cut();
+      },
+      "cut": {
+        name: "Cut",
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot) {
+            hot.getPlugin('copyPaste').cut();
+          }
         }
-      }
-    },
-    "paste": {
-      name: "Paste",
-      callback: (key, selection) => {
-        const hot = tableRef.current?.hotInstance;
-        if (hot) {
-          hot.getPlugin('copyPaste').paste();
+      },
+      "paste": {
+        name: "Paste",
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot) {
+            hot.getPlugin('copyPaste').paste();
+          }
         }
-      }
-    },
-    "hsep2": "---------",
-    
-    // Clear operations
-    "clear_cell": {
-      name: "Clear content",
-      callback: (key, selection) => {
-        const hot = tableRef.current?.hotInstance;
-        if (hot && selection && selection.length > 0) {
+      },
+      "hsep2": "---------",
+      
+      "clear_cell": {
+        name: "Clear content",
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot && selection && selection.length > 0) {
+            selection.forEach(range => {
+              for (let row = range.start.row; row <= range.end.row; row++) {
+                for (let col = range.start.col; col <= range.end.col; col++) {
+                  hot.setDataAtCell(row, col, '');
+                }
+              }
+            });
+            setIsDirty(true);
+          }
+        }
+      },
+      "hsep3": "---------",
+      
+      "select_all": {
+        name: "Select all",
+        callback: () => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot) {
+            hot.selectAll();
+          }
+        }
+      },
+      "hsep4": "---------",
+      
+      "remove_row": {
+        name: "Delete selected rows",
+        callback: (key, selection, clickEvent) => {
+          console.log("Delete menu clicked - Key:", key, "Selection:", selection);
+          handleAfterContextMenu(key, selection);
+        }
+      },
+      
+      "hsep5": "---------",
+      
+      "export_selected": {
+        name: "Export selected rows",
+        callback: (key, selection) => {
+          if (!selection || selection.length === 0) return;
+          
+          const hot = tableRef.current?.hotInstance;
+          if (!hot) return;
+          
+          const selectedData = [];
           selection.forEach(range => {
             for (let row = range.start.row; row <= range.end.row; row++) {
-              for (let col = range.start.col; col <= range.end.col; col++) {
-                hot.setDataAtCell(row, col, '');
+              const physicalRow = hot.toPhysicalRow(row);
+              if (physicalRow !== null && physicalRow < unsavedData.length) {
+                selectedData.push(unsavedData[physicalRow]);
               }
             }
           });
-          setIsDirty(true);
+          
+          const headers = colHeaders.join(",");
+          const rows = selectedData.map(row => 
+            columns.map(col => {
+              const val = row[col.data];
+              if (typeof val === "string") return `"${val.replace(/"/g, '""')}"`;
+              return val ?? "";
+            }).join(",")
+          );
+          
+          const csvContent = [headers, ...rows].join("\n");
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute("download", "selected_rows.csv");
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }
-      }
-    },
-    "hsep3": "---------",
-    
-    // Selection operations
-    "select_all": {
-      name: "Select all",
-      callback: () => {
-        const hot = tableRef.current?.hotInstance;
-        if (hot) {
-          hot.selectAll();
-        }
-      }
-    },
-    "hsep4": "---------",
-    
-    // Row deletion (your existing functionality enhanced)
-   "remove_row": {
-  name: "Delete selected rows",
-  callback: (key, selection, clickEvent) => {
-    console.log("Delete menu clicked - Key:", key, "Selection:", selection);
-    handleAfterContextMenu(key, selection);
-  }
-  // No disabled function - always enabled
-},
-    
-    "hsep5": "---------",
-    
-    "export_selected": {
-      name: "Export selected rows",
-      callback: (key, selection) => {
-        if (!selection || selection.length === 0) return;
-        
-        const hot = tableRef.current?.hotInstance;
-        if (!hot) return;
-        
-        const selectedData = [];
-        selection.forEach(range => {
-          for (let row = range.start.row; row <= range.end.row; row++) {
-            const physicalRow = hot.toPhysicalRow(row);
-            if (physicalRow !== null && physicalRow < unsavedData.length) {
-              selectedData.push(unsavedData[physicalRow]);
-            }
-          }
-        });
-        
-        // Export as CSV
-        const headers = colHeaders.join(",");
-        const rows = selectedData.map(row => 
-          columns.map(col => {
-            const val = row[col.data];
-            if (typeof val === "string") return `"${val.replace(/"/g, '""')}"`;
-            return val ?? "";
-          }).join(",")
-        );
-        
-        const csvContent = [headers, ...rows].join("\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", "selected_rows.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
       }
     }
-  }
-};
-  // Helper to update selected row count (only count rows with a non-null id)
+  };
+
   const updateSelectedCount = () => {
     const hot = tableRef.current?.hotInstance;
     if (!hot) return;
@@ -237,7 +207,6 @@ const GenericTable = forwardRef(({
     setSelectedCount(rowSet.size);
   };
 
-  // Expose the table reference and methods to the parent component
   useImperativeHandle(ref, () => ({
     hotInstance: tableRef.current?.hotInstance,
     refreshData: fetchData,
@@ -245,36 +214,28 @@ const GenericTable = forwardRef(({
     setIsDirty
   }));
 
-  // Set up scroll detection to show/hide scroll buttons
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      // Only show buttons if there's enough content to scroll
       const hasScrollableContent = container.scrollHeight > container.clientHeight;
       setShowScrollButtons(hasScrollableContent);
       
-      // Check if we're at the top or bottom
       if (hasScrollableContent) {
         setIsAtTop(container.scrollTop <= 10);
         setIsAtBottom(container.scrollTop + container.clientHeight >= container.scrollHeight - 10);
       }
     };
 
-    // Initial check
     handleScroll();
-    
-    // Add event listener
     container.addEventListener('scroll', handleScroll);
     
-    // Cleanup
     return () => {
       container.removeEventListener('scroll', handleScroll);
     };
-  }, [unsavedData]); // Re-check when data changes
+  }, [unsavedData]);
 
-  // Scroll functions
   const scrollToTop = () => {
     const container = containerRef.current;
     if (container) {
@@ -289,34 +250,29 @@ const GenericTable = forwardRef(({
     }
   };
 
-  // Fetch data
   const fetchData = async () => {
     try {
       setLoading(true);
       const response = await axios.get(apiUrl);
       let responseData = response.data;
       
-      // Apply custom data preprocessing if provided
       if (preprocessData && typeof preprocessData === 'function') {
         responseData = preprocessData(responseData);
       }
       
       setData(responseData);
-      
-      // Ensure there's always a blank row at the end
       const dataWithBlankRow = ensureBlankRow(responseData);
       setUnsavedData(dataWithBlankRow);
       setIsDirty(false);
       setSaveStatus("");
     } catch (error) {
       console.error("Fetch error:", error);
-      setSaveStatus(`❌ Error loading data: ${error.message}`);
+      setSaveStatus(`Error loading data: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper to ensure there's always a blank row at the end
   const ensureBlankRow = (rows) => {
     if (!Array.isArray(rows)) return [{ ...newRowTemplate }];
     
@@ -326,21 +282,18 @@ const GenericTable = forwardRef(({
     return rows;
   };
 
-  // Check if a row has any non-empty values
   const hasNonEmptyValues = (row) => {
     if (!row) return false;
     
     return Object.keys(row).some(key => {
-      // Skip id field in the check
-      if (key === 'id') return false;
-      if (key === 'saved') return false;
+      if (key === 'id' || key === 'saved') return false;
       
       const value = row[key];
       if (value === null || value === undefined) return false;
       if (typeof value === 'string') return value.trim() !== '';
       if (typeof value === 'boolean') return value === true;
       if (Array.isArray(value)) return value.length > 0;
-      return true; // Any other non-null value is considered non-empty
+      return true;
     });
   };
 
@@ -364,7 +317,6 @@ const GenericTable = forwardRef(({
           updated[physicalRow] = { ...updated[physicalRow], [prop]: newVal, saved: false };
           dataChanged = true;
           
-          // If editing the last row and it now has content, prepare to add a new row
           if (physicalRow === updated.length - 1) {
             const isNotEmpty = Boolean(
               typeof newVal === "string" ? newVal.trim() : 
@@ -382,7 +334,6 @@ const GenericTable = forwardRef(({
     });
 
     if (dataChanged) {
-      // Add a new blank row if needed
       if (shouldAddNewRow) {
         updated.push({ ...newRowTemplate });
       }
@@ -393,17 +344,15 @@ const GenericTable = forwardRef(({
   };
 
   const handleSaveChanges = async () => {
-    // Skip saving if there are no unsaved changes
     if (!isDirty) {
-      setSaveStatus("⚠️ No changes to save.");
+      setSaveStatus("No changes to save");
       return;
     }
 
-    // Run pre-save validation if provided
     if (beforeSave && typeof beforeSave === 'function') {
       const validationResult = beforeSave(unsavedData);
       if (validationResult !== true) {
-        setSaveStatus(`⚠️ ${validationResult}`);
+        setSaveStatus(validationResult);
         return;
       }
     }
@@ -412,7 +361,6 @@ const GenericTable = forwardRef(({
     setSaveStatus("Saving...");
 
     try {
-      // If custom save handler is provided, use it
       if (onSave && typeof onSave === 'function') {
         const result = await onSave(unsavedData);
         setSaveStatus(result.message);
@@ -424,10 +372,7 @@ const GenericTable = forwardRef(({
           handleSuccessfulSave();
         }
       } else {
-        // Default save implementation
-        // Apply saveTransform if provided
         const transformedData = typeof saveTransform === 'function' ? saveTransform(unsavedData) : unsavedData;
-
         const payload = [];
 
         transformedData.forEach(row => {
@@ -441,7 +386,7 @@ const GenericTable = forwardRef(({
         });
 
         if (payload.length === 0) {
-          setSaveStatus("⚠️ No changes to save.");
+          setSaveStatus("No changes to save");
           setLoading(false);
           return;
         }
@@ -451,17 +396,15 @@ const GenericTable = forwardRef(({
             const postData = { ...row };
             delete postData.id;
             delete postData.saved;
-            // Ensure saveUrl ends with a trailing slash for POST, but don't duplicate slashes
             return axios.post(saveUrl.endsWith("/") ? saveUrl : `${saveUrl}/`, postData);
           } else {
             const putData = { ...row };
             delete putData.saved;
-            // Ensure trailing slash for PUT
             return axios.put(`${saveUrl}${row.id}/`, putData);
           }
         }));
 
-        setSaveStatus("✅ Save successful!");
+        setSaveStatus("Save successful!");
         await fetchData();
         if (afterSave && typeof afterSave === 'function') {
           afterSave();
@@ -470,14 +413,13 @@ const GenericTable = forwardRef(({
       }
     } catch (error) {
       console.error("Save error:", error);
-      setSaveStatus(`❌ Save failed: ${error.message}`);
+      setSaveStatus(`Save failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSuccessfulSave = () => {
-    // Redirect after successful save if a redirect path is provided
     if (navigationRedirectPath) {
       setTimeout(() => {
         window.location.href = navigationRedirectPath;
@@ -486,136 +428,124 @@ const GenericTable = forwardRef(({
   };
 
   const handleAfterContextMenu = (key, selection) => {
-  console.log("Context menu action:", key, "Selection:", selection);
-  
-  if (key === "remove_row") {
-    if (!selection || selection.length === 0) {
-      console.log("No selection found");
-      return;
-    }
+    console.log("Context menu action:", key, "Selection:", selection);
     
-    const hot = tableRef.current?.hotInstance;
-    if (!hot) {
-      console.log("No hot instance found");
-      return;
-    }
-    
-    // Get all selected row indices (visual rows)
-    const visualRows = [];
-    selection.forEach(range => {
-      for (let row = range.start.row; row <= range.end.row; row++) {
-        visualRows.push(row);
+    if (key === "remove_row") {
+      if (!selection || selection.length === 0) {
+        console.log("No selection found");
+        return;
       }
-    });
-    
-    console.log("Visual rows selected:", visualRows);
-    
-    // Convert to physical rows and filter valid ones
-    const physicalRows = visualRows
-      .map(visualRow => hot.toPhysicalRow(visualRow))
-      .filter(physicalRow => physicalRow !== null && physicalRow < unsavedData.length)
-      .filter((row, index, arr) => arr.indexOf(row) === index); // Remove duplicates
-    
-    console.log("Physical rows:", physicalRows);
-    console.log("Unsaved data length:", unsavedData.length);
-    
-    if (physicalRows.length === 0) {
-      console.log("No valid rows to delete");
-      return;
-    }
-    
-    // Sort in descending order to avoid index shifting issues when deleting
-    const sortedRows = [...physicalRows].sort((a, b) => b - a);
-    
-    // Split rows into those with IDs (requiring server deletion) and those without
-    const rowsWithId = [];
-    const rowsWithoutId = [];
-    
-    sortedRows.forEach(rowIndex => {
-      const rowData = unsavedData[rowIndex];
-      console.log(`Row ${rowIndex}:`, rowData);
       
-      if (rowData && rowData.id !== null && rowData.id !== undefined) {
-        rowsWithId.push(rowIndex);
-      } else {
-        rowsWithoutId.push(rowIndex);
+      const hot = tableRef.current?.hotInstance;
+      if (!hot) {
+        console.log("No hot instance found");
+        return;
       }
-    });
-    
-    console.log("Rows with ID (need server deletion):", rowsWithId);
-    console.log("Rows without ID (local deletion only):", rowsWithoutId);
-    
-    // For rows without IDs, remove them directly
-    if (rowsWithoutId.length > 0) {
-      const updated = [...unsavedData];
-      rowsWithoutId.forEach(rowIndex => {
-        console.log(`Removing local row at index ${rowIndex}`);
-        updated.splice(rowIndex, 1);
+      
+      const visualRows = [];
+      selection.forEach(range => {
+        for (let row = range.start.row; row <= range.end.row; row++) {
+          visualRows.push(row);
+        }
       });
       
-      // Ensure we still have a blank row at the end
-      const dataWithBlankRow = ensureBlankRow(updated);
-      setUnsavedData(dataWithBlankRow);
-      setIsDirty(true);
+      console.log("Visual rows selected:", visualRows);
       
-      if (rowsWithId.length === 0) {
-        setSaveStatus("✅ Rows deleted successfully!");
+      const physicalRows = visualRows
+        .map(visualRow => hot.toPhysicalRow(visualRow))
+        .filter(physicalRow => physicalRow !== null && physicalRow < unsavedData.length)
+        .filter((row, index, arr) => arr.indexOf(row) === index);
+      
+      console.log("Physical rows:", physicalRows);
+      console.log("Unsaved data length:", unsavedData.length);
+      
+      if (physicalRows.length === 0) {
+        console.log("No valid rows to delete");
+        return;
+      }
+      
+      const sortedRows = [...physicalRows].sort((a, b) => b - a);
+      
+      const rowsWithId = [];
+      const rowsWithoutId = [];
+      
+      sortedRows.forEach(rowIndex => {
+        const rowData = unsavedData[rowIndex];
+        console.log(`Row ${rowIndex}:`, rowData);
+        
+        if (rowData && rowData.id !== null && rowData.id !== undefined) {
+          rowsWithId.push(rowIndex);
+        } else {
+          rowsWithoutId.push(rowIndex);
+        }
+      });
+      
+      console.log("Rows with ID (need server deletion):", rowsWithId);
+      console.log("Rows without ID (local deletion only):", rowsWithoutId);
+      
+      if (rowsWithoutId.length > 0) {
+        const updated = [...unsavedData];
+        rowsWithoutId.forEach(rowIndex => {
+          console.log(`Removing local row at index ${rowIndex}`);
+          updated.splice(rowIndex, 1);
+        });
+        
+        const dataWithBlankRow = ensureBlankRow(updated);
+        setUnsavedData(dataWithBlankRow);
+        setIsDirty(true);
+        
+        if (rowsWithId.length === 0) {
+          setSaveStatus("Rows deleted successfully!");
+        }
+      }
+      
+      if (rowsWithId.length > 0) {
+        const rowsToDeleteData = rowsWithId.map(rowIndex => unsavedData[rowIndex]);
+        console.log("Rows to delete from server:", rowsToDeleteData);
+        setRowsToDelete(rowsToDeleteData);
+        setShowDeleteModal(true);
       }
     }
-    
-    // For rows with IDs, show confirmation modal
-    if (rowsWithId.length > 0) {
-      const rowsToDeleteData = rowsWithId.map(rowIndex => unsavedData[rowIndex]);
-      console.log("Rows to delete from server:", rowsToDeleteData);
-      setRowsToDelete(rowsToDeleteData);
-      setShowDeleteModal(true);
-    }
-  }
-};
+  };
 
-const confirmDelete = async () => {
-  console.log("Confirming delete for:", rowsToDelete);
-  setLoading(true);
-  
-  try {
-    // Delete each item on the server
-    const deletePromises = rowsToDelete.map(row => {
-      console.log(`Deleting row with ID ${row.id} from server`);
-      return axios.delete(`${deleteUrl}${row.id}/`);
-    });
+  const confirmDelete = async () => {
+    console.log("Confirming delete for:", rowsToDelete);
+    setLoading(true);
     
-    await Promise.all(deletePromises);
-    
-    // Remove deleted items from local data
-    const updatedData = unsavedData.filter(item => 
-      !rowsToDelete.some(deleteItem => deleteItem.id === item.id)
-    );
-    
-    console.log("Updated data after server deletion:", updatedData.length, "rows remaining");
-    
-    // Ensure we still have a blank row at the end
-    const dataWithBlankRow = ensureBlankRow(updatedData);
-    setUnsavedData(dataWithBlankRow);
-    
-    setSaveStatus("✅ Items deleted successfully!");
-    setIsDirty(true);
-  } catch (error) {
-    console.error("Delete error:", error);
-    setSaveStatus(`❌ Delete failed: ${error.response?.data?.message || error.message}`);
-  } finally {
-    setShowDeleteModal(false);
-    setRowsToDelete([]);
-    setLoading(false);
-  }
-};
+    try {
+      const deletePromises = rowsToDelete.map(row => {
+        console.log(`Deleting row with ID ${row.id} from server`);
+        return axios.delete(`${deleteUrl}${row.id}/`);
+      });
+      
+      await Promise.all(deletePromises);
+      
+      const updatedData = unsavedData.filter(item => 
+        !rowsToDelete.some(deleteItem => deleteItem.id === item.id)
+      );
+      
+      console.log("Updated data after server deletion:", updatedData.length, "rows remaining");
+      
+      const dataWithBlankRow = ensureBlankRow(updatedData);
+      setUnsavedData(dataWithBlankRow);
+      
+      setSaveStatus("Items deleted successfully!");
+      setIsDirty(true);
+    } catch (error) {
+      console.error("Delete error:", error);
+      setSaveStatus(`Delete failed: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setShowDeleteModal(false);
+      setRowsToDelete([]);
+      setLoading(false);
+    }
+  };
 
   const cancelDelete = () => {
     setShowDeleteModal(false);
     setRowsToDelete([]);
   };
 
-
-  // 🚨 Handle navigation away with unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (isDirty) {
@@ -627,12 +557,10 @@ const confirmDelete = async () => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
 
-  // Intercept links when there are unsaved changes
   useEffect(() => {
     if (!isDirty) return;
     
     const handleClick = (e) => {
-      // Check if the clicked element is a link or inside a link
       const link = e.target.closest('a');
       if (link && link.href && !link.href.includes('#')) {
         e.preventDefault();
@@ -645,7 +573,6 @@ const confirmDelete = async () => {
     return () => document.removeEventListener('click', handleClick);
   }, [isDirty]);
 
-  // Apply custom renderers to columns
   const enhancedColumns = columns.map(col => {
     const isDropdown = dropdownSources.hasOwnProperty(col.data);
     const columnConfig = {
@@ -654,7 +581,6 @@ const confirmDelete = async () => {
       source: isDropdown ? dropdownSources[col.data] : undefined,
     };
     
-    // Add renderer if a custom one exists for this column
     if (customRenderers[col.data]) {
       columnConfig.renderer = customRenderers[col.data];
     }
@@ -662,7 +588,6 @@ const confirmDelete = async () => {
     return columnConfig;
   });
 
-  // Custom cell configuration function for the HotTable cells option
   const cellsFunc = (row, col, prop) => {
     if (getCellsConfig && typeof getCellsConfig === 'function' && tableRef.current?.hotInstance) {
       return getCellsConfig(tableRef.current.hotInstance, row, col, prop);
@@ -670,7 +595,6 @@ const confirmDelete = async () => {
     return {};
   };
 
-  // Save column widths after resize
   const handleAfterColumnResize = (currentColumn, newSize, isDoubleClick) => {
     if (tableRef.current && tableRef.current.hotInstance) {
       const totalCols = tableRef.current.hotInstance.countCols();
@@ -682,40 +606,6 @@ const confirmDelete = async () => {
     }
   };
 
-  // Styles for the scroll buttons
-  const scrollButtonsStyles = {
-    container: {
-      position: 'fixed',
-      right: '20px',
-      zIndex: 1000,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '10px'
-    },
-    button: {
-      width: '40px',
-      height: '40px',
-      borderRadius: '50%',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'rgba(13, 110, 253, 0.8)',
-      color: 'white',
-      border: 'none',
-      cursor: 'pointer',
-      boxShadow: '0 2px 5px rgba(0, 0, 0, 0.2)',
-      transition: 'all 0.3s ease',
-      fontSize: '1.5rem',
-      opacity: 0.7
-    },
-    buttonHover: {
-      backgroundColor: 'rgba(13, 110, 253, 1)',
-      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
-      opacity: 1
-    }
-  };
-
-  // Export CSV handler
   const handleExportCSV = () => {
     if (!unsavedData.length) return;
 
@@ -746,9 +636,9 @@ const confirmDelete = async () => {
 
   const handleExportExcel = () => {
     if (!unsavedData.length) return;
-  
+
     const filteredData = unsavedData.filter(row => hasNonEmptyValues(row));
-  
+
     const exportData = filteredData.map(row =>
       columns.reduce((acc, col) => {
         const val = row[col.data];
@@ -756,159 +646,209 @@ const confirmDelete = async () => {
         return acc;
       }, {})
     );
-  
+
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-  
+
     const filename = typeof getExportFilename === "function"
       ? getExportFilename().replace(/\.csv$/, ".xlsx")
       : "table_export.xlsx";
-  
+
     XLSX.writeFile(workbook, filename);
   };
 
+  const getSaveStatusIcon = () => {
+    if (saveStatus.includes("Error") || saveStatus.includes("failed")) return "❌";
+    if (saveStatus.includes("successful") || saveStatus.includes("Save successful")) return "✅";
+    if (saveStatus.includes("No changes")) return "ℹ️";
+    return "⚠️";
+  };
+
+  const getSaveStatusVariant = () => {
+    if (saveStatus.includes("Error") || saveStatus.includes("failed")) return "error";
+    if (saveStatus.includes("successful") || saveStatus.includes("Save successful")) return "success";
+    if (saveStatus.includes("No changes")) return "info";
+    return "warning";
+  };
+
   return (
-    <div className="table-container">
-      <div className="table-header d-flex align-items-center justify-content-between">
-        <div className="d-flex align-items-center">
-          <Button className="save-button" onClick={handleSaveChanges} disabled={loading}>
-            {loading ? (
-              <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-            ) : (
-              "Save"
+    <div className="modern-table-container">
+      {/* Modern Header */}
+      <div className="modern-table-header">
+        <div className="header-left">
+          <div className="action-group">
+            <button 
+              className={`modern-btn modern-btn-primary ${loading ? 'loading' : ''} ${!isDirty ? 'disabled' : ''}`}
+              onClick={handleSaveChanges} 
+              disabled={loading || !isDirty}
+            >
+              {loading ? (
+                <>
+                  <div className="spinner"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17,21 17,13 7,13 7,21"/>
+                    <polyline points="7,3 7,8 15,8"/>
+                  </svg>
+                  Save Changes
+                </>
+              )}
+            </button>
+            
+            <div className="export-dropdown">
+              <button className="modern-btn modern-btn-secondary dropdown-toggle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7,10 12,15 17,10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export
+              </button>
+              <div className="dropdown-menu">
+                <button onClick={handleExportCSV} className="dropdown-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10,9 9,9 8,9"/>
+                  </svg>
+                  Export as CSV
+                </button>
+                <button onClick={handleExportExcel} className="dropdown-item">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                  </svg>
+                  Export as Excel
+                </button>
+              </div>
+            </div>
+
+            {additionalButtons && (
+              <div className="additional-buttons">
+                {additionalButtons}
+              </div>
             )}
-          </Button>
-          <DropdownButton
-            id="export-dropdown"
-            title="Export"
-            variant="secondary"
-            className="export-button"
-          >
-            <Dropdown.Item onClick={handleExportCSV}>Export as CSV</Dropdown.Item>
-            <Dropdown.Item onClick={handleExportExcel}>Export as Excel</Dropdown.Item>
-          </DropdownButton>
-          
-          {/* Render additional buttons if provided */}
-          {additionalButtons && additionalButtons}
+          </div>
         </div>
-        <div className="counts">
-          <em>
-            <strong>{unsavedData.filter(row => hasNonEmptyValues(row)).length}</strong> total items | <strong>{selectedCount}</strong> selected
-          </em>
+
+        <div className="header-right">
+          <div className="stats-container">
+            <div className="stat-item">
+              <span className="stat-label">Total</span>
+              <span className="stat-value">{unsavedData.filter(row => hasNonEmptyValues(row)).length}</span>
+            </div>
+            <div className="stat-divider"></div>
+            <div className="stat-item">
+              <span className="stat-label">Selected</span>
+              <span className="stat-value">{selectedCount}</span>
+            </div>
+            {isDirty && (
+              <>
+                <div className="stat-divider"></div>
+                <div className="unsaved-indicator">
+                  <div className="unsaved-dot"></div>
+                  <span>Unsaved changes</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        {saveStatus && (
-          <Alert variant={saveStatus.includes("❌") ? "danger" : saveStatus.includes("⚠️") ? "warning" : "success"} 
-                 className="mt-2 py-1 save-status">
-            {saveStatus}
-          </Alert>
-        )}
       </div>
 
-      {/* Table with scrollable container */}
+      {/* Status Message */}
+      {saveStatus && (
+        <div className={`status-message status-${getSaveStatusVariant()}`}>
+          <span className="status-icon">{getSaveStatusIcon()}</span>
+          <span className="status-text">{saveStatus}</span>
+        </div>
+      )}
+
+      {/* Table Container */}
       <div 
         ref={containerRef} 
-        style={{ 
-          position: 'relative', 
-          height, 
-          overflowY: 'auto',
-          overflowX: 'hidden'
-        }}
+        className="table-scroll-container"
+        style={{ height }}
       >
         {loading && !unsavedData.length ? (
-          <div className="loading-indicator">
-            <Spinner animation="border" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </Spinner>
+          <div className="loading-container">
+            <div className="loading-content">
+              <div className="spinner large"></div>
+              <span>Loading data...</span>
+            </div>
           </div>
         ) : (
-            <>
-<HotTable
-  ref={tableRef}
-  data={unsavedData}
-  colHeaders={colHeaders}
-  columns={enhancedColumns}
-  licenseKey="non-commercial-and-evaluation"
-  rowHeaders={false}
-  
-  // Working filters
-  filters={true}
-  dropdownMenu={true}
-  
-  // Basic functionality
-  width="100%"
-  afterChange={handleAfterChange}
-  afterSelection={(r, c, r2, c2) => updateSelectedCount()}
-  afterDeselect={() => setSelectedCount(0)}
-  
-  // Column functionality
-  manualColumnResize={true}
-  afterColumnResize={handleAfterColumnResize}
-    // Add this callback to fix alignment after scroll
-  afterScrollHorizontally={() => {
-    // Force a small re-render to sync headers
-    setTimeout(() => {
-      if (tableRef.current?.hotInstance) {
-        tableRef.current.hotInstance.render();
-      }
-    }, 10);
-  }}
-  // Add these back one by one and test
-  stretchH="all"
-  contextMenu={enhancedContextMenu}
-  afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
-  beforeRemoveRow={() => false}
-  colWidths={colWidths}
-  cells={getCellsConfig ? cellsFunc : undefined}
-  viewportRowRenderingOffset={30}
-  viewportColumnRenderingOffset={30}
-  preventOverflow={false}
-/>
-        </>
+          <div className="table-wrapper">
+            <HotTable
+              ref={tableRef}
+              data={unsavedData}
+              colHeaders={colHeaders}
+              columns={enhancedColumns}
+              licenseKey="non-commercial-and-evaluation"
+              rowHeaders={false}
+              
+              filters={true}
+              dropdownMenu={true}
+              
+              width="100%"
+              afterChange={handleAfterChange}
+              afterSelection={(r, c, r2, c2) => updateSelectedCount()}
+              afterDeselect={() => setSelectedCount(0)}
+              
+              manualColumnResize={true}
+              afterColumnResize={handleAfterColumnResize}
+              afterScrollHorizontally={() => {
+                setTimeout(() => {
+                  if (tableRef.current?.hotInstance) {
+                    tableRef.current.hotInstance.render();
+                  }
+                }, 10);
+              }}
+              
+              stretchH="all"
+              contextMenu={enhancedContextMenu}
+              afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
+              beforeRemoveRow={() => false}
+              colWidths={colWidths}
+              cells={getCellsConfig ? cellsFunc : undefined}
+              viewportRowRenderingOffset={30}
+              viewportColumnRenderingOffset={30}
+              preventOverflow={false}
+            />
+          </div>
         )}
 
-        {/* Scroll buttons */}
+        {/* Floating Scroll Buttons */}
         {showScrollButtons && (
-          <div style={{
-            ...scrollButtonsStyles.container,
-            bottom: '20px'
-          }}>
+          <div className="scroll-buttons">
             {!isAtTop && (
               <button
                 onClick={scrollToTop}
-                style={scrollButtonsStyles.button}
-                onMouseOver={e => {
-                  e.currentTarget.style.backgroundColor = scrollButtonsStyles.buttonHover.backgroundColor;
-                  e.currentTarget.style.boxShadow = scrollButtonsStyles.buttonHover.boxShadow;
-                  e.currentTarget.style.opacity = scrollButtonsStyles.buttonHover.opacity;
-                }}
-                onMouseOut={e => {
-                  e.currentTarget.style.backgroundColor = scrollButtonsStyles.button.backgroundColor;
-                  e.currentTarget.style.boxShadow = scrollButtonsStyles.button.boxShadow;
-                  e.currentTarget.style.opacity = scrollButtonsStyles.button.opacity;
-                }}
+                className="scroll-btn scroll-btn-up"
                 title="Scroll to top"
               >
-                ↑
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="18,15 12,9 6,15"/>
+                </svg>
               </button>
             )}
             {!isAtBottom && (
               <button
                 onClick={scrollToBottom}
-                style={scrollButtonsStyles.button}
-                onMouseOver={e => {
-                  e.currentTarget.style.backgroundColor = scrollButtonsStyles.buttonHover.backgroundColor;
-                  e.currentTarget.style.boxShadow = scrollButtonsStyles.buttonHover.boxShadow;
-                  e.currentTarget.style.opacity = scrollButtonsStyles.buttonHover.opacity;
-                }}
-                onMouseOut={e => {
-                  e.currentTarget.style.backgroundColor = scrollButtonsStyles.button.backgroundColor;
-                  e.currentTarget.style.boxShadow = scrollButtonsStyles.button.boxShadow;
-                  e.currentTarget.style.opacity = scrollButtonsStyles.button.opacity;
-                }}
+                className="scroll-btn scroll-btn-down"
                 title="Scroll to bottom"
               >
-                ↓
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6,9 12,15 18,9"/>
+                </svg>
               </button>
             )}
           </div>
@@ -916,43 +856,75 @@ const confirmDelete = async () => {
       </div>
 
       {/* Delete Confirmation Modal */}
-      <Modal show={showDeleteModal} onHide={cancelDelete} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Confirm Delete</Modal.Title>
+      <Modal show={showDeleteModal} onHide={cancelDelete} backdrop="static" className="modern-modal">
+        <Modal.Header closeButton className="modern-modal-header">
+          <Modal.Title>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3,6 5,6 21,6"/>
+              <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+            Confirm Delete
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          <p>Are you sure you want to delete the following items?</p>
-          <ul>
+        <Modal.Body className="modern-modal-body">
+          <p>Are you sure you want to delete the following items? This action cannot be undone.</p>
+          <div className="delete-items-list">
             {rowsToDelete.map(r => (
-              <li key={r.id}>{r.name || `ID: ${r.id}`}</li>
+              <div key={r.id} className="delete-item">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                {r.name || `ID: ${r.id}`}
+              </div>
             ))}
-          </ul>
+          </div>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={cancelDelete}>Cancel</Button>
-          <Button variant="danger" onClick={confirmDelete}>Delete</Button>
+        <Modal.Footer className="modern-modal-footer">
+          <button className="modern-btn modern-btn-secondary" onClick={cancelDelete}>
+            Cancel
+          </button>
+          <button className="modern-btn modern-btn-danger" onClick={confirmDelete}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3,6 5,6 21,6"/>
+              <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+            </svg>
+            Delete Items
+          </button>
         </Modal.Footer>
       </Modal>
 
       {/* Unsaved Navigation Modal */}
-      <Modal show={showNavModal} onHide={() => setShowNavModal(false)} backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Unsaved Changes</Modal.Title>
+      <Modal show={showNavModal} onHide={() => setShowNavModal(false)} backdrop="static" className="modern-modal">
+        <Modal.Header closeButton className="modern-modal-header">
+          <Modal.Title>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Unsaved Changes
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          You have unsaved changes. Are you sure you want to navigate away?
+        <Modal.Body className="modern-modal-body">
+          <p>You have unsaved changes that will be lost if you navigate away. Are you sure you want to continue?</p>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowNavModal(false)}>Stay</Button>
-          <Button 
-            variant="primary" 
+        <Modal.Footer className="modern-modal-footer">
+          <button className="modern-btn modern-btn-secondary" onClick={() => setShowNavModal(false)}>
+            Stay & Save
+          </button>
+          <button 
+            className="modern-btn modern-btn-danger"
             onClick={() => {
               setIsDirty(false);
               window.location.href = nextPath;
             }}
           >
-            Leave
-          </Button>
+            Leave Without Saving
+          </button>
         </Modal.Footer>
       </Modal>
     </div>
