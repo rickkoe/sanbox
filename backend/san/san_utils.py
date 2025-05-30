@@ -19,7 +19,7 @@ def build_device_alias_commands(alias, command_list):
     If the command list is empty, add startup commands.
     """
     if not command_list:
-        command_list.extend(['config t', 'device-alias database'])
+        command_list.extend(['device-alias database'])
     command_list.append(f'device-alias name {alias.name} pwwn {wwpn_colonizer(alias.wwpn)}')
     return command_list
 
@@ -57,14 +57,19 @@ def generate_alias_commands(aliases, config):
         if alias.fabric.san_vendor == 'CI':
             if alias.cisco_alias == 'device-alias':
                 if not device_alias_command_dict[key]["commands"]:
-                    device_alias_command_dict[key]["commands"].extend(['config t', 'device-alias database'])
+                    device_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
+                    device_alias_command_dict[key]["commands"].append('device-alias database')
                 device_alias_command_dict[key]["commands"].append(f'device-alias name {alias.name} pwwn {wwpn_colonizer(alias.wwpn)}')
             elif alias.cisco_alias == 'fcalias':
+                if not device_alias_command_dict[key]["commands"]:
+                    device_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
                 fcalias_command_dict[key]["commands"].append(f'fcalias name {alias.name} vsan {alias.fabric.vsan} ; member pwwn {alias.wwpn} {alias.use}')
         elif alias.fabric.san_vendor == 'BR':
-            brocade_alias_command_dict[key]["commands"].append(f'alicreate "{alias.name}", "{alias.wwpn}"')
+            if not brocade_alias_command_dict[key]["commands"]:
+                brocade_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
+            brocade_alias_command_dict[key]["commands"].append(f'alicreate "{alias.name}", "{wwpn_colonizer(alias.wwpn)}"')
     
-    # Add commit command for device aliases
+    # Add commit command for device aliases with blank line after
     for key in device_alias_command_dict:
         if device_alias_command_dict[key]["commands"]:
             device_alias_command_dict[key]["commands"].append('device-alias commit')
@@ -105,7 +110,6 @@ def generate_zone_commands(zones, config):
     
     # Create Zone Commands
     all_zones = Zone.objects.select_related('fabric').prefetch_related('members').filter(create='True', projects=config.active_project).order_by('id')
-    firstpass = False  # Set trigger for Cisco config t command
     
     for zone in all_zones:
         zone_members = zone.members.filter(include_in_zoning=True)
@@ -130,17 +134,13 @@ def generate_zone_commands(zones, config):
             zoneset_command_dict[key]["fabric_info"] = fabric_info
         
         if key not in zone_command_dict or not zone_command_dict[key]["commands"]:
-            zone_command_dict[key]["commands"].extend([f'### ZONE COMMANDS FOR {key.upper()} '])
+            zone_command_dict[key]["commands"].extend([' ', f'### ZONE COMMANDS FOR {key.upper()} '])
         if key not in zoneset_command_dict or not zoneset_command_dict[key]["commands"]:
-            zoneset_command_dict[key]["commands"].extend([f'### ZONESET COMMANDS FOR {key.upper()} '])
+            zoneset_command_dict[key]["commands"].extend([' ', f'### ZONESET COMMANDS FOR {key.upper()} '])
             
         if zone_member_length > 0:
             if zone.fabric.san_vendor == 'CI':
-                if firstpass == False:
-                    zone_command_dict[key]["commands"].append('config t')
-                    firstpass = True
                 if len(zoneset_command_dict[key]["commands"]) == 2:
-                    print(zoneset_command_dict[key]["commands"])
                     zoneset_command_dict[key]["commands"].append(f'zoneset name {zone.fabric.zoneset_name} vsan {zone.fabric.vsan}')
                 zone_command_dict[key]["commands"].append(f'zone name {zone.name} vsan {zone.fabric.vsan}')
                 if zone.exists == False:
@@ -243,6 +243,3 @@ def generate_zone_commands(zones, config):
     # Sort by fabric names
     sorted_result = dict(sorted(result.items()))
     return sorted_result
-
-
-

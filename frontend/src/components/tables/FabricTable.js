@@ -25,9 +25,8 @@ const FabricTable = () => {
     const fabricsApiUrl = "http://127.0.0.1:8000/api/san/fabrics/";
     const fabricDeleteApiUrl = "http://127.0.0.1:8000/api/san/fabrics/delete/";
 
-    const colHeaders = ["ID", "Name", "Vendor", "Zoneset Name", "VSAN", "Exists", "Notes"];
+    const colHeaders = ["Name", "Vendor", "Zoneset Name", "VSAN", "Exists", "Notes"];
     const columns = [
-        { data: "id", readOnly: true, className: "htCenter" },
         { data: "name" },
         {
             data: "san_vendor",

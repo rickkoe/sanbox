@@ -4,6 +4,7 @@ import { Tabs, Tab, Alert, Spinner, Button, Badge } from "react-bootstrap";
 import { ConfigContext } from "../context/ConfigContext";
 import { useNavigate } from "react-router-dom";
 import { useSanVendor } from "../context/SanVendorContext";
+import JSZip from "jszip";
 
 const ZoneScriptsPage = () => {
   const { config } = useContext(ConfigContext);
@@ -12,6 +13,7 @@ const ZoneScriptsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copyButtonText, setCopyButtonText] = useState("Copy to clipboard");
+  const [downloadButtonText, setDownloadButtonText] = useState("Download All Scripts");
   const [activeTab, setActiveTab] = useState(null);
   const navigate = useNavigate();
   const [isDirty, setIsDirty] = useState(false);
@@ -90,6 +92,83 @@ const ZoneScriptsPage = () => {
     }
   };
 
+  const handleDownloadAllScripts = async () => {
+    if (!scripts || Object.keys(scripts).length === 0) {
+      alert('No scripts available to download.');
+      return;
+    }
+
+    try {
+      setDownloadButtonText("Preparing download...");
+      
+      const zip = new JSZip();
+      
+      // Add each fabric's commands as a separate text file
+      Object.entries(scripts).forEach(([fabricName, fabricData]) => {
+        const commands = Array.isArray(fabricData) ? fabricData : fabricData.commands;
+        const fabricInfo = fabricData.fabric_info || { san_vendor: sanVendor };
+        const vendor = fabricInfo.san_vendor;
+        
+        // Create file content
+        const header = `### ${fabricName.toUpperCase()} ZONE COMMANDS`;
+        const commandsText = Array.isArray(commands) ? commands.join('\n') : '';
+        const fileContent = `${header}\n${commandsText}`;
+        
+        // Create filename with fabric name, project name and timestamp (local time)
+        const vendorPrefix = vendor === "CI" ? "Cisco" : "Brocade";
+        const projectName = config.active_project?.name || 'project';
+        const now = new Date();
+        const timestamp = now.getFullYear() + '-' + 
+                         String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                         String(now.getDate()).padStart(2, '0') + '_' + 
+                         String(now.getHours()).padStart(2, '0') + '.' +
+                         String(now.getMinutes()).padStart(2, '0') + '.' +
+                         String(now.getSeconds()).padStart(2, '0');
+        const cleanFabricName = fabricName.replace(/[^a-zA-Z0-9-_]/g, '_');
+        const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_');
+        const fileName = `${vendorPrefix}_${cleanFabricName}_${cleanProjectName}_zone_scripts_${timestamp}.txt`;
+        
+        zip.file(fileName, fileContent);
+      });
+      
+      // Generate the ZIP file
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Create filename with customer name, project name and timestamp (local time)
+      const projectName = config.active_project?.name || 'project';
+      const customerName = config.customer.name || 'Customer';
+      const now = new Date();
+      const timestamp = now.getFullYear() + '-' + 
+                      String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                      String(now.getDate()).padStart(2, '0') + '_' + 
+                      String(now.getHours()).padStart(2, '0') + '.' + 
+                      String(now.getMinutes()).padStart(2, '0') + '.' +
+                      String(now.getSeconds()).padStart(2, '0');
+      const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_');
+      link.download = `${customerName}_${cleanProjectName}_Zone_Scripts_${timestamp}.zip`;
+
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      // Update button text
+      setDownloadButtonText("Downloaded!");
+      setTimeout(() => setDownloadButtonText("Download All Scripts"), 3000);
+      
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Failed to create download. Please try again.');
+      setDownloadButtonText("Download All Scripts");
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mt-5 text-center">
@@ -124,6 +203,31 @@ const ZoneScriptsPage = () => {
         >
           {copyButtonText === "Copied!" ? (<span>&#x2714; Copied!</span>) : "Copy to clipboard"}
         </Button>
+        <Button
+          className="download-button"
+          onClick={handleDownloadAllScripts}
+          variant="success"
+          style={downloadButtonText === "Downloaded!" ? { backgroundColor: 'white', color: 'green', borderColor: 'green' } : {}}
+          disabled={!scripts || Object.keys(scripts).length === 0}
+        >
+          {downloadButtonText === "Downloaded!" ? (
+            <span>&#x2714; Downloaded!</span>
+          ) : downloadButtonText === "Preparing download..." ? (
+            <span>
+              <Spinner
+                as="span"
+                animation="border"
+                size="sm"
+                role="status"
+                aria-hidden="true"
+                className="me-2"
+              />
+              {downloadButtonText}
+            </span>
+          ) : (
+            <span>&#x1F4E6; {downloadButtonText}</span>
+          )}
+        </Button>
       </div>
       
       {scripts && Object.keys(scripts).length > 0 ? (
@@ -155,10 +259,14 @@ const ZoneScriptsPage = () => {
                 }
               >
                 <div className="code-block">
-                  <pre>### {fabricName.toUpperCase()} ZONE COMMANDS</pre>
+                  {vendor === "CI" && <pre>config t</pre>}
+                  {vendor === "CI" && <pre> </pre>}
                   {commands.map((command, index) => (
                     <pre key={index}>{command}</pre>
                   ))}
+                  {vendor === "CI" && <pre> </pre>}
+                  {vendor === "CI" && <pre>copy run start</pre>}
+
                 </div>
               </Tab>
             );
