@@ -470,7 +470,6 @@
   border-right: 1px solid #d6d6d6;
   border-bottom: 1px solid #d6d6d6;
   padding: 2px 8px;
-  height: 22px !important;
   line-height: 18px;
   vertical-align: middle;
   font-size: 12px;
@@ -486,19 +485,6 @@
 .handsontable .current {
   background: rgba(16, 185, 129, 0.08);
   border: 1px solid #10b981;
-}
-
-/* Force row height */
-.handsontable tr {
-  height: 22px !important;
-}
-
-.handsontable tbody tr {
-  height: 22px !important;
-}
-
-.handsontable thead tr {
-  height: 22px !important;
 }
 
 .handsontable tbody tr:hover td {

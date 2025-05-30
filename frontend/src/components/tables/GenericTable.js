@@ -55,28 +55,48 @@ const GenericTable = forwardRef(({
 
   const enhancedContextMenu = {
     items: {
-      "add_row_above": {
-        name: "Insert row above",
-        callback: (key, selection) => {
-          const hot = tableRef.current?.hotInstance;
-          if (hot && selection && selection.length > 0) {
-            const row = selection[0].start.row;
-            hot.alter('insert_row_above', row);
-            setIsDirty(true);
-          }
+ "add_row_above": {
+      name: "Insert row above",
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot && selection && selection.length > 0) {
+          // Count total selected rows across all selection ranges
+          let totalSelectedRows = 0;
+          selection.forEach(range => {
+            const rowCount = Math.abs(range.end.row - range.start.row) + 1;
+            totalSelectedRows += rowCount;
+          });
+          
+          // Get the topmost row from the first selection range
+          const insertAtRow = Math.min(selection[0].start.row, selection[0].end.row);
+          
+          // Insert the same number of rows as selected
+          hot.alter('insert_row_above', insertAtRow, totalSelectedRows);
+          setIsDirty(true);
         }
-      },
-      "add_row_below": {
-        name: "Insert row below", 
-        callback: (key, selection) => {
-          const hot = tableRef.current?.hotInstance;
-          if (hot && selection && selection.length > 0) {
-            const row = selection[0].end.row;
-            hot.alter('insert_row_below', row);
-            setIsDirty(true);
-          }
+      }
+    },
+    "add_row_below": {
+      name: "Insert row below", 
+      callback: (key, selection) => {
+        const hot = tableRef.current?.hotInstance;
+        if (hot && selection && selection.length > 0) {
+          // Count total selected rows across all selection ranges
+          let totalSelectedRows = 0;
+          selection.forEach(range => {
+            const rowCount = Math.abs(range.end.row - range.start.row) + 1;
+            totalSelectedRows += rowCount;
+          });
+          
+          // Get the bottommost row from the last selection range
+          const insertAtRow = Math.max(selection[selection.length - 1].start.row, selection[selection.length - 1].end.row);
+          
+          // Insert the same number of rows as selected
+          hot.alter('insert_row_below', insertAtRow, totalSelectedRows);
+          setIsDirty(true);
         }
-      },
+      }
+    },
       "hsep1": { name: "---------" },
       "copy": {
         name: "Copy",
