@@ -426,26 +426,7 @@ const StorageTable = () => {
         storageKey="zoneTableColumnWidths"
         colHeaders={displayedHeaders}
         columns={displayedColumns}
-        additionalButtons={
-          <Dropdown autoClose="outside" className="column-picker">
-            <Dropdown.Toggle variant="outline-secondary">Columns</Dropdown.Toggle>
-            <Dropdown.Menu className="column-picker-menu">
-              <Dropdown.Item as="button" onClick={selectAll}>Select All</Dropdown.Item>
-              <Dropdown.Item as="button" onClick={selectDefault}>Select Default</Dropdown.Item>
-              <Dropdown.Divider />
-              {ALL_STORAGE_COLUMNS.map(col => (
-                <Dropdown.Item key={col.data} as="div">
-                  <Form.Check
-                    type="checkbox"
-                    label={col.title}
-                    checked={visibleCols.includes(col.data)}
-                    onChange={() => toggleCol(col.data)}
-                  />
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
-        }
+
       />
     </div>
   );

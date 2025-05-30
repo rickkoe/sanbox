@@ -52,6 +52,15 @@ const GenericTable = forwardRef(({
   const [selectedCount, setSelectedCount] = useState(0);
   const tableRef = useRef(null);
   const containerRef = useRef(null);
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [showColumnsDropdown, setShowColumnsDropdown] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(
+  columns.reduce((acc, col, index) => {
+      acc[index] = true; // All columns visible by default
+      return acc;
+    }, {})
+  );
+  const [columnFilter, setColumnFilter] = useState('');
 
   const enhancedContextMenu = {
     items: {
@@ -207,6 +216,143 @@ const GenericTable = forwardRef(({
       }
     }
   };
+// Function to create columns based on visibility
+const createVisibleColumns = () => {
+  return columns
+    .map((col, index) => {
+      if (!visibleColumns[index]) return null;
+      
+      const isDropdown = dropdownSources.hasOwnProperty(col.data);
+      const columnConfig = {
+        ...col,
+        type: isDropdown ? "dropdown" : col.type,
+        source: isDropdown ? dropdownSources[col.data] : undefined,
+      };
+      
+      if (customRenderers[col.data]) {
+        columnConfig.renderer = customRenderers[col.data];
+      }
+      
+      return columnConfig;
+    })
+    .filter(col => col !== null); // Remove null entries (hidden columns)
+};
+
+// Function to create visible headers
+const createVisibleHeaders = () => {
+  return colHeaders.filter((header, index) => visibleColumns[index]);
+};
+
+// Add this function to handle column visibility toggle
+const toggleColumnVisibility = (columnIndex) => {
+  const newVisibleState = {
+    ...visibleColumns,
+    [columnIndex]: !visibleColumns[columnIndex]
+  };
+  
+  setVisibleColumns(newVisibleState);
+  
+  // Force table re-render with new columns
+  if (tableRef.current?.hotInstance) {
+    const hot = tableRef.current.hotInstance;
+    
+    // Create new columns and headers based on visibility
+    const newColumns = columns
+      .map((col, index) => {
+        if (!newVisibleState[index]) return null;
+        
+        const isDropdown = dropdownSources.hasOwnProperty(col.data);
+        const columnConfig = {
+          ...col,
+          type: isDropdown ? "dropdown" : col.type,
+          source: isDropdown ? dropdownSources[col.data] : undefined,
+        };
+        
+        if (customRenderers[col.data]) {
+          columnConfig.renderer = customRenderers[col.data];
+        }
+        
+        return columnConfig;
+      })
+      .filter(col => col !== null);
+    
+    const newHeaders = colHeaders.filter((header, index) => newVisibleState[index]);
+    
+    hot.updateSettings({
+      columns: newColumns,
+      colHeaders: newHeaders
+    });
+  }
+};
+
+// Add this function to handle select all/none
+const toggleAllColumns = (showAll) => {
+  const newVisibleState = columns.reduce((acc, col, index) => {
+    acc[index] = showAll;
+    return acc;
+  }, {});
+  
+  setVisibleColumns(newVisibleState);
+  
+  if (tableRef.current?.hotInstance) {
+    const hot = tableRef.current.hotInstance;
+    
+    if (showAll) {
+      // Show all columns
+      const allColumns = columns.map(col => {
+        const isDropdown = dropdownSources.hasOwnProperty(col.data);
+        const columnConfig = {
+          ...col,
+          type: isDropdown ? "dropdown" : col.type,
+          source: isDropdown ? dropdownSources[col.data] : undefined,
+        };
+        
+        if (customRenderers[col.data]) {
+          columnConfig.renderer = customRenderers[col.data];
+        }
+        
+        return columnConfig;
+      });
+      
+      hot.updateSettings({
+        columns: allColumns,
+        colHeaders: colHeaders
+      });
+    } else {
+      // Hide all columns - show at least one to prevent errors
+      const firstColumn = columns[0];
+      const isDropdown = dropdownSources.hasOwnProperty(firstColumn.data);
+      const columnConfig = {
+        ...firstColumn,
+        type: isDropdown ? "dropdown" : firstColumn.type,
+        source: isDropdown ? dropdownSources[firstColumn.data] : undefined,
+      };
+      
+      if (customRenderers[firstColumn.data]) {
+        columnConfig.renderer = customRenderers[firstColumn.data];
+      }
+      
+      hot.updateSettings({
+        columns: [columnConfig],
+        colHeaders: [colHeaders[0]]
+      });
+      
+      // Update state to show only first column
+      setVisibleColumns({
+        ...newVisibleState,
+        0: true
+      });
+    }
+  }
+};
+
+
+// Filter columns based on search
+const filteredColumns = columns.filter((col, index) => {
+  const columnName = (colHeaders[index] || col.data).toLowerCase();
+  return columnName.includes(columnFilter.toLowerCase());
+});
+
 
   const updateSelectedCount = () => {
     const hot = tableRef.current?.hotInstance;
@@ -593,20 +739,8 @@ const GenericTable = forwardRef(({
     return () => document.removeEventListener('click', handleClick);
   }, [isDirty]);
 
-  const enhancedColumns = columns.map(col => {
-    const isDropdown = dropdownSources.hasOwnProperty(col.data);
-    const columnConfig = {
-      ...col,
-      type: isDropdown ? "dropdown" : col.type,
-      source: isDropdown ? dropdownSources[col.data] : undefined,
-    };
-    
-    if (customRenderers[col.data]) {
-      columnConfig.renderer = customRenderers[col.data];
-    }
-    
-    return columnConfig;
-  });
+const enhancedColumns = createVisibleColumns();
+const visibleColHeaders = createVisibleHeaders();
 
   const cellsFunc = (row, col, prop) => {
     if (getCellsConfig && typeof getCellsConfig === 'function' && tableRef.current?.hotInstance) {
@@ -720,37 +854,189 @@ const GenericTable = forwardRef(({
               )}
             </button>
             
-            <div className="export-dropdown">
-              <button className="modern-btn modern-btn-secondary dropdown-toggle">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7,10 12,15 17,10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                Export
-              </button>
-              <div className="dropdown-menu">
-                <button onClick={handleExportCSV} className="dropdown-item">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                    <polyline points="10,9 9,9 8,9"/>
-                  </svg>
-                  Export as CSV
-                </button>
-                <button onClick={handleExportExcel} className="dropdown-item">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                    <line x1="9" y1="9" x2="15" y2="15"/>
-                    <line x1="15" y1="9" x2="9" y2="15"/>
-                  </svg>
-                  Export as Excel
-                </button>
-              </div>
-            </div>
+    <div className="export-dropdown" style={{ position: 'relative' }}>
+      <button 
+        className="modern-btn modern-btn-secondary dropdown-toggle"
+        onClick={() => setShowExportDropdown(!showExportDropdown)}
+        onBlur={(e) => {
+          // Only close if clicking outside the dropdown
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            setTimeout(() => setShowExportDropdown(false), 150);
+          }
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7,10 12,15 17,10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export
+      </button>
+      <div 
+        className={`dropdown-menu ${showExportDropdown ? 'show' : ''}`}
+        style={{
+          opacity: showExportDropdown ? 1 : 0,
+          visibility: showExportDropdown ? 'visible' : 'hidden',
+          transform: showExportDropdown ? 'translateY(0)' : 'translateY(-10px)'
+        }}
+      >
+        <button 
+          onClick={() => {
+            handleExportCSV();
+            setShowExportDropdown(false);
+          }} 
+          className="dropdown-item"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10,9 9,9 8,9"/>
+          </svg>
+          Export as CSV
+        </button>
+        <button 
+          onClick={() => {
+            handleExportExcel();
+            setShowExportDropdown(false);
+          }} 
+          className="dropdown-item"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+          </svg>
+          Export as Excel
+        </button>
+      </div>
+    </div>
+<div className="export-dropdown" style={{ position: 'relative' }}>
+  <button 
+    className="modern-btn modern-btn-secondary dropdown-toggle"
+    onClick={() => setShowColumnsDropdown(!showColumnsDropdown)}
+  >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+      <line x1="9" y1="9" x2="15" y2="9"/>
+      <line x1="9" y1="15" x2="15" y2="15"/>
+      <line x1="9" y1="12" x2="15" y2="12"/>
+    </svg>
+    Columns
+  </button>
+  
+  <div 
+    className={`dropdown-menu columns-dropdown-menu ${showColumnsDropdown ? 'show' : ''}`}
+    style={{
+      opacity: showColumnsDropdown ? 1 : 0,
+      visibility: showColumnsDropdown ? 'visible' : 'hidden',
+      transform: showColumnsDropdown ? 'translateY(0)' : 'translateY(-10px)',
+      minWidth: '220px',
+      maxHeight: '400px',
+      overflowY: 'auto'
+    }}
+    onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing when clicking inside
+    onMouseDown={(e) => e.preventDefault()} // Prevent button from losing focus
+  >
+    {/* Search Filter */}
+    <div className="dropdown-filter">
+      <input
+        type="text"
+        placeholder="Search columns..."
+        value={columnFilter}
+        onChange={(e) => setColumnFilter(e.target.value)}
+        className="filter-input"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="filter-icon">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="m21 21-4.35-4.35"/>
+      </svg>
+    </div>
+
+    {/* Select All Checkbox */}
+    <div className="dropdown-select-all">
+      <label 
+        className="dropdown-checkbox-item select-all-item"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        <input
+          type="checkbox"
+          checked={Object.values(visibleColumns).every(visible => visible)}
+          ref={(el) => {
+            if (el) {
+              const someVisible = Object.values(visibleColumns).some(visible => visible);
+              const allVisible = Object.values(visibleColumns).every(visible => visible);
+              el.indeterminate = someVisible && !allVisible;
+            }
+          }}
+          onChange={(e) => {
+            e.stopPropagation();
+            toggleAllColumns(e.target.checked);
+          }}
+          style={{ marginRight: '8px' }}
+        />
+        <span style={{ fontWeight: '600', color: '#2563eb' }}>
+          {Object.values(visibleColumns).every(visible => visible) ? 'Unselect All' : 'Select All'}
+        </span>
+      </label>
+    </div>
+
+    {/* Column List */}
+    <div className="dropdown-columns-list">
+      {filteredColumns.map((col, filteredIndex) => {
+        const originalIndex = columns.findIndex(originalCol => originalCol === col);
+        return (
+          <label 
+            key={originalIndex}
+            className="dropdown-checkbox-item"
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <input
+              type="checkbox"
+              checked={visibleColumns[originalIndex]}
+              onChange={(e) => {
+                e.stopPropagation();
+                toggleColumnVisibility(originalIndex);
+              }}
+              style={{ marginRight: '8px' }}
+            />
+            <span>{colHeaders[originalIndex] || col.data}</span>
+          </label>
+        );
+      })}
+      {filteredColumns.length === 0 && columnFilter && (
+        <div className="no-results">
+          <span>No columns found matching "{columnFilter}"</span>
+        </div>
+      )}
+    </div>
+
+    {/* Footer */}
+    <div className="columns-dropdown-footer">
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          setColumnFilter(''); // Clear filter when closing
+          setShowColumnsDropdown(false);
+        }} 
+        className="dropdown-item"
+        style={{ fontWeight: '500', color: '#6b7280' }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+        Close
+      </button>
+    </div>
+  </div>
+</div>
 
             {additionalButtons && (
               <div className="additional-buttons">
@@ -814,6 +1100,7 @@ const GenericTable = forwardRef(({
               columns={enhancedColumns}
               licenseKey="non-commercial-and-evaluation"
               rowHeaders={false}
+
               
               filters={true}
               dropdownMenu={true}
