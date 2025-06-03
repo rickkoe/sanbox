@@ -31,6 +31,7 @@ import ZoneScriptsPage from "./pages/ZoneScriptsPage";
 import ImportSwitchConfig from "./components/forms/ImportSwitchConfig";
 import StorageInsightsImporter from "./pages/StorageInsightsImporter";
 import TestFilters from "./components/tables/TestFilters";
+import AliasImportPage from './pages/AliasImportPage';
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
@@ -80,6 +81,7 @@ function App() {
                   <Route path="/scripts/ds8000" element={<DS8000ScriptsPage />} />
                   <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
                   <Route path="/test" element={<TestFilters />} />
+                  <Route path="/san/aliases/import" element={<AliasImportPage />} />
                   <Route
                     path="/insights/importer"
                     element={<StorageInsightsImporter />}

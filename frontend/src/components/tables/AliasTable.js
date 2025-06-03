@@ -198,9 +198,14 @@ const AliasTable = () => {
         columnSorting={true}
         filters={true}
         storageKey="aliasTableColumnWidths"
+        
+        // NEW: Define which columns are always required to be visible
+        // Column indices: 0=Name, 1=WWPN, 2=Use, 3=Fabric, 4=Alias Type, 5=Create, 6=Include in Zoning, 7=Imported, 8=Updated, 9=Notes
+        defaultVisibleColumns={[0, 1, 2, 3, 5, 6, 7, 8, 9]} // Name, WWPN, and Fabric always visible
+        
         {...tableConfig}
         additionalButtons={
-          <Button
+          <><Button
             className="save-button"
             onClick={() => {
               if (tableRef.current?.isDirty) {
@@ -211,10 +216,12 @@ const AliasTable = () => {
               } else {
                 navigate("/san/aliases/alias-scripts");
               }
-            }}
+            } }
           >
             Generate Alias Scripts
-          </Button>
+          </Button><Button variant="outline-primary" onClick={() => navigate('/san/aliases/import')}>
+              Import Aliases
+            </Button></>
         }
       />
     </div>

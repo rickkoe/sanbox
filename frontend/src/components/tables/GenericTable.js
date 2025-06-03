@@ -35,7 +35,8 @@ const GenericTable = forwardRef(({
   additionalButtons,
   storageKey,
   height = "calc(100vh - 200px)",
-  getExportFilename
+  getExportFilename,
+  defaultVisibleColumns = [] 
 }, ref) => {
   const [data, setData] = useState([]);
   const [unsavedData, setUnsavedData] = useState([]);
@@ -54,13 +55,26 @@ const GenericTable = forwardRef(({
   const containerRef = useRef(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [showColumnsDropdown, setShowColumnsDropdown] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState(
-  columns.reduce((acc, col, index) => {
-      acc[index] = true; // All columns visible by default
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    // Initialize based on defaultVisibleColumns prop
+    const initialState = columns.reduce((acc, col, index) => {
+      if (defaultVisibleColumns && defaultVisibleColumns.length > 0) {
+        // If defaultVisibleColumns is specified, only show those columns initially
+        acc[index] = defaultVisibleColumns.includes(index);
+      } else {
+        // If no defaultVisibleColumns specified, show all columns (current behavior)
+        acc[index] = true;
+      }
       return acc;
-    }, {})
-  );
+    }, {});
+    return initialState;
+  });
   const [columnFilter, setColumnFilter] = useState('');
+
+  // Add helper function to check if a column is required:
+  const isRequiredColumn = (columnIndex) => {
+    return defaultVisibleColumns.includes(columnIndex);
+  };
 
   const enhancedContextMenu = {
     items: {
@@ -216,7 +230,7 @@ const GenericTable = forwardRef(({
       }
     }
   };
-// Function to create columns based on visibility
+  
 const createVisibleColumns = () => {
   return columns
     .map((col, index) => {
@@ -243,108 +257,52 @@ const createVisibleHeaders = () => {
   return colHeaders.filter((header, index) => visibleColumns[index]);
 };
 
-// Add this function to handle column visibility toggle
+// Create the current visible columns and headers
+const enhancedColumns = createVisibleColumns();
+const visibleColHeaders = createVisibleHeaders();
+
 const toggleColumnVisibility = (columnIndex) => {
+  // Prevent hiding required columns
+  if (isRequiredColumn(columnIndex) && visibleColumns[columnIndex]) {
+    return; // Don't allow hiding required columns
+  }
+  
   const newVisibleState = {
     ...visibleColumns,
     [columnIndex]: !visibleColumns[columnIndex]
   };
   
   setVisibleColumns(newVisibleState);
+};
+
+const toggleAllColumns = (showAll) => {
+  const newVisibleState = columns.reduce((acc, col, index) => {
+    // Required columns are always visible
+    if (isRequiredColumn(index)) {
+      acc[index] = true;
+    } else {
+      acc[index] = showAll;
+    }
+    return acc;
+  }, {});
   
-  // Force table re-render with new columns
+  setVisibleColumns(newVisibleState);
+};
+
+// Add useEffect to update table when visibleColumns changes
+useEffect(() => {
   if (tableRef.current?.hotInstance) {
     const hot = tableRef.current.hotInstance;
+    const newColumns = createVisibleColumns();
+    const newHeaders = createVisibleHeaders();
     
-    // Create new columns and headers based on visibility
-    const newColumns = columns
-      .map((col, index) => {
-        if (!newVisibleState[index]) return null;
-        
-        const isDropdown = dropdownSources.hasOwnProperty(col.data);
-        const columnConfig = {
-          ...col,
-          type: isDropdown ? "dropdown" : col.type,
-          source: isDropdown ? dropdownSources[col.data] : undefined,
-        };
-        
-        if (customRenderers[col.data]) {
-          columnConfig.renderer = customRenderers[col.data];
-        }
-        
-        return columnConfig;
-      })
-      .filter(col => col !== null);
-    
-    const newHeaders = colHeaders.filter((header, index) => newVisibleState[index]);
-    
+    // Update both columns and headers together
     hot.updateSettings({
       columns: newColumns,
       colHeaders: newHeaders
     });
   }
-};
-
-// Add this function to handle select all/none
-const toggleAllColumns = (showAll) => {
-  const newVisibleState = columns.reduce((acc, col, index) => {
-    acc[index] = showAll;
-    return acc;
-  }, {});
-  
-  setVisibleColumns(newVisibleState);
-  
-  if (tableRef.current?.hotInstance) {
-    const hot = tableRef.current.hotInstance;
-    
-    if (showAll) {
-      // Show all columns
-      const allColumns = columns.map(col => {
-        const isDropdown = dropdownSources.hasOwnProperty(col.data);
-        const columnConfig = {
-          ...col,
-          type: isDropdown ? "dropdown" : col.type,
-          source: isDropdown ? dropdownSources[col.data] : undefined,
-        };
-        
-        if (customRenderers[col.data]) {
-          columnConfig.renderer = customRenderers[col.data];
-        }
-        
-        return columnConfig;
-      });
-      
-      hot.updateSettings({
-        columns: allColumns,
-        colHeaders: colHeaders
-      });
-    } else {
-      // Hide all columns - show at least one to prevent errors
-      const firstColumn = columns[0];
-      const isDropdown = dropdownSources.hasOwnProperty(firstColumn.data);
-      const columnConfig = {
-        ...firstColumn,
-        type: isDropdown ? "dropdown" : firstColumn.type,
-        source: isDropdown ? dropdownSources[firstColumn.data] : undefined,
-      };
-      
-      if (customRenderers[firstColumn.data]) {
-        columnConfig.renderer = customRenderers[firstColumn.data];
-      }
-      
-      hot.updateSettings({
-        columns: [columnConfig],
-        colHeaders: [colHeaders[0]]
-      });
-      
-      // Update state to show only first column
-      setVisibleColumns({
-        ...newVisibleState,
-        0: true
-      });
-    }
-  }
-};
+}, [visibleColumns, customRenderers, dropdownSources]); // Re-run when any of these change
 
 
 // Filter columns based on search
@@ -739,8 +697,6 @@ const filteredColumns = columns.filter((col, index) => {
     return () => document.removeEventListener('click', handleClick);
   }, [isDirty]);
 
-const enhancedColumns = createVisibleColumns();
-const visibleColHeaders = createVisibleHeaders();
 
   const cellsFunc = (row, col, prop) => {
     if (getCellsConfig && typeof getCellsConfig === 'function' && tableRef.current?.hotInstance) {
@@ -913,10 +869,18 @@ const visibleColHeaders = createVisibleHeaders();
         </button>
       </div>
     </div>
+
 <div className="export-dropdown" style={{ position: 'relative' }}>
   <button 
     className="modern-btn modern-btn-secondary dropdown-toggle"
     onClick={() => setShowColumnsDropdown(!showColumnsDropdown)}
+    onBlur={(e) => {
+      // Only close if the new focus is NOT on the filter input or any dropdown element
+      const dropdownContainer = e.currentTarget.parentElement;
+      if (!dropdownContainer.contains(e.relatedTarget)) {
+        setTimeout(() => setShowColumnsDropdown(false), 150);
+      }
+    }}
   >
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -937,8 +901,12 @@ const visibleColHeaders = createVisibleHeaders();
       maxHeight: '400px',
       overflowY: 'auto'
     }}
-    onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing when clicking inside
-    onMouseDown={(e) => e.preventDefault()} // Prevent button from losing focus
+    onMouseDown={(e) => {
+      // Prevent the button from losing focus when clicking inside dropdown
+      if (e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+      }
+    }}
   >
     {/* Search Filter */}
     <div className="dropdown-filter">
@@ -948,7 +916,8 @@ const visibleColHeaders = createVisibleHeaders();
         value={columnFilter}
         onChange={(e) => setColumnFilter(e.target.value)}
         className="filter-input"
-        onClick={(e) => e.stopPropagation()}
+        autoComplete="off"
+        tabIndex={0}
       />
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="filter-icon">
         <circle cx="11" cy="11" r="8"/>
@@ -960,7 +929,6 @@ const visibleColHeaders = createVisibleHeaders();
     <div className="dropdown-select-all">
       <label 
         className="dropdown-checkbox-item select-all-item"
-        onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.preventDefault()}
       >
         <input
@@ -974,7 +942,6 @@ const visibleColHeaders = createVisibleHeaders();
             }
           }}
           onChange={(e) => {
-            e.stopPropagation();
             toggleAllColumns(e.target.checked);
           }}
           style={{ marginRight: '8px' }}
@@ -986,42 +953,71 @@ const visibleColHeaders = createVisibleHeaders();
     </div>
 
     {/* Column List */}
-    <div className="dropdown-columns-list">
-      {filteredColumns.map((col, filteredIndex) => {
-        const originalIndex = columns.findIndex(originalCol => originalCol === col);
-        return (
-          <label 
-            key={originalIndex}
-            className="dropdown-checkbox-item"
-            style={{ cursor: 'pointer', userSelect: 'none' }}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            <input
-              type="checkbox"
-              checked={visibleColumns[originalIndex]}
-              onChange={(e) => {
-                e.stopPropagation();
-                toggleColumnVisibility(originalIndex);
-              }}
-              style={{ marginRight: '8px' }}
-            />
-            <span>{colHeaders[originalIndex] || col.data}</span>
-          </label>
-        );
-      })}
-      {filteredColumns.length === 0 && columnFilter && (
-        <div className="no-results">
-          <span>No columns found matching "{columnFilter}"</span>
-        </div>
-      )}
+<div className="dropdown-columns-list">
+  {filteredColumns.map((col, filteredIndex) => {
+    const originalIndex = columns.findIndex(originalCol => originalCol === col);
+    const isRequired = isRequiredColumn(originalIndex);
+    const isChecked = visibleColumns[originalIndex];
+    
+    return (
+      <label 
+        key={originalIndex}
+        className="dropdown-checkbox-item"
+        style={{ 
+          cursor: isRequired ? 'not-allowed' : 'pointer', 
+          userSelect: 'none',
+          opacity: isRequired ? 0.7 : 1,
+          backgroundColor: isRequired ? '#f3f4f6' : 'transparent'
+        }}
+        onMouseDown={(e) => e.preventDefault()}
+        title={isRequired ? 'This column is required and cannot be hidden' : ''}
+      >
+        <input
+          type="checkbox"
+          checked={isChecked}
+          disabled={isRequired && isChecked} // Disable unchecking required columns
+          onChange={(e) => {
+            if (!isRequired || !isChecked) {
+              toggleColumnVisibility(originalIndex);
+            }
+          }}
+          style={{ 
+            marginRight: '8px',
+            cursor: isRequired && isChecked ? 'not-allowed' : 'pointer'
+          }}
+        />
+        <span style={{
+          fontWeight: isRequired ? '600' : 'normal',
+          color: isRequired ? '#1f2937' : '#374151'
+        }}>
+          {colHeaders[originalIndex] || col.data}
+          {isRequired && (
+            <span style={{ 
+              marginLeft: '8px', 
+              fontSize: '10px', 
+              color: '#059669',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              REQUIRED
+            </span>
+          )}
+        </span>
+      </label>
+    );
+  })}
+  {filteredColumns.length === 0 && columnFilter && (
+    <div className="no-results">
+      <span>No columns found matching "{columnFilter}"</span>
     </div>
+  )}
+</div>
 
     {/* Footer */}
     <div className="columns-dropdown-footer">
       <button 
-        onClick={(e) => {
-          e.stopPropagation();
+        onClick={() => {
           setColumnFilter(''); // Clear filter when closing
           setShowColumnsDropdown(false);
         }} 
@@ -1096,7 +1092,7 @@ const visibleColHeaders = createVisibleHeaders();
             <HotTable
               ref={tableRef}
               data={unsavedData}
-              colHeaders={colHeaders}
+              colHeaders={visibleColHeaders}
               columns={enhancedColumns}
               licenseKey="non-commercial-and-evaluation"
               rowHeaders={false}
