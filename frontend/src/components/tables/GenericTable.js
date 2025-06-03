@@ -55,21 +55,24 @@ const GenericTable = forwardRef(({
   const containerRef = useRef(null);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [showColumnsDropdown, setShowColumnsDropdown] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState(() => {
-    // Initialize based on defaultVisibleColumns prop
-    const initialState = columns.reduce((acc, col, index) => {
+  
+  // Fixed visibleColumns state initialization
+  const [visibleColumns, setVisibleColumns] = useState({});
+  const [columnFilter, setColumnFilter] = useState('');
+
+  // Update visibleColumns when columns prop changes
+  useEffect(() => {
+    const newVisibleState = columns.reduce((acc, col, index) => {
       if (defaultVisibleColumns && defaultVisibleColumns.length > 0) {
-        // If defaultVisibleColumns is specified, only show those columns initially
         acc[index] = defaultVisibleColumns.includes(index);
       } else {
-        // If no defaultVisibleColumns specified, show all columns (current behavior)
-        acc[index] = true;
+        acc[index] = true; // Show all columns by default
       }
       return acc;
     }, {});
-    return initialState;
-  });
-  const [columnFilter, setColumnFilter] = useState('');
+    
+    setVisibleColumns(newVisibleState);
+  }, [columns.length]); // Only trigger when the number of columns changes
 
   // Add helper function to check if a column is required:
   const isRequiredColumn = (columnIndex) => {
@@ -289,27 +292,35 @@ const toggleAllColumns = (showAll) => {
   setVisibleColumns(newVisibleState);
 };
 
-// Add useEffect to update table when visibleColumns changes
+// Single unified useEffect for all column updates
 useEffect(() => {
-  if (tableRef.current?.hotInstance) {
+  if (tableRef.current?.hotInstance && Object.keys(visibleColumns).length > 0) {
     const hot = tableRef.current.hotInstance;
-    const newColumns = createVisibleColumns();
-    const newHeaders = createVisibleHeaders();
     
-    // Update both columns and headers together
-    hot.updateSettings({
-      columns: newColumns,
-      colHeaders: newHeaders
+    // Update unsaved data to include new column properties if needed
+    const updatedData = unsavedData.map(row => {
+      const newRow = { ...row };
+      
+      // Add any new columns with empty values
+      columns.forEach(col => {
+        if (col.data && !(col.data in newRow)) {
+          newRow[col.data] = '';
+        }
+      });
+      
+      return newRow;
     });
-  }
-}, [visibleColumns, customRenderers, dropdownSources]); // Re-run when any of these change
-
-// Add this useEffect in GenericTable.js after the existing visibleColumns useEffect
-useEffect(() => {
-  if (tableRef.current?.hotInstance) {
-    const hot = tableRef.current.hotInstance;
     
-    // Recreate visible columns and headers based on new props
+    // Check if we need to update data
+    const needsDataUpdate = updatedData.length > 0 && 
+      unsavedData.length > 0 && 
+      Object.keys(updatedData[0] || {}).length !== Object.keys(unsavedData[0] || {}).length;
+    
+    if (needsDataUpdate) {
+      setUnsavedData(updatedData);
+    }
+    
+    // Create visible columns and headers
     const newColumns = createVisibleColumns();
     const newHeaders = createVisibleHeaders();
     
@@ -318,17 +329,16 @@ useEffect(() => {
       columns: newColumns,
       colHeaders: newHeaders
     });
+    
+    console.log('Table updated with', newColumns.length, 'visible columns');
   }
-}, [columns, colHeaders]); // Watch for changes to the base columns and headers props
-
-
+}, [columns, colHeaders, visibleColumns, customRenderers, dropdownSources]);
 
 // Filter columns based on search
 const filteredColumns = columns.filter((col, index) => {
   const columnName = (colHeaders[index] || col.data).toLowerCase();
   return columnName.includes(columnFilter.toLowerCase());
 });
-
 
   const updateSelectedCount = () => {
     const hot = tableRef.current?.hotInstance;
@@ -349,63 +359,13 @@ const filteredColumns = columns.filter((col, index) => {
     setSelectedCount(rowSet.size);
   };
 
-useImperativeHandle(ref, () => ({
-  hotInstance: tableRef.current?.hotInstance,
-  refreshData: fetchData,
-  isDirty,
-  setIsDirty,
-  updateColumns: (newColumns, newColHeaders) => {
-    // Update the internal state to match new structure
-    const updatedData = unsavedData.map(row => {
-      // Preserve existing data, add empty values for new columns
-      const newRow = { ...row };
-      
-      // Add any new member columns with empty values
-      newColumns.forEach(col => {
-        if (col.data && !(col.data in newRow)) {
-          newRow[col.data] = '';
-        }
-      });
-      
-      return newRow;
-    });
-    
-    setUnsavedData(updatedData);
-    
-    // Update the table structure
-    if (tableRef.current?.hotInstance) {
-      const hot = tableRef.current.hotInstance;
-      
-      // Create new visible columns based on current visibility state
-      const newVisibleColumns = newColumns
-        .map((col, index) => {
-          if (!visibleColumns[index]) return null;
-          
-          const isDropdown = dropdownSources.hasOwnProperty(col.data);
-          const columnConfig = {
-            ...col,
-            type: isDropdown ? "dropdown" : col.type,
-            source: isDropdown ? dropdownSources[col.data] : undefined,
-          };
-          
-          if (customRenderers[col.data]) {
-            columnConfig.renderer = customRenderers[col.data];
-          }
-          
-          return columnConfig;
-        })
-        .filter(col => col !== null);
-      
-      const newVisibleHeaders = newColHeaders.filter((header, index) => visibleColumns[index]);
-      
-      hot.updateSettings({
-        columns: newVisibleColumns,
-        colHeaders: newVisibleHeaders,
-        data: updatedData
-      });
-    }
-  }
-}));
+  // Simplified useImperativeHandle - removed updateColumns method
+  useImperativeHandle(ref, () => ({
+    hotInstance: tableRef.current?.hotInstance,
+    refreshData: fetchData,
+    isDirty,
+    setIsDirty
+  }));
 
   useEffect(() => {
     const container = containerRef.current;
@@ -765,7 +725,6 @@ useImperativeHandle(ref, () => ({
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, [isDirty]);
-
 
   const cellsFunc = (row, col, prop) => {
     if (getCellsConfig && typeof getCellsConfig === 'function' && tableRef.current?.hotInstance) {
@@ -1165,7 +1124,6 @@ useImperativeHandle(ref, () => ({
               columns={enhancedColumns}
               licenseKey="non-commercial-and-evaluation"
               rowHeaders={false}
-
               
               filters={true}
               dropdownMenu={true}

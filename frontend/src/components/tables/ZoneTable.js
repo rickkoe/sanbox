@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useContext, useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Button } from "react-bootstrap";
@@ -26,35 +26,67 @@ const ZoneTable = () => {
   const [memberOptions, setMemberOptions] = useState([]);
   const [memberColumns, setMemberColumns] = useState(5);
   const [newColumnsCount, setNewColumnsCount] = useState(1);
+  const [rawData, setRawData] = useState([]); // Store raw data for member column calculation
   const tableRef = useRef(null);
   const navigate = useNavigate();
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
-  // Load data
+  // Calculate required member columns from data
   useEffect(() => {
-    if (activeCustomerId) {
-      axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`)
-        .then(res => setFabricOptions(res.data.map(f => ({ id: f.id, name: f.name }))))
-        .catch(err => console.error("Error fetching fabrics:", err));
+    if (rawData.length > 0) {
+      let maxMembers = memberColumns;
+      
+      rawData.forEach(zone => {
+        if (zone.members_details?.length) {
+          maxMembers = Math.max(maxMembers, zone.members_details.length);
+        }
+      });
+      
+      if (maxMembers > memberColumns) {
+        console.log(`Increasing member columns from ${memberColumns} to ${maxMembers}`);
+        setMemberColumns(maxMembers);
+      }
+    }
+  }, [rawData, memberColumns]);
+
+  // Helper function to build payload (moved outside useMemo to avoid circular reference)
+  const buildPayload = (row) => {
+    // Extract members
+    const members = [];
+    for (let i = 1; i <= memberColumns; i++) {
+      const memberName = row[`member_${i}`];
+      if (memberName) {
+        const alias = memberOptions.find(a => a.name === memberName);
+        if (alias) {
+          if (row.members_details?.[i-1]?.id) {
+            members.push({ id: row.members_details[i-1].id, alias: alias.id });
+          } else {
+            members.push({ alias: alias.id });
+          }
+        }
+      }
     }
     
-    if (activeProjectId) {
-      axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`)
-        .then(res => setMemberOptions(res.data.map(a => ({
-          id: a.id, name: a.name, fabric: a.fabric_details?.name, include_in_zoning: a.include_in_zoning
-        }))))
-        .catch(err => console.error("Error fetching aliases:", err));
-    }
-  }, [activeCustomerId, activeProjectId]);
-
-  if (!activeProjectId) {
-    return <div className="alert alert-warning">No active project selected.</div>;
-  }
+    // Clean up payload
+    const fabricId = fabricOptions.find(f => f.name === row.fabric)?.id;
+    
+    const payload = { ...row };
+    // Remove member fields & saved flag
+    for (let i = 1; i <= memberColumns; i++) delete payload[`member_${i}`];
+    delete payload.saved;
+    
+    return {
+      ...payload,
+      projects: [activeProjectId],
+      fabric: fabricId,
+      members
+    };
+  };
 
   // Table configuration
-  const tableConfig = {
+  const tableConfig = useMemo(() => ({
     colHeaders: [
       "Name", "Fabric", "Create", "Exists", "Zone Type", "Imported", "Updated", "Notes", 
       ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)
@@ -74,9 +106,11 @@ const ZoneTable = () => {
       fabric: fabricOptions.map(f => f.name),
       zone_type: ["smart", "standard"]
     },
-    // Process data for display
+    // Process data for display (simplified - no member column detection here)
     preprocessData: (data) => {
-      let maxMembers = memberColumns;
+      console.log('Processing data with', memberColumns, 'member columns');
+      setRawData(data); // Store raw data for member column calculation
+      
       const processed = data.map(zone => {
         const zoneData = { 
           ...zone, 
@@ -85,17 +119,15 @@ const ZoneTable = () => {
         };
         
         if (zone.members_details?.length) {
+          console.log(`Zone ${zone.name} has ${zone.members_details.length} members`);
           zone.members_details.forEach((member, idx) => {
             zoneData[`member_${idx + 1}`] = member.name;
           });
-          
-          maxMembers = Math.max(maxMembers, zone.members_details.length);
         }
         
         return zoneData;
       });
       
-      if (maxMembers > memberColumns) setMemberColumns(maxMembers);
       return processed;
     },
     // Custom renderers
@@ -159,44 +191,13 @@ const ZoneTable = () => {
       return {};
     },
     // Prepare payload for saving
-    onBuildPayload: (row) => {
-      // Extract members
-      const members = [];
-      for (let i = 1; i <= memberColumns; i++) {
-        const memberName = row[`member_${i}`];
-        if (memberName) {
-          const alias = memberOptions.find(a => a.name === memberName);
-          if (alias) {
-            if (row.members_details?.[i-1]?.id) {
-              members.push({ id: row.members_details[i-1].id, alias: alias.id });
-            } else {
-              members.push({ alias: alias.id });
-            }
-          }
-        }
-      }
-      
-      // Clean up payload
-      const fabricId = fabricOptions.find(f => f.name === row.fabric)?.id;
-      
-      const payload = { ...row };
-      // Remove member fields & saved flag
-      for (let i = 1; i <= memberColumns; i++) delete payload[`member_${i}`];
-      delete payload.saved;
-      
-      return {
-        ...payload,
-        projects: [activeProjectId],
-        fabric: fabricId,
-        members
-      };
-    },
+    onBuildPayload: buildPayload, // Use the external function
     // Custom save handler
     onSave: async (unsavedData) => {
       try {
         const payload = unsavedData
           .filter(zone => zone.id || (zone.name && zone.name.trim() !== ""))
-          .map(tableConfig.onBuildPayload);
+          .map(buildPayload); // Use the external function
         
         await axios.post(API_ENDPOINTS.zoneSave, { 
           project_id: activeProjectId, 
@@ -220,7 +221,28 @@ const ZoneTable = () => {
       
       return invalidZone ? "Each zone must have a fabric selected" : true;
     }
-  };
+  }), [memberColumns, fabricOptions, memberOptions, activeProjectId]);
+
+  // Load data
+  useEffect(() => {
+    if (activeCustomerId) {
+      axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`)
+        .then(res => setFabricOptions(res.data.map(f => ({ id: f.id, name: f.name }))))
+        .catch(err => console.error("Error fetching fabrics:", err));
+    }
+    
+    if (activeProjectId) {
+      axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`)
+        .then(res => setMemberOptions(res.data.map(a => ({
+          id: a.id, name: a.name, fabric: a.fabric_details?.name, include_in_zoning: a.include_in_zoning
+        }))))
+        .catch(err => console.error("Error fetching aliases:", err));
+    }
+  }, [activeCustomerId, activeProjectId]);
+
+  if (!activeProjectId) {
+    return <div className="alert alert-warning">No active project selected.</div>;
+  }
 
   return (
     <div className="table-container">
@@ -231,45 +253,17 @@ const ZoneTable = () => {
         saveUrl={API_ENDPOINTS.zoneSave}
         deleteUrl={API_ENDPOINTS.zoneDelete}
         newRowTemplate={NEW_ZONE_TEMPLATE}
-        // fixedColumnsLeft={1}
-        // columnSorting={true}
-        // filters={true}
         storageKey="zoneTableColumnWidths"
         {...tableConfig}
         additionalButtons={
           <>
-<Button className="save-button" onClick={() => {
-  const newMemberColumns = memberColumns + parseInt(newColumnsCount);
-  
-  // Create new table configuration
-  const newColHeaders = [
-    "Name", "Fabric", "Create", "Exists", "Zone Type", "Imported", "Updated", "Notes", 
-    ...Array.from({length: newMemberColumns}, (_, i) => `Member ${i + 1}`)
-  ];
-  
-  const newColumns = [
-    { data: "name" },
-    { data: "fabric", type: "dropdown" },
-    { data: "create", type: "checkbox" },
-    { data: "exists", type: "checkbox" },
-    { data: "zone_type", type: "dropdown" },
-    { data: "imported", readOnly: true },
-    { data: "updated", readOnly: true },
-    { data: "notes" },
-    ...Array.from({ length: newMemberColumns }, (_, i) => ({ data: `member_${i + 1}` }))
-  ];
-  
-  // Update the table with new structure while preserving data
-  if (tableRef.current?.updateColumns) {
-    tableRef.current.updateColumns(newColumns, newColHeaders);
-  }
-  
-  // Update the local state
-  setMemberColumns(newMemberColumns);
-  setNewColumnsCount(1);
-}}>
-  Add Member Columns
-</Button>
+            <Button className="save-button" onClick={() => {
+              console.log(`Adding ${newColumnsCount} columns. Current: ${memberColumns}`);
+              setMemberColumns(prev => prev + parseInt(newColumnsCount));
+              setNewColumnsCount(1);
+            }}>
+              Add Member Columns
+            </Button>
             <input 
               type="number" min="1" max="10" value={newColumnsCount}
               onChange={(e) => setNewColumnsCount(parseInt(e.target.value) || 1)}
@@ -280,7 +274,6 @@ const ZoneTable = () => {
               onClick={() => {
                 if (tableRef.current?.isDirty) {
                   if (window.confirm("You have unsaved changes. Save before generating scripts?")) {
-                    // Save first
                     tableRef.current.refreshData().then(() => navigate("/san/zones/zone-scripts"));
                   }
                 } else {
@@ -291,11 +284,11 @@ const ZoneTable = () => {
               Generate Zoning Scripts
             </Button>
             <Button variant="outline-primary" onClick={() => navigate('/san/zones/import')}>
-                          Import Zones
-                        </Button>
+              Import Zones
+            </Button>
           </>
         }
-                />
+      />
     </div>
   );
 };
