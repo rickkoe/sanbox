@@ -426,7 +426,11 @@ const StorageTable = () => {
         storageKey="zoneTableColumnWidths"
         colHeaders={displayedHeaders}
         columns={displayedColumns}
-
+        additionalButtons={
+        <>
+        {/* Your existing buttons */}
+        </>
+        }
       />
     </div>
   );

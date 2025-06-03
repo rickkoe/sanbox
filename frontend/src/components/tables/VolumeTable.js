@@ -139,6 +139,11 @@ const VolumeTable = ({ storage }) => {
         filters={true}
         storageKey="volumeTableWidths"
         customRenderers={customRenderers}
+        additionalButtons={
+          <>
+          {/* Your existing buttons */}
+          </>
+        }
 
       />
     </>

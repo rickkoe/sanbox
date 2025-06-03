@@ -135,6 +135,11 @@ const FabricTable = () => {
                 saveTransform={saveTransform}
                 onRemoveRows={handleRemoveRows}
                 dropdownSources={dropdownSources}
+                additionalButtons={
+                <>
+                {/* Your existing buttons */}
+                </>
+            }
             />
 
             <Modal show={showNavigationModal} onHide={() => setShowNavigationModal(false)}>
