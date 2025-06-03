@@ -306,9 +306,9 @@ const AliasImportPage = () => {
                   placeholder={`Paste your device-alias database output here, for example:
 
 device-alias database
-  device-alias name PRD03A_sys1a pwwn c0:50:76:09:15:09:01:08
-  device-alias name PRD03A_sys2a pwwn c0:50:76:09:15:09:01:0a
-  device-alias name MGT01A_MGT_1a pwwn c0:50:76:09:15:09:02:b0
+  device-alias name alias1 pwwn 11:22:33:44:55:66:77:88
+  device-alias name alias2 pwwn 99:88:77:66:55:44:33:22
+  device-alias name alias3 pwwn 00:11:22:33:44:55:66:77 
   ...`}
                   style={{ 
                     fontFamily: 'Monaco, Consolas, "Courier New", monospace',
