@@ -6,6 +6,8 @@ import * as XLSX from "xlsx";
 import Handsontable from 'handsontable';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
+import CustomTableFilter from './CustomTableFilter';
+
 
 console.log("Handsontable version:", Handsontable.version);
 registerAllModules();
@@ -59,6 +61,8 @@ const GenericTable = forwardRef(({
   // Fixed visibleColumns state initialization
   const [visibleColumns, setVisibleColumns] = useState({});
   const [columnFilter, setColumnFilter] = useState('');
+  const [originalData, setOriginalData] = useState([]); // Store unfiltered data
+  const [showCustomFilter, setShowCustomFilter] = useState(false);
 
   // Update visibleColumns when columns prop changes
   useEffect(() => {
@@ -414,6 +418,7 @@ const filteredColumns = columns.filter((col, index) => {
       }
       
       setData(responseData);
+      setOriginalData(responseData); // Store original data for filtering
       const dataWithBlankRow = ensureBlankRow(responseData);
       setUnsavedData(dataWithBlankRow);
       setIsDirty(false);
@@ -455,6 +460,11 @@ const filteredColumns = columns.filter((col, index) => {
       fetchData();
     }
   }, [apiUrl]);
+
+  const handleFilterChange = (filteredData) => {
+    const dataWithBlankRow = ensureBlankRow(filteredData);
+    setUnsavedData(dataWithBlankRow);
+  };
 
   const handleAfterChange = (changes, source) => {
     if (source === "loadData" || !changes) return;
@@ -1062,11 +1072,21 @@ const filteredColumns = columns.filter((col, index) => {
   </div>
 </div>
 
-            {additionalButtons && (
-              <div className="additional-buttons">
-                {additionalButtons}
-              </div>
-            )}
+          {additionalButtons && (
+            <div className="additional-buttons">
+              <button 
+                className={`modern-btn modern-btn-secondary ${showCustomFilter ? 'active' : ''}`}
+                onClick={() => setShowCustomFilter(!showCustomFilter)}
+                title="Toggle Filters"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+                </svg>
+                {showCustomFilter ? 'Hide Filters' : 'Show Filters'}
+              </button>
+              {additionalButtons}
+            </div>
+          )}
           </div>
         </div>
 
@@ -1101,6 +1121,15 @@ const filteredColumns = columns.filter((col, index) => {
           <span className="status-text">{saveStatus}</span>
         </div>
       )}
+      {showCustomFilter && (
+        <CustomTableFilter
+          columns={columns}
+          colHeaders={colHeaders}
+          data={originalData}
+          onFilterChange={handleFilterChange}
+          visibleColumns={visibleColumns}
+        />
+      )}
 
       {/* Table Container */}
       <div 
@@ -1125,8 +1154,8 @@ const filteredColumns = columns.filter((col, index) => {
               licenseKey="non-commercial-and-evaluation"
               rowHeaders={false}
               
-              filters={true}
-              dropdownMenu={true}
+              filters={false}
+              dropdownMenu={false}
               
               width="100%"
               afterChange={handleAfterChange}
