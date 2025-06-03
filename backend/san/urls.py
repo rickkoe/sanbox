@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    AliasCopyToProjectView,
     fabric_management,
     FabricDeleteView,
     generate_alias_scripts,
@@ -18,6 +19,7 @@ urlpatterns = [
     path("aliases/delete/<int:pk>/", AliasDeleteView.as_view(), name="alias-delete"),
     path("alias-scripts/<int:project_id>/", generate_alias_scripts, name="alias-scripts"),
     path("aliases/fabric/<int:fabric_id>/", AliasByFabricView.as_view(), name="aliases-by-fabric"),
+    path("aliases/copy-to-project/", AliasCopyToProjectView.as_view(), name="copy-aliases-to-project"),
 
     path("zones/project/<int:project_id>/", ZonesByProjectView.as_view(), name="zones-by-project"),
     path("zones/save/", ZoneSaveView.as_view(), name="save-zones"),

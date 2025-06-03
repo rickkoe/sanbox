@@ -32,6 +32,7 @@ import ImportSwitchConfig from "./components/forms/ImportSwitchConfig";
 import StorageInsightsImporter from "./pages/StorageInsightsImporter";
 import TestFilters from "./components/tables/TestFilters";
 import AliasImportPage from './pages/AliasImportPage';
+import ZoneImportPage from './pages/ZoneImportPage';
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
@@ -82,6 +83,7 @@ function App() {
                   <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
                   <Route path="/test" element={<TestFilters />} />
                   <Route path="/san/aliases/import" element={<AliasImportPage />} />
+                  <Route path="/san/zones/import" element={<ZoneImportPage />} />
                   <Route
                     path="/insights/importer"
                     element={<StorageInsightsImporter />}

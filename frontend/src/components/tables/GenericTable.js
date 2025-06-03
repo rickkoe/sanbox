@@ -230,7 +230,7 @@ const GenericTable = forwardRef(({
       }
     }
   };
-  
+
 const createVisibleColumns = () => {
   return columns
     .map((col, index) => {
@@ -304,6 +304,24 @@ useEffect(() => {
   }
 }, [visibleColumns, customRenderers, dropdownSources]); // Re-run when any of these change
 
+// Add this useEffect in GenericTable.js after the existing visibleColumns useEffect
+useEffect(() => {
+  if (tableRef.current?.hotInstance) {
+    const hot = tableRef.current.hotInstance;
+    
+    // Recreate visible columns and headers based on new props
+    const newColumns = createVisibleColumns();
+    const newHeaders = createVisibleHeaders();
+    
+    // Update the table structure
+    hot.updateSettings({
+      columns: newColumns,
+      colHeaders: newHeaders
+    });
+  }
+}, [columns, colHeaders]); // Watch for changes to the base columns and headers props
+
+
 
 // Filter columns based on search
 const filteredColumns = columns.filter((col, index) => {
@@ -331,12 +349,63 @@ const filteredColumns = columns.filter((col, index) => {
     setSelectedCount(rowSet.size);
   };
 
-  useImperativeHandle(ref, () => ({
-    hotInstance: tableRef.current?.hotInstance,
-    refreshData: fetchData,
-    isDirty,
-    setIsDirty
-  }));
+useImperativeHandle(ref, () => ({
+  hotInstance: tableRef.current?.hotInstance,
+  refreshData: fetchData,
+  isDirty,
+  setIsDirty,
+  updateColumns: (newColumns, newColHeaders) => {
+    // Update the internal state to match new structure
+    const updatedData = unsavedData.map(row => {
+      // Preserve existing data, add empty values for new columns
+      const newRow = { ...row };
+      
+      // Add any new member columns with empty values
+      newColumns.forEach(col => {
+        if (col.data && !(col.data in newRow)) {
+          newRow[col.data] = '';
+        }
+      });
+      
+      return newRow;
+    });
+    
+    setUnsavedData(updatedData);
+    
+    // Update the table structure
+    if (tableRef.current?.hotInstance) {
+      const hot = tableRef.current.hotInstance;
+      
+      // Create new visible columns based on current visibility state
+      const newVisibleColumns = newColumns
+        .map((col, index) => {
+          if (!visibleColumns[index]) return null;
+          
+          const isDropdown = dropdownSources.hasOwnProperty(col.data);
+          const columnConfig = {
+            ...col,
+            type: isDropdown ? "dropdown" : col.type,
+            source: isDropdown ? dropdownSources[col.data] : undefined,
+          };
+          
+          if (customRenderers[col.data]) {
+            columnConfig.renderer = customRenderers[col.data];
+          }
+          
+          return columnConfig;
+        })
+        .filter(col => col !== null);
+      
+      const newVisibleHeaders = newColHeaders.filter((header, index) => visibleColumns[index]);
+      
+      hot.updateSettings({
+        columns: newVisibleColumns,
+        colHeaders: newVisibleHeaders,
+        data: updatedData
+      });
+    }
+  }
+}));
 
   useEffect(() => {
     const container = containerRef.current;

@@ -6,15 +6,16 @@ import { ConfigContext } from '../context/ConfigContext';
 import { HotTable } from '@handsontable/react';
 import 'handsontable/dist/handsontable.full.css';
 
-const AliasImportPage = () => {
+const ZoneImportPage = () => {
   const { config } = useContext(ConfigContext);
   const navigate = useNavigate();
   const previewTableRef = useRef(null);
   
   const [fabricOptions, setFabricOptions] = useState([]);
+  const [aliasOptions, setAliasOptions] = useState([]);
   const [selectedFabric, setSelectedFabric] = useState('');
   const [rawText, setRawText] = useState('');
-  const [parsedAliases, setParsedAliases] = useState([]);
+  const [parsedZones, setParsedZones] = useState([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
@@ -26,13 +27,15 @@ const AliasImportPage = () => {
   const [showProjectCopy, setShowProjectCopy] = useState(false);
   const [availableProjects, setAvailableProjects] = useState([]);
   const [selectedSourceProject, setSelectedSourceProject] = useState('');
-  const [sourceProjectAliases, setSourceProjectAliases] = useState([]);
-  const [selectedAliasesToCopy, setSelectedAliasesToCopy] = useState([]);
+  const [sourceProjectZones, setSourceProjectZones] = useState([]);
+  const [selectedZonesToCopy, setSelectedZonesToCopy] = useState([]);
+  const [memberColumns, setMemberColumns] = useState(5);
+  const [unmatchedWWPNs, setUnmatchedWWPNs] = useState([]);
   
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
-  // Load fabrics and projects on component mount
+  // Load fabrics, aliases, and projects on component mount
   useEffect(() => {
     if (activeCustomerId) {
       setLoading(true);
@@ -40,7 +43,7 @@ const AliasImportPage = () => {
       // Load fabrics
       const fabricsPromise = axios.get(`http://127.0.0.1:8000/api/san/fabrics/?customer_id=${activeCustomerId}`);
       
-      // Load projects for this customer using existing endpoint
+      // Load projects for this customer
       const projectsPromise = axios.get(`http://127.0.0.1:8000/api/customers/projects/${activeCustomerId}/`);
       
       Promise.all([fabricsPromise, projectsPromise])
@@ -62,83 +65,187 @@ const AliasImportPage = () => {
     }
   }, [activeCustomerId, activeProjectId]);
 
-  // Parse device-alias database text
-  const parseDeviceAliasText = (text) => {
+  // Load aliases when fabric is selected
+  useEffect(() => {
+    if (activeProjectId && selectedFabric) {
+      axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${activeProjectId}/`)
+        .then(res => {
+          // Filter aliases for the selected fabric
+          const fabricAliases = res.data.filter(alias => 
+            alias.fabric_details?.id === parseInt(selectedFabric)
+          );
+          setAliasOptions(fabricAliases);
+        })
+        .catch(err => {
+          console.error("Error fetching aliases:", err);
+        });
+    }
+  }, [activeProjectId, selectedFabric]);
+
+  // Parse zone database text
+  const parseZoneText = (text) => {
     const lines = text.split('\n');
-    const aliases = [];
+    const zones = [];
+    let currentZone = null;
+    let vsanId = null;
     
-    // Regex to match device-alias lines
-    const deviceAliasRegex = /device-alias\s+name\s+(\S+)\s+pwwn\s+([0-9a-fA-F:]{23})/;
+    // First, extract VSAN ID from the header
+    const vsanHeaderRegex = /!Active Zone Database Section for vsan (\d+)/;
     
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
-      const match = trimmedLine.match(deviceAliasRegex);
       
-      if (match) {
-        const [, name, wwpn] = match;
+      // Extract VSAN ID from header
+      const vsanMatch = trimmedLine.match(vsanHeaderRegex);
+      if (vsanMatch) {
+        vsanId = parseInt(vsanMatch[1]);
+        return;
+      }
+      
+      // Zone name line: "zone name <zone_name> vsan <vsan_id>"
+      const zoneNameRegex = /^zone\s+name\s+(\S+)\s+vsan\s+(\d+)/;
+      const zoneMatch = trimmedLine.match(zoneNameRegex);
+      
+      if (zoneMatch) {
+        // Save previous zone if exists
+        if (currentZone) {
+          zones.push(currentZone);
+        }
         
-        // Format WWPN to standard format (xx:xx:xx:xx:xx:xx:xx:xx)
-        const formattedWWPN = wwpn.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{2}/g)?.join(':') || wwpn;
-        
-        aliases.push({
+        const [, zoneName, zoneVsan] = zoneMatch;
+        currentZone = {
           lineNumber: index + 1,
-          name: name,
-          wwpn: formattedWWPN,
-          use: 'init', // Default to 'init'
+          name: zoneName,
+          vsan: parseInt(zoneVsan),
           fabric: selectedFabric,
-          cisco_alias: 'device-alias',
+          zone_type: 'standard', // Default to standard
           create: true,
-          include_in_zoning: false,
-          notes: `Imported from device-alias database`,
-          imported: new Date().toISOString(), // Put timestamp in imported field
-          updated: null, // Leave updated as null
-          saved: false
-        });
+          exists: false,
+          notes: `Imported from zone database (VSAN ${zoneVsan})`,
+          imported: new Date().toISOString(),
+          updated: null,
+          saved: false,
+          members: []
+        };
+        return;
+      }
+      
+      // Member line: "    member pwwn <wwpn>"
+      const memberRegex = /^\s+member\s+pwwn\s+([0-9a-fA-F:]{23})/;
+      const memberMatch = trimmedLine.match(memberRegex);
+      
+      if (memberMatch && currentZone) {
+        const [, wwpn] = memberMatch;
+        // Format WWPN to standard format
+        const formattedWWPN = wwpn.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{2}/g)?.join(':') || wwpn;
+        currentZone.members.push(formattedWWPN);
+      }
+      
+      // Comment line with alias reference: "!           [alias_name]"
+      const commentRegex = /^\s*!\s*\[([^\]]+)\]/;
+      const commentMatch = trimmedLine.match(commentRegex);
+      
+      if (commentMatch && currentZone) {
+        // This is additional info, could be used for notes
+        if (!currentZone.aliasRef) {
+          currentZone.aliasRef = commentMatch[1];
+          currentZone.notes += ` (Alias ref: ${commentMatch[1]})`;
+        }
       }
     });
     
-    return aliases;
+    // Don't forget the last zone
+    if (currentZone) {
+      zones.push(currentZone);
+    }
+    
+    return zones;
   };
 
-  // Check for duplicate aliases in database
-  const checkForDuplicates = async (aliases) => {
-    setCheckingDuplicates(true);
-    try {
-      // Get all existing aliases for the selected fabric
-      const response = await axios.get(`http://127.0.0.1:8000/api/san/aliases/fabric/${selectedFabric}/`);
-      const existingAliases = response.data;
+  // Convert zones to table format with member columns
+  const convertZonesToTableFormat = (zones) => {
+    let maxMembers = memberColumns;
+    const unmatched = [];
+    
+    const tableData = zones.map(zone => {
+      const zoneData = { ...zone };
       
-      const duplicateEntries = [];
-      const uniqueAliases = [];
+      // Track the maximum number of members to adjust columns
+      if (zone.members.length > maxMembers) {
+        maxMembers = zone.members.length;
+      }
       
-      aliases.forEach(alias => {
-        // Check for name or WWPN duplicates within the same fabric
-        const nameMatch = existingAliases.find(existing => 
-          existing.name.toLowerCase() === alias.name.toLowerCase()
-        );
-        const wwpnMatch = existingAliases.find(existing => 
-          existing.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '') === 
-          alias.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '')
+      // Convert members to columns, trying to match WWPNs to aliases
+      zone.members.forEach((wwpn, index) => {
+        const matchingAlias = aliasOptions.find(alias => 
+          alias.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '') === 
+          wwpn.toLowerCase().replace(/[^0-9a-f]/g, '')
         );
         
-        if (nameMatch || wwpnMatch) {
+        if (matchingAlias) {
+          zoneData[`member_${index + 1}`] = matchingAlias.name;
+        } else {
+          // Store unmatched WWPN for user review
+          zoneData[`member_${index + 1}`] = `UNMATCHED: ${wwpn}`;
+          unmatched.push({
+            zoneName: zone.name,
+            wwpn: wwpn,
+            memberIndex: index + 1
+          });
+        }
+      });
+      
+      // Remove the members array as it's now in columns
+      delete zoneData.members;
+      
+      return zoneData;
+    });
+    
+    // Update member columns if needed
+    if (maxMembers > memberColumns) {
+      setMemberColumns(maxMembers);
+    }
+    
+    setUnmatchedWWPNs(unmatched);
+    return tableData;
+  };
+
+  // Check for duplicate zones in database
+  const checkForDuplicates = async (zones) => {
+    setCheckingDuplicates(true);
+    try {
+      // Get all existing zones for the current project
+      const response = await axios.get(`http://127.0.0.1:8000/api/san/zones/project/${activeProjectId}/`);
+      const existingZones = response.data;
+      
+      const duplicateEntries = [];
+      const uniqueZones = [];
+      
+      zones.forEach(zone => {
+        // Check for name duplicates within the same fabric
+        const nameMatch = existingZones.find(existing => 
+          existing.name.toLowerCase() === zone.name.toLowerCase() &&
+          existing.fabric_details?.id === parseInt(selectedFabric)
+        );
+        
+        if (nameMatch) {
           duplicateEntries.push({
-            ...alias,
-            duplicateType: nameMatch && wwpnMatch ? 'both' : (nameMatch ? 'name' : 'wwpn'),
-            existingAlias: nameMatch || wwpnMatch
+            ...zone,
+            duplicateType: 'name',
+            existingZone: nameMatch
           });
         } else {
-          uniqueAliases.push(alias);
+          uniqueZones.push(zone);
         }
       });
       
       setDuplicates(duplicateEntries);
-      return uniqueAliases;
+      return uniqueZones;
       
     } catch (error) {
       console.error('Error checking for duplicates:', error);
-      setError('Failed to check for duplicate aliases: ' + (error.response?.data?.error || error.message));
-      return aliases; // Return original aliases if check fails
+      setError('Failed to check for duplicate zones: ' + (error.response?.data?.error || error.message));
+      return zones; // Return original zones if check fails
     } finally {
       setCheckingDuplicates(false);
     }
@@ -155,32 +262,38 @@ const AliasImportPage = () => {
     }
     
     if (!rawText.trim()) {
-      setError('Please paste device-alias database content');
+      setError('Please paste zone database content');
       return;
     }
     
     try {
-      const parsed = parseDeviceAliasText(rawText);
+      const parsed = parseZoneText(rawText);
       
       if (parsed.length === 0) {
-        setError('No valid device-alias entries found. Please check the format.');
+        setError('No valid zone entries found. Please check the format.');
         return;
       }
       
       // Check for duplicates
-      const uniqueAliases = await checkForDuplicates(parsed);
+      const uniqueZones = await checkForDuplicates(parsed);
       
-      setParsedAliases(parsed);
-      setPreviewData([...uniqueAliases]); // Only show unique aliases for import
+      // Convert to table format
+      const tableData = convertZonesToTableFormat(uniqueZones);
+      
+      setParsedZones(parsed);
+      setPreviewData([...tableData]);
       setShowPreview(true);
       
-      // Show success message with duplicate info
-      let message = `Successfully parsed ${parsed.length} device aliases`;
+      // Show success message with duplicate and unmatched info
+      let message = `Successfully parsed ${parsed.length} zones`;
       if (duplicates.length > 0) {
         message += `. ${duplicates.length} duplicate(s) found and will be skipped.`;
       }
-      if (uniqueAliases.length > 0) {
-        message += ` ${uniqueAliases.length} unique aliases ready for import.`;
+      if (uniqueZones.length > 0) {
+        message += ` ${uniqueZones.length} unique zones ready for import.`;
+      }
+      if (unmatchedWWPNs.length > 0) {
+        message += ` ${unmatchedWWPNs.length} WWPN(s) could not be matched to existing aliases.`;
       }
       setSuccess(message);
       
@@ -213,30 +326,48 @@ const AliasImportPage = () => {
     setError('');
     
     try {
-      // Use the edited previewData instead of original parsedAliases
+      // Convert preview data to API format
+      const zones = previewData.map(zone => {
+        // Extract members from columns
+        const members = [];
+        for (let i = 1; i <= memberColumns; i++) {
+          const memberName = zone[`member_${i}`];
+          if (memberName && !memberName.startsWith('UNMATCHED:')) {
+            const alias = aliasOptions.find(a => a.name === memberName);
+            if (alias) {
+              members.push({ alias: alias.id });
+            }
+          }
+        }
+        
+        // Clean up zone data
+        const cleanZone = { ...zone };
+        for (let i = 1; i <= memberColumns; i++) {
+          delete cleanZone[`member_${i}`];
+        }
+        delete cleanZone.saved;
+        delete cleanZone.lineNumber;
+        delete cleanZone.aliasRef;
+        
+        return {
+          ...cleanZone,
+          projects: [activeProjectId],
+          members
+        };
+      });
+      
       const payload = {
         project_id: activeProjectId,
-        aliases: previewData.map(alias => ({
-          name: alias.name,
-          wwpn: alias.wwpn,
-          use: alias.use,
-          fabric: alias.fabric,
-          cisco_alias: alias.cisco_alias,
-          create: alias.create,
-          include_in_zoning: alias.include_in_zoning,
-          notes: alias.notes,
-          imported: alias.imported, // ADDED: Include the imported timestamp
-          projects: [activeProjectId]
-        }))
+        zones: zones
       };
       
-      await axios.post('http://127.0.0.1:8000/api/san/aliases/save/', payload);
+      await axios.post('http://127.0.0.1:8000/api/san/zones/save/', payload);
       
-      setSuccess(`Successfully imported ${previewData.length} aliases!`);
+      setSuccess(`Successfully imported ${previewData.length} zones!`);
       
-      // Redirect to alias table after successful import
+      // Redirect to zone table after successful import
       setTimeout(() => {
-        navigate('/san/aliases');
+        navigate('/san/zones');
       }, 2000);
       
     } catch (error) {
@@ -246,7 +377,7 @@ const AliasImportPage = () => {
       if (error.response?.data?.details) {
         const errorMessages = error.response.data.details.map(e => {
           const errorText = Object.values(e.errors).flat().join(", ");
-          return `${e.alias}: ${errorText}`;
+          return `${e.zone}: ${errorText}`;
         });
         setError(`Import failed:\n${errorMessages.join('\n')}`);
       } else {
@@ -257,26 +388,26 @@ const AliasImportPage = () => {
     }
   };
 
-  // Load aliases from selected source project
-  const loadSourceProjectAliases = async (projectId) => {
+  // Load zones from selected source project
+  const loadSourceProjectZones = async (projectId) => {
     if (!projectId) {
-      setSourceProjectAliases([]);
+      setSourceProjectZones([]);
       return;
     }
     
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${projectId}/`);
-      setSourceProjectAliases(response.data);
+      const response = await axios.get(`http://127.0.0.1:8000/api/san/zones/project/${projectId}/`);
+      setSourceProjectZones(response.data);
     } catch (error) {
-      console.error('Error loading source project aliases:', error);
-      setError('Failed to load aliases from source project');
+      console.error('Error loading source project zones:', error);
+      setError('Failed to load zones from source project');
     }
   };
 
-  // Handle copying aliases from another project
+  // Handle copying zones from another project
   const handleCopyFromProject = async () => {
-    if (selectedAliasesToCopy.length === 0) {
-      setError('Please select aliases to copy');
+    if (selectedZonesToCopy.length === 0) {
+      setError('Please select zones to copy');
       return;
     }
     
@@ -284,22 +415,22 @@ const AliasImportPage = () => {
     setError('');
     
     try {
-      // Add current project to the selected aliases
+      // Add current project to the selected zones
       const copyPayload = {
         project_id: activeProjectId,
-        alias_ids: selectedAliasesToCopy
+        zone_ids: selectedZonesToCopy
       };
       
-      await axios.post('http://127.0.0.1:8000/api/san/aliases/copy-to-project/', copyPayload);
+      await axios.post('http://127.0.0.1:8000/api/san/zones/copy-to-project/', copyPayload);
       
-      setSuccess(`Successfully copied ${selectedAliasesToCopy.length} aliases to current project!`);
+      setSuccess(`Successfully copied ${selectedZonesToCopy.length} zones to current project!`);
       setShowProjectCopy(false);
-      setSelectedAliasesToCopy([]);
+      setSelectedZonesToCopy([]);
       setSelectedSourceProject('');
       
-      // Redirect to alias table after successful copy
+      // Redirect to zone table after successful copy
       setTimeout(() => {
-        navigate('/san/aliases');
+        navigate('/san/zones');
       }, 2000);
       
     } catch (error) {
@@ -320,10 +451,57 @@ const AliasImportPage = () => {
 
   const selectedFabricName = fabricOptions.find(f => f.id.toString() === selectedFabric.toString())?.name || '';
 
+  // Create table columns dynamically based on memberColumns
+  const tableColumns = [
+    { data: "name", width: 200 },
+    { 
+      data: "fabric", 
+      type: "dropdown", 
+      source: fabricOptions.map(f => f.id.toString()),
+      width: 120,
+      renderer: (instance, td, row, col, prop, value) => {
+        const fabric = fabricOptions.find(f => f.id.toString() === value?.toString());
+        td.innerText = fabric ? fabric.name : value || '';
+        return td;
+      }
+    },
+    { 
+      data: "zone_type", 
+      type: "dropdown", 
+      source: ["standard", "smart"],
+      width: 120,
+      className: "htCenter"
+    },
+    { 
+      data: "create", 
+      type: "checkbox", 
+      width: 80,
+      className: "htCenter"
+    },
+    { 
+      data: "exists", 
+      type: "checkbox", 
+      width: 80,
+      className: "htCenter"
+    },
+    { data: "notes", width: 200 },
+    ...Array.from({ length: memberColumns }, (_, i) => ({
+      data: `member_${i + 1}`,
+      type: "dropdown",
+      source: aliasOptions.map(a => a.name),
+      width: 150
+    }))
+  ];
+
+  const tableHeaders = [
+    "Name", "Fabric", "Zone Type", "Create", "Exists", "Notes",
+    ...Array.from({ length: memberColumns }, (_, i) => `Member ${i + 1}`)
+  ];
+
   return (
     <div className="container mt-4">
       <div className="row justify-content-center">
-        <div className="col-lg-10">
+        <div className="col-lg-12">
           <Card>
             <Card.Header>
               <h4 className="mb-0">
@@ -334,10 +512,10 @@ const AliasImportPage = () => {
                   <line x1="16" y1="17" x2="8" y2="17"/>
                   <polyline points="10,9 9,9 8,9"/>
                 </svg>
-                Import Device Aliases
+                Import Zones
               </h4>
               <small className="text-muted">
-                Import aliases from Cisco device-alias database output
+                Import zones from Cisco zone database output
               </small>
             </Card.Header>
             
@@ -365,27 +543,30 @@ const AliasImportPage = () => {
               {/* Text Input */}
               <Form.Group className="mb-3">
                 <Form.Label>
-                  <strong>Device-Alias Database Content</strong>
+                  <strong>Zone Database Content</strong>
                 </Form.Label>
                 <Form.Control
                   as="textarea"
                   rows={12}
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
-                  placeholder={`Paste your device-alias database output here, for example:
+                  placeholder={`Paste your zone database output here, for example:
 
-device-alias database
-  device-alias name PRD03A_sys1a pwwn c0:50:76:09:15:09:01:08
-  device-alias name PRD03A_sys2a pwwn c0:50:76:09:15:09:01:0a
-  device-alias name MGT01A_MGT_1a pwwn c0:50:76:09:15:09:02:b0
-  ...`}
+!Active Zone Database Section for vsan 75
+zone name zv_FCS01A_sys01a_usmnd01shmc0002p_I0030 vsan 75
+    member pwwn 50:05:07:63:08:03:11:9a
+    member pwwn c0:50:76:09:e3:f8:02:4c
+zone name zv_FCS01A_sys02a_usmnd01shmc0002p_I0100 vsan 75
+    member pwwn 50:05:07:63:08:08:11:9a
+    member pwwn c0:50:76:09:e3:f8:02:4e
+...`}
                   style={{ 
                     fontFamily: 'Monaco, Consolas, "Courier New", monospace',
                     fontSize: '13px'
                   }}
                 />
                 <Form.Text className="text-muted">
-                  Paste the output from "show device-alias database" command
+                  Paste the output from "show zone" or zone database export command
                 </Form.Text>
               </Form.Group>
 
@@ -428,9 +609,10 @@ device-alias database
                   variant="outline-secondary" 
                   onClick={() => {
                     setRawText('');
-                    setParsedAliases([]);
+                    setParsedZones([]);
                     setPreviewData([]);
                     setDuplicates([]);
+                    setUnmatchedWWPNs([]);
                     setError('');
                     setSuccess('');
                     setShowPreview(false);
@@ -453,6 +635,28 @@ device-alias database
                 </Alert>
               )}
 
+              {/* Unmatched WWPNs Warning */}
+              {unmatchedWWPNs.length > 0 && (
+                <Alert variant="warning" className="mb-3">
+                  <Alert.Heading className="h6">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    {unmatchedWWPNs.length} Unmatched WWPN(s) Found
+                  </Alert.Heading>
+                  <p>The following WWPNs could not be matched to existing aliases. You may need to import these aliases first or edit the member columns manually:</p>
+                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {unmatchedWWPNs.map((unmatched, index) => (
+                      <div key={index} className="mb-1" style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                        <strong>{unmatched.zoneName}</strong> - Member {unmatched.memberIndex}: {unmatched.wwpn}
+                      </div>
+                    ))}
+                  </div>
+                </Alert>
+              )}
+
               {/* Duplicates Warning */}
               {duplicates.length > 0 && (
                 <Alert variant="warning" className="mb-3">
@@ -471,15 +675,12 @@ device-alias database
                           <div>
                             <strong style={{ fontFamily: 'monospace' }}>{duplicate.name}</strong>
                             <br />
-                            <small className="text-muted" style={{ fontFamily: 'monospace' }}>WWPN: {duplicate.wwpn}</small>
+                            <small className="text-muted">VSAN: {duplicate.vsan}</small>
                           </div>
-                          <span className="badge bg-warning text-dark">
-                            {duplicate.duplicateType === 'both' ? 'Name & WWPN' : 
-                             duplicate.duplicateType === 'name' ? 'Name' : 'WWPN'} duplicate
-                          </span>
+                          <span className="badge bg-warning text-dark">Name duplicate</span>
                         </div>
                         <small className="text-muted">
-                          Matches existing alias: <strong>{duplicate.existingAlias.name}</strong>
+                          Matches existing zone: <strong>{duplicate.existingZone.name}</strong>
                         </small>
                       </div>
                     ))}
@@ -492,7 +693,7 @@ device-alias database
                 <Card className="mt-4">
                   <Card.Header className="d-flex justify-content-between align-items-center">
                     <h5 className="mb-0">
-                      Preview & Edit ({previewData.length} unique aliases)
+                      Preview & Edit ({previewData.length} unique zones)
                       {duplicates.length > 0 && (
                         <small className="text-muted ms-2">
                           ({duplicates.length} duplicates skipped)
@@ -501,11 +702,27 @@ device-alias database
                     </h5>
                     <div className="d-flex gap-2">
                       <Button 
+                        variant="outline-secondary" 
+                        size="sm"
+                        onClick={() => {
+                          setMemberColumns(prev => prev + 2);
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
+                          <line x1="12" y1="5" x2="12" y2="19"/>
+                          <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add Member Columns
+                      </Button>
+                      <Button 
                         variant="outline-warning" 
                         size="sm"
                         onClick={() => {
                           // Reset to original parsed data
-                          setPreviewData([...parsedAliases]);
+                          const tableData = convertZonesToTableFormat(parsedZones.filter(zone => 
+                            !duplicates.some(dup => dup.name === zone.name)
+                          ));
+                          setPreviewData([...tableData]);
                         }}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
@@ -540,67 +757,14 @@ device-alias database
                   </Card.Header>
                   
                   <Card.Body style={{ padding: '0' }}>
-                    <div style={{ height: '400px', width: '100%' }}>
+                    <div style={{ height: '500px', width: '100%' }}>
                       <HotTable
                         ref={previewTableRef}
                         data={previewData}
-                        colHeaders={[
-                          "Name", "WWPN", "Use", "Fabric", "Alias Type", 
-                          "Create", "Include in Zoning", "Notes"
-                        ]}
-                        columns={[
-                          { data: "name", width: 200 },
-                          { 
-                            data: "wwpn", 
-                            width: 180,
-                            validator: (value, callback) => {
-                              // WWPN validation
-                              const wwpnPattern = /^([0-9a-fA-F]{2}:){7}[0-9a-fA-F]{2}$/;
-                              callback(wwpnPattern.test(value));
-                            }
-                          },
-                          { 
-                            data: "use", 
-                            type: "dropdown", 
-                            source: ["init", "target", "both"],
-                            width: 100,
-                            className: "htCenter"
-                          },
-                          { 
-                            data: "fabric", 
-                            type: "dropdown", 
-                            source: fabricOptions.map(f => f.id.toString()),
-                            width: 120,
-                            renderer: (instance, td, row, col, prop, value) => {
-                              // Show fabric name instead of ID
-                              const fabric = fabricOptions.find(f => f.id.toString() === value?.toString());
-                              td.innerText = fabric ? fabric.name : value || '';
-                              return td;
-                            }
-                          },
-                          { 
-                            data: "cisco_alias", 
-                            type: "dropdown", 
-                            source: ["device-alias", "fcalias", "wwpn"],
-                            width: 120,
-                            className: "htCenter"
-                          },
-                          { 
-                            data: "create", 
-                            type: "checkbox", 
-                            width: 80,
-                            className: "htCenter"
-                          },
-                          { 
-                            data: "include_in_zoning", 
-                            type: "checkbox", 
-                            width: 120,
-                            className: "htCenter"
-                          },
-                          { data: "notes", width: 200 }
-                        ]}
+                        colHeaders={tableHeaders}
+                        columns={tableColumns}
                         licenseKey="non-commercial-and-evaluation"
-                        height="350"
+                        height="450"
                         width="100%"
                         afterChange={handlePreviewChange}
                         stretchH="all"
@@ -611,12 +775,35 @@ device-alias database
                         className="preview-table"
                         viewportRowRenderingOffset={30}
                         viewportColumnRenderingOffset={10}
+                        cells={(row, col, prop) => {
+                          // Special handling for member columns
+                          if (col >= 6 && typeof prop === 'string' && prop.startsWith('member_')) {
+                            const rowData = previewData[row];
+                            if (!rowData) return {};
+                            
+                            const rowFabric = fabricOptions.find(f => f.id.toString() === rowData.fabric?.toString())?.name;
+                            const currentValue = rowData[prop];
+                            
+                            // Filter aliases for the row's fabric and include_in_zoning
+                            const availableAliases = aliasOptions.filter(alias => 
+                              alias.fabric_details?.name === rowFabric &&
+                              alias.include_in_zoning === true
+                            );
+                            
+                            return {
+                              type: "dropdown",
+                              source: ['', ...availableAliases.map(alias => alias.name)]
+                            };
+                          }
+                          return {};
+                        }}
                       />
                     </div>
                     <div className="p-3 bg-light border-top">
                       <small className="text-muted">
                         <strong>Tip:</strong> You can edit any cell by double-clicking. 
-                        Use dropdowns to change Use, Fabric, or Alias Type. 
+                        Use dropdowns to change fabric, zone type, or member assignments. 
+                        Unmatched WWPNs are marked with "UNMATCHED:" - replace these with valid alias names or leave empty.
                         Right-click for context menu options.
                       </small>
                     </div>
@@ -624,7 +811,7 @@ device-alias database
                 </Card>
               )}
 
-              {/* Show message when no unique aliases found */}
+              {/* Show message when no unique zones found */}
               {showPreview && previewData.length === 0 && duplicates.length > 0 && (
                 <Alert variant="info" className="mt-4">
                   <Alert.Heading className="h6">
@@ -633,9 +820,9 @@ device-alias database
                       <line x1="12" y1="8" x2="12" y2="12"/>
                       <line x1="12" y1="16" x2="12.01" y2="16"/>
                     </svg>
-                    No New Aliases to Import
+                    No New Zones to Import
                   </Alert.Heading>
-                  All parsed aliases already exist in the database. No import needed.
+                  All parsed zones already exist in the database. No import needed.
                 </Alert>
               )}
             </Card.Body>
@@ -651,7 +838,7 @@ device-alias database
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
             </svg>
-            Copy Aliases from Another Project
+            Copy Zones from Another Project
           </Modal.Title>
         </Modal.Header>
         
@@ -665,8 +852,8 @@ device-alias database
               value={selectedSourceProject}
               onChange={(e) => {
                 setSelectedSourceProject(e.target.value);
-                loadSourceProjectAliases(e.target.value);
-                setSelectedAliasesToCopy([]);
+                loadSourceProjectZones(e.target.value);
+                setSelectedZonesToCopy([]);
               }}
             >
               <option value="">Choose a project...</option>
@@ -677,27 +864,27 @@ device-alias database
               ))}
             </Form.Select>
             <Form.Text className="text-muted">
-              Select a project to copy aliases from
+              Select a project to copy zones from
             </Form.Text>
           </Form.Group>
 
-          {/* Aliases Selection */}
-          {sourceProjectAliases.length > 0 && (
+          {/* Zones Selection */}
+          {sourceProjectZones.length > 0 && (
             <div>
               <div className="d-flex justify-content-between align-items-center mb-2">
-                <strong>Available Aliases ({sourceProjectAliases.length})</strong>
+                <strong>Available Zones ({sourceProjectZones.length})</strong>
                 <div className="d-flex gap-2">
                   <Button 
                     size="sm" 
                     variant="outline-primary"
-                    onClick={() => setSelectedAliasesToCopy(sourceProjectAliases.map(alias => alias.id))}
+                    onClick={() => setSelectedZonesToCopy(sourceProjectZones.map(zone => zone.id))}
                   >
                     Select All
                   </Button>
                   <Button 
                     size="sm" 
                     variant="outline-secondary"
-                    onClick={() => setSelectedAliasesToCopy([])}
+                    onClick={() => setSelectedZonesToCopy([])}
                   >
                     Clear Selection
                   </Button>
@@ -705,30 +892,34 @@ device-alias database
               </div>
               
               <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
-                {sourceProjectAliases.map(alias => (
+                {sourceProjectZones.map(zone => (
                   <div 
-                    key={alias.id} 
-                    className={`p-2 border-bottom ${selectedAliasesToCopy.includes(alias.id) ? 'bg-primary bg-opacity-10' : ''}`}
+                    key={zone.id} 
+                    className={`p-2 border-bottom ${selectedZonesToCopy.includes(zone.id) ? 'bg-primary bg-opacity-10' : ''}`}
                     style={{ cursor: 'pointer' }}
                     onClick={() => {
-                      if (selectedAliasesToCopy.includes(alias.id)) {
-                        setSelectedAliasesToCopy(prev => prev.filter(id => id !== alias.id));
+                      if (selectedZonesToCopy.includes(zone.id)) {
+                        setSelectedZonesToCopy(prev => prev.filter(id => id !== zone.id));
                       } else {
-                        setSelectedAliasesToCopy(prev => [...prev, alias.id]);
+                        setSelectedZonesToCopy(prev => [...prev, zone.id]);
                       }
                     }}
                   >
                     <div className="d-flex justify-content-between align-items-center">
                       <div>
-                        <strong style={{ fontFamily: 'monospace' }}>{alias.name}</strong>
+                        <strong style={{ fontFamily: 'monospace' }}>{zone.name}</strong>
                         <br />
-                        <small className="text-muted" style={{ fontFamily: 'monospace' }}>
-                          WWPN: {alias.wwpn} | Fabric: {alias.fabric_details?.name || 'Unknown'}
+                        <small className="text-muted">
+                          Fabric: {zone.fabric_details?.name || 'Unknown'} | 
+                          Type: {zone.zone_type} | 
+                          Members: {zone.members_details?.length || 0}
                         </small>
                       </div>
                       <div className="d-flex align-items-center gap-2">
-                        <span className="badge bg-info">{alias.use}</span>
-                        {selectedAliasesToCopy.includes(alias.id) && (
+                        <span className="badge bg-info">{zone.zone_type}</span>
+                        {zone.create && <span className="badge bg-success">Create</span>}
+                        {zone.exists && <span className="badge bg-secondary">Exists</span>}
+                        {selectedZonesToCopy.includes(zone.id) && (
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
                             <polyline points="20,6 9,17 4,12"/>
                           </svg>
@@ -741,15 +932,15 @@ device-alias database
               
               <div className="mt-2 text-muted">
                 <small>
-                  <strong>{selectedAliasesToCopy.length}</strong> aliases selected for copying
+                  <strong>{selectedZonesToCopy.length}</strong> zones selected for copying
                 </small>
               </div>
             </div>
           )}
 
-          {selectedSourceProject && sourceProjectAliases.length === 0 && (
+          {selectedSourceProject && sourceProjectZones.length === 0 && (
             <Alert variant="info">
-              No aliases found in the selected project.
+              No zones found in the selected project.
             </Alert>
           )}
         </Modal.Body>
@@ -759,7 +950,7 @@ device-alias database
             variant="secondary" 
             onClick={() => {
               setShowProjectCopy(false);
-              setSelectedAliasesToCopy([]);
+              setSelectedZonesToCopy([]);
               setSelectedSourceProject('');
             }}
           >
@@ -768,7 +959,7 @@ device-alias database
           <Button 
             variant="success" 
             onClick={handleCopyFromProject}
-            disabled={selectedAliasesToCopy.length === 0 || importing}
+            disabled={selectedZonesToCopy.length === 0 || importing}
           >
             {importing ? (
               <>
@@ -781,7 +972,7 @@ device-alias database
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                 </svg>
-                Copy {selectedAliasesToCopy.length} Aliases
+                Copy {selectedZonesToCopy.length} Zones
               </>
             )}
           </Button>
@@ -791,4 +982,4 @@ device-alias database
   );
 };
 
-export default AliasImportPage;
+export default ZoneImportPage;

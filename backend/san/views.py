@@ -291,3 +291,40 @@ class AliasByFabricView(APIView):
         aliases = Alias.objects.filter(fabric=fabric)
         serializer = AliasSerializer(aliases, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class AliasCopyToProjectView(APIView):
+    """Copy existing aliases to a project by adding the project to their many-to-many relationship."""
+    
+    def post(self, request):
+        project_id = request.data.get("project_id")
+        alias_ids = request.data.get("alias_ids", [])
+
+        if not project_id or not alias_ids:
+            return Response({"error": "Project ID and alias IDs are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        copied_count = 0
+        errors = []
+
+        for alias_id in alias_ids:
+            try:
+                alias = Alias.objects.get(id=alias_id)
+                # Add the project to the alias's projects (many-to-many)
+                alias.projects.add(project)
+                copied_count += 1
+            except Alias.DoesNotExist:
+                errors.append(f"Alias with ID {alias_id} not found")
+
+        if errors:
+            return Response({
+                "message": f"Copied {copied_count} aliases with some errors",
+                "errors": errors
+            }, status=status.HTTP_207_MULTI_STATUS)
+
+        return Response({
+            "message": f"Successfully copied {copied_count} aliases to project!"
+        }, status=status.HTTP_200_OK)

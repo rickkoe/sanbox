@@ -238,12 +238,38 @@ const ZoneTable = () => {
         {...tableConfig}
         additionalButtons={
           <>
-            <Button className="save-button" onClick={() => {
-              setMemberColumns(prev => prev + parseInt(newColumnsCount));
-              setNewColumnsCount(1);
-            }}>
-              Add Member Columns
-            </Button>
+<Button className="save-button" onClick={() => {
+  const newMemberColumns = memberColumns + parseInt(newColumnsCount);
+  
+  // Create new table configuration
+  const newColHeaders = [
+    "Name", "Fabric", "Create", "Exists", "Zone Type", "Imported", "Updated", "Notes", 
+    ...Array.from({length: newMemberColumns}, (_, i) => `Member ${i + 1}`)
+  ];
+  
+  const newColumns = [
+    { data: "name" },
+    { data: "fabric", type: "dropdown" },
+    { data: "create", type: "checkbox" },
+    { data: "exists", type: "checkbox" },
+    { data: "zone_type", type: "dropdown" },
+    { data: "imported", readOnly: true },
+    { data: "updated", readOnly: true },
+    { data: "notes" },
+    ...Array.from({ length: newMemberColumns }, (_, i) => ({ data: `member_${i + 1}` }))
+  ];
+  
+  // Update the table with new structure while preserving data
+  if (tableRef.current?.updateColumns) {
+    tableRef.current.updateColumns(newColumns, newColHeaders);
+  }
+  
+  // Update the local state
+  setMemberColumns(newMemberColumns);
+  setNewColumnsCount(1);
+}}>
+  Add Member Columns
+</Button>
             <input 
               type="number" min="1" max="10" value={newColumnsCount}
               onChange={(e) => setNewColumnsCount(parseInt(e.target.value) || 1)}
@@ -264,6 +290,9 @@ const ZoneTable = () => {
             >
               Generate Zoning Scripts
             </Button>
+            <Button variant="outline-primary" onClick={() => navigate('/san/zones/import')}>
+                          Import Zones
+                        </Button>
           </>
         }
                 />
