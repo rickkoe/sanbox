@@ -88,15 +88,15 @@ const AliasImportPage = () => {
   const checkForDuplicates = async (aliases) => {
     setCheckingDuplicates(true);
     try {
-      // Get all existing aliases for the current project (which belongs to the customer)
-      const response = await axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${activeProjectId}/`);
+      // Get all existing aliases for the selected fabric
+      const response = await axios.get(`http://127.0.0.1:8000/api/san/aliases/fabric/${selectedFabric}/`);
       const existingAliases = response.data;
       
       const duplicateEntries = [];
       const uniqueAliases = [];
       
       aliases.forEach(alias => {
-        // Check for name or WWPN duplicates
+        // Check for name or WWPN duplicates within the same fabric
         const nameMatch = existingAliases.find(existing => 
           existing.name.toLowerCase() === alias.name.toLowerCase()
         );
@@ -121,7 +121,7 @@ const AliasImportPage = () => {
       
     } catch (error) {
       console.error('Error checking for duplicates:', error);
-      setError('Failed to check for duplicate aliases');
+      setError('Failed to check for duplicate aliases: ' + (error.response?.data?.error || error.message));
       return aliases; // Return original aliases if check fails
     } finally {
       setCheckingDuplicates(false);

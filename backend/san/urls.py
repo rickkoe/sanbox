@@ -10,12 +10,14 @@ from .views import (
     ZoneSaveView,
     AliasDeleteView,
     ZoneDeleteView,
+    AliasByFabricView
 )
 urlpatterns = [
     path("aliases/project/<int:project_id>/", AliasListView.as_view(), name="alias-list"),
     path("aliases/save/", AliasSaveView.as_view(), name="save-aliases"),
     path("aliases/delete/<int:pk>/", AliasDeleteView.as_view(), name="alias-delete"),
     path("alias-scripts/<int:project_id>/", generate_alias_scripts, name="alias-scripts"),
+    path("aliases/fabric/<int:fabric_id>/", AliasByFabricView.as_view(), name="aliases-by-fabric"),
 
     path("zones/project/<int:project_id>/", ZonesByProjectView.as_view(), name="zones-by-project"),
     path("zones/save/", ZoneSaveView.as_view(), name="save-zones"),

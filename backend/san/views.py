@@ -279,3 +279,15 @@ def generate_zone_scripts(request, project_id):
 
     command_data = generate_zone_commands(zones, config)
     return JsonResponse({"zone_scripts": command_data}, safe=False)
+
+class AliasByFabricView(APIView):
+    """Fetch aliases belonging to a specific fabric."""
+    def get(self, request, fabric_id):
+        try:
+            fabric = Fabric.objects.get(id=fabric_id)
+        except Fabric.DoesNotExist:
+            return Response({"error": "Fabric not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        aliases = Alias.objects.filter(fabric=fabric)
+        serializer = AliasSerializer(aliases, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
