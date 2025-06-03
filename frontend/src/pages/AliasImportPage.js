@@ -21,6 +21,8 @@ const AliasImportPage = () => {
   const [success, setSuccess] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState([]);
+  const [duplicates, setDuplicates] = useState([]);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -72,7 +74,8 @@ const AliasImportPage = () => {
           create: true,
           include_in_zoning: false,
           notes: `Imported from device-alias database`,
-          imported: new Date().toISOString(),
+          imported: new Date().toISOString(), // Put timestamp in imported field
+          updated: null, // Leave updated as null
           saved: false
         });
       }
@@ -81,8 +84,52 @@ const AliasImportPage = () => {
     return aliases;
   };
 
+  // Check for duplicate aliases in database
+  const checkForDuplicates = async (aliases) => {
+    setCheckingDuplicates(true);
+    try {
+      // Get all existing aliases for the current project (which belongs to the customer)
+      const response = await axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${activeProjectId}/`);
+      const existingAliases = response.data;
+      
+      const duplicateEntries = [];
+      const uniqueAliases = [];
+      
+      aliases.forEach(alias => {
+        // Check for name or WWPN duplicates
+        const nameMatch = existingAliases.find(existing => 
+          existing.name.toLowerCase() === alias.name.toLowerCase()
+        );
+        const wwpnMatch = existingAliases.find(existing => 
+          existing.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '') === 
+          alias.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '')
+        );
+        
+        if (nameMatch || wwpnMatch) {
+          duplicateEntries.push({
+            ...alias,
+            duplicateType: nameMatch && wwpnMatch ? 'both' : (nameMatch ? 'name' : 'wwpn'),
+            existingAlias: nameMatch || wwpnMatch
+          });
+        } else {
+          uniqueAliases.push(alias);
+        }
+      });
+      
+      setDuplicates(duplicateEntries);
+      return uniqueAliases;
+      
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      setError('Failed to check for duplicate aliases');
+      return aliases; // Return original aliases if check fails
+    } finally {
+      setCheckingDuplicates(false);
+    }
+  };
+
   // Handle text parsing
-  const handleParse = () => {
+  const handleParse = async () => {
     setError('');
     setSuccess('');
     
@@ -104,10 +151,23 @@ const AliasImportPage = () => {
         return;
       }
       
+      // Check for duplicates
+      const uniqueAliases = await checkForDuplicates(parsed);
+      
       setParsedAliases(parsed);
-      setPreviewData([...parsed]); // Create a copy for editing
+      setPreviewData([...uniqueAliases]); // Only show unique aliases for import
       setShowPreview(true);
-      setSuccess(`Successfully parsed ${parsed.length} device aliases`);
+      
+      // Show success message with duplicate info
+      let message = `Successfully parsed ${parsed.length} device aliases`;
+      if (duplicates.length > 0) {
+        message += `. ${duplicates.length} duplicate(s) found and will be skipped.`;
+      }
+      if (uniqueAliases.length > 0) {
+        message += ` ${uniqueAliases.length} unique aliases ready for import.`;
+      }
+      setSuccess(message);
+      
     } catch (err) {
       setError('Error parsing text: ' + err.message);
     }
@@ -265,13 +325,22 @@ device-alias database
                 <Button 
                   variant="primary" 
                   onClick={handleParse}
-                  disabled={!selectedFabric || !rawText.trim()}
+                  disabled={!selectedFabric || !rawText.trim() || checkingDuplicates}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
-                    <polyline points="16 18 22 12 16 6"/>
-                    <polyline points="8 6 2 12 8 18"/>
-                  </svg>
-                  Parse Text
+                  {checkingDuplicates ? (
+                    <>
+                      <Spinner size="sm" className="me-1" />
+                      Checking for duplicates...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
+                        <polyline points="16 18 22 12 16 6"/>
+                        <polyline points="8 6 2 12 8 18"/>
+                      </svg>
+                      Parse Text
+                    </>
+                  )}
                 </Button>
                 
                 <Button 
@@ -280,6 +349,7 @@ device-alias database
                     setRawText('');
                     setParsedAliases([]);
                     setPreviewData([]);
+                    setDuplicates([]);
                     setError('');
                     setSuccess('');
                     setShowPreview(false);
@@ -302,11 +372,52 @@ device-alias database
                 </Alert>
               )}
 
+              {/* Duplicates Warning */}
+              {duplicates.length > 0 && (
+                <Alert variant="warning" className="mb-3">
+                  <Alert.Heading className="h6">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    {duplicates.length} Duplicate(s) Found - Will Be Skipped
+                  </Alert.Heading>
+                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {duplicates.map((duplicate, index) => (
+                      <div key={index} className="mb-2 p-2" style={{ backgroundColor: '#fff3cd', borderRadius: '4px', border: '1px solid #ffeaa7' }}>
+                        <div className="d-flex justify-content-between align-items-start">
+                          <div>
+                            <strong style={{ fontFamily: 'monospace' }}>{duplicate.name}</strong>
+                            <br />
+                            <small className="text-muted" style={{ fontFamily: 'monospace' }}>WWPN: {duplicate.wwpn}</small>
+                          </div>
+                          <span className="badge bg-warning text-dark">
+                            {duplicate.duplicateType === 'both' ? 'Name & WWPN' : 
+                             duplicate.duplicateType === 'name' ? 'Name' : 'WWPN'} duplicate
+                          </span>
+                        </div>
+                        <small className="text-muted">
+                          Matches existing alias: <strong>{duplicate.existingAlias.name}</strong>
+                        </small>
+                      </div>
+                    ))}
+                  </div>
+                </Alert>
+              )}
+
               {/* Preview and Import */}
               {showPreview && previewData.length > 0 && (
                 <Card className="mt-4">
                   <Card.Header className="d-flex justify-content-between align-items-center">
-                    <h5 className="mb-0">Preview & Edit ({previewData.length} aliases)</h5>
+                    <h5 className="mb-0">
+                      Preview & Edit ({previewData.length} unique aliases)
+                      {duplicates.length > 0 && (
+                        <small className="text-muted ms-2">
+                          ({duplicates.length} duplicates skipped)
+                        </small>
+                      )}
+                    </h5>
                     <div className="d-flex gap-2">
                       <Button 
                         variant="outline-warning" 
@@ -430,6 +541,21 @@ device-alias database
                     </div>
                   </Card.Body>
                 </Card>
+              )}
+
+              {/* Show message when no unique aliases found */}
+              {showPreview && previewData.length === 0 && duplicates.length > 0 && (
+                <Alert variant="info" className="mt-4">
+                  <Alert.Heading className="h6">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="8" x2="12" y2="12"/>
+                      <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    No New Aliases to Import
+                  </Alert.Heading>
+                  All parsed aliases already exist in the database. No import needed.
+                </Alert>
               )}
             </Card.Body>
           </Card>
