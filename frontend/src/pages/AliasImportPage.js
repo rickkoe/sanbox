@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { Button, Form, Alert, Card, Spinner, Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ConfigContext } from '../context/ConfigContext';
+import { HotTable } from '@handsontable/react';
+import 'handsontable/dist/handsontable.full.css';
 
 const AliasImportPage = () => {
   const { config } = useContext(ConfigContext);
   const navigate = useNavigate();
+  const previewTableRef = useRef(null);
   
   const [fabricOptions, setFabricOptions] = useState([]);
   const [selectedFabric, setSelectedFabric] = useState('');
@@ -17,6 +20,7 @@ const AliasImportPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
   
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -101,11 +105,25 @@ const AliasImportPage = () => {
       }
       
       setParsedAliases(parsed);
+      setPreviewData([...parsed]); // Create a copy for editing
       setShowPreview(true);
       setSuccess(`Successfully parsed ${parsed.length} device aliases`);
     } catch (err) {
       setError('Error parsing text: ' + err.message);
     }
+  };
+
+  // Handle changes in the preview table
+  const handlePreviewChange = (changes, source) => {
+    if (source === 'loadData' || !changes) return;
+    
+    const updatedData = [...previewData];
+    changes.forEach(([row, prop, oldVal, newVal]) => {
+      if (updatedData[row]) {
+        updatedData[row] = { ...updatedData[row], [prop]: newVal };
+      }
+    });
+    setPreviewData(updatedData);
   };
 
   // Handle import to database
@@ -119,10 +137,10 @@ const AliasImportPage = () => {
     setError('');
     
     try {
-      // Prepare payload for API
+      // Use the edited previewData instead of original parsedAliases
       const payload = {
         project_id: activeProjectId,
-        aliases: parsedAliases.map(alias => ({
+        aliases: previewData.map(alias => ({
           name: alias.name,
           wwpn: alias.wwpn,
           use: alias.use,
@@ -131,13 +149,14 @@ const AliasImportPage = () => {
           create: alias.create,
           include_in_zoning: alias.include_in_zoning,
           notes: alias.notes,
+          imported: alias.imported, // ADDED: Include the imported timestamp
           projects: [activeProjectId]
         }))
       };
       
       await axios.post('http://127.0.0.1:8000/api/san/aliases/save/', payload);
       
-      setSuccess(`Successfully imported ${parsedAliases.length} aliases!`);
+      setSuccess(`Successfully imported ${previewData.length} aliases!`);
       
       // Redirect to alias table after successful import
       setTimeout(() => {
@@ -260,6 +279,7 @@ device-alias database
                   onClick={() => {
                     setRawText('');
                     setParsedAliases([]);
+                    setPreviewData([]);
                     setError('');
                     setSuccess('');
                     setShowPreview(false);
@@ -283,62 +303,130 @@ device-alias database
               )}
 
               {/* Preview and Import */}
-              {showPreview && parsedAliases.length > 0 && (
+              {showPreview && previewData.length > 0 && (
                 <Card className="mt-4">
                   <Card.Header className="d-flex justify-content-between align-items-center">
-                    <h5 className="mb-0">Preview ({parsedAliases.length} aliases)</h5>
-                    <Button 
-                      variant="success" 
-                      onClick={handleImport}
-                      disabled={importing}
-                    >
-                      {importing ? (
-                        <>
-                          <Spinner size="sm" className="me-1" />
-                          Importing...
-                        </>
-                      ) : (
-                        <>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2h4"/>
-                            <polyline points="17,6 9,14 5,10"/>
-                          </svg>
-                          Import to {selectedFabricName}
-                        </>
-                      )}
-                    </Button>
+                    <h5 className="mb-0">Preview & Edit ({previewData.length} aliases)</h5>
+                    <div className="d-flex gap-2">
+                      <Button 
+                        variant="outline-warning" 
+                        size="sm"
+                        onClick={() => {
+                          // Reset to original parsed data
+                          setPreviewData([...parsedAliases]);
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
+                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                          <path d="M21 3v5h-5"/>
+                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                          <path d="M3 21v-5h5"/>
+                        </svg>
+                        Reset Changes
+                      </Button>
+                      <Button 
+                        variant="success" 
+                        onClick={handleImport}
+                        disabled={importing}
+                      >
+                        {importing ? (
+                          <>
+                            <Spinner size="sm" className="me-1" />
+                            Importing...
+                          </>
+                        ) : (
+                          <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2h4"/>
+                              <polyline points="17,6 9,14 5,10"/>
+                            </svg>
+                            Import to {selectedFabricName}
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </Card.Header>
                   
-                  <Card.Body style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    <div className="table-responsive">
-                      <table className="table table-sm table-striped">
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>WWPN</th>
-                            <th>Use</th>
-                            <th>Type</th>
-                            <th>Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {parsedAliases.map((alias, index) => (
-                            <tr key={index}>
-                              <td style={{ fontFamily: 'monospace' }}>{alias.name}</td>
-                              <td style={{ fontFamily: 'monospace' }}>{alias.wwpn}</td>
-                              <td>
-                                <span className="badge bg-info">{alias.use}</span>
-                              </td>
-                              <td>
-                                <span className="badge bg-secondary">{alias.cisco_alias}</span>
-                              </td>
-                              <td>
-                                <small className="text-muted">{alias.notes}</small>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  <Card.Body style={{ padding: '0' }}>
+                    <div style={{ height: '400px', width: '100%' }}>
+                      <HotTable
+                        ref={previewTableRef}
+                        data={previewData}
+                        colHeaders={[
+                          "Name", "WWPN", "Use", "Fabric", "Alias Type", 
+                          "Create", "Include in Zoning", "Notes"
+                        ]}
+                        columns={[
+                          { data: "name", width: 200 },
+                          { 
+                            data: "wwpn", 
+                            width: 180,
+                            validator: (value, callback) => {
+                              // WWPN validation
+                              const wwpnPattern = /^([0-9a-fA-F]{2}:){7}[0-9a-fA-F]{2}$/;
+                              callback(wwpnPattern.test(value));
+                            }
+                          },
+                          { 
+                            data: "use", 
+                            type: "dropdown", 
+                            source: ["init", "target", "both"],
+                            width: 100,
+                            className: "htCenter"
+                          },
+                          { 
+                            data: "fabric", 
+                            type: "dropdown", 
+                            source: fabricOptions.map(f => f.id.toString()),
+                            width: 120,
+                            renderer: (instance, td, row, col, prop, value) => {
+                              // Show fabric name instead of ID
+                              const fabric = fabricOptions.find(f => f.id.toString() === value?.toString());
+                              td.innerText = fabric ? fabric.name : value || '';
+                              return td;
+                            }
+                          },
+                          { 
+                            data: "cisco_alias", 
+                            type: "dropdown", 
+                            source: ["device-alias", "fcalias", "wwpn"],
+                            width: 120,
+                            className: "htCenter"
+                          },
+                          { 
+                            data: "create", 
+                            type: "checkbox", 
+                            width: 80,
+                            className: "htCenter"
+                          },
+                          { 
+                            data: "include_in_zoning", 
+                            type: "checkbox", 
+                            width: 120,
+                            className: "htCenter"
+                          },
+                          { data: "notes", width: 200 }
+                        ]}
+                        licenseKey="non-commercial-and-evaluation"
+                        height="350"
+                        width="100%"
+                        afterChange={handlePreviewChange}
+                        stretchH="all"
+                        manualColumnResize={true}
+                        contextMenu={true}
+                        copyPaste={true}
+                        fillHandle={true}
+                        className="preview-table"
+                        viewportRowRenderingOffset={30}
+                        viewportColumnRenderingOffset={10}
+                      />
+                    </div>
+                    <div className="p-3 bg-light border-top">
+                      <small className="text-muted">
+                        <strong>Tip:</strong> You can edit any cell by double-clicking. 
+                        Use dropdowns to change Use, Fabric, or Alias Type. 
+                        Right-click for context menu options.
+                      </small>
                     </div>
                   </Card.Body>
                 </Card>
