@@ -191,7 +191,7 @@ def generate_zone_commands(zones, config):
         if zoneset_command_dict[key]["commands"]:
             fabric_info = zoneset_command_dict[key]["fabric_info"]
             if fabric_info and fabric_info["san_vendor"] == 'CI':
-                zoneset_command_dict[key]["commands"].append(f'zoneset activate name {fabric_info["name"]} vsan {fabric_info["vsan"]}')
+                zoneset_command_dict[key]["commands"].append(f'zoneset activate name {fabric_info["zoneset_name"]} vsan {fabric_info["vsan"]}')
                 if config.cisco_zoning_mode == 'enhanced':
                     zoneset_command_dict[key]["commands"].append(f'zone commit vsan {fabric_info["vsan"]}')
             elif fabric_info and fabric_info["san_vendor"] == 'BR':

@@ -9,6 +9,7 @@ import GenericTable from "./GenericTable";
 const API_ENDPOINTS = {
   aliases: "http://127.0.0.1:8000/api/san/aliases/project/",
   fabrics: "http://127.0.0.1:8000/api/san/fabrics/",
+  zones: "http://127.0.0.1:8000/api/san/zones/project/", // Add zones endpoint
   aliasSave: "http://127.0.0.1:8000/api/san/aliases/save/",
   aliasDelete: "http://127.0.0.1:8000/api/san/aliases/delete/"
 };
@@ -26,12 +27,14 @@ const NEW_ALIAS_TEMPLATE = {
   notes: "",
   imported: null,
   updated: null,
-  saved: false
+  saved: false,
+  zoned_count: 0 // Add zoned count to template
 };
 
 const AliasTable = () => {
   const { config } = useContext(ConfigContext);
   const [fabricOptions, setFabricOptions] = useState([]);
+  const [zonesData, setZonesData] = useState([]); // Store zones data
   const tableRef = useRef(null);
   const navigate = useNavigate();
 
@@ -49,11 +52,28 @@ const AliasTable = () => {
     }
   }, [activeCustomerId]);
 
-  // Update dropdown sources when fabricOptions change
+  // Load zones data for counting
   useEffect(() => {
-    if (fabricOptions.length > 0) {
+    if (activeProjectId) {
+      axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/`)
+        .then(res => {
+          setZonesData(res.data);
+        })
+        .catch(err => console.error("Error fetching zones:", err));
     }
-  }, [fabricOptions]);
+  }, [activeProjectId]);
+
+  // Function to calculate zoned count for an alias
+  const calculateZonedCount = (aliasName) => {
+    if (!aliasName || !zonesData.length) return 0;
+    
+    return zonesData.filter(zone => {
+      // Check if this alias is in any of the zone's members
+      return zone.members_details && zone.members_details.some(member => 
+        member.name === aliasName
+      );
+    }).length;
+  };
 
   if (!activeProjectId) {
     return <div className="alert alert-warning">No active project selected.</div>;
@@ -63,30 +83,32 @@ const AliasTable = () => {
   const tableConfig = {
     colHeaders: [
       "Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", 
-      "Include in Zoning", "Imported", "Updated", "Notes"
+      "Include in Zoning", "Zoned Count", "Imported", "Updated", "Notes"
     ],
     columns: [
       { data: "name" },
       { data: "wwpn" },
       { data: "use", type: "dropdown", className: "htCenter" },
-      { data: "fabric_details.name", type: "dropdown" }, // Keep this as is - the dropdown source will handle it
+      { data: "fabric_details.name", type: "dropdown" },
       { data: "cisco_alias", type: "dropdown", className: "htCenter" },
       { data: "create", type: "checkbox", className: "htCenter" },
       { data: "include_in_zoning", type: "checkbox", className: "htCenter" },
+      { data: "zoned_count", readOnly: true, className: "htCenter" }, // Add zoned count column
       { data: "imported", readOnly: true },
       { data: "updated", readOnly: true },
       { data: "notes" }
     ],
     dropdownSources: {
       "use": ["init", "target", "both"],
-      "fabric_details.name": fabricOptions.map(f => f.name), // This will be updated dynamically
+      "fabric_details.name": fabricOptions.map(f => f.name),
       "cisco_alias": ["device-alias", "fcalias", "wwpn"]
     },
     // Process data for display
     preprocessData: (data) => {
       return data.map(alias => ({
         ...alias,
-        saved: true
+        saved: true,
+        zoned_count: calculateZonedCount(alias.name) // Calculate zoned count
       }));
     },
     // Custom renderers
@@ -99,6 +121,31 @@ const AliasTable = () => {
         } else {
           td.style.fontWeight = "normal";
         }
+        return td;
+      },
+      zoned_count: (instance, td, row, col, prop, value) => {
+        const count = value || 0;
+        td.innerText = count;
+        td.style.textAlign = "center";
+        td.style.fontWeight = "600";
+        
+        // Color coding based on count
+        if (count === 0) {
+          td.style.color = "#6b7280"; // Gray for unused aliases
+          td.style.backgroundColor = "#f9fafb";
+        } else if (count === 1) {
+          td.style.color = "#059669"; // Green for single use
+          td.style.backgroundColor = "#ecfdf5";
+        } else {
+          td.style.color = "#dc2626"; // Red for multiple uses (potential issue)
+          td.style.backgroundColor = "#fef2f2";
+        }
+        
+        // Add tooltip
+        td.title = count === 0 ? "Not used in any zones" : 
+                  count === 1 ? "Used in 1 zone" : 
+                  `Used in ${count} zones`;
+        
         return td;
       },
       imported: (instance, td, row, col, prop, value) => {
@@ -119,6 +166,7 @@ const AliasTable = () => {
       const payload = { ...row };
       delete payload.saved;
       delete payload.fabric_details;
+      delete payload.zoned_count; // Don't send calculated field to server
       
       return {
         ...payload,
@@ -194,34 +242,34 @@ const AliasTable = () => {
         saveUrl={API_ENDPOINTS.aliasSave}
         deleteUrl={API_ENDPOINTS.aliasDelete}
         newRowTemplate={NEW_ALIAS_TEMPLATE}
-        // fixedColumnsLeft={1}
         columnSorting={true}
         filters={true}
         storageKey="aliasTableColumnWidths"
         
-        // NEW: Define which columns are always required to be visible
-        // Column indices: 0=Name, 1=WWPN, 2=Use, 3=Fabric, 4=Alias Type, 5=Create, 6=Include in Zoning, 7=Imported, 8=Updated, 9=Notes
-        defaultVisibleColumns={[0, 1, 2, 3, 5, 6, 7, 8, 9]} // Name, WWPN, and Fabric always visible
+        // Updated column indices: 0=Name, 1=WWPN, 2=Use, 3=Fabric, 4=Alias Type, 5=Create, 6=Include in Zoning, 7=Zoned Count, 8=Imported, 9=Updated, 10=Notes
+        defaultVisibleColumns={[0, 1, 2, 3, 5, 6, 7, 8, 9, 10]} // Include Zoned Count (index 7)
         
         {...tableConfig}
         additionalButtons={
-          <><Button
-            className="save-button"
-            onClick={() => {
-              if (tableRef.current?.isDirty) {
-                if (window.confirm("You have unsaved changes. Save before generating scripts?")) {
-                  // Save first
-                  tableRef.current.refreshData().then(() => navigate("/san/aliases/alias-scripts"));
+          <>
+            <Button
+              className="save-button"
+              onClick={() => {
+                if (tableRef.current?.isDirty) {
+                  if (window.confirm("You have unsaved changes. Save before generating scripts?")) {
+                    tableRef.current.refreshData().then(() => navigate("/san/aliases/alias-scripts"));
+                  }
+                } else {
+                  navigate("/san/aliases/alias-scripts");
                 }
-              } else {
-                navigate("/san/aliases/alias-scripts");
-              }
-            } }
-          >
-            Generate Alias Scripts
-          </Button><Button variant="outline-primary" onClick={() => navigate('/san/aliases/import')}>
+              }}
+            >
+              Generate Alias Scripts
+            </Button>
+            <Button variant="outline-primary" onClick={() => navigate('/san/aliases/import')}>
               Import Aliases
-            </Button></>
+            </Button>
+          </>
         }
       />
     </div>

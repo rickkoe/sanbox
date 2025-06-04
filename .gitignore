@@ -170,3 +170,5 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 frontend/public/images/no-page-for-you.png
+.DS_Store
+backend/.DS_Store
