@@ -23,10 +23,47 @@ class AliasSerializer(serializers.ModelSerializer):
     )
 
     fabric_details = FabricSerializer(source="fabric", read_only=True)  # ✅ Return full fabric details
+    
+    # ADD THIS: Zoned count field
+    zoned_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Alias
         fields = "__all__"  # ✅ Includes both `fabric` (ID) and `fabric_details` (full object)
+
+    def get_zoned_count(self, obj):
+        """Count how many zones in the current project contain this alias"""
+        # Get project_id from context (passed from the view)
+        request = self.context.get('request')
+        view = self.context.get('view')
+        
+        # Try to get project_id from the URL kwargs
+        project_id = None
+        if hasattr(view, 'kwargs') and 'project_id' in view.kwargs:
+            project_id = view.kwargs['project_id']
+        
+        # Fallback: try to get from view attributes
+        if not project_id and hasattr(view, 'project_id'):
+            project_id = view.project_id
+            
+        # Fallback: try to get from context directly
+        if not project_id:
+            project_id = self.context.get('project_id')
+        
+        if project_id:
+            # Count zones in this project that contain this alias
+            try:
+                count = Zone.objects.filter(
+                    projects__id=project_id,
+                    members=obj
+                ).count()
+                return count
+            except Exception as e:
+                # Log the error but don't break the API
+                print(f"Error calculating zoned_count for alias {obj.name}: {e}")
+                return 0
+        
+        return 0
 
     def create(self, validated_data):
         """Create alias and properly handle many-to-many projects"""
@@ -110,6 +147,3 @@ class ZoneSerializer(serializers.ModelSerializer):
             instance.members.add(*members)  # ✅ Append instead of overwriting
 
         return instance
-
-
-

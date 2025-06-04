@@ -22,7 +22,20 @@ class AliasListView(APIView):
             return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
 
         aliases = Alias.objects.filter(projects=project)  # ✅ Filter aliases by project
-        serializer = AliasSerializer(aliases, many=True)
+        
+        # Store project_id for serializer context
+        self.project_id = project_id
+        
+        # Pass context to serializer including project_id and view
+        serializer = AliasSerializer(
+            aliases, 
+            many=True, 
+            context={
+                'request': request, 
+                'view': self,
+                'project_id': project_id
+            }
+        )
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class AliasSaveView(APIView):

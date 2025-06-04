@@ -9,7 +9,6 @@ import GenericTable from "./GenericTable";
 const API_ENDPOINTS = {
   aliases: "http://127.0.0.1:8000/api/san/aliases/project/",
   fabrics: "http://127.0.0.1:8000/api/san/fabrics/",
-  zones: "http://127.0.0.1:8000/api/san/zones/project/", // Add zones endpoint
   aliasSave: "http://127.0.0.1:8000/api/san/aliases/save/",
   aliasDelete: "http://127.0.0.1:8000/api/san/aliases/delete/"
 };
@@ -28,13 +27,12 @@ const NEW_ALIAS_TEMPLATE = {
   imported: null,
   updated: null,
   saved: false,
-  zoned_count: 0 // Add zoned count to template
+  zoned_count: 0 // Keep for new rows
 };
 
 const AliasTable = () => {
   const { config } = useContext(ConfigContext);
   const [fabricOptions, setFabricOptions] = useState([]);
-  const [zonesData, setZonesData] = useState([]); // Store zones data
   const tableRef = useRef(null);
   const navigate = useNavigate();
 
@@ -51,29 +49,6 @@ const AliasTable = () => {
         .catch(err => console.error("Error fetching fabrics:", err));
     }
   }, [activeCustomerId]);
-
-  // Load zones data for counting
-  useEffect(() => {
-    if (activeProjectId) {
-      axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/`)
-        .then(res => {
-          setZonesData(res.data);
-        })
-        .catch(err => console.error("Error fetching zones:", err));
-    }
-  }, [activeProjectId]);
-
-  // Function to calculate zoned count for an alias
-  const calculateZonedCount = (aliasName) => {
-    if (!aliasName || !zonesData.length) return 0;
-    
-    return zonesData.filter(zone => {
-      // Check if this alias is in any of the zone's members
-      return zone.members_details && zone.members_details.some(member => 
-        member.name === aliasName
-      );
-    }).length;
-  };
 
   if (!activeProjectId) {
     return <div className="alert alert-warning">No active project selected.</div>;
@@ -93,7 +68,7 @@ const AliasTable = () => {
       { data: "cisco_alias", type: "dropdown", className: "htCenter" },
       { data: "create", type: "checkbox", className: "htCenter" },
       { data: "include_in_zoning", type: "checkbox", className: "htCenter" },
-      { data: "zoned_count", readOnly: true, className: "htCenter" }, // Add zoned count column
+      { data: "zoned_count", readOnly: true, className: "htCenter" }, // Zoned count column
       { data: "imported", readOnly: true },
       { data: "updated", readOnly: true },
       { data: "notes" }
@@ -107,8 +82,8 @@ const AliasTable = () => {
     preprocessData: (data) => {
       return data.map(alias => ({
         ...alias,
-        saved: true,
-        zoned_count: calculateZonedCount(alias.name) // Calculate zoned count
+        saved: true
+        // zoned_count is now coming directly from the backend API!
       }));
     },
     // Custom renderers
