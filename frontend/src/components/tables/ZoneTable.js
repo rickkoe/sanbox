@@ -29,6 +29,7 @@ const ZoneTable = () => {
   const [rawData, setRawData] = useState([]); // Store raw data for member column calculation
   const tableRef = useRef(null);
   const navigate = useNavigate();
+  const [isAddingColumn, setIsAddingColumn] = useState(false);
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -257,18 +258,39 @@ const ZoneTable = () => {
         {...tableConfig}
         additionalButtons={
           <>
-            <Button className="save-button" onClick={() => {
-              console.log(`Adding ${newColumnsCount} columns. Current: ${memberColumns}`);
-              setMemberColumns(prev => prev + parseInt(newColumnsCount));
-              setNewColumnsCount(1);
-            }}>
-              Add Member Columns
+            <Button 
+              className={`save-button ${isAddingColumn ? 'adding-column' : ''}`}
+              onClick={async () => {
+                console.log(`Adding 1 column. Current: ${memberColumns}`);
+                
+                // Trigger animation
+                setIsAddingColumn(true);
+                
+                // Add the column
+                setMemberColumns(prev => prev + 1);
+                
+                // Reset animation after a short delay
+                setTimeout(() => {
+                  setIsAddingColumn(false);
+                }, 600);
+              }}
+              disabled={isAddingColumn} // Prevent spam clicking during animation
+            >
+              <span className="button-icon">
+                {isAddingColumn ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="spin-icon">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                )}
+              </span>
+              {isAddingColumn ? 'Adding Column...' : 'Add Member Column'}
             </Button>
-            <input 
-              type="number" min="1" max="10" value={newColumnsCount}
-              onChange={(e) => setNewColumnsCount(parseInt(e.target.value) || 1)}
-              style={{ width: "60px", marginLeft: "10px" }}
-            />
             <Button
               className="save-button"
               onClick={() => {

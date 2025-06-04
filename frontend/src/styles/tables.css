@@ -1047,3 +1047,86 @@
     color: white !important;
     border-color: #2563eb !important;
   }
+
+  /* Add this to your tables.css file */
+
+/* Add Column Button Animations */
+.save-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.save-button.adding-column {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  transform: scale(0.95);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+}
+
+.save-button.adding-column::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 0.6s ease-out;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Spinning icon animation */
+.spin-icon {
+  animation: spin 0.6s linear;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Button icon container */
+.button-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  transition: transform 0.2s ease;
+}
+
+.save-button:hover .button-icon {
+  transform: scale(1.1);
+}
+
+.save-button:active .button-icon {
+  transform: scale(0.9);
+}
+
+/* Pulse effect on click */
+.save-button.adding-column {
+  animation: pulse-success 0.6s ease-out;
+}
+
+@keyframes pulse-success {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
