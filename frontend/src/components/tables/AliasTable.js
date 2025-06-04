@@ -247,7 +247,7 @@ const AliasTable = () => {
         storageKey="aliasTableColumnWidths"
         
         // Updated column indices: 0=Name, 1=WWPN, 2=Use, 3=Fabric, 4=Alias Type, 5=Create, 6=Include in Zoning, 7=Zoned Count, 8=Imported, 9=Updated, 10=Notes
-        defaultVisibleColumns={[0, 1, 2, 3, 5, 6, 7, 8, 9, 10]} // Include Zoned Count (index 7)
+        defaultVisibleColumns={[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]} // Include Zoned Count (index 7)
         
         {...tableConfig}
         additionalButtons={

@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Menu, User, HelpCircle, Upload, Terminal } from "lucide-react";
+import { Menu, User, HelpCircle, Upload, Terminal, Settings } from "lucide-react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { ConfigContext } from "../../context/ConfigContext";
@@ -43,6 +43,7 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto gap-3 align-items-center d-flex">
           <li className="nav-item">
+
               <NavLink
                 className="nav-link"
                 to="/scripts"
@@ -69,6 +70,15 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
               >
                 <User size={28} />
               </span>
+            </li>
+            <li className="nav-item">
+                <NavLink
+                className="nav-link"
+                to="/config"
+                title="Config"
+              >
+                <Settings size={28} />
+              </NavLink>
             </li>
             <li className="nav-item">
               <Dropdown align="end">

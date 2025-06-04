@@ -415,15 +415,42 @@ const ZoneImportPage = () => {
     setError('');
     
     try {
-      // Add current project to the selected zones
-      const copyPayload = {
+      // Get the selected zones and format them properly for the API
+      const zonesToUpdate = sourceProjectZones
+        .filter(zone => selectedZonesToCopy.includes(zone.id))
+        .map(zone => {
+          // Extract members in the format the API expects
+          const members = zone.members_details ? zone.members_details.map(member => ({
+            id: member.id, // Include member ID if it exists
+            alias: member.alias // Use the alias ID
+          })) : [];
+          
+          return {
+            id: zone.id, // Keep the original zone ID
+            name: zone.name,
+            fabric: zone.fabric_details?.id || zone.fabric,
+            zone_type: zone.zone_type || 'standard',
+            create: zone.create || false,
+            exists: zone.exists || false,
+            notes: zone.notes || '',
+            imported: zone.imported,
+            updated: zone.updated,
+            projects: [...(zone.projects || []), activeProjectId], // Add current project
+            members: members
+          };
+        });
+      
+      // Use the existing zone save endpoint
+      const payload = {
         project_id: activeProjectId,
-        zone_ids: selectedZonesToCopy
+        zones: zonesToUpdate
       };
       
-      await axios.post('http://127.0.0.1:8000/api/san/zones/copy-to-project/', copyPayload);
+      console.log('Sending payload:', JSON.stringify(payload, null, 2)); // Debug log
       
-      setSuccess(`Successfully copied ${selectedZonesToCopy.length} zones to current project!`);
+      await axios.post('http://127.0.0.1:8000/api/san/zones/save/', payload);
+      
+      setSuccess(`Successfully added ${selectedZonesToCopy.length} zones to current project!`);
       setShowProjectCopy(false);
       setSelectedZonesToCopy([]);
       setSelectedSourceProject('');
@@ -435,7 +462,22 @@ const ZoneImportPage = () => {
       
     } catch (error) {
       console.error('Copy error:', error);
-      setError(`Copy failed: ${error.response?.data?.message || error.message}`);
+      console.error('Error details:', error.response?.data); // More detailed error logging
+      
+      // Handle structured error response
+      if (error.response?.data?.details) {
+        const errorMessages = error.response.data.details.map(e => {
+          const errorText = Object.values(e.errors).flat().join(", ");
+          return `${e.zone}: ${errorText}`;
+        });
+        setError(`Copy failed:\n${errorMessages.join('\n')}`);
+      } else if (error.response?.data?.message) {
+        setError(`Copy failed: ${error.response.data.message}`);
+      } else if (error.response?.data) {
+        setError(`Copy failed: ${JSON.stringify(error.response.data)}`);
+      } else {
+        setError(`Copy failed: ${error.message}`);
+      }
     } finally {
       setImporting(false);
     }
