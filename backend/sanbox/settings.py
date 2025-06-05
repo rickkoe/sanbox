@@ -138,3 +138,24 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Celery Configuration
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+CELERY_ENABLE_UTC = True
+
+# Celery task routing
+CELERY_TASK_ROUTES = {
+    'insights_importer.tasks.*': {'queue': 'imports'},
+}
+
+# Task time limits (prevent hung tasks)
+CELERY_TASK_SOFT_TIME_LIMIT = 3600  # 1 hour
+CELERY_TASK_TIME_LIMIT = 7200  # 2 hours
+
+# Result expiration
+CELERY_RESULT_EXPIRES = 86400  # 24 hours

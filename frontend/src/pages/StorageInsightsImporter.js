@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useContext, useLocation } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
-import { Form, Button, Card, Alert, Spinner, Table, Modal } from "react-bootstrap";
+import { Form, Button, Card, Alert, Spinner, Table, Modal, Badge } from "react-bootstrap";
 import usePaginatedFetch from "../components/hooks/usePaginatedFetch";
 
 const StorageInsightsImporter = () => {
@@ -12,20 +12,21 @@ const StorageInsightsImporter = () => {
   const [selectedSystems, setSelectedSystems] = useState({});
   const [importStatus, setImportStatus] = useState(null);
   const [token, setToken] = useState(null);
+  const [credentialsId, setCredentialsId] = useState(null);
   const [loadingVolumesId, setLoadingVolumesId] = useState(null);
   const [loadingHostsId, setLoadingHostsId] = useState(null);
   const { fetchAllPages } = usePaginatedFetch();
   const [summaryModal, setSummaryModal] = useState({ show: false, results: [] });
   const [progressModal, setProgressModal] = useState({ show: false, items: [] });
   const [importCancelled, setImportCancelled] = useState(false);
+  const [useEnhancedAPI, setUseEnhancedAPI] = useState(false);
+  const [jobsModal, setJobsModal] = useState({ show: false, jobs: [] });
 
   // Check if customer has Insights credentials
   const hasInsightsCredentials = !!(
     config?.customer?.insights_tenant && 
     config?.customer?.insights_api_key
   );
-
-
 
   // Fetch storage systems from Insights API
   const fetchStorageSystems = async () => {
@@ -38,36 +39,67 @@ const StorageInsightsImporter = () => {
     setError(null);
     
     try {
-      // First get an auth token
-      const tokenResponse = await axios.post(
-        "http://127.0.0.1:8000/api/storage/insights/auth/", 
-        {
-          tenant: config.customer.insights_tenant,
-          api_key: config.customer.insights_api_key
-        }
-      );
-      
-      setToken(tokenResponse.data.token);
-      
-      // Then fetch storage systems
-      const storageResponse = await axios.post(
-        "http://127.0.0.1:8000/api/storage/insights/storage-systems/",
-        { 
-          token: tokenResponse.data.token,
-          tenant: config.customer.insights_tenant  // <-- Ensure you include this!
-        }
-      );
-      
-      // Process and set storage systems data
-      const systems = storageResponse.data.resources || [];
-      setStorageSystemsData(systems);
-      
-      // Initialize selection state
-      const initialSelections = {};
-      systems.forEach(system => {
-        initialSelections[system.storage_system_id] = false;
-      });
-      setSelectedSystems(initialSelections);
+      if (useEnhancedAPI) {
+        // Use enhanced API endpoints
+        const authResponse = await axios.post(
+          "http://127.0.0.1:8000/api/insights/enhanced/auth/", 
+          {
+            tenant: config.customer.insights_tenant,
+            api_key: config.customer.insights_api_key
+          }
+        );
+        
+        setToken(authResponse.data.token);
+        setCredentialsId(authResponse.data.credentials_id);
+        
+        // Fetch storage systems using credentials ID
+        const storageResponse = await axios.post(
+          "http://127.0.0.1:8000/api/insights/enhanced/storage-systems/",
+          { 
+            credentials_id: authResponse.data.credentials_id
+          }
+        );
+        
+        const systems = storageResponse.data.resources || [];
+        setStorageSystemsData(systems);
+        
+        // Initialize selection state
+        const initialSelections = {};
+        systems.forEach(system => {
+          initialSelections[system.storage_system_id] = false;
+        });
+        setSelectedSystems(initialSelections);
+        
+      } else {
+        // Use legacy API endpoints
+        const tokenResponse = await axios.post(
+          "http://127.0.0.1:8000/api/storage/insights/auth/", 
+          {
+            tenant: config.customer.insights_tenant,
+            api_key: config.customer.insights_api_key
+          }
+        );
+        
+        setToken(tokenResponse.data.token);
+        
+        const storageResponse = await axios.post(
+          "http://127.0.0.1:8000/api/storage/insights/storage-systems/",
+          { 
+            token: tokenResponse.data.token,
+            tenant: config.customer.insights_tenant
+          }
+        );
+        
+        const systems = storageResponse.data.resources || [];
+        setStorageSystemsData(systems);
+        
+        // Initialize selection state
+        const initialSelections = {};
+        systems.forEach(system => {
+          initialSelections[system.storage_system_id] = false;
+        });
+        setSelectedSystems(initialSelections);
+      }
       
     } catch (err) {
       console.error("Error fetching from Storage Insights:", err);
@@ -237,35 +269,86 @@ const StorageInsightsImporter = () => {
     setImportStatus(null);
 
     try {
-      const payload = storageSystemsData
-        .filter(system => selectedSystemIds.includes(system.storage_system_id))
-        .map(buildStoragePayload);
+      if (useEnhancedAPI) {
+        // Use orchestrated import
+        const response = await axios.post("http://127.0.0.1:8000/api/insights/enhanced/import/start/", {
+          tenant: config.customer.insights_tenant,
+          api_key: config.customer.insights_api_key,
+          customer_id: config.customer.id,
+          import_type: 'storage_only',
+          selected_systems: selectedSystemIds,
+          async: true
+        });
 
-      const summaryResults = [];
-
-      for (const storage of payload) {
-        try {
-          await axios.post("http://127.0.0.1:8000/api/storage/", storage);
-          summaryResults.push({
-            name: storage.name,
-            volumeCount: null,
-            error: false
+        if (response.data.async) {
+          // Async response - show job started message
+          setSummaryModal({
+            show: true,
+            results: [
+              {
+                name: `Import Job Started`,
+                volumeCount: null,
+                error: false,
+                jobId: response.data.job_id,
+                taskId: response.data.task_id,
+                asyncJob: true,
+                message: response.data.message
+              }
+            ]
           });
-        } catch (error) {
-          const detail = {
-            name: storage.name,
-            error: error.response?.data || error.message
-          };
-          console.error(`Error importing ${storage.name}`, detail);
-          summaryResults.push({
-            name: storage.name,
-            volumeCount: null,
-            error: detail.error
+          
+          // Start polling for job status
+          pollJobStatus(response.data.job_id, response.data.task_id);
+        } else {
+          // Sync response (fallback)
+          setSummaryModal({
+            show: true,
+            results: [
+              {
+                name: `Import Job ${response.data.job_id}`,
+                volumeCount: null,
+                error: false,
+                jobId: response.data.job_id,
+                processed: response.data.results.processed,
+                successful: response.data.results.successful,
+                errors: response.data.results.errors
+              }
+            ]
           });
         }
-      }
+      } else {
+        // Use legacy import (your existing code)
+        const payload = storageSystemsData
+          .filter(system => selectedSystemIds.includes(system.storage_system_id))
+          .map(buildStoragePayload);
 
-      setSummaryModal({ show: true, results: summaryResults });
+        const summaryResults = [];
+
+        for (const storage of payload) {
+          try {
+            await axios.post("http://127.0.0.1:8000/api/storage/", storage);
+            summaryResults.push({
+              name: storage.name,
+              volumeCount: null,
+              error: false
+            });
+          } catch (error) {
+            const detail = {
+              name: storage.name,
+              error: error.response?.data || error.message
+            };
+            console.error(`Error importing ${storage.name}`, detail);
+            summaryResults.push({
+              name: storage.name,
+              volumeCount: null,
+              error: detail.error
+            });
+          }
+        }
+
+        setSummaryModal({ show: true, results: summaryResults });
+      }
+      
       handleSelectAll(false);
     } catch (err) {
       console.error("Import failed:", err);
@@ -304,32 +387,37 @@ const StorageInsightsImporter = () => {
     setImportStatus(null);
 
     try {
-      const payload = storageSystemsData
-        .filter(system => selectedSystemIds.includes(system.storage_system_id))
-        .map(buildStoragePayload);
+      if (useEnhancedAPI) {
+        // Use orchestrated import with volumes
+        const response = await axios.post("http://127.0.0.1:8000/api/insights/enhanced/import/start/", {
+          tenant: config.customer.insights_tenant,
+          api_key: config.customer.insights_api_key,
+          customer_id: config.customer.id,
+          import_type: 'full',
+          selected_systems: selectedSystemIds
+        });
 
-      const summaryResults = [];
+        setSummaryModal({
+          show: true,
+          results: [
+            {
+              name: `Import Job ${response.data.job_id}`,
+              volumeCount: `${response.data.results.processed} systems with volumes`,
+              error: false,
+              jobId: response.data.job_id
+            }
+          ]
+        });
+      } else {
+        // Use legacy import with volumes (your existing code)
+        const payload = storageSystemsData
+          .filter(system => selectedSystemIds.includes(system.storage_system_id))
+          .map(buildStoragePayload);
 
-      for (const storage of payload) {
-        // Check for cancellation before proceeding
-        if (importCancelled) {
-          summaryResults.push({
-            name: storage.name,
-            volumeCount: null,
-            error: "Import cancelled"
-          });
-          break; // Exit loop immediately
-        }
+        const summaryResults = [];
 
-        // Add progress item
-        setProgressModal(prev => ({
-          ...prev,
-          items: [...prev.items, { name: storage.name, step: 'Importing storage...', status: 'pending' }]
-        }));
-
-        try {
-          await axios.post("http://127.0.0.1:8000/api/storage/", storage);
-          // Check for cancellation before proceeding to volumes
+        for (const storage of payload) {
+          // Check for cancellation before proceeding
           if (importCancelled) {
             summaryResults.push({
               name: storage.name,
@@ -339,45 +427,65 @@ const StorageInsightsImporter = () => {
             break;
           }
 
-          // Update progress to importing volumes
-          setProgressModal(prev => {
-            const updated = [...prev.items];
-            const idx = updated.findIndex(i => i.name === storage.name);
-            if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Importing volumes...', status: 'pending' };
-            return { ...prev, items: updated };
-          });
+          // Add progress item
+          setProgressModal(prev => ({
+            ...prev,
+            items: [...prev.items, { name: storage.name, step: 'Importing storage...', status: 'pending' }]
+          }));
 
-          const volumeResult = await fetchVolumesForSystem(storage.uuid);
+          try {
+            await axios.post("http://127.0.0.1:8000/api/storage/", storage);
+            
+            if (importCancelled) {
+              summaryResults.push({
+                name: storage.name,
+                volumeCount: null,
+                error: "Import cancelled"
+              });
+              break;
+            }
 
-          setProgressModal(prev => {
-            const updated = [...prev.items];
-            const idx = updated.findIndex(i => i.name === storage.name);
-            if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Completed', status: 'success' };
-            return { ...prev, items: updated };
-          });
+            // Update progress to importing volumes
+            setProgressModal(prev => {
+              const updated = [...prev.items];
+              const idx = updated.findIndex(i => i.name === storage.name);
+              if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Importing volumes...', status: 'pending' };
+              return { ...prev, items: updated };
+            });
 
-          summaryResults.push({
-            name: storage.name,
-            volumeCount: volumeResult.volumeCount,
-            error: volumeResult.error || false
-          });
-        } catch (error) {
-          setProgressModal(prev => {
-            const updated = [...prev.items];
-            const idx = updated.findIndex(i => i.name === storage.name);
-            if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Failed', status: 'error' };
-            return { ...prev, items: updated };
-          });
+            const volumeResult = await fetchVolumesForSystem(storage.uuid);
 
-          summaryResults.push({
-            name: storage.name,
-            volumeCount: 0,
-            error: true
-          });
+            setProgressModal(prev => {
+              const updated = [...prev.items];
+              const idx = updated.findIndex(i => i.name === storage.name);
+              if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Completed', status: 'success' };
+              return { ...prev, items: updated };
+            });
+
+            summaryResults.push({
+              name: storage.name,
+              volumeCount: volumeResult.volumeCount,
+              error: volumeResult.error || false
+            });
+          } catch (error) {
+            setProgressModal(prev => {
+              const updated = [...prev.items];
+              const idx = updated.findIndex(i => i.name === storage.name);
+              if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Failed', status: 'error' };
+              return { ...prev, items: updated };
+            });
+
+            summaryResults.push({
+              name: storage.name,
+              volumeCount: 0,
+              error: true
+            });
+          }
         }
-      }
 
-      setSummaryModal({ show: true, results: summaryResults });
+        setSummaryModal({ show: true, results: summaryResults });
+      }
+      
       handleSelectAll(false);
     } catch (err) {
       console.error("Import failed:", err);
@@ -454,23 +562,108 @@ const StorageInsightsImporter = () => {
     }
   };
 
+  // Poll job status for async imports
+  const pollJobStatus = async (jobId, taskId) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const statusResponse = await axios.get(`http://127.0.0.1:8000/api/insights/tasks/${taskId}/status/`);
+        const taskStatus = statusResponse.data;
+        
+        if (taskStatus.state === 'SUCCESS') {
+          clearInterval(pollInterval);
+          
+          // Get final job details
+          const jobResponse = await axios.get(`http://127.0.0.1:8000/api/insights/jobs/${jobId}/`);
+          const jobData = jobResponse.data;
+          
+          // Update summary modal with final results
+          setSummaryModal({
+            show: true,
+            results: [
+              {
+                name: `Import Job Completed`,
+                volumeCount: null,
+                error: false,
+                jobId: jobData.job_id,
+                processed: jobData.processed_items,
+                successful: jobData.success_count,
+                errors: jobData.error_count,
+                asyncCompleted: true
+              }
+            ]
+          });
+        } else if (taskStatus.state === 'FAILURE') {
+          clearInterval(pollInterval);
+          
+          setSummaryModal({
+            show: true,
+            results: [
+              {
+                name: `Import Job Failed`,
+                volumeCount: null,
+                error: taskStatus.error || 'Unknown error',
+                jobId: jobId,
+                asyncFailed: true
+              }
+            ]
+          });
+        }
+        // For PENDING or PROGRESS, keep polling
+      } catch (error) {
+        console.error('Error polling job status:', error);
+        clearInterval(pollInterval);
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    // Stop polling after 5 minutes to prevent infinite polling
+    setTimeout(() => {
+      clearInterval(pollInterval);
+    }, 300000);
+  };
+
+  // Fetch import jobs (for enhanced API)
+  const fetchImportJobs = async () => {
+    try {
+      const response = await axios.get("http://127.0.0.1:8000/api/insights/jobs/");
+      setJobsModal({ show: true, jobs: response.data });
+    } catch (error) {
+      console.error("Failed to fetch import jobs:", error);
+    }
+  };
+
   // Create a formatted display of storage type
   const formatStorageType = (type) => {
     const typeMap = {
       "2145": "FlashSystem",
       "2107": "DS8000",
       "2076": "Storwize",
-      // Add more mappings as needed
     };
     
     return typeMap[type] || type;
+  };
+
+  // Format job status badge
+  const getStatusBadge = (status) => {
+    const statusMap = {
+      'pending': 'warning',
+      'running': 'primary',
+      'completed': 'success',
+      'failed': 'danger',
+      'cancelled': 'secondary'
+    };
+    return statusMap[status] || 'secondary';
   };
   
   return (
     <div className="container mt-4">
       <Card className="shadow-sm">
-        <Card.Header as="h5" className="bg-primary text-white">
-          IBM Storage Insights Importer
+        <Card.Header as="h5" className="bg-primary text-white d-flex justify-content-between align-items-center">
+          <span>IBM Storage Insights Importer</span>
+          {useEnhancedAPI && (
+            <Button variant="outline-light" size="sm" onClick={fetchImportJobs}>
+              View Import Jobs
+            </Button>
+          )}
         </Card.Header>
         <Card.Body>
           {!hasInsightsCredentials ? (
@@ -499,8 +692,24 @@ const StorageInsightsImporter = () => {
                 </a>
               </p>
               
+              {/* Enhanced API Toggle */}
+              <div className="mb-3">
+                <Form.Check
+                  type="switch"
+                  id="enhanced-api-switch"
+                  label={`Use Enhanced Import System (with job tracking and better error handling) ${useEnhancedAPI ? '✨' : ''}`}
+                  checked={useEnhancedAPI}
+                  onChange={(e) => setUseEnhancedAPI(e.target.checked)}
+                />
+                {useEnhancedAPI && (
+                  <small className="text-muted">
+                    Enhanced mode provides better tracking, logging, and error recovery.
+                  </small>
+                )}
+              </div>
+              
               {error && <Alert variant="danger">{error}</Alert>}
-              {/* importStatus is no longer shown; summaryModal is used for reporting results */}
+              {importStatus && <Alert variant={importStatus.type}>{importStatus.message}</Alert>}
               
               <div className="d-flex justify-content-between mb-3">
                 <Button 
@@ -555,7 +764,6 @@ const StorageInsightsImporter = () => {
                       {storageSystemsData
                         .filter(system => system.storage_type === "block")
                         .map(system => {
-                        console.log(`System ID: ${system.storage_system_id}, Checkbox state: ${selectedSystems[system.storage_system_id] || false}`);
                         return (
                           <tr key={system.storage_system_id}>
                             <td className="text-center">
@@ -626,7 +834,7 @@ const StorageInsightsImporter = () => {
                           <Spinner as="span" animation="border" size="sm" /> Importing...
                         </>
                       ) : (
-                        "Import Selected Systems"
+                        `Import Selected Systems ${useEnhancedAPI ? '(Enhanced)' : ''}`
                       )}
                     </Button>
                     <Button 
@@ -640,7 +848,7 @@ const StorageInsightsImporter = () => {
                           <Spinner as="span" animation="border" size="sm" /> Importing...
                         </>
                       ) : (
-                        "Import Selected Systems + Volumes"
+                        `Import Selected Systems + Volumes ${useEnhancedAPI ? '(Enhanced)' : ''}`
                       )}
                     </Button>
                   </div>
@@ -656,61 +864,171 @@ const StorageInsightsImporter = () => {
           )}
         </Card.Body>
       </Card>
-    {/* Summary Modal */}
-    {summaryModal.show && (
-      <Modal show onHide={() => setSummaryModal({ show: false, results: [] })}>
-        <Modal.Header closeButton>
-          <Modal.Title>Import Summary</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <ul>
-            {summaryModal.results.map((result, idx) => (
-              <li key={idx}>
-                <strong>{result.name}</strong> –{" "}
-                {result.volumeCount === null
-                  ? "Storage imported (no volumes)"
-                  : `${result.volumeCount} volumes imported`}{" "}
-                {result.error ? "(Error occurred)" : ""}
-              </li>
-            ))}
-          </ul>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setSummaryModal({ show: false, results: [] })}>
-            Close
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    )}
-    {/* Progress Modal */}
-    {progressModal.show && (
-      <Modal show backdrop="static" keyboard={false}>
-        <Modal.Header>
-          <Modal.Title>Importing...</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <ul>
-            {progressModal.items.map((item, idx) => (
-              <li key={idx}>
-                <strong>{item.name}</strong>: {item.step}
-                {item.status === 'success' && ' ✅'}
-                {item.status === 'error' && ' ❌'}
-                {item.status === 'pending' && ' ⏳'}
-              </li>
-            ))}
-          </ul>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="danger" onClick={() => {
-            setImportCancelled(true);
-            setProgressModal({ show: false, items: [] });
-            window.location.reload();
-          }}>
-            Cancel Import
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    )}
+
+      {/* Summary Modal */}
+      {summaryModal.show && (
+        <Modal show onHide={() => setSummaryModal({ show: false, results: [] })}>
+          <Modal.Header closeButton>
+            <Modal.Title>Import Summary</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <ul>
+              {summaryModal.results.map((result, idx) => (
+                <li key={idx}>
+                  <strong>{result.name}</strong> –{" "}
+                  {result.jobId ? (
+                    <div>
+                      <Badge bg="info">Job ID: {result.jobId}</Badge>
+                      {result.processed && (
+                        <div className="mt-1">
+                          <small className="text-muted">
+                            Processed: {result.processed}, Successful: {result.successful}, Errors: {result.errors}
+                          </small>
+                        </div>
+                      )}
+                      {result.asyncJob && (
+                        <div className="mt-1">
+                          <small className="text-info">Job started successfully. Results will update automatically.</small>
+                        </div>
+                      )}
+                      {result.asyncCompleted && (
+                        <div className="mt-1">
+                          <small className="text-success">Job completed successfully!</small>
+                        </div>
+                      )}
+                      {result.asyncFailed && (
+                        <div className="mt-1">
+                          <small className="text-danger">Job failed. Check logs for details.</small>
+                        </div>
+                      )}
+                    </div>
+                  ) : result.volumeCount === null ? (
+                    "Storage imported (no volumes)"
+                  ) : (
+                    `${result.volumeCount} volumes imported`
+                  )}{" "}
+                  {result.error && typeof result.error === 'string' ? (
+                    <Badge bg="danger">Error: {result.error}</Badge>
+                  ) : result.error ? (
+                    <Badge bg="danger">Error occurred</Badge>
+                  ) : (
+                    <Badge bg="success">Success</Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setSummaryModal({ show: false, results: [] })}>
+              Close
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      )}
+
+      {/* Progress Modal */}
+      {progressModal.show && (
+        <Modal show backdrop="static" keyboard={false}>
+          <Modal.Header>
+            <Modal.Title>Importing...</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <ul>
+              {progressModal.items.map((item, idx) => (
+                <li key={idx}>
+                  <strong>{item.name}</strong>: {item.step}
+                  {item.status === 'success' && ' ✅'}
+                  {item.status === 'error' && ' ❌'}
+                  {item.status === 'pending' && ' ⏳'}
+                </li>
+              ))}
+            </ul>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="danger" onClick={() => {
+              setImportCancelled(true);
+              setProgressModal({ show: false, items: [] });
+              window.location.reload();
+            }}>
+              Cancel Import
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      )}
+
+      {/* Jobs Modal */}
+      {jobsModal.show && (
+        <Modal show onHide={() => setJobsModal({ show: false, jobs: [] })} size="lg">
+          <Modal.Header closeButton>
+            <Modal.Title>Import Jobs History</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {jobsModal.jobs.length > 0 ? (
+              <Table striped bordered hover responsive size="sm">
+                <thead>
+                  <tr>
+                    <th>Job ID</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Started</th>
+                    <th>Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobsModal.jobs.map((job, idx) => (
+                    <tr key={idx}>
+                      <td>
+                        <code>{job.job_id.split('-')[0]}...</code>
+                      </td>
+                      <td>
+                        <Badge bg="secondary">{job.job_type}</Badge>
+                      </td>
+                      <td>
+                        <Badge bg={getStatusBadge(job.status)}>{job.status}</Badge>
+                      </td>
+                      <td>
+                        {job.total_items > 0 ? (
+                          <div>
+                            <div className="progress" style={{ height: '10px' }}>
+                              <div 
+                                className="progress-bar" 
+                                role="progressbar" 
+                                style={{ width: `${job.progress_percentage || 0}%` }}
+                              />
+                            </div>
+                            <small>{job.success_count}/{job.total_items}</small>
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td>
+                        <small>{new Date(job.created_at).toLocaleString()}</small>
+                      </td>
+                      <td>
+                        <small>{job.duration || '-'}</small>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            ) : (
+              <div className="text-center py-3 text-muted">
+                <p>No import jobs found.</p>
+              </div>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setJobsModal({ show: false, jobs: [] })}>
+              Close
+            </Button>
+            <Button variant="primary" onClick={fetchImportJobs}>
+              Refresh
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      )}
     </div>
   );
 };

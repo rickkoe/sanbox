@@ -61,6 +61,9 @@ class ImportJob(models.Model):
     result_summary = models.JSONField(default=dict, blank=True)
     error_details = models.TextField(blank=True)
     
+    # Celery task tracking
+    celery_task_id = models.CharField(max_length=255, blank=True, null=True)
+    
     class Meta:
         ordering = ['-created_at']
     
