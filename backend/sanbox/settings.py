@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'customers',
     'san',
     'storage',
+    'insights_importer',
 ]
 
 MIDDLEWARE = [

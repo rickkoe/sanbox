@@ -23,4 +23,5 @@ urlpatterns = [
     path("api/customers/", include("customers.urls")),  # API for customers
     path("api/san/", include("san.urls")),  # API for SAN
     path("api/storage/", include("storage.urls")),  # API for Storage
+    path("api/insights/", include("insights_importer.urls")),  # API for Insights Importer
 ]
