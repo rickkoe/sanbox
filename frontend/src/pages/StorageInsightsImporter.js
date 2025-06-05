@@ -10,17 +10,11 @@ const StorageInsightsImporter = () => {
   const [storageSystemsData, setStorageSystemsData] = useState([]);
   const [selectedSystems, setSelectedSystems] = useState({});
   const [importStatus, setImportStatus] = useState(null);
-  const [credentialsId, setCredentialsId] = useState(null);
   const [summaryModal, setSummaryModal] = useState({ show: false, results: [] });
   const [jobsModal, setJobsModal] = useState({ show: false, jobs: [] });
 
-  // Check if customer has Insights credentials
-  const hasInsightsCredentials = !!(
-    config?.customer?.insights_tenant && 
-    config?.customer?.insights_api_key
-  );
+  const hasInsightsCredentials = !!(config?.customer?.insights_tenant && config?.customer?.insights_api_key);
 
-  // Fetch storage systems from Enhanced Insights API
   const fetchStorageSystems = async () => {
     if (!hasInsightsCredentials) {
       setError("No Storage Insights credentials configured for this customer.");
@@ -31,29 +25,18 @@ const StorageInsightsImporter = () => {
     setError(null);
     
     try {
-      // Use enhanced API endpoints
-      const authResponse = await axios.post(
-        "http://127.0.0.1:8000/api/insights/enhanced/auth/", 
-        {
-          tenant: config.customer.insights_tenant,
-          api_key: config.customer.insights_api_key
-        }
-      );
+      const authResponse = await axios.post("http://127.0.0.1:8000/api/insights/enhanced/auth/", {
+        tenant: config.customer.insights_tenant,
+        api_key: config.customer.insights_api_key
+      });
       
-      setCredentialsId(authResponse.data.credentials_id);
-      
-      // Fetch storage systems using credentials ID
-      const storageResponse = await axios.post(
-        "http://127.0.0.1:8000/api/insights/enhanced/storage-systems/",
-        { 
-          credentials_id: authResponse.data.credentials_id
-        }
-      );
+      const storageResponse = await axios.post("http://127.0.0.1:8000/api/insights/enhanced/storage-systems/", {
+        credentials_id: authResponse.data.credentials_id
+      });
       
       const systems = storageResponse.data.resources || [];
       setStorageSystemsData(systems);
       
-      // Initialize selection state
       const initialSelections = {};
       systems.forEach(system => {
         initialSelections[system.storage_system_id] = false;
@@ -62,24 +45,16 @@ const StorageInsightsImporter = () => {
       
     } catch (err) {
       console.error("Error fetching from Storage Insights:", err);
-      setError(
-        err.response?.data?.message || 
-        "Failed to connect to IBM Storage Insights. Please check credentials."
-      );
+      setError(err.response?.data?.message || "Failed to connect to IBM Storage Insights. Please check credentials.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle checkbox changes
   const handleCheckboxChange = (systemId) => {
-    setSelectedSystems(prev => ({
-      ...prev,
-      [systemId]: !prev[systemId]
-    }));
+    setSelectedSystems(prev => ({ ...prev, [systemId]: !prev[systemId] }));
   };
 
-  // Select/deselect all systems (only those with storage_type === "block")
   const handleSelectAll = (selectAll) => {
     const newSelections = {};
     storageSystemsData.forEach(system => {
@@ -90,8 +65,7 @@ const StorageInsightsImporter = () => {
     setSelectedSystems(newSelections);
   };
 
-  // Import selected storage systems only
-  const handleImportStorageOnly = async () => {
+  const handleImport = async (importType, jobName) => {
     const selectedSystemIds = Object.entries(selectedSystems)
       .filter(([_, isSelected]) => isSelected)
       .map(([id, _]) => id);
@@ -99,12 +73,7 @@ const StorageInsightsImporter = () => {
     if (selectedSystemIds.length === 0) {
       setSummaryModal({
         show: true,
-        results: [
-          {
-            name: "No storage system selected",
-            error: "Please select at least one storage system to import."
-          }
-        ]
+        results: [{ name: "No storage system selected", error: "Please select at least one storage system to import." }]
       });
       return;
     }
@@ -117,44 +86,30 @@ const StorageInsightsImporter = () => {
         tenant: config.customer.insights_tenant,
         api_key: config.customer.insights_api_key,
         customer_id: config.customer.id,
-        import_type: 'storage_only',
+        import_type: importType,
         selected_systems: selectedSystemIds,
         async: true
       });
 
+      const result = {
+        name: jobName,
+        error: false,
+        jobId: response.data.job_id,
+        taskId: response.data.task_id,
+        asyncJob: response.data.async,
+        message: response.data.message
+      };
+
+      if (!response.data.async) {
+        result.processed = response.data.results.processed;
+        result.successful = response.data.results.successful;
+        result.errors = response.data.results.errors;
+      }
+
+      setSummaryModal({ show: true, results: [result] });
+      
       if (response.data.async) {
-        // Async response - show job started message
-        setSummaryModal({
-          show: true,
-          results: [
-            {
-              name: `Storage Import Job Started`,
-              error: false,
-              jobId: response.data.job_id,
-              taskId: response.data.task_id,
-              asyncJob: true,
-              message: response.data.message
-            }
-          ]
-        });
-        
-        // Start polling for job status
         pollJobStatus(response.data.job_id, response.data.task_id);
-      } else {
-        // Sync response (fallback)
-        setSummaryModal({
-          show: true,
-          results: [
-            {
-              name: `Storage Import Job ${response.data.job_id}`,
-              error: false,
-              jobId: response.data.job_id,
-              processed: response.data.results.processed,
-              successful: response.data.results.successful,
-              errors: response.data.results.errors
-            }
-          ]
-        });
       }
       
       handleSelectAll(false);
@@ -162,91 +117,13 @@ const StorageInsightsImporter = () => {
       console.error("Import failed:", err);
       setSummaryModal({
         show: true,
-        results: [
-          {
-            name: "Storage import failed",
-            error: err.response?.data?.message || "Failed to import storage systems."
-          }
-        ]
+        results: [{ name: `${jobName} failed`, error: err.response?.data?.message || "Failed to import storage systems." }]
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // Import selected storage systems with volumes and hosts
-  const handleImportWithVolumesAndHosts = async () => {
-    const selectedSystemIds = Object.entries(selectedSystems)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([id, _]) => id);
-
-    if (selectedSystemIds.length === 0) {
-      setImportStatus({
-        type: "warning",
-        message: "Please select at least one storage system to import."
-      });
-      return;
-    }
-
-    setLoading(true);
-    setImportStatus(null);
-
-    try {
-      const response = await axios.post("http://127.0.0.1:8000/api/insights/enhanced/import/start/", {
-        tenant: config.customer.insights_tenant,
-        api_key: config.customer.insights_api_key,
-        customer_id: config.customer.id,
-        import_type: 'full',
-        selected_systems: selectedSystemIds,
-        async: true
-      });
-
-      if (response.data.async) {
-        setSummaryModal({
-          show: true,
-          results: [
-            {
-              name: `Full Import Job Started`,
-              error: false,
-              jobId: response.data.job_id,
-              taskId: response.data.task_id,
-              asyncJob: true,
-              message: response.data.message
-            }
-          ]
-        });
-        
-        // Start polling for job status
-        pollJobStatus(response.data.job_id, response.data.task_id);
-      } else {
-        setSummaryModal({
-          show: true,
-          results: [
-            {
-              name: `Full Import Job ${response.data.job_id}`,
-              error: false,
-              jobId: response.data.job_id,
-              processed: response.data.results.processed,
-              successful: response.data.results.successful,
-              errors: response.data.results.errors
-            }
-          ]
-        });
-      }
-      
-      handleSelectAll(false);
-    } catch (err) {
-      console.error("Import failed:", err);
-      setImportStatus({
-        type: "danger",
-        message: err.response?.data?.message || "Failed to import storage systems."
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Poll job status for async imports
   const pollJobStatus = async (jobId, taskId) => {
     const pollInterval = setInterval(async () => {
       try {
@@ -255,55 +132,42 @@ const StorageInsightsImporter = () => {
         
         if (taskStatus.state === 'SUCCESS') {
           clearInterval(pollInterval);
-          
-          // Get final job details
           const jobResponse = await axios.get(`http://127.0.0.1:8000/api/insights/jobs/${jobId}/`);
           const jobData = jobResponse.data;
           
-          // Update summary modal with final results
           setSummaryModal({
             show: true,
-            results: [
-              {
-                name: `Import Job Completed`,
-                error: false,
-                jobId: jobData.job_id,
-                processed: jobData.processed_items,
-                successful: jobData.success_count,
-                errors: jobData.error_count,
-                asyncCompleted: true
-              }
-            ]
+            results: [{
+              name: `Import Job Completed`,
+              error: false,
+              jobId: jobData.job_id,
+              processed: jobData.processed_items,
+              successful: jobData.success_count,
+              errors: jobData.error_count,
+              asyncCompleted: true
+            }]
           });
         } else if (taskStatus.state === 'FAILURE') {
           clearInterval(pollInterval);
-          
           setSummaryModal({
             show: true,
-            results: [
-              {
-                name: `Import Job Failed`,
-                error: taskStatus.error || 'Unknown error',
-                jobId: jobId,
-                asyncFailed: true
-              }
-            ]
+            results: [{
+              name: `Import Job Failed`,
+              error: taskStatus.error || 'Unknown error',
+              jobId: jobId,
+              asyncFailed: true
+            }]
           });
         }
-        // For PENDING or PROGRESS, keep polling
       } catch (error) {
         console.error('Error polling job status:', error);
         clearInterval(pollInterval);
       }
-    }, 2000); // Poll every 2 seconds
+    }, 2000);
     
-    // Stop polling after 5 minutes to prevent infinite polling
-    setTimeout(() => {
-      clearInterval(pollInterval);
-    }, 300000);
+    setTimeout(() => clearInterval(pollInterval), 300000);
   };
 
-  // Fetch import jobs
   const fetchImportJobs = async () => {
     try {
       const response = await axios.get("http://127.0.0.1:8000/api/insights/jobs/");
@@ -313,28 +177,21 @@ const StorageInsightsImporter = () => {
     }
   };
 
-  // Create a formatted display of storage type
   const formatStorageType = (type) => {
-    const typeMap = {
-      "2145": "FlashSystem",
-      "2107": "DS8000",
-      "2076": "Storwize",
-    };
-    
+    const typeMap = { "2145": "FlashSystem", "2107": "DS8000", "2076": "Storwize" };
     return typeMap[type] || type;
   };
 
-  // Format job status badge
   const getStatusBadge = (status) => {
     const statusMap = {
-      'pending': 'warning',
-      'running': 'primary',
-      'completed': 'success',
-      'failed': 'danger',
-      'cancelled': 'secondary'
+      'pending': 'warning', 'running': 'primary', 'completed': 'success',
+      'failed': 'danger', 'cancelled': 'secondary'
     };
     return statusMap[status] || 'secondary';
   };
+
+  const blockSystems = storageSystemsData.filter(system => system.storage_type === "block");
+  const hasSelectedSystems = Object.values(selectedSystems).some(v => v);
   
   return (
     <div className="container mt-4">
@@ -349,15 +206,10 @@ const StorageInsightsImporter = () => {
           {!hasInsightsCredentials ? (
             <Alert variant="warning">
               <Alert.Heading>Storage Insights not configured</Alert.Heading>
-              <p>
-                This customer does not have IBM Storage Insights credentials configured.
-                Please add the tenant ID and API key in the customer settings.
-              </p>
+              <p>This customer does not have IBM Storage Insights credentials configured. Please add the tenant ID and API key in the customer settings.</p>
               <hr />
               <div className="d-flex justify-content-end">
-                <Button variant="outline-primary" href="/customers">
-                  Go to Customer Settings
-                </Button>
+                <Button variant="outline-primary" href="/customers">Go to Customer Settings</Button>
               </div>
             </Alert>
           ) : (
@@ -381,40 +233,21 @@ const StorageInsightsImporter = () => {
               {importStatus && <Alert variant={importStatus.type}>{importStatus.message}</Alert>}
               
               <div className="d-flex justify-content-between mb-3">
-                <Button 
-                  variant="primary" 
-                  onClick={fetchStorageSystems} 
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Spinner as="span" animation="border" size="sm" /> Loading...
-                    </>
-                  ) : (
-                    "Fetch Storage Systems"
-                  )}
+                <Button variant="primary" onClick={fetchStorageSystems} disabled={loading}>
+                  {loading ? <><Spinner as="span" animation="border" size="sm" /> Loading...</> : "Fetch Storage Systems"}
                 </Button>
                 
                 <div>
-                  <Button 
-                    variant="outline-secondary" 
-                    onClick={() => handleSelectAll(true)} 
-                    className="me-2"
-                    disabled={loading || storageSystemsData.length === 0}
-                  >
+                  <Button variant="outline-secondary" onClick={() => handleSelectAll(true)} className="me-2" disabled={loading || blockSystems.length === 0}>
                     Select All
                   </Button>
-                  <Button 
-                    variant="outline-secondary" 
-                    onClick={() => handleSelectAll(false)}
-                    disabled={loading || storageSystemsData.length === 0}
-                  >
+                  <Button variant="outline-secondary" onClick={() => handleSelectAll(false)} disabled={loading || blockSystems.length === 0}>
                     Deselect All
                   </Button>
                 </div>
               </div>
               
-              {storageSystemsData.filter(system => system.storage_type === "block").length > 0 ? (
+              {blockSystems.length > 0 ? (
                 <>
                   <Table striped bordered hover responsive>
                     <thead>
@@ -429,62 +262,46 @@ const StorageInsightsImporter = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {storageSystemsData
-                        .filter(system => system.storage_type === "block")
-                        .map(system => {
-                        return (
-                          <tr key={system.storage_system_id}>
-                            <td className="text-center">
-                              <Form.Check
-                                type="checkbox"
-                                checked={selectedSystems[system.storage_system_id] || false}
-                                onChange={() => handleCheckboxChange(system.storage_system_id)}
-                                id={`system-${system.storage_system_id}`}
-                              />
-                            </td>
-                            <td>{system.name}</td>
-                            <td>{formatStorageType(system.type)}</td>
-                            <td>{system.model}</td>
-                            <td>{system.serial_number}</td>
-                            <td>{system.storage_system_id}</td>
-                            <td>
-                              <span className={`badge bg-${system.probe_status === "successful" ? "success" : "warning"}`}>
-                                {system.probe_status || "Unknown"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {blockSystems.map(system => (
+                        <tr key={system.storage_system_id}>
+                          <td className="text-center">
+                            <Form.Check
+                              type="checkbox"
+                              checked={selectedSystems[system.storage_system_id] || false}
+                              onChange={() => handleCheckboxChange(system.storage_system_id)}
+                              id={`system-${system.storage_system_id}`}
+                            />
+                          </td>
+                          <td>{system.name}</td>
+                          <td>{formatStorageType(system.type)}</td>
+                          <td>{system.model}</td>
+                          <td>{system.serial_number}</td>
+                          <td>{system.storage_system_id}</td>
+                          <td>
+                            <span className={`badge bg-${system.probe_status === "successful" ? "success" : "warning"}`}>
+                              {system.probe_status || "Unknown"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </Table>
                   
                   <div className="d-flex justify-content-end mt-3">
                     <Button 
                       variant="success" 
-                      onClick={handleImportStorageOnly}
-                      disabled={loading || Object.values(selectedSystems).every(v => !v)}
+                      onClick={() => handleImport('storage_only', 'Storage Import Job Started')}
+                      disabled={loading || !hasSelectedSystems}
                       className="me-2"
                     >
-                      {loading ? (
-                        <>
-                          <Spinner as="span" animation="border" size="sm" /> Importing...
-                        </>
-                      ) : (
-                        "Import Storage Systems Only"
-                      )}
+                      {loading ? <><Spinner as="span" animation="border" size="sm" /> Importing...</> : "Import Storage Systems Only"}
                     </Button>
                     <Button 
                       variant="primary" 
-                      onClick={handleImportWithVolumesAndHosts}
-                      disabled={loading || Object.values(selectedSystems).every(v => !v)}
+                      onClick={() => handleImport('full', 'Full Import Job Started')}
+                      disabled={loading || !hasSelectedSystems}
                     >
-                      {loading ? (
-                        <>
-                          <Spinner as="span" animation="border" size="sm" /> Importing...
-                        </>
-                      ) : (
-                        "Import with Volumes & Hosts"
-                      )}
+                      {loading ? <><Spinner as="span" animation="border" size="sm" /> Importing...</> : "Import with Volumes & Hosts"}
                     </Button>
                   </div>
                 </>
@@ -516,49 +333,27 @@ const StorageInsightsImporter = () => {
                       <Badge bg="info">Job ID: {result.jobId}</Badge>
                       {result.processed && (
                         <div className="mt-1">
-                          <small className="text-muted">
-                            Processed: {result.processed}, Successful: {result.successful}, Errors: {result.errors}
-                          </small>
+                          <small className="text-muted">Processed: {result.processed}, Successful: {result.successful}, Errors: {result.errors}</small>
                         </div>
                       )}
-                      {result.asyncJob && (
-                        <div className="mt-1">
-                          <small className="text-info">Job started successfully. Results will update automatically.</small>
-                        </div>
-                      )}
-                      {result.asyncCompleted && (
-                        <div className="mt-1">
-                          <small className="text-success">Job completed successfully!</small>
-                        </div>
-                      )}
-                      {result.asyncFailed && (
-                        <div className="mt-1">
-                          <small className="text-danger">Job failed. Check logs for details.</small>
-                        </div>
-                      )}
+                      {result.asyncJob && <div className="mt-1"><small className="text-info">Job started successfully. Results will update automatically.</small></div>}
+                      {result.asyncCompleted && <div className="mt-1"><small className="text-success">Job completed successfully!</small></div>}
+                      {result.asyncFailed && <div className="mt-1"><small className="text-danger">Job failed. Check logs for details.</small></div>}
                     </div>
                   )}
-                  {result.error && typeof result.error === 'string' ? (
+                  {result.error ? (
                     <div className="mt-1">
-                      <Badge bg="danger">Error: {result.error}</Badge>
+                      <Badge bg="danger">{typeof result.error === 'string' ? `Error: ${result.error}` : 'Error occurred'}</Badge>
                     </div>
-                  ) : result.error ? (
-                    <div className="mt-1">
-                      <Badge bg="danger">Error occurred</Badge>
-                    </div>
-                  ) : result.jobId ? null : (
-                    <div className="mt-1">
-                      <Badge bg="success">Success</Badge>
-                    </div>
+                  ) : !result.jobId && (
+                    <div className="mt-1"><Badge bg="success">Success</Badge></div>
                   )}
                 </li>
               ))}
             </ul>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setSummaryModal({ show: false, results: [] })}>
-              Close
-            </Button>
+            <Button variant="secondary" onClick={() => setSummaryModal({ show: false, results: [] })}>Close</Button>
           </Modal.Footer>
         </Modal>
       )}
@@ -585,37 +380,21 @@ const StorageInsightsImporter = () => {
                 <tbody>
                   {jobsModal.jobs.map((job, idx) => (
                     <tr key={idx}>
-                      <td>
-                        <code>{job.job_id.split('-')[0]}...</code>
-                      </td>
-                      <td>
-                        <Badge bg="secondary">{job.job_type}</Badge>
-                      </td>
-                      <td>
-                        <Badge bg={getStatusBadge(job.status)}>{job.status}</Badge>
-                      </td>
+                      <td><code>{job.job_id.split('-')[0]}...</code></td>
+                      <td><Badge bg="secondary">{job.job_type}</Badge></td>
+                      <td><Badge bg={getStatusBadge(job.status)}>{job.status}</Badge></td>
                       <td>
                         {job.total_items > 0 ? (
                           <div>
                             <div className="progress" style={{ height: '10px' }}>
-                              <div 
-                                className="progress-bar" 
-                                role="progressbar" 
-                                style={{ width: `${job.progress_percentage || 0}%` }}
-                              />
+                              <div className="progress-bar" role="progressbar" style={{ width: `${job.progress_percentage || 0}%` }} />
                             </div>
                             <small>{job.success_count}/{job.total_items}</small>
                           </div>
-                        ) : (
-                          '-'
-                        )}
+                        ) : '-'}
                       </td>
-                      <td>
-                        <small>{new Date(job.created_at).toLocaleString()}</small>
-                      </td>
-                      <td>
-                        <small>{job.duration || '-'}</small>
-                      </td>
+                      <td><small>{new Date(job.created_at).toLocaleString()}</small></td>
+                      <td><small>{job.duration || '-'}</small></td>
                     </tr>
                   ))}
                 </tbody>
@@ -627,12 +406,8 @@ const StorageInsightsImporter = () => {
             )}
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setJobsModal({ show: false, jobs: [] })}>
-              Close
-            </Button>
-            <Button variant="primary" onClick={fetchImportJobs}>
-              Refresh
-            </Button>
+            <Button variant="secondary" onClick={() => setJobsModal({ show: false, jobs: [] })}>Close</Button>
+            <Button variant="primary" onClick={fetchImportJobs}>Refresh</Button>
           </Modal.Footer>
         </Modal>
       )}
