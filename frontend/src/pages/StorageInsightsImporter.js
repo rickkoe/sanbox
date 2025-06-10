@@ -87,7 +87,7 @@ const StorageInsightsImporter = () => {
         api_key: config.customer.insights_api_key,
         customer_id: config.customer.id,
         import_type: importType,
-        selected_systems: selectedSystemIds,
+        selected_systems: selectedSystemIds,  // Pass the selected systems
         async: true
       });
 
@@ -97,7 +97,9 @@ const StorageInsightsImporter = () => {
         jobId: response.data.job_id,
         taskId: response.data.task_id,
         asyncJob: response.data.async,
-        message: response.data.message
+        message: response.data.message,
+        selectedSystems: selectedSystemIds,
+        importType: importType
       };
 
       if (!response.data.async) {
@@ -109,7 +111,7 @@ const StorageInsightsImporter = () => {
       setSummaryModal({ show: true, results: [result] });
       
       if (response.data.async) {
-        pollJobStatus(response.data.job_id, response.data.task_id);
+        pollJobStatus(response.data.job_id, response.data.task_id, importType);
       }
       
       handleSelectAll(false);
@@ -124,40 +126,71 @@ const StorageInsightsImporter = () => {
     }
   };
 
-  const pollJobStatus = async (jobId, taskId) => {
+  // Enhanced polling function with better status tracking
+  const pollJobStatus = async (jobId, taskId, importType) => {
     const pollInterval = setInterval(async () => {
       try {
         const statusResponse = await axios.get(`http://127.0.0.1:8000/api/insights/tasks/${taskId}/status/`);
         const taskStatus = statusResponse.data;
+        
+        // Update the summary modal with progress if available
+        if (taskStatus.state === 'PROGRESS' && taskStatus.current !== undefined) {
+          setSummaryModal(prev => ({
+            ...prev,
+            results: prev.results.map(result => 
+              result.taskId === taskId 
+                ? {
+                    ...result, 
+                    progress: {
+                      current: taskStatus.current,
+                      total: taskStatus.total,
+                      status: taskStatus.status,
+                      stage: taskStatus.meta?.stage
+                    }
+                  }
+                : result
+            )
+          }));
+        }
         
         if (taskStatus.state === 'SUCCESS') {
           clearInterval(pollInterval);
           const jobResponse = await axios.get(`http://127.0.0.1:8000/api/insights/jobs/${jobId}/`);
           const jobData = jobResponse.data;
           
-          setSummaryModal({
-            show: true,
-            results: [{
-              name: `Import Job Completed`,
-              error: false,
-              jobId: jobData.job_id,
-              processed: jobData.processed_items,
-              successful: jobData.success_count,
-              errors: jobData.error_count,
-              asyncCompleted: true
-            }]
-          });
+          setSummaryModal(prev => ({
+            ...prev,
+            results: prev.results.map(result => 
+              result.jobId === jobId 
+                ? {
+                    ...result,
+                    name: `${getImportTypeDisplay(importType)} Completed`,
+                    error: false,
+                    processed: jobData.processed_items,
+                    successful: jobData.success_count,
+                    errors: jobData.error_count,
+                    asyncCompleted: true,
+                    progress: undefined
+                  }
+                : result
+            )
+          }));
         } else if (taskStatus.state === 'FAILURE') {
           clearInterval(pollInterval);
-          setSummaryModal({
-            show: true,
-            results: [{
-              name: `Import Job Failed`,
-              error: taskStatus.error || 'Unknown error',
-              jobId: jobId,
-              asyncFailed: true
-            }]
-          });
+          setSummaryModal(prev => ({
+            ...prev,
+            results: prev.results.map(result => 
+              result.taskId === taskId 
+                ? {
+                    ...result,
+                    name: `${getImportTypeDisplay(importType)} Failed`,
+                    error: taskStatus.error || 'Unknown error',
+                    asyncFailed: true,
+                    progress: undefined
+                  }
+                : result
+            )
+          }));
         }
       } catch (error) {
         console.error('Error polling job status:', error);
@@ -165,8 +198,21 @@ const StorageInsightsImporter = () => {
       }
     }, 2000);
     
+    // 5 minute timeout
     setTimeout(() => clearInterval(pollInterval), 300000);
   };
+
+  // Helper function to display import type
+  const getImportTypeDisplay = (importType) => {
+    switch (importType) {
+      case 'storage_only': return 'Storage Systems Import';
+      case 'full': return 'Full Import (Storage + Volumes + Hosts)';
+      case 'volumes_only': return 'Volumes Import';
+      case 'hosts_only': return 'Hosts Import';
+      default: return 'Import';
+    }
+  };
+
 
   const fetchImportJobs = async () => {
     try {
@@ -331,19 +377,29 @@ const StorageInsightsImporter = () => {
                   {result.jobId && (
                     <div>
                       <Badge bg="info">Job ID: {result.jobId}</Badge>
-                      {result.processed && (
+                      
+                      {/* Progress display */}
+                      {result.asyncFailed && (
                         <div className="mt-1">
-                          <small className="text-muted">Processed: {result.processed}, Successful: {result.successful}, Errors: {result.errors}</small>
+                          <small className="text-danger">Job failed. Check logs for details.</small>
                         </div>
                       )}
-                      {result.asyncJob && <div className="mt-1"><small className="text-info">Job started successfully. Results will update automatically.</small></div>}
-                      {result.asyncCompleted && <div className="mt-1"><small className="text-success">Job completed successfully!</small></div>}
-                      {result.asyncFailed && <div className="mt-1"><small className="text-danger">Job failed. Check logs for details.</small></div>}
+                      
+                      {/* Selected systems info */}
+                      {result.selectedSystems && result.selectedSystems.length > 0 && (
+                        <div className="mt-1">
+                          <small className="text-muted">
+                            Selected Systems: {result.selectedSystems.length} system(s)
+                          </small>
+                        </div>
+                      )}
                     </div>
                   )}
                   {result.error ? (
                     <div className="mt-1">
-                      <Badge bg="danger">{typeof result.error === 'string' ? `Error: ${result.error}` : 'Error occurred'}</Badge>
+                      <Badge bg="danger">
+                        {typeof result.error === 'string' ? `Error: ${result.error}` : 'Error occurred'}
+                      </Badge>
                     </div>
                   ) : !result.jobId && (
                     <div className="mt-1"><Badge bg="success">Success</Badge></div>
@@ -353,11 +409,13 @@ const StorageInsightsImporter = () => {
             </ul>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setSummaryModal({ show: false, results: [] })}>Close</Button>
+            <Button variant="secondary" onClick={() => setSummaryModal({ show: false, results: [] })}>
+              Close
+            </Button>
           </Modal.Footer>
         </Modal>
       )}
-
+      
       {/* Jobs Modal */}
       {jobsModal.show && (
         <Modal show onHide={() => setJobsModal({ show: false, jobs: [] })} size="lg">

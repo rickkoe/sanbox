@@ -241,3 +241,101 @@ class StorageInsightsAPIClient:
             logger.error(f"Connection test failed: {str(e)}")
             print(f"DEBUG - Connection test failed: {str(e)}")
             return False
+    
+    # Add these methods to your StorageInsightsAPIClient class in api_client.py
+
+def get_volumes_for_system(self, system_id: str, limit: int = 100, offset: int = 0) -> Optional[Dict]:
+    """Get volumes for a specific storage system"""
+    tenant = self.credentials.tenant_id or self.credentials.username
+    endpoint = f"tenants/{tenant}/storage-systems/{system_id}/volumes"
+    
+    # IBM Storage Insights uses different pagination parameters
+    params = {}
+    if limit:
+        params['limit'] = limit
+    if offset:
+        params['offset'] = offset
+    
+    return self._make_request('GET', endpoint, params=params)
+
+def get_hosts_for_system(self, system_id: str, limit: int = 100, offset: int = 0) -> Optional[Dict]:
+    """Get host connections for a specific storage system"""
+    tenant = self.credentials.tenant_id or self.credentials.username
+    endpoint = f"tenants/{tenant}/storage-systems/{system_id}/hosts"
+    
+    params = {}
+    if limit:
+        params['limit'] = limit
+    if offset:
+        params['offset'] = offset
+    
+    return self._make_request('GET', endpoint, params=params)
+
+def get_all_volumes(self, limit: int = 100, offset: int = 0) -> Optional[Dict]:
+    """Get all volumes across all storage systems"""
+    tenant = self.credentials.tenant_id or self.credentials.username
+    endpoint = f"tenants/{tenant}/volumes"
+    
+    params = {}
+    if limit:
+        params['limit'] = limit
+    if offset:
+        params['offset'] = offset
+    
+    return self._make_request('GET', endpoint, params=params)
+
+def get_all_hosts(self, limit: int = 100, offset: int = 0) -> Optional[Dict]:
+    """Get all host connections across all storage systems"""
+    tenant = self.credentials.tenant_id or self.credentials.username
+    endpoint = f"tenants/{tenant}/hosts"
+    
+    params = {}
+    if limit:
+        params['limit'] = limit
+    if offset:
+        params['offset'] = offset
+    
+    return self._make_request('GET', endpoint, params=params)
+
+def get_volume_details(self, system_id: str, volume_id: str) -> Optional[Dict]:
+    """Get detailed information for a specific volume"""
+    tenant = self.credentials.tenant_id or self.credentials.username
+    endpoint = f"tenants/{tenant}/storage-systems/{system_id}/volumes/{volume_id}"
+    
+    return self._make_request('GET', endpoint)
+
+def get_host_details(self, system_id: str, host_id: str) -> Optional[Dict]:
+    """Get detailed information for a specific host"""
+    tenant = self.credentials.tenant_id or self.credentials.username
+    endpoint = f"tenants/{tenant}/storage-systems/{system_id}/hosts/{host_id}"
+    
+    return self._make_request('GET', endpoint)
+
+def paginate_system_resources(self, fetch_func, system_id: str, **kwargs) -> List[Dict]:
+    """Helper to paginate through system-specific resources (volumes/hosts)"""
+    all_results = []
+    offset = 0
+    limit = kwargs.get('limit', 100)
+    
+    while True:
+        kwargs.update({'offset': offset, 'limit': limit})
+        response = fetch_func(system_id, **kwargs)
+        
+        if not response:
+            break
+            
+        # IBM Storage Insights response format varies
+        data = response.get('data', response.get('volumes', response.get('hosts', [])))
+        if not data:
+            break
+            
+        all_results.extend(data)
+        
+        # Check if we have more data
+        total = response.get('total', response.get('count', len(data)))
+        if offset + limit >= total:
+            break
+            
+        offset += limit
+        
+    return all_results

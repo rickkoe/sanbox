@@ -240,65 +240,390 @@ class StorageImporter:
     
     def _import_volumes(self):
         """Import volumes for all storage systems"""
-        storage_systems = Storage.objects.filter(customer=self.customer) if self.customer else Storage.objects.all()
+        self._log('info', 'Starting volumes import')
+        
+        # Get storage systems that have been imported
+        storage_systems = Storage.objects.filter(
+            customer=self.customer,
+            storage_system_id__isnull=False
+        ) if self.customer else Storage.objects.filter(storage_system_id__isnull=False)
+        
+        if not storage_systems.exists():
+            self._log('warning', 'No storage systems found to import volumes for')
+            return {'imported': 0, 'updated': 0, 'errors': 0}
         
         results = {'imported': 0, 'updated': 0, 'errors': 0}
+        total_systems = storage_systems.count()
         
-        for storage in storage_systems:
-            if not storage.storage_system_id:
-                continue
-                
+        for i, storage in enumerate(storage_systems, 1):
+            self._log('info', f'Importing volumes for storage system {storage.name} ({i}/{total_systems})')
+            
             try:
                 system_results = self._import_volumes_for_system(storage)
                 for key in results:
                     results[key] += system_results[key]
+                    
+                # Update progress
+                self.import_job.processed_items += 1
+                self.import_job.save()
+                
             except Exception as e:
                 self._log('error', f'Failed to import volumes for {storage.name}', {'error': str(e)})
                 results['errors'] += 1
+                self.import_job.error_count += 1
+                self.import_job.save()
         
+        self._log('info', f'Volumes import complete', results)
         return results
-    
+
     def _import_volumes_for_system(self, storage):
         """Import volumes for a specific storage system"""
-        volumes = self.api_client.paginate_all(
-            self.api_client.get_volumes, 
-            system_id=storage.storage_system_id
+        system_id = storage.storage_system_id
+        
+        # Get all volumes for this storage system
+        volumes = self.api_client.paginate_system_resources(
+            self.api_client.get_volumes_for_system, 
+            system_id=system_id
         )
         
+        if not volumes:
+            self._log('info', f'No volumes found for storage system {storage.name}')
+            return {'imported': 0, 'updated': 0, 'errors': 0}
+        
         results = {'imported': 0, 'updated': 0, 'errors': 0}
+        self.import_job.total_items += len(volumes)
+        self.import_job.save()
         
         for volume_data in volumes:
             try:
-                volume_data['storage'] = storage.id
-                existing_volume = Volume.objects.filter(unique_id=volume_data['unique_id']).first()
+                result = self._process_volume(volume_data, storage)
+                results[result] += 1
                 
-                serializer = VolumeSerializer(instance=existing_volume, data=volume_data)
-                
-                if serializer.is_valid():
+                if result != 'error':
+                    self.import_job.success_count += 1
+                else:
+                    self.import_job.error_count += 1
+                    
+            except Exception as e:
+                self._log('error', f'Failed to process volume {volume_data.get("name", "unknown")}', 
+                        {'volume_data': volume_data, 'error': str(e)})
+                results['errors'] += 1
+                self.import_job.error_count += 1
+        
+        self.import_job.save()
+        return results
+
+    def _process_volume(self, volume_data, storage):
+        """Process individual volume"""
+        volume_id = volume_data.get('id') or volume_data.get('volume_id')
+        volume_name = volume_data.get('name', 'Unknown Volume')
+        
+        # Generate unique_id for lookup
+        unique_id = volume_data.get('unique_id') or f"{storage.storage_system_id}-{volume_id or volume_name}"
+        
+        # Transform API data to your Volume model format
+        try:
+            volume_payload = self._build_volume_payload(volume_data, storage)
+        except Exception as e:
+            self._log('error', f'Failed to build volume payload for {volume_name}', {'error': str(e)})
+            return 'error'
+        
+        # Check if volume already exists using unique_id (which is unique in your model)
+        existing_volume = Volume.objects.filter(unique_id=unique_id).first()
+        
+        try:
+            # Use your existing VolumeSerializer
+            serializer = VolumeSerializer(instance=existing_volume, data=volume_payload)
+            
+            if serializer.is_valid():
+                with transaction.atomic():
                     volume_obj = serializer.save()
                     volume_obj.imported = timezone.now()
                     volume_obj.save(update_fields=['imported'])
                     
+                    # Update import history
+                    self._update_import_history('volumes', unique_id, volume_data, volume_obj.id)
+                    
                     action = 'updated' if existing_volume else 'imported'
-                    results[action] += 1
+                    self._log('info', f'Successfully {action} volume: {volume_name}',
+                            {'volume_id': volume_obj.id, 'unique_id': unique_id})
                     
-                    self._update_import_history('volumes', volume_data['unique_id'], volume_data, volume_obj.id)
-                else:
-                    self._log('warning', f'Invalid volume data for {volume_data.get("name")}', 
-                             {'errors': serializer.errors})
-                    results['errors'] += 1
-                    
-            except Exception as e:
-                self._log('error', f'Failed to process volume {volume_data.get("name")}', {'error': str(e)})
-                results['errors'] += 1
+                    return action
+            else:
+                self._log('error', f'Invalid volume data for {volume_name}', 
+                        {'errors': serializer.errors, 'volume_data': volume_data})
+                return 'error'
+                
+        except Exception as e:
+            self._log('error', f'Exception processing volume {volume_name}', {'error': str(e)})
+            return 'error'
+
+    def _build_volume_payload(self, volume_data, storage):
+        """Transform Storage Insights volume data to your Volume model format"""
+        # Generate unique_id from volume data - this is required and unique
+        unique_id = volume_data.get('unique_id') or f"{storage.storage_system_id}-{volume_data.get('id', volume_data.get('name', 'unknown'))}"
         
-        return results
-    
+        return {
+            'storage': storage.id,
+            'name': volume_data.get('name', 'Unknown Volume'),
+            'volume_id': volume_data.get('id') or volume_data.get('volume_id', ''),
+            'unique_id': unique_id,
+            
+            # Capacity fields
+            'capacity_bytes': volume_data.get('capacity_bytes') or volume_data.get('size_bytes'),
+            'used_capacity_bytes': volume_data.get('used_capacity_bytes'),
+            'used_capacity_percent': volume_data.get('used_capacity_percent'),
+            'available_capacity_bytes': volume_data.get('available_capacity_bytes'),
+            'written_capacity_bytes': volume_data.get('written_capacity_bytes'),
+            'written_capacity_percent': volume_data.get('written_capacity_percent'),
+            'reserved_volume_capacity_bytes': volume_data.get('reserved_volume_capacity_bytes'),
+            
+            # Tier distribution percentages
+            'tier0_flash_capacity_percent': volume_data.get('tier0_flash_capacity_percent'),
+            'tier1_flash_capacity_percent': volume_data.get('tier1_flash_capacity_percent'),
+            'scm_capacity_percent': volume_data.get('scm_capacity_percent'),
+            'enterprise_hdd_capacity_percent': volume_data.get('enterprise_hdd_capacity_percent'),
+            'nearline_hdd_capacity_percent': volume_data.get('nearline_hdd_capacity_percent'),
+            'tier_distribution_percent': volume_data.get('tier_distribution_percent'),
+            
+            # Tier distribution bytes
+            'tier0_flash_capacity_bytes': volume_data.get('tier0_flash_capacity_bytes'),
+            'tier1_flash_capacity_bytes': volume_data.get('tier1_flash_capacity_bytes'),
+            'scm_capacity_bytes': volume_data.get('scm_capacity_bytes'),
+            'enterprise_hdd_capacity_bytes': volume_data.get('enterprise_hdd_capacity_bytes'),
+            'nearline_hdd_capacity_bytes': volume_data.get('nearline_hdd_capacity_bytes'),
+            'scm_available_capacity_bytes': volume_data.get('scm_available_capacity_bytes'),
+            
+            # Safeguarded fields
+            'safeguarded_virtual_capacity_bytes': volume_data.get('safeguarded_virtual_capacity_bytes'),
+            'safeguarded_used_capacity_percentage': volume_data.get('safeguarded_used_capacity_percentage'),
+            'safeguarded_allocation_capacity_bytes': volume_data.get('safeguarded_allocation_capacity_bytes'),
+            'safeguarded': volume_data.get('safeguarded'),
+            
+            # Pool and system info
+            'pool_name': volume_data.get('pool_name'),
+            'pool_id': volume_data.get('pool_id'),
+            'node': volume_data.get('node'),
+            'io_group': volume_data.get('io_group'),
+            'lss_lcu': volume_data.get('lss_lcu'),
+            
+            # Volume properties
+            'volume_number': volume_data.get('volume_number'),
+            'volser': volume_data.get('volser'),
+            'format': volume_data.get('format'),
+            'natural_key': volume_data.get('natural_key'),
+            'block_size': volume_data.get('block_size'),
+            'grain_size_bytes': volume_data.get('grain_size_bytes'),
+            
+            # Status and configuration
+            'acknowledged': volume_data.get('acknowledged', False),
+            'status_label': volume_data.get('status_label'),
+            'raid_level': volume_data.get('raid_level'),
+            'copy_id': volume_data.get('copy_id'),
+            
+            # Features and settings
+            'compressed': volume_data.get('compressed', False),
+            'compression_saving_percent': volume_data.get('compression_saving_percent'),
+            'thin_provisioned': volume_data.get('thin_provisioned'),
+            'encryption': volume_data.get('encryption'),
+            'flashcopy': volume_data.get('flashcopy'),
+            'auto_expand': volume_data.get('auto_expand', False),
+            'easy_tier': volume_data.get('easy_tier'),
+            'easy_tier_status': volume_data.get('easy_tier_status'),
+            'formatted': volume_data.get('formatted'),
+            'virtual_disk_type': volume_data.get('virtual_disk_type'),
+            'fast_write_state': volume_data.get('fast_write_state'),
+            'vdisk_mirror_copies': volume_data.get('vdisk_mirror_copies'),
+            'vdisk_mirror_role': volume_data.get('vdisk_mirror_role'),
+            'deduplicated': volume_data.get('deduplicated'),
+            
+            # Monitoring
+            'shortfall_percent': volume_data.get('shortfall_percent'),
+            'warning_level_percent': volume_data.get('warning_level_percent'),
+            'last_data_collection': volume_data.get('last_data_collection'),
+        }
+
     def _import_host_connections(self):
         """Import host connections for all storage systems"""
-        # Similar to _import_volumes but for hosts
-        # Implementation follows same pattern...
-        pass
+        self._log('info', 'Starting host connections import')
+        
+        storage_systems = Storage.objects.filter(
+            customer=self.customer,
+            storage_system_id__isnull=False
+        ) if self.customer else Storage.objects.filter(storage_system_id__isnull=False)
+        
+        if not storage_systems.exists():
+            self._log('warning', 'No storage systems found to import hosts for')
+            return {'imported': 0, 'updated': 0, 'errors': 0}
+        
+        results = {'imported': 0, 'updated': 0, 'errors': 0}
+        total_systems = storage_systems.count()
+        
+        for i, storage in enumerate(storage_systems, 1):
+            self._log('info', f'Importing hosts for storage system {storage.name} ({i}/{total_systems})')
+            
+            try:
+                system_results = self._import_hosts_for_system(storage)
+                for key in results:
+                    results[key] += system_results[key]
+                    
+                self.import_job.processed_items += 1
+                self.import_job.save()
+                
+            except Exception as e:
+                self._log('error', f'Failed to import hosts for {storage.name}', {'error': str(e)})
+                results['errors'] += 1
+                self.import_job.error_count += 1
+                self.import_job.save()
+        
+        self._log('info', f'Host connections import complete', results)
+        return results
+
+    def _import_hosts_for_system(self, storage):
+        """Import host connections for a specific storage system"""
+        system_id = storage.storage_system_id
+        
+        # Get all host connections for this storage system
+        hosts = self.api_client.paginate_system_resources(
+            self.api_client.get_hosts_for_system,
+            system_id=system_id
+        )
+        
+        if not hosts:
+            self._log('info', f'No host connections found for storage system {storage.name}')
+            return {'imported': 0, 'updated': 0, 'errors': 0}
+        
+        results = {'imported': 0, 'updated': 0, 'errors': 0}
+        self.import_job.total_items += len(hosts)
+        self.import_job.save()
+        
+        for host_data in hosts:
+            try:
+                result = self._process_host(host_data, storage)
+                results[result] += 1
+                
+                if result != 'error':
+                    self.import_job.success_count += 1
+                else:
+                    self.import_job.error_count += 1
+                    
+            except Exception as e:
+                self._log('error', f'Failed to process host {host_data.get("name", "unknown")}', 
+                        {'host_data': host_data, 'error': str(e)})
+                results['errors'] += 1
+                self.import_job.error_count += 1
+        
+        self.import_job.save()
+        return results
+
+    def _process_host(self, host_data, storage):
+        """Process individual host connection"""
+        host_id = host_data.get('id') or host_data.get('host_id')
+        host_name = host_data.get('name', 'Unknown Host')
+        natural_key = host_data.get('natural_key') or host_id
+        
+        # Transform API data to your Host model format
+        try:
+            host_payload = self._build_host_payload(host_data, storage)
+        except ValueError as e:
+            self._log('error', f'Cannot process host {host_name}: {str(e)}')
+            return 'error'
+        except Exception as e:
+            self._log('error', f'Failed to build host payload for {host_name}', {'error': str(e)})
+            return 'error'
+        
+        # Check if host already exists - your Host model has unique_together = ['project', 'name']
+        existing_host = None
+        if host_payload.get('project') and host_name:
+            existing_host = Host.objects.filter(
+                project_id=host_payload['project'],
+                name=host_name
+            ).first()
+        
+        # Also check by natural_key if available
+        if not existing_host and natural_key:
+            existing_host = Host.objects.filter(
+                storage=storage,
+                natural_key=natural_key
+            ).first()
+        
+        try:
+            # Use your existing HostSerializer
+            serializer = HostSerializer(instance=existing_host, data=host_payload)
+            
+            if serializer.is_valid():
+                with transaction.atomic():
+                    host_obj = serializer.save()
+                    host_obj.imported = timezone.now()
+                    host_obj.save(update_fields=['imported'])
+                    
+                    # Update import history
+                    self._update_import_history('hosts', natural_key or host_id, host_data, host_obj.id)
+                    
+                    action = 'updated' if existing_host else 'imported'
+                    self._log('info', f'Successfully {action} host: {host_name}',
+                            {'host_id': host_obj.id, 'natural_key': natural_key})
+                    
+                    return action
+            else:
+                self._log('error', f'Invalid host data for {host_name}', 
+                        {'errors': serializer.errors, 'host_data': host_data})
+                return 'error'
+                
+        except Exception as e:
+            self._log('error', f'Exception processing host {host_name}', {'error': str(e)})
+            return 'error'
+
+    def _build_host_payload(self, host_data, storage):
+        """Transform Storage Insights host data to your Host model format"""
+        # Note: Host model requires a project - you'll need to handle this
+        # For now, we'll need to either:
+        # 1. Get the customer's default project, or
+        # 2. Create a default project for imports, or
+        # 3. Skip hosts if no project is available
+        
+        # Get customer's first project or create a default one
+        project = None
+        if storage.customer:
+            project = storage.customer.projects.first()
+            if not project:
+                # You might want to create a default project here
+                from core.models import Project
+                project, created = Project.objects.get_or_create(
+                    name=f"Storage Insights Import - {storage.customer.name}",
+                    defaults={'notes': 'Auto-created for Storage Insights host imports'}
+                )
+                storage.customer.projects.add(project)
+        
+        if not project:
+            raise ValueError(f"No project available for host import - customer: {storage.customer}")
+        
+        # Convert WWPNs list to text field (your model uses TextField)
+        wwpns_text = ""
+        if host_data.get('wwpns'):
+            if isinstance(host_data['wwpns'], list):
+                wwpns_text = ",".join(host_data['wwpns'])
+            else:
+                wwpns_text = str(host_data['wwpns'])
+        
+        return {
+            'project': project.id,
+            'name': host_data.get('name', 'Unknown Host'),
+            'storage': storage.id,  # Your Host model has storage FK
+            
+            # Storage Insights fields that match your model
+            'acknowledged': host_data.get('acknowledged'),
+            'wwpns': wwpns_text,
+            'status': host_data.get('status'),
+            'storage_system': host_data.get('storage_system') or storage.name,
+            'associated_resource': host_data.get('associated_resource'),
+            'host_type': host_data.get('host_type'),
+            'vols_count': host_data.get('vols_count') or host_data.get('volumes_count'),
+            'fc_ports_count': host_data.get('fc_ports_count'),
+            'last_data_collection': host_data.get('last_data_collection'),
+            'volume_group': host_data.get('volume_group'),
+            'natural_key': host_data.get('natural_key') or host_data.get('id'),
+        }
     
     def _determine_storage_type(self, type_string):
         """Determine storage type from API type field"""

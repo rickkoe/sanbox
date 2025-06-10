@@ -1,27 +1,27 @@
+# Update your insights_importer/urls.py
+
 from django.urls import path
 from . import views
 
-app_name = 'insights_importer'
-
 urlpatterns = [
-    # Testing endpoints
-    path('test-connection/', views.TestConnectionView.as_view(), name='test-connection'),
-    path('preview/', views.PreviewImportView.as_view(), name='preview-import'),
+    # Enhanced endpoints (your existing ones)
+    path('enhanced/auth/', views.EnhancedAuthView.as_view(), name='enhanced_auth'),
+    path('enhanced/storage-systems/', views.EnhancedStorageSystemsView.as_view(), name='enhanced_storage_systems'),
+    path('enhanced/import/start/', views.StartOrchestatedImportView.as_view(), name='start_import'),
     
-    # Enhanced endpoints (new functionality)
-    path('enhanced/auth/', views.EnhancedAuthView.as_view(), name='enhanced-auth'),
-    path('enhanced/storage-systems/', views.EnhancedStorageSystemsView.as_view(), name='enhanced-storage-systems'),
-    path('enhanced/import/start/', views.StartOrchestatedImportView.as_view(), name='start-orchestrated-import'),
+    # New endpoints for the enhanced importer
+    path('enhanced/import/preview/', views.PreviewImportView.as_view(), name='preview_import'),
+    path('enhanced/test-connection/', views.TestConnectionView.as_view(), name='test_connection'),
     
-    # Management endpoints
-    path('credentials/', views.CredentialsListView.as_view(), name='credentials-list'),
-    path('jobs/', views.ImportJobListView.as_view(), name='jobs-list'),
-    path('jobs/<str:job_id>/', views.ImportJobDetailView.as_view(), name='job-detail'),
+    # Job and task management
+    path('jobs/', views.ImportJobListView.as_view(), name='import_jobs'),
+    path('jobs/<str:job_id>/', views.ImportJobDetailView.as_view(), name='import_job_detail'),
+    path('tasks/<str:task_id>/status/', views.TaskStatusView.as_view(), name='task_status'),
     
-    # Task status endpoints
-    path('tasks/<str:task_id>/status/', views.TaskStatusView.as_view(), name='task-status'),
+    # Credentials management
+    path('credentials/', views.CredentialsListView.as_view(), name='credentials_list'),
     
-    # Legacy compatibility endpoints - these can replace your existing storage app endpoints
-    path('legacy/auth/', views.LegacyStorageInsightsAuthView.as_view(), name='legacy-auth'),
-    path('legacy/storage-systems/', views.LegacyStorageInsightsSystemsView.as_view(), name='legacy-storage-systems'),
+    # Legacy compatibility endpoints
+    path('auth/', views.LegacyStorageInsightsAuthView.as_view(), name='legacy_auth'),
+    path('storage-systems/', views.LegacyStorageInsightsSystemsView.as_view(), name='legacy_storage_systems'),
 ]
