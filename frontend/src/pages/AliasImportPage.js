@@ -1,34 +1,34 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
-import { Button, Form, Alert, Card, Spinner, Modal } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { ConfigContext } from '../context/ConfigContext';
-import { HotTable } from '@handsontable/react';
-import 'handsontable/dist/handsontable.full.css';
+import React, { useState, useEffect, useContext, useRef } from "react";
+import { Button, Form, Alert, Card, Spinner, Modal } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { ConfigContext } from "../context/ConfigContext";
+import { HotTable } from "@handsontable/react";
+import "handsontable/dist/handsontable.full.css";
 
 const AliasImportPage = () => {
   const { config } = useContext(ConfigContext);
   const navigate = useNavigate();
   const previewTableRef = useRef(null);
-  
+
   const [fabricOptions, setFabricOptions] = useState([]);
-  const [selectedFabric, setSelectedFabric] = useState('');
-  const [rawText, setRawText] = useState('');
+  const [selectedFabric, setSelectedFabric] = useState("");
+  const [rawText, setRawText] = useState("");
   const [parsedAliases, setParsedAliases] = useState([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState([]);
   const [duplicates, setDuplicates] = useState([]);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [showProjectCopy, setShowProjectCopy] = useState(false);
   const [availableProjects, setAvailableProjects] = useState([]);
-  const [selectedSourceProject, setSelectedSourceProject] = useState('');
+  const [selectedSourceProject, setSelectedSourceProject] = useState("");
   const [sourceProjectAliases, setSourceProjectAliases] = useState([]);
   const [selectedAliasesToCopy, setSelectedAliasesToCopy] = useState([]);
-  
+
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
@@ -36,25 +36,31 @@ const AliasImportPage = () => {
   useEffect(() => {
     if (activeCustomerId) {
       setLoading(true);
-      
+
       // Load fabrics
-      const fabricsPromise = axios.get(`http://127.0.0.1:8000/api/san/fabrics/?customer_id=${activeCustomerId}`);
-      
+      const fabricsPromise = axios.get(
+        `/api/san/fabrics/?customer_id=${activeCustomerId}`
+      );
+
       // Load projects for this customer using existing endpoint
-      const projectsPromise = axios.get(`http://127.0.0.1:8000/api/customers/projects/${activeCustomerId}/`);
-      
+      const projectsPromise = axios.get(
+        `/api/customers/projects/${activeCustomerId}/`
+      );
+
       Promise.all([fabricsPromise, projectsPromise])
         .then(([fabricsRes, projectsRes]) => {
           setFabricOptions(fabricsRes.data);
           if (fabricsRes.data.length > 0) {
             setSelectedFabric(fabricsRes.data[0].id);
           }
-          
+
           // Filter out the current project from available projects
-          const otherProjects = projectsRes.data.filter(project => project.id !== activeProjectId);
+          const otherProjects = projectsRes.data.filter(
+            (project) => project.id !== activeProjectId
+          );
           setAvailableProjects(otherProjects);
         })
-        .catch(err => {
+        .catch((err) => {
           console.error("Error fetching data:", err);
           setError("Failed to load fabrics and projects");
         })
@@ -64,39 +70,45 @@ const AliasImportPage = () => {
 
   // Parse device-alias database text
   const parseDeviceAliasText = (text) => {
-    const lines = text.split('\n');
+    const lines = text.split("\n");
     const aliases = [];
-    
+
     // Regex to match device-alias lines
-    const deviceAliasRegex = /device-alias\s+name\s+(\S+)\s+pwwn\s+([0-9a-fA-F:]{23})/;
-    
+    const deviceAliasRegex =
+      /device-alias\s+name\s+(\S+)\s+pwwn\s+([0-9a-fA-F:]{23})/;
+
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
       const match = trimmedLine.match(deviceAliasRegex);
-      
+
       if (match) {
         const [, name, wwpn] = match;
-        
+
         // Format WWPN to standard format (xx:xx:xx:xx:xx:xx:xx:xx)
-        const formattedWWPN = wwpn.toLowerCase().replace(/[^0-9a-f]/g, '').match(/.{2}/g)?.join(':') || wwpn;
-        
+        const formattedWWPN =
+          wwpn
+            .toLowerCase()
+            .replace(/[^0-9a-f]/g, "")
+            .match(/.{2}/g)
+            ?.join(":") || wwpn;
+
         aliases.push({
           lineNumber: index + 1,
           name: name,
           wwpn: formattedWWPN,
-          use: 'init', // Default to 'init'
+          use: "init", // Default to 'init'
           fabric: selectedFabric,
-          cisco_alias: 'device-alias',
+          cisco_alias: "device-alias",
           create: true,
           include_in_zoning: false,
           notes: `Imported from device-alias database`,
           imported: new Date().toISOString(), // Put timestamp in imported field
           updated: null, // Leave updated as null
-          saved: false
+          saved: false,
         });
       }
     });
-    
+
     return aliases;
   };
 
@@ -105,39 +117,45 @@ const AliasImportPage = () => {
     setCheckingDuplicates(true);
     try {
       // Get all existing aliases for the selected fabric
-      const response = await axios.get(`http://127.0.0.1:8000/api/san/aliases/fabric/${selectedFabric}/`);
+      const response = await axios.get(
+        `/api/san/aliases/fabric/${selectedFabric}/`
+      );
       const existingAliases = response.data;
-      
+
       const duplicateEntries = [];
       const uniqueAliases = [];
-      
-      aliases.forEach(alias => {
+
+      aliases.forEach((alias) => {
         // Check for name or WWPN duplicates within the same fabric
-        const nameMatch = existingAliases.find(existing => 
-          existing.name.toLowerCase() === alias.name.toLowerCase()
+        const nameMatch = existingAliases.find(
+          (existing) => existing.name.toLowerCase() === alias.name.toLowerCase()
         );
-        const wwpnMatch = existingAliases.find(existing => 
-          existing.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '') === 
-          alias.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '')
+        const wwpnMatch = existingAliases.find(
+          (existing) =>
+            existing.wwpn.toLowerCase().replace(/[^0-9a-f]/g, "") ===
+            alias.wwpn.toLowerCase().replace(/[^0-9a-f]/g, "")
         );
-        
+
         if (nameMatch || wwpnMatch) {
           duplicateEntries.push({
             ...alias,
-            duplicateType: nameMatch && wwpnMatch ? 'both' : (nameMatch ? 'name' : 'wwpn'),
-            existingAlias: nameMatch || wwpnMatch
+            duplicateType:
+              nameMatch && wwpnMatch ? "both" : nameMatch ? "name" : "wwpn",
+            existingAlias: nameMatch || wwpnMatch,
           });
         } else {
           uniqueAliases.push(alias);
         }
       });
-      
+
       setDuplicates(duplicateEntries);
       return uniqueAliases;
-      
     } catch (error) {
-      console.error('Error checking for duplicates:', error);
-      setError('Failed to check for duplicate aliases: ' + (error.response?.data?.error || error.message));
+      console.error("Error checking for duplicates:", error);
+      setError(
+        "Failed to check for duplicate aliases: " +
+          (error.response?.data?.error || error.message)
+      );
       return aliases; // Return original aliases if check fails
     } finally {
       setCheckingDuplicates(false);
@@ -146,34 +164,36 @@ const AliasImportPage = () => {
 
   // Handle text parsing
   const handleParse = async () => {
-    setError('');
-    setSuccess('');
-    
+    setError("");
+    setSuccess("");
+
     if (!selectedFabric) {
-      setError('Please select a fabric');
+      setError("Please select a fabric");
       return;
     }
-    
+
     if (!rawText.trim()) {
-      setError('Please paste device-alias database content');
+      setError("Please paste device-alias database content");
       return;
     }
-    
+
     try {
       const parsed = parseDeviceAliasText(rawText);
-      
+
       if (parsed.length === 0) {
-        setError('No valid device-alias entries found. Please check the format.');
+        setError(
+          "No valid device-alias entries found. Please check the format."
+        );
         return;
       }
-      
+
       // Check for duplicates
       const uniqueAliases = await checkForDuplicates(parsed);
-      
+
       setParsedAliases(parsed);
       setPreviewData([...uniqueAliases]); // Only show unique aliases for import
       setShowPreview(true);
-      
+
       // Show success message with duplicate info
       let message = `Successfully parsed ${parsed.length} device aliases`;
       if (duplicates.length > 0) {
@@ -183,16 +203,15 @@ const AliasImportPage = () => {
         message += ` ${uniqueAliases.length} unique aliases ready for import.`;
       }
       setSuccess(message);
-      
     } catch (err) {
-      setError('Error parsing text: ' + err.message);
+      setError("Error parsing text: " + err.message);
     }
   };
 
   // Handle changes in the preview table
   const handlePreviewChange = (changes, source) => {
-    if (source === 'loadData' || !changes) return;
-    
+    if (source === "loadData" || !changes) return;
+
     const updatedData = [...previewData];
     changes.forEach(([row, prop, oldVal, newVal]) => {
       if (updatedData[row]) {
@@ -205,18 +224,18 @@ const AliasImportPage = () => {
   // Handle import to database
   const handleImport = async () => {
     if (!activeProjectId) {
-      setError('No active project selected');
+      setError("No active project selected");
       return;
     }
-    
+
     setImporting(true);
-    setError('');
-    
+    setError("");
+
     try {
       // Use the edited previewData instead of original parsedAliases
       const payload = {
         project_id: activeProjectId,
-        aliases: previewData.map(alias => ({
+        aliases: previewData.map((alias) => ({
           name: alias.name,
           wwpn: alias.wwpn,
           use: alias.use,
@@ -226,31 +245,32 @@ const AliasImportPage = () => {
           include_in_zoning: alias.include_in_zoning,
           notes: alias.notes,
           imported: alias.imported, // ADDED: Include the imported timestamp
-          projects: [activeProjectId]
-        }))
+          projects: [activeProjectId],
+        })),
       };
-      
-      await axios.post('http://127.0.0.1:8000/api/san/aliases/save/', payload);
-      
+
+      await axios.post("/api/san/aliases/save/", payload);
+
       setSuccess(`Successfully imported ${previewData.length} aliases!`);
-      
+
       // Redirect to alias table after successful import
       setTimeout(() => {
-        navigate('/san/aliases');
+        navigate("/san/aliases");
       }, 2000);
-      
     } catch (error) {
-      console.error('Import error:', error);
-      
+      console.error("Import error:", error);
+
       // Handle structured error response
       if (error.response?.data?.details) {
-        const errorMessages = error.response.data.details.map(e => {
+        const errorMessages = error.response.data.details.map((e) => {
           const errorText = Object.values(e.errors).flat().join(", ");
           return `${e.alias}: ${errorText}`;
         });
-        setError(`Import failed:\n${errorMessages.join('\n')}`);
+        setError(`Import failed:\n${errorMessages.join("\n")}`);
       } else {
-        setError(`Import failed: ${error.response?.data?.message || error.message}`);
+        setError(
+          `Import failed: ${error.response?.data?.message || error.message}`
+        );
       }
     } finally {
       setImporting(false);
@@ -263,48 +283,53 @@ const AliasImportPage = () => {
       setSourceProjectAliases([]);
       return;
     }
-    
+
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${projectId}/`);
+      const response = await axios.get(
+        `/api/san/aliases/project/${projectId}/`
+      );
       setSourceProjectAliases(response.data);
     } catch (error) {
-      console.error('Error loading source project aliases:', error);
-      setError('Failed to load aliases from source project');
+      console.error("Error loading source project aliases:", error);
+      setError("Failed to load aliases from source project");
     }
   };
 
   // Handle copying aliases from another project
   const handleCopyFromProject = async () => {
     if (selectedAliasesToCopy.length === 0) {
-      setError('Please select aliases to copy');
+      setError("Please select aliases to copy");
       return;
     }
-    
+
     setImporting(true);
-    setError('');
-    
+    setError("");
+
     try {
       // Add current project to the selected aliases
       const copyPayload = {
         project_id: activeProjectId,
-        alias_ids: selectedAliasesToCopy
+        alias_ids: selectedAliasesToCopy,
       };
-      
-      await axios.post('http://127.0.0.1:8000/api/san/aliases/copy-to-project/', copyPayload);
-      
-      setSuccess(`Successfully copied ${selectedAliasesToCopy.length} aliases to current project!`);
+
+      await axios.post("/api/san/aliases/copy-to-project/", copyPayload);
+
+      setSuccess(
+        `Successfully copied ${selectedAliasesToCopy.length} aliases to current project!`
+      );
       setShowProjectCopy(false);
       setSelectedAliasesToCopy([]);
-      setSelectedSourceProject('');
-      
+      setSelectedSourceProject("");
+
       // Redirect to alias table after successful copy
       setTimeout(() => {
-        navigate('/san/aliases');
+        navigate("/san/aliases");
       }, 2000);
-      
     } catch (error) {
-      console.error('Copy error:', error);
-      setError(`Copy failed: ${error.response?.data?.message || error.message}`);
+      console.error("Copy error:", error);
+      setError(
+        `Copy failed: ${error.response?.data?.message || error.message}`
+      );
     } finally {
       setImporting(false);
     }
@@ -318,7 +343,9 @@ const AliasImportPage = () => {
     );
   }
 
-  const selectedFabricName = fabricOptions.find(f => f.id.toString() === selectedFabric.toString())?.name || '';
+  const selectedFabricName =
+    fabricOptions.find((f) => f.id.toString() === selectedFabric.toString())
+      ?.name || "";
 
   return (
     <div className="container mt-4">
@@ -327,12 +354,20 @@ const AliasImportPage = () => {
           <Card>
             <Card.Header>
               <h4 className="mb-0">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14,2 14,8 20,8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                  <polyline points="10,9 9,9 8,9"/>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="me-2"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14,2 14,8 20,8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10,9 9,9 8,9" />
                 </svg>
                 Import Device Aliases
               </h4>
@@ -340,7 +375,7 @@ const AliasImportPage = () => {
                 Import aliases from Cisco device-alias database output
               </small>
             </Card.Header>
-            
+
             <Card.Body>
               {/* Fabric Selection */}
               <Form.Group className="mb-3">
@@ -353,13 +388,15 @@ const AliasImportPage = () => {
                   disabled={loading}
                 >
                   <option value="">Choose a fabric...</option>
-                  {fabricOptions.map(fabric => (
+                  {fabricOptions.map((fabric) => (
                     <option key={fabric.id} value={fabric.id}>
                       {fabric.name}
                     </option>
                   ))}
                 </Form.Select>
-                {loading && <small className="text-muted">Loading fabrics...</small>}
+                {loading && (
+                  <small className="text-muted">Loading fabrics...</small>
+                )}
               </Form.Group>
 
               {/* Text Input */}
@@ -379,9 +416,9 @@ device-alias database
   device-alias name PRD03A_sys2a pwwn c0:50:76:09:15:09:01:0a
   device-alias name MGT01A_MGT_1a pwwn c0:50:76:09:15:09:02:b0
   ...`}
-                  style={{ 
+                  style={{
                     fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                    fontSize: '13px'
+                    fontSize: "13px",
                   }}
                 />
                 <Form.Text className="text-muted">
@@ -391,10 +428,12 @@ device-alias database
 
               {/* Action Buttons */}
               <div className="d-flex gap-2 mb-3">
-                <Button 
-                  variant="primary" 
+                <Button
+                  variant="primary"
                   onClick={handleParse}
-                  disabled={!selectedFabric || !rawText.trim() || checkingDuplicates}
+                  disabled={
+                    !selectedFabric || !rawText.trim() || checkingDuplicates
+                  }
                 >
                   {checkingDuplicates ? (
                     <>
@@ -403,36 +442,52 @@ device-alias database
                     </>
                   ) : (
                     <>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
-                        <polyline points="16 18 22 12 16 6"/>
-                        <polyline points="8 6 2 12 8 18"/>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="me-1"
+                      >
+                        <polyline points="16 18 22 12 16 6" />
+                        <polyline points="8 6 2 12 8 18" />
                       </svg>
                       Parse Text
                     </>
                   )}
                 </Button>
 
-                <Button 
-                  variant="outline-info" 
+                <Button
+                  variant="outline-info"
                   onClick={() => setShowProjectCopy(true)}
                   disabled={availableProjects.length === 0}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="me-1"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                   </svg>
                   Copy from Project
                 </Button>
-                
-                <Button 
-                  variant="outline-secondary" 
+
+                <Button
+                  variant="outline-secondary"
                   onClick={() => {
-                    setRawText('');
+                    setRawText("");
                     setParsedAliases([]);
                     setPreviewData([]);
                     setDuplicates([]);
-                    setError('');
-                    setSuccess('');
+                    setError("");
+                    setSuccess("");
                     setShowPreview(false);
                   }}
                 >
@@ -443,7 +498,9 @@ device-alias database
               {/* Status Messages */}
               {error && (
                 <Alert variant="danger" className="mb-3">
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{error}</pre>
+                  <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                    {error}
+                  </pre>
                 </Alert>
               )}
 
@@ -457,29 +514,57 @@ device-alias database
               {duplicates.length > 0 && (
                 <Alert variant="warning" className="mb-3">
                   <Alert.Heading className="h6">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
-                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                      <line x1="12" y1="9" x2="12" y2="13"/>
-                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="me-2"
+                    >
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                     {duplicates.length} Duplicate(s) Found - Will Be Skipped
                   </Alert.Heading>
-                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <div style={{ maxHeight: "200px", overflowY: "auto" }}>
                     {duplicates.map((duplicate, index) => (
-                      <div key={index} className="mb-2 p-2" style={{ backgroundColor: '#fff3cd', borderRadius: '4px', border: '1px solid #ffeaa7' }}>
+                      <div
+                        key={index}
+                        className="mb-2 p-2"
+                        style={{
+                          backgroundColor: "#fff3cd",
+                          borderRadius: "4px",
+                          border: "1px solid #ffeaa7",
+                        }}
+                      >
                         <div className="d-flex justify-content-between align-items-start">
                           <div>
-                            <strong style={{ fontFamily: 'monospace' }}>{duplicate.name}</strong>
+                            <strong style={{ fontFamily: "monospace" }}>
+                              {duplicate.name}
+                            </strong>
                             <br />
-                            <small className="text-muted" style={{ fontFamily: 'monospace' }}>WWPN: {duplicate.wwpn}</small>
+                            <small
+                              className="text-muted"
+                              style={{ fontFamily: "monospace" }}
+                            >
+                              WWPN: {duplicate.wwpn}
+                            </small>
                           </div>
                           <span className="badge bg-warning text-dark">
-                            {duplicate.duplicateType === 'both' ? 'Name & WWPN' : 
-                             duplicate.duplicateType === 'name' ? 'Name' : 'WWPN'} duplicate
+                            {duplicate.duplicateType === "both"
+                              ? "Name & WWPN"
+                              : duplicate.duplicateType === "name"
+                              ? "Name"
+                              : "WWPN"}{" "}
+                            duplicate
                           </span>
                         </div>
                         <small className="text-muted">
-                          Matches existing alias: <strong>{duplicate.existingAlias.name}</strong>
+                          Matches existing alias:{" "}
+                          <strong>{duplicate.existingAlias.name}</strong>
                         </small>
                       </div>
                     ))}
@@ -500,24 +585,32 @@ device-alias database
                       )}
                     </h5>
                     <div className="d-flex gap-2">
-                      <Button 
-                        variant="outline-warning" 
+                      <Button
+                        variant="outline-warning"
                         size="sm"
                         onClick={() => {
                           // Reset to original parsed data
                           setPreviewData([...parsedAliases]);
                         }}
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
-                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                          <path d="M21 3v5h-5"/>
-                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                          <path d="M3 21v-5h5"/>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className="me-1"
+                        >
+                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                          <path d="M21 3v5h-5" />
+                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                          <path d="M3 21v-5h5" />
                         </svg>
                         Reset Changes
                       </Button>
-                      <Button 
-                        variant="success" 
+                      <Button
+                        variant="success"
                         onClick={handleImport}
                         disabled={importing}
                       >
@@ -528,9 +621,17 @@ device-alias database
                           </>
                         ) : (
                           <>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2h4"/>
-                              <polyline points="17,6 9,14 5,10"/>
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              className="me-1"
+                            >
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2h4" />
+                              <polyline points="17,6 9,14 5,10" />
                             </svg>
                             Import to {selectedFabricName}
                           </>
@@ -538,66 +639,75 @@ device-alias database
                       </Button>
                     </div>
                   </Card.Header>
-                  
-                  <Card.Body style={{ padding: '0' }}>
-                    <div style={{ height: '400px', width: '100%' }}>
+
+                  <Card.Body style={{ padding: "0" }}>
+                    <div style={{ height: "400px", width: "100%" }}>
                       <HotTable
                         ref={previewTableRef}
                         data={previewData}
                         colHeaders={[
-                          "Name", "WWPN", "Use", "Fabric", "Alias Type", 
-                          "Create", "Include in Zoning", "Notes"
+                          "Name",
+                          "WWPN",
+                          "Use",
+                          "Fabric",
+                          "Alias Type",
+                          "Create",
+                          "Include in Zoning",
+                          "Notes",
                         ]}
                         columns={[
                           { data: "name", width: 200 },
-                          { 
-                            data: "wwpn", 
+                          {
+                            data: "wwpn",
                             width: 180,
                             validator: (value, callback) => {
                               // WWPN validation
-                              const wwpnPattern = /^([0-9a-fA-F]{2}:){7}[0-9a-fA-F]{2}$/;
+                              const wwpnPattern =
+                                /^([0-9a-fA-F]{2}:){7}[0-9a-fA-F]{2}$/;
                               callback(wwpnPattern.test(value));
-                            }
+                            },
                           },
-                          { 
-                            data: "use", 
-                            type: "dropdown", 
+                          {
+                            data: "use",
+                            type: "dropdown",
                             source: ["init", "target", "both"],
                             width: 100,
-                            className: "htCenter"
+                            className: "htCenter",
                           },
-                          { 
-                            data: "fabric", 
-                            type: "dropdown", 
-                            source: fabricOptions.map(f => f.id.toString()),
+                          {
+                            data: "fabric",
+                            type: "dropdown",
+                            source: fabricOptions.map((f) => f.id.toString()),
                             width: 120,
                             renderer: (instance, td, row, col, prop, value) => {
                               // Show fabric name instead of ID
-                              const fabric = fabricOptions.find(f => f.id.toString() === value?.toString());
-                              td.innerText = fabric ? fabric.name : value || '';
+                              const fabric = fabricOptions.find(
+                                (f) => f.id.toString() === value?.toString()
+                              );
+                              td.innerText = fabric ? fabric.name : value || "";
                               return td;
-                            }
+                            },
                           },
-                          { 
-                            data: "cisco_alias", 
-                            type: "dropdown", 
+                          {
+                            data: "cisco_alias",
+                            type: "dropdown",
                             source: ["device-alias", "fcalias", "wwpn"],
                             width: 120,
-                            className: "htCenter"
+                            className: "htCenter",
                           },
-                          { 
-                            data: "create", 
-                            type: "checkbox", 
+                          {
+                            data: "create",
+                            type: "checkbox",
                             width: 80,
-                            className: "htCenter"
+                            className: "htCenter",
                           },
-                          { 
-                            data: "include_in_zoning", 
-                            type: "checkbox", 
+                          {
+                            data: "include_in_zoning",
+                            type: "checkbox",
                             width: 120,
-                            className: "htCenter"
+                            className: "htCenter",
                           },
-                          { data: "notes", width: 200 }
+                          { data: "notes", width: 200 },
                         ]}
                         licenseKey="non-commercial-and-evaluation"
                         height="350"
@@ -615,9 +725,9 @@ device-alias database
                     </div>
                     <div className="p-3 bg-light border-top">
                       <small className="text-muted">
-                        <strong>Tip:</strong> You can edit any cell by double-clicking. 
-                        Use dropdowns to change Use, Fabric, or Alias Type. 
-                        Right-click for context menu options.
+                        <strong>Tip:</strong> You can edit any cell by
+                        double-clicking. Use dropdowns to change Use, Fabric, or
+                        Alias Type. Right-click for context menu options.
                       </small>
                     </div>
                   </Card.Body>
@@ -625,36 +735,60 @@ device-alias database
               )}
 
               {/* Show message when no unique aliases found */}
-              {showPreview && previewData.length === 0 && duplicates.length > 0 && (
-                <Alert variant="info" className="mt-4">
-                  <Alert.Heading className="h6">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
-                      <circle cx="12" cy="12" r="10"/>
-                      <line x1="12" y1="8" x2="12" y2="12"/>
-                      <line x1="12" y1="16" x2="12.01" y2="16"/>
-                    </svg>
-                    No New Aliases to Import
-                  </Alert.Heading>
-                  All parsed aliases already exist in the database. No import needed.
-                </Alert>
-              )}
+              {showPreview &&
+                previewData.length === 0 &&
+                duplicates.length > 0 && (
+                  <Alert variant="info" className="mt-4">
+                    <Alert.Heading className="h6">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="me-2"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      No New Aliases to Import
+                    </Alert.Heading>
+                    All parsed aliases already exist in the database. No import
+                    needed.
+                  </Alert>
+                )}
             </Card.Body>
           </Card>
         </div>
       </div>
 
       {/* Project Copy Modal */}
-      <Modal show={showProjectCopy} onHide={() => setShowProjectCopy(false)} size="lg" className="modern-modal">
+      <Modal
+        show={showProjectCopy}
+        onHide={() => setShowProjectCopy(false)}
+        size="lg"
+        className="modern-modal"
+      >
         <Modal.Header closeButton className="modern-modal-header">
           <Modal.Title>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="me-2"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
             </svg>
             Copy Aliases from Another Project
           </Modal.Title>
         </Modal.Header>
-        
+
         <Modal.Body className="modern-modal-body">
           {/* Source Project Selection */}
           <Form.Group className="mb-3">
@@ -670,7 +804,7 @@ device-alias database
               }}
             >
               <option value="">Choose a project...</option>
-              {availableProjects.map(project => (
+              {availableProjects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
@@ -685,17 +819,23 @@ device-alias database
           {sourceProjectAliases.length > 0 && (
             <div>
               <div className="d-flex justify-content-between align-items-center mb-2">
-                <strong>Available Aliases ({sourceProjectAliases.length})</strong>
+                <strong>
+                  Available Aliases ({sourceProjectAliases.length})
+                </strong>
                 <div className="d-flex gap-2">
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="outline-primary"
-                    onClick={() => setSelectedAliasesToCopy(sourceProjectAliases.map(alias => alias.id))}
+                    onClick={() =>
+                      setSelectedAliasesToCopy(
+                        sourceProjectAliases.map((alias) => alias.id)
+                      )
+                    }
                   >
                     Select All
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="outline-secondary"
                     onClick={() => setSelectedAliasesToCopy([])}
                   >
@@ -703,34 +843,61 @@ device-alias database
                   </Button>
                 </div>
               </div>
-              
-              <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
-                {sourceProjectAliases.map(alias => (
-                  <div 
-                    key={alias.id} 
-                    className={`p-2 border-bottom ${selectedAliasesToCopy.includes(alias.id) ? 'bg-primary bg-opacity-10' : ''}`}
-                    style={{ cursor: 'pointer' }}
+
+              <div
+                style={{
+                  maxHeight: "300px",
+                  overflowY: "auto",
+                  border: "1px solid #dee2e6",
+                  borderRadius: "4px",
+                }}
+              >
+                {sourceProjectAliases.map((alias) => (
+                  <div
+                    key={alias.id}
+                    className={`p-2 border-bottom ${
+                      selectedAliasesToCopy.includes(alias.id)
+                        ? "bg-primary bg-opacity-10"
+                        : ""
+                    }`}
+                    style={{ cursor: "pointer" }}
                     onClick={() => {
                       if (selectedAliasesToCopy.includes(alias.id)) {
-                        setSelectedAliasesToCopy(prev => prev.filter(id => id !== alias.id));
+                        setSelectedAliasesToCopy((prev) =>
+                          prev.filter((id) => id !== alias.id)
+                        );
                       } else {
-                        setSelectedAliasesToCopy(prev => [...prev, alias.id]);
+                        setSelectedAliasesToCopy((prev) => [...prev, alias.id]);
                       }
                     }}
                   >
                     <div className="d-flex justify-content-between align-items-center">
                       <div>
-                        <strong style={{ fontFamily: 'monospace' }}>{alias.name}</strong>
+                        <strong style={{ fontFamily: "monospace" }}>
+                          {alias.name}
+                        </strong>
                         <br />
-                        <small className="text-muted" style={{ fontFamily: 'monospace' }}>
-                          WWPN: {alias.wwpn} | Fabric: {alias.fabric_details?.name || 'Unknown'}
+                        <small
+                          className="text-muted"
+                          style={{ fontFamily: "monospace" }}
+                        >
+                          WWPN: {alias.wwpn} | Fabric:{" "}
+                          {alias.fabric_details?.name || "Unknown"}
                         </small>
                       </div>
                       <div className="d-flex align-items-center gap-2">
                         <span className="badge bg-info">{alias.use}</span>
                         {selectedAliasesToCopy.includes(alias.id) && (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
-                            <polyline points="20,6 9,17 4,12"/>
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            className="text-primary"
+                          >
+                            <polyline points="20,6 9,17 4,12" />
                           </svg>
                         )}
                       </div>
@@ -738,10 +905,11 @@ device-alias database
                   </div>
                 ))}
               </div>
-              
+
               <div className="mt-2 text-muted">
                 <small>
-                  <strong>{selectedAliasesToCopy.length}</strong> aliases selected for copying
+                  <strong>{selectedAliasesToCopy.length}</strong> aliases
+                  selected for copying
                 </small>
               </div>
             </div>
@@ -753,20 +921,20 @@ device-alias database
             </Alert>
           )}
         </Modal.Body>
-        
+
         <Modal.Footer className="modern-modal-footer">
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             onClick={() => {
               setShowProjectCopy(false);
               setSelectedAliasesToCopy([]);
-              setSelectedSourceProject('');
+              setSelectedSourceProject("");
             }}
           >
             Cancel
           </Button>
-          <Button 
-            variant="success" 
+          <Button
+            variant="success"
             onClick={handleCopyFromProject}
             disabled={selectedAliasesToCopy.length === 0 || importing}
           >
@@ -777,9 +945,17 @@ device-alias database
               </>
             ) : (
               <>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="me-1"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                 </svg>
                 Copy {selectedAliasesToCopy.length} Aliases
               </>

@@ -8,7 +8,7 @@ export const ConfigProvider = ({ children }) => {
   const [activeStorageSystem, setActiveStorageSystem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const activeConfigApiUrl = "http://127.0.0.1:8000/api/core/active-config/";
+  const activeConfigApiUrl = "/api/core/active-config/";
 
   useEffect(() => {
     fetchActiveConfig();

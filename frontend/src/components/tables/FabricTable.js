@@ -22,8 +22,8 @@ const FabricTable = () => {
     const navigate = useNavigate();
 
     const NEW_FABRIC_TEMPLATE = { id: null, name: "", san_vendor: "", zoneset_name: "", vsan: "", exists: false, notes: "" };
-    const fabricsApiUrl = "http://127.0.0.1:8000/api/san/fabrics/";
-    const fabricDeleteApiUrl = "http://127.0.0.1:8000/api/san/fabrics/delete/";
+    const fabricsApiUrl = "/api/san/fabrics/";
+    const fabricDeleteApiUrl = "/api/san/fabrics/delete/";
 
     const colHeaders = ["Name", "Vendor", "Zoneset Name", "VSAN", "Exists", "Notes"];
     const columns = [

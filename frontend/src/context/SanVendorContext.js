@@ -3,7 +3,7 @@ import axios from "axios";
 import { useLocation } from "react-router-dom";
 
 const SanVendorContext = createContext();
-const configApiUrl = "http://127.0.0.1:8000/api/core/config/";
+const configApiUrl = "/api/core/config/";
 
 export const useSanVendor = () => useContext(SanVendorContext);
 

@@ -104,8 +104,8 @@ const VolumeTable = ({ storage }) => {
   if (!storage) return <p>No storage system selected.</p>;
 
   const apiUrl = storage.storage_system_id
-    ? `http://127.0.0.1:8000/api/storage/volumes/?storage_system_id=${storage.storage_system_id}`
-    : `http://127.0.0.1:8000/api/storage/volumes/?storage_system_id=0`;
+    ? `/api/storage/volumes/?storage_system_id=${storage.storage_system_id}`
+    : `/api/storage/volumes/?storage_system_id=0`;
 
   const customRenderers = {
     name: (instance, td, row, col, prop, value) => {
@@ -128,8 +128,8 @@ const VolumeTable = ({ storage }) => {
     <>
       <GenericTable
         apiUrl={apiUrl}
-        saveUrl="http://127.0.0.1:8000/api/storage/volumes/"
-        deleteUrl="http://127.0.0.1:8000/api/storage/volumes/"
+        saveUrl="/api/storage/volumes/"
+        deleteUrl="/api/storage/volumes/"
         columns={columns}
         colHeaders={colHeaders}
         newRowTemplate={{}}

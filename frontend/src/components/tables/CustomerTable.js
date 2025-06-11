@@ -90,9 +90,9 @@ const CustomerTable = () => {
         <div className="table-container">
             <GenericTable
                 ref={tableRef}
-                apiUrl="http://127.0.0.1:8000/api/customers/"
-                saveUrl="http://127.0.0.1:8000/api/customers/"
-                deleteUrl="http://127.0.0.1:8000/api/customers/delete/"
+                apiUrl="/api/customers/"
+                saveUrl="/api/customers/"
+                deleteUrl="/api/customers/delete/"
                 newRowTemplate={NEW_CUSTOMER_TEMPLATE}
                 colHeaders={colHeaders}
                 columns={columns}

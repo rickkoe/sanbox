@@ -43,20 +43,20 @@ const Dashboard = () => {
     setLoading(true);
     
     // Fetch SAN fabrics data
-    const fetchFabrics = axios.get(`http://127.0.0.1:8000/api/san/fabrics/?customer_id=${config.customer.id}`);
+    const fetchFabrics = axios.get(`/api/san/fabrics/?customer_id=${config.customer.id}`);
     
     // Fetch zones for active project
     const fetchZones = config.active_project?.id 
-      ? axios.get(`http://127.0.0.1:8000/api/san/zones/project/${config.active_project.id}/`)
+      ? axios.get(`/api/san/zones/project/${config.active_project.id}/`)
       : Promise.resolve({ data: [] });
     
     // Fetch aliases for active project
     const fetchAliases = config.active_project?.id
-      ? axios.get(`http://127.0.0.1:8000/api/san/aliases/project/${config.active_project.id}/`)
+      ? axios.get(`/api/san/aliases/project/${config.active_project.id}/`)
       : Promise.resolve({ data: [] });
     
     // Fetch storage systems
-    const fetchStorage = axios.get(`http://127.0.0.1:8000/api/storage/?customer=${config.customer.id}`);
+    const fetchStorage = axios.get(`/api/storage/?customer=${config.customer.id}`);
     
     // Run all requests in parallel and process results
     Promise.all([fetchFabrics, fetchZones, fetchAliases, fetchStorage])

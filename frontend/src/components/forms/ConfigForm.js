@@ -17,7 +17,7 @@ const ConfigForm = () => {
     const [newCustomerName, setNewCustomerName] = useState("");
     const handleAddCustomer = async () => {
         try {
-            const response = await axios.post("http://127.0.0.1:8000/api/customers/create/", {
+            const response = await axios.post("/api/customers/create/", {
                 name: newCustomerName
             });
             const newCustomer = response.data;
@@ -38,7 +38,7 @@ const ConfigForm = () => {
     };
     const handleAddProject = async () => {
         try {
-            const response = await axios.post("http://127.0.0.1:8000/api/core/projects/", {
+            const response = await axios.post("/api/core/projects/", {
                 name: newProjectName,
                 customer: parseInt(unsavedConfig.customer)
             });
@@ -52,10 +52,10 @@ const ConfigForm = () => {
         }
     };
     
-    const customersApiUrl = "http://127.0.0.1:8000/api/customers/";
-    const projectsApiUrl = "http://127.0.0.1:8000/api/core/projects/";
-    const configForCustomerApiUrl = "http://127.0.0.1:8000/api/core/config/customer/${customerId}/";
-    const updateCustomerUrl = "http://127.0.0.1:8000/api/core/config/update/";
+    const customersApiUrl = "/api/customers/";
+    const projectsApiUrl = "/api/core/projects/";
+    const configForCustomerApiUrl = "/api/core/config/customer/${customerId}/";
+    const updateCustomerUrl = "/api/core/config/update/";
 
     useEffect(() => {
         fetchCustomers();

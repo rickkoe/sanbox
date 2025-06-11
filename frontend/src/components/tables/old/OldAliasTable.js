@@ -24,10 +24,10 @@ const OldAliasTable = () => {
   const [rowsToDelete, setRowsToDelete] = useState([]);
   const tableRef = useRef(null);
 
-  const aliasApiUrl = "http://127.0.0.1:8000/api/san/aliases/project/";
-  const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
-  const aliasSaveApiUrl = "http://127.0.0.1:8000/api/san/aliases/save/";
-  const aliasDeleteApiUrl = "http://127.0.0.1:8000/api/san/aliases/delete/";
+  const aliasApiUrl = "/api/san/aliases/project/";
+  const fabricApiUrl = "/api/san/fabrics/customer/";
+  const aliasSaveApiUrl = "/api/san/aliases/save/";
+  const aliasDeleteApiUrl = "/api/san/aliases/delete/";
 
   useEffect(() => {
     if (config?.active_project?.id) {

@@ -7,11 +7,11 @@ import GenericTable from "./GenericTable";
 
 // API endpoints
 const API_ENDPOINTS = {
-  zones: "http://127.0.0.1:8000/api/san/zones/project/",
-  fabrics: "http://127.0.0.1:8000/api/san/fabrics/",
-  aliases: "http://127.0.0.1:8000/api/san/aliases/project/",
-  zoneSave: "http://127.0.0.1:8000/api/san/zones/save/",
-  zoneDelete: "http://127.0.0.1:8000/api/san/zones/delete/"
+  zones: "/api/san/zones/project/",
+  fabrics: "/api/san/fabrics/",
+  aliases: "/api/san/aliases/project/",
+  zoneSave: "/api/san/zones/save/",
+  zoneDelete: "/api/san/zones/delete/"
 };
 
 // Template for new rows

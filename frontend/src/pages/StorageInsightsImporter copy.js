@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
-import { Form, Button, Card, Alert, Spinner, Table, Modal, Badge } from "react-bootstrap";
+import {
+  Form,
+  Button,
+  Card,
+  Alert,
+  Spinner,
+  Table,
+  Modal,
+  Badge,
+} from "react-bootstrap";
 import usePaginatedFetch from "../components/hooks/usePaginatedFetch";
 
 const StorageInsightsImporter = () => {
@@ -16,16 +25,21 @@ const StorageInsightsImporter = () => {
   const [loadingVolumesId, setLoadingVolumesId] = useState(null);
   const [loadingHostsId, setLoadingHostsId] = useState(null);
   const { fetchAllPages } = usePaginatedFetch();
-  const [summaryModal, setSummaryModal] = useState({ show: false, results: [] });
-  const [progressModal, setProgressModal] = useState({ show: false, items: [] });
+  const [summaryModal, setSummaryModal] = useState({
+    show: false,
+    results: [],
+  });
+  const [progressModal, setProgressModal] = useState({
+    show: false,
+    items: [],
+  });
   const [importCancelled, setImportCancelled] = useState(false);
   const [useEnhancedAPI, setUseEnhancedAPI] = useState(false);
   const [jobsModal, setJobsModal] = useState({ show: false, jobs: [] });
 
   // Check if customer has Insights credentials
   const hasInsightsCredentials = !!(
-    config?.customer?.insights_tenant && 
-    config?.customer?.insights_api_key
+    config?.customer?.insights_tenant && config?.customer?.insights_api_key
   );
 
   // Fetch storage systems from Insights API
@@ -37,75 +51,67 @@ const StorageInsightsImporter = () => {
 
     setLoading(true);
     setError(null);
-    
+
     try {
       if (useEnhancedAPI) {
         // Use enhanced API endpoints
-        const authResponse = await axios.post(
-          "http://127.0.0.1:8000/api/insights/enhanced/auth/", 
-          {
-            tenant: config.customer.insights_tenant,
-            api_key: config.customer.insights_api_key
-          }
-        );
-        
+        const authResponse = await axios.post("/api/insights/enhanced/auth/", {
+          tenant: config.customer.insights_tenant,
+          api_key: config.customer.insights_api_key,
+        });
+
         setToken(authResponse.data.token);
         setCredentialsId(authResponse.data.credentials_id);
-        
+
         // Fetch storage systems using credentials ID
         const storageResponse = await axios.post(
-          "http://127.0.0.1:8000/api/insights/enhanced/storage-systems/",
-          { 
-            credentials_id: authResponse.data.credentials_id
+          "/api/insights/enhanced/storage-systems/",
+          {
+            credentials_id: authResponse.data.credentials_id,
           }
         );
-        
+
         const systems = storageResponse.data.resources || [];
         setStorageSystemsData(systems);
-        
+
         // Initialize selection state
         const initialSelections = {};
-        systems.forEach(system => {
+        systems.forEach((system) => {
           initialSelections[system.storage_system_id] = false;
         });
         setSelectedSystems(initialSelections);
-        
       } else {
         // Use legacy API endpoints
-        const tokenResponse = await axios.post(
-          "http://127.0.0.1:8000/api/storage/insights/auth/", 
-          {
-            tenant: config.customer.insights_tenant,
-            api_key: config.customer.insights_api_key
-          }
-        );
-        
+        const tokenResponse = await axios.post("/api/storage/insights/auth/", {
+          tenant: config.customer.insights_tenant,
+          api_key: config.customer.insights_api_key,
+        });
+
         setToken(tokenResponse.data.token);
-        
+
         const storageResponse = await axios.post(
-          "http://127.0.0.1:8000/api/storage/insights/storage-systems/",
-          { 
+          "/api/storage/insights/storage-systems/",
+          {
             token: tokenResponse.data.token,
-            tenant: config.customer.insights_tenant
+            tenant: config.customer.insights_tenant,
           }
         );
-        
+
         const systems = storageResponse.data.resources || [];
         setStorageSystemsData(systems);
-        
+
         // Initialize selection state
         const initialSelections = {};
-        systems.forEach(system => {
+        systems.forEach((system) => {
           initialSelections[system.storage_system_id] = false;
         });
         setSelectedSystems(initialSelections);
       }
-      
     } catch (err) {
       console.error("Error fetching from Storage Insights:", err);
       setError(
-        err.response?.data?.message || 
-        "Failed to connect to IBM Storage Insights. Please check credentials."
+        err.response?.data?.message ||
+          "Failed to connect to IBM Storage Insights. Please check credentials."
       );
     } finally {
       setLoading(false);
@@ -114,16 +120,16 @@ const StorageInsightsImporter = () => {
 
   // Handle checkbox changes
   const handleCheckboxChange = (systemId) => {
-    setSelectedSystems(prev => ({
+    setSelectedSystems((prev) => ({
       ...prev,
-      [systemId]: !prev[systemId]
+      [systemId]: !prev[systemId],
     }));
   };
 
   // Select/deselect all systems (only those with storage_type === "block")
   const handleSelectAll = (selectAll) => {
     const newSelections = {};
-    storageSystemsData.forEach(system => {
+    storageSystemsData.forEach((system) => {
       if (system.storage_type === "block") {
         newSelections[system.storage_system_id] = selectAll;
       }
@@ -158,7 +164,8 @@ const StorageInsightsImporter = () => {
       written_capacity_limit_bytes: system.written_capacity_limit_bytes,
       unmapped_capacity_percent: system.unmapped_capacity_percent,
       last_successful_probe: system.last_successful_probe,
-      provisioned_written_capacity_percent: system.provisioned_written_capacity_percent,
+      provisioned_written_capacity_percent:
+        system.provisioned_written_capacity_percent,
       capacity_savings_bytes: system.capacity_savings_bytes,
       raw_capacity_bytes: system.raw_capacity_bytes,
       provisioned_capacity_percent: system.provisioned_capacity_percent,
@@ -192,7 +199,8 @@ const StorageInsightsImporter = () => {
       disks_count: system.disks_count,
       unprotected_volumes_count: system.unprotected_volumes_count,
       provisioned_capacity_bytes: system.provisioned_capacity_bytes,
-      available_system_capacity_percent: system.available_system_capacity_percent,
+      available_system_capacity_percent:
+        system.available_system_capacity_percent,
       deduplication_savings_bytes: system.deduplication_savings_bytes,
       vendor: system.vendor,
       recent_fill_rate: system.recent_fill_rate,
@@ -215,22 +223,27 @@ const StorageInsightsImporter = () => {
       system_temperature_Fahrenheit: system.system_temperature_Fahrenheit,
       power_efficiency: system.power_efficiency,
       co2_emission: system.co2_emission,
-      safeguarded_virtual_capacity_bytes: system.safeguarded_virtual_capacity_bytes,
-      safeguarded_used_capacity_percentage: system.safeguarded_used_capacity_percentage,
+      safeguarded_virtual_capacity_bytes:
+        system.safeguarded_virtual_capacity_bytes,
+      safeguarded_used_capacity_percentage:
+        system.safeguarded_used_capacity_percentage,
       data_collection_type: system.data_collection_type,
       data_reduction_savings_percent: system.data_reduction_savings_percent,
       data_reduction_savings_bytes: system.data_reduction_savings_bytes,
       data_reduction_ratio: system.data_reduction_ratio,
       total_compression_ratio: system.total_compression_ratio,
       host_connections_count: system.host_connections_count,
-      drive_compression_savings_percent: system.drive_compression_savings_percent,
-      remaining_unallocated_capacity_bytes: system.remaining_unallocated_capacity_bytes,
+      drive_compression_savings_percent:
+        system.drive_compression_savings_percent,
+      remaining_unallocated_capacity_bytes:
+        system.remaining_unallocated_capacity_bytes,
       pool_compression_savings_bytes: system.pool_compression_savings_bytes,
       compression_savings_bytes: system.compression_savings_bytes,
       compression_savings_percent: system.compression_savings_percent,
       ip_ports_count: system.ip_ports_count,
       overprovisioned_capacity_bytes: system.overprovisioned_capacity_bytes,
-      unallocated_volume_capacity_bytes: system.unallocated_volume_capacity_bytes,
+      unallocated_volume_capacity_bytes:
+        system.unallocated_volume_capacity_bytes,
       managed_disks_count: system.managed_disks_count,
       drive_compression_savings_bytes: system.drive_compression_savings_bytes,
       pool_compression_savings_percent: system.pool_compression_savings_percent,
@@ -239,7 +252,8 @@ const StorageInsightsImporter = () => {
       topology: system.topology,
       cluster_id_alias: system.cluster_id_alias,
       snapshot_written_capacity_bytes: system.snapshot_written_capacity_bytes,
-      snapshot_provisioned_capacity_bytes: system.snapshot_provisioned_capacity_bytes,
+      snapshot_provisioned_capacity_bytes:
+        system.snapshot_provisioned_capacity_bytes,
       total_savings_ratio: system.total_savings_ratio,
       volume_groups_count: system.volume_groups_count,
     };
@@ -258,9 +272,9 @@ const StorageInsightsImporter = () => {
           {
             name: "No storage system selected",
             volumeCount: null,
-            error: "Please select at least one storage system to import."
-          }
-        ]
+            error: "Please select at least one storage system to import.",
+          },
+        ],
       });
       return;
     }
@@ -271,14 +285,17 @@ const StorageInsightsImporter = () => {
     try {
       if (useEnhancedAPI) {
         // Use orchestrated import
-        const response = await axios.post("http://127.0.0.1:8000/api/insights/enhanced/import/start/", {
-          tenant: config.customer.insights_tenant,
-          api_key: config.customer.insights_api_key,
-          customer_id: config.customer.id,
-          import_type: 'storage_only',
-          selected_systems: selectedSystemIds,
-          async: true
-        });
+        const response = await axios.post(
+          "/api/insights/enhanced/import/start/",
+          {
+            tenant: config.customer.insights_tenant,
+            api_key: config.customer.insights_api_key,
+            customer_id: config.customer.id,
+            import_type: "storage_only",
+            selected_systems: selectedSystemIds,
+            async: true,
+          }
+        );
 
         if (response.data.async) {
           // Async response - show job started message
@@ -292,11 +309,11 @@ const StorageInsightsImporter = () => {
                 jobId: response.data.job_id,
                 taskId: response.data.task_id,
                 asyncJob: true,
-                message: response.data.message
-              }
-            ]
+                message: response.data.message,
+              },
+            ],
           });
-          
+
           // Start polling for job status
           pollJobStatus(response.data.job_id, response.data.task_id);
         } else {
@@ -311,44 +328,46 @@ const StorageInsightsImporter = () => {
                 jobId: response.data.job_id,
                 processed: response.data.results.processed,
                 successful: response.data.results.successful,
-                errors: response.data.results.errors
-              }
-            ]
+                errors: response.data.results.errors,
+              },
+            ],
           });
         }
       } else {
         // Use legacy import (your existing code)
         const payload = storageSystemsData
-          .filter(system => selectedSystemIds.includes(system.storage_system_id))
+          .filter((system) =>
+            selectedSystemIds.includes(system.storage_system_id)
+          )
           .map(buildStoragePayload);
 
         const summaryResults = [];
 
         for (const storage of payload) {
           try {
-            await axios.post("http://127.0.0.1:8000/api/storage/", storage);
+            await axios.post("/api/storage/", storage);
             summaryResults.push({
               name: storage.name,
               volumeCount: null,
-              error: false
+              error: false,
             });
           } catch (error) {
             const detail = {
               name: storage.name,
-              error: error.response?.data || error.message
+              error: error.response?.data || error.message,
             };
             console.error(`Error importing ${storage.name}`, detail);
             summaryResults.push({
               name: storage.name,
               volumeCount: null,
-              error: detail.error
+              error: detail.error,
             });
           }
         }
 
         setSummaryModal({ show: true, results: summaryResults });
       }
-      
+
       handleSelectAll(false);
     } catch (err) {
       console.error("Import failed:", err);
@@ -358,9 +377,11 @@ const StorageInsightsImporter = () => {
           {
             name: "Import failed",
             volumeCount: null,
-            error: err.response?.data?.message || "Failed to import storage systems."
-          }
-        ]
+            error:
+              err.response?.data?.message ||
+              "Failed to import storage systems.",
+          },
+        ],
       });
     } finally {
       setLoading(false);
@@ -376,7 +397,7 @@ const StorageInsightsImporter = () => {
     if (selectedSystemIds.length === 0) {
       setImportStatus({
         type: "warning",
-        message: "Please select at least one storage system to import."
+        message: "Please select at least one storage system to import.",
       });
       return;
     }
@@ -389,13 +410,16 @@ const StorageInsightsImporter = () => {
     try {
       if (useEnhancedAPI) {
         // Use orchestrated import with volumes
-        const response = await axios.post("http://127.0.0.1:8000/api/insights/enhanced/import/start/", {
-          tenant: config.customer.insights_tenant,
-          api_key: config.customer.insights_api_key,
-          customer_id: config.customer.id,
-          import_type: 'full',
-          selected_systems: selectedSystemIds
-        });
+        const response = await axios.post(
+          "/api/insights/enhanced/import/start/",
+          {
+            tenant: config.customer.insights_tenant,
+            api_key: config.customer.insights_api_key,
+            customer_id: config.customer.id,
+            import_type: "full",
+            selected_systems: selectedSystemIds,
+          }
+        );
 
         setSummaryModal({
           show: true,
@@ -404,14 +428,16 @@ const StorageInsightsImporter = () => {
               name: `Import Job ${response.data.job_id}`,
               volumeCount: `${response.data.results.processed} systems with volumes`,
               error: false,
-              jobId: response.data.job_id
-            }
-          ]
+              jobId: response.data.job_id,
+            },
+          ],
         });
       } else {
         // Use legacy import with volumes (your existing code)
         const payload = storageSystemsData
-          .filter(system => selectedSystemIds.includes(system.storage_system_id))
+          .filter((system) =>
+            selectedSystemIds.includes(system.storage_system_id)
+          )
           .map(buildStoragePayload);
 
         const summaryResults = [];
@@ -422,76 +448,99 @@ const StorageInsightsImporter = () => {
             summaryResults.push({
               name: storage.name,
               volumeCount: null,
-              error: "Import cancelled"
+              error: "Import cancelled",
             });
             break;
           }
 
           // Add progress item
-          setProgressModal(prev => ({
+          setProgressModal((prev) => ({
             ...prev,
-            items: [...prev.items, { name: storage.name, step: 'Importing storage...', status: 'pending' }]
+            items: [
+              ...prev.items,
+              {
+                name: storage.name,
+                step: "Importing storage...",
+                status: "pending",
+              },
+            ],
           }));
 
           try {
-            await axios.post("http://127.0.0.1:8000/api/storage/", storage);
-            
+            await axios.post("/api/storage/", storage);
+
             if (importCancelled) {
               summaryResults.push({
                 name: storage.name,
                 volumeCount: null,
-                error: "Import cancelled"
+                error: "Import cancelled",
               });
               break;
             }
 
             // Update progress to importing volumes
-            setProgressModal(prev => {
+            setProgressModal((prev) => {
               const updated = [...prev.items];
-              const idx = updated.findIndex(i => i.name === storage.name);
-              if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Importing volumes...', status: 'pending' };
+              const idx = updated.findIndex((i) => i.name === storage.name);
+              if (idx !== -1)
+                updated[idx] = {
+                  ...updated[idx],
+                  step: "Importing volumes...",
+                  status: "pending",
+                };
               return { ...prev, items: updated };
             });
 
             const volumeResult = await fetchVolumesForSystem(storage.uuid);
 
-            setProgressModal(prev => {
+            setProgressModal((prev) => {
               const updated = [...prev.items];
-              const idx = updated.findIndex(i => i.name === storage.name);
-              if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Completed', status: 'success' };
+              const idx = updated.findIndex((i) => i.name === storage.name);
+              if (idx !== -1)
+                updated[idx] = {
+                  ...updated[idx],
+                  step: "Completed",
+                  status: "success",
+                };
               return { ...prev, items: updated };
             });
 
             summaryResults.push({
               name: storage.name,
               volumeCount: volumeResult.volumeCount,
-              error: volumeResult.error || false
+              error: volumeResult.error || false,
             });
           } catch (error) {
-            setProgressModal(prev => {
+            setProgressModal((prev) => {
               const updated = [...prev.items];
-              const idx = updated.findIndex(i => i.name === storage.name);
-              if (idx !== -1) updated[idx] = { ...updated[idx], step: 'Failed', status: 'error' };
+              const idx = updated.findIndex((i) => i.name === storage.name);
+              if (idx !== -1)
+                updated[idx] = {
+                  ...updated[idx],
+                  step: "Failed",
+                  status: "error",
+                };
               return { ...prev, items: updated };
             });
 
             summaryResults.push({
               name: storage.name,
               volumeCount: 0,
-              error: true
+              error: true,
             });
           }
         }
 
         setSummaryModal({ show: true, results: summaryResults });
       }
-      
+
       handleSelectAll(false);
     } catch (err) {
       console.error("Import failed:", err);
       setImportStatus({
         type: "danger",
-        message: err.response?.data?.message || "Failed to import storage systems."
+        message:
+          err.response?.data?.message || "Failed to import storage systems.",
       });
     } finally {
       setLoading(false);
@@ -510,14 +559,16 @@ const StorageInsightsImporter = () => {
       return { systemId, systemName: systemId, volumeCount: 0 };
     }
 
-    const system = storageSystemsData.find(s => s.storage_system_id === systemId);
+    const system = storageSystemsData.find(
+      (s) => s.storage_system_id === systemId
+    );
     const systemName = system?.name || systemId;
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/api/storage/insights/volumes/", {
+      const response = await axios.post("/api/storage/insights/volumes/", {
         token,
         tenant: config.customer.insights_tenant,
-        system_id: systemId
+        system_id: systemId,
       });
 
       const importedCount = response.data.imported_count || 0;
@@ -539,23 +590,29 @@ const StorageInsightsImporter = () => {
       setLoadingHostsId(null);
       return { systemId, systemName: systemId, importedCount: 0 };
     }
-    const system = storageSystemsData.find(s => s.storage_system_id === systemId);
+    const system = storageSystemsData.find(
+      (s) => s.storage_system_id === systemId
+    );
     const systemName = system?.name || systemId;
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/storage/insights/host-connections/",
+        "/api/storage/insights/host-connections/",
         {
           token,
           tenant: config.customer.insights_tenant,
-          system_id: systemId
+          system_id: systemId,
         }
       );
       const importedCount = response.data.imported_count || 0;
-      alert(`Imported ${importedCount} host connections for system ${systemName}`);
+      alert(
+        `Imported ${importedCount} host connections for system ${systemName}`
+      );
       return { systemId, systemName, importedCount };
     } catch (error) {
       console.error("Failed to fetch host connections:", error);
-      alert(`Failed to import host connections for ${systemName}: ${error.message}`);
+      alert(
+        `Failed to import host connections for ${systemName}: ${error.message}`
+      );
       return { systemId, systemName, importedCount: 0, error: true };
     } finally {
       setLoadingHostsId(null);
@@ -566,16 +623,18 @@ const StorageInsightsImporter = () => {
   const pollJobStatus = async (jobId, taskId) => {
     const pollInterval = setInterval(async () => {
       try {
-        const statusResponse = await axios.get(`http://127.0.0.1:8000/api/insights/tasks/${taskId}/status/`);
+        const statusResponse = await axios.get(
+          `/api/insights/tasks/${taskId}/status/`
+        );
         const taskStatus = statusResponse.data;
-        
-        if (taskStatus.state === 'SUCCESS') {
+
+        if (taskStatus.state === "SUCCESS") {
           clearInterval(pollInterval);
-          
+
           // Get final job details
-          const jobResponse = await axios.get(`http://127.0.0.1:8000/api/insights/jobs/${jobId}/`);
+          const jobResponse = await axios.get(`/api/insights/jobs/${jobId}/`);
           const jobData = jobResponse.data;
-          
+
           // Update summary modal with final results
           setSummaryModal({
             show: true,
@@ -588,33 +647,33 @@ const StorageInsightsImporter = () => {
                 processed: jobData.processed_items,
                 successful: jobData.success_count,
                 errors: jobData.error_count,
-                asyncCompleted: true
-              }
-            ]
+                asyncCompleted: true,
+              },
+            ],
           });
-        } else if (taskStatus.state === 'FAILURE') {
+        } else if (taskStatus.state === "FAILURE") {
           clearInterval(pollInterval);
-          
+
           setSummaryModal({
             show: true,
             results: [
               {
                 name: `Import Job Failed`,
                 volumeCount: null,
-                error: taskStatus.error || 'Unknown error',
+                error: taskStatus.error || "Unknown error",
                 jobId: jobId,
-                asyncFailed: true
-              }
-            ]
+                asyncFailed: true,
+              },
+            ],
           });
         }
         // For PENDING or PROGRESS, keep polling
       } catch (error) {
-        console.error('Error polling job status:', error);
+        console.error("Error polling job status:", error);
         clearInterval(pollInterval);
       }
     }, 2000); // Poll every 2 seconds
-    
+
     // Stop polling after 5 minutes to prevent infinite polling
     setTimeout(() => {
       clearInterval(pollInterval);
@@ -624,7 +683,7 @@ const StorageInsightsImporter = () => {
   // Fetch import jobs (for enhanced API)
   const fetchImportJobs = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/insights/jobs/");
+      const response = await axios.get("/api/insights/jobs/");
       setJobsModal({ show: true, jobs: response.data });
     } catch (error) {
       console.error("Failed to fetch import jobs:", error);
@@ -634,30 +693,33 @@ const StorageInsightsImporter = () => {
   // Create a formatted display of storage type
   const formatStorageType = (type) => {
     const typeMap = {
-      "2145": "FlashSystem",
-      "2107": "DS8000",
-      "2076": "Storwize",
+      2145: "FlashSystem",
+      2107: "DS8000",
+      2076: "Storwize",
     };
-    
+
     return typeMap[type] || type;
   };
 
   // Format job status badge
   const getStatusBadge = (status) => {
     const statusMap = {
-      'pending': 'warning',
-      'running': 'primary',
-      'completed': 'success',
-      'failed': 'danger',
-      'cancelled': 'secondary'
+      pending: "warning",
+      running: "primary",
+      completed: "success",
+      failed: "danger",
+      cancelled: "secondary",
     };
-    return statusMap[status] || 'secondary';
+    return statusMap[status] || "secondary";
   };
-  
+
   return (
     <div className="container mt-4">
       <Card className="shadow-sm">
-        <Card.Header as="h5" className="bg-primary text-white d-flex justify-content-between align-items-center">
+        <Card.Header
+          as="h5"
+          className="bg-primary text-white d-flex justify-content-between align-items-center"
+        >
           <span>IBM Storage Insights Importer</span>
           {useEnhancedAPI && (
             <Button variant="outline-light" size="sm" onClick={fetchImportJobs}>
@@ -670,8 +732,9 @@ const StorageInsightsImporter = () => {
             <Alert variant="warning">
               <Alert.Heading>Storage Insights not configured</Alert.Heading>
               <p>
-                This customer does not have IBM Storage Insights credentials configured.
-                Please add the tenant ID and API key in the customer settings.
+                This customer does not have IBM Storage Insights credentials
+                configured. Please add the tenant ID and API key in the customer
+                settings.
               </p>
               <hr />
               <div className="d-flex justify-content-end">
@@ -683,60 +746,73 @@ const StorageInsightsImporter = () => {
           ) : (
             <>
               <p className="mb-4">
-                This tool connects to IBM Storage Insights to import storage systems for the current customer: 
+                This tool connects to IBM Storage Insights to import storage
+                systems for the current customer:
                 <strong> {config?.customer?.name}</strong>
               </p>
               <p>
-                <a href="https://insights.ibm.com/restapi/docs/" target="_blank" rel="noopener noreferrer">
+                <a
+                  href="https://insights.ibm.com/restapi/docs/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   View IBM Storage Insights REST API Swagger Docs
                 </a>
               </p>
-              
+
               {/* Enhanced API Toggle */}
               <div className="mb-3">
                 <Form.Check
                   type="switch"
                   id="enhanced-api-switch"
-                  label={`Use Enhanced Import System (with job tracking and better error handling) ${useEnhancedAPI ? '✨' : ''}`}
+                  label={`Use Enhanced Import System (with job tracking and better error handling) ${
+                    useEnhancedAPI ? "✨" : ""
+                  }`}
                   checked={useEnhancedAPI}
                   onChange={(e) => setUseEnhancedAPI(e.target.checked)}
                 />
                 {useEnhancedAPI && (
                   <small className="text-muted">
-                    Enhanced mode provides better tracking, logging, and error recovery.
+                    Enhanced mode provides better tracking, logging, and error
+                    recovery.
                   </small>
                 )}
               </div>
-              
+
               {error && <Alert variant="danger">{error}</Alert>}
-              {importStatus && <Alert variant={importStatus.type}>{importStatus.message}</Alert>}
-              
+              {importStatus && (
+                <Alert variant={importStatus.type}>
+                  {importStatus.message}
+                </Alert>
+              )}
+
               <div className="d-flex justify-content-between mb-3">
-                <Button 
-                  variant="primary" 
-                  onClick={fetchStorageSystems} 
+                <Button
+                  variant="primary"
+                  onClick={fetchStorageSystems}
                   disabled={loading}
                 >
                   {loading ? (
                     <>
-                      <Spinner as="span" animation="border" size="sm" /> Loading...
+                      <Spinner as="span" animation="border" size="sm" />{" "}
+                      Loading...
                     </>
                   ) : (
                     "Fetch Storage Systems"
                   )}
                 </Button>
-                
+
                 <div>
-                  <Button 
-                    variant="outline-secondary" 
-                    onClick={() => handleSelectAll(true)} 
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => handleSelectAll(true)}
                     className="me-2"
                     disabled={loading || storageSystemsData.length === 0}
                   >
                     Select All
                   </Button>
-                  <Button 
-                    variant="outline-secondary" 
+                  <Button
+                    variant="outline-secondary"
                     onClick={() => handleSelectAll(false)}
                     disabled={loading || storageSystemsData.length === 0}
                   >
@@ -744,8 +820,10 @@ const StorageInsightsImporter = () => {
                   </Button>
                 </div>
               </div>
-              
-              {storageSystemsData.filter(system => system.storage_type === "block").length > 0 ? (
+
+              {storageSystemsData.filter(
+                (system) => system.storage_type === "block"
+              ).length > 0 ? (
                 <>
                   <Table striped bordered hover responsive>
                     <thead>
@@ -762,93 +840,143 @@ const StorageInsightsImporter = () => {
                     </thead>
                     <tbody>
                       {storageSystemsData
-                        .filter(system => system.storage_type === "block")
-                        .map(system => {
-                        return (
-                          <tr key={system.storage_system_id}>
-                            <td className="text-center">
-                              <Form.Check
-                                type="checkbox"
-                                checked={selectedSystems[system.storage_system_id] || false}
-                                onChange={() => handleCheckboxChange(system.storage_system_id)}
-                                id={`system-${system.storage_system_id}`}
-                              />
-                            </td>
-                            <td>{system.name}</td>
-                            <td>{formatStorageType(system.type)}</td>
-                            <td>{system.model}</td>
-                            <td>{system.serial_number}</td>
-                            <td>{system.storage_system_id}</td>
-                            <td>
-                              <span className={`badge bg-${system.probe_status === "successful" ? "success" : "warning"}`}>
-                                {system.probe_status || "Unknown"}
-                              </span>
-                            </td>
-                            <td>
-                              <Button
-                                size="sm"
-                                variant="outline-info"
-                                onClick={() => fetchVolumesForSystem(system.storage_system_id)}
-                                disabled={loadingVolumesId === system.storage_system_id}
-                              >
-                                {loadingVolumesId === system.storage_system_id ? (
-                                  <>
-                                    <Spinner as="span" animation="border" size="sm" className="me-1" />
-                                    Fetching...
-                                  </>
-                                ) : (
-                                  "Volumes"
-                                )}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline-info"
-                                className="ms-2"
-                                onClick={() => fetchHostConnectionsForSystem(system.storage_system_id)}
-                                disabled={loadingHostsId === system.storage_system_id}
-                              >
-                                {loadingHostsId === system.storage_system_id ? (
-                                  <>
-                                    <Spinner as="span" animation="border" size="sm" className="me-1" />
-                                    Fetching Hosts...
-                                  </>
-                                ) : (
-                                  "Host Connections"
-                                )}
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                        .filter((system) => system.storage_type === "block")
+                        .map((system) => {
+                          return (
+                            <tr key={system.storage_system_id}>
+                              <td className="text-center">
+                                <Form.Check
+                                  type="checkbox"
+                                  checked={
+                                    selectedSystems[system.storage_system_id] ||
+                                    false
+                                  }
+                                  onChange={() =>
+                                    handleCheckboxChange(
+                                      system.storage_system_id
+                                    )
+                                  }
+                                  id={`system-${system.storage_system_id}`}
+                                />
+                              </td>
+                              <td>{system.name}</td>
+                              <td>{formatStorageType(system.type)}</td>
+                              <td>{system.model}</td>
+                              <td>{system.serial_number}</td>
+                              <td>{system.storage_system_id}</td>
+                              <td>
+                                <span
+                                  className={`badge bg-${
+                                    system.probe_status === "successful"
+                                      ? "success"
+                                      : "warning"
+                                  }`}
+                                >
+                                  {system.probe_status || "Unknown"}
+                                </span>
+                              </td>
+                              <td>
+                                <Button
+                                  size="sm"
+                                  variant="outline-info"
+                                  onClick={() =>
+                                    fetchVolumesForSystem(
+                                      system.storage_system_id
+                                    )
+                                  }
+                                  disabled={
+                                    loadingVolumesId ===
+                                    system.storage_system_id
+                                  }
+                                >
+                                  {loadingVolumesId ===
+                                  system.storage_system_id ? (
+                                    <>
+                                      <Spinner
+                                        as="span"
+                                        animation="border"
+                                        size="sm"
+                                        className="me-1"
+                                      />
+                                      Fetching...
+                                    </>
+                                  ) : (
+                                    "Volumes"
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline-info"
+                                  className="ms-2"
+                                  onClick={() =>
+                                    fetchHostConnectionsForSystem(
+                                      system.storage_system_id
+                                    )
+                                  }
+                                  disabled={
+                                    loadingHostsId === system.storage_system_id
+                                  }
+                                >
+                                  {loadingHostsId ===
+                                  system.storage_system_id ? (
+                                    <>
+                                      <Spinner
+                                        as="span"
+                                        animation="border"
+                                        size="sm"
+                                        className="me-1"
+                                      />
+                                      Fetching Hosts...
+                                    </>
+                                  ) : (
+                                    "Host Connections"
+                                  )}
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </Table>
-                  
+
                   <div className="d-flex justify-content-end mt-3">
-                    <Button 
-                      variant="success" 
+                    <Button
+                      variant="success"
                       onClick={handleImport}
-                      disabled={loading || Object.values(selectedSystems).every(v => !v)}
+                      disabled={
+                        loading ||
+                        Object.values(selectedSystems).every((v) => !v)
+                      }
                     >
                       {loading ? (
                         <>
-                          <Spinner as="span" animation="border" size="sm" /> Importing...
+                          <Spinner as="span" animation="border" size="sm" />{" "}
+                          Importing...
                         </>
                       ) : (
-                        `Import Selected Systems ${useEnhancedAPI ? '(Enhanced)' : ''}`
+                        `Import Selected Systems ${
+                          useEnhancedAPI ? "(Enhanced)" : ""
+                        }`
                       )}
                     </Button>
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       onClick={handleImportWithVolumes}
-                      disabled={loading || Object.values(selectedSystems).every(v => !v)}
+                      disabled={
+                        loading ||
+                        Object.values(selectedSystems).every((v) => !v)
+                      }
                       className="ms-2"
                     >
                       {loading ? (
                         <>
-                          <Spinner as="span" animation="border" size="sm" /> Importing...
+                          <Spinner as="span" animation="border" size="sm" />{" "}
+                          Importing...
                         </>
                       ) : (
-                        `Import Selected Systems + Volumes ${useEnhancedAPI ? '(Enhanced)' : ''}`
+                        `Import Selected Systems + Volumes ${
+                          useEnhancedAPI ? "(Enhanced)" : ""
+                        }`
                       )}
                     </Button>
                   </div>
@@ -856,7 +984,10 @@ const StorageInsightsImporter = () => {
               ) : (
                 !loading && (
                   <div className="text-center py-5 text-muted">
-                    <p>No storage systems found. Click "Fetch Storage Systems" to retrieve data from IBM Storage Insights.</p>
+                    <p>
+                      No storage systems found. Click "Fetch Storage Systems" to
+                      retrieve data from IBM Storage Insights.
+                    </p>
                   </div>
                 )
               )}
@@ -867,7 +998,10 @@ const StorageInsightsImporter = () => {
 
       {/* Summary Modal */}
       {summaryModal.show && (
-        <Modal show onHide={() => setSummaryModal({ show: false, results: [] })}>
+        <Modal
+          show
+          onHide={() => setSummaryModal({ show: false, results: [] })}
+        >
           <Modal.Header closeButton>
             <Modal.Title>Import Summary</Modal.Title>
           </Modal.Header>
@@ -882,23 +1016,31 @@ const StorageInsightsImporter = () => {
                       {result.processed && (
                         <div className="mt-1">
                           <small className="text-muted">
-                            Processed: {result.processed}, Successful: {result.successful}, Errors: {result.errors}
+                            Processed: {result.processed}, Successful:{" "}
+                            {result.successful}, Errors: {result.errors}
                           </small>
                         </div>
                       )}
                       {result.asyncJob && (
                         <div className="mt-1">
-                          <small className="text-info">Job started successfully. Results will update automatically.</small>
+                          <small className="text-info">
+                            Job started successfully. Results will update
+                            automatically.
+                          </small>
                         </div>
                       )}
                       {result.asyncCompleted && (
                         <div className="mt-1">
-                          <small className="text-success">Job completed successfully!</small>
+                          <small className="text-success">
+                            Job completed successfully!
+                          </small>
                         </div>
                       )}
                       {result.asyncFailed && (
                         <div className="mt-1">
-                          <small className="text-danger">Job failed. Check logs for details.</small>
+                          <small className="text-danger">
+                            Job failed. Check logs for details.
+                          </small>
                         </div>
                       )}
                     </div>
@@ -907,7 +1049,7 @@ const StorageInsightsImporter = () => {
                   ) : (
                     `${result.volumeCount} volumes imported`
                   )}{" "}
-                  {result.error && typeof result.error === 'string' ? (
+                  {result.error && typeof result.error === "string" ? (
                     <Badge bg="danger">Error: {result.error}</Badge>
                   ) : result.error ? (
                     <Badge bg="danger">Error occurred</Badge>
@@ -919,7 +1061,10 @@ const StorageInsightsImporter = () => {
             </ul>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setSummaryModal({ show: false, results: [] })}>
+            <Button
+              variant="secondary"
+              onClick={() => setSummaryModal({ show: false, results: [] })}
+            >
               Close
             </Button>
           </Modal.Footer>
@@ -937,19 +1082,22 @@ const StorageInsightsImporter = () => {
               {progressModal.items.map((item, idx) => (
                 <li key={idx}>
                   <strong>{item.name}</strong>: {item.step}
-                  {item.status === 'success' && ' ✅'}
-                  {item.status === 'error' && ' ❌'}
-                  {item.status === 'pending' && ' ⏳'}
+                  {item.status === "success" && " ✅"}
+                  {item.status === "error" && " ❌"}
+                  {item.status === "pending" && " ⏳"}
                 </li>
               ))}
             </ul>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="danger" onClick={() => {
-              setImportCancelled(true);
-              setProgressModal({ show: false, items: [] });
-              window.location.reload();
-            }}>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setImportCancelled(true);
+                setProgressModal({ show: false, items: [] });
+                window.location.reload();
+              }}
+            >
               Cancel Import
             </Button>
           </Modal.Footer>
@@ -958,7 +1106,11 @@ const StorageInsightsImporter = () => {
 
       {/* Jobs Modal */}
       {jobsModal.show && (
-        <Modal show onHide={() => setJobsModal({ show: false, jobs: [] })} size="lg">
+        <Modal
+          show
+          onHide={() => setJobsModal({ show: false, jobs: [] })}
+          size="lg"
+        >
           <Modal.Header closeButton>
             <Modal.Title>Import Jobs History</Modal.Title>
           </Modal.Header>
@@ -979,35 +1131,46 @@ const StorageInsightsImporter = () => {
                   {jobsModal.jobs.map((job, idx) => (
                     <tr key={idx}>
                       <td>
-                        <code>{job.job_id.split('-')[0]}...</code>
+                        <code>{job.job_id.split("-")[0]}...</code>
                       </td>
                       <td>
                         <Badge bg="secondary">{job.job_type}</Badge>
                       </td>
                       <td>
-                        <Badge bg={getStatusBadge(job.status)}>{job.status}</Badge>
+                        <Badge bg={getStatusBadge(job.status)}>
+                          {job.status}
+                        </Badge>
                       </td>
                       <td>
                         {job.total_items > 0 ? (
                           <div>
-                            <div className="progress" style={{ height: '10px' }}>
-                              <div 
-                                className="progress-bar" 
-                                role="progressbar" 
-                                style={{ width: `${job.progress_percentage || 0}%` }}
+                            <div
+                              className="progress"
+                              style={{ height: "10px" }}
+                            >
+                              <div
+                                className="progress-bar"
+                                role="progressbar"
+                                style={{
+                                  width: `${job.progress_percentage || 0}%`,
+                                }}
                               />
                             </div>
-                            <small>{job.success_count}/{job.total_items}</small>
+                            <small>
+                              {job.success_count}/{job.total_items}
+                            </small>
                           </div>
                         ) : (
-                          '-'
+                          "-"
                         )}
                       </td>
                       <td>
-                        <small>{new Date(job.created_at).toLocaleString()}</small>
+                        <small>
+                          {new Date(job.created_at).toLocaleString()}
+                        </small>
                       </td>
                       <td>
-                        <small>{job.duration || '-'}</small>
+                        <small>{job.duration || "-"}</small>
                       </td>
                     </tr>
                   ))}
@@ -1020,7 +1183,10 @@ const StorageInsightsImporter = () => {
             )}
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setJobsModal({ show: false, jobs: [] })}>
+            <Button
+              variant="secondary"
+              onClick={() => setJobsModal({ show: false, jobs: [] })}
+            >
               Close
             </Button>
             <Button variant="primary" onClick={fetchImportJobs}>

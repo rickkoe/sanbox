@@ -13,7 +13,7 @@ window.Handsontable = Handsontable; // helpful for debugging
 
 // API endpoints
 const API_ENDPOINTS = {
-  storage: "http://127.0.0.1:8000/api/storage/",
+  storage: "/api/storage/",
 };
 
 // Template for new rows

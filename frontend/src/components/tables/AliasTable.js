@@ -7,10 +7,10 @@ import GenericTable from "./GenericTable";
 
 // API endpoints
 const API_ENDPOINTS = {
-  aliases: "http://127.0.0.1:8000/api/san/aliases/project/",
-  fabrics: "http://127.0.0.1:8000/api/san/fabrics/",
-  aliasSave: "http://127.0.0.1:8000/api/san/aliases/save/",
-  aliasDelete: "http://127.0.0.1:8000/api/san/aliases/delete/"
+  aliases: "/api/san/aliases/project/",
+  fabrics: "/api/san/fabrics/",
+  aliasSave: "/api/san/aliases/save/",
+  aliasDelete: "/api/san/aliases/delete/"
 };
 
 // Template for new rows

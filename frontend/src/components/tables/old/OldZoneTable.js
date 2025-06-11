@@ -13,11 +13,11 @@ import { useNavigate } from "react-router-dom";
 
 // API endpoints defined once at the top for better maintainability
 const API_ENDPOINTS = {
-  zones: "http://127.0.0.1:8000/api/san/zones/project/",
-  fabrics: "http://127.0.0.1:8000/api/san/fabrics/customer/",
-  aliases: "http://127.0.0.1:8000/api/san/aliases/project/",
-  zoneSave: "http://127.0.0.1:8000/api/san/zones/save/",
-  zoneDelete: "http://127.0.0.1:8000/api/san/zones/delete/",
+  zones: "/api/san/zones/project/",
+  fabrics: "/api/san/fabrics/customer/",
+  aliases: "/api/san/aliases/project/",
+  zoneSave: "/api/san/zones/save/",
+  zoneDelete: "/api/san/zones/delete/",
 };
 
 // Initial state

@@ -10,7 +10,7 @@ const ImportSwitchConfig = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fabrics, setFabrics] = useState([]);
   const { config, loading, error } = useContext(ConfigContext);
-  const fabricApiUrl = "http://127.0.0.1:8000/api/san/fabrics/customer/";
+  const fabricApiUrl = "/api/san/fabrics/customer/";
 
 
   useEffect(() => {

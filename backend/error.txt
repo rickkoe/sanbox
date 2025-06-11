@@ -111,7 +111,7 @@
     </tr>
     <tr>
       <th scope="row">Request URL:</th>
-      <td>http://127.0.0.1:8000/api/insights/test-connection/</td>
+      <td>/api/insights/test-connection/</td>
     </tr>
 
     <tr>
@@ -964,7 +964,7 @@ Environment:
 
 
 Request Method: POST
-Request URL: http://127.0.0.1:8000/api/insights/test-connection/
+Request URL: /api/insights/test-connection/
 
 Django Version: 5.1.6
 Python Version: 3.13.1
