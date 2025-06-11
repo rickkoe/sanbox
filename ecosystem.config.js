@@ -12,3 +12,4 @@ module.exports = {
     log_file: '/var/www/sanbox/logs/django-combined.log'
   }]
 };
+//         // imported, updated, and saved are handled in the frontend
