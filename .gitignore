@@ -172,3 +172,27 @@ cython_debug/
 frontend/public/images/no-page-for-you.png
 .DS_Store
 backend/.DS_Store
+# Database files
+*.sqlite3
+db.sqlite3
+
+# Migration files (optional - some prefer to track migrations)
+*/migrations/00*.py
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+# Database files
+*.sqlite3
+db.sqlite3
+
+# Migration files (optional - some prefer to track migrations)
+*/migrations/00*.py
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
