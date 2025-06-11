@@ -196,3 +196,5 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.DS_Store
+backend/.DS_Store
