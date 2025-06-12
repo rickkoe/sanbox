@@ -1,7 +1,8 @@
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status, generics
-from rest_framework.decorators import api_view
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view, permission_classes
 from .models import Alias, Zone, Fabric
 from customers.models import Customer
 from core.models import Config, Project
@@ -12,6 +13,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from .san_utils import generate_alias_commands, generate_zone_commands
 from django.utils import timezone
+
 
 class AliasListView(APIView):
     """Fetch aliases belonging to a specific project."""
@@ -196,6 +198,7 @@ class ZoneDeleteView(generics.DestroyAPIView):
 
 # Unified fabric management view
 @api_view(["GET", "POST", "PUT"])
+@permission_classes([AllowAny])
 def fabric_management(request, pk=None):
     """
     GET  /fabrics/                -> List all fabrics (optionally filter by customer via query param)
