@@ -24,4 +24,4 @@ CSRF_USE_SESSIONS = False
 
 # Production-specific settings
 DEBUG = False
-ALLOWED_HOSTS = ['sanbox.esilabs.com', 'localhost']
+ALLOWED_HOSTS = ['*']
