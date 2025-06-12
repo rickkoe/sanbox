@@ -1012,7 +1012,7 @@ const filteredColumns = columns.filter((col, index) => {
       >
         <input
           type="checkbox"
-          checked={isChecked}
+          checked={isChecked || false} 
           disabled={isRequired && isChecked} // Disable unchecking required columns
           onChange={(e) => {
             if (!isRequired || !isChecked) {

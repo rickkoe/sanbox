@@ -3,11 +3,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status, viewsets
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils.decorators import method_decorator
 from .models import Config, Project
 from customers.models import Customer 
 from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer
 from customers.serializers import CustomerSerializer 
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 class ConfigViewSet(viewsets.ModelViewSet):
     queryset = Config.objects.all()
@@ -90,27 +92,21 @@ def config_for_customer(request, customer_id):
     serializer = ConfigSerializer(config)
     return Response(serializer.data)
 
-@api_view(['PUT'])
-def update_config(request, customer_id):
-    """
-    Update a configuration by ID. The payload should include the updated values,
-    and this view will ensure that is_active is set to True.
-    """
-    try:
-        config = Config.objects.get(customer=customer_id)
-    except Config.DoesNotExist:
-        return Response({"error": "Config not found"}, status=status.HTTP_404_NOT_FOUND)
-    
-    # Make sure to set is_active to True
-
-    data = request.data.copy()
-    data['is_active'] = True
-    
-    serializer = ConfigSerializer(config, data=data, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    else:
+@method_decorator(csrf_exempt, name='dispatch')
+class UpdateConfigView(APIView):
+    def put(self, request, customer_id):
+        try:
+            config = Config.objects.get(customer=customer_id)
+        except Config.DoesNotExist:
+            return Response({"error": "Config not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        data = request.data.copy()
+        data['is_active'] = True
+        
+        serializer = ConfigSerializer(config, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])

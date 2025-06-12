@@ -6,11 +6,13 @@ import { useNavigate } from "react-router-dom";
 import GenericTable from "./GenericTable";
 
 // API endpoints
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 const API_ENDPOINTS = {
-  aliases: "/api/san/aliases/project/",
-  fabrics: "/api/san/fabrics/",
-  aliasSave: "/api/san/aliases/save/",
-  aliasDelete: "/api/san/aliases/delete/"
+  aliases: `${API_URL}/api/san/aliases/project/`,
+  fabrics: `${API_URL}/api/san/fabrics/`,
+  aliasSave: `${API_URL}/api/san/aliases/save/`,
+  aliasDelete: `${API_URL}/api/san/aliases/delete/`
 };
 
 // Template for new rows
@@ -192,12 +194,10 @@ const AliasTable = () => {
         };
       }
     },
-    // Pre-save validation
     beforeSave: (data) => {
-      // Validate fabric is selected for aliases with a name
       const invalidAlias = data.find(alias => 
         alias.name && alias.name.trim() !== "" && 
-        (!alias.fabric_details?.name && !alias.fabric)
+        (!alias.fabric_details?.name && !alias.fabric?.trim())
       );
       
       if (invalidAlias) {

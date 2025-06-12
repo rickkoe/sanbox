@@ -6,12 +6,14 @@ import { useNavigate } from "react-router-dom";
 import GenericTable from "./GenericTable";
 
 // API endpoints
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 const API_ENDPOINTS = {
-  zones: "/api/san/zones/project/",
-  fabrics: "/api/san/fabrics/",
-  aliases: "/api/san/aliases/project/",
-  zoneSave: "/api/san/zones/save/",
-  zoneDelete: "/api/san/zones/delete/"
+  zones: `${API_URL}/api/san/zones/project/`,
+  fabrics: `${API_URL}/api/san/fabrics/`,
+  aliases: `${API_URL}/api/san/aliases/project/`,
+  zoneSave: `${API_URL}/api/san/zones/save/`,
+  zoneDelete: `${API_URL}/api/san/zones/delete/`
 };
 
 // Template for new rows

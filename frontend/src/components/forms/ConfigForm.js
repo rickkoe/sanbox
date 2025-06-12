@@ -5,6 +5,12 @@ import "../../styles/configform.css"
 import { Modal, Button, Form as BootstrapForm } from "react-bootstrap";
 
 const ConfigForm = () => {
+    const API_URL = process.env.REACT_APP_API_URL || '';
+    const customersApiUrl = `${API_URL}/api/customers/`;
+    const projectsApiUrl = `${API_URL}/api/core/projects/`;
+    const updateCustomerUrl = `${API_URL}/api/core/config/update/`;
+    const customerCreateUrl = `${API_URL}/api/customers/create/`;
+
     const { config, refreshConfig } = useContext(ConfigContext);
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -17,7 +23,7 @@ const ConfigForm = () => {
     const [newCustomerName, setNewCustomerName] = useState("");
     const handleAddCustomer = async () => {
         try {
-            const response = await axios.post("/api/customers/create/", {
+            const response = await axios.post(customerCreateUrl, {
                 name: newCustomerName
             });
             const newCustomer = response.data;
@@ -38,7 +44,7 @@ const ConfigForm = () => {
     };
     const handleAddProject = async () => {
         try {
-            const response = await axios.post("/api/core/projects/", {
+            const response = await axios.post(projectsApiUrl, {
                 name: newProjectName,
                 customer: parseInt(unsavedConfig.customer)
             });
@@ -51,11 +57,7 @@ const ConfigForm = () => {
             console.error("❌ Error adding project:", error);
         }
     };
-    
-    const customersApiUrl = "/api/customers/";
-    const projectsApiUrl = "/api/core/projects/";
-    const configForCustomerApiUrl = "/api/core/config/customer/${customerId}/";
-    const updateCustomerUrl = "/api/core/config/update/";
+
 
     useEffect(() => {
         fetchCustomers();
@@ -107,7 +109,8 @@ const ConfigForm = () => {
     const fetchConfigForCustomer = async (customerId) => {
         console.log("Fetching config for customer:", customerId);
         try {
-            const response = await axios.get(configForCustomerApiUrl);
+            const url = `${API_URL}/api/core/config/customer/${customerId}/`;
+            const response = await axios.get(url);
             console.log("Response from fetchConfigForCustomer:", response.data);
             if (response.data && Object.keys(response.data).length > 0) {
                 const configForCustomer = response.data;

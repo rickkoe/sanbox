@@ -4,13 +4,14 @@ import { Modal, Button, Form } from "react-bootstrap";
 import { ConfigContext } from "../../context/ConfigContext";
 
 const ImportSwitchConfig = () => {
+  const API_URL = process.env.REACT_APP_API_URL || '';
   const [selectedFabric, setSelectedFabric] = useState(null);
   const [configText, setConfigText] = useState("");
   const [importResult, setImportResult] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fabrics, setFabrics] = useState([]);
   const { config, loading, error } = useContext(ConfigContext);
-  const fabricApiUrl = "/api/san/fabrics/customer/";
+  const fabricApiUrl = "${API_URL}/api/san/fabrics/customer/";
 
 
   useEffect(() => {
@@ -24,7 +25,7 @@ const ImportSwitchConfig = () => {
   const handleImport = async (fabricId) => {
     setIsSubmitting(true);
     try {
-      const response = await axios.post("/api/import-switch-config/", {
+      const response = await axios.post("${API_URL}/api/import-switch-config/", {
         config_text: configText,
         fabric: fabricId
       });

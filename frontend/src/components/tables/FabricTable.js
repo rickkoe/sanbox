@@ -11,6 +11,7 @@ const vendorOptions = [
 ];
 
 const FabricTable = () => {
+    const API_URL = process.env.REACT_APP_API_URL || '';
     const { config, loading: configLoading } = useContext(ConfigContext);
     const [isDirty, setIsDirty] = useState(false);
     const [showNavigationModal, setShowNavigationModal] = useState(false);
@@ -22,8 +23,8 @@ const FabricTable = () => {
     const navigate = useNavigate();
 
     const NEW_FABRIC_TEMPLATE = { id: null, name: "", san_vendor: "", zoneset_name: "", vsan: "", exists: false, notes: "" };
-    const fabricsApiUrl = "/api/san/fabrics/";
-    const fabricDeleteApiUrl = "/api/san/fabrics/delete/";
+    const fabricsApiUrl = `${API_URL}/api/san/fabrics/`;
+    const fabricDeleteApiUrl = `${API_URL}/api/san/fabrics/delete/`;
 
     const colHeaders = ["Name", "Vendor", "Zoneset Name", "VSAN", "Exists", "Notes"];
     const columns = [

@@ -3,6 +3,8 @@ import GenericTable from "./GenericTable";
 import { DropdownButton, Dropdown, Form } from "react-bootstrap";
 
 // All possible columns in the Volume model
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 const ALL_COLUMNS = [
   { data: "storage", title: "Storage" },
   { data: "name", title: "Name" },
@@ -104,8 +106,8 @@ const VolumeTable = ({ storage }) => {
   if (!storage) return <p>No storage system selected.</p>;
 
   const apiUrl = storage.storage_system_id
-    ? `/api/storage/volumes/?storage_system_id=${storage.storage_system_id}`
-    : `/api/storage/volumes/?storage_system_id=0`;
+    ? `${API_URL}/api/storage/volumes/?storage_system_id=${storage.storage_system_id}`
+    : `${API_URL}/api/storage/volumes/?storage_system_id=0`;
 
   const customRenderers = {
     name: (instance, td, row, col, prop, value) => {
@@ -128,8 +130,8 @@ const VolumeTable = ({ storage }) => {
     <>
       <GenericTable
         apiUrl={apiUrl}
-        saveUrl="/api/storage/volumes/"
-        deleteUrl="/api/storage/volumes/"
+        saveUrl="${API_URL}/api/storage/volumes/"
+        deleteUrl="${API_URL}/api/storage/volumes/"
         columns={columns}
         colHeaders={colHeaders}
         newRowTemplate={{}}

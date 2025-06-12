@@ -58,13 +58,14 @@ MIDDLEWARE = [
 ]
 
 # Allow React frontend to access Django backend
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React frontend
-    "http://127.0.0.1:3000",
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",  # React frontend
+#     "http://127.0.0.1:3000",
+# ]
 
 # OR, if you want to allow all origins during development:
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = False
 
 ROOT_URLCONF = 'sanbox.urls'
 
@@ -86,6 +87,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'sanbox.wsgi.application'
 
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [],  # Allow all by default
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases

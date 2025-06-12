@@ -11,8 +11,10 @@ from django.db import IntegrityError
 from collections import defaultdict
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from .san_utils import generate_alias_commands, generate_zone_commands
 from django.utils import timezone
+import json
 
 
 class AliasListView(APIView):
@@ -42,6 +44,7 @@ class AliasListView(APIView):
 
 class AliasSaveView(APIView):
     """Save or update aliases for multiple projects."""
+    permission_classes = [AllowAny]
     
     def post(self, request):
 
@@ -124,6 +127,7 @@ class ZoneSaveView(APIView):
     """
     Save or update zones for multiple projects.
     """
+    permission_classes = [AllowAny]
     def post(self, request):
         project_id = request.data.get("project_id")
         zones_data = request.data.get("zones", [])
@@ -186,6 +190,7 @@ class ZoneSaveView(APIView):
         return Response({"message": "Zones saved successfully!", "zones": saved_zones}, status=status.HTTP_200_OK)
    
 class ZoneDeleteView(generics.DestroyAPIView):
+    permission_classes = [AllowAny]
     queryset = Zone.objects.all()
     serializer_class = ZoneSerializer
 
@@ -196,9 +201,8 @@ class ZoneDeleteView(generics.DestroyAPIView):
         return Response({"message": "Zone deleted successfully."}, status=status.HTTP_200_OK)
     
 
-# Unified fabric management view
-@api_view(["GET", "POST", "PUT"])
-@permission_classes([AllowAny])
+@csrf_exempt
+@require_http_methods(["GET", "POST", "PUT"])
 def fabric_management(request, pk=None):
     """
     GET  /fabrics/                -> List all fabrics (optionally filter by customer via query param)
@@ -206,44 +210,58 @@ def fabric_management(request, pk=None):
     POST /fabrics/                -> Create a new fabric (requires customer_id in payload)
     PUT  /fabrics/{pk}/           -> Update an existing fabric
     """
-    # List or retrieve
-    print(pk, request.method)
+    print(f"🔥 Method: {request.method}, PK: {pk}")
+    
     if request.method == "GET":
-        customer_id = request.query_params.get("customer_id")
+        customer_id = request.GET.get("customer_id")
         if pk:
             try:
                 fabric = Fabric.objects.get(pk=pk)
-                serializer = FabricSerializer(fabric)
-                return Response(serializer.data)
+                data = FabricSerializer(fabric).data
+                return JsonResponse(data)
             except Fabric.DoesNotExist:
-                return Response({"error": "Fabric not found"}, status=status.HTTP_404_NOT_FOUND)
+                return JsonResponse({"error": "Fabric not found"}, status=404)
+        
         qs = Fabric.objects.all()
         if customer_id:
             qs = qs.filter(customer_id=customer_id)
-        serializer = FabricSerializer(qs, many=True)
-        return Response(serializer.data)
-    # Create
-    if request.method == "POST":
-        serializer = FabricSerializer(data=request.data)
-        if serializer.is_valid():
-            fabric = serializer.save()
-            return Response(FabricSerializer(fabric).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    # Update
-    if request.method == "PUT":
+        data = FabricSerializer(qs, many=True).data
+        return JsonResponse(data, safe=False)
+    
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            serializer = FabricSerializer(data=data)
+            if serializer.is_valid():
+                fabric = serializer.save()
+                return JsonResponse(FabricSerializer(fabric).data, status=201)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    elif request.method == "PUT":
         if not pk:
-            return Response({"error": "Missing fabric ID"}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "Missing fabric ID"}, status=400)
+        
         try:
             fabric = Fabric.objects.get(pk=pk)
         except Fabric.DoesNotExist:
-            return Response({"error": "Fabric not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = FabricSerializer(fabric, data=request.data, partial=True)
-        if serializer.is_valid():
-            updated = serializer.save()
-            return Response(FabricSerializer(updated).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "Fabric not found"}, status=404)
+        
+        try:
+            data = json.loads(request.body)
+            serializer = FabricSerializer(fabric, data=data, partial=True)
+            if serializer.is_valid():
+                updated = serializer.save()
+                return JsonResponse(FabricSerializer(updated).data)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+        
+
 
 class FabricDeleteView(generics.DestroyAPIView):
+    permission_classes = [AllowAny]
     queryset = Fabric.objects.all()
     serializer_class = FabricSerializer
 

@@ -1,11 +1,11 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
 import GenericTable from "./GenericTable";
-import { ConfigContext } from "../../context/ConfigContext";
 import { Button, Modal } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 
 const CustomerTable = () => {
-    const { config } = useContext(ConfigContext);
+    const API_URL = process.env.REACT_APP_API_URL || '';
+
     const tableRef = useRef(null);
     const navigate = useNavigate();
 
@@ -90,9 +90,9 @@ const CustomerTable = () => {
         <div className="table-container">
             <GenericTable
                 ref={tableRef}
-                apiUrl="/api/customers/"
-                saveUrl="/api/customers/"
-                deleteUrl="/api/customers/delete/"
+                apiUrl={`${API_URL}/api/customers/`}
+                saveUrl={`${API_URL}/api/customers/`}
+                deleteUrl={`${API_URL}/api/customers/delete/`}
                 newRowTemplate={NEW_CUSTOMER_TEMPLATE}
                 colHeaders={colHeaders}
                 columns={columns}

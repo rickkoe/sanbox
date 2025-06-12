@@ -12,8 +12,10 @@ registerAllModules();
 window.Handsontable = Handsontable; // helpful for debugging
 
 // API endpoints
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 const API_ENDPOINTS = {
-  storage: "/api/storage/",
+  storage: `${API_URL}/api/storage/`,
 };
 
 // Template for new rows
