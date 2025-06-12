@@ -1,63 +1,59 @@
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status, generics
-from rest_framework.permissions import AllowAny
-from rest_framework.decorators import api_view, permission_classes
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from .models import Alias, Zone, Fabric
 from customers.models import Customer
 from core.models import Config, Project
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer
 from django.db import IntegrityError
 from collections import defaultdict
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 from .san_utils import generate_alias_commands, generate_zone_commands
 from django.utils import timezone
-import json
 
 
-class AliasListView(APIView):
+@csrf_exempt
+@require_http_methods(["GET"])
+def alias_list_view(request, project_id):
     """Fetch aliases belonging to a specific project."""
-    def get(self, request, project_id):
-        try:
-            project = Project.objects.get(id=project_id)
-        except Project.DoesNotExist:
-            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        aliases = Alias.objects.filter(projects=project)  # ✅ Filter aliases by project
-        
-        # Store project_id for serializer context
-        self.project_id = project_id
-        
-        # Pass context to serializer including project_id and view
-        serializer = AliasSerializer(
-            aliases, 
-            many=True, 
-            context={
-                'request': request, 
-                'view': self,
-                'project_id': project_id
-            }
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-class AliasSaveView(APIView):
-    """Save or update aliases for multiple projects."""
-    permission_classes = [AllowAny]
+    print(f"🔥 Alias List - Project ID: {project_id}")
     
-    def post(self, request):
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found."}, status=404)
 
-        project_id = request.data.get("project_id")
-        aliases_data = request.data.get("aliases", [])
+    aliases = Alias.objects.filter(projects=project)
+    
+    # Pass context to serializer including project_id
+    serializer = AliasSerializer(
+        aliases, 
+        many=True, 
+        context={
+            'project_id': project_id
+        }
+    )
+    return JsonResponse(serializer.data, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def alias_save_view(request):
+    """Save or update aliases for multiple projects."""
+    print(f"🔥 Alias Save - Method: {request.method}")
+    
+    try:
+        data = json.loads(request.body)
+        project_id = data.get("project_id")
+        aliases_data = data.get("aliases", [])
 
         if not project_id or not aliases_data:
-            return Response({"error": "Project ID and aliases data are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "Project ID and aliases data are required."}, status=400)
 
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
-            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+            return JsonResponse({"error": "Project not found."}, status=404)
 
         saved_aliases = []
         errors = []
@@ -66,7 +62,7 @@ class AliasSaveView(APIView):
             alias_id = alias_data.get("id")
 
             # Ensure projects is a list (since it's many-to-many)
-            projects_list = alias_data.pop("projects", [project_id])  # ✅ Defaults to the current project
+            projects_list = alias_data.pop("projects", [project_id])  # Defaults to the current project
 
             if alias_id:
                 alias = Alias.objects.filter(id=alias_id).first()
@@ -87,58 +83,78 @@ class AliasSaveView(APIView):
                     else:
                         errors.append({"alias": alias_data.get("name", "Unknown"), "errors": serializer.errors})
             else:
-                # ✅ Create new alias
+                # Create new alias
                 serializer = AliasSerializer(data=alias_data)
                 if serializer.is_valid():
                     alias = serializer.save()
                     alias.updated = timezone.now()
                     alias.save(update_fields=["updated"])
-                    alias.projects.set(projects_list)  # ✅ Assign multiple projects
+                    alias.projects.set(projects_list)  # Assign multiple projects
                     saved_aliases.append(serializer.data)
                 else:
                     errors.append({"alias": alias_data["name"], "errors": serializer.errors})
 
         if errors:
-            return Response({"error": "Some aliases could not be saved.", "details": errors}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "Some aliases could not be saved.", "details": errors}, status=400)
 
-        return Response({"message": "Aliases saved successfully!", "aliases": saved_aliases}, status=status.HTTP_200_OK)
- 
-class AliasDeleteView(generics.DestroyAPIView):
-    queryset = Alias.objects.all()
-    serializer_class = AliasSerializer
+        return JsonResponse({"message": "Aliases saved successfully!", "aliases": saved_aliases})
+    
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
-    def delete(self, request, *args, **kwargs):
-        alias = self.get_object()
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def alias_delete_view(request, pk):
+    """Delete an alias."""
+    print(f"🔥 Alias Delete - PK: {pk}")
+    
+    try:
+        alias = Alias.objects.get(pk=pk)
         print(f'Deleting Alias: {alias.name}')
         alias.delete()
-        return Response({"message": "Alias deleted successfully."}, status=status.HTTP_200_OK)
+        return JsonResponse({"message": "Alias deleted successfully."})
+    except Alias.DoesNotExist:
+        return JsonResponse({"error": "Alias not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
-class ZonesByProjectView(APIView):
-    def get(self, request, project_id):
-        try:
-            project = Project.objects.get(id=project_id)
-            zones = Zone.objects.filter(projects=project)
-            serializer = ZoneSerializer(zones, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Project.DoesNotExist:
-            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
 
-class ZoneSaveView(APIView):
-    """
-    Save or update zones for multiple projects.
-    """
-    permission_classes = [AllowAny]
-    def post(self, request):
-        project_id = request.data.get("project_id")
-        zones_data = request.data.get("zones", [])
+@csrf_exempt
+@require_http_methods(["GET"])
+def zones_by_project_view(request, project_id):
+    """Fetch zones belonging to a specific project."""
+    print(f"🔥 Zones by Project - Project ID: {project_id}")
+    
+    try:
+        project = Project.objects.get(id=project_id)
+        zones = Zone.objects.filter(projects=project)
+        serializer = ZoneSerializer(zones, many=True)
+        return JsonResponse(serializer.data, safe=False)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found."}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def zone_save_view(request):
+    """Save or update zones for multiple projects."""
+    print(f"🔥 Zone Save - Method: {request.method}")
+    
+    try:
+        data = json.loads(request.body)
+        project_id = data.get("project_id")
+        zones_data = data.get("zones", [])
 
         if not project_id or not zones_data:
-            return Response({"error": "Project ID and zones data are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "Project ID and zones data are required."}, status=400)
 
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
-            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+            return JsonResponse({"error": "Project not found."}, status=404)
 
         saved_zones = []
         errors = []
@@ -147,8 +163,8 @@ class ZoneSaveView(APIView):
             zone_id = zone_data.get("id")
 
             # Ensure projects is a list (since it's many-to-many)
-            projects_list = zone_data.pop("projects", [project_id])  # ✅ Defaults to the current project
-            members_list = zone_data.pop("members", [])  # ✅ Handle members
+            projects_list = zone_data.pop("projects", [project_id])  # Defaults to the current project
+            members_list = zone_data.pop("members", [])  # Handle members
 
             if zone_id:
                 zone = Zone.objects.filter(id=zone_id).first()
@@ -165,7 +181,7 @@ class ZoneSaveView(APIView):
                         if dirty:
                             zone.updated = timezone.now()
                             zone.save(update_fields=["updated"])
-                        zone.projects.add(*projects_list)  # ✅ Append projects instead of overwriting
+                        zone.projects.add(*projects_list)  # Append projects instead of overwriting
                         member_ids = [member.get('alias') for member in members_list if member.get('alias')]
                         zone.members.set(member_ids)
                         saved_zones.append(ZoneSerializer(zone).data)
@@ -177,7 +193,7 @@ class ZoneSaveView(APIView):
                     zone = serializer.save()
                     zone.updated = timezone.now()
                     zone.save(update_fields=["updated"])
-                    zone.projects.add(*projects_list)  # ✅ Append projects instead of overwriting
+                    zone.projects.add(*projects_list)  # Append projects instead of overwriting
                     member_ids = [member.get('alias') for member in members_list if member.get('alias')]
                     zone.members.set(member_ids)
                     saved_zones.append(ZoneSerializer(zone).data)
@@ -185,21 +201,30 @@ class ZoneSaveView(APIView):
                     errors.append({"zone": zone_data["name"], "errors": serializer.errors})
 
         if errors:
-            return Response({"error": "Some zones could not be saved.", "details": errors}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "Some zones could not be saved.", "details": errors}, status=400)
 
-        return Response({"message": "Zones saved successfully!", "zones": saved_zones}, status=status.HTTP_200_OK)
-   
-class ZoneDeleteView(generics.DestroyAPIView):
-    permission_classes = [AllowAny]
-    queryset = Zone.objects.all()
-    serializer_class = ZoneSerializer
+        return JsonResponse({"message": "Zones saved successfully!", "zones": saved_zones})
+    
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
-    def delete(self, request, *args, **kwargs):
-        zone = self.get_object()
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def zone_delete_view(request, pk):
+    """Delete a zone."""
+    print(f"🔥 Zone Delete - PK: {pk}")
+    
+    try:
+        zone = Zone.objects.get(pk=pk)
         print(f'Deleting Zone: {zone.name}')
         zone.delete()
-        return Response({"message": "Zone deleted successfully."}, status=status.HTTP_200_OK)
-    
+        return JsonResponse({"message": "Zone deleted successfully."})
+    except Zone.DoesNotExist:
+        return JsonResponse({"error": "Zone not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 
 @csrf_exempt
 @require_http_methods(["GET", "POST", "PUT"])
@@ -210,7 +235,7 @@ def fabric_management(request, pk=None):
     POST /fabrics/                -> Create a new fabric (requires customer_id in payload)
     PUT  /fabrics/{pk}/           -> Update an existing fabric
     """
-    print(f"🔥 Method: {request.method}, PK: {pk}")
+    print(f"🔥 Fabric Management - Method: {request.method}, PK: {pk}")
     
     if request.method == "GET":
         customer_id = request.GET.get("customer_id")
@@ -257,22 +282,31 @@ def fabric_management(request, pk=None):
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-        
 
 
-class FabricDeleteView(generics.DestroyAPIView):
-    permission_classes = [AllowAny]
-    queryset = Fabric.objects.all()
-    serializer_class = FabricSerializer
-
-    def delete(self, request, *args, **kwargs):
-        fabric = self.get_object()
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def fabric_delete_view(request, pk):
+    """Delete a fabric."""
+    print(f"🔥 Fabric Delete - PK: {pk}")
+    
+    try:
+        fabric = Fabric.objects.get(pk=pk)
         print(f'Deleting Fabric: {fabric.name}')
         fabric.delete()
-        return Response({"message": "Fabric deleted successfully."}, status=status.HTTP_200_OK)
-  
+        return JsonResponse({"message": "Fabric deleted successfully."})
+    except Fabric.DoesNotExist:
+        return JsonResponse({"error": "Fabric not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
 @require_http_methods(["GET"])
 def generate_alias_scripts(request, project_id):
+    """Generate alias scripts for a project."""
+    print(f"🔥 Generate Alias Scripts - Project ID: {project_id}")
+    
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
     
@@ -298,8 +332,12 @@ def generate_alias_scripts(request, project_id):
     return JsonResponse({"alias_scripts": result}, safe=False)
 
 
+@csrf_exempt
 @require_http_methods(["GET"])
 def generate_zone_scripts(request, project_id):
+    """Generate zone scripts for a project."""
+    print(f"🔥 Generate Zone Scripts - Project ID: {project_id}")
+    
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
     
@@ -314,32 +352,41 @@ def generate_zone_scripts(request, project_id):
     command_data = generate_zone_commands(zones, config)
     return JsonResponse({"zone_scripts": command_data}, safe=False)
 
-class AliasByFabricView(APIView):
-    """Fetch aliases belonging to a specific fabric."""
-    def get(self, request, fabric_id):
-        try:
-            fabric = Fabric.objects.get(id=fabric_id)
-        except Fabric.DoesNotExist:
-            return Response({"error": "Fabric not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        aliases = Alias.objects.filter(fabric=fabric)
-        serializer = AliasSerializer(aliases, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+@csrf_exempt
+@require_http_methods(["GET"])
+def alias_by_fabric_view(request, fabric_id):
+    """Fetch aliases belonging to a specific fabric."""
+    print(f"🔥 Alias by Fabric - Fabric ID: {fabric_id}")
     
-class AliasCopyToProjectView(APIView):
+    try:
+        fabric = Fabric.objects.get(id=fabric_id)
+    except Fabric.DoesNotExist:
+        return JsonResponse({"error": "Fabric not found."}, status=404)
+
+    aliases = Alias.objects.filter(fabric=fabric)
+    serializer = AliasSerializer(aliases, many=True)
+    return JsonResponse(serializer.data, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def alias_copy_to_project_view(request):
     """Copy existing aliases to a project by adding the project to their many-to-many relationship."""
+    print(f"🔥 Alias Copy to Project - Method: {request.method}")
     
-    def post(self, request):
-        project_id = request.data.get("project_id")
-        alias_ids = request.data.get("alias_ids", [])
+    try:
+        data = json.loads(request.body)
+        project_id = data.get("project_id")
+        alias_ids = data.get("alias_ids", [])
 
         if not project_id or not alias_ids:
-            return Response({"error": "Project ID and alias IDs are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "Project ID and alias IDs are required."}, status=400)
 
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
-            return Response({"error": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+            return JsonResponse({"error": "Project not found."}, status=404)
 
         copied_count = 0
         errors = []
@@ -354,11 +401,14 @@ class AliasCopyToProjectView(APIView):
                 errors.append(f"Alias with ID {alias_id} not found")
 
         if errors:
-            return Response({
+            return JsonResponse({
                 "message": f"Copied {copied_count} aliases with some errors",
                 "errors": errors
-            }, status=status.HTTP_207_MULTI_STATUS)
+            }, status=207)
 
-        return Response({
+        return JsonResponse({
             "message": f"Successfully copied {copied_count} aliases to project!"
-        }, status=status.HTTP_200_OK)
+        })
+    
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
