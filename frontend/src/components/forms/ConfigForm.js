@@ -9,7 +9,6 @@ const ConfigForm = () => {
     const customersApiUrl = `${API_URL}/api/customers/`;
     const projectsApiUrl = `${API_URL}/api/core/projects/`;
     const updateCustomerUrl = `${API_URL}/api/core/config/update/`;
-    const customerCreateUrl = `${API_URL}/api/customers/create/`;
 
     const { config, refreshConfig } = useContext(ConfigContext);
     const [customers, setCustomers] = useState([]);
@@ -23,7 +22,8 @@ const ConfigForm = () => {
     const [newCustomerName, setNewCustomerName] = useState("");
     const handleAddCustomer = async () => {
         try {
-            const response = await axios.post(customerCreateUrl, {
+            console.log("Adding new customer:", newCustomerName);
+            const response = await axios.post(customersApiUrl, {
                 name: newCustomerName
             });
             const newCustomer = response.data;
