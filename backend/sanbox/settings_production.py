@@ -12,6 +12,16 @@ DATABASES = {
     }
 }
 
+# CSRF Configuration for API
+CSRF_TRUSTED_ORIGINS = [
+    'http://sanbox.esilabs.com',
+    'https://sanbox.esilabs.com',  # If you add SSL later
+]
+
+# For API endpoints, you might want to disable CSRF
+CSRF_COOKIE_HTTPONLY = False
+CSRF_USE_SESSIONS = False
+
 # Production-specific settings
 DEBUG = False
 ALLOWED_HOSTS = ['sanbox.esilabs.com', 'localhost']
