@@ -13,6 +13,7 @@ import {
 } from "react-bootstrap";
 
 const StorageInsightsImporter = () => {
+  const API_URL = process.env.REACT_APP_API_URL || '';
   const { config } = useContext(ConfigContext);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -39,13 +40,13 @@ const StorageInsightsImporter = () => {
     setError(null);
 
     try {
-      const authResponse = await axios.post("/api/insights/enhanced/auth/", {
+      const authResponse = await axios.post(`${API_URL}/api/insights/enhanced/auth/`, {
         tenant: config.customer.insights_tenant,
         api_key: config.customer.insights_api_key,
       });
 
       const storageResponse = await axios.post(
-        "/api/insights/enhanced/storage-systems/",
+        `${API_URL}/api/insights/enhanced/storage-systems/`,
         {
           credentials_id: authResponse.data.credentials_id,
         }
@@ -107,7 +108,7 @@ const StorageInsightsImporter = () => {
 
     try {
       const response = await axios.post(
-        "/api/insights/enhanced/import/start/",
+        `${API_URL}/api/insights/enhanced/import/start/`,
         {
           tenant: config.customer.insights_tenant,
           api_key: config.customer.insights_api_key,
@@ -165,7 +166,7 @@ const StorageInsightsImporter = () => {
     const pollInterval = setInterval(async () => {
       try {
         const statusResponse = await axios.get(
-          `/api/insights/tasks/${taskId}/status/`
+          `${API_URL}/api/insights/tasks/${taskId}/status/`
         );
         const taskStatus = statusResponse.data;
 
@@ -194,7 +195,7 @@ const StorageInsightsImporter = () => {
 
         if (taskStatus.state === "SUCCESS") {
           clearInterval(pollInterval);
-          const jobResponse = await axios.get(`/api/insights/jobs/${jobId}/`);
+          const jobResponse = await axios.get(`${API_URL}/api/insights/jobs/${jobId}/`);
           const jobData = jobResponse.data;
 
           setSummaryModal((prev) => ({
@@ -259,7 +260,7 @@ const StorageInsightsImporter = () => {
 
   const fetchImportJobs = async () => {
     try {
-      const response = await axios.get("/api/insights/jobs/");
+      const response = await axios.get(`${API_URL}/api/insights/jobs/`);
       setJobsModal({ show: true, jobs: response.data });
     } catch (error) {
       console.error("Failed to fetch import jobs:", error);
