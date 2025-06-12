@@ -1,7 +1,13 @@
 from django.urls import path
-from .views import storage_list, storage_detail, volume_list
-from .views import storage_insights_auth, storage_insights_systems, storage_insights_volumes
-from .views import storage_insights_host_connections
+from .views import (
+    storage_list, 
+    storage_detail, 
+    volume_list,
+    storage_insights_auth, 
+    storage_insights_systems, 
+    storage_insights_volumes,
+    storage_insights_host_connections
+)
 
 urlpatterns = [
     path("", storage_list, name="storage-list"),

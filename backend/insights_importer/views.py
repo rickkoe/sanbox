@@ -1,29 +1,34 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
+import json
+import uuid
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from .models import APICredentials, ImportJob, ImportLog
 from .serializers import APICredentialsSerializer, ImportJobSerializer
 from .api_client import StorageInsightsAPIClient
 from .importers.storage_importer import StorageImporter
 from customers.models import Customer
-import uuid
-from django.utils import timezone
 from .tasks import run_import_task, test_connection_task
 from celery.result import AsyncResult
 
 
-class TestConnectionView(APIView):
+@csrf_exempt
+@require_http_methods(["POST"])
+def test_connection_view(request):
     """Test API credentials connection"""
+    print(f"🔥 Test Connection - Method: {request.method}")
     
-    def post(self, request):
-        tenant = request.data.get('tenant')
-        api_key = request.data.get('api_key')
+    try:
+        data = json.loads(request.body)
+        tenant = data.get('tenant')
+        api_key = data.get('api_key')
         
         if not tenant or not api_key:
-            return Response({
+            return JsonResponse({
                 'error': 'tenant and api_key are required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=400)
         
         # Create temporary credentials for testing
         temp_creds = APICredentials(
@@ -34,46 +39,49 @@ class TestConnectionView(APIView):
             tenant_id=tenant
         )
         
-        try:
-            client = StorageInsightsAPIClient(temp_creds)
-            
-            # Test authentication first
-            auth_result = client.authenticate()
-            if not auth_result:
-                return Response({
-                    'status': 'error',
-                    'message': 'Authentication failed - check tenant ID and API key'
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Test a simple API call
-            if client.test_connection():
-                return Response({
-                    'status': 'success',
-                    'message': 'Connection successful',
-                    'token_expires': client.token_expires.isoformat() if client.token_expires else None
-                })
-            else:
-                return Response({
-                    'status': 'error',
-                    'message': 'Connection test failed - API call unsuccessful'
-                }, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            return Response({
+        client = StorageInsightsAPIClient(temp_creds)
+        
+        # Test authentication first
+        auth_result = client.authenticate()
+        if not auth_result:
+            return JsonResponse({
                 'status': 'error',
-                'message': f'Connection error: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                'message': 'Authentication failed - check tenant ID and API key'
+            }, status=400)
+        
+        # Test a simple API call
+        if client.test_connection():
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Connection successful',
+                'token_expires': client.token_expires.isoformat() if client.token_expires else None
+            })
+        else:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Connection test failed - API call unsuccessful'
+            }, status=400)
+            
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Connection error: {str(e)}'
+        }, status=500)
 
 
-class EnhancedAuthView(APIView):
+@csrf_exempt
+@require_http_methods(["POST"])
+def enhanced_auth_view(request):
     """Enhanced version of your existing auth endpoint"""
+    print(f"🔥 Enhanced Auth - Method: {request.method}")
     
-    def post(self, request):
-        tenant = request.data.get('tenant')
-        api_key = request.data.get('api_key')
+    try:
+        data = json.loads(request.body)
+        tenant = data.get('tenant')
+        api_key = data.get('api_key')
         
         if not tenant or not api_key:
-            return Response({
+            return JsonResponse({
                 "message": "Tenant and API key are required"
             }, status=400)
         
@@ -96,25 +104,32 @@ class EnhancedAuthView(APIView):
         client = StorageInsightsAPIClient(credentials)
         
         if client.authenticate():
-            return Response({
+            return JsonResponse({
                 "token": client.token,
                 "expires": client.token_expires.isoformat() if client.token_expires else None,
                 "credentials_id": credentials.id
             })
         else:
-            return Response({
+            return JsonResponse({
                 "message": "Failed to authenticate with Storage Insights"
             }, status=401)
-
-
-class EnhancedStorageSystemsView(APIView):
-    """Enhanced version of your existing storage systems endpoint"""
     
-    def post(self, request):
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def enhanced_storage_systems_view(request):
+    """Enhanced version of your existing storage systems endpoint"""
+    print(f"🔥 Enhanced Storage Systems - Method: {request.method}")
+    
+    try:
+        data = json.loads(request.body)
         # Support both old format (token) and new format (credentials_id)
-        token = request.data.get('token')
-        tenant = request.data.get('tenant')
-        credentials_id = request.data.get('credentials_id')
+        token = data.get('token')
+        tenant = data.get('tenant')
+        credentials_id = data.get('credentials_id')
         
         if credentials_id:
             # New approach - use stored credentials
@@ -122,7 +137,7 @@ class EnhancedStorageSystemsView(APIView):
                 credentials = APICredentials.objects.get(id=credentials_id)
                 client = StorageInsightsAPIClient(credentials)
             except APICredentials.DoesNotExist:
-                return Response({
+                return JsonResponse({
                     "message": "Invalid credentials"
                 }, status=400)
         elif token and tenant:
@@ -137,56 +152,57 @@ class EnhancedStorageSystemsView(APIView):
             client = StorageInsightsAPIClient(temp_creds)
             client.token = token  # Use the provided token directly
         else:
-            return Response({
+            return JsonResponse({
                 "message": "Either credentials_id or (token + tenant) required"
             }, status=400)
         
-        try:
-            systems = client.get_storage_systems()
+        systems = client.get_storage_systems()
+        
+        if systems and 'data' in systems:
+            return JsonResponse({
+                "resources": systems['data'],
+                "count": len(systems['data']),
+                "metadata": {
+                    "tenantId": systems.get('tenantId'),
+                    "storageType": systems.get('storageType'),
+                    "timeStamp": systems.get('timeStamp')
+                }
+            })
+        else:
+            return JsonResponse({
+                "message": "No storage systems found"
+            }, status=404)
             
-            if systems and 'data' in systems:
-                return Response({
-                    "resources": systems['data'],
-                    "count": len(systems['data']),
-                    "metadata": {
-                        "tenantId": systems.get('tenantId'),
-                        "storageType": systems.get('storageType'),
-                        "timeStamp": systems.get('timeStamp')
-                    }
-                })
-            else:
-                return Response({
-                    "message": "No storage systems found"
-                }, status=404)
-                
-        except Exception as e:
-            return Response({
-                "message": f"Failed to fetch storage systems: {str(e)}"
-            }, status=500)
+    except Exception as e:
+        return JsonResponse({
+            "message": f"Failed to fetch storage systems: {str(e)}"
+        }, status=500)
 
 
-# Update your StartOrchestatedImportView in views.py
-
-class StartOrchestatedImportView(APIView):
+@csrf_exempt
+@require_http_methods(["POST"])
+def start_orchestated_import_view(request):
     """Start a new orchestrated import job (async) with selected systems support"""
+    print(f"🔥 Start Orchestrated Import - Method: {request.method}")
     
-    def post(self, request):
-        tenant = request.data.get('tenant')
-        api_key = request.data.get('api_key')
-        customer_id = request.data.get('customer_id')
-        import_type = request.data.get('import_type', 'storage_only')
-        selected_systems = request.data.get('selected_systems', [])  # List of storage system IDs
-        run_async = request.data.get('async', True)
+    try:
+        data = json.loads(request.body)
+        tenant = data.get('tenant')
+        api_key = data.get('api_key')
+        customer_id = data.get('customer_id')
+        import_type = data.get('import_type', 'storage_only')
+        selected_systems = data.get('selected_systems', [])  # List of storage system IDs
+        run_async = data.get('async', True)
         
         if not tenant or not api_key:
-            return Response({
+            return JsonResponse({
                 'error': 'tenant and api_key are required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=400)
         
         if not selected_systems:
-            return Response({
+            return JsonResponse({
                 'error': 'selected_systems is required and cannot be empty'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=400)
         
         # Create or get credentials
         credentials, created = APICredentials.objects.get_or_create(
@@ -209,7 +225,7 @@ class StartOrchestatedImportView(APIView):
             job_id=str(uuid.uuid4()),
             job_type=import_type,
             api_credentials=credentials,
-            started_by=request.user if request.user.is_authenticated else None
+            started_by=request.user if hasattr(request, 'user') and request.user.is_authenticated else None
         )
         
         if run_async:
@@ -226,14 +242,14 @@ class StartOrchestatedImportView(APIView):
             import_job.celery_task_id = task.id
             import_job.save()
             
-            return Response({
+            return JsonResponse({
                 'job_id': import_job.job_id,
                 'task_id': task.id,
                 'status': 'started',
                 'message': f'Import started for {len(selected_systems)} storage systems',
                 'selected_systems': selected_systems,
                 'async': True
-            }, status=status.HTTP_202_ACCEPTED)
+            }, status=202)
         else:
             # Use your existing synchronous import
             try:
@@ -241,7 +257,7 @@ class StartOrchestatedImportView(APIView):
                 importer = StorageImporter(import_job)
                 importer.run_import(customer_id=customer_id, import_type=import_type)
                 
-                return Response({
+                return JsonResponse({
                     'job_id': import_job.job_id,
                     'status': import_job.status,
                     'message': 'Import completed successfully',
@@ -251,7 +267,7 @@ class StartOrchestatedImportView(APIView):
                         'errors': import_job.error_count
                     },
                     'async': False
-                }, status=status.HTTP_201_CREATED)
+                }, status=201)
                 
             except Exception as e:
                 import_job.status = 'failed'
@@ -259,41 +275,63 @@ class StartOrchestatedImportView(APIView):
                 import_job.completed_at = timezone.now()
                 import_job.save()
                 
-                return Response({
+                return JsonResponse({
                     'job_id': import_job.job_id,
                     'error': str(e),
                     'async': False
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                }, status=500)
+    
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
-class CredentialsListView(APIView):
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def credentials_list_view(request):
     """List API credentials"""
+    print(f"🔥 Credentials List - Method: {request.method}")
     
-    def get(self, request):
-        credentials = APICredentials.objects.filter(is_active=True)
-        serializer = APICredentialsSerializer(credentials, many=True)
-        return Response(serializer.data)
+    if request.method == "GET":
+        try:
+            credentials = APICredentials.objects.filter(is_active=True)
+            serializer = APICredentialsSerializer(credentials, many=True)
+            return JsonResponse(serializer.data, safe=False)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
     
-    def post(self, request):
-        serializer = APICredentialsSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            serializer = APICredentialsSerializer(data=data)
+            if serializer.is_valid():
+                credentials = serializer.save()
+                return JsonResponse(APICredentialsSerializer(credentials).data, status=201)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
 
 
-class ImportJobListView(APIView):
+@csrf_exempt
+@require_http_methods(["GET"])
+def import_job_list_view(request):
     """List import jobs"""
+    print(f"🔥 Import Job List - Method: {request.method}")
     
-    def get(self, request):
+    try:
         jobs = ImportJob.objects.all().order_by('-created_at')[:20]  # Last 20 jobs
         serializer = ImportJobSerializer(jobs, many=True)
-        return Response(serializer.data)
+        return JsonResponse(serializer.data, safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
-class ImportJobDetailView(APIView):
+@csrf_exempt
+@require_http_methods(["GET"])
+def import_job_detail_view(request, job_id):
     """Get import job details including task status"""
+    print(f"🔥 Import Job Detail - Job ID: {job_id}")
     
-    def get(self, request, job_id):
+    try:
         job = get_object_or_404(ImportJob, job_id=job_id)
         serializer = ImportJobSerializer(job)
         
@@ -310,13 +348,18 @@ class ImportJobDetailView(APIView):
                 'failed': task_result.failed() if task_result.ready() else None
             }
         
-        return Response(response_data)
+        return JsonResponse(response_data)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
-class TaskStatusView(APIView):
+@csrf_exempt
+@require_http_methods(["GET"])
+def task_status_view(request, task_id):
     """Get real-time task status"""
+    print(f"🔥 Task Status - Task ID: {task_id}")
     
-    def get(self, request, task_id):
+    try:
         task_result = AsyncResult(task_id)
         
         if task_result.state == 'PENDING':
@@ -350,20 +393,26 @@ class TaskStatusView(APIView):
                 'error': str(task_result.info)
             }
         
-        return Response(response)
+        return JsonResponse(response)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
-class PreviewImportView(APIView):
+@csrf_exempt
+@require_http_methods(["POST"])
+def preview_import_view(request):
     """Preview what would be imported"""
+    print(f"🔥 Preview Import - Method: {request.method}")
     
-    def post(self, request):
-        tenant = request.data.get('tenant')
-        api_key = request.data.get('api_key')
+    try:
+        data = json.loads(request.body)
+        tenant = data.get('tenant')
+        api_key = data.get('api_key')
         
         if not tenant or not api_key:
-            return Response({
+            return JsonResponse({
                 'error': 'tenant and api_key are required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=400)
         
         # Create temporary credentials
         temp_creds = APICredentials(
@@ -376,50 +425,50 @@ class PreviewImportView(APIView):
         
         client = StorageInsightsAPIClient(temp_creds)
         
-        try:
-            # Get sample data without importing
-            systems = client.get_storage_systems()
+        # Get sample data without importing
+        systems = client.get_storage_systems()
+        
+        if systems and 'data' in systems:
+            # Filter to block storage only
+            block_systems = [s for s in systems['data'] if s.get('storage_type') == 'block']
             
-            if systems and 'data' in systems:
-                # Filter to block storage only
-                block_systems = [s for s in systems['data'] if s.get('storage_type') == 'block']
-                
-                preview_data = {
-                    'total_systems': len(systems['data']),
-                    'block_storage_systems': len(block_systems),
-                    'sample_systems': block_systems[:3],  # First 3 for preview
-                    'estimated_volumes': sum(s.get('volumes_count', 0) for s in block_systems),
-                    'metadata': {
-                        'tenantId': systems.get('tenantId'),
-                        'timeStamp': systems.get('timeStamp')
-                    }
+            preview_data = {
+                'total_systems': len(systems['data']),
+                'block_storage_systems': len(block_systems),
+                'sample_systems': block_systems[:3],  # First 3 for preview
+                'estimated_volumes': sum(s.get('volumes_count', 0) for s in block_systems),
+                'metadata': {
+                    'tenantId': systems.get('tenantId'),
+                    'timeStamp': systems.get('timeStamp')
                 }
-                return Response(preview_data)
-            else:
-                return Response({
-                    'error': 'No data available for preview'
-                }, status=status.HTTP_404_NOT_FOUND)
-                
-        except Exception as e:
-            return Response({
-                'error': f'Preview failed: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            }
+            return JsonResponse(preview_data)
+        else:
+            return JsonResponse({
+                'error': 'No data available for preview'
+            }, status=404)
+            
+    except Exception as e:
+        return JsonResponse({
+            'error': f'Preview failed: {str(e)}'
+        }, status=500)
 
 
-# Legacy compatibility endpoints - these mirror your existing storage app endpoints
-class LegacyStorageInsightsAuthView(APIView):
+@csrf_exempt
+@require_http_methods(["POST"])
+def legacy_storage_insights_auth_view(request):
     """Legacy endpoint for backward compatibility"""
+    print(f"🔥 Legacy Storage Insights Auth - Method: {request.method}")
     
-    def post(self, request):
-        # Just proxy to the enhanced version
-        enhanced_view = EnhancedAuthView()
-        return enhanced_view.post(request)
+    # Just proxy to the enhanced version
+    return enhanced_auth_view(request)
 
 
-class LegacyStorageInsightsSystemsView(APIView):
+@csrf_exempt
+@require_http_methods(["POST"])
+def legacy_storage_insights_systems_view(request):
     """Legacy endpoint for backward compatibility"""
+    print(f"🔥 Legacy Storage Insights Systems - Method: {request.method}")
     
-    def post(self, request):
-        # Just proxy to the enhanced version
-        enhanced_view = EnhancedStorageSystemsView()
-        return enhanced_view.post(request)
+    # Just proxy to the enhanced version
+    return enhanced_storage_systems_view(request)
