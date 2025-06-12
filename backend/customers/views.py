@@ -1,10 +1,12 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.views.decorators.csrf import csrf_exempt
 from .models import Customer
 from .serializers import CustomerSerializer
 from core.models import Config
 
+@csrf_exempt  # Disable CSRF for this view, if needed
 @api_view(["GET", "POST", "PUT"])
 def customer_management(request, pk=None):
     """
@@ -49,6 +51,7 @@ def customer_management(request, pk=None):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@csrf_exempt
 @api_view(["DELETE"])
 def customer_delete(request, pk):
     try:

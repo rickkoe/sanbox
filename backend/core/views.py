@@ -17,7 +17,7 @@ class ConfigViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]  # ✅ Enables ?is_active=True filtering
     filterset_fields = ['is_active']
 
-
+method_decorator(csrf_exempt, name='dispatch')
 class ActiveConfigView(APIView):
     """View to return the active config, optionally filtered by customer"""
     def get(self, request):
@@ -32,7 +32,7 @@ class ActiveConfigView(APIView):
         else:
             return Response({}, status=404)
 
-
+@csrf_exempt
 @api_view(["PUT", "GET"])
 def config_detail(request):
     """Get or update Config object filtered by customer if provided"""
@@ -66,6 +66,7 @@ def config_detail(request):
     return Response(serializer.data)
 
 # ✅ Fetch all customers
+@csrf_exempt
 @api_view(["GET"])
 def customer_list(request):
     customers = Customer.objects.all()
@@ -82,6 +83,7 @@ def projects_for_customer(request, customer_id):
     except Customer.DoesNotExist:
         return JsonResponse({"error": "Customer not found"}, status=404)
 
+@csrf_exempt
 @api_view(["GET"])
 def config_for_customer(request, customer_id):
     """Return the active config for the specified customer ID"""
@@ -109,6 +111,7 @@ class UpdateConfigView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@csrf_exempt
 @api_view(['POST'])
 def create_project_for_customer(request):
     """

@@ -25,3 +25,12 @@ CSRF_USE_SESSIONS = False
 # Production-specific settings
 DEBUG = False
 ALLOWED_HOSTS = ['*']
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # For testing
+    ],
+}
