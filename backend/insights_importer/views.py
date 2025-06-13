@@ -68,55 +68,142 @@ def test_connection_view(request):
             'message': f'Connection error: {str(e)}'
         }, status=500)
 
+import logging
+logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def enhanced_auth_view(request):
     """Enhanced version of your existing auth endpoint"""
-    print(f"🔥 Enhanced Auth - Method: {request.method}")
+    
+    # Log everything for debugging
+    logger.error("🔥 Enhanced Auth view called!")
+    print("🔥 Enhanced Auth view called!")
     
     try:
+        logger.error(f"🔥 Request method: {request.method}")
+        logger.error(f"🔥 Request body type: {type(request.body)}")
+        logger.error(f"🔥 Request body length: {len(request.body) if request.body else 0}")
+        logger.error(f"🔥 Request body: {request.body}")
+        
+        print(f"🔥 Enhanced Auth - Method: {request.method}")
+        print(f"🔥 Request body: {request.body}")
+        
+        # Test JSON parsing
+        if not request.body:
+            logger.error("🔥 ERROR: Request body is empty!")
+            return JsonResponse({"error": "Request body is empty"}, status=400)
+            
         data = json.loads(request.body)
+        logger.error(f"🔥 Successfully parsed JSON: {data}")
+        print(f"🔥 Parsed data: {data}")
+        
         tenant = data.get('tenant')
         api_key = data.get('api_key')
         
+        logger.error(f"🔥 Extracted - Tenant: {tenant}, API Key: {'***' if api_key else None}")
+        print(f"🔥 Tenant: {tenant}, API Key present: {bool(api_key)}")
+        
         if not tenant or not api_key:
+            logger.error("🔥 Missing tenant or API key")
             return JsonResponse({
                 "message": "Tenant and API key are required"
             }, status=400)
         
-        # Create or get credentials
-        credentials, created = APICredentials.objects.get_or_create(
-            name=f"Customer-{tenant}",
-            defaults={
-                'base_url': 'https://insights.ibm.com/restapi/v1',
-                'username': tenant,
-                'password': api_key,
-                'tenant_id': tenant,
-            }
-        )
+        # Test model import
+        logger.error("🔥 About to test APICredentials import...")
+        try:
+            from .models import APICredentials
+            logger.error("🔥 APICredentials import successful")
+        except Exception as import_error:
+            logger.error(f"🔥 IMPORT ERROR - APICredentials: {str(import_error)}")
+            return JsonResponse({"error": f"Model import error: {str(import_error)}"}, status=500)
+        
+        # Test database operation
+        logger.error("🔥 About to create/get credentials...")
+        try:
+            credentials, created = APICredentials.objects.get_or_create(
+                name=f"Customer-{tenant}",
+                defaults={
+                    'base_url': 'https://insights.ibm.com/restapi/v1',
+                    'username': tenant,
+                    'password': api_key,
+                    'tenant_id': tenant,
+                }
+            )
+            logger.error(f"🔥 Credentials created/retrieved successfully. Created: {created}, ID: {credentials.id}")
+            print(f"🔥 Credentials - Created: {created}, ID: {credentials.id}")
+        except Exception as db_error:
+            logger.error(f"🔥 DATABASE ERROR: {str(db_error)}")
+            return JsonResponse({"error": f"Database error: {str(db_error)}"}, status=500)
         
         if not created:
-            # Update existing credentials
-            credentials.password = api_key
-            credentials.save()
+            logger.error("🔥 Updating existing credentials...")
+            try:
+                credentials.password = api_key
+                credentials.save()
+                logger.error("🔥 Credentials updated successfully")
+            except Exception as update_error:
+                logger.error(f"🔥 UPDATE ERROR: {str(update_error)}")
+                return JsonResponse({"error": f"Update error: {str(update_error)}"}, status=500)
         
-        client = StorageInsightsAPIClient(credentials)
+        # Test API client import
+        logger.error("🔥 About to test StorageInsightsAPIClient import...")
+        try:
+            from .api_client import StorageInsightsAPIClient
+            logger.error("🔥 StorageInsightsAPIClient import successful")
+        except Exception as client_import_error:
+            logger.error(f"🔥 CLIENT IMPORT ERROR: {str(client_import_error)}")
+            return JsonResponse({"error": f"API client import error: {str(client_import_error)}"}, status=500)
         
-        if client.authenticate():
+        # Test client creation
+        logger.error("🔥 About to create API client...")
+        try:
+            client = StorageInsightsAPIClient(credentials)
+            logger.error("🔥 API client created successfully")
+        except Exception as client_error:
+            logger.error(f"🔥 CLIENT CREATION ERROR: {str(client_error)}")
+            return JsonResponse({"error": f"API client creation error: {str(client_error)}"}, status=500)
+        
+        # Test authentication
+        logger.error("🔥 About to test authentication...")
+        try:
+            auth_result = client.authenticate()
+            logger.error(f"🔥 Authentication result: {auth_result}")
+            
+            if auth_result:
+                logger.error("🔥 Authentication successful, preparing response...")
+                response_data = {
+                    "token": client.token,
+                    "expires": client.token_expires.isoformat() if client.token_expires else None,
+                    "credentials_id": credentials.id
+                }
+                logger.error(f"🔥 Response data prepared: {response_data}")
+                return JsonResponse(response_data)
+            else:
+                logger.error("🔥 Authentication failed - returning 401")
+                return JsonResponse({
+                    "message": "Failed to authenticate with Storage Insights - check tenant ID and API key"
+                }, status=401)
+        except Exception as auth_error:
+            logger.error(f"🔥 AUTHENTICATION ERROR: {str(auth_error)}")
+            # Return 401 instead of 500 for authentication failures
             return JsonResponse({
-                "token": client.token,
-                "expires": client.token_expires.isoformat() if client.token_expires else None,
-                "credentials_id": credentials.id
-            })
-        else:
-            return JsonResponse({
-                "message": "Failed to authenticate with Storage Insights"
+                "message": f"Authentication failed: {str(auth_error)}"
             }, status=401)
     
+    except json.JSONDecodeError as json_error:
+        logger.error(f"🔥 JSON DECODE ERROR: {str(json_error)}")
+        return JsonResponse({"error": f"Invalid JSON: {str(json_error)}"}, status=400)
+    
     except Exception as e:
+        logger.error(f"🔥 GENERAL EXCEPTION: {str(e)}")
+        logger.error(f"🔥 Exception type: {type(e)}")
+        import traceback
+        logger.error(f"🔥 Full traceback: {traceback.format_exc()}")
+        print(f"🔥 Exception: {str(e)}")
+        print(f"🔥 Traceback: {traceback.format_exc()}")
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 @require_http_methods(["POST"])
