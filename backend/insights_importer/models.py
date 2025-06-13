@@ -9,7 +9,7 @@ class APICredentials(models.Model):
     name = models.CharField(max_length=100, unique=True)
     base_url = models.URLField()
     username = models.CharField(max_length=100)
-    password = models.CharField(max_length=255)  # Consider encryption
+    password = models.TextField()
     tenant_id = models.CharField(max_length=100, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
