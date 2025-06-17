@@ -37,44 +37,92 @@ const Dashboard = () => {
 
   // Fetch all dashboard data
   useEffect(() => {
-    setLoading(true);
-    
-    // Fetch all customers
-    axios.get('/api/customers/')
-      .then(async (customersRes) => {
-        const customersData = customersRes.data || [];
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // First, fetch all customers - this might need to be created if it doesn't exist
+        console.log('Fetching customers...');
+        let customersData = [];
+        
+        try {
+          const customersRes = await axios.get('/api/customers/');
+          customersData = Array.isArray(customersRes.data) ? customersRes.data : 
+                         customersRes.data.results || [];
+        } catch (customerError) {
+          console.warn('Error fetching customers:', customerError);
+          // If customers endpoint doesn't exist, we can derive customers from config
+          if (config?.customer) {
+            customersData = [config.customer];
+          }
+        }
+        
+        console.log('Found customers:', customersData.length);
         
         // For each customer, fetch their projects and related data
         const customersWithData = await Promise.all(
           customersData.map(async (customer) => {
+            console.log(`Processing customer: ${customer.name} (ID: ${customer.id})`);
+            
             try {
               // Fetch projects for this customer
-              const projectsRes = await axios.get(`/api/projects/?customer=${customer.id}`);
-              const projects = projectsRes.data || [];
+              console.log(`Fetching projects for customer ${customer.id}...`);
+              let projects = [];
+              try {
+                const projectsRes = await axios.get(`/api/projects/?customer=${customer.id}`);
+                projects = Array.isArray(projectsRes.data) ? projectsRes.data : 
+                          projectsRes.data.results || [];
+              } catch (projError) {
+                console.warn(`Error fetching projects for customer ${customer.id}:`, projError);
+              }
               
               // Fetch fabrics for this customer
-              const fabricsRes = await axios.get(`/api/san/fabrics/?customer_id=${customer.id}`);
-              const fabrics = fabricsRes.data || [];
+              console.log(`Fetching fabrics for customer ${customer.id}...`);
+              let fabrics = [];
+              try {
+                const fabricsRes = await axios.get(`/api/san/fabrics/?customer_id=${customer.id}`);
+                fabrics = Array.isArray(fabricsRes.data) ? fabricsRes.data :
+                         fabricsRes.data.results || [];
+              } catch (fabricError) {
+                console.warn(`Error fetching fabrics for customer ${customer.id}:`, fabricError);
+              }
               
               // Fetch storage for this customer
-              const storageRes = await axios.get(`/api/storage/?customer=${customer.id}`);
-              const storage = storageRes.data || [];
+              console.log(`Fetching storage for customer ${customer.id}...`);
+              let storage = [];
+              try {
+                const storageRes = await axios.get(`/api/storage/?customer=${customer.id}`);
+                storage = Array.isArray(storageRes.data) ? storageRes.data :
+                         storageRes.data.results || [];
+              } catch (storageError) {
+                console.warn(`Error fetching storage for customer ${customer.id}:`, storageError);
+              }
               
               // For each project, fetch zones and aliases
+              console.log(`Processing ${projects.length} projects for customer ${customer.id}...`);
               const projectsWithData = await Promise.all(
                 projects.map(async (project) => {
                   try {
-                    const [zonesRes, aliasesRes] = await Promise.all([
+                    console.log(`Fetching zones and aliases for project ${project.id}...`);
+                    
+                    // Fetch zones and aliases in parallel
+                    const [zonesRes, aliasesRes] = await Promise.allSettled([
                       axios.get(`/api/san/zones/project/${project.id}/`),
                       axios.get(`/api/san/aliases/project/${project.id}/`)
                     ]);
                     
+                    const zones = zonesRes.status === 'fulfilled' ? 
+                      (Array.isArray(zonesRes.value.data) ? zonesRes.value.data : zonesRes.value.data.results || []) : [];
+                    const aliases = aliasesRes.status === 'fulfilled' ? 
+                      (Array.isArray(aliasesRes.value.data) ? aliasesRes.value.data : aliasesRes.value.data.results || []) : [];
+                    
                     return {
                       ...project,
-                      zones: zonesRes.data || [],
-                      aliases: aliasesRes.data || [],
-                      zoneCount: (zonesRes.data || []).length,
-                      aliasCount: (aliasesRes.data || []).length
+                      zones,
+                      aliases,
+                      zoneCount: zones.length,
+                      aliasCount: aliases.length
                     };
                   } catch (err) {
                     console.warn(`Error fetching data for project ${project.id}:`, err);
@@ -95,10 +143,18 @@ const Dashboard = () => {
               const ds8000Count = storage.filter(s => s.storage_type === 'DS8000').length;
               const flashSystemCount = storage.filter(s => s.storage_type === 'FlashSystem').length;
               const otherStorageCount = storage.filter(s => 
-                s.storage_type !== 'DS8000' && s.storage_type !== 'FlashSystem').length;
+                !['DS8000', 'FlashSystem'].includes(s.storage_type)).length;
               
-              const totalZones = projectsWithData.reduce((sum, p) => sum + p.zoneCount, 0);
-              const totalAliases = projectsWithData.reduce((sum, p) => sum + p.aliasCount, 0);
+              const totalZones = projectsWithData.reduce((sum, p) => sum + (p.zoneCount || 0), 0);
+              const totalAliases = projectsWithData.reduce((sum, p) => sum + (p.aliasCount || 0), 0);
+              
+              console.log(`Customer ${customer.name} stats:`, {
+                projects: projects.length,
+                fabrics: fabrics.length,
+                zones: totalZones,
+                aliases: totalAliases,
+                storage: storage.length
+              });
               
               return {
                 ...customer,
@@ -121,7 +177,7 @@ const Dashboard = () => {
                 }
               };
             } catch (err) {
-              console.warn(`Error fetching data for customer ${customer.id}:`, err);
+              console.error(`Error processing customer ${customer.id}:`, err);
               return {
                 ...customer,
                 projects: [],
@@ -165,16 +221,21 @@ const Dashboard = () => {
           connectedInsights: 0
         });
         
+        console.log('Overall stats:', overallStats);
+        
         setCustomers(customersWithData);
         setOverallStats(overallStats);
-        setLoading(false);
-      })
-      .catch(err => {
+        
+      } catch (err) {
         console.error("Error fetching dashboard data:", err);
-        setError("Failed to fetch dashboard data");
+        setError(`Failed to fetch dashboard data: ${err.message}`);
+      } finally {
         setLoading(false);
-      });
-  }, []);
+      }
+    };
+    
+    fetchDashboardData();
+  }, [config]);
 
   const toggleCustomerExpansion = (customerId) => {
     const newExpanded = new Set(expandedCustomers);
