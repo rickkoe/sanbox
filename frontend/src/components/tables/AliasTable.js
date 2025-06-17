@@ -32,6 +32,30 @@ const NEW_ALIAS_TEMPLATE = {
   zoned_count: 0 // Keep for new rows
 };
 
+// WWPN formatting utilities
+const formatWWPN = (value) => {
+  if (!value) return "";
+  
+  // Remove all non-hex characters and convert to uppercase
+  const cleanValue = value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+  
+  // If not 16 characters, return as-is to allow partial input
+  if (cleanValue.length !== 16) {
+    return value; // Return original to show user input during typing
+  }
+  
+  // Format as XX:XX:XX:XX:XX:XX:XX:XX
+  return cleanValue.match(/.{2}/g).join(':');
+};
+
+const isValidWWPNFormat = (value) => {
+  if (!value) return true; // Allow empty values
+  
+  // Check if it's already in correct format or can be formatted
+  const cleanValue = value.replace(/[^0-9a-fA-F]/g, '');
+  return cleanValue.length <= 16 && /^[0-9a-fA-F]*$/.test(cleanValue);
+};
+
 const AliasTable = () => {
   const { config } = useContext(ConfigContext);
   const [fabricOptions, setFabricOptions] = useState([]);
@@ -56,6 +80,29 @@ const AliasTable = () => {
     return <div className="alert alert-warning">No active project selected.</div>;
   }
 
+  // Custom WWPN change handler
+  const handleWWPNChange = (changes, source) => {
+    if (source === "loadData" || !changes) return;
+    
+    const hot = tableRef.current?.hotInstance;
+    if (!hot) return;
+    
+    changes.forEach(([row, prop, oldVal, newVal]) => {
+      if (prop === 'wwpn' && newVal !== oldVal) {
+        // Format the WWPN value
+        const formattedValue = formatWWPN(newVal);
+        
+        // Only update if the formatted value is different from input
+        if (formattedValue !== newVal && formattedValue.length === 23) { // 16 chars + 7 colons = 23
+          // Use setTimeout to avoid issues with Handsontable's change cycle
+          setTimeout(() => {
+            hot.setDataAtCell(row, hot.propToCol(prop), formattedValue);
+          }, 0);
+        }
+      }
+    });
+  };
+
   // Table configuration
   const tableConfig = {
     colHeaders: [
@@ -64,7 +111,17 @@ const AliasTable = () => {
     ],
     columns: [
       { data: "name" },
-      { data: "wwpn" },
+      { 
+        data: "wwpn",
+        validator: (value, callback) => {
+          // Allow empty values or valid WWPN formats
+          if (!value || isValidWWPNFormat(value)) {
+            callback(true);
+          } else {
+            callback(false);
+          }
+        }
+      },
       { data: "use", type: "dropdown", className: "htCenter" },
       { data: "fabric_details.name", type: "dropdown" },
       { data: "cisco_alias", type: "dropdown", className: "htCenter" },
@@ -84,8 +141,9 @@ const AliasTable = () => {
     preprocessData: (data) => {
       return data.map(alias => ({
         ...alias,
-        saved: true
-        // zoned_count is now coming directly from the backend API!
+        saved: true,
+        // Format WWPN on data load
+        wwpn: formatWWPN(alias.wwpn)
       }));
     },
     // Custom renderers
@@ -98,6 +156,33 @@ const AliasTable = () => {
         } else {
           td.style.fontWeight = "normal";
         }
+        return td;
+      },
+      wwpn: (instance, td, row, col, prop, value) => {
+        const rowData = instance.getSourceDataAtRow(row);
+        td.innerText = value || "";
+        
+        // Use monospace font for better hex readability, but no colors
+        if (value) {
+          td.style.fontFamily = "monospace";
+        } else {
+          td.style.fontFamily = "";
+        }
+        
+        // Add tooltip for WWPN format help
+        if (value) {
+          const cleanValue = value.replace(/[^0-9a-fA-F]/g, '');
+          if (cleanValue.length > 0 && cleanValue.length < 16) {
+            td.title = `WWPN should be 16 hex characters (currently ${cleanValue.length})`;
+          } else if (cleanValue.length === 16) {
+            td.title = "Valid WWPN format";
+          } else if (cleanValue.length > 16) {
+            td.title = "WWPN too long - should be 16 hex characters";
+          }
+        } else {
+          td.title = "Enter WWPN (16 hex characters, auto-formatted with colons)";
+        }
+        
         return td;
       },
       zoned_count: (instance, td, row, col, prop, value) => {
@@ -134,6 +219,8 @@ const AliasTable = () => {
         return td;
       }
     },
+    // Custom after change handler to format WWPN
+    afterChange: handleWWPNChange,
     // Prepare payload for saving
     onBuildPayload: (row) => {
       // Get fabric ID from name
@@ -145,6 +232,11 @@ const AliasTable = () => {
       delete payload.fabric_details;
       delete payload.zoned_count; // Don't send calculated field to server
       
+      // Ensure WWPN is properly formatted before saving
+      if (payload.wwpn) {
+        payload.wwpn = formatWWPN(payload.wwpn);
+      }
+      
       return {
         ...payload,
         projects: [activeProjectId],
@@ -154,16 +246,20 @@ const AliasTable = () => {
     // Custom save handler
     onSave: async (unsavedData) => {
       try {
-        // WWPN validation
-        const invalidWWPN = unsavedData.find(alias => 
-          alias.name && alias.name.trim() !== "" && 
-          (!alias.wwpn || !/^([0-9a-fA-F]{2}:){7}[0-9a-fA-F]{2}$|^[0-9a-fA-F]{16}$/.test(alias.wwpn))
-        );
+        // Enhanced WWPN validation
+        const invalidWWPN = unsavedData.find(alias => {
+          if (!alias.name || alias.name.trim() === "") return false;
+          
+          if (!alias.wwpn) return true; // Missing WWPN
+          
+          const cleanWWPN = alias.wwpn.replace(/[^0-9a-fA-F]/g, '');
+          return cleanWWPN.length !== 16 || !/^[0-9a-fA-F]+$/.test(cleanWWPN);
+        });
         
         if (invalidWWPN) {
           return { 
             success: false, 
-            message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}"`
+            message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}". Must be 16 hex characters.`
           };
         }
         
