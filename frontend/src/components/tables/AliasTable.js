@@ -106,12 +106,21 @@ const AliasTable = () => {
   // Table configuration
   const tableConfig = {
     colHeaders: [
-      "Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", 
-      "Include in Zoning", "Zoned Count", "Imported", "Updated", "Notes"
+      "Name",
+      "WWPN",
+      "Use",
+      "Fabric",
+      "Alias Type",
+      "Create",
+      "Include in Zoning",
+      "Zoned Count",
+      "Imported",
+      "Updated",
+      "Notes",
     ],
     columns: [
       { data: "name" },
-      { 
+      {
         data: "wwpn",
         validator: (value, callback) => {
           // Allow empty values or valid WWPN formats
@@ -120,7 +129,7 @@ const AliasTable = () => {
           } else {
             callback(false);
           }
-        }
+        },
       },
       { data: "use", type: "dropdown", className: "htCenter" },
       { data: "fabric_details.name", type: "dropdown" },
@@ -130,20 +139,20 @@ const AliasTable = () => {
       { data: "zoned_count", readOnly: true, className: "htCenter" }, // Zoned count column
       { data: "imported", readOnly: true },
       { data: "updated", readOnly: true },
-      { data: "notes" }
+      { data: "notes" },
     ],
     dropdownSources: {
-      "use": ["init", "target", "both"],
-      "fabric_details.name": fabricOptions.map(f => f.name),
-      "cisco_alias": ["device-alias", "fcalias", "wwpn"]
+      use: ["init", "target", "both"],
+      "fabric_details.name": fabricOptions.map((f) => f.name),
+      cisco_alias: ["device-alias", "fcalias", "wwpn"],
     },
     // Process data for display
     preprocessData: (data) => {
-      return data.map(alias => ({
+      return data.map((alias) => ({
         ...alias,
         saved: true,
         // Format WWPN on data load
-        wwpn: formatWWPN(alias.wwpn)
+        wwpn: formatWWPN(alias.wwpn),
       }));
     },
     // Custom renderers
@@ -161,17 +170,17 @@ const AliasTable = () => {
       wwpn: (instance, td, row, col, prop, value) => {
         const rowData = instance.getSourceDataAtRow(row);
         td.innerText = value || "";
-        
+
         // Use monospace font for better hex readability, but no colors
         if (value) {
           td.style.fontFamily = "monospace";
         } else {
           td.style.fontFamily = "";
         }
-        
+
         // Add tooltip for WWPN format help
         if (value) {
-          const cleanValue = value.replace(/[^0-9a-fA-F]/g, '');
+          const cleanValue = value.replace(/[^0-9a-fA-F]/g, "");
           if (cleanValue.length > 0 && cleanValue.length < 16) {
             td.title = `WWPN should be 16 hex characters (currently ${cleanValue.length})`;
           } else if (cleanValue.length === 16) {
@@ -180,9 +189,10 @@ const AliasTable = () => {
             td.title = "WWPN too long - should be 16 hex characters";
           }
         } else {
-          td.title = "Enter WWPN (16 hex characters, auto-formatted with colons)";
+          td.title =
+            "Enter WWPN (16 hex characters, auto-formatted with colons)";
         }
-        
+
         return td;
       },
       zoned_count: (instance, td, row, col, prop, value) => {
@@ -190,7 +200,7 @@ const AliasTable = () => {
         td.innerText = count;
         td.style.textAlign = "center";
         td.style.fontWeight = "600";
-        
+
         // Color coding based on count
         if (count === 0) {
           td.style.color = "#6b7280"; // Gray for unused aliases
@@ -202,12 +212,15 @@ const AliasTable = () => {
           td.style.color = "#dc2626"; // Red for multiple uses (potential issue)
           td.style.backgroundColor = "#fef2f2";
         }
-        
+
         // Add tooltip
-        td.title = count === 0 ? "Not used in any zones" : 
-                  count === 1 ? "Used in 1 zone" : 
-                  `Used in ${count} zones`;
-        
+        td.title =
+          count === 0
+            ? "Not used in any zones"
+            : count === 1
+            ? "Used in 1 zone"
+            : `Used in ${count} zones`;
+
         return td;
       },
       imported: (instance, td, row, col, prop, value) => {
@@ -217,91 +230,133 @@ const AliasTable = () => {
       updated: (instance, td, row, col, prop, value) => {
         td.innerText = value ? new Date(value).toLocaleString() : "";
         return td;
-      }
+      },
     },
     // Custom after change handler to format WWPN
     afterChange: handleWWPNChange,
     // Prepare payload for saving
+    // Replace the onBuildPayload function in your AliasTable.js with this:
+
     onBuildPayload: (row) => {
-      // Get fabric ID from name
-      const fabricId = fabricOptions.find(f => f.name === (row.fabric_details?.name || row.fabric))?.id;
-      
+      // Get fabric ID from name - handle both display name and direct ID
+      let fabricId;
+
+      // First try to get from fabric_details.name (display format)
+      if (row.fabric_details?.name) {
+        const fabric = fabricOptions.find(
+          (f) => f.name === row.fabric_details.name
+        );
+        fabricId = fabric ? fabric.id : null;
+      }
+      // Fallback to direct fabric value (might be ID already)
+      else if (row.fabric) {
+        // If it's already a number, use it directly
+        if (typeof row.fabric === "number") {
+          fabricId = row.fabric;
+        } else {
+          // Try to find by name first, then by ID
+          const fabric = fabricOptions.find(
+            (f) => f.name === row.fabric || f.id.toString() === row.fabric
+          );
+          fabricId = fabric ? fabric.id : parseInt(row.fabric);
+        }
+      }
+
+      // Ensure fabricId is a valid integer
+      if (!fabricId || isNaN(fabricId)) {
+        console.error(`Invalid fabric for alias ${row.name}:`, {
+          fabricId,
+          "row.fabric": row.fabric,
+          "row.fabric_details": row.fabric_details,
+        });
+        throw new Error(
+          `Alias "${row.name}" must have a valid fabric selected`
+        );
+      }
+
       // Clean up payload
       const payload = { ...row };
       delete payload.saved;
       delete payload.fabric_details;
       delete payload.zoned_count; // Don't send calculated field to server
-      
+
       // Ensure WWPN is properly formatted before saving
       if (payload.wwpn) {
         payload.wwpn = formatWWPN(payload.wwpn);
       }
-      
+
       return {
         ...payload,
         projects: [activeProjectId],
-        fabric: fabricId
+        fabric: parseInt(fabricId), // Ensure it's an integer
       };
     },
     // Custom save handler
     onSave: async (unsavedData) => {
       try {
         // Enhanced WWPN validation
-        const invalidWWPN = unsavedData.find(alias => {
+        const invalidWWPN = unsavedData.find((alias) => {
           if (!alias.name || alias.name.trim() === "") return false;
-          
+
           if (!alias.wwpn) return true; // Missing WWPN
-          
-          const cleanWWPN = alias.wwpn.replace(/[^0-9a-fA-F]/g, '');
+
+          const cleanWWPN = alias.wwpn.replace(/[^0-9a-fA-F]/g, "");
           return cleanWWPN.length !== 16 || !/^[0-9a-fA-F]+$/.test(cleanWWPN);
         });
-        
+
         if (invalidWWPN) {
-          return { 
-            success: false, 
-            message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}". Must be 16 hex characters.`
+          return {
+            success: false,
+            message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}". Must be 16 hex characters.`,
           };
         }
-        
+
         const payload = unsavedData
-          .filter(alias => alias.id || (alias.name && alias.name.trim() !== ""))
+          .filter(
+            (alias) => alias.id || (alias.name && alias.name.trim() !== "")
+          )
           .map(tableConfig.onBuildPayload);
-        
-        await axios.post(API_ENDPOINTS.aliasSave, { 
-          project_id: activeProjectId, 
-          aliases: payload 
+
+        await axios.post(API_ENDPOINTS.aliasSave, {
+          project_id: activeProjectId,
+          aliases: payload,
         });
-        
+
         return { success: true, message: "Aliases saved successfully! ✅" };
       } catch (error) {
         console.error("Error saving aliases:", error);
         // Handle structured error response from API
         if (error.response?.data?.details) {
-          const errorMessages = error.response.data.details.map(e => {
+          const errorMessages = error.response.data.details.map((e) => {
             const errorText = Object.values(e.errors).flat().join(", ");
             return `Can't save alias "${e.alias}": ${errorText}`;
           });
           return { success: false, message: `⚠️ ${errorMessages.join(" | ")}` };
         }
-        
-        return { 
-          success: false, 
-          message: `⚠️ Error: ${error.response?.data?.message || error.message}` 
+
+        return {
+          success: false,
+          message: `⚠️ Error: ${
+            error.response?.data?.message || error.message
+          }`,
         };
       }
     },
     beforeSave: (data) => {
-      const invalidAlias = data.find(alias => 
-        alias.name && alias.name.trim() !== "" && 
-        (!alias.fabric_details?.name && !alias.fabric?.trim())
+      const invalidAlias = data.find(
+        (alias) =>
+          alias.name &&
+          alias.name.trim() !== "" &&
+          !alias.fabric_details?.name &&
+          !alias.fabric?.trim()
       );
-      
+
       if (invalidAlias) {
         return `Alias "${invalidAlias.name}" must have a fabric selected`;
       }
-      
+
       return true;
-    }
+    },
   };
 
   return (
