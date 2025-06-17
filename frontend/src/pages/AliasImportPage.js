@@ -29,6 +29,10 @@ const AliasImportPage = () => {
   const [selectedSourceProject, setSelectedSourceProject] = useState("");
   const [sourceProjectAliases, setSourceProjectAliases] = useState([]);
   const [selectedAliasesToCopy, setSelectedAliasesToCopy] = useState([]);
+  const [defaultCreate, setDefaultCreate] = useState(true);
+  const [defaultIncludeInZoning, setDefaultIncludeInZoning] = useState(false);
+  const [defaultUse, setDefaultUse] = useState("init");
+  const [defaultAliasType, setDefaultAliasType] = useState("device-alias");
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -97,11 +101,11 @@ const AliasImportPage = () => {
           lineNumber: index + 1,
           name: name,
           wwpn: formattedWWPN,
-          use: "init", // Default to 'init'
+          use: defaultUse,
           fabric: selectedFabric,
-          cisco_alias: "device-alias",
-          create: true,
-          include_in_zoning: false,
+          cisco_alias: defaultAliasType,
+          create: defaultCreate,
+          include_in_zoning: defaultIncludeInZoning,
           notes: `Imported from device-alias database`,
           imported: new Date().toISOString(),
           updated: null,
@@ -135,11 +139,11 @@ const AliasImportPage = () => {
             lineNumber: currentAlias.lineNumber,
             name: aliasName,
             wwpn: wwpn,
-            use: "init", // Default to 'init'
+            use: defaultUse,
             fabric: selectedFabric,
-            cisco_alias: "fcalias",
-            create: true,
-            include_in_zoning: false,
+            cisco_alias: defaultAliasType,
+            create: defaultCreate,
+            include_in_zoning: defaultIncludeInZoning,
             notes: `Imported from fcalias config${currentAlias.vsan ? ` (VSAN ${currentAlias.vsan})` : ''}${currentAlias.wwpns.length > 1 ? ` - WWPN ${wwpnIndex + 1} of ${currentAlias.wwpns.length}` : ''}`,
             imported: new Date().toISOString(),
             updated: null,
@@ -428,7 +432,7 @@ const AliasImportPage = () => {
     }
   };
 
-  // Handle format change - clear existing data
+  // Handle format change - clear existing data and update default alias type
   const handleFormatChange = (newFormat) => {
     setImportFormat(newFormat);
     setRawText("");
@@ -438,6 +442,13 @@ const AliasImportPage = () => {
     setError("");
     setSuccess("");
     setShowPreview(false);
+    
+    // Auto-set the default alias type based on format
+    if (newFormat === "device-alias") {
+      setDefaultAliasType("device-alias");
+    } else if (newFormat === "fcalias") {
+      setDefaultAliasType("fcalias");
+    }
   };
 
   // Get placeholder text based on format
@@ -557,6 +568,68 @@ fcalias name vwsfs003p_c2p1_virt vsan 75
                 {loading && (
                   <small className="text-muted">Loading fabrics...</small>
                 )}
+              </Form.Group>
+
+              {/* Default Settings */}
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  <strong>Default Import Settings</strong>
+                </Form.Label>
+                
+                {/* Row 1: Use and Alias Type dropdowns */}
+                <div className="row mb-2">
+                  <div className="col-md-6">
+                    <Form.Label className="form-label-sm">Use</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={defaultUse}
+                      onChange={(e) => setDefaultUse(e.target.value)}
+                    >
+                      <option value="init">Init</option>
+                      <option value="target">Target</option>
+                      <option value="both">Both</option>
+                    </Form.Select>
+                  </div>
+                  <div className="col-md-6">
+                    <Form.Label className="form-label-sm">Alias Type</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={defaultAliasType}
+                      onChange={(e) => setDefaultAliasType(e.target.value)}
+                    >
+                      <option value="device-alias">Device-Alias</option>
+                      <option value="fcalias">FCAlias</option>
+                      <option value="wwpn">WWPN</option>
+                    </Form.Select>
+                  </div>
+                </div>
+                
+                {/* Row 2: Checkboxes */}
+                <div className="d-flex gap-4 mt-2">
+                  <Form.Check
+                    type="checkbox"
+                    id="defaultCreate"
+                    label="Create by default"
+                    checked={defaultCreate}
+                    onChange={(e) => setDefaultCreate(e.target.checked)}
+                  />
+                  <Form.Check
+                    type="checkbox"
+                    id="defaultIncludeInZoning"
+                    label="Include in zoning by default"
+                    checked={defaultIncludeInZoning}
+                    onChange={(e) => setDefaultIncludeInZoning(e.target.checked)}
+                  />
+                </div>
+                
+                <Form.Text className="text-muted">
+                  These settings will be applied to all imported aliases by default. You can still edit individual aliases in the preview table.
+                  {importFormat && (
+                    <span className="text-info ms-1">
+                      (Alias type auto-set to match {importFormat} format)
+                    </span>
+                  )}
+                </Form.Text>
               </Form.Group>
 
               {/* Text Input */}
