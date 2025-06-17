@@ -121,7 +121,8 @@ const AliasImportPage = () => {
 
     // Regex patterns for fcalias
     const fcaliasNameRegex = /fcalias\s+name\s+(\S+)(?:\s+vsan\s+(\d+))?/;
-    const pwwnRegex = /^\s*pwwn\s+([0-9a-fA-F:]{23})/;
+    const pwwnRegex = /^\s*(?:member\s+)?pwwn\s+([0-9a-fA-F:]{23})/;
+    const commentRegex = /^\s*!/;
 
     const saveCurrentAlias = () => {
       if (currentAlias && currentAlias.wwpns.length > 0) {
@@ -150,6 +151,11 @@ const AliasImportPage = () => {
 
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
+      
+      // Skip empty lines and comments
+      if (!trimmedLine || commentRegex.test(trimmedLine)) {
+        return;
+      }
       
       // Check for fcalias name line
       const nameMatch = trimmedLine.match(fcaliasNameRegex);
@@ -450,9 +456,10 @@ device-alias database
 fcalias name API01A1_iasp01b vsan 76
   pwwn c0:50:76:09:e3:f8:02:fc
 fcalias name API01A1_iasp02b vsan 76
-  pwwn c0:50:76:09:e3:f8:02:fe
-fcalias name API01A1_iasp03b vsan 76
-  pwwn c0:50:76:09:e3:f8:03:00
+  member pwwn c0:50:76:09:e3:f8:02:fe
+fcalias name vwsfs003p_c2p1_virt vsan 75
+    member pwwn 50:05:07:68:10:15:73:be
+    !           [vwsfs003p_c3p1_virt]
   ...`;
     }
   };
