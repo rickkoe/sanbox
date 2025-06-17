@@ -63,6 +63,7 @@ const GenericTable = forwardRef(({
   const [columnFilter, setColumnFilter] = useState('');
   const [originalData, setOriginalData] = useState([]); // Store unfiltered data
   const [showCustomFilter, setShowCustomFilter] = useState(false);
+  const [quickSearch, setQuickSearch] = useState('');
 
   // Update visibleColumns when columns prop changes
   useEffect(() => {
@@ -461,8 +462,63 @@ const filteredColumns = columns.filter((col, index) => {
     }
   }, [apiUrl]);
 
+  // Quick search functionality
+const performQuickSearch = (data, searchTerm) => {
+  console.log('performQuickSearch called with:', { dataLength: data.length, searchTerm });
+  
+  if (!searchTerm.trim()) {
+    console.log('Empty search term, returning original data');
+    return data;
+  }
+  
+  const searchTermLower = searchTerm.toLowerCase();
+  
+  const results = data.filter(row => {
+    return columns.some(col => {
+      const value = row[col.data];
+      if (value === null || value === undefined) return false;
+      
+      // Handle nested object values (like fabric_details.name)
+      if (col.data.includes('.')) {
+        const keys = col.data.split('.');
+        let nestedValue = row;
+        for (const key of keys) {
+          nestedValue = nestedValue?.[key];
+          if (nestedValue === null || nestedValue === undefined) break;
+        }
+        if (nestedValue !== null && nestedValue !== undefined) {
+          const matches = String(nestedValue).toLowerCase().includes(searchTermLower);
+          if (matches) console.log('Match found in nested value:', nestedValue);
+          return matches;
+        }
+        return false;
+      }
+      
+      // Convert value to string and search
+      const matches = String(value).toLowerCase().includes(searchTermLower);
+      if (matches) console.log('Match found in value:', value);
+      return matches;
+    });
+  });
+  
+  console.log('Search results:', { originalLength: data.length, filteredLength: results.length });
+  return results;
+};
+
+// Apply quick search when search term changes
+useEffect(() => {
+  console.log('Quick search useEffect triggered:', { quickSearch, originalDataLength: originalData.length });
+  if (originalData.length > 0) {
+    const searchResults = performQuickSearch(originalData, quickSearch);
+    const dataWithBlankRow = ensureBlankRow(searchResults);
+    setUnsavedData(dataWithBlankRow);
+  }
+}, [quickSearch, originalData]);
+
   const handleFilterChange = (filteredData) => {
-    const dataWithBlankRow = ensureBlankRow(filteredData);
+    // Apply quick search to filtered data if there's a search term
+    const searchResults = quickSearch ? performQuickSearch(filteredData, quickSearch) : filteredData;
+    const dataWithBlankRow = ensureBlankRow(searchResults);
     setUnsavedData(dataWithBlankRow);
   };
 
@@ -1091,6 +1147,38 @@ const filteredColumns = columns.filter((col, index) => {
         </div>
 
         <div className="header-right">
+          {/* Quick Search Bar */}
+          <div className="quick-search-container">
+            <div className="quick-search-wrapper">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="search-icon">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="Quick search..."
+                value={quickSearch}
+                onChange={(e) => {
+  console.log('Quick search input changed to:', e.target.value);
+  setQuickSearch(e.target.value);
+}}
+                className="quick-search-input"
+              />
+              {quickSearch && (
+                <button
+                  onClick={() => setQuickSearch('')}
+                  className="clear-search-btn"
+                  title="Clear search"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+          
           <div className="stats-container">
             <div className="stat-item">
               <span className="stat-label">Total</span>
@@ -1101,6 +1189,18 @@ const filteredColumns = columns.filter((col, index) => {
               <span className="stat-label">Selected</span>
               <span className="stat-value">{selectedCount}</span>
             </div>
+            {quickSearch && (
+              <>
+                <div className="stat-divider"></div>
+                <div className="search-indicator">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                  </svg>
+                  <span>Filtered</span>
+                </div>
+              </>
+            )}
             {isDirty && (
               <>
                 <div className="stat-divider"></div>

@@ -37,6 +37,84 @@
   gap: 12px;
 }
 
+/* Quick Search Styles */
+.quick-search-container {
+  display: flex;
+  align-items: center;
+}
+
+.quick-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.quick-search-input {
+  width: 200px;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #374151;
+  transition: all 0.2s ease;
+}
+
+.quick-search-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  width: 240px;
+}
+
+.quick-search-input::placeholder {
+  color: #9ca3af;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: #9ca3af;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 50%;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+.clear-search-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+/* Search Indicator */
+.search-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  border-radius: 12px;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* Modern Buttons */
 .modern-btn {
   display: inline-flex;
@@ -532,6 +610,14 @@
     width: 40px;
     height: 40px;
   }
+  
+  .quick-search-input {
+    width: 160px;
+  }
+  
+  .quick-search-input:focus {
+    width: 180px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -546,6 +632,14 @@
   
   .stat-value {
     font-size: 16px;
+  }
+  
+  .quick-search-input {
+    width: 140px;
+  }
+  
+  .quick-search-input:focus {
+    width: 160px;
   }
 }
 
@@ -695,7 +789,6 @@
 .columns-dropdown-footer button {
   border-radius: 0 0 8px 8px;
 }
-/* Add this to your tables.css file */
 
 /* Custom Table Filter Styles */
 .custom-table-filter {
@@ -1042,13 +1135,11 @@
   }
 }
 
-  .modern-btn.active {
-    background: #2563eb !important;
-    color: white !important;
-    border-color: #2563eb !important;
-  }
-
-  /* Add this to your tables.css file */
+.modern-btn.active {
+  background: #2563eb !important;
+  color: white !important;
+  border-color: #2563eb !important;
+}
 
 /* Add Column Button Animations */
 .save-button {
