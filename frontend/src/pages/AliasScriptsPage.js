@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
-import { Tabs, Tab, Alert, Spinner, Button, Badge } from "react-bootstrap";
+import { Tabs, Tab, Alert, Spinner, Badge } from "react-bootstrap";
 import { ConfigContext } from "../context/ConfigContext";
 import { useNavigate } from "react-router-dom";
 import { useSanVendor } from "../context/SanVendorContext";
@@ -116,32 +116,51 @@ const AliasScriptsPage = () => {
 
   return (
     <div className="table-container">
-      <div>
-        <Button
-          className="back-button"
-          onClick={() => navigate("/san/aliases")}
-        >
-          <span className="arrow">←</span> Back
-        </Button>
-        <Button
-          className="save-button"
-          onClick={handleCopyToClipboard}
-          style={
-            copyButtonText === "Copied!"
-              ? {
-                  backgroundColor: "white",
-                  color: "black",
-                  borderColor: "black",
-                }
-              : {}
-          }
-        >
-          {copyButtonText === "Copied!" ? (
-            <span>&#x2714; Copied!</span>
-          ) : (
-            "Copy to clipboard"
-          )}
-        </Button>
+      {/* Modern Header with Styled Buttons */}
+      <div className="modern-table-header">
+        <div className="header-left">
+          <div className="action-group">
+            <button
+              className="modern-btn modern-btn-secondary"
+              onClick={() => navigate("/san/aliases")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15,18 9,12 15,6"/>
+              </svg>
+              Back
+            </button>
+            
+            <button
+              className="modern-btn modern-btn-primary"
+              onClick={handleCopyToClipboard}
+              style={
+                copyButtonText === "Copied!"
+                  ? {
+                      backgroundColor: "#10b981",
+                      borderColor: "#10b981",
+                    }
+                  : {}
+              }
+            >
+              {copyButtonText === "Copied!" ? (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20,6 9,17 4,12"/>
+                  </svg>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                    <path d="M5,15H4a2,2,0,0,1-2-2V4A2,2,0,0,1,4,2H13a2,2,0,0,1,2,2V5"/>
+                  </svg>
+                  Copy to clipboard
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       {scripts && Object.keys(scripts).length > 0 ? (
@@ -191,7 +210,7 @@ const AliasScriptsPage = () => {
           No alias scripts available. Verify the column "Create" is checked for
           the aliases you want to include.
         </Alert>
-      )}
+        )}
     </div>
   );
 };
