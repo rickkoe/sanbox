@@ -1154,8 +1154,10 @@ const filteredColumns = columns.filter((col, index) => {
               licenseKey="non-commercial-and-evaluation"
               rowHeaders={false}
               
-              filters={false}
-              dropdownMenu={false}
+              // FIXED: Enable column sorting properly
+              columnSorting={columnSorting}
+              filters={filters}
+              dropdownMenu={dropdownMenu}
               
               width="100%"
               afterChange={handleAfterChange}
