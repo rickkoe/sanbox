@@ -32,211 +32,215 @@ const Dashboard = () => {
     connectedInsights: 0
   });
 
+  // State for forcing re-renders
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Color scheme for charts
   const colors = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#6f42c1', '#fd7e14', '#20c997', '#6c757d'];
 
-  // Fetch all dashboard data
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
-      setError(null);
+  // Extract the dashboard data fetching into a separate function
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Using your actual API endpoints
+      console.log('Fetching customers...');
+      let customersData = [];
       
       try {
-        // Using your actual API endpoints
-        console.log('Fetching customers...');
-        let customersData = [];
-        
-        try {
-          // Use your existing customer endpoint
-          const customersRes = await axios.get('/api/core/customers/');
-          customersData = Array.isArray(customersRes.data) ? customersRes.data : 
-                         customersRes.data.results || [];
-        } catch (customerError) {
-          console.warn('Error fetching customers:', customerError);
-          // If customers endpoint doesn't exist, we can derive customers from config
-          if (config?.customer) {
-            customersData = [config.customer];
-          }
+        // Use your existing customer endpoint
+        const customersRes = await axios.get('/api/core/customers/');
+        customersData = Array.isArray(customersRes.data) ? customersRes.data : 
+                       customersRes.data.results || [];
+      } catch (customerError) {
+        console.warn('Error fetching customers:', customerError);
+        // If customers endpoint doesn't exist, we can derive customers from config
+        if (config?.customer) {
+          customersData = [config.customer];
         }
-        
-        console.log('Found customers:', customersData.length);
-        
-        // For each customer, fetch their projects and related data
-        const customersWithData = await Promise.all(
-          customersData.map(async (customer) => {
-            console.log(`Processing customer: ${customer.name} (ID: ${customer.id})`);
-            
-            try {
-              // Fetch projects for this customer using your existing endpoint
-              console.log(`Fetching projects for customer ${customer.id}...`);
-              let projects = [];
-              try {
-                const projectsRes = await axios.get(`/api/core/projects/${customer.id}/`);
-                projects = Array.isArray(projectsRes.data) ? projectsRes.data : 
-                          projectsRes.data.results || [];
-              } catch (projError) {
-                console.warn(`Error fetching projects for customer ${customer.id}:`, projError);
-              }
-              
-              // Fetch fabrics for this customer using your existing endpoint
-              console.log(`Fetching fabrics for customer ${customer.id}...`);
-              let fabrics = [];
-              try {
-                const fabricsRes = await axios.get(`/api/san/fabrics/?customer_id=${customer.id}`);
-                fabrics = Array.isArray(fabricsRes.data) ? fabricsRes.data :
-                         fabricsRes.data.results || [];
-              } catch (fabricError) {
-                console.warn(`Error fetching fabrics for customer ${customer.id}:`, fabricError);
-              }
-              
-              // Fetch storage for this customer using your existing endpoint
-              console.log(`Fetching storage for customer ${customer.id}...`);
-              let storage = [];
-              try {
-                const storageRes = await axios.get(`/api/storage/?customer=${customer.id}`);
-                storage = Array.isArray(storageRes.data) ? storageRes.data :
-                         storageRes.data.results || [];
-              } catch (storageError) {
-                console.warn(`Error fetching storage for customer ${customer.id}:`, storageError);
-              }
-              
-              // For each project, fetch zones and aliases using your existing endpoints
-              console.log(`Processing ${projects.length} projects for customer ${customer.id}...`);
-              const projectsWithData = await Promise.all(
-                projects.map(async (project) => {
-                  try {
-                    console.log(`Fetching zones and aliases for project ${project.id}...`);
-                    
-                    // Fetch zones and aliases in parallel using your existing endpoints
-                    const [zonesRes, aliasesRes] = await Promise.allSettled([
-                      axios.get(`/api/san/zones/project/${project.id}/`),
-                      axios.get(`/api/san/aliases/project/${project.id}/`)
-                    ]);
-                    
-                    const zones = zonesRes.status === 'fulfilled' ? 
-                      (Array.isArray(zonesRes.value.data) ? zonesRes.value.data : zonesRes.value.data.results || []) : [];
-                    const aliases = aliasesRes.status === 'fulfilled' ? 
-                      (Array.isArray(aliasesRes.value.data) ? aliasesRes.value.data : aliasesRes.value.data.results || []) : [];
-                    
-                    return {
-                      ...project,
-                      zones,
-                      aliases,
-                      zoneCount: zones.length,
-                      aliasCount: aliases.length
-                    };
-                  } catch (err) {
-                    console.warn(`Error fetching data for project ${project.id}:`, err);
-                    return {
-                      ...project,
-                      zones: [],
-                      aliases: [],
-                      zoneCount: 0,
-                      aliasCount: 0
-                    };
-                  }
-                })
-              );
-              
-              // Calculate customer-level stats
-              const brocadeFabrics = fabrics.filter(f => f.san_vendor === 'BR').length;
-              const ciscoFabrics = fabrics.filter(f => f.san_vendor === 'CI').length;
-              const ds8000Count = storage.filter(s => s.storage_type === 'DS8000').length;
-              const flashSystemCount = storage.filter(s => s.storage_type === 'FlashSystem').length;
-              const otherStorageCount = storage.filter(s => 
-                !['DS8000', 'FlashSystem'].includes(s.storage_type)).length;
-              
-              const totalZones = projectsWithData.reduce((sum, p) => sum + (p.zoneCount || 0), 0);
-              const totalAliases = projectsWithData.reduce((sum, p) => sum + (p.aliasCount || 0), 0);
-              
-              console.log(`Customer ${customer.name} stats:`, {
-                projects: projects.length,
-                fabrics: fabrics.length,
-                zones: totalZones,
-                aliases: totalAliases,
-                storage: storage.length
-              });
-              
-              return {
-                ...customer,
-                projects: projectsWithData,
-                fabrics,
-                storage,
-                stats: {
-                  projectCount: projects.length,
-                  fabricCount: fabrics.length,
-                  brocadeFabrics,
-                  ciscoFabrics,
-                  zoneCount: totalZones,
-                  aliasCount: totalAliases,
-                  storageCount: storage.length,
-                  ds8000Count,
-                  flashSystemCount,
-                  otherStorageCount,
-                  hasInsightsKey: !!customer.insights_api_key,
-                  hasInsightsTenant: !!customer.insights_tenant
-                }
-              };
-            } catch (err) {
-              console.error(`Error processing customer ${customer.id}:`, err);
-              return {
-                ...customer,
-                projects: [],
-                fabrics: [],
-                storage: [],
-                stats: {
-                  projectCount: 0,
-                  fabricCount: 0,
-                  brocadeFabrics: 0,
-                  ciscoFabrics: 0,
-                  zoneCount: 0,
-                  aliasCount: 0,
-                  storageCount: 0,
-                  ds8000Count: 0,
-                  flashSystemCount: 0,
-                  otherStorageCount: 0,
-                  hasInsightsKey: false,
-                  hasInsightsTenant: false
-                }
-              };
-            }
-          })
-        );
-        
-        // Calculate overall stats
-        const overallStats = customersWithData.reduce((totals, customer) => ({
-          totalCustomers: totals.totalCustomers + 1,
-          totalProjects: totals.totalProjects + customer.stats.projectCount,
-          totalFabrics: totals.totalFabrics + customer.stats.fabricCount,
-          totalZones: totals.totalZones + customer.stats.zoneCount,
-          totalAliases: totals.totalAliases + customer.stats.aliasCount,
-          totalStorage: totals.totalStorage + customer.stats.storageCount,
-          connectedInsights: totals.connectedInsights + (customer.stats.hasInsightsKey ? 1 : 0)
-        }), {
-          totalCustomers: 0,
-          totalProjects: 0,
-          totalFabrics: 0,
-          totalZones: 0,
-          totalAliases: 0,
-          totalStorage: 0,
-          connectedInsights: 0
-        });
-        
-        console.log('Overall stats:', overallStats);
-        
-        setCustomers(customersWithData);
-        setOverallStats(overallStats);
-        
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-        setError(`Failed to fetch dashboard data: ${err.message}`);
-      } finally {
-        setLoading(false);
       }
-    };
-    
+      
+      console.log('Found customers:', customersData.length);
+      
+      // For each customer, fetch their projects and related data
+      const customersWithData = await Promise.all(
+        customersData.map(async (customer) => {
+          console.log(`Processing customer: ${customer.name} (ID: ${customer.id})`);
+          
+          try {
+            // Fetch projects for this customer using your existing endpoint
+            console.log(`Fetching projects for customer ${customer.id}...`);
+            let projects = [];
+            try {
+              const projectsRes = await axios.get(`/api/core/projects/${customer.id}/`);
+              projects = Array.isArray(projectsRes.data) ? projectsRes.data : 
+                        projectsRes.data.results || [];
+            } catch (projError) {
+              console.warn(`Error fetching projects for customer ${customer.id}:`, projError);
+            }
+            
+            // Fetch fabrics for this customer using your existing endpoint
+            console.log(`Fetching fabrics for customer ${customer.id}...`);
+            let fabrics = [];
+            try {
+              const fabricsRes = await axios.get(`/api/san/fabrics/?customer_id=${customer.id}`);
+              fabrics = Array.isArray(fabricsRes.data) ? fabricsRes.data :
+                       fabricsRes.data.results || [];
+            } catch (fabricError) {
+              console.warn(`Error fetching fabrics for customer ${customer.id}:`, fabricError);
+            }
+            
+            // Fetch storage for this customer using your existing endpoint
+            console.log(`Fetching storage for customer ${customer.id}...`);
+            let storage = [];
+            try {
+              const storageRes = await axios.get(`/api/storage/?customer=${customer.id}`);
+              storage = Array.isArray(storageRes.data) ? storageRes.data :
+                       storageRes.data.results || [];
+            } catch (storageError) {
+              console.warn(`Error fetching storage for customer ${customer.id}:`, storageError);
+            }
+            
+            // For each project, fetch zones and aliases using your existing endpoints
+            console.log(`Processing ${projects.length} projects for customer ${customer.id}...`);
+            const projectsWithData = await Promise.all(
+              projects.map(async (project) => {
+                try {
+                  console.log(`Fetching zones and aliases for project ${project.id}...`);
+                  
+                  // Fetch zones and aliases in parallel using your existing endpoints
+                  const [zonesRes, aliasesRes] = await Promise.allSettled([
+                    axios.get(`/api/san/zones/project/${project.id}/`),
+                    axios.get(`/api/san/aliases/project/${project.id}/`)
+                  ]);
+                  
+                  const zones = zonesRes.status === 'fulfilled' ? 
+                    (Array.isArray(zonesRes.value.data) ? zonesRes.value.data : zonesRes.value.data.results || []) : [];
+                  const aliases = aliasesRes.status === 'fulfilled' ? 
+                    (Array.isArray(aliasesRes.value.data) ? aliasesRes.value.data : aliasesRes.value.data.results || []) : [];
+                  
+                  return {
+                    ...project,
+                    zones,
+                    aliases,
+                    zoneCount: zones.length,
+                    aliasCount: aliases.length
+                  };
+                } catch (err) {
+                  console.warn(`Error fetching data for project ${project.id}:`, err);
+                  return {
+                    ...project,
+                    zones: [],
+                    aliases: [],
+                    zoneCount: 0,
+                    aliasCount: 0
+                  };
+                }
+              })
+            );
+            
+            // Calculate customer-level stats
+            const brocadeFabrics = fabrics.filter(f => f.san_vendor === 'BR').length;
+            const ciscoFabrics = fabrics.filter(f => f.san_vendor === 'CI').length;
+            const ds8000Count = storage.filter(s => s.storage_type === 'DS8000').length;
+            const flashSystemCount = storage.filter(s => s.storage_type === 'FlashSystem').length;
+            const otherStorageCount = storage.filter(s => 
+              !['DS8000', 'FlashSystem'].includes(s.storage_type)).length;
+            
+            const totalZones = projectsWithData.reduce((sum, p) => sum + (p.zoneCount || 0), 0);
+            const totalAliases = projectsWithData.reduce((sum, p) => sum + (p.aliasCount || 0), 0);
+            
+            console.log(`Customer ${customer.name} stats:`, {
+              projects: projects.length,
+              fabrics: fabrics.length,
+              zones: totalZones,
+              aliases: totalAliases,
+              storage: storage.length
+            });
+            
+            return {
+              ...customer,
+              projects: projectsWithData,
+              fabrics,
+              storage,
+              stats: {
+                projectCount: projects.length,
+                fabricCount: fabrics.length,
+                brocadeFabrics,
+                ciscoFabrics,
+                zoneCount: totalZones,
+                aliasCount: totalAliases,
+                storageCount: storage.length,
+                ds8000Count,
+                flashSystemCount,
+                otherStorageCount,
+                hasInsightsKey: !!customer.insights_api_key,
+                hasInsightsTenant: !!customer.insights_tenant
+              }
+            };
+          } catch (err) {
+            console.error(`Error processing customer ${customer.id}:`, err);
+            return {
+              ...customer,
+              projects: [],
+              fabrics: [],
+              storage: [],
+              stats: {
+                projectCount: 0,
+                fabricCount: 0,
+                brocadeFabrics: 0,
+                ciscoFabrics: 0,
+                zoneCount: 0,
+                aliasCount: 0,
+                storageCount: 0,
+                ds8000Count: 0,
+                flashSystemCount: 0,
+                otherStorageCount: 0,
+                hasInsightsKey: false,
+                hasInsightsTenant: false
+              }
+            };
+          }
+        })
+      );
+      
+      // Calculate overall stats
+      const overallStats = customersWithData.reduce((totals, customer) => ({
+        totalCustomers: totals.totalCustomers + 1,
+        totalProjects: totals.totalProjects + customer.stats.projectCount,
+        totalFabrics: totals.totalFabrics + customer.stats.fabricCount,
+        totalZones: totals.totalZones + customer.stats.zoneCount,
+        totalAliases: totals.totalAliases + customer.stats.aliasCount,
+        totalStorage: totals.totalStorage + customer.stats.storageCount,
+        connectedInsights: totals.connectedInsights + (customer.stats.hasInsightsKey ? 1 : 0)
+      }), {
+        totalCustomers: 0,
+        totalProjects: 0,
+        totalFabrics: 0,
+        totalZones: 0,
+        totalAliases: 0,
+        totalStorage: 0,
+        connectedInsights: 0
+      });
+      
+      console.log('Overall stats:', overallStats);
+      
+      setCustomers(customersWithData);
+      setOverallStats(overallStats);
+      
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+      setError(`Failed to fetch dashboard data: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch all dashboard data
+  useEffect(() => {
     fetchDashboardData();
-  }, [config]);
+  }, [config, refreshKey]); // Add refreshKey as dependency to trigger re-fetch
 
   const toggleCustomerExpansion = (customerId) => {
     const newExpanded = new Set(expandedCustomers);
@@ -248,13 +252,56 @@ const Dashboard = () => {
     setExpandedCustomers(newExpanded);
   };
 
-  const handleSetActiveCustomer = (customer, project = null) => {
-    const newConfig = {
-      ...config,
-      customer: customer,
-      active_project: project
-    };
-    setConfig(newConfig);
+  const handleSetActiveCustomer = async (customer, project = null) => {
+    try {
+      console.log('Setting active customer:', customer.name, project ? `and project: ${project.name}` : '');
+      
+      let targetProject = project;
+      
+      // If no specific project is provided, try to get the customer's existing active project
+      if (!project) {
+        try {
+          const customerConfigResponse = await axios.get(`/api/core/config/customer/${customer.id}/`);
+          if (customerConfigResponse.data && customerConfigResponse.data.active_project) {
+            targetProject = customerConfigResponse.data.active_project;
+            console.log(`Using existing active project for ${customer.name}:`, targetProject.name);
+          }
+        } catch (configError) {
+          console.log(`No existing config found for customer ${customer.name}, will set without project`);
+        }
+      }
+      
+      // Prepare the payload similar to your ConfigForm
+      const payload = {
+        customer: String(customer.id),
+        project: targetProject ? String(targetProject.id) : "",
+        active_project_id: targetProject ? String(targetProject.id) : "",
+        is_active: true,
+        // Include existing config values to avoid overwriting them
+        san_vendor: config?.san_vendor || "BR",
+        cisco_alias: config?.cisco_alias || "device-alias", 
+        cisco_zoning_mode: config?.cisco_zoning_mode || "enhanced",
+        zone_ratio: config?.zone_ratio || "one-to-one",
+        zoning_job_name: config?.zoning_job_name || "",
+        alias_max_zones: config?.alias_max_zones || "",
+      };
+      
+      console.log('Payload for config update:', payload);
+      
+      // Use the same API endpoint as your ConfigForm
+      const updateCustomerUrl = `/api/core/config/update/${customer.id}/`;
+      await axios.put(updateCustomerUrl, payload);
+      
+      console.log('✅ Config updated on backend, triggering full page reload...');
+      
+      // Force a complete page reload (like Cmd+R)
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('❌ Error setting active customer/project:', error);
+      // Even if there's an error, we might want to reload to ensure consistency
+      window.location.reload();
+    }
   };
 
   // Prepare chart data
