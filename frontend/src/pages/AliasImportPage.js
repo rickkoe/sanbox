@@ -13,6 +13,7 @@ const AliasImportPage = () => {
 
   const [fabricOptions, setFabricOptions] = useState([]);
   const [selectedFabric, setSelectedFabric] = useState("");
+  const [importFormat, setImportFormat] = useState("device-alias"); // New state for format selection
   const [rawText, setRawText] = useState("");
   const [parsedAliases, setParsedAliases] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -102,14 +103,100 @@ const AliasImportPage = () => {
           create: true,
           include_in_zoning: false,
           notes: `Imported from device-alias database`,
-          imported: new Date().toISOString(), // Put timestamp in imported field
-          updated: null, // Leave updated as null
+          imported: new Date().toISOString(),
+          updated: null,
           saved: false,
         });
       }
     });
 
     return aliases;
+  };
+
+  // Parse fcalias configuration text
+  const parseFcaliasText = (text) => {
+    const lines = text.split("\n");
+    const aliases = [];
+    let currentAlias = null;
+
+    // Regex patterns for fcalias
+    const fcaliasNameRegex = /fcalias\s+name\s+(\S+)(?:\s+vsan\s+(\d+))?/;
+    const pwwnRegex = /^\s*pwwn\s+([0-9a-fA-F:]{23})/;
+
+    const saveCurrentAlias = () => {
+      if (currentAlias && currentAlias.wwpns.length > 0) {
+        currentAlias.wwpns.forEach((wwpn, wwpnIndex) => {
+          const aliasName = currentAlias.wwpns.length > 1 
+            ? `${currentAlias.name}_${wwpnIndex + 1}` 
+            : currentAlias.name;
+            
+          aliases.push({
+            lineNumber: currentAlias.lineNumber,
+            name: aliasName,
+            wwpn: wwpn,
+            use: "init", // Default to 'init'
+            fabric: selectedFabric,
+            cisco_alias: "fcalias",
+            create: true,
+            include_in_zoning: false,
+            notes: `Imported from fcalias config${currentAlias.vsan ? ` (VSAN ${currentAlias.vsan})` : ''}${currentAlias.wwpns.length > 1 ? ` - WWPN ${wwpnIndex + 1} of ${currentAlias.wwpns.length}` : ''}`,
+            imported: new Date().toISOString(),
+            updated: null,
+            saved: false,
+          });
+        });
+      }
+    };
+
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      
+      // Check for fcalias name line
+      const nameMatch = trimmedLine.match(fcaliasNameRegex);
+      if (nameMatch) {
+        // Save the previous alias before starting a new one
+        saveCurrentAlias();
+        
+        const [, name, vsan] = nameMatch;
+        currentAlias = {
+          lineNumber: index + 1,
+          name: name,
+          vsan: vsan || null,
+          wwpns: []
+        };
+      }
+      
+      // Check for pwwn line (must have a current alias context)
+      const wwpnMatch = trimmedLine.match(pwwnRegex);
+      if (wwpnMatch && currentAlias) {
+        const wwpn = wwpnMatch[1];
+        
+        // Format WWPN to standard format
+        const formattedWWPN =
+          wwpn
+            .toLowerCase()
+            .replace(/[^0-9a-f]/g, "")
+            .match(/.{2}/g)
+            ?.join(":") || wwpn;
+
+        currentAlias.wwpns.push(formattedWWPN);
+      }
+    });
+
+    // Save the last alias after processing all lines
+    saveCurrentAlias();
+
+    return aliases;
+  };
+
+  // Unified parsing function
+  const parseAliasText = (text, format) => {
+    if (format === "device-alias") {
+      return parseDeviceAliasText(text);
+    } else if (format === "fcalias") {
+      return parseFcaliasText(text);
+    }
+    return [];
   };
 
   // Check for duplicate aliases in database
@@ -173,16 +260,16 @@ const AliasImportPage = () => {
     }
 
     if (!rawText.trim()) {
-      setError("Please paste device-alias database content");
+      setError(`Please paste ${importFormat} content`);
       return;
     }
 
     try {
-      const parsed = parseDeviceAliasText(rawText);
+      const parsed = parseAliasText(rawText, importFormat);
 
       if (parsed.length === 0) {
         setError(
-          "No valid device-alias entries found. Please check the format."
+          `No valid ${importFormat} entries found. Please check the format.`
         );
         return;
       }
@@ -195,7 +282,7 @@ const AliasImportPage = () => {
       setShowPreview(true);
 
       // Show success message with duplicate info
-      let message = `Successfully parsed ${parsed.length} device aliases`;
+      let message = `Successfully parsed ${parsed.length} ${importFormat} entries`;
       if (duplicates.length > 0) {
         message += `. ${duplicates.length} duplicate(s) found and will be skipped.`;
       }
@@ -244,7 +331,7 @@ const AliasImportPage = () => {
           create: alias.create,
           include_in_zoning: alias.include_in_zoning,
           notes: alias.notes,
-          imported: alias.imported, // ADDED: Include the imported timestamp
+          imported: alias.imported,
           projects: [activeProjectId],
         })),
       };
@@ -335,6 +422,41 @@ const AliasImportPage = () => {
     }
   };
 
+  // Handle format change - clear existing data
+  const handleFormatChange = (newFormat) => {
+    setImportFormat(newFormat);
+    setRawText("");
+    setParsedAliases([]);
+    setPreviewData([]);
+    setDuplicates([]);
+    setError("");
+    setSuccess("");
+    setShowPreview(false);
+  };
+
+  // Get placeholder text based on format
+  const getPlaceholderText = () => {
+    if (importFormat === "device-alias") {
+      return `Paste your device-alias database output here, for example:
+
+device-alias database
+  device-alias name PRD03A_sys1a pwwn c0:50:76:09:15:09:01:08
+  device-alias name PRD03A_sys2a pwwn c0:50:76:09:15:09:01:0a
+  device-alias name MGT01A_MGT_1a pwwn c0:50:76:09:15:09:02:b0
+  ...`;
+    } else {
+      return `Paste your fcalias configuration here, for example:
+
+fcalias name API01A1_iasp01b vsan 76
+  pwwn c0:50:76:09:e3:f8:02:fc
+fcalias name API01A1_iasp02b vsan 76
+  pwwn c0:50:76:09:e3:f8:02:fe
+fcalias name API01A1_iasp03b vsan 76
+  pwwn c0:50:76:09:e3:f8:03:00
+  ...`;
+    }
+  };
+
   if (!activeProjectId) {
     return (
       <div className="container mt-4">
@@ -372,11 +494,42 @@ const AliasImportPage = () => {
                 Import Device Aliases
               </h4>
               <small className="text-muted">
-                Import aliases from Cisco device-alias database output
+                Import aliases from Cisco device-alias database or fcalias configuration
               </small>
             </Card.Header>
 
             <Card.Body>
+              {/* Import Format Selection */}
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  <strong>Import Format</strong>
+                </Form.Label>
+                <div className="d-flex gap-3">
+                  <Form.Check
+                    type="radio"
+                    name="importFormat"
+                    id="device-alias"
+                    label="Device-Alias Database"
+                    checked={importFormat === "device-alias"}
+                    onChange={() => handleFormatChange("device-alias")}
+                  />
+                  <Form.Check
+                    type="radio"
+                    name="importFormat"
+                    id="fcalias"
+                    label="FCAlias Configuration"
+                    checked={importFormat === "fcalias"}
+                    onChange={() => handleFormatChange("fcalias")}
+                  />
+                </div>
+                <Form.Text className="text-muted">
+                  {importFormat === "device-alias" 
+                    ? "Import from 'show device-alias database' command output"
+                    : "Import from fcalias configuration sections"
+                  }
+                </Form.Text>
+              </Form.Group>
+
               {/* Fabric Selection */}
               <Form.Group className="mb-3">
                 <Form.Label>
@@ -402,27 +555,29 @@ const AliasImportPage = () => {
               {/* Text Input */}
               <Form.Group className="mb-3">
                 <Form.Label>
-                  <strong>Device-Alias Database Content</strong>
+                  <strong>
+                    {importFormat === "device-alias" 
+                      ? "Device-Alias Database Content" 
+                      : "FCAlias Configuration Content"
+                    }
+                  </strong>
                 </Form.Label>
                 <Form.Control
                   as="textarea"
                   rows={12}
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
-                  placeholder={`Paste your device-alias database output here, for example:
-
-device-alias database
-  device-alias name PRD03A_sys1a pwwn c0:50:76:09:15:09:01:08
-  device-alias name PRD03A_sys2a pwwn c0:50:76:09:15:09:01:0a
-  device-alias name MGT01A_MGT_1a pwwn c0:50:76:09:15:09:02:b0
-  ...`}
+                  placeholder={getPlaceholderText()}
                   style={{
                     fontFamily: 'Monaco, Consolas, "Courier New", monospace',
                     fontSize: "13px",
                   }}
                 />
                 <Form.Text className="text-muted">
-                  Paste the output from "show device-alias database" command
+                  {importFormat === "device-alias" 
+                    ? 'Paste the output from "show device-alias database" command'
+                    : 'Paste fcalias configuration sections from your switch config'
+                  }
                 </Form.Text>
               </Form.Group>
 
