@@ -42,12 +42,13 @@ const Dashboard = () => {
       setError(null);
       
       try {
-        // First, fetch all customers - this might need to be created if it doesn't exist
+        // Using your actual API endpoints
         console.log('Fetching customers...');
         let customersData = [];
         
         try {
-          const customersRes = await axios.get('/api/customers/');
+          // Use your existing customer endpoint
+          const customersRes = await axios.get('/api/core/customers/');
           customersData = Array.isArray(customersRes.data) ? customersRes.data : 
                          customersRes.data.results || [];
         } catch (customerError) {
@@ -66,18 +67,18 @@ const Dashboard = () => {
             console.log(`Processing customer: ${customer.name} (ID: ${customer.id})`);
             
             try {
-              // Fetch projects for this customer
+              // Fetch projects for this customer using your existing endpoint
               console.log(`Fetching projects for customer ${customer.id}...`);
               let projects = [];
               try {
-                const projectsRes = await axios.get(`/api/projects/?customer=${customer.id}`);
+                const projectsRes = await axios.get(`/api/core/projects/${customer.id}/`);
                 projects = Array.isArray(projectsRes.data) ? projectsRes.data : 
                           projectsRes.data.results || [];
               } catch (projError) {
                 console.warn(`Error fetching projects for customer ${customer.id}:`, projError);
               }
               
-              // Fetch fabrics for this customer
+              // Fetch fabrics for this customer using your existing endpoint
               console.log(`Fetching fabrics for customer ${customer.id}...`);
               let fabrics = [];
               try {
@@ -88,7 +89,7 @@ const Dashboard = () => {
                 console.warn(`Error fetching fabrics for customer ${customer.id}:`, fabricError);
               }
               
-              // Fetch storage for this customer
+              // Fetch storage for this customer using your existing endpoint
               console.log(`Fetching storage for customer ${customer.id}...`);
               let storage = [];
               try {
@@ -99,14 +100,14 @@ const Dashboard = () => {
                 console.warn(`Error fetching storage for customer ${customer.id}:`, storageError);
               }
               
-              // For each project, fetch zones and aliases
+              // For each project, fetch zones and aliases using your existing endpoints
               console.log(`Processing ${projects.length} projects for customer ${customer.id}...`);
               const projectsWithData = await Promise.all(
                 projects.map(async (project) => {
                   try {
                     console.log(`Fetching zones and aliases for project ${project.id}...`);
                     
-                    // Fetch zones and aliases in parallel
+                    // Fetch zones and aliases in parallel using your existing endpoints
                     const [zonesRes, aliasesRes] = await Promise.allSettled([
                       axios.get(`/api/san/zones/project/${project.id}/`),
                       axios.get(`/api/san/aliases/project/${project.id}/`)

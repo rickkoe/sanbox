@@ -7,7 +7,9 @@ from .views import (
     config_for_customer, 
     create_project_for_customer, 
     update_config_view,
-    customer_list
+    customer_list,
+    dashboard_overview,
+    customer_statistics,
 )
 
 urlpatterns = [
@@ -22,4 +24,8 @@ urlpatterns = [
     # Config CRUD endpoints (replacing the DRF router)
     path("configs/", config_viewset, name="config-list"),
     path("configs/<int:pk>/", config_viewset, name="config-detail-pk"),
+
+    # Add these to your existing core/urls.py urlpatterns:
+    path("dashboard/overview/", dashboard_overview, name="dashboard-overview"),
+    path("customers/<int:customer_id>/statistics/", customer_statistics, name="customer-statistics"),
 ]
