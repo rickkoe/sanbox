@@ -1,5 +1,7 @@
 import json
 from django.http import JsonResponse
+from django.core.paginator import Paginator
+from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .models import Alias, Zone, Fabric
@@ -15,25 +17,108 @@ from django.utils import timezone
 @csrf_exempt
 @require_http_methods(["GET"])
 def alias_list_view(request, project_id):
-    """Fetch aliases belonging to a specific project."""
+    """Fetch aliases belonging to a specific project with pagination."""
     print(f"🔥 Alias List - Project ID: {project_id}")
     
     try:
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found."}, status=404)
-
-    aliases = Alias.objects.filter(projects=project)
     
-    # Pass context to serializer including project_id
+    # Get pagination parameters
+    page = int(request.GET.get('page', 1))
+    page_size = request.GET.get('page_size', '100')
+    
+    # Handle "All" page size
+    if page_size == 'All':
+        page_size = None
+    else:
+        page_size = int(page_size)
+    
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+    
+    # Base queryset
+    aliases_queryset = Alias.objects.filter(projects=project)
+    
+    # Apply search if provided
+    if search:
+        aliases_queryset = aliases_queryset.filter(
+            Q(name__icontains=search) |
+            Q(wwpn__icontains=search) |
+            Q(notes__icontains=search) |
+            Q(fabric__name__icontains=search)
+        )
+    
+    # Order by name for consistent pagination
+    aliases_queryset = aliases_queryset.order_by('name')
+    
+    if page_size is None:
+        # Return all results
+        aliases = aliases_queryset
+        serializer = AliasSerializer(
+            aliases,
+            many=True,
+            context={'project_id': project_id}
+        )
+        
+        return JsonResponse({
+            'results': serializer.data,
+            'count': len(serializer.data),
+            'page': 1,
+            'page_size': 'All',
+            'total_pages': 1,
+            'has_next': False,
+            'has_previous': False,
+            'next': None,
+            'previous': None
+        })
+    
+    # Paginate results
+    paginator = Paginator(aliases_queryset, page_size)
+    total_pages = paginator.num_pages
+    
+    # Ensure page number is valid
+    if page > total_pages and total_pages > 0:
+        page = total_pages
+    elif page < 1:
+        page = 1
+    
+    page_obj = paginator.get_page(page)
+    
+    # Serialize the current page
     serializer = AliasSerializer(
-        aliases, 
-        many=True, 
-        context={
-            'project_id': project_id
-        }
+        page_obj.object_list,
+        many=True,
+        context={'project_id': project_id}
     )
-    return JsonResponse(serializer.data, safe=False)
+    
+    # Build pagination URLs
+    base_url = request.build_absolute_uri().split('?')[0]
+    next_url = None
+    previous_url = None
+    
+    if page_obj.has_next():
+        next_url = f"{base_url}?page={page_obj.next_page_number()}&page_size={page_size}"
+        if search:
+            next_url += f"&search={search}"
+    
+    if page_obj.has_previous():
+        previous_url = f"{base_url}?page={page_obj.previous_page_number()}&page_size={page_size}"
+        if search:
+            previous_url += f"&search={search}"
+    
+    return JsonResponse({
+        'results': serializer.data,
+        'count': paginator.count,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': total_pages,
+        'has_next': page_obj.has_next(),
+        'has_previous': page_obj.has_previous(),
+        'next': next_url,
+        'previous': previous_url
+    })
 
 
 @csrf_exempt

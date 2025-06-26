@@ -13,10 +13,9 @@ import DeleteModal from './components/DeleteModal';
 import NavigationModal from './components/NavigationModal';
 import ScrollButtons from './components/ScrollButtons';
 import TablePagination from './components/TablePagination';
-import { useTableData } from './hooks/useTableData';
 import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
-import { usePagination } from './hooks/usePagination';
+import { useServerPagination } from './hooks/useServerPagination';
 import { createContextMenu } from './utils/contextMenu';
 import CustomTableFilter from './components/CustomTableFilter';
 
@@ -57,7 +56,7 @@ const GenericTable = forwardRef(({
 }, ref) => {
   
   // Core state
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
   const [selectedCount, setSelectedCount] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -68,54 +67,34 @@ const GenericTable = forwardRef(({
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [showCustomFilter, setShowCustomFilter] = useState(false);
-  const [isTableReady, setIsTableReady] = useState(false); // Add this state
+  const [isTableReady, setIsTableReady] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [modifiedRows, setModifiedRows] = useState({});
   
   const tableRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Custom hooks for data management
+  // Server-side pagination hook
   const {
     data,
-    unsavedData,
-    setUnsavedData,
-    originalData,
-    isDirty,
-    setIsDirty,
-    quickSearch,
-    setQuickSearch,
-    fetchData,
-    ensureBlankRow,
-    hasNonEmptyValues,
-    performQuickSearch
-  } = useTableData(apiUrl, newRowTemplate, preprocessData, columns);
+    loading: dataLoading,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    searchTerm,
+    handlePageChange,
+    handlePageSizeChange,
+    handleSearch,
+    refresh,
+    resetPagination
+  } = useServerPagination(
+    apiUrl,
+    defaultPageSize,
+    storageKey ? `${storageKey}_server` : null
+  );
 
-  // Effect to handle initial data loading and table readiness
-  useEffect(() => {
-    if (apiUrl) {
-      console.log("GenericTable: Starting data fetch for URL:", apiUrl);
-      fetchData()
-        .then(() => {
-          console.log("GenericTable: Data fetch completed successfully");
-          setLoading(false);
-          // Add a small delay to ensure DOM is ready for Handsontable
-          setTimeout(() => {
-            setIsTableReady(true);
-          }, 100);
-        })
-        .catch((error) => {
-          console.error("GenericTable: Data fetch failed:", error);
-          setLoading(false);
-          setSaveStatus(`Error loading data: ${error.message}`);
-        });
-    } else {
-      console.log("GenericTable: No API URL provided");
-      setLoading(false);
-      setTimeout(() => {
-        setIsTableReady(true);
-      }, 100);
-    }
-  }, [apiUrl]);
-
+  // Column management
   const {
     visibleColumns,
     setVisibleColumns,
@@ -128,23 +107,7 @@ const GenericTable = forwardRef(({
     isRequiredColumn
   } = useTableColumns(columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources);
 
-  // Pagination hook - use filtered data for pagination
-  const pagination = usePagination(
-    unsavedData, 
-    defaultPageSize, 
-    storageKey ? `${storageKey}_pagination` : null
-  );
-
-  // Use paginated data for the table display
-  const displayData = enablePagination ? pagination.paginatedData : unsavedData;
-
-  // Context menu handler - define this first
-  const handleAfterContextMenu = (key, selection) => {
-    if (key === "remove_row") {
-      handleDeleteRows(selection, tableRef.current?.hotInstance);
-    }
-  };
-
+  // Table operations
   const {
     handleSaveChanges,
     handleDeleteRows,
@@ -156,8 +119,8 @@ const GenericTable = forwardRef(({
     loading,
     setLoading,
     setSaveStatus,
-    unsavedData,
-    setUnsavedData,
+    unsavedData: data,
+    setUnsavedData: () => {}, // Not used in server-side mode
     data,
     beforeSave,
     onSave,
@@ -166,28 +129,56 @@ const GenericTable = forwardRef(({
     saveUrl,
     afterSave,
     navigationRedirectPath,
-    fetchData,
-    hasNonEmptyValues,
+    fetchData: refresh,
+    hasNonEmptyValues: (row) => row && Object.keys(row).length > 0,
     deleteUrl,
     setShowDeleteModal,
     setRowsToDelete,
-    ensureBlankRow,
+    ensureBlankRow: (data) => data,
     columns,
     colHeaders,
     getExportFilename
   });
 
-  // Enhanced context menu - now handleAfterContextMenu is defined
-  const enhancedContextMenu = createContextMenu(tableRef, setIsDirty, handleAfterContextMenu);
+  // Effect to handle table readiness
+  useEffect(() => {
+    if (data && data.length >= 0) {
+      setTimeout(() => {
+        setIsTableReady(true);
+      }, 100);
+    }
+  }, [data]);
 
   // Current visible columns and headers
   const enhancedColumns = createVisibleColumns();
   const visibleColHeaders = createVisibleHeaders();
 
+  // Pagination object
+  const pagination = {
+    paginatedData: data,
+    currentPage,
+    totalPages,
+    totalRows: totalCount,
+    pageSize,
+    handlePageChange,
+    handlePageSizeChange,
+    resetPagination
+  };
+
+  // Context menu handler
+  const handleAfterContextMenu = (key, selection) => {
+    if (key === "remove_row") {
+      handleDeleteRows(selection, tableRef.current?.hotInstance);
+    }
+  };
+
+  // Enhanced context menu
+  const enhancedContextMenu = createContextMenu(tableRef, setIsDirty, handleAfterContextMenu);
+
   // Refs and imperative handle
   useImperativeHandle(ref, () => ({
     hotInstance: tableRef.current?.hotInstance,
-    refreshData: fetchData,
+    refreshData: refresh,
     isDirty,
     setIsDirty
   }));
@@ -203,7 +194,7 @@ const GenericTable = forwardRef(({
       const end = Math.max(r1, r2);
       for (let row = start; row <= end; row++) {
         const physicalRow = hot.toPhysicalRow(row);
-        const rowData = unsavedData[physicalRow];
+        const rowData = data[physicalRow];
         if (rowData && rowData.id != null) {
           rowSet.add(physicalRow);
         }
@@ -230,102 +221,35 @@ const GenericTable = forwardRef(({
     handleScroll();
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [unsavedData]);
-
-  // Column updates
-  useEffect(() => {
-    if (tableRef.current?.hotInstance && Object.keys(visibleColumns).length > 0) {
-      const hot = tableRef.current.hotInstance;
-      
-      const updatedData = unsavedData.map(row => {
-        const newRow = { ...row };
-        columns.forEach(col => {
-          if (col.data && !(col.data in newRow)) {
-            newRow[col.data] = '';
-          }
-        });
-        return newRow;
-      });
-      
-      const needsDataUpdate = updatedData.length > 0 && 
-        unsavedData.length > 0 && 
-        Object.keys(updatedData[0] || {}).length !== Object.keys(unsavedData[0] || {}).length;
-      
-      if (needsDataUpdate) {
-        setUnsavedData(updatedData);
-      }
-      
-      hot.updateSettings({
-        columns: enhancedColumns,
-        colHeaders: visibleColHeaders
-      });
-    }
-  }, [columns, colHeaders, visibleColumns, customRenderers, dropdownSources]);
-
-  // Quick search
-  useEffect(() => {
-    if (originalData.length > 0) {
-      const searchResults = performQuickSearch(originalData, quickSearch);
-      const dataWithBlankRow = ensureBlankRow(searchResults);
-      setUnsavedData(dataWithBlankRow);
-      
-      // Reset pagination when search changes
-      if (enablePagination) {
-        pagination.resetPagination();
-      }
-    }
-  }, [quickSearch, originalData]);
+  }, [data]);
 
   // Table change handler
   const handleAfterChange = (changes, source) => {
     if (source === "loadData" || !changes) return;
     
-    const updated = [...unsavedData];
-    let dataChanged = false;
-    let shouldAddNewRow = false;
+    // Track changes for optimistic updates
+    const newModifiedRows = { ...modifiedRows };
     
-    changes.forEach(([visualRow, prop, oldVal, newVal]) => {
-      if (oldVal !== newVal) {
-        const physicalRow = tableRef.current.hotInstance.toPhysicalRow(visualRow);
-        if (physicalRow !== null) {
-          updated[physicalRow] = { ...updated[physicalRow], [prop]: newVal, saved: false };
-          dataChanged = true;
-          
-          if (physicalRow === updated.length - 1) {
-            const isNotEmpty = Boolean(
-              typeof newVal === "string" ? newVal.trim() : 
-              typeof newVal === "boolean" ? newVal : 
-              typeof newVal === "number" ? newVal !== 0 : 
-              newVal !== null && newVal !== undefined
-            );
-            
-            if (isNotEmpty) {
-              shouldAddNewRow = true;
-            }
+    changes.forEach(([row, prop, oldValue, newValue]) => {
+      if (oldValue !== newValue) {
+        const rowData = data[row];
+        if (rowData && rowData.id) {
+          if (!newModifiedRows[rowData.id]) {
+            newModifiedRows[rowData.id] = { ...rowData };
           }
+          newModifiedRows[rowData.id][prop] = newValue;
         }
       }
     });
-
-    if (dataChanged) {
-      if (shouldAddNewRow) {
-        updated.push({ ...newRowTemplate });
-      }
-      setUnsavedData(updated);
-      setIsDirty(true);
-    }
+    
+    setModifiedRows(newModifiedRows);
+    setIsDirty(Object.keys(newModifiedRows).length > 0);
   };
 
   // Filter change handler
   const handleFilterChange = (filteredData) => {
-    const searchResults = quickSearch ? performQuickSearch(filteredData, quickSearch) : filteredData;
-    const dataWithBlankRow = ensureBlankRow(searchResults);
-    setUnsavedData(dataWithBlankRow);
-    
-    // Reset pagination when filter changes
-    if (enablePagination) {
-      pagination.resetPagination();
-    }
+    // For server-side pagination, this would need to be handled by the API
+    console.log("Filter change - server-side implementation needed");
   };
 
   // Column resize handler
@@ -362,7 +286,6 @@ const GenericTable = forwardRef(({
 
   useEffect(() => {
     if (!isDirty) return;
-    
     const handleClick = (e) => {
       const link = e.target.closest('a');
       if (link && link.href && !link.href.includes('#')) {
@@ -371,7 +294,6 @@ const GenericTable = forwardRef(({
         setShowNavModal(true);
       }
     };
-    
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, [isDirty]);
@@ -390,12 +312,48 @@ const GenericTable = forwardRef(({
     }
   };
 
+  // Save modified rows
+  const handleSaveModifiedRows = async () => {
+    if (!isDirty || Object.keys(modifiedRows).length === 0) return;
+    
+    setLoading(true);
+    setSaveStatus("Saving changes...");
+    
+    try {
+      const payload = Object.values(modifiedRows);
+      
+      if (beforeSave) {
+        await beforeSave(payload);
+      }
+      
+      if (onSave) {
+        await onSave(payload);
+      } else if (saveUrl) {
+        await axios.post(saveUrl, payload);
+      }
+      
+      if (afterSave) {
+        await afterSave(payload);
+      }
+      
+      setSaveStatus("Changes saved successfully!");
+      setModifiedRows({});
+      setIsDirty(false);
+      refresh(); // Refresh data from server
+    } catch (error) {
+      setSaveStatus(`Save failed: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSaveStatus(""), 3000);
+    }
+  };
+
   return (
     <div className={`modern-table-container ${enablePagination ? 'with-pagination' : ''}`}>
       <TableHeader
-        loading={loading}
+        loading={loading || dataLoading}
         isDirty={isDirty}
-        onSave={handleSaveChanges}
+        onSave={handleSaveModifiedRows}
         onExportCSV={handleExportCSV}
         onExportExcel={handleExportExcel}
         columns={columns}
@@ -406,10 +364,10 @@ const GenericTable = forwardRef(({
         toggleColumnVisibility={toggleColumnVisibility}
         toggleAllColumns={toggleAllColumns}
         isRequiredColumn={isRequiredColumn}
-        quickSearch={quickSearch}
-        setQuickSearch={setQuickSearch}
-        unsavedData={unsavedData}
-        hasNonEmptyValues={hasNonEmptyValues}
+        quickSearch={searchTerm}
+        setQuickSearch={handleSearch}
+        unsavedData={data}
+        hasNonEmptyValues={(row) => row && Object.keys(row).length > 0}
         selectedCount={selectedCount}
         showCustomFilter={showCustomFilter}
         setShowCustomFilter={setShowCustomFilter}
@@ -423,7 +381,7 @@ const GenericTable = forwardRef(({
         <CustomTableFilter
           columns={columns}
           colHeaders={colHeaders}
-          data={originalData}
+          data={data}
           onFilterChange={handleFilterChange}
           visibleColumns={visibleColumns}
         />
@@ -434,7 +392,7 @@ const GenericTable = forwardRef(({
         className="table-scroll-container"
         style={{ height }}
       >
-        {loading && !unsavedData.length ? (
+        {dataLoading && (!data || data.length === 0) ? (
           <div className="loading-container">
             <div className="loading-content">
               <div className="spinner large"></div>
@@ -452,7 +410,7 @@ const GenericTable = forwardRef(({
           <div className="table-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
             <HotTable
               ref={tableRef}
-              data={displayData}
+              data={data}
               colHeaders={visibleColHeaders}
               columns={enhancedColumns}
               licenseKey="non-commercial-and-evaluation"
@@ -484,7 +442,6 @@ const GenericTable = forwardRef(({
               viewportColumnRenderingOffset={30}
               preventOverflow={false}
               afterInit={() => {
-                // Force a layout recalculation after init for cross-browser compatibility
                 if (tableRef.current?.hotInstance) {
                   setTimeout(() => {
                     tableRef.current.hotInstance.render();
@@ -507,12 +464,12 @@ const GenericTable = forwardRef(({
       {/* Pagination */}
       {enablePagination && (
         <TablePagination
-          currentPage={pagination.currentPage}
-          totalPages={pagination.totalPages}
-          pageSize={pagination.pageSize}
-          totalRows={pagination.totalRows}
-          onPageChange={pagination.handlePageChange}
-          onPageSizeChange={pagination.handlePageSizeChange}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalRows={totalCount}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
           pageSizeOptions={pageSizeOptions}
         />
       )}
@@ -529,13 +486,8 @@ const GenericTable = forwardRef(({
             );
             await Promise.all(deletePromises);
             
-            const updatedData = unsavedData.filter(item => 
-              !rowsToDelete.some(deleteItem => deleteItem.id === item.id)
-            );
-            const dataWithBlankRow = ensureBlankRow(updatedData);
-            setUnsavedData(dataWithBlankRow);
             setSaveStatus("Items deleted successfully!");
-            setIsDirty(true);
+            refresh(); // Refresh data from server
           } catch (error) {
             setSaveStatus(`Delete failed: ${error.response?.data?.message || error.message}`);
           } finally {
