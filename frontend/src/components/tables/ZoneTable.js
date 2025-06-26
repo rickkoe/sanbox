@@ -3,7 +3,7 @@ import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import GenericTable from "./GenericTable";
+import GenericTable from "./GenericTable"; // Fixed import
 
 // API endpoints
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -27,8 +27,8 @@ const ZoneTable = () => {
   const [fabricOptions, setFabricOptions] = useState([]);
   const [memberOptions, setMemberOptions] = useState([]);
   const [memberColumns, setMemberColumns] = useState(5);
-  const [newColumnsCount, setNewColumnsCount] = useState(1);
-  const [rawData, setRawData] = useState([]); // Store raw data for member column calculation
+  const [rawData, setRawData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const tableRef = useRef(null);
   const navigate = useNavigate();
   const [isAddingColumn, setIsAddingColumn] = useState(false);
@@ -54,7 +54,7 @@ const ZoneTable = () => {
     }
   }, [rawData, memberColumns]);
 
-  // Helper function to build payload (moved outside useMemo to avoid circular reference)
+  // Helper function to build payload
   const buildPayload = (row) => {
     // Extract members
     const members = [];
@@ -88,176 +88,202 @@ const ZoneTable = () => {
     };
   };
 
-  // Table configuration
-  const tableConfig = useMemo(() => ({
-    colHeaders: [
-      "Name", "Fabric", "Create", "Exists", "Zone Type", "Imported", "Updated", "Notes", 
-      ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)
-    ],
-    columns: [
-      { data: "name" },
-      { data: "fabric", type: "dropdown" },
-      { data: "create", type: "checkbox" },
-      { data: "exists", type: "checkbox" },
-      { data: "zone_type", type: "dropdown" },
-      { data: "imported", readOnly: true },
-      { data: "updated", readOnly: true },
-      { data: "notes" },
-      ...Array.from({ length: memberColumns }, (_, i) => ({ data: `member_${i + 1}` }))
-    ],
-    dropdownSources: {
-      fabric: fabricOptions.map(f => f.name),
-      zone_type: ["smart", "standard"]
-    },
-    // Process data for display (simplified - no member column detection here)
-    preprocessData: (data) => {
-      console.log('Processing data with', memberColumns, 'member columns');
-      setRawData(data); // Store raw data for member column calculation
+  // Process data for display
+  const preprocessData = (data) => {
+    console.log('Processing data with', memberColumns, 'member columns');
+    setRawData(data); // Store raw data for member column calculation
+    
+    const processed = data.map(zone => {
+      const zoneData = { 
+        ...zone, 
+        fabric: zone.fabric_details?.name || zone.fabric,
+        saved: true 
+      };
       
-      const processed = data.map(zone => {
-        const zoneData = { 
-          ...zone, 
-          fabric: zone.fabric_details?.name || zone.fabric,
-          saved: true 
-        };
-        
-        if (zone.members_details?.length) {
-          console.log(`Zone ${zone.name} has ${zone.members_details.length} members`);
-          zone.members_details.forEach((member, idx) => {
-            zoneData[`member_${idx + 1}`] = member.name;
-          });
-        }
-        
-        return zoneData;
+      if (zone.members_details?.length) {
+        console.log(`Zone ${zone.name} has ${zone.members_details.length} members`);
+        zone.members_details.forEach((member, idx) => {
+          zoneData[`member_${idx + 1}`] = member.name;
+        });
+      }
+      
+      return zoneData;
+    });
+    
+    return processed;
+  };
+
+  // Custom save handler
+  const handleSave = async (unsavedData) => {
+    try {
+      const payload = unsavedData
+        .filter(zone => zone.id || (zone.name && zone.name.trim() !== ""))
+        .map(buildPayload);
+      
+      await axios.post(API_ENDPOINTS.zoneSave, { 
+        project_id: activeProjectId, 
+        zones: payload 
       });
       
-      return processed;
+      return { success: true, message: "Zones saved successfully! ✅" };
+    } catch (error) {
+      console.error("Error saving zones:", error);
+      return { 
+        success: false, 
+        message: `Error: ${error.response?.data?.message || error.message}` 
+      };
+    }
+  };
+
+  // Pre-save validation
+  const beforeSaveValidation = (data) => {
+    const invalidZone = data.find(zone => 
+      zone.name && zone.name.trim() !== "" && (!zone.fabric || zone.fabric.trim() === "")
+    );
+    
+    return invalidZone ? "Each zone must have a fabric selected" : true;
+  };
+
+  // Custom renderers
+  const customRenderers = {
+    name: (instance, td, row, col, prop, value) => {
+      const rowData = instance.getSourceDataAtRow(row);
+      td.innerHTML = rowData && rowData.id !== null && value ? 
+        `<strong>${value}</strong>` : 
+        value || "";
+      return td;
     },
-    // Custom renderers
-    customRenderers: {
-      name: (instance, td, row, col, prop, value) => {
-        const rowData = instance.getSourceDataAtRow(row);
-        td.innerHTML = rowData && rowData.id !== null && value ? 
-          `<strong>${value}</strong>` : 
-          value || "";
-        return td;
-      },
-      imported: (instance, td, row, col, prop, value) => {
-        td.innerText = value ? new Date(value).toLocaleString() : "";
-        return td;
-      },
-      updated: (instance, td, row, col, prop, value) => {
-        td.innerText = value ? new Date(value).toLocaleString() : "";
-        return td;
-      }
+    imported: (instance, td, row, col, prop, value) => {
+      td.innerText = value ? new Date(value).toLocaleString() : "";
+      return td;
     },
-    // Cell configuration for member dropdowns
-    getCellsConfig: (hot, row, col, prop) => {
-      if (col >= 8 && typeof prop === 'string' && prop.startsWith('member_')) {
-        const rowData = hot.getSourceDataAtRow(row);
-        if (!rowData) return {};
-        
-        const rowFabric = rowData.fabric_details?.name || rowData.fabric;
-        const currentValue = rowData[prop];
-        
-        // Find used aliases to exclude
-        const usedAliases = new Set();
-        hot.getSourceData().forEach((data, idx) => {
-          if (idx !== row) {
-            for (let i = 1; i <= memberColumns; i++) {
-              const val = data[`member_${i}`];
-              if (val) usedAliases.add(val);
-            }
-          }
-        });
-        
-        // Add used aliases from current row (except current cell)
-        for (let i = 1; i <= memberColumns; i++) {
-          if (`member_${i}` !== prop) {
-            const val = rowData[`member_${i}`];
+    updated: (instance, td, row, col, prop, value) => {
+      td.innerText = value ? new Date(value).toLocaleString() : "";
+      return td;
+    }
+  };
+
+  // Cell configuration for member dropdowns
+  const getCellsConfig = (hot, row, col, prop) => {
+    if (col >= 8 && typeof prop === 'string' && prop.startsWith('member_')) {
+      const rowData = hot.getSourceDataAtRow(row);
+      if (!rowData) return {};
+      
+      const rowFabric = rowData.fabric_details?.name || rowData.fabric;
+      const currentValue = rowData[prop];
+      
+      // Find used aliases to exclude
+      const usedAliases = new Set();
+      hot.getSourceData().forEach((data, idx) => {
+        if (idx !== row) {
+          for (let i = 1; i <= memberColumns; i++) {
+            const val = data[`member_${i}`];
             if (val) usedAliases.add(val);
           }
         }
-        
-        // Available aliases = matching fabric + include_in_zoning + not used elsewhere
-        return {
-          type: "dropdown",
-          source: memberOptions
-            .filter(alias => 
-              alias.fabric === rowFabric &&
-              alias.include_in_zoning === true &&
-              (!usedAliases.has(alias.name) || alias.name === currentValue)
-            )
-            .map(alias => alias.name)
-        };
-      }
-      return {};
-    },
-    // Prepare payload for saving
-    onBuildPayload: buildPayload, // Use the external function
-    // Custom save handler
-    onSave: async (unsavedData) => {
-      try {
-        const payload = unsavedData
-          .filter(zone => zone.id || (zone.name && zone.name.trim() !== ""))
-          .map(buildPayload); // Use the external function
-        
-        await axios.post(API_ENDPOINTS.zoneSave, { 
-          project_id: activeProjectId, 
-          zones: payload 
-        });
-        
-        return { success: true, message: "Zones saved successfully! ✅" };
-      } catch (error) {
-        console.error("Error saving zones:", error);
-        return { 
-          success: false, 
-          message: `Error: ${error.response?.data?.message || error.message}` 
-        };
-      }
-    },
-    // Pre-save validation
-    beforeSave: (data) => {
-      const invalidZone = data.find(zone => 
-        zone.name && zone.name.trim() !== "" && (!zone.fabric || zone.fabric.trim() === "")
-      );
+      });
       
-      return invalidZone ? "Each zone must have a fabric selected" : true;
+      // Add used aliases from current row (except current cell)
+      for (let i = 1; i <= memberColumns; i++) {
+        if (`member_${i}` !== prop) {
+          const val = rowData[`member_${i}`];
+          if (val) usedAliases.add(val);
+        }
+      }
+      
+      // Available aliases = matching fabric + include_in_zoning + not used elsewhere
+      return {
+        type: "dropdown",
+        source: memberOptions
+          .filter(alias => 
+            alias.fabric === rowFabric &&
+            alias.include_in_zoning === true &&
+            (!usedAliases.has(alias.name) || alias.name === currentValue)
+          )
+          .map(alias => alias.name)
+      };
     }
-  }), [memberColumns, fabricOptions, memberOptions, activeProjectId]);
+    return {};
+  };
+
+  // Dynamic columns and headers based on memberColumns
+  const colHeaders = useMemo(() => [
+    "Name", "Fabric", "Create", "Exists", "Zone Type", "Imported", "Updated", "Notes", 
+    ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)
+  ], [memberColumns]);
+
+  const columns = useMemo(() => [
+    { data: "name" },
+    { data: "fabric", type: "dropdown" },
+    { data: "create", type: "checkbox" },
+    { data: "exists", type: "checkbox" },
+    { data: "zone_type", type: "dropdown" },
+    { data: "imported", readOnly: true },
+    { data: "updated", readOnly: true },
+    { data: "notes" },
+    ...Array.from({ length: memberColumns }, (_, i) => ({ data: `member_${i + 1}` }))
+  ], [memberColumns]);
+
+  const dropdownSources = useMemo(() => ({
+    fabric: fabricOptions.map(f => f.name),
+    zone_type: ["smart", "standard"]
+  }), [fabricOptions]);
 
   // Load data
   useEffect(() => {
-    if (activeCustomerId) {
-      axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`)
-        .then(res => setFabricOptions(res.data.map(f => ({ id: f.id, name: f.name }))))
-        .catch(err => console.error("Error fetching fabrics:", err));
-    }
-    
-    if (activeProjectId) {
-      axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`)
-        .then(res => setMemberOptions(res.data.map(a => ({
-          id: a.id, name: a.name, fabric: a.fabric_details?.name, include_in_zoning: a.include_in_zoning
-        }))))
-        .catch(err => console.error("Error fetching aliases:", err));
-    }
+    const loadData = async () => {
+      try {
+        if (activeCustomerId) {
+          const fabricsResponse = await axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`);
+          setFabricOptions(fabricsResponse.data.map(f => ({ id: f.id, name: f.name })));
+        }
+        
+        if (activeProjectId) {
+          const aliasesResponse = await axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`);
+          setMemberOptions(aliasesResponse.data.map(a => ({
+            id: a.id, 
+            name: a.name, 
+            fabric: a.fabric_details?.name, 
+            include_in_zoning: a.include_in_zoning
+          })));
+        }
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, [activeCustomerId, activeProjectId]);
 
   if (!activeProjectId) {
     return <div className="alert alert-warning">No active project selected.</div>;
   }
 
+  if (loading) {
+    return <div className="alert alert-info">Loading fabrics and aliases...</div>;
+  }
+
   return (
     <div className="table-container">
       <GenericTable
-        getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Zone Table.csv`}
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}
         saveUrl={API_ENDPOINTS.zoneSave}
         deleteUrl={API_ENDPOINTS.zoneDelete}
         newRowTemplate={NEW_ZONE_TEMPLATE}
+        colHeaders={colHeaders}
+        columns={columns}
+        dropdownSources={dropdownSources}
+        customRenderers={customRenderers}
+        preprocessData={preprocessData}
+        onBuildPayload={buildPayload}
+        onSave={handleSave}
+        beforeSave={beforeSaveValidation}
+        getCellsConfig={getCellsConfig}
         storageKey="zoneTableColumnWidths"
-        {...tableConfig}
+        getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`}
         additionalButtons={
           <>
             <Button 

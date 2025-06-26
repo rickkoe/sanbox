@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import GenericTable from "./GenericTable";
-import { DropdownButton, Dropdown, Form } from "react-bootstrap";
 
 // All possible columns in the Volume model
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -69,45 +68,52 @@ const ALL_COLUMNS = [
   { data: "updated", title: "Updated" },
 ];
 
-// Default column selection
-const DEFAULT_VISIBLE = [
-  "name", "unique_id", "capacity_bytes", "used_capacity_bytes", "pool_name",
-  "thin_provisioned", "imported", "updated"
-];
+// Default column indices - matching the original DEFAULT_VISIBLE selection
+const DEFAULT_VISIBLE_INDICES = [1, 44, 7, 8, 39, 33, 56, 57]; // name, unique_id, capacity_bytes, used_capacity_bytes, pool_name, thin_provisioned, imported, updated
 
 const VolumeTable = ({ storage }) => {
-  const [visibleCols, setVisibleCols] = useState(() => {
+  const tableRef = useRef(null);
+  
+  // Column visibility state - using indices for GenericTable compatibility
+  const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
     const saved = localStorage.getItem("volumeTableColumns");
-    return saved ? JSON.parse(saved) : DEFAULT_VISIBLE;
+    if (saved) {
+      try {
+        const savedColumnNames = JSON.parse(saved);
+        // Convert saved column names to indices
+        const indices = savedColumnNames
+          .map(name => ALL_COLUMNS.findIndex(col => col.data === name))
+          .filter(index => index !== -1);
+        return indices.length > 0 ? indices : DEFAULT_VISIBLE_INDICES;
+      } catch (e) {
+        return DEFAULT_VISIBLE_INDICES;
+      }
+    }
+    return DEFAULT_VISIBLE_INDICES;
   });
 
-  const toggleCol = (col) => {
-    const updated = visibleCols.includes(col)
-      ? visibleCols.filter(c => c !== col)
-      : [...visibleCols, col];
-    setVisibleCols(updated);
-    localStorage.setItem("volumeTableColumns", JSON.stringify(updated));
+  // Save column selection when it changes
+  const updateColumnSelection = (newIndices) => {
+    setVisibleColumnIndices(newIndices);
+    // Convert indices back to column names for localStorage compatibility
+    const columnNames = newIndices.map(index => ALL_COLUMNS[index]?.data).filter(Boolean);
+    localStorage.setItem("volumeTableColumns", JSON.stringify(columnNames));
   };
 
-  const selectAll = () => {
-    const allCols = ALL_COLUMNS.map(col => col.data);
-    setVisibleCols(allCols);
-    localStorage.setItem("volumeTableColumns", JSON.stringify(allCols));
-  };
-
-  const selectDefault = () => {
-    setVisibleCols(DEFAULT_VISIBLE);
-    localStorage.setItem("volumeTableColumns", JSON.stringify(DEFAULT_VISIBLE));
-  };
-
-  const columns = ALL_COLUMNS.filter(col => visibleCols.includes(col.data));
-  const colHeaders = columns.map(col => col.title);
-
-  if (!storage) return <p>No storage system selected.</p>;
-
-  const apiUrl = storage.storage_system_id
-    ? `${API_URL}/api/storage/volumes/?storage_system_id=${storage.storage_system_id}`
-    : `${API_URL}/api/storage/volumes/?storage_system_id=0`;
+  // Compute displayed columns and headers
+  const { displayedColumns, displayedHeaders } = useMemo(() => {
+    const columns = visibleColumnIndices.map(index => {
+      const colConfig = ALL_COLUMNS[index];
+      return {
+        data: colConfig.data,
+        readOnly: colConfig.data === "imported" || colConfig.data === "updated"
+      };
+    });
+    
+    const headers = visibleColumnIndices.map(index => ALL_COLUMNS[index].title);
+    
+    return { displayedColumns: columns, displayedHeaders: headers };
+  }, [visibleColumnIndices]);
 
   const customRenderers = {
     name: (instance, td, row, col, prop, value) => {
@@ -126,29 +132,62 @@ const VolumeTable = ({ storage }) => {
     },
   };
 
+  // Process data for display
+  const preprocessData = (data) => {
+    return data.map(volume => ({
+      ...volume,
+      saved: true
+    }));
+  };
+
+  if (!storage) {
+    return (
+      <div className="alert alert-warning">
+        No storage system selected.
+      </div>
+    );
+  }
+
+  // Fixed API URL construction
+  const apiUrl = storage.storage_system_id
+    ? `${API_URL}/api/storage/volumes/?storage_system_id=${storage.storage_system_id}`
+    : `${API_URL}/api/storage/volumes/?storage_system_id=0`;
+
   return (
-    <>
+    <div className="table-container">
       <GenericTable
+        ref={tableRef}
         apiUrl={apiUrl}
-        saveUrl="${API_URL}/api/storage/volumes/"
-        deleteUrl="${API_URL}/api/storage/volumes/"
-        columns={columns}
-        colHeaders={colHeaders}
+        saveUrl={`${API_URL}/api/storage/volumes/`}
+        deleteUrl={`${API_URL}/api/storage/volumes/`}
+        colHeaders={displayedHeaders}
+        columns={displayedColumns}
+        customRenderers={customRenderers}
+        preprocessData={preprocessData}
         newRowTemplate={{}}
-        getExportFilename={() => "volumes_export.csv"}
-        // fixedColumnsLeft={1}
         columnSorting={true}
         filters={true}
         storageKey="volumeTableWidths"
-        customRenderers={customRenderers}
+        defaultVisibleColumns={visibleColumnIndices}
+        getExportFilename={() => `${storage.name || 'Storage'}_Volumes.csv`}
         additionalButtons={
           <>
-          {/* Your existing buttons */}
+            {storage && (
+              <div style={{ 
+                fontSize: '14px', 
+                color: '#666', 
+                padding: '8px 12px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '4px',
+                marginLeft: '10px'
+              }}>
+                Storage: <strong>{storage.name || storage.storage_system_id}</strong>
+              </div>
+            )}
           </>
         }
-
       />
-    </>
+    </div>
   );
 };
 

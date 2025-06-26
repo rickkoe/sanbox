@@ -1,15 +1,8 @@
-import React, { useEffect, useState, useRef, useContext } from "react";
+import React, { useState, useRef, useContext, useMemo } from "react";
 import axios from "axios";
-import { Button, DropdownButton, Dropdown, Form } from "react-bootstrap";
 import { ConfigContext } from "../../context/ConfigContext";
 import GenericTable from "./GenericTable";
 import { useNavigate } from "react-router-dom";
-import Handsontable from 'handsontable'; // <- Make sure this is here
-import { registerAllModules } from 'handsontable/registry';
-import 'handsontable/dist/handsontable.full.css';
-
-registerAllModules();
-window.Handsontable = Handsontable; // helpful for debugging
 
 // API endpoints
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -142,10 +135,12 @@ const ALL_STORAGE_COLUMNS = [
   { data: "imported", title: "Imported" },
   { data: "updated", title: "Updated" },
 ];
-const DEFAULT_STORAGE_VISIBLE = ALL_STORAGE_COLUMNS.map(col => col.data);
+
+// Default columns to show (first 13 from original config)
+const DEFAULT_VISIBLE_COLUMNS = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 85, 86]; // indices of default columns
 
 const StorageTable = () => {
-  const { config, setActiveStorageSystem } = useContext(ConfigContext);
+  const { config } = useContext(ConfigContext);
   const tableRef = useRef(null);
   const navigate = useNavigate();
   const [debug, setDebug] = useState(null);
@@ -153,253 +148,208 @@ const StorageTable = () => {
   // Get the customer ID from the config context
   const customerId = config?.customer?.id;
 
-  // Column picker state and handlers
-  const [visibleCols, setVisibleCols] = useState(() => {
+  // Column picker state - using indices for compatibility with GenericTable's column management
+  const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
     const saved = JSON.parse(localStorage.getItem("storageTableColumns"));
-    return saved || DEFAULT_STORAGE_VISIBLE;
+    return saved || DEFAULT_VISIBLE_COLUMNS;
   });
-  const toggleCol = (col) => {
-    const updated = visibleCols.includes(col)
-      ? visibleCols.filter(c => c !== col)
-      : [...visibleCols, col];
-    setVisibleCols(updated);
-    localStorage.setItem("storageTableColumns", JSON.stringify(updated));
-  };
-  const selectAll = () => {
-    setVisibleCols(DEFAULT_STORAGE_VISIBLE);
-    localStorage.setItem("storageTableColumns", JSON.stringify(DEFAULT_STORAGE_VISIBLE));
-  };
-  const selectDefault = () => {
-    // choose your default subset, here using first 8
-    const defs = DEFAULT_STORAGE_VISIBLE.slice(0, 8);
-    setVisibleCols(defs);
-    localStorage.setItem("storageTableColumns", JSON.stringify(defs));
+
+  // Compute dynamic columns and headers based on visible indices
+  const { displayedColumns, displayedHeaders } = useMemo(() => {
+    const columns = visibleColumnIndices.map(index => {
+      const colConfig = ALL_STORAGE_COLUMNS[index];
+      return {
+        data: colConfig.data,
+        type: colConfig.data === "storage_type" ? "dropdown" : undefined,
+        className: colConfig.data === "id" ? "htCenter" : undefined,
+        readOnly: colConfig.data === "imported" || colConfig.data === "updated"
+      };
+    });
+    
+    const headers = visibleColumnIndices.map(index => ALL_STORAGE_COLUMNS[index].title);
+    
+    return { displayedColumns: columns, displayedHeaders: headers };
+  }, [visibleColumnIndices]);
+
+  const dropdownSources = {
+    "storage_type": ["FlashSystem", "DS8000", "Switch", "Data Domain"]
   };
 
-  // Table configuration
-  const tableConfig = {
-    colHeaders: [
-      '<i class="fa fa-link"></i>',
-      "Name", "Type", "Location", "Machine Type", "Model", 
-      "Serial Number", "Storage System ID", "WWNN", "Firmware", "Primary IP",
-      "Imported",
-      "Updated"
-    ],
-    columns: [
-      { data: "id", className: "htCenter" },
-      { data: "name" },
-      { data: "storage_type", type: "dropdown" },
-      { data: "location" },
-      { data: "machine_type" },
-      { data: "model" },
-      { data: "serial_number" },
-      { data: "storage_system_id" },
-      { data: "wwnn" },
-      { data: "firmware_level" },
-      { data: "primary_ip" },
-      { data: "imported" },
-      { data: "updated" }
-    ],
-    dropdownSources: {
-      "storage_type": ["FlashSystem", "DS8000", "Switch", "Data Domain"]
+  // Process data for display
+  const preprocessData = (data) => {
+    return data.map(storage => ({
+      ...storage,
+      saved: true
+    }));
+  };
+
+  // Custom renderers
+  const customRenderers = {
+    name: (instance, td, row, col, prop, value) => {
+      const rowData = instance.getSourceDataAtRow(row);
+      td.innerText = value || "";
+      td.style.fontWeight = rowData?.saved ? "bold" : "normal";
+      return td;
     },
-    // Process data for display
-    preprocessData: (data) => {
-      return data.map(storage => ({
-        ...storage,
-        saved: true
-      }));
+    imported: (instance, td, row, col, prop, value) => {
+      td.innerText = value ? new Date(value).toLocaleString() : "";
+      return td;
     },
-    // Custom renderers
-    customRenderers: {
-      name: (instance, td, row, col, prop, value) => {
-        const rowData = instance.getSourceDataAtRow(row);
-        td.innerText = value || "";
-        td.style.fontWeight = rowData?.saved ? "bold" : "normal";
-        return td;
-      },
-      imported: (instance, td, row, col, prop, value) => {
-        td.innerText = value ? new Date(value).toLocaleString() : "";
-        return td;
-      },
-      updated: (instance, td, row, col, prop, value) => {
-        td.innerText = value ? new Date(value).toLocaleString() : "";
-        return td;
-      },
-      id: (instance, td, row, col, prop, value) => {
-        const rowData = instance.getSourceDataAtRow(row);
-        td.innerHTML = "";
-        td.style.textAlign = "center";
-        if (!rowData?.id) {
-          return td;
-        }
-        const link = document.createElement("a");
-        link.innerHTML = '<i class="fa fa-link"></i>';
-        link.href = "#";
-        link.title = "Properties";
-        link.style.cursor = "pointer";
-        link.onclick = (e) => {
-          e.preventDefault();
-          navigate(`/storage/${rowData.id}`);
-        };
-        td.appendChild(link);
+    updated: (instance, td, row, col, prop, value) => {
+      td.innerText = value ? new Date(value).toLocaleString() : "";
+      return td;
+    },
+    id: (instance, td, row, col, prop, value) => {
+      const rowData = instance.getSourceDataAtRow(row);
+      td.innerHTML = "";
+      td.style.textAlign = "center";
+      if (!rowData?.id) {
         return td;
       }
-    },
-    // Prepare payload for saving - inject customer ID
-    onBuildPayload: (row) => {
-      // Clean up payload
-      const payload = { ...row };
-      delete payload.saved;
-      
-      // Ensure required fields are present and non-empty
-      if (!payload.name || payload.name.trim() === "") {
-        payload.name = "Unnamed Storage"; // Default name to prevent validation error
-      }
-      
-      if (!payload.storage_type || payload.storage_type.trim() === "") {
-        payload.storage_type = "DS8000"; // Default type to prevent validation error
-      }
-      
-      // Add the customer ID from the context
-      payload.customer = customerId;
-      
-      // Convert empty strings to null for optional fields
-      Object.keys(payload).forEach(key => {
-        if (payload[key] === "" && key !== "name" && key !== "storage_type") {
-          payload[key] = null;
-        }
-      });
-      
-      console.log("Sending storage payload:", payload);
-      
-      return payload;
-    },
-    // Custom save handler with improved error handling
-    onSave: async (unsavedData) => {
-      try {
-        // Check if customer ID is available
-        if (!customerId) {
-          return { 
-            success: false, 
-            message: "No active customer selected. Please select a customer in configuration." 
-          };
-        }
-        
-        // Only include rows with data - skip completely empty rows
-        const payload = unsavedData
-          .filter(storage => {
-            // If it has an ID, include it
-            if (storage.id) return true;
-            
-            // For new rows, check if ANY field has data
-            const hasData = Object.entries(storage).some(([key, value]) => {
-              return key !== 'id' && key !== 'saved' && value && value.toString().trim() !== '';
-            });
-            
-            return hasData;
-          })
-          .map(tableConfig.onBuildPayload);
-        
-        // For debugging, store the payload we're sending
-        setDebug({ sending: payload });
-        
-        if (payload.length === 0) {
-          return { success: true, message: "No changes to save" };
-        }
-        
-        // Create an array to collect all errors
-        const errors = [];
-        
-        // For each storage item, send appropriate request
-        for (const storage of payload) {
-          try {
-            if (storage.id) {
-              // Update existing storage
-              await axios.put(`${API_ENDPOINTS.storage}${storage.id}/`, storage);
-            } else {
-              // Create new storage
-              const newStorage = { ...storage };
-              delete newStorage.id;
-              await axios.post(API_ENDPOINTS.storage, newStorage);
-            }
-          } catch (error) {
-            // Capture detailed error information
-            const errorDetails = {
-              id: storage.id || 'new',
-              name: storage.name,
-              error: error.response?.data || error.message
-            };
-            
-            console.error(`Error saving storage ${storage.name}:`, errorDetails);
-            errors.push(errorDetails);
-          }
-        }
-        
-        // If we encountered any errors
-        if (errors.length > 0) {
-          setDebug(prev => ({ ...prev, errors }));
-          
-          // Format a user-friendly error message
-          let errorMessage = `Error saving ${errors.length} storage items:`;
-          
-          errors.forEach(err => {
-            errorMessage += `\n- ${err.name || 'New item'}: `;
-            
-            if (typeof err.error === 'object') {
-              // Format field errors nicely
-              const fieldErrors = Object.entries(err.error)
-                .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
-                .join('; ');
-                
-              errorMessage += fieldErrors;
-            } else {
-              errorMessage += err.error;
-            }
-          });
-          
-          return { 
-            success: false, 
-            message: errorMessage
-          };
-        }
-        
-        return { success: true, message: "Storage saved successfully! ✅" };
-      } catch (error) {
-        console.error("General save error:", error);
-        return { 
-          success: false, 
-          message: `⚠️ Error: ${error.message}` 
-        };
-      }
-    },
-    // Pre-save validation
-    beforeSave: (data) => {
-      // Check if we have an active customer
-      if (!customerId) {
-        return "No active customer selected. Please select a customer in configuration.";
-      }
-      
-      // Validate storage type is selected for items with a name
-      const invalidStorage = data.find(storage => 
-        storage.name && storage.name.trim() !== "" && 
-        (!storage.storage_type || storage.storage_type.trim() === "")
-      );
-      
-      if (invalidStorage) {
-        return `Storage "${invalidStorage.name}" must have a storage type selected`;
-      }
-      
-      return true;
+      const link = document.createElement("a");
+      link.innerHTML = '<i class="fa fa-link"></i>';
+      link.href = "#";
+      link.title = "Properties";
+      link.style.cursor = "pointer";
+      link.onclick = (e) => {
+        e.preventDefault();
+        navigate(`/storage/${rowData.id}`);
+      };
+      td.appendChild(link);
+      return td;
     }
   };
 
-  // We need to also modify the API URL to filter by customer when loading
-  const apiUrl = customerId ? `${API_ENDPOINTS.storage}?customer=${customerId}` : API_ENDPOINTS.storage;
+  // Build payload function
+  const buildPayload = (row) => {
+    const payload = { ...row };
+    delete payload.saved;
+    
+    // Ensure required fields are present and non-empty
+    if (!payload.name || payload.name.trim() === "") {
+      payload.name = "Unnamed Storage";
+    }
+    
+    if (!payload.storage_type || payload.storage_type.trim() === "") {
+      payload.storage_type = "DS8000";
+    }
+    
+    // Add the customer ID from the context
+    payload.customer = customerId;
+    
+    // Convert empty strings to null for optional fields
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === "" && key !== "name" && key !== "storage_type") {
+        payload[key] = null;
+      }
+    });
+    
+    return payload;
+  };
 
-  // Compute dynamic columns and headers
-  const displayedColumns = ALL_STORAGE_COLUMNS.filter(col => visibleCols.includes(col.data));
-  const displayedHeaders = displayedColumns.map(col => col.title);
+  // Custom save handler
+  const handleSave = async (unsavedData) => {
+    try {
+      if (!customerId) {
+        return { 
+          success: false, 
+          message: "No active customer selected. Please select a customer in configuration." 
+        };
+      }
+      
+      const payload = unsavedData
+        .filter(storage => {
+          if (storage.id) return true;
+          const hasData = Object.entries(storage).some(([key, value]) => {
+            return key !== 'id' && key !== 'saved' && value && value.toString().trim() !== '';
+          });
+          return hasData;
+        })
+        .map(buildPayload);
+      
+      setDebug({ sending: payload });
+      
+      if (payload.length === 0) {
+        return { success: true, message: "No changes to save" };
+      }
+      
+      const errors = [];
+      
+      for (const storage of payload) {
+        try {
+          if (storage.id) {
+            await axios.put(`${API_ENDPOINTS.storage}${storage.id}/`, storage);
+          } else {
+            const newStorage = { ...storage };
+            delete newStorage.id;
+            await axios.post(API_ENDPOINTS.storage, newStorage);
+          }
+        } catch (error) {
+          const errorDetails = {
+            id: storage.id || 'new',
+            name: storage.name,
+            error: error.response?.data || error.message
+          };
+          
+          console.error(`Error saving storage ${storage.name}:`, errorDetails);
+          errors.push(errorDetails);
+        }
+      }
+      
+      if (errors.length > 0) {
+        setDebug(prev => ({ ...prev, errors }));
+        
+        let errorMessage = `Error saving ${errors.length} storage items:`;
+        
+        errors.forEach(err => {
+          errorMessage += `\n- ${err.name || 'New item'}: `;
+          
+          if (typeof err.error === 'object') {
+            const fieldErrors = Object.entries(err.error)
+              .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+              .join('; ');
+              
+            errorMessage += fieldErrors;
+          } else {
+            errorMessage += err.error;
+          }
+        });
+        
+        return { 
+          success: false, 
+          message: errorMessage
+        };
+      }
+      
+      return { success: true, message: "Storage saved successfully! ✅" };
+    } catch (error) {
+      console.error("General save error:", error);
+      return { 
+        success: false, 
+        message: `⚠️ Error: ${error.message}` 
+      };
+    }
+  };
+
+  // Pre-save validation
+  const beforeSaveValidation = (data) => {
+    if (!customerId) {
+      return "No active customer selected. Please select a customer in configuration.";
+    }
+    
+    const invalidStorage = data.find(storage => 
+      storage.name && storage.name.trim() !== "" && 
+      (!storage.storage_type || storage.storage_type.trim() === "")
+    );
+    
+    if (invalidStorage) {
+      return `Storage "${invalidStorage.name}" must have a storage type selected`;
+    }
+    
+    return true;
+  };
+
+  const apiUrl = customerId ? `${API_ENDPOINTS.storage}?customer=${customerId}` : API_ENDPOINTS.storage;
 
   if (!customerId) {
     return (
@@ -412,26 +362,34 @@ const StorageTable = () => {
   return (
     <div className="table-container">
       <GenericTable
-        {...tableConfig}
-        getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Storage Table.csv`}
         ref={tableRef}
-        licenseKey="non-commercial-and-evaluation"
-
         apiUrl={apiUrl}
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
+        colHeaders={displayedHeaders}
+        columns={displayedColumns}
+        dropdownSources={dropdownSources}
+        customRenderers={customRenderers}
+        preprocessData={preprocessData}
+        onBuildPayload={buildPayload}
+        onSave={handleSave}
+        beforeSave={beforeSaveValidation}
         fixedColumnsLeft={1}
         columnSorting={true}
         filters={true}       
         dropdownMenu={true}
-        storageKey="zoneTableColumnWidths"
-        colHeaders={displayedHeaders}
-        columns={displayedColumns}
+        storageKey="storageTableColumnWidths"
+        defaultVisibleColumns={visibleColumnIndices}
+        getExportFilename={() => `${config?.customer?.name}_Storage_Table.csv`}
         additionalButtons={
-        <>
-        {/* Your existing buttons */}
-        </>
+          <>
+            {debug && (
+              <div style={{ fontSize: '12px', color: '#666', marginLeft: '10px' }}>
+                Debug: {JSON.stringify(debug, null, 2)}
+              </div>
+            )}
+          </>
         }
       />
     </div>
