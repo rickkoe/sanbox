@@ -457,16 +457,12 @@ const GenericTable = forwardRef(({
               viewportColumnRenderingOffset={30}
               preventOverflow={false}
               afterInit={() => {
-                console.log("Handsontable initialized successfully");
-                // Force a layout recalculation after init
+                // Force a layout recalculation after init for cross-browser compatibility
                 if (tableRef.current?.hotInstance) {
                   setTimeout(() => {
                     tableRef.current.hotInstance.render();
                   }, 0);
                 }
-              }}
-              afterLoadData={() => {
-                console.log("Handsontable data loaded successfully");
               }}
             />
           </div>
