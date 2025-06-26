@@ -5,7 +5,6 @@ import axios from "axios";
 import Handsontable from 'handsontable';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
-import './GenericTable.css';
 
 // Import sub-components
 import TableHeader from './components/TableHeader';
@@ -63,6 +62,7 @@ const GenericTable = forwardRef(({
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [showCustomFilter, setShowCustomFilter] = useState(false);
+  const [isTableReady, setIsTableReady] = useState(false); // Add this state
   
   const tableRef = useRef(null);
   const containerRef = useRef(null);
@@ -83,7 +83,7 @@ const GenericTable = forwardRef(({
     performQuickSearch
   } = useTableData(apiUrl, newRowTemplate, preprocessData, columns);
 
-  // Effect to handle initial data loading
+  // Effect to handle initial data loading and table readiness
   useEffect(() => {
     if (apiUrl) {
       console.log("GenericTable: Starting data fetch for URL:", apiUrl);
@@ -91,6 +91,10 @@ const GenericTable = forwardRef(({
         .then(() => {
           console.log("GenericTable: Data fetch completed successfully");
           setLoading(false);
+          // Add a small delay to ensure DOM is ready for Handsontable
+          setTimeout(() => {
+            setIsTableReady(true);
+          }, 100);
         })
         .catch((error) => {
           console.error("GenericTable: Data fetch failed:", error);
@@ -100,6 +104,9 @@ const GenericTable = forwardRef(({
     } else {
       console.log("GenericTable: No API URL provided");
       setLoading(false);
+      setTimeout(() => {
+        setIsTableReady(true);
+      }, 100);
     }
   }, [apiUrl]);
 
@@ -407,8 +414,15 @@ const GenericTable = forwardRef(({
               <span>Loading data...</span>
             </div>
           </div>
+        ) : !isTableReady ? (
+          <div className="loading-container">
+            <div className="loading-content">
+              <div className="spinner large"></div>
+              <span>Initializing table...</span>
+            </div>
+          </div>
         ) : (
-          <div className="table-wrapper">
+          <div className="table-wrapper" style={{ position: 'relative', width: '100%' }}>
             <HotTable
               ref={tableRef}
               data={unsavedData}
@@ -420,6 +434,7 @@ const GenericTable = forwardRef(({
               filters={filters}
               dropdownMenu={dropdownMenu}
               width="100%"
+              height="auto"
               afterChange={handleAfterChange}
               afterSelection={(r, c, r2, c2) => updateSelectedCount()}
               afterDeselect={() => setSelectedCount(0)}
@@ -441,6 +456,18 @@ const GenericTable = forwardRef(({
               viewportRowRenderingOffset={30}
               viewportColumnRenderingOffset={30}
               preventOverflow={false}
+              afterInit={() => {
+                console.log("Handsontable initialized successfully");
+                // Force a layout recalculation after init
+                if (tableRef.current?.hotInstance) {
+                  setTimeout(() => {
+                    tableRef.current.hotInstance.render();
+                  }, 0);
+                }
+              }}
+              afterLoadData={() => {
+                console.log("Handsontable data loaded successfully");
+              }}
             />
           </div>
         )}
