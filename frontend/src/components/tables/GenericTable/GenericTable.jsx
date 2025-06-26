@@ -422,7 +422,7 @@ const GenericTable = forwardRef(({
             </div>
           </div>
         ) : (
-          <div className="table-wrapper" style={{ position: 'relative', width: '100%' }}>
+          <div className="table-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
             <HotTable
               ref={tableRef}
               data={unsavedData}
@@ -434,7 +434,7 @@ const GenericTable = forwardRef(({
               filters={filters}
               dropdownMenu={dropdownMenu}
               width="100%"
-              height="auto"
+              height={height}
               afterChange={handleAfterChange}
               afterSelection={(r, c, r2, c2) => updateSelectedCount()}
               afterDeselect={() => setSelectedCount(0)}
