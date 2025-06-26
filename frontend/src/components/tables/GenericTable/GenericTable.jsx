@@ -12,9 +12,11 @@ import StatusMessage from './components/StatusMessage';
 import DeleteModal from './components/DeleteModal';
 import NavigationModal from './components/NavigationModal';
 import ScrollButtons from './components/ScrollButtons';
+import TablePagination from './components/TablePagination';
 import { useTableData } from './hooks/useTableData';
 import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
+import { usePagination } from './hooks/usePagination';
 import { createContextMenu } from './utils/contextMenu';
 import CustomTableFilter from './components/CustomTableFilter';
 
@@ -47,7 +49,11 @@ const GenericTable = forwardRef(({
   storageKey,
   height = "calc(100vh - 200px)",
   getExportFilename,
-  defaultVisibleColumns = [] 
+  defaultVisibleColumns = [],
+  // Pagination props
+  enablePagination = true,
+  defaultPageSize = 100,
+  pageSizeOptions = [50, 100, 500, "All"]
 }, ref) => {
   
   // Core state
@@ -121,6 +127,16 @@ const GenericTable = forwardRef(({
     toggleAllColumns,
     isRequiredColumn
   } = useTableColumns(columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources);
+
+  // Pagination hook - use filtered data for pagination
+  const pagination = usePagination(
+    unsavedData, 
+    defaultPageSize, 
+    storageKey ? `${storageKey}_pagination` : null
+  );
+
+  // Use paginated data for the table display
+  const displayData = enablePagination ? pagination.paginatedData : unsavedData;
 
   // Context menu handler - define this first
   const handleAfterContextMenu = (key, selection) => {
@@ -252,6 +268,11 @@ const GenericTable = forwardRef(({
       const searchResults = performQuickSearch(originalData, quickSearch);
       const dataWithBlankRow = ensureBlankRow(searchResults);
       setUnsavedData(dataWithBlankRow);
+      
+      // Reset pagination when search changes
+      if (enablePagination) {
+        pagination.resetPagination();
+      }
     }
   }, [quickSearch, originalData]);
 
@@ -300,6 +321,11 @@ const GenericTable = forwardRef(({
     const searchResults = quickSearch ? performQuickSearch(filteredData, quickSearch) : filteredData;
     const dataWithBlankRow = ensureBlankRow(searchResults);
     setUnsavedData(dataWithBlankRow);
+    
+    // Reset pagination when filter changes
+    if (enablePagination) {
+      pagination.resetPagination();
+    }
   };
 
   // Column resize handler
@@ -365,7 +391,7 @@ const GenericTable = forwardRef(({
   };
 
   return (
-    <div className="modern-table-container">
+    <div className={`modern-table-container ${enablePagination ? 'with-pagination' : ''}`}>
       <TableHeader
         loading={loading}
         isDirty={isDirty}
@@ -388,6 +414,7 @@ const GenericTable = forwardRef(({
         showCustomFilter={showCustomFilter}
         setShowCustomFilter={setShowCustomFilter}
         additionalButtons={additionalButtons}
+        pagination={enablePagination ? pagination : null}
       />
 
       <StatusMessage saveStatus={saveStatus} />
@@ -425,7 +452,7 @@ const GenericTable = forwardRef(({
           <div className="table-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
             <HotTable
               ref={tableRef}
-              data={unsavedData}
+              data={displayData}
               colHeaders={visibleColHeaders}
               columns={enhancedColumns}
               licenseKey="non-commercial-and-evaluation"
@@ -476,6 +503,19 @@ const GenericTable = forwardRef(({
           scrollToBottom={scrollToBottom}
         />
       </div>
+
+      {/* Pagination */}
+      {enablePagination && (
+        <TablePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          totalRows={pagination.totalRows}
+          onPageChange={pagination.handlePageChange}
+          onPageSizeChange={pagination.handlePageSizeChange}
+          pageSizeOptions={pageSizeOptions}
+        />
+      )}
 
       <DeleteModal
         show={showDeleteModal}

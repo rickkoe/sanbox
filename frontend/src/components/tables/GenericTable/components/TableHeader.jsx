@@ -25,7 +25,8 @@ const TableHeader = ({
   selectedCount,
   showCustomFilter,
   setShowCustomFilter,
-  additionalButtons
+  additionalButtons,
+  pagination = null
 }) => {
   return (
     <div className="modern-table-header">
@@ -93,12 +94,14 @@ const TableHeader = ({
           setQuickSearch={setQuickSearch}
         />
         
+        
         <StatsContainer
           unsavedData={unsavedData}
           hasNonEmptyValues={hasNonEmptyValues}
           selectedCount={selectedCount}
           quickSearch={quickSearch}
           isDirty={isDirty}
+          pagination={pagination}
         />
       </div>
     </div>

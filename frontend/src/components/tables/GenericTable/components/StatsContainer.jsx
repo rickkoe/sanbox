@@ -1,17 +1,39 @@
 import React from 'react';
 
-const StatsContainer = ({ unsavedData, hasNonEmptyValues, selectedCount, quickSearch, isDirty }) => {
+const StatsContainer = ({ 
+  unsavedData, 
+  hasNonEmptyValues, 
+  selectedCount, 
+  quickSearch, 
+  isDirty,
+  pagination = null 
+}) => {
+  const totalRows = unsavedData.filter(row => hasNonEmptyValues(row)).length;
+  const displayedRows = pagination ? pagination.paginatedData.filter(row => hasNonEmptyValues(row)).length : totalRows;
+
   return (
     <div className="stats-container">
       <div className="stat-item">
         <span className="stat-label">Total</span>
-        <span className="stat-value">{unsavedData.filter(row => hasNonEmptyValues(row)).length}</span>
+        <span className="stat-value">{totalRows}</span>
       </div>
+      
+      {pagination && pagination.pageSize !== "All" && (
+        <>
+          <div className="stat-divider"></div>
+          <div className="stat-item">
+            <span className="stat-label">Showing</span>
+            <span className="stat-value">{displayedRows}</span>
+          </div>
+        </>
+      )}
+      
       <div className="stat-divider"></div>
       <div className="stat-item">
         <span className="stat-label">Selected</span>
         <span className="stat-value">{selectedCount}</span>
       </div>
+      
       {quickSearch && (
         <>
           <div className="stat-divider"></div>
@@ -24,6 +46,7 @@ const StatsContainer = ({ unsavedData, hasNonEmptyValues, selectedCount, quickSe
           </div>
         </>
       )}
+      
       {isDirty && (
         <>
           <div className="stat-divider"></div>
