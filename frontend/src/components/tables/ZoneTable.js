@@ -274,9 +274,8 @@ const ZoneTable = () => {
                 // Reset animation after a short delay
                 setTimeout(() => {
                   setIsAddingColumn(false);
-                }, 600);
+                }, 1);
               }}
-              disabled={isAddingColumn} // Prevent spam clicking during animation
             >
               <span className="button-icon">
                 {isAddingColumn ? (
