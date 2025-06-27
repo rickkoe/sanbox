@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import GenericTable from "./GenericTable";
+import axios from "axios";
 
 const CustomerTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
@@ -46,6 +47,57 @@ const CustomerTable = () => {
         }
     };
 
+    const handleSave = async (unsavedData) => {
+    try {
+        const errors = [];
+        const successes = [];
+        
+        for (const customer of unsavedData) {
+            try {
+                const payload = { ...customer };
+                delete payload.saved;
+                delete payload._isNew;
+                
+                if (customer.id) {
+                    // Update existing customer
+                    await axios.put(`${API_URL}/api/customers/${customer.id}/`, payload);
+                    successes.push(`Updated ${customer.name}`);
+                } else {
+                    // Create new customer
+                    delete payload.id;
+                    await axios.post(`${API_URL}/api/customers/`, payload);
+                    successes.push(`Created ${customer.name}`);
+                }
+            } catch (error) {
+                console.error('Error saving customer:', error.response?.data);
+                errors.push({
+                    customer: customer.name || 'New Customer',
+                    error: error.response?.data || error.message
+                });
+            }
+        }
+        
+        if (errors.length > 0) {
+            const errorMessages = errors.map(e => `${e.customer}: ${JSON.stringify(e.error)}`).join('\n');
+            return { 
+                success: false, 
+                message: `Errors saving customers:\n${errorMessages}` 
+            };
+        }
+        
+        return { 
+            success: true, 
+            message: successes.length > 0 ? successes.join(', ') : 'No changes to save' 
+        };
+    } catch (error) {
+        console.error('General save error:', error);
+        return { 
+            success: false, 
+            message: `Error: ${error.message}` 
+        };
+    }
+};
+
     return (
         <div className="table-container">
             <GenericTable
@@ -57,6 +109,7 @@ const CustomerTable = () => {
                 colHeaders={colHeaders}
                 columns={columns}
                 customRenderers={customRenderers}
+                onSave={handleSave}
                 fixedColumnsLeft={2}
                 columnSorting={true}
                 filters={true}

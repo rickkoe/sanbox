@@ -1,4 +1,5 @@
 import React, { useRef, useContext } from "react";
+import axios from "axios";
 import GenericTable from "./GenericTable";
 import { ConfigContext } from "../../context/ConfigContext";
 
@@ -82,16 +83,71 @@ const FabricTable = () => {
         }));
     };
 
+    // Custom save handler
+    const handleSave = async (unsavedData) => {
+        try {
+            const errors = [];
+            const successes = [];
+            
+            for (const fabric of unsavedData) {
+                try {
+                    const payload = { ...fabric };
+                    delete payload.saved;
+                    delete payload._isNew;
+                    
+                    // Apply the same transformations as saveTransform
+                    payload.customer = config?.customer?.id;
+                    payload.san_vendor = vendorOptions.find(v => v.name === payload.san_vendor || v.code === payload.san_vendor)?.code || payload.san_vendor;
+                    payload.vsan = payload.vsan === "" ? null : payload.vsan;
+                    
+                    if (fabric.id) {
+                        // Update existing fabric
+                        await axios.put(`${API_URL}/api/san/fabrics/${fabric.id}/`, payload);
+                        successes.push(`Updated ${fabric.name}`);
+                    } else {
+                        // Create new fabric
+                        delete payload.id;
+                        await axios.post(`${API_URL}/api/san/fabrics/`, payload);
+                        successes.push(`Created ${fabric.name}`);
+                    }
+                } catch (error) {
+                    console.error('Error saving fabric:', error.response?.data);
+                    errors.push({
+                        fabric: fabric.name || 'New Fabric',
+                        error: error.response?.data || error.message
+                    });
+                }
+            }
+            
+            if (errors.length > 0) {
+                const errorMessages = errors.map(e => `${e.fabric}: ${JSON.stringify(e.error)}`).join('\n');
+                return { 
+                    success: false, 
+                    message: `Errors saving fabrics:\n${errorMessages}` 
+                };
+            }
+            
+            return { 
+                success: true, 
+                message: successes.length > 0 ? successes.join(', ') : 'No changes to save' 
+            };
+        } catch (error) {
+            console.error('General save error:', error);
+            return { 
+                success: false, 
+                message: `Error: ${error.message}` 
+            };
+        }
+    };
+
     const customerId = config?.customer?.id;
-    const apiUrl = customerId
-        ? `${fabricsApiUrl}?customer_id=${customerId}`
-        : fabricsApiUrl;
 
     return (
         <div className="table-container">
             <GenericTable
                 ref={tableRef}
-                apiUrl={apiUrl}
+                apiUrl={fabricsApiUrl}
+                apiParams={customerId ? { customer_id: customerId } : {}}
                 saveUrl={fabricsApiUrl}
                 deleteUrl={fabricDeleteApiUrl}
                 newRowTemplate={NEW_FABRIC_TEMPLATE}
@@ -100,6 +156,7 @@ const FabricTable = () => {
                 customRenderers={customRenderers}
                 preprocessData={preprocessData}
                 saveTransform={saveTransform}
+                onSave={handleSave}
                 dropdownSources={dropdownSources}
                 filters={true}
                 dropdownMenu={true}

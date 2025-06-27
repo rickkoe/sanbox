@@ -24,6 +24,7 @@ registerAllModules();
 
 const GenericTable = forwardRef(({
   apiUrl,
+  apiParams = {}, // Add this prop
   saveUrl,
   deleteUrl,
   saveTransform,
@@ -44,6 +45,7 @@ const GenericTable = forwardRef(({
   dropdownMenu = false,
   beforeSave,
   afterSave,
+  afterChange, // Add this prop
   additionalButtons,
   storageKey,
   height = "calc(100vh - 200px)",
@@ -52,7 +54,8 @@ const GenericTable = forwardRef(({
   // Pagination props
   enablePagination = true,
   defaultPageSize = 100,
-  pageSizeOptions = [50, 100, 500, "All"]
+  pageSizeOptions = [50, 100, 500, "All"],
+  serverSidePagination = true // Add this back with a default
 }, ref) => {
   
   // Core state
@@ -74,25 +77,95 @@ const GenericTable = forwardRef(({
   const tableRef = useRef(null);
   const containerRef = useRef(null);
 
-  // Server-side pagination hook
-  const {
-    data,
-    loading: dataLoading,
-    currentPage,
-    totalPages,
-    totalCount,
-    pageSize,
-    searchTerm,
-    handlePageChange,
-    handlePageSizeChange,
-    handleSearch,
-    refresh,
-    resetPagination
-  } = useServerPagination(
-    apiUrl,
+  // State for client-side data when not using server pagination
+  const [clientData, setClientData] = useState([]);
+  const [clientLoading, setClientLoading] = useState(true);
+
+  // Fetch data for client-side mode
+  useEffect(() => {
+    if (!serverSidePagination && apiUrl) {
+      setClientLoading(true);
+      axios.get(apiUrl)
+        .then(response => {
+          const responseData = response.data;
+          // Handle both array and paginated responses
+          const dataArray = Array.isArray(responseData) ? responseData : responseData.results || [];
+          setClientData(dataArray);
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+          setClientData([]);
+        })
+        .finally(() => {
+          setClientLoading(false);
+        });
+    }
+  }, [apiUrl, serverSidePagination]);
+
+  // Always call the hook, but pass null URL if not needed
+  const serverPaginationResult = useServerPagination(
+    serverSidePagination ? apiUrl : null,
     defaultPageSize,
-    storageKey ? `${storageKey}_server` : null
+    storageKey ? `${storageKey}_server` : null,
+    apiParams // Pass the apiParams to the hook
   );
+
+  // Choose data source based on pagination mode
+  const rawData = serverSidePagination ? serverPaginationResult.data : clientData;
+  const dataLoading = serverSidePagination ? serverPaginationResult.loading : clientLoading;
+
+  // Process data if preprocessor is provided
+  const data = React.useMemo(() => {
+    if (!rawData) return [];
+    
+    // Ensure we have an array
+    let dataArray = rawData;
+    if (rawData.results && Array.isArray(rawData.results)) {
+      dataArray = rawData.results;
+    } else if (!Array.isArray(rawData)) {
+      console.error('Unexpected data format:', rawData);
+      return [];
+    }
+    
+    const processed = preprocessData ? preprocessData(dataArray) : dataArray;
+    
+    // Add blank row for new entries if we have a template
+    if (newRowTemplate && processed && processed.length >= 0) {
+      const hasEmptyRow = processed.length === 0 || 
+        (processed[processed.length - 1] && !processed[processed.length - 1].id);
+      
+      if (!hasEmptyRow) {
+        // Initialize the blank row with default values
+        const blankRow = { 
+          ...newRowTemplate, 
+          saved: false,
+          _isNew: true  // Internal flag to identify new rows
+        };
+        processed.push(blankRow);
+      }
+    }
+    
+    return processed || [];
+  }, [rawData, preprocessData, serverSidePagination, newRowTemplate]);
+
+  // Refresh function
+  const refresh = serverSidePagination ? serverPaginationResult.refresh : () => {
+    if (apiUrl) {
+      setClientLoading(true);
+      axios.get(apiUrl)
+        .then(response => {
+          const responseData = response.data;
+          const dataArray = Array.isArray(responseData) ? responseData : responseData.results || [];
+          setClientData(dataArray);
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+        })
+        .finally(() => {
+          setClientLoading(false);
+        });
+    }
+  };
 
   // Column management
   const {
@@ -106,6 +179,17 @@ const GenericTable = forwardRef(({
     toggleAllColumns,
     isRequiredColumn
   } = useTableColumns(columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources);
+
+  // Debug column creation
+  useEffect(() => {
+    console.log('Column debug:', {
+      columns: columns?.length,
+      colHeaders: colHeaders?.length,
+      visibleColumns: Object.keys(visibleColumns || {}),
+      enhancedColumns: createVisibleColumns()?.length,
+      data: data?.length
+    });
+  }, [columns, colHeaders, visibleColumns, data, createVisibleColumns]);
 
   // Table operations
   const {
@@ -142,28 +226,42 @@ const GenericTable = forwardRef(({
 
   // Effect to handle table readiness
   useEffect(() => {
-    if (data && data.length >= 0) {
-      setTimeout(() => {
-        setIsTableReady(true);
-      }, 100);
-    }
-  }, [data]);
+    // Set table ready after a short delay, regardless of data
+    const timer = setTimeout(() => {
+      setIsTableReady(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Current visible columns and headers
   const enhancedColumns = createVisibleColumns();
   const visibleColHeaders = createVisibleHeaders();
 
   // Pagination object
-  const pagination = {
+  const pagination = serverSidePagination ? {
     paginatedData: data,
-    currentPage,
-    totalPages,
-    totalRows: totalCount,
-    pageSize,
-    handlePageChange,
-    handlePageSizeChange,
-    resetPagination
+    currentPage: serverPaginationResult.currentPage,
+    totalPages: serverPaginationResult.totalPages,
+    totalRows: serverPaginationResult.totalCount,
+    pageSize: serverPaginationResult.pageSize,
+    handlePageChange: serverPaginationResult.handlePageChange,
+    handlePageSizeChange: serverPaginationResult.handlePageSizeChange,
+    resetPagination: serverPaginationResult.resetPagination
+  } : {
+    // Client-side pagination
+    paginatedData: data, // For now, show all data
+    currentPage: 1,
+    totalPages: 1,
+    totalRows: data.length,
+    pageSize: data.length,
+    handlePageChange: () => {},
+    handlePageSizeChange: () => {},
+    resetPagination: () => {}
   };
+
+  // Extract values for the table pagination component
+  const { currentPage, totalPages, pageSize, totalRows: totalCount, handlePageChange, handlePageSizeChange } = pagination;
 
   // Context menu handler
   const handleAfterContextMenu = (key, selection) => {
@@ -227,23 +325,41 @@ const GenericTable = forwardRef(({
   const handleAfterChange = (changes, source) => {
     if (source === "loadData" || !changes) return;
     
-    // Track changes for optimistic updates
+    // Call custom afterChange if provided
+    if (afterChange) {
+      afterChange(changes, source);
+    }
+    
+    // Track changes for both existing and new rows
     const newModifiedRows = { ...modifiedRows };
+    let hasChanges = false;
     
     changes.forEach(([row, prop, oldValue, newValue]) => {
       if (oldValue !== newValue) {
         const rowData = data[row];
-        if (rowData && rowData.id) {
-          if (!newModifiedRows[rowData.id]) {
-            newModifiedRows[rowData.id] = { ...rowData };
+        if (rowData) {
+          // For new rows (no id), use a temporary key
+          const rowKey = rowData.id || `new_${row}`;
+          
+          if (!newModifiedRows[rowKey]) {
+            newModifiedRows[rowKey] = { ...rowData };
           }
-          newModifiedRows[rowData.id][prop] = newValue;
+          newModifiedRows[rowKey][prop] = newValue;
+          
+          // Update the data array directly for new rows
+          if (!rowData.id) {
+            data[row][prop] = newValue;
+          }
+          
+          hasChanges = true;
         }
       }
     });
     
-    setModifiedRows(newModifiedRows);
-    setIsDirty(Object.keys(newModifiedRows).length > 0);
+    if (hasChanges) {
+      setModifiedRows(newModifiedRows);
+      setIsDirty(true);
+    }
   };
 
   // Filter change handler
@@ -314,32 +430,83 @@ const GenericTable = forwardRef(({
 
   // Save modified rows
   const handleSaveModifiedRows = async () => {
-    if (!isDirty || Object.keys(modifiedRows).length === 0) return;
+    if (!isDirty) return;
     
     setLoading(true);
     setSaveStatus("Saving changes...");
     
     try {
-      const payload = Object.values(modifiedRows);
+      // Get current table data to include new rows
+      const hot = tableRef.current?.hotInstance;
+      if (!hot) {
+        throw new Error("Table instance not found");
+      }
+      
+      const allData = hot.getSourceData();
+      
+      // Separate new rows from modified existing rows
+      const newRows = [];
+      const modifiedExistingRows = [];
+      
+      allData.forEach((row, index) => {
+        const rowKey = row.id || `new_${index}`;
+        
+        // Check if this is a new row with data
+        if (!row.id && modifiedRows[rowKey]) {
+          // Check if the row has any non-empty values
+          const hasData = Object.entries(modifiedRows[rowKey]).some(([key, value]) => {
+            return key !== 'id' && key !== 'saved' && value && value.toString().trim() !== '';
+          });
+          
+          if (hasData) {
+            newRows.push(modifiedRows[rowKey]);
+          }
+        }
+        // Check if this is a modified existing row
+        else if (row.id && modifiedRows[row.id]) {
+          modifiedExistingRows.push(modifiedRows[row.id]);
+        }
+      });
+      
+      const payload = [...newRows, ...modifiedExistingRows];
+      
+      if (payload.length === 0) {
+        setSaveStatus("No changes to save");
+        setLoading(false);
+        return;
+      }
       
       if (beforeSave) {
-        await beforeSave(payload);
+        const validationResult = await beforeSave(payload);
+        if (validationResult !== true) {
+          setSaveStatus(validationResult);
+          setLoading(false);
+          return;
+        }
       }
       
       if (onSave) {
-        await onSave(payload);
+        const result = await onSave(payload);
+        if (result.success) {
+          setSaveStatus(result.message);
+          setModifiedRows({});
+          setIsDirty(false);
+          refresh(); // Refresh data from server
+        } else {
+          setSaveStatus(result.message);
+        }
       } else if (saveUrl) {
+        // Default save behavior
         await axios.post(saveUrl, payload);
+        setSaveStatus("Changes saved successfully!");
+        setModifiedRows({});
+        setIsDirty(false);
+        refresh();
       }
       
       if (afterSave) {
         await afterSave(payload);
       }
-      
-      setSaveStatus("Changes saved successfully!");
-      setModifiedRows({});
-      setIsDirty(false);
-      refresh(); // Refresh data from server
     } catch (error) {
       setSaveStatus(`Save failed: ${error.response?.data?.message || error.message}`);
     } finally {
@@ -347,6 +514,8 @@ const GenericTable = forwardRef(({
       setTimeout(() => setSaveStatus(""), 3000);
     }
   };
+
+  
 
   return (
     <div className={`modern-table-container ${enablePagination ? 'with-pagination' : ''}`}>
@@ -364,8 +533,8 @@ const GenericTable = forwardRef(({
         toggleColumnVisibility={toggleColumnVisibility}
         toggleAllColumns={toggleAllColumns}
         isRequiredColumn={isRequiredColumn}
-        quickSearch={searchTerm}
-        setQuickSearch={handleSearch}
+        quickSearch={serverSidePagination ? serverPaginationResult.searchTerm : ''}
+        setQuickSearch={serverSidePagination ? serverPaginationResult.handleSearch : () => {}}
         unsavedData={data}
         hasNonEmptyValues={(row) => row && Object.keys(row).length > 0}
         selectedCount={selectedCount}
@@ -410,7 +579,7 @@ const GenericTable = forwardRef(({
           <div className="table-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
             <HotTable
               ref={tableRef}
-              data={data}
+              data={data || []}
               colHeaders={visibleColHeaders}
               columns={enhancedColumns}
               licenseKey="non-commercial-and-evaluation"
@@ -443,6 +612,7 @@ const GenericTable = forwardRef(({
               preventOverflow={false}
               afterInit={() => {
                 if (tableRef.current?.hotInstance) {
+                  console.log('Table initialized with data:', data?.length || 0);
                   setTimeout(() => {
                     tableRef.current.hotInstance.render();
                   }, 0);

@@ -136,8 +136,8 @@ const ALL_STORAGE_COLUMNS = [
   { data: "updated", title: "Updated" },
 ];
 
-// Default columns to show (first 13 from original config)
-const DEFAULT_VISIBLE_COLUMNS = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 85, 86]; // indices of default columns
+// Default columns to show - fixed indices to ensure they exist
+const DEFAULT_VISIBLE_COLUMNS = [0, 1, 2, 3, 5, 6, 7, 9, 10, 11, 12]; // removed indices that don't exist
 
 const StorageTable = () => {
   const { config } = useContext(ConfigContext);
@@ -151,12 +151,24 @@ const StorageTable = () => {
   // Column picker state - using indices for compatibility with GenericTable's column management
   const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
     const saved = JSON.parse(localStorage.getItem("storageTableColumns"));
-    return saved || DEFAULT_VISIBLE_COLUMNS;
+    // Validate saved indices to ensure they're within bounds
+    if (saved && Array.isArray(saved)) {
+      const validIndices = saved.filter(index => 
+        index >= 0 && index < ALL_STORAGE_COLUMNS.length
+      );
+      return validIndices.length > 0 ? validIndices : DEFAULT_VISIBLE_COLUMNS;
+    }
+    return DEFAULT_VISIBLE_COLUMNS;
   });
 
   // Compute dynamic columns and headers based on visible indices
   const { displayedColumns, displayedHeaders } = useMemo(() => {
-    const columns = visibleColumnIndices.map(index => {
+    // Filter out any invalid indices
+    const validIndices = visibleColumnIndices.filter(index => 
+      index >= 0 && index < ALL_STORAGE_COLUMNS.length
+    );
+    
+    const columns = validIndices.map(index => {
       const colConfig = ALL_STORAGE_COLUMNS[index];
       return {
         data: colConfig.data,
@@ -166,7 +178,7 @@ const StorageTable = () => {
       };
     });
     
-    const headers = visibleColumnIndices.map(index => ALL_STORAGE_COLUMNS[index].title);
+    const headers = validIndices.map(index => ALL_STORAGE_COLUMNS[index].title);
     
     return { displayedColumns: columns, displayedHeaders: headers };
   }, [visibleColumnIndices]);
@@ -349,7 +361,8 @@ const StorageTable = () => {
     return true;
   };
 
-  const apiUrl = customerId ? `${API_ENDPOINTS.storage}?customer=${customerId}` : API_ENDPOINTS.storage;
+  // Don't add query params here - let useServerPagination handle them
+  const apiUrl = API_ENDPOINTS.storage;
 
   if (!customerId) {
     return (
@@ -364,6 +377,7 @@ const StorageTable = () => {
       <GenericTable
         ref={tableRef}
         apiUrl={apiUrl}
+        apiParams={{ customer: customerId }}  // Add this line
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
         newRowTemplate={NEW_STORAGE_TEMPLATE}

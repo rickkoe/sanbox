@@ -22,6 +22,7 @@ const NEW_ALIAS_TEMPLATE = {
   wwpn: "",
   use: "",
   fabric: "",
+  fabric_details: { name: "" }, // Add this to match the dropdown structure
   cisco_alias: "",
   create: false,
   include_in_zoning: false,
@@ -56,6 +57,7 @@ const AliasTable = () => {
   const { config } = useContext(ConfigContext);
   const [fabricOptions, setFabricOptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const tableRef = useRef(null);
   const navigate = useNavigate();
 
@@ -67,8 +69,12 @@ const AliasTable = () => {
     const loadFabrics = async () => {
       if (activeCustomerId) {
         try {
+          console.log('Loading fabrics for customer:', activeCustomerId);
           const response = await axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`);
-          setFabricOptions(response.data.map(f => ({ id: f.id, name: f.name })));
+          console.log('Fabrics loaded:', response.data);
+          // Handle paginated response structure
+          const fabricsArray = response.data.results || response.data;
+          setFabricOptions(fabricsArray.map(f => ({ id: f.id, name: f.name })));
         } catch (error) {
           console.error("Error fetching fabrics:", error);
         } finally {
@@ -81,6 +87,21 @@ const AliasTable = () => {
 
     loadFabrics();
   }, [activeCustomerId]);
+
+  // Trigger table refresh when fabrics are loaded
+  useEffect(() => {
+    if (fabricOptions.length > 0 && tableRef.current && dataLoaded) {
+      console.log('Refreshing table with fabric options:', fabricOptions);
+      tableRef.current.refreshData();
+    }
+  }, [fabricOptions, dataLoaded]);
+
+  // Set dataLoaded when data is processed, but outside of render
+  useEffect(() => {
+    if (tableRef.current?.data?.length > 0) {
+      setDataLoaded(true);
+    }
+  }, [tableRef.current?.data]);
 
   if (!activeProjectId) {
     return <div className="alert alert-warning">No active project selected.</div>;
@@ -112,21 +133,31 @@ const AliasTable = () => {
 
   // Build payload function
   const buildPayload = (row) => {
+    console.log('🔧 buildPayload called with row:', row);
+    
     let fabricId;
 
     if (row.fabric_details?.name) {
+      console.log('🔍 Looking for fabric by fabric_details.name:', row.fabric_details.name);
       const fabric = fabricOptions.find(f => f.name === row.fabric_details.name);
       fabricId = fabric ? fabric.id : null;
+      console.log('🎯 Found fabric by name:', fabric);
     } else if (row.fabric) {
+      console.log('🔍 Looking for fabric by row.fabric:', row.fabric, typeof row.fabric);
       if (typeof row.fabric === "number") {
         fabricId = row.fabric;
+        console.log('🎯 Using numeric fabric ID directly:', fabricId);
       } else {
         const fabric = fabricOptions.find(f => f.name === row.fabric || f.id.toString() === row.fabric);
         fabricId = fabric ? fabric.id : parseInt(row.fabric);
+        console.log('🎯 Found fabric by string lookup:', fabric, 'fabricId:', fabricId);
       }
     }
 
+    console.log('🏁 Final fabricId:', fabricId, 'isNaN:', isNaN(fabricId));
+
     if (!fabricId || isNaN(fabricId)) {
+      console.error('❌ Invalid fabric ID for alias:', row.name);
       throw new Error(`Alias "${row.name}" must have a valid fabric selected`);
     }
 
@@ -139,15 +170,20 @@ const AliasTable = () => {
       payload.wwpn = formatWWPN(payload.wwpn);
     }
 
-    return {
+    const result = {
       ...payload,
       projects: [activeProjectId],
       fabric: parseInt(fabricId),
     };
+
+    console.log('✅ buildPayload result:', result);
+    return result;
   };
 
   // Custom save handler
   const handleSave = async (unsavedData) => {
+    console.log('🔥 handleSave called with unsavedData:', unsavedData);
+    
     try {
       const invalidWWPN = unsavedData.find((alias) => {
         if (!alias.name || alias.name.trim() === "") return false;
@@ -165,17 +201,35 @@ const AliasTable = () => {
       }
 
       const payload = unsavedData
-        .filter(alias => alias.id || (alias.name && alias.name.trim() !== ""))
-        .map(buildPayload);
+        .filter(alias => {
+          console.log(`🔍 Filtering alias:`, alias);
+          const shouldInclude = alias.id || (alias.name && alias.name.trim() !== "");
+          console.log(`Should include: ${shouldInclude}`);
+          return shouldInclude;
+        })
+        .map(alias => {
+          console.log(`🔧 Building payload for alias:`, alias);
+          const result = buildPayload(alias);
+          console.log(`✅ Built payload:`, result);
+          return result;
+        });
+
+      console.log('🚀 Final payload being sent:', payload);
 
       await axios.post(API_ENDPOINTS.aliasSave, {
         project_id: activeProjectId,
         aliases: payload,
       });
 
+      // Trigger table refresh after successful save
+      if (tableRef.current?.refreshData) {
+        console.log('🔄 Triggering table refresh after save');
+        await tableRef.current.refreshData();
+      }
+
       return { success: true, message: "Aliases saved successfully! ✅" };
     } catch (error) {
-      console.error("Error saving aliases:", error);
+      console.error("❌ Error saving aliases:", error);
       
       if (error.response?.data?.details) {
         const errorMessages = error.response.data.details.map((e) => {
@@ -194,14 +248,28 @@ const AliasTable = () => {
 
   // Before save validation
   const beforeSaveValidation = (data) => {
-    const invalidAlias = data.find(
-      alias => alias.name && 
-               alias.name.trim() !== "" && 
-               !alias.fabric_details?.name && 
-               !alias.fabric?.trim()
-    );
+    const invalidAlias = data.find(alias => {
+      // Skip validation for rows without a name
+      if (!alias.name || alias.name.trim() === "") {
+        return false;
+      }
+      
+      // Check if fabric is selected in any of the possible formats
+      const hasFabric = (alias.fabric_details?.name && alias.fabric_details.name.trim() !== "") || 
+                       (alias.fabric && alias.fabric.toString().trim() !== "") || 
+                       (typeof alias.fabric === 'number' && alias.fabric > 0);
+      
+      console.log(`Validating alias "${alias.name}":`, {
+        fabric_details_name: alias.fabric_details?.name,
+        fabric: alias.fabric,
+        hasFabric
+      });
+      
+      return !hasFabric;
+    });
 
     if (invalidAlias) {
+      console.log('Invalid alias found:', invalidAlias);
       return `Alias "${invalidAlias.name}" must have a fabric selected`;
     }
 
@@ -210,11 +278,29 @@ const AliasTable = () => {
 
   // Process data for display
   const preprocessData = (data) => {
-    return data.map((alias) => ({
-      ...alias,
-      saved: true,
-      wwpn: formatWWPN(alias.wwpn),
-    }));
+    console.log('preprocessData called with:', data.length, 'aliases');
+    console.log('Current fabricOptions:', fabricOptions);
+    
+    const processedData = data.map((alias) => {
+      // Find fabric name for this alias
+      let fabricName = '';
+      if (alias.fabric) {
+        const fabric = fabricOptions.find(f => f.id === alias.fabric);
+        fabricName = fabric ? fabric.name : `Unknown Fabric (ID: ${alias.fabric})`;
+        console.log(`Alias ${alias.name}: fabric ID ${alias.fabric} -> ${fabricName}`);
+      }
+
+      return {
+        ...alias,
+        saved: true,
+        wwpn: formatWWPN(alias.wwpn),
+        fabric_details: {
+          name: fabricName
+        }
+      };
+    });
+    
+    return processedData;
   };
 
   // Custom renderers

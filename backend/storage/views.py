@@ -10,6 +10,9 @@ from django.utils import timezone
 from .models import Storage, Volume, Host
 from .serializers import StorageSerializer, VolumeSerializer, HostSerializer
 import logging
+from django.core.paginator import Paginator
+from django.db.models import Q
+from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -18,24 +21,110 @@ TOKEN_CACHE_DIR = os.path.join(settings.BASE_DIR, 'token_cache')
 os.makedirs(TOKEN_CACHE_DIR, exist_ok=True)
 
 
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def storage_list(request):
-    """Handle storage list operations"""
+    """Handle storage list operations with pagination"""
     print(f"🔥 Storage List - Method: {request.method}")
     
     if request.method == "GET":
         try:
-            # Get all storage items
+            # Get query parameters
+            customer_id = request.GET.get('customer')
+            page_number = request.GET.get('page', 1)
+            page_size = request.GET.get('page_size', 100)
+            search = request.GET.get('search', '')
+            ordering = request.GET.get('ordering', 'id')
+            
+            # Convert to integers with defaults
+            try:
+                page_number = int(page_number)
+                page_size = int(page_size) if page_size != 'All' else None
+            except (ValueError, TypeError):
+                page_number = 1
+                page_size = 100
+            
+            # Build queryset
             storages = Storage.objects.all()
             
-            # Filter by customer if provided in query params
-            customer_id = request.GET.get('customer')
+            # Filter by customer if provided
             if customer_id:
                 storages = storages.filter(customer_id=customer_id)
-                
-            serializer = StorageSerializer(storages, many=True)
-            return JsonResponse(serializer.data, safe=False)
+            
+            # Apply search if provided
+            if search:
+                storages = storages.filter(
+                    Q(name__icontains=search) | 
+                    Q(storage_type__icontains=search) |
+                    Q(location__icontains=search) |
+                    Q(model__icontains=search) |
+                    Q(serial_number__icontains=search) |
+                    Q(system_id__icontains=search) |
+                    Q(primary_ip__icontains=search)
+                )
+            
+            # Apply ordering
+            if ordering:
+                storages = storages.order_by(ordering)
+            
+            # Get total count before pagination
+            total_count = storages.count()
+            
+            # Handle "All" page size
+            if page_size is None:
+                # Return all results without pagination
+                serializer = StorageSerializer(storages, many=True)
+                return JsonResponse({
+                    'count': total_count,
+                    'next': None,
+                    'previous': None,
+                    'results': serializer.data
+                })
+            
+            # Create paginator
+            paginator = Paginator(storages, page_size)
+            
+            # Get the requested page
+            try:
+                page_obj = paginator.get_page(page_number)
+            except:
+                page_obj = paginator.get_page(1)
+            
+            # Serialize the page data
+            serializer = StorageSerializer(page_obj.object_list, many=True)
+            
+            # Build next/previous URLs
+            base_url = request.build_absolute_uri(request.path)
+            
+            # Build query parameters for next/prev links
+            query_params = {}
+            if customer_id:
+                query_params['customer'] = customer_id
+            if search:
+                query_params['search'] = search
+            if ordering:
+                query_params['ordering'] = ordering
+            query_params['page_size'] = page_size
+            
+            next_url = None
+            if page_obj.has_next():
+                query_params['page'] = page_obj.next_page_number()
+                next_url = f"{base_url}?{urlencode(query_params)}"
+            
+            previous_url = None
+            if page_obj.has_previous():
+                query_params['page'] = page_obj.previous_page_number()
+                previous_url = f"{base_url}?{urlencode(query_params)}"
+            
+            return JsonResponse({
+                'count': total_count,
+                'next': next_url,
+                'previous': previous_url,
+                'results': serializer.data
+            })
+            
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
     
