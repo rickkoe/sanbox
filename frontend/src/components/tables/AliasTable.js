@@ -221,12 +221,6 @@ const AliasTable = () => {
         aliases: payload,
       });
 
-      // Trigger table refresh after successful save
-      if (tableRef.current?.refreshData) {
-        console.log('🔄 Triggering table refresh after save');
-        await tableRef.current.refreshData();
-      }
-
       return { success: true, message: "Aliases saved successfully! ✅" };
     } catch (error) {
       console.error("❌ Error saving aliases:", error);

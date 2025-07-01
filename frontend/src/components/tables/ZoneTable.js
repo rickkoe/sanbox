@@ -36,7 +36,7 @@ const ZoneTable = () => {
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
-  // Calculate required member columns from data
+  // Calculate required member columns from data - moved to useEffect to avoid render issues
   useEffect(() => {
     if (rawData.length > 0) {
       let maxMembers = memberColumns;
@@ -88,10 +88,9 @@ const ZoneTable = () => {
     };
   };
 
-  // Process data for display
+  // Process data for display - removed state update to fix React warning
   const preprocessData = (data) => {
     console.log('Processing data with', memberColumns, 'member columns');
-    setRawData(data); // Store raw data for member column calculation
     
     const processed = data.map(zone => {
       const zoneData = { 
@@ -112,6 +111,23 @@ const ZoneTable = () => {
     
     return processed;
   };
+
+  // Separate effect to update rawData when zones are loaded
+  useEffect(() => {
+    if (activeProjectId) {
+      const fetchZones = async () => {
+        try {
+          const response = await axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/`);
+          const zonesData = response.data?.results || response.data || [];
+          setRawData(zonesData);
+        } catch (error) {
+          console.error('Error fetching zones for member column calculation:', error);
+        }
+      };
+      
+      fetchZones();
+    }
+  }, [activeProjectId]);
 
   // Custom save handler
   const handleSave = async (unsavedData) => {
@@ -172,6 +188,14 @@ const ZoneTable = () => {
       const rowFabric = rowData.fabric_details?.name || rowData.fabric;
       const currentValue = rowData[prop];
       
+      // Only log for the first member column to reduce spam
+      if (prop === 'member_1') {
+        console.log(`Member dropdown for row ${row}:`);
+        console.log(`  Row fabric: "${rowFabric}"`);
+        console.log(`  Available aliases for this fabric:`, memberOptions.filter(a => a.fabric === rowFabric));
+        console.log(`  Aliases with include_in_zoning=true:`, memberOptions.filter(a => a.include_in_zoning === true));
+      }
+      
       // Find used aliases to exclude
       const usedAliases = new Set();
       hot.getSourceData().forEach((data, idx) => {
@@ -192,15 +216,19 @@ const ZoneTable = () => {
       }
       
       // Available aliases = matching fabric + include_in_zoning + not used elsewhere
+      const availableAliases = memberOptions.filter(alias => {
+        const fabricMatch = alias.fabric === rowFabric;
+        const includeInZoning = alias.include_in_zoning === true;
+        const notUsedElsewhere = !usedAliases.has(alias.name) || alias.name === currentValue;
+        
+        return fabricMatch && includeInZoning && notUsedElsewhere;
+      });
+      
+      const sourceArray = availableAliases.map(alias => alias.name);
+      
       return {
         type: "dropdown",
-        source: memberOptions
-          .filter(alias => 
-            alias.fabric === rowFabric &&
-            alias.include_in_zoning === true &&
-            (!usedAliases.has(alias.name) || alias.name === currentValue)
-          )
-          .map(alias => alias.name)
+        source: sourceArray
       };
     }
     return {};
@@ -234,18 +262,46 @@ const ZoneTable = () => {
     const loadData = async () => {
       try {
         if (activeCustomerId) {
+          console.log('Loading fabrics for customer:', activeCustomerId);
           const fabricsResponse = await axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`);
-          setFabricOptions(fabricsResponse.data.map(f => ({ id: f.id, name: f.name })));
+          console.log('Fabrics response:', fabricsResponse.data);
+          
+          // Handle paginated response structure
+          const fabricsArray = fabricsResponse.data.results || fabricsResponse.data;
+          setFabricOptions(fabricsArray.map(f => ({ id: f.id, name: f.name })));
+          console.log('Fabric options set:', fabricsArray.length, 'fabrics');
         }
         
         if (activeProjectId) {
+          console.log('Loading aliases for project:', activeProjectId);
           const aliasesResponse = await axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`);
-          setMemberOptions(aliasesResponse.data.map(a => ({
-            id: a.id, 
-            name: a.name, 
-            fabric: a.fabric_details?.name, 
-            include_in_zoning: a.include_in_zoning
-          })));
+          console.log('Aliases response:', aliasesResponse.data);
+          
+          const aliasesArray = aliasesResponse.data.results || aliasesResponse.data;
+          const processedAliases = aliasesArray.map(a => {
+            // Handle different fabric reference structures
+            let fabricName = '';
+            if (a.fabric_details?.name) {
+              fabricName = a.fabric_details.name;
+            } else if (a.fabric) {
+              // If fabric is an ID, find the name in fabricOptions
+              const fabric = fabricOptions.find(f => f.id === a.fabric);
+              fabricName = fabric ? fabric.name : '';
+            }
+            
+            const processedAlias = {
+              id: a.id, 
+              name: a.name, 
+              fabric: fabricName, 
+              include_in_zoning: a.include_in_zoning
+            };
+            
+            console.log(`Alias ${a.name}: fabric ID ${a.fabric} -> fabric name "${fabricName}", include_in_zoning: ${a.include_in_zoning}`);
+            return processedAlias;
+          });
+          
+          setMemberOptions(processedAliases);
+          console.log('Member options set:', processedAliases.length, 'aliases');
         }
       } catch (error) {
         console.error("Error loading data:", error);

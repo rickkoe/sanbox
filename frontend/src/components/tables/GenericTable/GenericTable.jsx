@@ -115,38 +115,58 @@ const GenericTable = forwardRef(({
   const dataLoading = serverSidePagination ? serverPaginationResult.loading : clientLoading;
 
   // Process data if preprocessor is provided
-  const data = React.useMemo(() => {
-    if (!rawData) return [];
+// Find this section in your GenericTable.jsx and replace it:
+
+// Process data if preprocessor is provided
+// Find this section in your GenericTable.jsx and replace it:
+
+// Process data if preprocessor is provided
+const data = React.useMemo(() => {
+  if (!rawData) return [];
+  
+  // Ensure we have an array
+  let dataArray = rawData;
+  if (rawData.results && Array.isArray(rawData.results)) {
+    dataArray = rawData.results;
+  } else if (!Array.isArray(rawData)) {
+    console.error('Unexpected data format:', rawData);
+    return [];
+  }
+  
+  const processed = preprocessData ? preprocessData(dataArray) : dataArray;
+  
+  // ALWAYS add blank row for new entries if we have a template
+  if (newRowTemplate) {
+    const processedArray = processed || [];
     
-    // Ensure we have an array
-    let dataArray = rawData;
-    if (rawData.results && Array.isArray(rawData.results)) {
-      dataArray = rawData.results;
-    } else if (!Array.isArray(rawData)) {
-      console.error('Unexpected data format:', rawData);
-      return [];
+    // Check if we need to add a blank row
+    let hasEmptyRow = false;
+    
+    if (processedArray.length === 0) {
+      // No data at all, definitely need a blank row
+      hasEmptyRow = false;
+    } else {
+      // Check if the last row is already a blank row
+      const lastRow = processedArray[processedArray.length - 1];
+      hasEmptyRow = lastRow && !lastRow.id && lastRow._isNew;
     }
     
-    const processed = preprocessData ? preprocessData(dataArray) : dataArray;
-    
-    // Add blank row for new entries if we have a template
-    if (newRowTemplate && processed && processed.length >= 0) {
-      const hasEmptyRow = processed.length === 0 || 
-        (processed[processed.length - 1] && !processed[processed.length - 1].id);
-      
-      if (!hasEmptyRow) {
-        // Initialize the blank row with default values
-        const blankRow = { 
-          ...newRowTemplate, 
-          saved: false,
-          _isNew: true  // Internal flag to identify new rows
-        };
-        processed.push(blankRow);
-      }
+    if (!hasEmptyRow) {
+      // Initialize the blank row with default values
+      const blankRow = { 
+        ...newRowTemplate, 
+        saved: false,
+        _isNew: true  // Internal flag to identify new rows
+      };
+      processedArray.push(blankRow);
+      console.log('Added blank row to table with', processedArray.length - 1, 'existing rows');
     }
     
-    return processed || [];
-  }, [rawData, preprocessData, serverSidePagination, newRowTemplate]);
+    return processedArray;
+  }
+  
+  return processed || [];
+}, [rawData, preprocessData, newRowTemplate]);
 
   // Refresh function
   const refresh = serverSidePagination ? serverPaginationResult.refresh : () => {
@@ -323,44 +343,70 @@ const GenericTable = forwardRef(({
 
   // Table change handler
   const handleAfterChange = (changes, source) => {
-    if (source === "loadData" || !changes) return;
-    
-    // Call custom afterChange if provided
-    if (afterChange) {
-      afterChange(changes, source);
-    }
-    
-    // Track changes for both existing and new rows
-    const newModifiedRows = { ...modifiedRows };
-    let hasChanges = false;
-    
-    changes.forEach(([row, prop, oldValue, newValue]) => {
-      if (oldValue !== newValue) {
-        const rowData = data[row];
-        if (rowData) {
-          // For new rows (no id), use a temporary key
-          const rowKey = rowData.id || `new_${row}`;
-          
-          if (!newModifiedRows[rowKey]) {
-            newModifiedRows[rowKey] = { ...rowData };
+  if (source === "loadData" || !changes) return;
+  
+  // Call custom afterChange if provided
+  if (afterChange) {
+    afterChange(changes, source);
+  }
+  
+  // Track changes for both existing and new rows
+  const newModifiedRows = { ...modifiedRows };
+  let hasChanges = false;
+  let needsNewRow = false;
+  
+  const hot = tableRef.current?.hotInstance;
+  
+  changes.forEach(([row, prop, oldValue, newValue]) => {
+    if (oldValue !== newValue) {
+      const rowData = data[row];
+      if (rowData) {
+        // For new rows (no id), use a temporary key
+        const rowKey = rowData.id || `new_${row}`;
+        
+        if (!newModifiedRows[rowKey]) {
+          newModifiedRows[rowKey] = { ...rowData };
+        }
+        newModifiedRows[rowKey][prop] = newValue;
+        
+        // Update the data array directly for new rows
+        if (!rowData.id) {
+          data[row][prop] = newValue;
+        }
+        
+        hasChanges = true;
+        
+        // Check if we need to add a new blank row
+        if (!rowData.id && newValue && newValue.toString().trim() !== '') {
+          const isLastRow = row === hot.countRows() - 1;
+          if (isLastRow && newRowTemplate) {
+            needsNewRow = true;
           }
-          newModifiedRows[rowKey][prop] = newValue;
-          
-          // Update the data array directly for new rows
-          if (!rowData.id) {
-            data[row][prop] = newValue;
-          }
-          
-          hasChanges = true;
         }
       }
-    });
-    
-    if (hasChanges) {
-      setModifiedRows(newModifiedRows);
-      setIsDirty(true);
     }
-  };
+  });
+  
+  if (hasChanges) {
+    setModifiedRows(newModifiedRows);
+    setIsDirty(true);
+  }
+  
+  // Add new blank row if needed
+  if (needsNewRow && hot) {
+    setTimeout(() => {
+      const currentData = hot.getSourceData();
+      const newBlankRow = { 
+        ...newRowTemplate, 
+        saved: false,
+        _isNew: true 
+      };
+      currentData.push(newBlankRow);
+      hot.loadData(currentData);
+      console.log('✅ Added new blank row');
+    }, 0);
+  }
+};
 
   // Filter change handler
   const handleFilterChange = (filteredData) => {
@@ -430,90 +476,102 @@ const GenericTable = forwardRef(({
 
   // Save modified rows
   const handleSaveModifiedRows = async () => {
-    if (!isDirty) return;
+  if (!isDirty) return;
+  
+  setLoading(true);
+  setSaveStatus("Saving changes...");
+  
+  try {
+    // Get current table data to include new rows
+    const hot = tableRef.current?.hotInstance;
+    if (!hot) {
+      throw new Error("Table instance not found");
+    }
     
-    setLoading(true);
-    setSaveStatus("Saving changes...");
+    const allData = hot.getSourceData();
     
-    try {
-      // Get current table data to include new rows
-      const hot = tableRef.current?.hotInstance;
-      if (!hot) {
-        throw new Error("Table instance not found");
-      }
+    // Separate new rows from modified existing rows
+    const newRows = [];
+    const modifiedExistingRows = [];
+    
+    allData.forEach((row, index) => {
+      const rowKey = row.id || `new_${index}`;
       
-      const allData = hot.getSourceData();
-      
-      // Separate new rows from modified existing rows
-      const newRows = [];
-      const modifiedExistingRows = [];
-      
-      allData.forEach((row, index) => {
-        const rowKey = row.id || `new_${index}`;
+      // Check if this is a new row with data
+      if (!row.id && modifiedRows[rowKey]) {
+        // Check if the row has any non-empty values
+        const hasData = Object.entries(modifiedRows[rowKey]).some(([key, value]) => {
+          return key !== 'id' && key !== 'saved' && key !== '_isNew' && value && value.toString().trim() !== '';
+        });
         
-        // Check if this is a new row with data
-        if (!row.id && modifiedRows[rowKey]) {
-          // Check if the row has any non-empty values
-          const hasData = Object.entries(modifiedRows[rowKey]).some(([key, value]) => {
-            return key !== 'id' && key !== 'saved' && value && value.toString().trim() !== '';
-          });
-          
-          if (hasData) {
-            newRows.push(modifiedRows[rowKey]);
-          }
+        if (hasData) {
+          newRows.push(modifiedRows[rowKey]);
         }
-        // Check if this is a modified existing row
-        else if (row.id && modifiedRows[row.id]) {
-          modifiedExistingRows.push(modifiedRows[row.id]);
-        }
-      });
-      
-      const payload = [...newRows, ...modifiedExistingRows];
-      
-      if (payload.length === 0) {
-        setSaveStatus("No changes to save");
+      }
+      // Check if this is a modified existing row
+      else if (row.id && modifiedRows[row.id]) {
+        modifiedExistingRows.push(modifiedRows[row.id]);
+      }
+    });
+    
+    const payload = [...newRows, ...modifiedExistingRows];
+    
+    if (payload.length === 0) {
+      setSaveStatus("No changes to save");
+      setLoading(false);
+      return;
+    }
+    
+    if (beforeSave) {
+      const validationResult = await beforeSave(payload);
+      if (validationResult !== true) {
+        setSaveStatus(validationResult);
         setLoading(false);
         return;
       }
-      
-      if (beforeSave) {
-        const validationResult = await beforeSave(payload);
-        if (validationResult !== true) {
-          setSaveStatus(validationResult);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      if (onSave) {
-        const result = await onSave(payload);
-        if (result.success) {
-          setSaveStatus(result.message);
-          setModifiedRows({});
-          setIsDirty(false);
-          refresh(); // Refresh data from server
-        } else {
-          setSaveStatus(result.message);
-        }
-      } else if (saveUrl) {
-        // Default save behavior
-        await axios.post(saveUrl, payload);
-        setSaveStatus("Changes saved successfully!");
+    }
+    
+    if (onSave) {
+      // Use custom save handler
+      const result = await onSave(payload);
+      if (result.success) {
+        setSaveStatus(result.message);
         setModifiedRows({});
         setIsDirty(false);
-        refresh();
+        
+        // Always refresh after custom save
+        console.log('🔄 Refreshing after custom save');
+        await refresh();
+        
+        // Force table to re-render with fresh data
+        setTimeout(() => {
+          if (tableRef.current?.hotInstance) {
+            tableRef.current.hotInstance.render();
+          }
+        }, 100);
+      } else {
+        setSaveStatus(result.message);
       }
-      
-      if (afterSave) {
-        await afterSave(payload);
-      }
-    } catch (error) {
-      setSaveStatus(`Save failed: ${error.response?.data?.message || error.message}`);
-    } finally {
-      setLoading(false);
-      setTimeout(() => setSaveStatus(""), 3000);
+    } else if (saveUrl) {
+      // Default save behavior
+      await axios.post(saveUrl, payload);
+      setSaveStatus("Changes saved successfully!");
+      setModifiedRows({});
+      setIsDirty(false);
+      await refresh();
     }
-  };
+    
+    if (afterSave) {
+      await afterSave(payload);
+    }
+  } catch (error) {
+    setSaveStatus(`Save failed: ${error.response?.data?.message || error.message}`);
+  } finally {
+    setLoading(false);
+    setTimeout(() => setSaveStatus(""), 3000);
+  }
+};
+
 
   
 
