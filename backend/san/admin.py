@@ -51,6 +51,7 @@ class AliasAdmin(admin.ModelAdmin):
     list_filter = [
         "fabric__customer",  # Filter by customer through fabric
         "fabric",
+        "projects",  # Filter by projects
         "use",
         "cisco_alias", 
         "create", 

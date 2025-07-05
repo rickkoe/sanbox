@@ -12,10 +12,8 @@ import StatusMessage from './components/StatusMessage';
 import DeleteModal from './components/DeleteModal';
 import NavigationModal from './components/NavigationModal';
 import ScrollButtons from './components/ScrollButtons';
-import TablePagination from './components/TablePagination';
 import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
-import { useServerPagination } from './hooks/useServerPagination';
 import { createContextMenu } from './utils/contextMenu';
 import CustomTableFilter from './components/CustomTableFilter';
 
@@ -24,7 +22,7 @@ registerAllModules();
 
 const GenericTable = forwardRef(({
   apiUrl,
-  apiParams = {}, // Add this prop
+  apiParams = {},
   saveUrl,
   deleteUrl,
   saveTransform,
@@ -45,17 +43,12 @@ const GenericTable = forwardRef(({
   dropdownMenu = false,
   beforeSave,
   afterSave,
-  afterChange, // Add this prop
+  afterChange,
   additionalButtons,
   storageKey,
   height = "calc(100vh - 200px)",
   getExportFilename,
-  defaultVisibleColumns = [],
-  // Pagination props
-  enablePagination = true,
-  defaultPageSize = 100,
-  pageSizeOptions = [50, 100, 500, "All"],
-  serverSidePagination = true // Add this back with a default
+  defaultVisibleColumns = []
 }, ref) => {
   
   // Core state
@@ -74,118 +67,76 @@ const GenericTable = forwardRef(({
   const [isDirty, setIsDirty] = useState(false);
   const [modifiedRows, setModifiedRows] = useState({});
   
+  // Simple data state - no pagination complexity
+  const [rawData, setRawData] = useState([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  
   const tableRef = useRef(null);
   const containerRef = useRef(null);
 
-  // State for client-side data when not using server pagination
-  const [clientData, setClientData] = useState([]);
-  const [clientLoading, setClientLoading] = useState(true);
-
-  // Fetch data for client-side mode
-  useEffect(() => {
-    if (!serverSidePagination && apiUrl) {
-      setClientLoading(true);
-      axios.get(apiUrl)
-        .then(response => {
-          const responseData = response.data;
-          // Handle both array and paginated responses
-          const dataArray = Array.isArray(responseData) ? responseData : responseData.results || [];
-          setClientData(dataArray);
-        })
-        .catch(error => {
-          console.error('Error fetching data:', error);
-          setClientData([]);
-        })
-        .finally(() => {
-          setClientLoading(false);
-        });
+  // Simple data fetching - no pagination
+  const fetchData = async () => {
+    if (!apiUrl) return;
+    
+    setDataLoading(true);
+    try {
+      console.log('🌐 Fetching data from:', apiUrl);
+      const response = await axios.get(apiUrl, { params: apiParams });
+      const responseData = response.data;
+      
+      // Handle both array and paginated responses
+      const dataArray = Array.isArray(responseData) ? responseData : responseData.results || [];
+      console.log('✅ Fetched', dataArray.length, 'items');
+      
+      setRawData(dataArray);
+    } catch (error) {
+      console.error('❌ Error fetching data:', error);
+      setRawData([]);
+    } finally {
+      setDataLoading(false);
     }
-  }, [apiUrl, serverSidePagination]);
+  };
 
-  // Always call the hook, but pass null URL if not needed
-  const serverPaginationResult = useServerPagination(
-    serverSidePagination ? apiUrl : null,
-    defaultPageSize,
-    storageKey ? `${storageKey}_server` : null,
-    apiParams // Pass the apiParams to the hook
-  );
+  // Initial data load
+  useEffect(() => {
+    fetchData();
+  }, [apiUrl, JSON.stringify(apiParams)]);
 
-  // Choose data source based on pagination mode
-  const rawData = serverSidePagination ? serverPaginationResult.data : clientData;
-  const dataLoading = serverSidePagination ? serverPaginationResult.loading : clientLoading;
+  // Simple refresh function
+  const refresh = async () => {
+    console.log('🔄 Refreshing data...');
+    await fetchData();
+  };
 
   // Process data if preprocessor is provided
-// Find this section in your GenericTable.jsx and replace it:
-
-// Process data if preprocessor is provided
-// Find this section in your GenericTable.jsx and replace it:
-
-// Process data if preprocessor is provided
-const data = React.useMemo(() => {
-  if (!rawData) return [];
-  
-  // Ensure we have an array
-  let dataArray = rawData;
-  if (rawData.results && Array.isArray(rawData.results)) {
-    dataArray = rawData.results;
-  } else if (!Array.isArray(rawData)) {
-    console.error('Unexpected data format:', rawData);
-    return [];
-  }
-  
-  const processed = preprocessData ? preprocessData(dataArray) : dataArray;
-  
-  // ALWAYS add blank row for new entries if we have a template
-  if (newRowTemplate) {
+  const data = React.useMemo(() => {
+    if (!rawData) return [];
+    
+    const processed = preprocessData ? preprocessData(rawData) : rawData;
     const processedArray = processed || [];
     
-    // Check if we need to add a blank row
-    let hasEmptyRow = false;
-    
-    if (processedArray.length === 0) {
-      // No data at all, definitely need a blank row
-      hasEmptyRow = false;
-    } else {
-      // Check if the last row is already a blank row
-      const lastRow = processedArray[processedArray.length - 1];
-      hasEmptyRow = lastRow && !lastRow.id && lastRow._isNew;
-    }
-    
-    if (!hasEmptyRow) {
-      // Initialize the blank row with default values
-      const blankRow = { 
-        ...newRowTemplate, 
-        saved: false,
-        _isNew: true  // Internal flag to identify new rows
-      };
-      processedArray.push(blankRow);
-      console.log('Added blank row to table with', processedArray.length - 1, 'existing rows');
+    // ALWAYS add blank row for new entries if we have a template
+    if (newRowTemplate) {
+      // Check if we need to add a blank row
+      const hasBlankRow = processedArray.length > 0 && 
+        processedArray[processedArray.length - 1] && 
+        !processedArray[processedArray.length - 1].id &&
+        processedArray[processedArray.length - 1]._isNew;
+      
+      if (!hasBlankRow) {
+        // Initialize the blank row with default values
+        const blankRow = { 
+          ...newRowTemplate, 
+          saved: false,
+          _isNew: true
+        };
+        processedArray.push(blankRow);
+        console.log('Added blank row to table. Total rows:', processedArray.length);
+      }
     }
     
     return processedArray;
-  }
-  
-  return processed || [];
-}, [rawData, preprocessData, newRowTemplate]);
-
-  // Refresh function
-  const refresh = serverSidePagination ? serverPaginationResult.refresh : () => {
-    if (apiUrl) {
-      setClientLoading(true);
-      axios.get(apiUrl)
-        .then(response => {
-          const responseData = response.data;
-          const dataArray = Array.isArray(responseData) ? responseData : responseData.results || [];
-          setClientData(dataArray);
-        })
-        .catch(error => {
-          console.error('Error fetching data:', error);
-        })
-        .finally(() => {
-          setClientLoading(false);
-        });
-    }
-  };
+  }, [rawData, preprocessData, newRowTemplate]);
 
   // Column management
   const {
@@ -224,7 +175,7 @@ const data = React.useMemo(() => {
     setLoading,
     setSaveStatus,
     unsavedData: data,
-    setUnsavedData: () => {}, // Not used in server-side mode
+    setUnsavedData: () => {},
     data,
     beforeSave,
     onSave,
@@ -246,7 +197,6 @@ const data = React.useMemo(() => {
 
   // Effect to handle table readiness
   useEffect(() => {
-    // Set table ready after a short delay, regardless of data
     const timer = setTimeout(() => {
       setIsTableReady(true);
     }, 100);
@@ -257,31 +207,6 @@ const data = React.useMemo(() => {
   // Current visible columns and headers
   const enhancedColumns = createVisibleColumns();
   const visibleColHeaders = createVisibleHeaders();
-
-  // Pagination object
-  const pagination = serverSidePagination ? {
-    paginatedData: data,
-    currentPage: serverPaginationResult.currentPage,
-    totalPages: serverPaginationResult.totalPages,
-    totalRows: serverPaginationResult.totalCount,
-    pageSize: serverPaginationResult.pageSize,
-    handlePageChange: serverPaginationResult.handlePageChange,
-    handlePageSizeChange: serverPaginationResult.handlePageSizeChange,
-    resetPagination: serverPaginationResult.resetPagination
-  } : {
-    // Client-side pagination
-    paginatedData: data, // For now, show all data
-    currentPage: 1,
-    totalPages: 1,
-    totalRows: data.length,
-    pageSize: data.length,
-    handlePageChange: () => {},
-    handlePageSizeChange: () => {},
-    resetPagination: () => {}
-  };
-
-  // Extract values for the table pagination component
-  const { currentPage, totalPages, pageSize, totalRows: totalCount, handlePageChange, handlePageSizeChange } = pagination;
 
   // Context menu handler
   const handleAfterContextMenu = (key, selection) => {
@@ -343,75 +268,108 @@ const data = React.useMemo(() => {
 
   // Table change handler
   const handleAfterChange = (changes, source) => {
-  if (source === "loadData" || !changes) return;
-  
-  // Call custom afterChange if provided
-  if (afterChange) {
-    afterChange(changes, source);
-  }
-  
-  // Track changes for both existing and new rows
-  const newModifiedRows = { ...modifiedRows };
-  let hasChanges = false;
-  let needsNewRow = false;
-  
-  const hot = tableRef.current?.hotInstance;
-  
-  changes.forEach(([row, prop, oldValue, newValue]) => {
-    if (oldValue !== newValue) {
-      const rowData = data[row];
-      if (rowData) {
-        // For new rows (no id), use a temporary key
-        const rowKey = rowData.id || `new_${row}`;
-        
-        if (!newModifiedRows[rowKey]) {
-          newModifiedRows[rowKey] = { ...rowData };
-        }
-        newModifiedRows[rowKey][prop] = newValue;
-        
-        // Update the data array directly for new rows
-        if (!rowData.id) {
-          data[row][prop] = newValue;
-        }
-        
-        hasChanges = true;
-        
-        // Check if we need to add a new blank row
-        if (!rowData.id && newValue && newValue.toString().trim() !== '') {
-          const isLastRow = row === hot.countRows() - 1;
-          if (isLastRow && newRowTemplate) {
-            needsNewRow = true;
+    if (source === "loadData" || !changes) return;
+    
+    // Call custom afterChange if provided
+    if (afterChange) {
+      afterChange(changes, source);
+    }
+    
+    // Track changes for both existing and new rows
+    const newModifiedRows = { ...modifiedRows };
+    let hasChanges = false;
+    let shouldAddNewRow = false;
+    
+    const hot = tableRef.current?.hotInstance;
+    if (!hot) return;
+    
+    changes.forEach(([row, prop, oldValue, newValue]) => {
+      if (oldValue !== newValue) {
+        const rowData = hot.getSourceDataAtRow(row);
+        if (rowData) {
+          // For new rows (no id), use a temporary key
+          const rowKey = rowData.id || `new_${row}`;
+          
+          if (!newModifiedRows[rowKey]) {
+            newModifiedRows[rowKey] = { ...rowData };
+          }
+          newModifiedRows[rowKey][prop] = newValue;
+          
+          // Update the source data directly AND the data array
+          rowData[prop] = newValue;
+          if (data[row]) {
+            data[row][prop] = newValue;
+          }
+          
+          hasChanges = true;
+          
+          // Only add new row for user input (not programmatic changes)
+          // AND only if this is actually new content (not just formatting)
+          if (source === "edit" && !rowData.id && newValue && newValue.toString().trim() !== '' && oldValue !== newValue) {
+            const isLastRow = row === hot.countRows() - 1;
+            
+            // Make sure this isn't just a formatting change (like WWPN formatting)
+            const isFormattingChange = typeof oldValue === 'string' && typeof newValue === 'string' && 
+              oldValue.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === newValue.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            
+            if (isLastRow && !isFormattingChange) {
+              shouldAddNewRow = true;
+            }
           }
         }
       }
+    });
+    
+    if (hasChanges) {
+      setModifiedRows(newModifiedRows);
+      setIsDirty(true);
+      
+      // Force a render to show the changes immediately
+      setTimeout(() => {
+        if (hot) {
+          hot.render();
+        }
+      }, 0);
     }
-  });
-  
-  if (hasChanges) {
-    setModifiedRows(newModifiedRows);
-    setIsDirty(true);
-  }
-  
-  // Add new blank row if needed
-  if (needsNewRow && hot) {
-    setTimeout(() => {
-      const currentData = hot.getSourceData();
-      const newBlankRow = { 
-        ...newRowTemplate, 
-        saved: false,
-        _isNew: true 
-      };
-      currentData.push(newBlankRow);
-      hot.loadData(currentData);
-      console.log('✅ Added new blank row');
-    }, 0);
-  }
-};
+    
+    // Add new blank row if needed - but only for genuine user input
+    if (shouldAddNewRow && newRowTemplate) {
+      setTimeout(() => {
+        const currentData = hot.getSourceData();
+        const lastRow = currentData[currentData.length - 1];
+        
+        if (lastRow) {
+          // Double-check that the last row actually has meaningful content
+          const hasRealData = Object.keys(lastRow).some(key => {
+            const value = lastRow[key];
+            return key !== 'id' && 
+                   key !== 'saved' && 
+                   key !== '_isNew' && 
+                   value && 
+                   value.toString().trim() !== '';
+          });
+          
+          // Only add if there's no blank row already
+          const isLastRowBlank = !lastRow.id && lastRow._isNew && !hasRealData;
+          
+          if (hasRealData && !isLastRowBlank) {
+            const newBlankRow = { 
+              ...newRowTemplate, 
+              saved: false,
+              _isNew: true 
+            };
+            currentData.push(newBlankRow);
+            hot.loadData(currentData);
+            console.log('✅ Added new blank row after user input');
+          }
+        }
+      }, 150); // Slightly longer delay to avoid race conditions
+    }
+  };
 
   // Filter change handler
   const handleFilterChange = (filteredData) => {
-    // For server-side pagination, this would need to be handled by the API
-    console.log("Filter change - server-side implementation needed");
+    console.log("Filter change - client-side filtering");
   };
 
   // Column resize handler
@@ -474,109 +432,99 @@ const data = React.useMemo(() => {
     }
   };
 
-  // Save modified rows
+  // Save modified rows - SIMPLIFIED VERSION
   const handleSaveModifiedRows = async () => {
-  if (!isDirty) return;
-  
-  setLoading(true);
-  setSaveStatus("Saving changes...");
-  
-  try {
-    // Get current table data to include new rows
-    const hot = tableRef.current?.hotInstance;
-    if (!hot) {
-      throw new Error("Table instance not found");
-    }
+    if (!isDirty) return;
     
-    const allData = hot.getSourceData();
+    setLoading(true);
+    setSaveStatus("Saving changes...");
     
-    // Separate new rows from modified existing rows
-    const newRows = [];
-    const modifiedExistingRows = [];
-    
-    allData.forEach((row, index) => {
-      const rowKey = row.id || `new_${index}`;
+    try {
+      const hot = tableRef.current?.hotInstance;
+      if (!hot) {
+        throw new Error("Table instance not found");
+      }
       
-      // Check if this is a new row with data
-      if (!row.id && modifiedRows[rowKey]) {
-        // Check if the row has any non-empty values
-        const hasData = Object.entries(modifiedRows[rowKey]).some(([key, value]) => {
-          return key !== 'id' && key !== 'saved' && key !== '_isNew' && value && value.toString().trim() !== '';
-        });
+      const allData = hot.getSourceData();
+      
+      // Separate new rows from modified existing rows
+      const newRows = [];
+      const modifiedExistingRows = [];
+      
+      allData.forEach((row, index) => {
+        const rowKey = row.id || `new_${index}`;
         
-        if (hasData) {
-          newRows.push(modifiedRows[rowKey]);
+        // Check if this is a new row with data
+        if (!row.id && modifiedRows[rowKey]) {
+          // Check if the row has any non-empty values
+          const hasData = Object.entries(modifiedRows[rowKey]).some(([key, value]) => {
+            return key !== 'id' && key !== 'saved' && key !== '_isNew' && value && value.toString().trim() !== '';
+          });
+          
+          if (hasData) {
+            newRows.push(modifiedRows[rowKey]);
+          }
         }
-      }
-      // Check if this is a modified existing row
-      else if (row.id && modifiedRows[row.id]) {
-        modifiedExistingRows.push(modifiedRows[row.id]);
-      }
-    });
-    
-    const payload = [...newRows, ...modifiedExistingRows];
-    
-    if (payload.length === 0) {
-      setSaveStatus("No changes to save");
-      setLoading(false);
-      return;
-    }
-    
-    if (beforeSave) {
-      const validationResult = await beforeSave(payload);
-      if (validationResult !== true) {
-        setSaveStatus(validationResult);
+        // Check if this is a modified existing row
+        else if (row.id && modifiedRows[row.id]) {
+          modifiedExistingRows.push(modifiedRows[row.id]);
+        }
+      });
+      
+      const payload = [...newRows, ...modifiedExistingRows];
+      
+      if (payload.length === 0) {
+        setSaveStatus("No changes to save");
         setLoading(false);
         return;
       }
-    }
-    
-    if (onSave) {
-      // Use custom save handler
-      const result = await onSave(payload);
-      if (result.success) {
-        setSaveStatus(result.message);
+      
+      if (beforeSave) {
+        const validationResult = await beforeSave(payload);
+        if (validationResult !== true) {
+          setSaveStatus(validationResult);
+          setLoading(false);
+          return;
+        }
+      }
+      
+      if (onSave) {
+        // Use custom save handler
+        const result = await onSave(payload);
+        if (result.success) {
+          setSaveStatus(result.message);
+          setModifiedRows({});
+          setIsDirty(false);
+          
+          // Simple refresh - no pagination complexity!
+          console.log('🔄 Refreshing after save');
+          await refresh();
+          console.log('✅ Refresh completed');
+        } else {
+          setSaveStatus(result.message);
+        }
+      } else if (saveUrl) {
+        // Default save behavior
+        await axios.post(saveUrl, payload);
+        setSaveStatus("Changes saved successfully!");
         setModifiedRows({});
         setIsDirty(false);
-        
-        // Always refresh after custom save
-        console.log('🔄 Refreshing after custom save');
         await refresh();
-        
-        // Force table to re-render with fresh data
-        setTimeout(() => {
-          if (tableRef.current?.hotInstance) {
-            tableRef.current.hotInstance.render();
-          }
-        }, 100);
-      } else {
-        setSaveStatus(result.message);
       }
-    } else if (saveUrl) {
-      // Default save behavior
-      await axios.post(saveUrl, payload);
-      setSaveStatus("Changes saved successfully!");
-      setModifiedRows({});
-      setIsDirty(false);
-      await refresh();
+      
+      if (afterSave) {
+        await afterSave(payload);
+      }
+    } catch (error) {
+      setSaveStatus(`Save failed: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSaveStatus(""), 3000);
     }
-    
-    if (afterSave) {
-      await afterSave(payload);
-    }
-  } catch (error) {
-    setSaveStatus(`Save failed: ${error.response?.data?.message || error.message}`);
-  } finally {
-    setLoading(false);
-    setTimeout(() => setSaveStatus(""), 3000);
-  }
-};
-
-
-  
+  };
 
   return (
-    <div className={`modern-table-container ${enablePagination ? 'with-pagination' : ''}`}>
+    <div className="modern-table-container">
       <TableHeader
         loading={loading || dataLoading}
         isDirty={isDirty}
@@ -591,15 +539,19 @@ const data = React.useMemo(() => {
         toggleColumnVisibility={toggleColumnVisibility}
         toggleAllColumns={toggleAllColumns}
         isRequiredColumn={isRequiredColumn}
-        quickSearch={serverSidePagination ? serverPaginationResult.searchTerm : ''}
-        setQuickSearch={serverSidePagination ? serverPaginationResult.handleSearch : () => {}}
+        quickSearch=""
+        setQuickSearch={() => {}}
         unsavedData={data}
-        hasNonEmptyValues={(row) => row && Object.keys(row).length > 0}
+        hasNonEmptyValues={(row) => {
+          // Only count rows that have an ID (real data from server)
+          // This excludes blank template rows which have id: null
+          return row && row.id;
+        }}
         selectedCount={selectedCount}
         showCustomFilter={showCustomFilter}
         setShowCustomFilter={setShowCustomFilter}
         additionalButtons={additionalButtons}
-        pagination={enablePagination ? pagination : null}
+        pagination={null} // Remove the custom pagination since we fixed hasNonEmptyValues
       />
 
       <StatusMessage saveStatus={saveStatus} />
@@ -689,19 +641,6 @@ const data = React.useMemo(() => {
         />
       </div>
 
-      {/* Pagination */}
-      {enablePagination && (
-        <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          totalRows={totalCount}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
-          pageSizeOptions={pageSizeOptions}
-        />
-      )}
-
       <DeleteModal
         show={showDeleteModal}
         onHide={() => setShowDeleteModal(false)}
@@ -715,7 +654,7 @@ const data = React.useMemo(() => {
             await Promise.all(deletePromises);
             
             setSaveStatus("Items deleted successfully!");
-            refresh(); // Refresh data from server
+            await refresh(); // Simple refresh
           } catch (error) {
             setSaveStatus(`Delete failed: ${error.response?.data?.message || error.message}`);
           } finally {

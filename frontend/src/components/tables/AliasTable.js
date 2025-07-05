@@ -22,7 +22,7 @@ const NEW_ALIAS_TEMPLATE = {
   wwpn: "",
   use: "",
   fabric: "",
-  fabric_details: { name: "" }, // Add this to match the dropdown structure
+  fabric_details: { name: "" },
   cisco_alias: "",
   create: false,
   include_in_zoning: false,
@@ -30,6 +30,7 @@ const NEW_ALIAS_TEMPLATE = {
   imported: null,
   updated: null,
   saved: false,
+  _isNew: true, // Make sure this is here
   zoned_count: 0
 };
 
@@ -301,11 +302,12 @@ const AliasTable = () => {
   const customRenderers = {
     name: (instance, td, row, col, prop, value) => {
       const rowData = instance.getSourceDataAtRow(row);
-      td.innerText = value || "";
-      if (rowData?.saved) {
-        td.style.fontWeight = "bold";
+      
+      // Make bold if row is saved and has an ID (not a new row)
+      if (rowData?.saved && rowData?.id) {
+        td.innerHTML = `<strong>${value || ""}</strong>`;
       } else {
-        td.style.fontWeight = "normal";
+        td.innerHTML = value || "";
       }
       return td;
     },
