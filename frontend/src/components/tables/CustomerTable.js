@@ -112,8 +112,8 @@ const CustomerTable = () => {
                 onSave={handleSave}
                 fixedColumnsLeft={2}
                 columnSorting={true}
-                filters={true}
-                dropdownMenu={true}
+                filters={false}
+                dropdownMenu={false}
                 storageKey="customerTableColumnWidths"
                 getExportFilename={() => "Customer_Table.csv"}
             />

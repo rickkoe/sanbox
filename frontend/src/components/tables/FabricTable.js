@@ -158,8 +158,8 @@ const FabricTable = () => {
                 saveTransform={saveTransform}
                 onSave={handleSave}
                 dropdownSources={dropdownSources}
-                filters={true}
-                dropdownMenu={true}
+                filters={false}
+                dropdownMenu={false}
                 columnSorting={true}
                 storageKey="fabricTableColumnWidths"
                 getExportFilename={() => `${config?.customer?.name || 'Customer'}_Fabric_Table.csv`}

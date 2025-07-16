@@ -391,8 +391,8 @@ const StorageTable = () => {
         beforeSave={beforeSaveValidation}
         fixedColumnsLeft={1}
         columnSorting={true}
-        filters={true}       
-        dropdownMenu={true}
+        filters={false}       
+        dropdownMenu={false}
         storageKey="storageTableColumnWidths"
         defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${config?.customer?.name}_Storage_Table.csv`}

@@ -23,8 +23,8 @@ const TestFilters = () => {
           { data: 'age' },
           { data: 'city' }
         ]}
-        filters={true}
-        dropdownMenu={true}
+        filters={false}
+        dropdownMenu={false}
         licenseKey="non-commercial-and-evaluation"
         width="600px"
         height="300px"
