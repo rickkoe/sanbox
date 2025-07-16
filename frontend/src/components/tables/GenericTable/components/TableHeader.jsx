@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import QuickSearch from './QuickSearch';
+import AdvancedFilter from './AdvancedFilter';
 import StatsContainer from './StatsContainer';
 
 const TableHeader = ({
@@ -25,7 +25,9 @@ const TableHeader = ({
   showCustomFilter,
   setShowCustomFilter,
   additionalButtons,
-  pagination = null
+  pagination = null,
+  data = [],
+  onFilterChange
 }) => {
   const [showDataDropdown, setShowDataDropdown] = useState(false);
   const [showViewDropdown, setShowViewDropdown] = useState(false);
@@ -250,9 +252,14 @@ const TableHeader = ({
         </div>
 
         <div className="header-right">
-          <QuickSearch 
+          <AdvancedFilter
+            columns={columns}
+            colHeaders={colHeaders}
+            visibleColumns={visibleColumns}
             quickSearch={quickSearch}
             setQuickSearch={setQuickSearch}
+            onFilterChange={onFilterChange}
+            data={data}
           />
           
           <StatsContainer
@@ -419,47 +426,6 @@ const TableHeader = ({
             overflow: 'hidden'
           }}
         >
-          {/* Display Section */}
-          <div style={{ padding: '8px 0' }}>
-            <div style={{ 
-              fontSize: '12px', 
-              fontWeight: '600', 
-              color: '#6b7280', 
-              padding: '8px 16px 4px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
-            }}>
-              Display
-            </div>
-            <button 
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                width: '100%',
-                padding: '10px 16px',
-                background: showCustomFilter ? '#eff6ff' : 'none',
-                border: 'none',
-                textAlign: 'left',
-                cursor: 'pointer',
-                fontSize: '14px',
-                color: showCustomFilter ? '#2563eb' : '#374151',
-                transition: 'background-color 0.15s'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = showCustomFilter ? '#eff6ff' : '#f9fafb'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = showCustomFilter ? '#eff6ff' : 'transparent'}
-              onClick={() => {
-                setShowCustomFilter(!showCustomFilter);
-                setShowViewDropdown(false);
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
-              </svg>
-              {showCustomFilter ? 'Hide Filters' : 'Show Filters'}
-            </button>
-          </div>
-
           {/* Columns Section */}
           <div style={{ borderTop: '1px solid #e5e7eb', padding: '8px 0' }}>
             <div style={{ 

@@ -63,6 +63,8 @@ const GenericTable = forwardRef(({
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [showCustomFilter, setShowCustomFilter] = useState(false);
+  const [quickSearch, setQuickSearch] = useState('');
+  const [columnFilters, setColumnFilters] = useState({});
   const [isTableReady, setIsTableReady] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [modifiedRows, setModifiedRows] = useState({});
@@ -108,15 +110,63 @@ const GenericTable = forwardRef(({
     await fetchData();
   };
 
-  // Process data if preprocessor is provided
+  // Process and filter data
   const data = React.useMemo(() => {
     if (!rawData) return [];
     
-    const processed = preprocessData ? preprocessData(rawData) : rawData;
-    const processedArray = processed || [];
+    let processed = preprocessData ? preprocessData(rawData) : rawData;
+    let processedArray = processed || [];
     
-    // ALWAYS add blank row for new entries if we have a template
-    if (newRowTemplate) {
+    // Apply quick search
+    if (quickSearch) {
+      const searchLower = quickSearch.toLowerCase();
+      processedArray = processedArray.filter(row => {
+        return columns.some((col) => {
+          const value = row[col.data];
+          if (value === null || value === undefined) return false;
+          return String(value).toLowerCase().includes(searchLower);
+        });
+      });
+    }
+    
+    // Apply column filters
+    if (Object.keys(columnFilters).length > 0) {
+      processedArray = processedArray.filter(row => {
+        return Object.entries(columnFilters).every(([colIndex, filter]) => {
+          const column = columns[parseInt(colIndex)];
+          if (!column) return true;
+          
+          const value = row[column.data];
+          if (value === null || value === undefined) return false;
+          
+          const stringValue = String(value).toLowerCase();
+          const filterValue = String(filter.value).toLowerCase();
+          
+          switch (filter.type) {
+            case 'contains':
+              return stringValue.includes(filterValue);
+            case 'equals':
+              return stringValue === filterValue;
+            case 'starts_with':
+              return stringValue.startsWith(filterValue);
+            case 'ends_with':
+              return stringValue.endsWith(filterValue);
+            case 'not_contains':
+              return !stringValue.includes(filterValue);
+            case 'multi_select':
+              if (!Array.isArray(filter.value)) return true;
+              // Handle boolean values
+              const actualValue = typeof value === 'boolean' ? (value ? 'True' : 'False') : stringValue;
+              return filter.value.map(v => v.toLowerCase()).includes(actualValue.toLowerCase());
+            default:
+              return true;
+          }
+        });
+      });
+    }
+    
+    // ALWAYS add blank row for new entries if we have a template (but only when not filtering)
+    if (newRowTemplate && !quickSearch && Object.keys(columnFilters).length === 0) {
       // Check if we need to add a blank row
       const hasBlankRow = processedArray.length > 0 && 
         processedArray[processedArray.length - 1] && 
@@ -136,7 +186,7 @@ const GenericTable = forwardRef(({
     }
     
     return processedArray;
-  }, [rawData, preprocessData, newRowTemplate]);
+  }, [rawData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns]);
 
   // Column management
   const {
@@ -368,8 +418,9 @@ const GenericTable = forwardRef(({
   };
 
   // Filter change handler
-  const handleFilterChange = (filteredData) => {
-    console.log("Filter change - client-side filtering");
+  const handleFilterChange = (filters) => {
+    console.log("Filter change:", filters);
+    setColumnFilters(filters);
   };
 
   // Column resize handler
@@ -539,8 +590,8 @@ const GenericTable = forwardRef(({
         toggleColumnVisibility={toggleColumnVisibility}
         toggleAllColumns={toggleAllColumns}
         isRequiredColumn={isRequiredColumn}
-        quickSearch=""
-        setQuickSearch={() => {}}
+        quickSearch={quickSearch}
+        setQuickSearch={setQuickSearch}
         unsavedData={data}
         hasNonEmptyValues={(row) => {
           // Only count rows that have an ID (real data from server)
@@ -552,6 +603,8 @@ const GenericTable = forwardRef(({
         setShowCustomFilter={setShowCustomFilter}
         additionalButtons={additionalButtons}
         pagination={null} // Remove the custom pagination since we fixed hasNonEmptyValues
+        data={preprocessData ? preprocessData(rawData) : rawData}
+        onFilterChange={handleFilterChange}
       />
 
       <StatusMessage saveStatus={saveStatus} />
