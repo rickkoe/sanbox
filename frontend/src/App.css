@@ -12,12 +12,21 @@
   overflow: hidden;
   position: relative;
   z-index: 1;
+  transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-layout.sidebar-collapsed {
+  grid-template-columns: 70px 1fr;
 }
 
 /* Responsive layout adjustments */
 @media (max-width: 1024px) {
   .app-layout {
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 220px 1fr;
+  }
+  
+  .app-layout.sidebar-collapsed {
+    grid-template-columns: 60px 1fr;
   }
   
   .navbar-config {
@@ -106,20 +115,7 @@
   overflow: visible !important; /* Critical for dropdowns */
 }
 
-/* Ensure the app layout doesn't clip dropdowns */
-.app-layout {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-  grid-template-columns: 250px 1fr;
-  grid-template-areas:
-    "navbar navbar"
-    "sidebar topbar"
-    "sidebar main-content";
-  height: 100vh;
-  overflow: visible; /* Changed from hidden */
-  position: relative;
-  z-index: 1;
-}
+/* Remove duplicate app-layout definition - already defined above */
 
 /* Boost dropdown z-index above everything */
 .dropdown-menu {

@@ -1,254 +1,254 @@
-.sidebar-header-card {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background: linear-gradient(135deg, rgba(13, 110, 253, 0.1), rgba(13, 110, 253, 0.05));
-    border: 1px solid rgba(13, 110, 253, 0.2);
-    border-radius: 0.5rem;
-    backdrop-filter: blur(10px);
-  }
-  
-  .sidebar-header-content {
-    text-align: center;
-  }
-  
-  .sidebar-context-label {
-    display: block;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.7);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 0.25rem;
-    font-weight: 500;
-  }
-  
-  .sidebar-header-title {
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 600;
-    margin: 0;
-    line-height: 1.2;
-    word-break: break-word;
-    hyphens: auto;
-  }
-
-  /* Legacy support for old active-customer-card */
-  .active-customer-card {
-    color: #fff;
-    padding: 1rem;
-    border-radius: 0.25rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    font-weight: bold;
-    text-transform: uppercase;
-    border-top: 1px solid #495057;
-    border-bottom: 1px solid #495057;
-    height: 50px;
-  }
-  
-  .sidebar-header {
-    padding: 15px;
-  }
-  
-  .sidebar-nav {
-    flex-grow: 1;
-  }
-  
-  .sidebar-menu {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  
-  .sidebar-menu-item {
-    margin-bottom: 0.25rem;
-  }
-  
-  .sidebar a {
-    display: block;
-    padding: 8px;
-    border-radius: 4px;
-    color: white;
-    text-decoration: none;
-  }
-  
-  .sidebar a:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    text-decoration: none;
-  }
-  
-  .sidebar-footer {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    padding: 15px;
-    border-top: 1px solid #495057;
-  }
-  
-  .sidebar-footer .btn-group {
-    width: 100%;
-  }
-  
-  .sidebar-footer .btn {
-    flex: 1;
-    font-size: 0.85rem;
-  }
-  
-  .sidebar-link {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    color: white;
-    text-decoration: none;
-    border-radius: 0.5rem;
-    transition: all 0.2s ease;
-    position: relative;
-    margin: 0.125rem 0;
-  }
-  
-  .sidebar-link:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-    color: white;
-    text-decoration: none;
-    transform: translateX(2px);
-  }
-  
-  .sidebar-link.active {
-    background: linear-gradient(135deg, #0d6efd, #0056b3);
-    color: white;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
-  }
-  
-  .sidebar-link.active:hover {
-    transform: none;
-    background: linear-gradient(135deg, #0056b3, #004085);
-  }
-  
-  .sidebar-link-text {
-    flex-grow: 1;
-  }
-  
-  .sidebar-link-indicator {
-    width: 6px;
-    height: 6px;
-    background-color: white;
-    border-radius: 50%;
-    margin-left: 0.5rem;
-  }
-  
-  /* Improved SAN Vendor Toggle Styles */
-  .toggle-switch {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background-color: #495057;
-    border-radius: 30px; /* Increased border radius for a smoother look */
-    padding: 8px; /* Adjusted padding */
-    margin: 10px; /* Add margin for spacing within the footer */
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-  }
-  
-  .toggle-label {
-    flex: 1;
-    text-align: center;
-    color: #adb5bd;
-    font-size: 1rem; /* Slightly larger font for better readability */
-    font-weight: bold;
-    z-index: 2; /* Ensure the label sits above the toggle thumb */
-  }
-  
-  .toggle-thumb {
-    position: absolute;
-    width: 50%;
-    height: 100%;
-    background-color: #0d6efd;
-    border-radius: 30px; /* Match the container's border radius */
-    transition: transform 0.3s ease;
-    z-index: 1;
-  }
-  
-  .toggle-switch.BR .toggle-label:first-child,
-  .toggle-switch.CI .toggle-label:last-child {
-    color: white;
-  }
-  
-  .toggle-switch.BR .toggle-thumb {
-    transform: translateX(0%);
-  }
-  
-  .toggle-switch.CI .toggle-thumb {
-    transform: translateX(100%);
-  }
-
-  .sidebar-back-button {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 0.75rem 1rem;
-    width: 90%;
-    margin: 0.5rem auto;
-    font-size: 1rem;
-    font-weight: 500;
-    background-color: transparent;
-    color: #ffffff;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.3s, transform 0.3s;
-  }
-  
-  .sidebar-back-button:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
-  
-  .sidebar-back-button .arrow {
-    margin-right: 0.5rem;
-    display: inline-block;
-    transition: transform 0.3s;
-  }
-  
-  .sidebar-back-button:hover .arrow {
-    animation: wiggle 0.5s ease forwards;
-  }
-
-  @keyframes wiggle {
-    0% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    50% { transform: translateX(0); }
-    75% { transform: translateX(-5px); }
-    100% { transform: translateX(0); }
-  }
-
-  .sidebar-footer .vendor-toggle {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0.5rem;
-    background-color: #f8f9fa; /* Light background */
-    border-radius: 8px;
-    font-size: 0.85rem;
-    width: 90%;
-    margin: 1rem auto;
-    box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
-  }
-  
-  .vendor-toggle select {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.85rem;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-  }
-
-.active-customer-card .storage-name-tooltip {
-  font-size: clamp(0.4rem, 1.2vw, 1rem);
+/* Modern Collapsible Sidebar */
+.modern-sidebar {
+  background: linear-gradient(180deg, #1a1d23 0%, #2d3748 100%);
+  width: 250px;
+  height: 100vh;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.sidebar-divider {
+.modern-sidebar.collapsed {
+  width: 70px;
+}
+
+/* Toggle Button */
+.sidebar-toggle {
+  position: absolute;
+  top: 1rem;
+  right: -12px;
+  background: #0d6efd;
   border: none;
-  border-top: 1px solid #ccc;
-  margin: 0.75rem 0;
-  opacity: 0.5;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  z-index: 100;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
+}
+
+.sidebar-toggle:hover {
+  background: #0056b3;
+  transform: scale(1.1);
+}
+
+/* Header */
+.sidebar-header {
+  padding: 1.5rem 1rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 1rem;
+}
+
+.sidebar-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  background: rgba(13, 110, 253, 0.2);
+  border-radius: 8px;
+  color: #60a5fa;
+}
+
+.modern-sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 1.5rem 0.5rem 1rem;
+}
+
+.sidebar-header-content {
+  overflow: hidden;
+}
+
+.sidebar-title {
+  color: #f8fafc;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+/* Back Button */
+.sidebar-back-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 0 1rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar-back-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #f1f5f9;
+}
+
+.modern-sidebar.collapsed .sidebar-back-button {
+  margin: 0 0.5rem 1rem;
+  padding: 0.75rem;
+  justify-content: center;
+}
+
+/* Navigation */
+.sidebar-nav {
+  flex: 1;
+  padding: 0 1rem;
+  overflow-y: auto;
+}
+
+.modern-sidebar.collapsed .sidebar-nav {
+  padding: 0 0.5rem;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-menu-item {
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  color: #cbd5e1;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.modern-sidebar.collapsed .sidebar-link {
+  justify-content: center;
+  padding: 0.875rem;
+}
+
+.sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f5f9;
+  text-decoration: none;
+  transform: translateX(2px);
+}
+
+.sidebar-link.active {
+  background: linear-gradient(135deg, #0d6efd, #0056b3);
+  color: white;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+.sidebar-link.active:hover {
+  transform: none;
+  background: linear-gradient(135deg, #0056b3, #004085);
+}
+
+.sidebar-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+}
+
+.sidebar-link-text {
+  font-weight: 500;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-link-indicator {
+  margin-left: auto;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-link.active .sidebar-link-indicator {
+  opacity: 1;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .modern-sidebar {
+    width: 220px;
+  }
+  
+  .modern-sidebar.collapsed {
+    width: 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .modern-sidebar {
+    position: fixed;
+    left: -250px;
+    z-index: 1000;
+    transition: left 0.3s ease;
+  }
+  
+  .modern-sidebar.mobile-open {
+    left: 0;
+  }
+  
+  .modern-sidebar.collapsed {
+    left: -60px;
+  }
+  
+  .sidebar-toggle {
+    display: none;
+  }
+}
+
+/* Smooth transitions for all interactive elements */
+.sidebar-link,
+.sidebar-back-button,
+.sidebar-toggle {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom scrollbar for navigation */
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 } 

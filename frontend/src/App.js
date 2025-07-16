@@ -48,18 +48,19 @@ import "./styles/home.css";
 
 function App() {
   const [breadcrumbMap, setBreadcrumbMap] = useState({});
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
     <Router>
       <ConfigProvider>
         <SanVendorProvider>
           <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
-            <div className="app-layout">
+            <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
               <header className="navbar">
                 <Navbar />
               </header>
               <aside className="sidebar">
-                <Sidebar />
+                <Sidebar onCollapseChange={setIsSidebarCollapsed} />
               </aside>
               <div className="topbar">
                 <Breadcrumbs />

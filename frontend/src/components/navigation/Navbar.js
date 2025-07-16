@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
-import { Menu, User, HelpCircle, Upload, Terminal, Settings, Building2, FolderOpen } from "lucide-react";
-import { NavLink, Link, useLocation } from "react-router-dom";
+import { Menu, User, HelpCircle, Upload, Terminal, Settings, Building2, FolderOpen, ArrowLeft } from "lucide-react";
+import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Dropdown } from "react-bootstrap";
@@ -8,15 +8,61 @@ import { Dropdown } from "react-bootstrap";
 const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   const { config, loading } = useContext(ConfigContext);
   const location = useLocation();
+  const navigate = useNavigate();
   const isSanActive = location.pathname.startsWith("/san");
   const isStorageActive = location.pathname.startsWith("/storage");
+
+  // Smart back navigation logic
+  const getBackPath = () => {
+    const path = location.pathname;
+    
+    // Storage system detail -> Storage list
+    if (path.match(/^\/storage\/\d+$/)) {
+      return "/storage";
+    }
+    // Storage volumes -> Storage system detail
+    if (path.match(/^\/storage\/(\d+)\/volumes$/)) {
+      const storageId = path.match(/^\/storage\/(\d+)\/volumes$/)[1];
+      return `/storage/${storageId}`;
+    }
+    // SAN sub-pages -> SAN main
+    if (path.startsWith("/san/") && path !== "/san") {
+      return "/san";
+    }
+    // Config, tools, scripts -> Home
+    if (["/config", "/tools", "/scripts"].some(p => path.startsWith(p))) {
+      return "/";
+    }
+    // Import pages -> parent section
+    if (path.includes("/import")) {
+      if (path.includes("/san/aliases")) return "/san/aliases";
+      if (path.includes("/san/zones")) return "/san/zones";
+      return "/";
+    }
+    
+    return null; // No logical back path
+  };
+
+  const backPath = getBackPath();
+  const showBackButton = backPath && location.pathname !== "/";
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark ">
       <div className="container-fluid">
-        <NavLink className="navbar-brand ms-3" to="/">
-          <img src="/images/logo-light.png" alt="Logo" className="logo-image" />
-        </NavLink>
+        <div className="navbar-left">
+          {showBackButton && (
+            <button 
+              className="nav-back-button me-3"
+              onClick={() => navigate(backPath)}
+              title="Go back"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
+          <NavLink className="navbar-brand" to="/">
+            <img src="/images/logo-light.png" alt="Logo" className="logo-image" />
+          </NavLink>
+        </div>
 
         {/* Project Context Indicator */}
         <div className="navbar-context">
@@ -90,6 +136,10 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
                   <span className="nav-label ms-1">Tools</span>
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
+                  <Dropdown.Item as={NavLink} to="/customers">
+                    Customers
+                  </Dropdown.Item>
+                  <Dropdown.Divider />
                   <Dropdown.Item as={NavLink} to="/scripts">
                     Script Builder
                   </Dropdown.Item>

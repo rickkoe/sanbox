@@ -1,7 +1,41 @@
+/* Navbar Left Section */
+.navbar-left {
+  display: flex;
+  align-items: center;
+}
+
+/* Back Button */
+.nav-back-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.375rem;
+  color: #f8f9fa;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.nav-back-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+  transform: translateX(-2px);
+}
+
+.nav-back-button:active {
+  transform: translateX(-1px);
+  background: rgba(255, 255, 255, 0.15);
+}
+
 /* New Context Indicator */
 .navbar-context {
     position: absolute;
-    left: 270px;
+    left: 320px;
     top: 50%;
     transform: translateY(-50%);
     z-index: 100;
@@ -257,7 +291,7 @@
 /* Responsive adjustments for context indicator */
 @media (max-width: 1200px) {
   .navbar-context {
-    left: 250px;
+    left: 300px;
   }
   
   .context-indicator {
@@ -267,7 +301,7 @@
 
 @media (max-width: 992px) {
   .navbar-context {
-    left: 220px;
+    left: 270px;
   }
   
   .context-indicator {
