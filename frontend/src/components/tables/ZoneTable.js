@@ -340,59 +340,57 @@ const ZoneTable = () => {
         getCellsConfig={getCellsConfig}
         storageKey="zoneTableColumnWidths"
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`}
-        additionalButtons={
-          <>
-            <Button 
-              className={`save-button ${isAddingColumn ? 'adding-column' : ''}`}
-              onClick={async () => {
-                console.log(`Adding 1 column. Current: ${memberColumns}`);
-                
-                // Trigger animation
-                setIsAddingColumn(true);
-                
-                // Add the column
-                setMemberColumns(prev => prev + 1);
-                
-                // Reset animation after a short delay
-                setTimeout(() => {
-                  setIsAddingColumn(false);
-                }, 1);
-              }}
-            >
-              <span className="button-icon">
-                {isAddingColumn ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="spin-icon">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                  </svg>
-                )}
-              </span>
-              {isAddingColumn ? 'Adding Column...' : 'Add Member Column'}
-            </Button>
-            <Button
-              className="save-button"
-              onClick={() => {
-                if (tableRef.current?.isDirty) {
-                  if (window.confirm("You have unsaved changes. Save before generating scripts?")) {
-                    tableRef.current.refreshData().then(() => navigate("/san/zones/zone-scripts"));
-                  }
-                } else {
-                  navigate("/san/zones/zone-scripts");
-                }
-              }}
-            >
-              Generate Zoning Scripts
-            </Button>
-            <Button variant="outline-primary" onClick={() => navigate('/san/zones/import')}>
-              Import Zones
-            </Button>
-          </>
+        additionalButtons={[
+  {
+    text: "Add Member Column",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    ),
+    onClick: () => {
+      console.log(`Adding 1 column. Current: ${memberColumns}`);
+      setIsAddingColumn(true);
+      setMemberColumns(prev => prev + 1);
+      setTimeout(() => setIsAddingColumn(false), 1);
+    }
+  },
+  {
+    text: "Generate Zoning Scripts",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+      </svg>
+    ),
+    onClick: () => {
+      if (tableRef.current?.isDirty) {
+        if (window.confirm("You have unsaved changes. Save before generating scripts?")) {
+          tableRef.current.refreshData().then(() => navigate("/san/zones/zone-scripts"));
         }
+      } else {
+        navigate("/san/zones/zone-scripts");
+      }
+    }
+  },
+  {
+    text: "Import Zones", 
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <polyline points="11,10 8,13 11,16"/>
+      </svg>
+    ),
+    onClick: () => navigate('/san/zones/import')
+  }
+]}
+        
+
+
+
       />
     </div>
   );
