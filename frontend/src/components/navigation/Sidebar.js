@@ -79,21 +79,16 @@ const Sidebar = () => {
       <div className="sidebar-inner">
         <div className="sidebar-content">
           {dynamicHeader && (
-            <div className="active-customer-card text-white rounded shadow">
-              <p
-                className="mb-0 text-truncate storage-name-tooltip"
-                title={dynamicHeader}
-                style={{
-                  fontSize: "clamp(0.4rem, 1.2vw, 1rem)",
-                  maxWidth: "100%",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                }}
-              >
-                {dynamicHeader}
-              </p>
+            <div className="sidebar-header-card">
+              <div className="sidebar-header-content">
+                <span className="sidebar-context-label">Context</span>
+                <h4 className="sidebar-header-title" title={dynamicHeader}>
+                  {dynamicHeader}
+                </h4>
+              </div>
             </div>
           )}
+          
           {showBackButton && (
             <button
               className="sidebar-back-button"
@@ -112,25 +107,31 @@ const Sidebar = () => {
               <span className="arrow">←</span> Back
             </button>
           )}
-          <ul>
-            {links.map((link, index) =>
-              link.divider ? (
-                <hr key={`divider-${index}`} className="sidebar-divider" />
-              ) : (
-                <li key={link.path}>
-                  <NavLink
-                    to={link.path}
-                    end={link.label === "Properties"}
-                    className={({ isActive }) =>
-                      isActive ? "sidebar-link active" : "sidebar-link"
-                    }
-                  >
-                    {link.label}
-                  </NavLink>
-                </li>
-              )
-            )}
-          </ul>
+          
+          <nav className="sidebar-nav">
+            <ul className="sidebar-menu">
+              {links.map((link, index) =>
+                link.divider ? (
+                  <hr key={`divider-${index}`} className="sidebar-divider" />
+                ) : (
+                  <li key={link.path} className="sidebar-menu-item">
+                    <NavLink
+                      to={link.path}
+                      end={link.label === "Properties"}
+                      className={({ isActive }) =>
+                        `sidebar-link ${isActive ? "active" : ""}`
+                      }
+                    >
+                      <span className="sidebar-link-text">{link.label}</span>
+                      {({ isActive }) => isActive && (
+                        <span className="sidebar-link-indicator"></span>
+                      )}
+                    </NavLink>
+                  </li>
+                )
+              )}
+            </ul>
+          </nav>
         </div>
       </div>
     </div>

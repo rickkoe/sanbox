@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Menu, User, HelpCircle, Upload, Terminal, Settings } from "lucide-react";
+import { Menu, User, HelpCircle, Upload, Terminal, Settings, Building2, FolderOpen } from "lucide-react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { ConfigContext } from "../../context/ConfigContext";
@@ -18,91 +18,141 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
           <img src="/images/logo-light.png" alt="Logo" className="logo-image" />
         </NavLink>
 
-        {/* ✅ Display Active Project */}
-        <div className={`navbar-config ${isSidebarOpen ? "shifted" : ""}`}>
+        {/* Project Context Indicator */}
+        <div className="navbar-context">
           {loading ? (
-            <span className="text-light">Loading...</span>
-          ) : config && config.customer ? (
-            <div className="active-project-card p-2 rounded">
-              <span className="active-project">
-                <a
-                  href="/config"
-                  className="text-light"
-                  title="Active Project"
-                  rel="noopener noreferrer"
-                >
-                  {config.customer.name}:  {config.active_project.name}
-                </a>
-              </span>
+            <div className="context-loading">
+              <span className="loading-dot"></span>
             </div>
+          ) : config && config.customer ? (
+            <Dropdown align="start">
+              <Dropdown.Toggle as="div" className="context-dropdown" style={{ cursor: "pointer" }}>
+                <div className="context-indicator">
+                  <div className="context-icon">
+                    <Building2 size={16} />
+                  </div>
+                  <div className="context-text">
+                    <div className="context-customer">{config.customer.name}</div>
+                    <div className="context-project">{config.active_project.name}</div>
+                  </div>
+                  <div className="context-chevron">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                      <path d="M6 9L2 5h8L6 9z"/>
+                    </svg>
+                  </div>
+                </div>
+              </Dropdown.Toggle>
+              <Dropdown.Menu className="context-menu">
+                <div className="context-menu-header">
+                  <small className="text-muted">Current Context</small>
+                </div>
+                <Dropdown.Item className="context-menu-item">
+                  <Building2 size={14} className="me-2" />
+                  <div>
+                    <div className="context-menu-primary">{config.customer.name}</div>
+                    <small className="text-muted">Customer</small>
+                  </div>
+                </Dropdown.Item>
+                <Dropdown.Item className="context-menu-item">
+                  <FolderOpen size={14} className="me-2" />
+                  <div>
+                    <div className="context-menu-primary">{config.active_project.name}</div>
+                    <small className="text-muted">Active Project</small>
+                  </div>
+                </Dropdown.Item>
+                <Dropdown.Divider />
+                <Dropdown.Item as={Link} to="/config">
+                  <Settings size={14} className="me-2" />
+                  Change Context
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
           ) : (
-            <span className="text-light">No active customer</span>
+            <Link to="/config" className="context-empty">
+              <Building2 size={16} className="me-2" />
+              <span>Setup Required</span>
+            </Link>
           )}
         </div>
 
         <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav ms-auto gap-3 align-items-center d-flex">
-          <li className="nav-item">
-
-              <NavLink
-                className="nav-link"
-                to="/scripts"
-                title="Import Data"
-              >
-                <Terminal size={28} />
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink
-                className="nav-link"
-                to="/insights/importer"
-                title="Import Data"
-              >
-                <Upload size={28} />
-              </NavLink>
-            </li>
-
-            <li className="nav-item">
-              <span
-                className="nav-link"
-                style={{ cursor: "pointer" }}
-                title="User Panel"
-              >
-                <User size={28} />
-              </span>
-            </li>
-            <li className="nav-item">
-                <NavLink
-                className="nav-link"
-                to="/config"
-                title="Config"
-              >
-                <Settings size={28} />
-              </NavLink>
-            </li>
+          <ul className="navbar-nav ms-auto align-items-center d-flex">
+            {/* Tools Group */}
             <li className="nav-item">
               <Dropdown align="end">
-                <Dropdown.Toggle as="span" style={{ cursor: "pointer" }}>
-                  <HelpCircle size={28} />
+                <Dropdown.Toggle 
+                  as="span" 
+                  className="nav-link" 
+                  style={{ cursor: "pointer" }}
+                  title="Tools & Scripts"
+                >
+                  <Terminal size={24} />
+                  <span className="nav-label ms-1">Tools</span>
                 </Dropdown.Toggle>
-
                 <Dropdown.Menu>
-                  <Dropdown.Item as={NavLink} to="/config">
-                    Config
+                  <Dropdown.Item as={NavLink} to="/scripts">
+                    Script Builder
                   </Dropdown.Item>
+                  <Dropdown.Item as={NavLink} to="/insights/importer">
+                    Data Import
+                  </Dropdown.Item>
+                  <Dropdown.Item as={NavLink} to="/tools">
+                    Calculators
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+            </li>
+
+            <li className="nav-item nav-divider">
+              <span className="divider-line"></span>
+            </li>
+
+            {/* User & Settings Group */}
+            <li className="nav-item">
+              <NavLink
+                className="nav-link"
+                to="/config"
+                title="Settings"
+              >
+                <Settings size={24} />
+                <span className="nav-label ms-1">Settings</span>
+              </NavLink>
+            </li>
+
+            <li className="nav-item">
+              <Dropdown align="end">
+                <Dropdown.Toggle 
+                  as="span" 
+                  className="nav-link" 
+                  style={{ cursor: "pointer" }}
+                  title="Help & Admin"
+                >
+                  <HelpCircle size={24} />
+                </Dropdown.Toggle>
+                <Dropdown.Menu>
                   <Dropdown.Item
                     as="a"
                     href="http://127.0.0.1:8000/admin/"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Admin{" "}
+                    Admin Panel
                     <span style={{ fontSize: "0.8em", marginLeft: "4px" }}>
                       🔗
                     </span>
                   </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown>
+            </li>
+
+            <li className="nav-item">
+              <span
+                className="nav-link user-profile"
+                style={{ cursor: "pointer" }}
+                title="User Profile"
+              >
+                <User size={24} />
+              </span>
             </li>
           </ul>
         </div>

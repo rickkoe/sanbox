@@ -1,24 +1,87 @@
-/* Breadcrumbs fixed (sticky) */
+/* Modern breadcrumb container */
 .breadcrumb-container {
-    position: sticky;
-    top: 56px;
-    padding-top: 10px;
-    padding-bottom: 10px;
-  }
-  
-  /* ✅ Style the breadcrumb links */
-.breadcrumb a {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.breadcrumb-nav {
+    padding: 0.75rem 1rem;
+}
+
+.modern-breadcrumb {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: none;
+    border-radius: 0;
+}
+
+.breadcrumb-item {
+    display: flex;
+    align-items: center;
+}
+
+.breadcrumb-link {
+    display: flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    color: #6c757d;
     text-decoration: none;
-    color: #007bff;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+    font-weight: 500;
 }
 
-.breadcrumb a:hover {
-    text-decoration: underline;
-    color: #0056b3;
+.breadcrumb-link:hover {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.1);
+    text-decoration: none;
 }
 
-/* ✅ Style the active breadcrumb item */
-.breadcrumb .active {
-    font-weight: bold;
+.home-link .breadcrumb-icon {
+    margin-right: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.breadcrumb-text {
+    font-size: 0.875rem;
+}
+
+.breadcrumb-separator {
+    margin: 0 0.5rem;
+    color: #adb5bd;
+    font-weight: 500;
+    user-select: none;
+}
+
+.breadcrumb-current {
     color: #495057;
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.breadcrumb-item.active .breadcrumb-current {
+    background: linear-gradient(135deg, #0d6efd, #0056b3);
+    color: white;
+    border-radius: 0.25rem;
+    box-shadow: 0 1px 3px rgba(13, 110, 253, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .breadcrumb-text {
+        display: none;
+    }
+    
+    .breadcrumb-separator {
+        margin: 0 0.25rem;
+    }
+    
+    .modern-breadcrumb {
+        flex-wrap: wrap;
+    }
 }

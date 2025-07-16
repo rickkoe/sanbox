@@ -1,9 +1,43 @@
-.active-customer-card {
-    color: #fff;             /* White text for readability */
-    padding: 1rem;           /* Comfortable padding around the text */
-    border-radius: 0.25rem;  /* Slightly rounded corners for a modern look */
-    margin-bottom: 1rem;     /* Spacing below the card */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* A subtle shadow for depth */
+.sidebar-header-card {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(13, 110, 253, 0.1), rgba(13, 110, 253, 0.05));
+    border: 1px solid rgba(13, 110, 253, 0.2);
+    border-radius: 0.5rem;
+    backdrop-filter: blur(10px);
+  }
+  
+  .sidebar-header-content {
+    text-align: center;
+  }
+  
+  .sidebar-context-label {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+  }
+  
+  .sidebar-header-title {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.2;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  /* Legacy support for old active-customer-card */
+  .active-customer-card {
+    color: #fff;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     font-weight: bold;
     text-transform: uppercase;
     border-top: 1px solid #495057;
@@ -15,15 +49,18 @@
     padding: 15px;
   }
   
-  .sidebar ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+  .sidebar-nav {
     flex-grow: 1;
   }
   
-  .sidebar li {
-    padding: 5px 15px;
+  .sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .sidebar-menu-item {
+    margin-bottom: 0.25rem;
   }
   
   .sidebar a {
@@ -57,23 +94,47 @@
   }
   
   .sidebar-link {
-    display: block;
-    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
     color: white;
     text-decoration: none;
-    border-radius: 4px;
-    transition: background 0.3s ease-in-out;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+    position: relative;
+    margin: 0.125rem 0;
   }
   
   .sidebar-link:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.08);
+    color: white;
+    text-decoration: none;
+    transform: translateX(2px);
   }
   
   .sidebar-link.active {
-    background-color: #0d6efd; /* Bootstrap primary color */
-    font-weight: bold;
-    border-left: 4px solid #ffffff; /* Adds a left border indicator */
-    padding-left: 12px;
+    background: linear-gradient(135deg, #0d6efd, #0056b3);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
+  }
+  
+  .sidebar-link.active:hover {
+    transform: none;
+    background: linear-gradient(135deg, #0056b3, #004085);
+  }
+  
+  .sidebar-link-text {
+    flex-grow: 1;
+  }
+  
+  .sidebar-link-indicator {
+    width: 6px;
+    height: 6px;
+    background-color: white;
+    border-radius: 50%;
+    margin-left: 0.5rem;
   }
   
   /* Improved SAN Vendor Toggle Styles */

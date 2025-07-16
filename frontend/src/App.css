@@ -1,4 +1,4 @@
-/* appLayout.css - Update these styles */
+/* Modern app layout with better responsive behavior */
 
 .app-layout {
   display: grid;
@@ -10,8 +10,40 @@
     "sidebar main-content";
   height: 100vh;
   overflow: hidden;
-  position: relative; /* Add this */
+  position: relative;
   z-index: 1;
+}
+
+/* Responsive layout adjustments */
+@media (max-width: 1024px) {
+  .app-layout {
+    grid-template-columns: 200px 1fr;
+  }
+  
+  .navbar-config {
+    left: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "navbar"
+      "topbar"
+      "main-content";
+  }
+  
+  .sidebar {
+    display: none;
+  }
+  
+  .navbar-config {
+    position: static;
+    transform: none;
+    padding: 0.5rem 1rem;
+    text-align: center;
+  }
 }
 
 /* Navbar fixed to the top */

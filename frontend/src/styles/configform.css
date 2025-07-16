@@ -1,18 +1,266 @@
-.form-container {
-    max-height: calc(100vh - 200px); /* your formula here */
-    overflow-y: auto;
-    padding-right: 10px; /* optional, to prevent scrollbar overlapping text */
-  }
+/* Professional Config Form Styling */
 
-/* ✅ Ensure full project names are visible in dropdown */
-.form-control option {
-    white-space: nowrap;    /* Prevent text wrapping */
-    overflow: visible;      /* Ensure full text visibility */
-    text-overflow: clip;    /* Avoid cutting off text */
-    max-width: none;        /* Ensure full width is used */
+.config-container {
+    padding: 2rem;
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 4rem;
 }
 
-.container {
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
+.config-form-card {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    padding: 3rem;
+    max-width: 600px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.config-form-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0d6efd, #6610f2);
+}
+
+.form-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.form-header h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 0.5rem;
+}
+
+.form-header p {
+    color: #6c757d;
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.config-form {
+    max-width: 100%;
+}
+
+.form-section {
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.required {
+    color: #dc3545;
+    margin-left: 0.25rem;
+}
+
+.input-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+.form-select {
+    flex: 1;
+    padding: 0.875rem 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    background-color: white;
+    color: #495057;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.form-select:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+}
+
+.form-select option {
+    padding: 0.5rem;
+}
+
+.add-btn {
+    padding: 0.875rem 1.25rem;
+    background: linear-gradient(135deg, #0d6efd, #0056b3);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0056b3, #004085);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+.add-btn:disabled {
+    background: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.form-actions {
+    margin-top: 2.5rem;
+    text-align: center;
+}
+
+.save-btn {
+    padding: 1rem 2.5rem;
+    background: linear-gradient(135deg, #198754, #157347);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 200px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.save-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #157347, #0f5132);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(25, 135, 84, 0.3);
+}
+
+.save-btn:disabled {
+    background: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.save-btn.saving {
+    pointer-events: none;
+}
+
+.btn-spinner {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.status-message {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+.status-message.success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
+}
+
+.status-message.error {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+}
+
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+    font-size: 1.1rem;
+}
+
+.spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid #e9ecef;
+    border-top: 3px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .config-container {
+        padding: 1rem;
+    }
+    
+    .config-form-card {
+        padding: 2rem;
+    }
+    
+    .form-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .add-btn {
+        align-self: stretch;
+    }
+    
+    .save-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .config-form-card {
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+    }
 }

@@ -69,12 +69,6 @@ const ConfigForm = () => {
                 customer: String(config.customer.id),
                 project: config.active_project ? String(config.active_project.id) : "",
                 active_project_id: config.active_project ? String(config.active_project.id) : "",
-                san_vendor: config.san_vendor,
-                cisco_alias: config.cisco_alias,
-                cisco_zoning_mode: config.cisco_zoning_mode,
-                zone_ratio: config.zone_ratio,
-                zoning_job_name: config.zoning_job_name,
-                alias_max_zones: config.alias_max_zones,
             });
             fetchProjects(config.customer.id);
         }
@@ -88,9 +82,13 @@ const ConfigForm = () => {
         setLoading(true);
         try {
             const response = await axios.get(customersApiUrl);
-            setCustomers(response.data);
+            // Ensure response.data is an array
+            const customersData = Array.isArray(response.data) ? response.data : 
+                                 response.data.results ? response.data.results : [];
+            setCustomers(customersData);
         } catch (error) {
             console.error("❌ Error fetching customers:", error);
+            setCustomers([]); // Set empty array on error
         } finally {
             setLoading(false);
         }
@@ -100,9 +98,13 @@ const ConfigForm = () => {
         if (!customerId) return;
         try {
             const response = await axios.get(`${projectsApiUrl}${customerId}/`);
-            setProjects(response.data);
+            // Ensure response.data is an array
+            const projectsData = Array.isArray(response.data) ? response.data : 
+                                response.data.results ? response.data.results : [];
+            setProjects(projectsData);
         } catch (error) {
             console.error("❌ Error fetching projects:", error);
+            setProjects([]); // Set empty array on error
         }
     };
 
@@ -117,23 +119,11 @@ const ConfigForm = () => {
                 setUnsavedConfig(prevConfig => ({
                     ...prevConfig,
                     project: configForCustomer.active_project ? String(configForCustomer.active_project.id) : "",
-                    san_vendor: configForCustomer.san_vendor,
-                    cisco_alias: configForCustomer.cisco_alias,
-                    cisco_zoning_mode: configForCustomer.cisco_zoning_mode,
-                    zone_ratio: configForCustomer.zone_ratio,
-                    zoning_job_name: configForCustomer.zoning_job_name,
-                    alias_max_zones: configForCustomer.alias_max_zones,
                 }));
             } else {
                 setUnsavedConfig(prevConfig => ({
                     ...prevConfig,
                     project: "",
-                    san_vendor: "",
-                    cisco_alias: "",
-                    cisco_zoning_mode: "",
-                    zone_ratio: "",
-                    zoning_job_name: "",
-                    alias_max_zones: "",
                 }));
             }
         } catch (error) {
@@ -157,179 +147,235 @@ const ConfigForm = () => {
     };
 
     const handleSave = async () => {
+        console.log("🚀 Starting save process...");
+        console.log("Current unsavedConfig:", unsavedConfig);
+        
         setSaveStatus("Saving...");
         try {
             const { customer, project, active_project_id } = unsavedConfig;
+            
+            console.log("Extracted values:", { customer, project, active_project_id });
+            
+            // Validate required fields
+            if (!customer || !project) {
+                console.log("❌ Validation failed - missing customer or project");
+                setSaveStatus("⚠️ Please select both customer and project.");
+                return;
+            }
+            
             const payload = { 
-                ...unsavedConfig, 
-                active_project_id: active_project_id || project,
-                is_active: true
+                customer: String(customer),
+                project: String(project),
+                active_project_id: String(active_project_id || project),
+                is_active: true,
+                // Include only the required default values for backend compatibility
+                san_vendor: "BR",
+                cisco_alias: "device-alias",
+                cisco_zoning_mode: "enhanced",
+                zone_ratio: "one-to-one",
+                // Remove problematic fields entirely
             };
-            console.log("PAYLOAD", payload);
-            await axios.put(`${updateCustomerUrl}${customer}/`, payload);
+            
+            console.log("📦 PAYLOAD:", payload);
+            console.log("🌐 API URL:", `${updateCustomerUrl}${customer}/`);
+            console.log("🔧 Full API_URL env var:", process.env.REACT_APP_API_URL);
+            
+            const response = await axios.put(`${updateCustomerUrl}${customer}/`, payload);
+            console.log("✅ Save response:", response.data);
+            
             setSaveStatus("Configuration saved successfully! ✅");
             refreshConfig();
+            
+            // Clear status after 3 seconds
+            setTimeout(() => setSaveStatus(""), 3000);
+            
         } catch (error) {
-            console.error("❌ Error saving config:", error);
-            setSaveStatus("⚠️ Error saving configuration! Please try again.");
+            console.error("❌ FULL ERROR OBJECT:", error);
+            console.error("❌ Error message:", error.message);
+            console.error("❌ Error response:", error.response);
+            console.error("❌ Error response data:", error.response?.data);
+            console.error("❌ Error response status:", error.response?.status);
+            console.error("❌ Error response headers:", error.response?.headers);
+            console.error("❌ Error request:", error.request);
+            console.error("❌ Error config:", error.config);
+            
+            let errorMessage = "⚠️ Error saving configuration! ";
+            if (error.response?.data?.detail) {
+                errorMessage += error.response.data.detail;
+            } else if (error.response?.data?.message) {
+                errorMessage += error.response.data.message;
+            } else if (error.response?.status === 404) {
+                errorMessage += "Configuration endpoint not found.";
+            } else if (error.response?.status === 500) {
+                errorMessage += "Server error occurred.";
+            } else if (error.code === 'NETWORK_ERROR') {
+                errorMessage += "Network error - is the backend running?";
+            } else if (error.message) {
+                errorMessage += error.message;
+            } else {
+                errorMessage += "Unknown error occurred.";
+            }
+            
+            setSaveStatus(errorMessage);
+            
+            // Clear error status after 5 seconds
+            setTimeout(() => setSaveStatus(""), 5000);
         }
     };
 
     return (
-        <div className="form-container mt-4">
+        <div className="config-container">
             {loading ? (
-                <p>Loading...</p>
+                <div className="loading-state">
+                    <div className="spinner"></div>
+                    <span>Loading configuration...</span>
+                </div>
             ) : (
-                <>
+                <div className="config-form-card">
+                    <div className="form-header">
+                        <h2>Project Configuration</h2>
+                        <p>Select your customer and project to configure your workspace</p>
+                    </div>
+
                     {unsavedConfig && (
-                        <form>
-                            <div className="mb-3">
-                                <label className="form-label">Customer</label>
-                                <div className="d-flex gap-2">
-                                    <select className="form-control" name="customer" value={unsavedConfig.customer} onChange={handleInputChange}>
-                                        {customers.map(customer => (
-                                            <option key={customer.id} value={String(customer.id)}>
-                                                {customer.name}
+                        <form className="config-form">
+                            <div className="form-section">
+                                <div className="form-group">
+                                    <label className="form-label">
+                                        Customer Organization
+                                        <span className="required">*</span>
+                                    </label>
+                                    <div className="input-group">
+                                        <select 
+                                            className="form-select" 
+                                            name="customer" 
+                                            value={unsavedConfig.customer || ""} 
+                                            onChange={handleInputChange}
+                                            required
+                                        >
+                                            <option value="">Choose a customer...</option>
+                                            {Array.isArray(customers) && customers.map(customer => (
+                                                <option key={customer.id} value={String(customer.id)}>
+                                                    {customer.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button 
+                                            type="button" 
+                                            className="add-btn" 
+                                            onClick={() => setShowCustomerModal(true)}
+                                            title="Add new customer"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">
+                                        Active Project
+                                        <span className="required">*</span>
+                                    </label>
+                                    <div className="input-group">
+                                        <select
+                                            className="form-select"
+                                            name="project"
+                                            value={unsavedConfig.project || ""}
+                                            onChange={handleInputChange}
+                                            disabled={!unsavedConfig.customer}
+                                            required
+                                        >
+                                            <option value="">
+                                                {unsavedConfig.customer ? "Choose a project..." : "Select customer first"}
                                             </option>
-                                        ))}
-                                    </select>
-                                    <Button variant="outline-primary" onClick={() => setShowCustomerModal(true)}>+ Add</Button>
+                                            {Array.isArray(projects) && projects.map(project => (
+                                                <option key={project.id} value={String(project.id)}>
+                                                    {project.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button 
+                                            type="button" 
+                                            className="add-btn" 
+                                            onClick={() => setShowProjectModal(true)}
+                                            disabled={!unsavedConfig.customer}
+                                            title="Add new project"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="mb-3">
-                                <label className="form-label">Project</label>
-                                <div className="d-flex gap-2">
-                                    <select
-                                        className="form-control"
-                                        name="project"
-                                        value={unsavedConfig.project || ""}
-                                        onChange={handleInputChange}
-                                    >
-                                        <option value="">Select a Project</option>
-                                        {projects.map(project => (
-                                            <option key={project.id} value={String(project.id)}>
-                                                {project.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <Button variant="outline-primary" onClick={() => setShowProjectModal(true)}>+ Add</Button>
-                                </div>
-                            </div>
-
-                            <div className="mb-3">
-                                <label className="form-label">SAN Vendor</label>
-                                <select
-                                    className="form-control"
-                                    name="san_vendor"
-                                    value={unsavedConfig.san_vendor}
-                                    onChange={handleInputChange}
+                            <div className="form-actions">
+                                <button 
+                                    type="button" 
+                                    className={`save-btn ${saveStatus === "Saving..." ? "saving" : ""}`}
+                                    onClick={handleSave} 
+                                    disabled={saveStatus === "Saving..." || !unsavedConfig.customer || !unsavedConfig.project}
                                 >
-                                    <option value="BR">Brocade</option>
-                                    <option value="CI">Cisco</option>
-                                </select>
-                            </div>
-
-                            {unsavedConfig.san_vendor === "CI" && (
-                                <>
-                                    <div className="mb-3">
-                                        <label className="form-label">Cisco Alias</label>
-                                        <select className="form-control" name="cisco_alias" value={unsavedConfig.cisco_alias} onChange={handleInputChange}>
-                                            <option value="device-alias">Device Alias</option>
-                                            <option value="fcalias">FC Alias</option>
-                                            <option value="wwpn">WWPN</option>
-                                        </select>
+                                    {saveStatus === "Saving..." ? (
+                                        <>
+                                            <div className="btn-spinner"></div>
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        "Save Configuration"
+                                    )}
+                                </button>
+                                
+                                {saveStatus && !saveStatus.includes("Saving") && (
+                                    <div className={`status-message ${saveStatus.includes("✅") ? "success" : "error"}`}>
+                                        {saveStatus}
                                     </div>
-
-                                    <div className="mb-3">
-                                        <label className="form-label">Cisco Zoning Mode</label>
-                                        <select className="form-control" name="cisco_zoning_mode" value={unsavedConfig.cisco_zoning_mode} onChange={handleInputChange}>
-                                            <option value="basic">Basic</option>
-                                            <option value="enhanced">Enhanced</option>
-                                        </select>
-                                    </div>
-                                </>
-                            )}
-
-                            <div className="mb-3">
-                                <label className="form-label">Zone Ratio</label>
-                                <select className="form-control" name="zone_ratio" value={unsavedConfig.zone_ratio} onChange={handleInputChange}>
-                                    <option value="one-to-one">One-to-One</option>
-                                    <option value="one-to-many">One-to-Many</option>
-                                    <option value="all-to-all">All-to-All</option>
-                                </select>
+                                )}
                             </div>
-
-                            {/* ✅ Zoning Job Name */}
-                            <div className="mb-3">
-                                <label className="form-label">Zoning Job Name</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    name="zoning_job_name"
-                                    value={unsavedConfig.zoning_job_name || ""}
-                                    onChange={handleInputChange}
-                                />
-                            </div>
-
-                            {/* ✅ Alias Max Zones */}
-                            <div className="mb-3">
-                                <label className="form-label">Alias Max Zones</label>
-                                <input
-                                    type="number"
-                                    className="form-control"
-                                    name="alias_max_zones"
-                                    value={unsavedConfig.alias_max_zones || ""}
-                                    onChange={handleInputChange}
-                                />
-                            </div>
-
-                            <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={saveStatus === "Saving..."}>
-                                {saveStatus || "Save"}
-                            </button>
-                            <Modal show={showProjectModal} onHide={() => setShowProjectModal(false)}>
-                                <Modal.Header closeButton>
-                                    <Modal.Title>Add New Project</Modal.Title>
-                                </Modal.Header>
-                                <Modal.Body>
-                                    <BootstrapForm.Group>
-                                        <BootstrapForm.Label>Project Name</BootstrapForm.Label>
-                                        <BootstrapForm.Control
-                                            type="text"
-                                            value={newProjectName}
-                                            onChange={(e) => setNewProjectName(e.target.value)}
-                                            placeholder="Enter project name"
-                                        />
-                                    </BootstrapForm.Group>
-                                </Modal.Body>
-                                <Modal.Footer>
-                                    <Button variant="secondary" onClick={() => setShowProjectModal(false)}>Cancel</Button>
-                                    <Button variant="primary" onClick={handleAddProject}>Add Project</Button>
-                                </Modal.Footer>
-                            </Modal>
-                            <Modal show={showCustomerModal} onHide={() => setShowCustomerModal(false)}>
-                                <Modal.Header closeButton>
-                                    <Modal.Title>Add New Customer</Modal.Title>
-                                </Modal.Header>
-                                <Modal.Body>
-                                    <BootstrapForm.Group>
-                                        <BootstrapForm.Label>Customer Name</BootstrapForm.Label>
-                                        <BootstrapForm.Control
-                                            type="text"
-                                            value={newCustomerName}
-                                            onChange={(e) => setNewCustomerName(e.target.value)}
-                                            placeholder="Enter customer name"
-                                        />
-                                    </BootstrapForm.Group>
-                                </Modal.Body>
-                                <Modal.Footer>
-                                    <Button variant="secondary" onClick={() => setShowCustomerModal(false)}>Cancel</Button>
-                                    <Button variant="primary" onClick={handleAddCustomer}>Add Customer</Button>
-                                </Modal.Footer>
-                            </Modal>
                         </form>
                     )}
-                </>
+                    
+                    {/* Modals outside of form */}
+                    <Modal show={showProjectModal} onHide={() => setShowProjectModal(false)}>
+                        <Modal.Header closeButton>
+                            <Modal.Title>Add New Project</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body>
+                            <BootstrapForm.Group>
+                                <BootstrapForm.Label>Project Name</BootstrapForm.Label>
+                                <BootstrapForm.Control
+                                    type="text"
+                                    value={newProjectName}
+                                    onChange={(e) => setNewProjectName(e.target.value)}
+                                    placeholder="Enter project name"
+                                />
+                            </BootstrapForm.Group>
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="secondary" onClick={() => setShowProjectModal(false)}>Cancel</Button>
+                            <Button variant="primary" onClick={handleAddProject}>Add Project</Button>
+                        </Modal.Footer>
+                    </Modal>
+                    
+                    <Modal show={showCustomerModal} onHide={() => setShowCustomerModal(false)}>
+                        <Modal.Header closeButton>
+                            <Modal.Title>Add New Customer</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body>
+                            <BootstrapForm.Group>
+                                <BootstrapForm.Label>Customer Name</BootstrapForm.Label>
+                                <BootstrapForm.Control
+                                    type="text"
+                                    value={newCustomerName}
+                                    onChange={(e) => setNewCustomerName(e.target.value)}
+                                    placeholder="Enter customer name"
+                                />
+                            </BootstrapForm.Group>
+                        </Modal.Body>
+                        <Modal.Footer>
+                            <Button variant="secondary" onClick={() => setShowCustomerModal(false)}>Cancel</Button>
+                            <Button variant="primary" onClick={handleAddCustomer}>Add Customer</Button>
+                        </Modal.Footer>
+                    </Modal>
+                </div>
             )}
         </div>
     );

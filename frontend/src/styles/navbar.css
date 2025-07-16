@@ -1,28 +1,173 @@
-.navbar-config {
-    display: flex;
-    align-items: flex-start;  /* ✅ Align text to the right */
+/* New Context Indicator */
+.navbar-context {
     position: absolute;
-    left: 250px; /* 👈 Always 250px from the left */
+    left: 270px;
     top: 50%;
-    transform: translateY(-50%); /* ✅ Center vertically */
+    transform: translateY(-50%);
+    z-index: 100;
+}
+
+.context-dropdown {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.context-dropdown::after {
+    display: none !important;
+}
+
+/* Remove Bootstrap dropdown arrow completely */
+.navbar-context .dropdown-toggle::after {
+    display: none !important;
+}
+
+.navbar-context .dropdown-toggle {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+}
+
+.context-indicator {
     display: flex;
-    gap: 8px;
-    z-index: 100;
-  }
-  
-  .navbar-config .navbar-text {
-    font-weight: normal;
-    color: #ccc;
-    line-height: .2; /* ✅ Add spacing */
-    z-index: 100;
-
-  }
-  
-  .navbar-config strong {
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.5rem;
     color: white;
-    z-index: 100;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+    min-width: 200px;
+}
 
-  }
+.context-indicator:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.context-icon {
+    margin-right: 0.5rem;
+    opacity: 0.8;
+}
+
+.context-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.context-customer {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    line-height: 1;
+    margin-bottom: 0.125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.context-project {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.context-chevron {
+    margin-left: 0.5rem;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+}
+
+.dropdown.show .context-chevron {
+    transform: rotate(180deg);
+}
+
+.context-loading {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+}
+
+.loading-dot {
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+.context-empty {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 193, 7, 0.2);
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    border-radius: 0.5rem;
+    color: #ffc107;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.context-empty:hover {
+    background: rgba(255, 193, 7, 0.3);
+    color: #ffca2c;
+    text-decoration: none;
+}
+
+/* Context Dropdown Menu */
+.context-menu {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 0.5rem 0;
+    min-width: 250px;
+    margin-top: 0.5rem;
+}
+
+.context-menu-header {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 0.5rem;
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: none;
+    color: #495057;
+    text-decoration: none;
+}
+
+.context-menu-item:hover {
+    background: #f8f9fa;
+    color: #495057;
+}
+
+.context-menu-item:focus {
+    background: #f8f9fa;
+    color: #495057;
+}
+
+.context-menu-primary {
+    font-weight: 600;
+    color: #212529;
+    line-height: 1.2;
+}
   
   .nav-link.active {
     font-weight: bold;
@@ -46,22 +191,105 @@
 
   }
 
-  .active-project {
-    font-weight: bold;
-    color: #ccc;
-    font-size: 2rem; /* Increase the font size as desired */
-    z-index: 100;
-  }
-
   .logo-image {
     height: 40px;
     width: auto;
     z-index: 100;
-
   }
 
-  .active-project a {
-      text-decoration: underline;
-      color: inherit;
-      text-decoration: none;
+/* New navbar styling improvements */
+.navbar-nav {
+  gap: 0.5rem;
+}
+
+.nav-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: none;
+}
+
+@media (min-width: 992px) {
+  .nav-label {
+    display: inline;
   }
+}
+
+.nav-divider {
+  display: flex;
+  align-items: center;
+  margin: 0 0.5rem;
+}
+
+.divider-line {
+  width: 1px;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  transition: background-color 0.2s ease;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.user-profile {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  padding: 0.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-profile:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive adjustments for context indicator */
+@media (max-width: 1200px) {
+  .navbar-context {
+    left: 250px;
+  }
+  
+  .context-indicator {
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 992px) {
+  .navbar-context {
+    left: 220px;
+  }
+  
+  .context-indicator {
+    min-width: 160px;
+  }
+  
+  .context-customer,
+  .context-project {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-context {
+    position: static;
+    transform: none;
+    margin: 0 1rem;
+    order: -1;
+  }
+  
+  .context-indicator {
+    min-width: auto;
+    width: 100%;
+  }
+}
