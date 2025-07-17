@@ -10,6 +10,41 @@ echo "========================================="
 
 cd $APP_DIR
 
+echo "🔍 Checking system requirements..."
+
+# Check if Redis is installed and running
+if ! command -v redis-cli &> /dev/null; then
+    echo "❌ Redis is not installed. Installing Redis..."
+    sudo dnf install redis -y
+else
+    echo "✅ Redis is installed"
+fi
+
+# Check if Redis is running
+if ! systemctl is-active --quiet redis; then
+    echo "⚠️  Redis is not running. Starting Redis..."
+    sudo systemctl start redis
+    sudo systemctl enable redis
+else
+    echo "✅ Redis is running"
+fi
+
+# Test Redis connection
+if redis-cli ping &> /dev/null; then
+    echo "✅ Redis connection test passed"
+else
+    echo "❌ Redis connection test failed"
+    echo "Attempting to start Redis..."
+    sudo systemctl restart redis
+    sleep 2
+    if redis-cli ping &> /dev/null; then
+        echo "✅ Redis connection restored"
+    else
+        echo "❌ Redis connection still failing - manual intervention needed"
+        exit 1
+    fi
+fi
+
 echo "📥 Pulling latest changes from GitHub..."
 git pull origin $BRANCH
 
@@ -91,6 +126,29 @@ echo "Services status:"
 pm2 status
 
 echo ""
+echo "🔍 System health check:"
+echo -n "   Redis status: "
+if redis-cli ping &> /dev/null; then
+    echo "✅ Running"
+else
+    echo "❌ Not responding"
+fi
+
+echo -n "   Nginx status: "
+if systemctl is-active --quiet nginx; then
+    echo "✅ Running"
+else
+    echo "❌ Not running"
+fi
+
+echo -n "   PostgreSQL status: "
+if systemctl is-active --quiet postgresql; then
+    echo "✅ Running"
+else
+    echo "❌ Not running"
+fi
+
+echo ""
 echo "🌐 Your app is available at:"
 echo "   Frontend: http://$(hostname -I | awk '{print $1}')/"
 echo "   Admin:    http://$(hostname -I | awk '{print $1}')/admin/"
@@ -100,6 +158,7 @@ echo "   Django logs:       pm2 logs sanbox-django"
 echo "   Celery Worker:     pm2 logs sanbox-celery-worker"
 echo "   Celery Beat:       pm2 logs sanbox-celery-beat"
 echo "   Nginx logs:        sudo tail -f /var/log/nginx/error.log"
+echo "   Redis logs:        sudo journalctl -u redis -f"
 echo ""
 echo "🔧 Celery management commands:"
 echo "   Check worker status: pm2 status sanbox-celery-worker"
