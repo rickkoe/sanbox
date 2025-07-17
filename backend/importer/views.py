@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from customers.models import Customer
-from .models import StorageImport, APICredentials
+from .models import StorageImport
 from .services import SimpleStorageImporter
 import json
 
@@ -66,12 +66,10 @@ def start_import(request):
                 status=400
             )
         
-        # Check API credentials exist
-        try:
-            credentials = APICredentials.objects.get(customer=customer, is_active=True)
-        except APICredentials.DoesNotExist:
+        # Check API credentials exist in customer model
+        if not customer.insights_api_key or not customer.insights_tenant:
             return JsonResponse(
-                {'error': 'No API credentials configured for this customer'}, 
+                {'error': 'No Storage Insights API credentials configured for this customer'}, 
                 status=400
             )
         
@@ -186,54 +184,60 @@ def task_progress(request, task_id):
 
 
 @csrf_exempt
-@require_http_methods(['GET', 'POST', 'PUT', 'DELETE'])
+@require_http_methods(['GET', 'POST', 'PUT'])
 def api_credentials(request, customer_id=None):
-    """Manage API credentials for customers"""
+    """Manage API credentials for customers (stored in Customer model)"""
     
     if request.method == 'GET':
         if customer_id:
             try:
-                credentials = APICredentials.objects.get(customer_id=customer_id, is_active=True)
+                customer = get_object_or_404(Customer, id=customer_id)
                 return JsonResponse({
-                    'customer_id': credentials.customer.id,
-                    'insights_tenant': credentials.insights_tenant,
-                    'has_api_key': bool(credentials.insights_api_key),  # Don't expose actual key
-                    'is_active': credentials.is_active,
-                    'created_at': credentials.created_at.isoformat(),
+                    'customer_id': customer.id,
+                    'customer_name': customer.name,
+                    'insights_tenant': customer.insights_tenant,
+                    'has_api_key': bool(customer.insights_api_key),  # Don't expose actual key
+                    'has_credentials': bool(customer.insights_api_key and customer.insights_tenant),
                 })
-            except APICredentials.DoesNotExist:
-                return JsonResponse({'error': 'No credentials found'}, status=404)
+            except Customer.DoesNotExist:
+                return JsonResponse({'error': 'Customer not found'}, status=404)
         else:
-            # List all credentials
-            credentials = APICredentials.objects.filter(is_active=True)
+            # List all customers with credentials
+            customers = Customer.objects.filter(
+                insights_api_key__isnull=False,
+                insights_tenant__isnull=False
+            ).exclude(
+                insights_api_key='',
+                insights_tenant=''
+            )
             data = []
-            for cred in credentials:
+            for customer in customers:
                 data.append({
-                    'customer_id': cred.customer.id,
-                    'customer_name': cred.customer.name,
-                    'insights_tenant': cred.insights_tenant,
-                    'has_api_key': bool(cred.insights_api_key),
-                    'created_at': cred.created_at.isoformat(),
+                    'customer_id': customer.id,
+                    'customer_name': customer.name,
+                    'insights_tenant': customer.insights_tenant,
+                    'has_api_key': bool(customer.insights_api_key),
+                    'has_credentials': bool(customer.insights_api_key and customer.insights_tenant),
                 })
             return JsonResponse(data, safe=False)
     
-    elif request.method == 'POST':
+    elif request.method == 'POST' or request.method == 'PUT':
         try:
             data = json.loads(request.body)
             customer = get_object_or_404(Customer, id=data.get('customer_id'))
             
-            credentials, created = APICredentials.objects.update_or_create(
-                customer=customer,
-                defaults={
-                    'insights_tenant': data.get('insights_tenant'),
-                    'insights_api_key': data.get('insights_api_key'),
-                    'is_active': True
-                }
-            )
+            # Update customer's insights credentials
+            if 'insights_tenant' in data:
+                customer.insights_tenant = data['insights_tenant']
+            if 'insights_api_key' in data:
+                customer.insights_api_key = data['insights_api_key']
+            
+            customer.save()
             
             return JsonResponse({
                 'message': 'Credentials saved successfully',
-                'created': created
+                'customer_id': customer.id,
+                'has_credentials': bool(customer.insights_api_key and customer.insights_tenant)
             })
             
         except Exception as e:
@@ -241,5 +245,3 @@ def api_credentials(request, customer_id=None):
                 {'error': str(e)}, 
                 status=400
             )
-    
-    # Add PUT and DELETE methods as needed...

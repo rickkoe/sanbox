@@ -1,6 +1,6 @@
 from django.utils import timezone
 from storage.models import Storage, Volume
-from .models import StorageImport, APICredentials
+from .models import StorageImport
 from .api_client import StorageInsightsClient
 from typing import Dict, List
 
@@ -22,8 +22,9 @@ class SimpleStorageImporter:
         )
         
         try:
-            # Get API credentials
-            credentials = APICredentials.objects.get(customer=self.customer, is_active=True)
+            # Get API credentials from customer model
+            if not self.customer.insights_api_key or not self.customer.insights_tenant:
+                raise Exception("No Storage Insights API credentials configured for this customer")
             
             # Check if we should use mock data (for testing when API is not available)
             use_mock_data = False  # Set to True for testing with mock data
@@ -33,7 +34,7 @@ class SimpleStorageImporter:
                 storage_systems, volumes_by_system, hosts_by_system = self._get_mock_data()
             else:
                 # Create API client
-                client = StorageInsightsClient(credentials.insights_tenant, credentials.insights_api_key)
+                client = StorageInsightsClient(self.customer.insights_tenant, self.customer.insights_api_key)
                 
                 # Fetch all data
                 storage_systems, volumes_by_system, hosts_by_system = client.get_all_data()
