@@ -21,8 +21,26 @@ echo "   Installing Python dependencies..."
 pip install -r requirements.txt
 
 echo "   Running database migrations..."
+echo "     → Checking for new migrations..."
 python manage.py makemigrations --dry-run
-python manage.py migrate
+
+echo "     → Creating any missing migrations..."
+python manage.py makemigrations
+
+echo "     → Applying migrations..."
+python manage.py migrate --verbosity=1
+
+echo "     → Verifying importer tables exist..."
+python manage.py shell -c "
+from django.db import connection
+try:
+    with connection.cursor() as cursor:
+        cursor.execute(\"SELECT COUNT(*) FROM importer_storageimport;\")
+        print('✅ importer_storageimport table exists')
+except Exception as e:
+    print(f'❌ importer tables missing: {e}')
+    print('Running importer-specific migration...')
+" || python manage.py migrate importer --verbosity=2
 
 echo "   Collecting static files..."
 python manage.py collectstatic --noinput
