@@ -105,14 +105,26 @@
   position: absolute !important;
 }
 
-/* Main content area needs proper overflow handling */
+/* Main content area with conditional scrolling */
 .main-content {
   grid-area: main-content;
   position: relative;
   padding: 1rem;
   background: #fff;
   z-index: 2;
-  overflow: visible !important; /* Critical for dropdowns */
+  /* Default: no scrolling (tables handle their own) */
+  overflow: visible;
+}
+
+/* Scrolling for non-table pages */
+.main-content.scrollable {
+  overflow-y: auto;
+  overflow-x: visible;
+}
+
+/* Ensure table pages don't have main content scrolling */
+.main-content.table-page {
+  overflow: visible;
 }
 
 /* Remove duplicate app-layout definition - already defined above */

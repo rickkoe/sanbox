@@ -265,6 +265,42 @@
     }
 }
 
+/* Back button container and spacer */
+.nav-back-container {
+    width: 40px; /* Fixed width to maintain consistent spacing */
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-back-button {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    transition: all 0.2s ease;
+}
+
+.nav-back-button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateX(-1px);
+}
+
+.nav-back-spacer {
+    width: 36px;
+    height: 36px;
+    /* Invisible placeholder that takes up the same space as the back button */
+}
+
 .context-menu-primary {
     font-weight: 600;
     color: #212529;

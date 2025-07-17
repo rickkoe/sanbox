@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useContext } from "react";
 import { 
   FaNetworkWired, FaProjectDiagram, FaServer, FaUsers,
-  FaChartLine, FaArrowRight, FaCog, FaPlus, FaCloud
+  FaChartLine, FaArrowRight, FaCog, FaPlus, FaCloud,
+  FaCheckCircle, FaTimesCircle, FaClock, FaDownload
 } from "react-icons/fa";
 import { ConfigContext } from "../context/ConfigContext";
+import { useImportStatus } from "../context/ImportStatusContext";
 import axios from "axios";
 import { Link } from "react-router-dom";
 
 const Dashboard = () => {
   const { config, loading: configLoading } = useContext(ConfigContext);
+  const { isImportRunning, importProgress } = useImportStatus();
   
   // Simplified state for key metrics only
   const [loading, setLoading] = useState(true);
@@ -19,6 +22,39 @@ const Dashboard = () => {
     totalAliases: 0,
     totalStorage: 0
   });
+  const [insightsData, setInsightsData] = useState({
+    hasCredentials: false,
+    lastImport: null,
+    importHistory: []
+  });
+
+  // Fetch Storage Insights data
+  const fetchInsightsData = async () => {
+    if (!config?.customer?.id) return;
+    
+    try {
+      // Check if customer has Storage Insights credentials
+      const hasCredentials = !!(config.customer.insights_tenant && config.customer.insights_api_key);
+      
+      let importHistory = [];
+      if (hasCredentials) {
+        // Fetch recent import history
+        const historyRes = await axios.get('/api/importer/history/', {
+          params: { customer_id: config.customer.id }
+        });
+        importHistory = historyRes.data.slice(0, 5); // Last 5 imports
+      }
+      
+      setInsightsData({
+        hasCredentials,
+        tenant: config.customer.insights_tenant,
+        lastImport: importHistory.length > 0 ? importHistory[0] : null,
+        importHistory
+      });
+    } catch (err) {
+      console.error("Error fetching Storage Insights data:", err);
+    }
+  };
 
   // Simplified data fetching - only get key metrics for current active project
   const fetchDashboardData = async () => {
@@ -31,13 +67,16 @@ const Dashboard = () => {
     setError(null);
     
     try {
-      // Fetch only the data we need for the active project
+      // Fetch dashboard metrics and insights data
       const [fabricsRes, zonesRes, aliasesRes, storageRes] = await Promise.allSettled([
         axios.get(`/api/san/fabrics/?customer_id=${config.customer.id}`),
         axios.get(`/api/san/zones/project/${config.active_project.id}/`),
         axios.get(`/api/san/aliases/project/${config.active_project.id}/`),
         axios.get(`/api/storage/?customer=${config.customer.id}`)
       ]);
+
+      // Also fetch insights data
+      await fetchInsightsData();
       
       const fabrics = fabricsRes.status === 'fulfilled' ? 
         (Array.isArray(fabricsRes.value.data) ? fabricsRes.value.data : fabricsRes.value.data.results || []) : [];
@@ -133,11 +172,64 @@ const Dashboard = () => {
             <h1>{config.active_project.name}</h1>
             <p className="customer-name">{config.customer.name}</p>
           </div>
+          
+          {/* Storage Insights Status in Header */}
+          <div className="header-insights">
+            <div className="insights-status-compact">
+              {insightsData.hasCredentials ? (
+                <>
+                  <FaCheckCircle className="status-icon configured" />
+                  <div className="status-text-compact">
+                    <span className="status-label">Storage Insights</span>
+                    <small>Tenant: {insightsData.tenant}</small>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <FaTimesCircle className="status-icon not-configured" />
+                  <div className="status-text-compact">
+                    <span className="status-label">Storage Insights</span>
+                    <small>Not configured</small>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            {isImportRunning && (
+              <div className="import-status-compact">
+                <FaDownload className="import-icon spinning" />
+                <div className="import-text-compact">
+                  <span>Importing</span>
+                  {importProgress && (
+                    <small>{Math.round((importProgress.current / importProgress.total) * 100)}%</small>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
           <Link to="/config" className="header-action">
             <FaCog />
             Settings
           </Link>
         </div>
+        
+        {/* Last Import Info */}
+        {insightsData.hasCredentials && insightsData.lastImport && (
+          <div className="header-import-info">
+            <FaClock className="import-icon" />
+            <span className="import-date">
+              Last Import: {new Date(insightsData.lastImport.started_at).toLocaleDateString()}
+            </span>
+            <span className={`import-status ${insightsData.lastImport.status}`}>
+              {insightsData.lastImport.status.toUpperCase()}
+            </span>
+            <span className="import-items">
+              {insightsData.lastImport.storage_systems_imported} systems, {' '}
+              {insightsData.lastImport.volumes_imported} volumes
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Key Metrics */}

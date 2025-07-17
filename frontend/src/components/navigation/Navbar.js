@@ -18,6 +18,10 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   const getBackPath = () => {
     const path = location.pathname;
     
+    // Storage list -> Home
+    if (path === "/storage") {
+      return "/";
+    }
     // Storage system detail -> Storage list
     if (path.match(/^\/storage\/\d+$/)) {
       return "/storage";
@@ -26,6 +30,10 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
     if (path.match(/^\/storage\/(\d+)\/volumes$/)) {
       const storageId = path.match(/^\/storage\/(\d+)\/volumes$/)[1];
       return `/storage/${storageId}`;
+    }
+    // SAN list -> Home
+    if (path === "/san") {
+      return "/";
     }
     // SAN sub-pages -> SAN main
     if (path.startsWith("/san/") && path !== "/san") {
@@ -52,15 +60,19 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
     <nav className="navbar navbar-expand-lg navbar-dark ">
       <div className="container-fluid">
         <div className="navbar-left">
-          {showBackButton && (
-            <button 
-              className="nav-back-button me-3"
-              onClick={() => navigate(backPath)}
-              title="Go back"
-            >
-              <ArrowLeft size={20} />
-            </button>
-          )}
+          <div className="nav-back-container me-3">
+            {showBackButton ? (
+              <button 
+                className="nav-back-button"
+                onClick={() => navigate(backPath)}
+                title="Go back"
+              >
+                <ArrowLeft size={20} />
+              </button>
+            ) : (
+              <div className="nav-back-spacer"></div>
+            )}
+          </div>
           <NavLink className="navbar-brand" to="/">
             <img src="/images/logo-light.png" alt="Logo" className="logo-image" />
           </NavLink>

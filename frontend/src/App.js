@@ -1,6 +1,6 @@
 // App.js
 import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 
 // Navigation Components
 import Navbar from "./components/navigation/Navbar";
@@ -47,16 +47,56 @@ import "./styles/generictable.css";
 import "./styles/pages.css";
 import "./styles/home.css";
 
-function App() {
+// Main app content with routing-aware CSS classes
+function AppContent() {
   const [breadcrumbMap, setBreadcrumbMap] = useState({});
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const location = useLocation();
+
+  // Define routes that use tables (need fixed headers)
+  const tableRoutes = [
+    '/customers',
+    '/san/aliases', 
+    '/san/zones',
+    '/san/fabrics',
+    '/storage',
+    '/tools/wwpn-colonizer',
+    '/test'
+  ];
+
+  // Check for table routes including dynamic routes
+  const isTablePage = tableRoutes.some(route => location.pathname === route) ||
+                     location.pathname.match(/^\/storage\/\d+\/volumes$/);
+
+  // Define routes that should scroll normally (non-table pages)
+  const scrollableRoutes = [
+    '/',
+    '/san',
+    '/config',
+    '/tools',
+    '/scripts',
+    '/insights/importer'
+  ];
+
+  // Check for scrollable routes including dynamic routes
+  const isScrollablePage = scrollableRoutes.some(route => location.pathname === route) ||
+                          location.pathname.match(/^\/storage\/\d+$/) || // Storage detail pages
+                          location.pathname.startsWith('/scripts/') ||
+                          location.pathname.startsWith('/tools/ibm-storage-calculator') ||
+                          location.pathname.includes('/import');
+
+  // Determine CSS class for main content
+  const getMainContentClass = () => {
+    if (isTablePage) return 'main-content table-page';
+    if (isScrollablePage) return 'main-content scrollable';
+    return 'main-content'; // Default - no scrolling
+  };
 
   return (
-    <Router>
-      <ConfigProvider>
-        <SanVendorProvider>
-          <ImportStatusProvider>
-            <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
+    <ConfigProvider>
+      <SanVendorProvider>
+        <ImportStatusProvider>
+          <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
             <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
               <header className="navbar">
                 <Navbar />
@@ -67,7 +107,7 @@ function App() {
               <div className="topbar">
                 <Breadcrumbs />
               </div>
-              <main className="main-content">
+              <main className={getMainContentClass()}>
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/customers" element={<CustomerTable />} />
@@ -113,9 +153,16 @@ function App() {
               </main>
             </div>
           </BreadcrumbContext.Provider>
-          </ImportStatusProvider>
-        </SanVendorProvider>
-      </ConfigProvider>
+        </ImportStatusProvider>
+      </SanVendorProvider>
+    </ConfigProvider>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }
