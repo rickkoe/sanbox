@@ -36,6 +36,7 @@ import ZoneImportPage from './pages/ZoneImportPage';
 // Context Providers
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
+import { ImportStatusProvider } from "./context/ImportStatusContext";
 
 // Custom Styles
 import "./App.css";
@@ -54,7 +55,8 @@ function App() {
     <Router>
       <ConfigProvider>
         <SanVendorProvider>
-          <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
+          <ImportStatusProvider>
+            <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
             <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
               <header className="navbar">
                 <Navbar />
@@ -89,10 +91,10 @@ function App() {
                     path="/insights/importer"
                     element={<StorageInsightsImporter />}
                   />
-                  {/* <Route
+                  <Route
                     path="/tools/wwpn-colonizer"
                     element={<WWPNFormatterTable />}
-                  /> */}
+                  />
                   <Route
                     path="/tools/ibm-storage-calculator"
                     element={<StorageCalculatorPage />}
@@ -111,6 +113,7 @@ function App() {
               </main>
             </div>
           </BreadcrumbContext.Provider>
+          </ImportStatusProvider>
         </SanVendorProvider>
       </ConfigProvider>
     </Router>

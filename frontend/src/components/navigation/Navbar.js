@@ -1,12 +1,14 @@
 import React, { useContext, useState } from "react";
-import { Menu, User, HelpCircle, Upload, Terminal, Settings, Building2, FolderOpen, ArrowLeft } from "lucide-react";
+import { Menu, User, HelpCircle, Upload, Terminal, Settings, Building2, FolderOpen, ArrowLeft, Download } from "lucide-react";
 import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useImportStatus } from "../../context/ImportStatusContext";
 import { Dropdown } from "react-bootstrap";
 
 const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   const { config, loading } = useContext(ConfigContext);
+  const { isImportRunning, importProgress } = useImportStatus();
   const location = useLocation();
   const navigate = useNavigate();
   const isSanActive = location.pathname.startsWith("/san");
@@ -123,6 +125,26 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto align-items-center d-flex">
+            {/* Import Button */}
+            <li className="nav-item">
+              <NavLink
+                className="nav-link"
+                to="/insights/importer"
+                title={isImportRunning ? `Import Running (${Math.round((importProgress?.current || 0) / (importProgress?.total || 100) * 100)}%)` : "Data Import"}
+              >
+                <Download 
+                  size={24} 
+                  className={isImportRunning ? "import-spinning" : ""} 
+                />
+                <span className="nav-label ms-1">Import</span>
+                {isImportRunning && (
+                  <span className="import-indicator">
+                    <span className="import-pulse"></span>
+                  </span>
+                )}
+              </NavLink>
+            </li>
+
             {/* Tools Group */}
             <li className="nav-item">
               <Dropdown align="end">
@@ -142,9 +164,6 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
                   <Dropdown.Divider />
                   <Dropdown.Item as={NavLink} to="/scripts">
                     Script Builder
-                  </Dropdown.Item>
-                  <Dropdown.Item as={NavLink} to="/insights/importer">
-                    Data Import
                   </Dropdown.Item>
                   <Dropdown.Item as={NavLink} to="/tools">
                     Calculators

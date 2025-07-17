@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'san',
     'storage',
     'insights_importer',
+    'importer',
 ]
 
 MIDDLEWARE = [

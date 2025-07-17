@@ -1,6 +1,7 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
+import { useImportStatus } from "../context/ImportStatusContext";
 import {
   Form,
   Button,
@@ -10,29 +11,29 @@ import {
   Table,
   Modal,
   Badge,
+  ProgressBar,
 } from "react-bootstrap";
 
 const StorageInsightsImporter = () => {
-  const API_URL = process.env.REACT_APP_API_URL || '';
   const { config } = useContext(ConfigContext);
+  const { isImportRunning, currentImport, importProgress, startImport: startGlobalImport } = useImportStatus();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [storageSystemsData, setStorageSystemsData] = useState([]);
-  const [selectedSystems, setSelectedSystems] = useState({});
-  const [importStatus, setImportStatus] = useState(null);
-  const [summaryModal, setSummaryModal] = useState({
-    show: false,
-    results: [],
-  });
-  const [jobsModal, setJobsModal] = useState({ show: false, jobs: [] });
+  const [importHistory, setImportHistory] = useState([]);
+  const [pollingActive, setPollingActive] = useState(false);
+  const [taskProgress, setTaskProgress] = useState(null);
+  const [historyModal, setHistoryModal] = useState({ show: false, imports: [] });
 
+  // Check if customer has API credentials configured
   const hasInsightsCredentials = !!(
     config?.customer?.insights_tenant && config?.customer?.insights_api_key
   );
 
-  const fetchStorageSystems = async () => {
+
+  // Start new import
+  const startImport = async () => {
     if (!hasInsightsCredentials) {
-      setError("No Storage Insights credentials configured for this customer.");
+      setError('No Storage Insights credentials configured for this customer.');
       return;
     }
 
@@ -40,253 +41,153 @@ const StorageInsightsImporter = () => {
     setError(null);
 
     try {
-      const authResponse = await axios.post(`${API_URL}/api/insights/enhanced/auth/`, {
-        tenant: config.customer.insights_tenant,
-        api_key: config.customer.insights_api_key,
+      // First save/update credentials in the new importer system
+      await axios.post('/api/importer/credentials/', {
+        customer_id: config.customer.id,
+        insights_tenant: config.customer.insights_tenant,
+        insights_api_key: config.customer.insights_api_key
       });
 
-      const storageResponse = await axios.post(
-        `${API_URL}/api/insights/enhanced/storage-systems/`,
-        {
-          credentials_id: authResponse.data.credentials_id,
-        }
-      );
-
-      const systems = storageResponse.data.resources || [];
-      setStorageSystemsData(systems);
-
-      const initialSelections = {};
-      systems.forEach((system) => {
-        initialSelections[system.storage_system_id] = false;
+      // Then start the import
+      const response = await axios.post('/api/importer/start/', {
+        customer_id: config.customer.id
       });
-      setSelectedSystems(initialSelections);
+
+      // Update global import status
+      startGlobalImport(response.data);
+      
+      // Also update local state for immediate feedback
+      setPollingActive(true);
+      
     } catch (err) {
-      console.error("Error fetching from Storage Insights:", err);
-      setError(
-        err.response?.data?.message ||
-          "Failed to connect to IBM Storage Insights. Please check credentials."
-      );
-    } finally {
+      setError(err.response?.data?.error || err.message || 'Failed to start import');
       setLoading(false);
     }
   };
 
-  const handleCheckboxChange = (systemId) => {
-    setSelectedSystems((prev) => ({ ...prev, [systemId]: !prev[systemId] }));
-  };
-
-  const handleSelectAll = (selectAll) => {
-    const newSelections = {};
-    storageSystemsData.forEach((system) => {
-      if (system.storage_type === "block") {
-        newSelections[system.storage_system_id] = selectAll;
-      }
-    });
-    setSelectedSystems(newSelections);
-  };
-
-  const handleImport = async (importType, jobName) => {
-    const selectedSystemIds = Object.entries(selectedSystems)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([id, _]) => id);
-
-    if (selectedSystemIds.length === 0) {
-      setSummaryModal({
-        show: true,
-        results: [
-          {
-            name: "No storage system selected",
-            error: "Please select at least one storage system to import.",
-          },
-        ],
-      });
-      return;
-    }
-
-    setLoading(true);
-    setImportStatus(null);
-
-    try {
-      const response = await axios.post(
-        `${API_URL}/api/insights/enhanced/import/start/`,
-        {
-          tenant: config.customer.insights_tenant,
-          api_key: config.customer.insights_api_key,
-          customer_id: config.customer.id,
-          import_type: importType,
-          selected_systems: selectedSystemIds, // Pass the selected systems
-          async: true,
+  // Poll task progress (new async method)
+  const pollTaskProgress = async (taskId, importId) => {
+    let pollInterval;
+    
+    const pollProgress = async () => {
+      try {
+        const progressResponse = await axios.get(`/api/importer/progress/${taskId}/`);
+        const progress = progressResponse.data;
+        
+        setTaskProgress(progress);
+        
+        // If task is complete, get final import status
+        if (progress.state === 'SUCCESS' || progress.state === 'FAILURE') {
+          clearInterval(pollInterval);
+          setPollingActive(false);
+          setLoading(false);
+          
+          // Get final import details (handled by global context)
+          console.log('Import task completed');
+          
+          // Refresh import history
+          fetchImportHistory();
         }
-      );
-
-      const result = {
-        name: jobName,
-        error: false,
-        jobId: response.data.job_id,
-        taskId: response.data.task_id,
-        asyncJob: response.data.async,
-        message: response.data.message,
-        selectedSystems: selectedSystemIds,
-        importType: importType,
-      };
-
-      if (!response.data.async) {
-        result.processed = response.data.results.processed;
-        result.successful = response.data.results.successful;
-        result.errors = response.data.results.errors;
+      } catch (err) {
+        console.error('Error polling task progress:', err);
+        // Fallback to regular status polling
+        clearInterval(pollInterval);
+        pollImportStatus(importId);
       }
+    };
 
-      setSummaryModal({ show: true, results: [result] });
+    // Start polling immediately and then every 2 seconds
+    pollProgress();
+    pollInterval = setInterval(pollProgress, 2000);
 
-      if (response.data.async) {
-        pollJobStatus(response.data.job_id, response.data.task_id, importType);
-      }
-
-      handleSelectAll(false);
-    } catch (err) {
-      console.error("Import failed:", err);
-      setSummaryModal({
-        show: true,
-        results: [
-          {
-            name: `${jobName} failed`,
-            error:
-              err.response?.data?.message ||
-              "Failed to import storage systems.",
-          },
-        ],
-      });
-    } finally {
+    // Stop polling after 15 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setPollingActive(false);
       setLoading(false);
-    }
+    }, 900000);
   };
 
-  // Enhanced polling function with better status tracking
-  const pollJobStatus = async (jobId, taskId, importType) => {
+  // Poll import status (fallback method)
+  const pollImportStatus = async (importId) => {
     const pollInterval = setInterval(async () => {
       try {
-        const statusResponse = await axios.get(
-          `${API_URL}/api/insights/tasks/${taskId}/status/`
-        );
-        const taskStatus = statusResponse.data;
-
-        // Update the summary modal with progress if available
-        if (
-          taskStatus.state === "PROGRESS" &&
-          taskStatus.current !== undefined
-        ) {
-          setSummaryModal((prev) => ({
-            ...prev,
-            results: prev.results.map((result) =>
-              result.taskId === taskId
-                ? {
-                    ...result,
-                    progress: {
-                      current: taskStatus.current,
-                      total: taskStatus.total,
-                      status: taskStatus.status,
-                      stage: taskStatus.meta?.stage,
-                    },
-                  }
-                : result
-            ),
-          }));
-        }
-
-        if (taskStatus.state === "SUCCESS") {
+        const response = await axios.get(`/api/importer/status/${importId}/`);
+        const importData = response.data;
+        
+        // Import data is now handled by global context
+        
+        if (importData.status === 'completed' || importData.status === 'failed') {
           clearInterval(pollInterval);
-          const jobResponse = await axios.get(`${API_URL}/api/insights/jobs/${jobId}/`);
-          const jobData = jobResponse.data;
-
-          setSummaryModal((prev) => ({
-            ...prev,
-            results: prev.results.map((result) =>
-              result.jobId === jobId
-                ? {
-                    ...result,
-                    name: `${getImportTypeDisplay(importType)} Completed`,
-                    error: false,
-                    processed: jobData.processed_items,
-                    successful: jobData.success_count,
-                    errors: jobData.error_count,
-                    asyncCompleted: true,
-                    progress: undefined,
-                  }
-                : result
-            ),
-          }));
-        } else if (taskStatus.state === "FAILURE") {
-          clearInterval(pollInterval);
-          setSummaryModal((prev) => ({
-            ...prev,
-            results: prev.results.map((result) =>
-              result.taskId === taskId
-                ? {
-                    ...result,
-                    name: `${getImportTypeDisplay(importType)} Failed`,
-                    error: taskStatus.error || "Unknown error",
-                    asyncFailed: true,
-                    progress: undefined,
-                  }
-                : result
-            ),
-          }));
+          setPollingActive(false);
+          setLoading(false);
+          
+          // Refresh import history
+          fetchImportHistory();
         }
-      } catch (error) {
-        console.error("Error polling job status:", error);
+      } catch (err) {
+        console.error('Error polling import status:', err);
         clearInterval(pollInterval);
+        setPollingActive(false);
+        setLoading(false);
       }
     }, 2000);
 
-    // 5 minute timeout
-    setTimeout(() => clearInterval(pollInterval), 300000);
+    // Stop polling after 10 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      setPollingActive(false);
+      setLoading(false);
+    }, 600000);
   };
 
-  // Helper function to display import type
-  const getImportTypeDisplay = (importType) => {
-    switch (importType) {
-      case "storage_only":
-        return "Storage Systems Import";
-      case "full":
-        return "Full Import (Storage + Volumes + Hosts)";
-      case "volumes_only":
-        return "Volumes Import";
-      case "hosts_only":
-        return "Hosts Import";
-      default:
-        return "Import";
-    }
-  };
-
-  const fetchImportJobs = async () => {
+  // Fetch import history
+  const fetchImportHistory = async () => {
+    if (!config?.customer?.id) return;
+    
     try {
-      const response = await axios.get(`${API_URL}/api/insights/jobs/`);
-      setJobsModal({ show: true, jobs: response.data });
-    } catch (error) {
-      console.error("Failed to fetch import jobs:", error);
+      const response = await axios.get('/api/importer/history/', {
+        params: { customer_id: config.customer.id }
+      });
+      setImportHistory(response.data);
+    } catch (err) {
+      console.error('Error fetching import history:', err);
     }
   };
 
-  const formatStorageType = (type) => {
-    const typeMap = { 2145: "FlashSystem", 2107: "DS8000", 2076: "Storwize" };
-    return typeMap[type] || type;
+  // Load data on component mount and customer change
+  useEffect(() => {
+    if (config?.customer?.id) {
+      fetchImportHistory();
+    }
+  }, [config?.customer?.id]);
+
+  // Show import history modal
+  const showImportHistory = () => {
+    setHistoryModal({ show: true, imports: importHistory });
   };
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return date.toLocaleString();
+  };
+
+  // Get status badge color
   const getStatusBadge = (status) => {
     const statusMap = {
       pending: "warning",
       running: "primary",
       completed: "success",
       failed: "danger",
-      cancelled: "secondary",
     };
     return statusMap[status] || "secondary";
   };
 
-  const blockSystems = storageSystemsData.filter(
-    (system) => system.storage_type === "block"
-  );
-  const hasSelectedSystems = Object.values(selectedSystems).some((v) => v);
+  // Check if import is currently running (use global status)
+  const isCurrentlyImporting = isImportRunning || currentImport?.status === 'running' || pollingActive;
 
   return (
     <div className="container mt-4">
@@ -295,9 +196,9 @@ const StorageInsightsImporter = () => {
           as="h5"
           className="bg-primary text-white d-flex justify-content-between align-items-center"
         >
-          <span>IBM Storage Insights Importer (Enhanced)</span>
-          <Button variant="outline-light" size="sm" onClick={fetchImportJobs}>
-            View Import Jobs
+          <span>IBM Storage Insights Importer</span>
+          <Button variant="outline-light" size="sm" onClick={showImportHistory}>
+            View Import History
           </Button>
         </Card.Header>
         <Card.Body>
@@ -318,329 +219,228 @@ const StorageInsightsImporter = () => {
             </Alert>
           ) : (
             <>
-              <p className="mb-4">
-                This tool connects to IBM Storage Insights to import storage
-                systems for the current customer:
-                <strong> {config?.customer?.name}</strong>
-              </p>
-              <p>
-                <a
-                  href="https://insights.ibm.com/restapi/docs/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View IBM Storage Insights REST API Swagger Docs
-                </a>
-              </p>
+              <div className="mb-4">
+                <p className="mb-1">
+                  Import storage data from IBM Storage Insights for:
+                  <strong> {config?.customer?.name}</strong>
+                </p>
+                <small className="text-muted">
+                  Tenant: {config?.customer?.insights_tenant}
+                </small>
+              </div>
 
               <Alert variant="info">
-                <strong>Enhanced Import System</strong> - This version uses the
-                new enhanced import system with job tracking, better error
-                handling, and automatic retry capabilities.
+                <strong>Background Import System</strong> - This streamlined importer runs in the background and automatically imports all available storage systems, volumes, and hosts from IBM Storage Insights. You can navigate to other pages while the import is running.
               </Alert>
 
               {error && <Alert variant="danger">{error}</Alert>}
-              {importStatus && (
-                <Alert variant={importStatus.type}>
-                  {importStatus.message}
-                </Alert>
+
+              {/* Current Import Status */}
+              {currentImport && (
+                <Card className="mb-3">
+                  <Card.Header className="d-flex justify-content-between align-items-center">
+                    <span>Current Import Status</span>
+                    <Badge bg={getStatusBadge(currentImport.status)}>
+                      {currentImport.status.toUpperCase()}
+                    </Badge>
+                  </Card.Header>
+                  <Card.Body>
+                    <div className="row">
+                      <div className="col-md-6">
+                        <small className="text-muted">Started:</small><br />
+                        <span>{formatDate(currentImport.started_at)}</span>
+                      </div>
+                      {currentImport.completed_at && (
+                        <div className="col-md-6">
+                          <small className="text-muted">Completed:</small><br />
+                          <span>{formatDate(currentImport.completed_at)}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {(currentImport?.status === 'running' || isImportRunning) && (
+                      <div className="mt-3">
+                        {importProgress ? (
+                          <>
+                            <div className="mb-2">
+                              <small className="text-muted">{importProgress.status}</small>
+                            </div>
+                            <ProgressBar 
+                              animated 
+                              now={(importProgress.current / importProgress.total) * 100} 
+                              label={`${Math.round((importProgress.current / importProgress.total) * 100)}%`}
+                            />
+                          </>
+                        ) : (
+                          <ProgressBar animated now={100} label="Importing..." />
+                        )}
+                      </div>
+                    )}
+                    
+                    {currentImport.status === 'completed' && (
+                      <div className="mt-3">
+                        <div className="row text-center">
+                          <div className="col">
+                            <strong>{currentImport.storage_systems_imported}</strong><br />
+                            <small className="text-muted">Storage Systems</small>
+                          </div>
+                          <div className="col">
+                            <strong>{currentImport.volumes_imported}</strong><br />
+                            <small className="text-muted">Volumes</small>
+                          </div>
+                          <div className="col">
+                            <strong>{currentImport.hosts_imported}</strong><br />
+                            <small className="text-muted">Hosts</small>
+                          </div>
+                          <div className="col">
+                            <strong>{currentImport.total_items_imported}</strong><br />
+                            <small className="text-muted">Total Items</small>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {currentImport.status === 'failed' && currentImport.error_message && (
+                      <Alert variant="danger" className="mt-3">
+                        <strong>Error:</strong> {currentImport.error_message}
+                      </Alert>
+                    )}
+                  </Card.Body>
+                </Card>
               )}
 
-              <div className="d-flex justify-content-between mb-3">
+              {/* Import Actions */}
+              <div className="text-center py-4">
                 <Button
                   variant="primary"
-                  onClick={fetchStorageSystems}
-                  disabled={loading}
+                  size="lg"
+                  onClick={startImport}
+                  disabled={isCurrentlyImporting}
                 >
-                  {loading ? (
+                  {isCurrentlyImporting ? (
                     <>
-                      <Spinner as="span" animation="border" size="sm" />{" "}
-                      Loading...
+                      <Spinner as="span" animation="border" size="sm" className="me-2" />
+                      Import Running...
                     </>
                   ) : (
-                    "Fetch Storage Systems"
+                    'Start New Import'
                   )}
                 </Button>
-
-                <div>
-                  <Button
-                    variant="outline-secondary"
-                    onClick={() => handleSelectAll(true)}
-                    className="me-2"
-                    disabled={loading || blockSystems.length === 0}
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    variant="outline-secondary"
-                    onClick={() => handleSelectAll(false)}
-                    disabled={loading || blockSystems.length === 0}
-                  >
-                    Deselect All
-                  </Button>
-                </div>
+                
+                {!isCurrentlyImporting && importHistory.length > 0 && (
+                  <div className="mt-2">
+                    <small className="text-muted">
+                      Last import: {formatDate(importHistory[0]?.started_at)}
+                    </small>
+                  </div>
+                )}
               </div>
 
-              {blockSystems.length > 0 ? (
-                <>
-                  <Table striped bordered hover responsive>
-                    <thead>
-                      <tr>
-                        <th style={{ width: "50px" }}>Select</th>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Model</th>
-                        <th>Serial Number</th>
-                        <th>Storage System ID</th>
-                        <th>SI Probe Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {blockSystems.map((system) => (
-                        <tr key={system.storage_system_id}>
-                          <td className="text-center">
-                            <Form.Check
-                              type="checkbox"
-                              checked={
-                                selectedSystems[system.storage_system_id] ||
-                                false
-                              }
-                              onChange={() =>
-                                handleCheckboxChange(system.storage_system_id)
-                              }
-                              id={`system-${system.storage_system_id}`}
-                            />
-                          </td>
-                          <td>{system.name}</td>
-                          <td>{formatStorageType(system.type)}</td>
-                          <td>{system.model}</td>
-                          <td>{system.serial_number}</td>
-                          <td>{system.storage_system_id}</td>
-                          <td>
-                            <span
-                              className={`badge bg-${
-                                system.probe_status === "successful"
-                                  ? "success"
-                                  : "warning"
-                              }`}
-                            >
-                              {system.probe_status || "Unknown"}
-                            </span>
-                          </td>
+              {/* Recent Imports Summary */}
+              {importHistory.length > 0 && (
+                <Card>
+                  <Card.Header>Recent Imports</Card.Header>
+                  <Card.Body>
+                    <Table striped bordered hover responsive size="sm">
+                      <thead>
+                        <tr>
+                          <th>Started</th>
+                          <th>Status</th>
+                          <th>Duration</th>
+                          <th>Systems</th>
+                          <th>Volumes</th>
+                          <th>Hosts</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-
-                  <div className="d-flex justify-content-end mt-3">
-                    <Button
-                      variant="success"
-                      onClick={() =>
-                        handleImport(
-                          "storage_only",
-                          "Storage Import Job Started"
-                        )
-                      }
-                      disabled={loading || !hasSelectedSystems}
-                      className="me-2"
-                    >
-                      {loading ? (
-                        <>
-                          <Spinner as="span" animation="border" size="sm" />{" "}
-                          Importing...
-                        </>
-                      ) : (
-                        "Import Storage Systems Only"
-                      )}
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={() =>
-                        handleImport("full", "Full Import Job Started")
-                      }
-                      disabled={loading || !hasSelectedSystems}
-                    >
-                      {loading ? (
-                        <>
-                          <Spinner as="span" animation="border" size="sm" />{" "}
-                          Importing...
-                        </>
-                      ) : (
-                        "Import with Volumes & Hosts"
-                      )}
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                !loading && (
-                  <div className="text-center py-5 text-muted">
-                    <p>
-                      No storage systems found. Click "Fetch Storage Systems" to
-                      retrieve data from IBM Storage Insights.
-                    </p>
-                  </div>
-                )
+                      </thead>
+                      <tbody>
+                        {importHistory.slice(0, 5).map((importRecord) => (
+                          <tr key={importRecord.id}>
+                            <td>{formatDate(importRecord.started_at)}</td>
+                            <td>
+                              <Badge bg={getStatusBadge(importRecord.status)}>
+                                {importRecord.status}
+                              </Badge>
+                            </td>
+                            <td>{importRecord.duration || '-'}</td>
+                            <td>{importRecord.storage_systems_imported}</td>
+                            <td>{importRecord.volumes_imported}</td>
+                            <td>{importRecord.hosts_imported}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                    {importHistory.length > 5 && (
+                      <div className="text-center mt-2">
+                        <Button variant="outline-primary" size="sm" onClick={showImportHistory}>
+                          View All ({importHistory.length} total)
+                        </Button>
+                      </div>
+                    )}
+                  </Card.Body>
+                </Card>
               )}
             </>
           )}
         </Card.Body>
       </Card>
 
-      {/* Summary Modal */}
-      {summaryModal.show && (
+
+      {/* Import History Modal */}
+      {historyModal.show && (
         <Modal
           show
-          onHide={() => setSummaryModal({ show: false, results: [] })}
-        >
-          <Modal.Header closeButton>
-            <Modal.Title>Import Summary</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <ul>
-              {summaryModal.results.map((result, idx) => (
-                <li key={idx}>
-                  <strong>{result.name}</strong>
-                  {result.jobId && (
-                    <div>
-                      <Badge bg="info">Job ID: {result.jobId}</Badge>
-
-                      {/* Progress display */}
-                      {result.asyncFailed && (
-                        <div className="mt-1">
-                          <small className="text-danger">
-                            Job failed. Check logs for details.
-                          </small>
-                        </div>
-                      )}
-
-                      {/* Selected systems info */}
-                      {result.selectedSystems &&
-                        result.selectedSystems.length > 0 && (
-                          <div className="mt-1">
-                            <small className="text-muted">
-                              Selected Systems: {result.selectedSystems.length}{" "}
-                              system(s)
-                            </small>
-                          </div>
-                        )}
-                    </div>
-                  )}
-                  {result.error ? (
-                    <div className="mt-1">
-                      <Badge bg="danger">
-                        {typeof result.error === "string"
-                          ? `Error: ${result.error}`
-                          : "Error occurred"}
-                      </Badge>
-                    </div>
-                  ) : (
-                    !result.jobId && (
-                      <div className="mt-1">
-                        <Badge bg="success">Success</Badge>
-                      </div>
-                    )
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              variant="secondary"
-              onClick={() => setSummaryModal({ show: false, results: [] })}
-            >
-              Close
-            </Button>
-          </Modal.Footer>
-        </Modal>
-      )}
-
-      {/* Jobs Modal */}
-      {jobsModal.show && (
-        <Modal
-          show
-          onHide={() => setJobsModal({ show: false, jobs: [] })}
+          onHide={() => setHistoryModal({ show: false, imports: [] })}
           size="lg"
         >
           <Modal.Header closeButton>
-            <Modal.Title>Import Jobs History</Modal.Title>
+            <Modal.Title>Import History</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            {jobsModal.jobs.length > 0 ? (
+            {historyModal.imports.length > 0 ? (
               <Table striped bordered hover responsive size="sm">
                 <thead>
                   <tr>
-                    <th>Job ID</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Progress</th>
                     <th>Started</th>
+                    <th>Status</th>
                     <th>Duration</th>
+                    <th>Storage Systems</th>
+                    <th>Volumes</th>
+                    <th>Hosts</th>
+                    <th>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {jobsModal.jobs.map((job, idx) => (
-                    <tr key={idx}>
+                  {historyModal.imports.map((importRecord) => (
+                    <tr key={importRecord.id}>
+                      <td>{formatDate(importRecord.started_at)}</td>
                       <td>
-                        <code>{job.job_id.split("-")[0]}...</code>
-                      </td>
-                      <td>
-                        <Badge bg="secondary">{job.job_type}</Badge>
-                      </td>
-                      <td>
-                        <Badge bg={getStatusBadge(job.status)}>
-                          {job.status}
+                        <Badge bg={getStatusBadge(importRecord.status)}>
+                          {importRecord.status}
                         </Badge>
                       </td>
-                      <td>
-                        {job.total_items > 0 ? (
-                          <div>
-                            <div
-                              className="progress"
-                              style={{ height: "10px" }}
-                            >
-                              <div
-                                className="progress-bar"
-                                role="progressbar"
-                                style={{
-                                  width: `${job.progress_percentage || 0}%`,
-                                }}
-                              />
-                            </div>
-                            <small>
-                              {job.success_count}/{job.total_items}
-                            </small>
-                          </div>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>
-                        <small>
-                          {new Date(job.created_at).toLocaleString()}
-                        </small>
-                      </td>
-                      <td>
-                        <small>{job.duration || "-"}</small>
-                      </td>
+                      <td>{importRecord.duration || '-'}</td>
+                      <td>{importRecord.storage_systems_imported}</td>
+                      <td>{importRecord.volumes_imported}</td>
+                      <td>{importRecord.hosts_imported}</td>
+                      <td><strong>{importRecord.total_items_imported}</strong></td>
                     </tr>
                   ))}
                 </tbody>
               </Table>
             ) : (
               <div className="text-center py-3 text-muted">
-                <p>No import jobs found.</p>
+                <p>No import history found.</p>
               </div>
             )}
           </Modal.Body>
           <Modal.Footer>
             <Button
               variant="secondary"
-              onClick={() => setJobsModal({ show: false, jobs: [] })}
+              onClick={() => setHistoryModal({ show: false, imports: [] })}
             >
               Close
             </Button>
-            <Button variant="primary" onClick={fetchImportJobs}>
+            <Button variant="primary" onClick={fetchImportHistory}>
               Refresh
             </Button>
           </Modal.Footer>

@@ -197,6 +197,74 @@
     color: #495057;
 }
 
+/* Import Status Animations */
+.import-spinning {
+    animation: importSpin 2s linear infinite;
+}
+
+@keyframes importSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.import-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+}
+
+.import-pulse {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #28a745;
+    border-radius: 50%;
+    animation: importPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes importPulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(0.8);
+        opacity: 1;
+    }
+}
+
+/* Import button positioning */
+.nav-item .nav-link {
+    position: relative;
+}
+
+/* Alternative swipe down animation */
+.import-swipe {
+    animation: importSwipe 1.5s ease-in-out infinite;
+}
+
+@keyframes importSwipe {
+    0% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(3px);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
 .context-menu-primary {
     font-weight: 600;
     color: #212529;

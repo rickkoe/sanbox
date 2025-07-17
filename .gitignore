@@ -199,3 +199,8 @@ __pycache__/
 .DS_Store
 backend/.DS_Store
 .DS_Store
+backend/core/migrations/0001_initial.py
+backend/core/migrations/0002_initial.py
+backend/customers/migrations/0001_initial.py
+backend/importer/migrations/0001_initial.py
+backend/importer/migrations/0002_storageimport_celery_task_id.py
