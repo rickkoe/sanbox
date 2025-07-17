@@ -35,20 +35,30 @@ npm install --legacy-peer-deps
 echo "   Building React app..."
 npm run build
 
-echo "🚀 Restarting services..."
+echo "🚀 Managing services..."
 cd ..
 
 echo "   Creating logs directory..."
 mkdir -p logs
 
-echo "   Restarting Django..."
-pm2 restart sanbox-django
+# Function to start or restart a PM2 service
+restart_or_start() {
+    local service_name=$1
+    echo "   Managing $service_name..."
+    
+    if pm2 list | grep -q "$service_name"; then
+        echo "     → Restarting existing $service_name"
+        pm2 restart "$service_name" --update-env
+    else
+        echo "     → Starting new $service_name"
+        pm2 start ecosystem.config.js --only "$service_name"
+    fi
+}
 
-echo "   Restarting Celery Worker..."
-pm2 restart sanbox-celery-worker
-
-echo "   Restarting Celery Beat..."
-pm2 restart sanbox-celery-beat
+# Manage each service individually
+restart_or_start "sanbox-django"
+restart_or_start "sanbox-celery-worker"
+restart_or_start "sanbox-celery-beat"
 
 echo "   Reloading Nginx..."
 sudo systemctl reload nginx
