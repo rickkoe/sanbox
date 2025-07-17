@@ -7,6 +7,9 @@ echo "========================================="
 cd /var/www/sanbox/backend
 source ../venv/bin/activate
 
+# Use production settings
+export DJANGO_SETTINGS_MODULE=sanbox.settings_production
+
 echo "📋 1. Checking Django migration status..."
 python manage.py showmigrations
 
@@ -18,8 +21,17 @@ echo ""
 echo "📋 3. Checking database tables that exist..."
 python manage.py shell -c "
 from django.db import connection
+from django.conf import settings
+print(f'Database engine: {settings.DATABASES[\"default\"][\"ENGINE\"]}')
+print(f'Database name: {settings.DATABASES[\"default\"][\"NAME\"]}')
+
 with connection.cursor() as cursor:
-    cursor.execute(\"SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;\")
+    # Query works for both PostgreSQL and SQLite
+    if 'postgresql' in settings.DATABASES['default']['ENGINE']:
+        cursor.execute(\"SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;\")
+    else:
+        cursor.execute(\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;\")
+    
     tables = cursor.fetchall()
     print('Existing database tables:')
     for table in tables:

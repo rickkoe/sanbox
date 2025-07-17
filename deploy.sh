@@ -17,6 +17,9 @@ echo "🔧 Updating backend..."
 cd backend
 source ../venv/bin/activate
 
+# Set production settings for all Django commands
+export DJANGO_SETTINGS_MODULE=sanbox.settings_production
+
 echo "   Installing Python dependencies..."
 pip install -r requirements.txt
 
