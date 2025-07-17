@@ -43,7 +43,6 @@ INSTALLED_APPS = [
     'customers',
     'san',
     'storage',
-    'insights_importer',
     'importer',
 ]
 
@@ -157,7 +156,7 @@ CELERY_ENABLE_UTC = True
 
 # Celery task routing
 CELERY_TASK_ROUTES = {
-    'insights_importer.tasks.*': {'queue': 'imports'},
+    'importer.tasks.*': {'queue': 'imports'},
 }
 
 # Task time limits (prevent hung tasks)
