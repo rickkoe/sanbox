@@ -64,19 +64,19 @@ class SimpleStorageImporter:
             
             return self.import_record
             
-        except APICredentials.DoesNotExist:
-            return self._fail_import("No active API credentials found for this customer")
+        # Credentials are now checked in customer model validation
         except Exception as e:
             return self._fail_import(f"Import failed: {str(e)}")
     
     def _run_import_with_progress(self, task):
         """Run import with Celery progress updates"""
         try:
-            # Get API credentials
-            credentials = APICredentials.objects.get(customer=self.customer, is_active=True)
+            # Get API credentials from customer model
+            if not self.customer.insights_api_key or not self.customer.insights_tenant:
+                raise Exception("No Storage Insights API credentials configured for this customer")
             
             # Create API client
-            client = StorageInsightsClient(credentials.insights_tenant, credentials.insights_api_key)
+            client = StorageInsightsClient(self.customer.insights_tenant, self.customer.insights_api_key)
             
             # Update progress
             task.update_state(
@@ -139,8 +139,7 @@ class SimpleStorageImporter:
             
             return self.import_record
             
-        except APICredentials.DoesNotExist:
-            return self._fail_import("No active API credentials found for this customer")
+        # Credentials are now checked in customer model validation
         except Exception as e:
             return self._fail_import(f"Import failed: {str(e)}")
     
