@@ -48,6 +48,9 @@ CELERY_BEAT_SCHEDULE = {
     # Add periodic tasks here if needed
 }
 
+# Use default queue for all tasks (no custom routing)
+CELERY_TASK_ROUTES = {}
+
 # Logging configuration for production
 LOGGING = {
     'version': 1,

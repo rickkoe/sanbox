@@ -154,10 +154,10 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 CELERY_ENABLE_UTC = True
 
-# Celery task routing
-CELERY_TASK_ROUTES = {
-    'importer.tasks.*': {'queue': 'imports'},
-}
+# Celery task routing - Use default queue for simplicity
+# CELERY_TASK_ROUTES = {
+#     'importer.tasks.*': {'queue': 'imports'},
+# }
 
 # Task time limits (prevent hung tasks)
 CELERY_TASK_SOFT_TIME_LIMIT = 3600  # 1 hour
