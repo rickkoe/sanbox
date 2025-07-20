@@ -1,4 +1,4 @@
-# Generated manually for ImportLog model
+# Fixed migration for ImportLog model
 
 from django.db import migrations, models
 import django.db.models.deletion
@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('importer', '0002_storageimport_celery_task_id'),
+        ('importer', '0002_add_celery_task_id'),
     ]
 
     operations = [
