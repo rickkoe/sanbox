@@ -990,16 +990,16 @@
   border-bottom-color: #bfdbfe !important;
 }
 
-/* Professional Selection Styling */
+/* Professional Selection Styling - Subtle and Clean */
 .handsontable .area {
-  background: rgba(59, 130, 246, 0.08) !important;
-  border: 2px solid #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.06) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
 }
 
 .handsontable .current {
-  background: rgba(16, 185, 129, 0.12) !important;
-  border: 2px solid #10b981 !important;
-  box-shadow: 0 0 0 1px #10b981 !important;
+  background: rgba(16, 185, 129, 0.08) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  box-shadow: none !important;
 }
 
 /* Input Field Styling */
@@ -1012,26 +1012,183 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Context Menu Enhancement */
+/* Context Menu Enhancement - Complete Override */
 .htContextMenu {
   background: white !important;
   border: 1px solid #e5e7eb !important;
   border-radius: 8px !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
-  padding: 4px !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
+/* Target all possible table structures */
+.htContextMenu table,
+.htContextMenu .ht_clone_top table,
+.htContextMenu .ht_clone_top .htCore,
+.htContextMenu .ht_clone_top .htCore table {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+/* Target all tbody elements */
+.htContextMenu tbody,
+.htContextMenu .ht_clone_top tbody,
+.htContextMenu .ht_clone_top .htCore tbody {
+  border-spacing: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Target all tr elements */
+.htContextMenu tr,
+.htContextMenu tbody tr,
+.htContextMenu .ht_clone_top tr,
+.htContextMenu .ht_clone_top tbody tr,
+.htContextMenu .ht_clone_top .htCore tr,
+.htContextMenu .ht_clone_top .htCore tbody tr {
+  border-spacing: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  height: auto !important;
+  line-height: 1 !important;
+}
+
+/* Target all td elements */
+.htContextMenu td,
+.htContextMenu tbody td,
+.htContextMenu tr td,
+.htContextMenu .ht_clone_top td,
+.htContextMenu .ht_clone_top tbody td,
+.htContextMenu .ht_clone_top tr td,
+.htContextMenu .ht_clone_top .htCore td,
+.htContextMenu .ht_clone_top .htCore tbody td,
+.htContextMenu .ht_clone_top .htCore tr td,
 .htContextMenu .ht_clone_top .htCore tbody tr td {
-  padding: 8px 12px !important;
+  padding: 6px 12px !important;
   font-size: 13px !important;
   color: #374151 !important;
   border: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-right: none !important;
   transition: background-color 0.15s ease !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  height: auto !important;
+  vertical-align: middle !important;
 }
 
+/* Hover states */
+.htContextMenu tr:hover td,
+.htContextMenu tbody tr:hover td,
+.htContextMenu .ht_clone_top tr:hover td,
+.htContextMenu .ht_clone_top tbody tr:hover td,
+.htContextMenu .ht_clone_top .htCore tr:hover td,
 .htContextMenu .ht_clone_top .htCore tbody tr:hover td {
   background-color: #f9fafb !important;
   color: #111827 !important;
+}
+
+/* Style the actual Handsontable separators */
+.htContextMenu table tbody tr td.htSeparator {
+  height: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-top: 1px solid #d1d5db !important;
+  background: linear-gradient(90deg, transparent 12px, #d1d5db 12px, #d1d5db calc(100% - 12px), transparent calc(100% - 12px)) !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+}
+
+/* Add spacing around separators */
+.htContextMenu table tbody tr td.htSeparator + td {
+  padding-top: 8px !important;
+}
+
+.htContextMenu table tbody tr:has(+ tr td.htSeparator) td {
+  padding-bottom: 4px !important;
+}
+
+/* Fallback for other separator classes */
+.htContextMenu .htContextMenuSeparator,
+.htContextMenu .htSeparator,
+.htContextMenu .separator,
+.htContextMenu .menu-separator {
+  height: 1px !important;
+  margin: 4px 12px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-top: 1px solid #d1d5db !important;
+  background: #d1d5db !important;
+  display: block !important;
+}
+
+/* Universal spacing removal */
+.htContextMenu *,
+.htContextMenu .ht_clone_top *,
+.htContextMenu .ht_clone_top .htCore * {
+  border-spacing: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Specific overrides for any remaining spacing */
+.htContextMenu tr + tr,
+.htContextMenu tr + tr td,
+.htContextMenu .ht_clone_top tr + tr,
+.htContextMenu .ht_clone_top tr + tr td {
+  border-top: none !important;
+  margin-top: 0 !important;
+  padding-top: 6px !important;
+}
+
+/* Force zero spacing with extreme specificity */
+.htContextMenu.htContextMenu {
+  line-height: 0 !important;
+}
+
+.htContextMenu.htContextMenu table {
+  border-collapse: separate !important;
+  border-spacing: 0 0 !important;
+}
+
+.htContextMenu.htContextMenu tbody,
+.htContextMenu.htContextMenu tbody tr,
+.htContextMenu.htContextMenu tbody tr td {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  line-height: 0 !important;
+}
+
+.htContextMenu.htContextMenu tbody tr td {
+  padding: 6px 12px !important;
+  line-height: 1.2 !important;
+  display: table-cell !important;
+  vertical-align: middle !important;
+}
+
+/* Override any default Handsontable spacing */
+.htContextMenu .wtHolder {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.htContextMenu .wtTable {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-spacing: 0 !important;
+}
+
+.htContextMenu .wtTable td {
+  margin: 0 !important;
+  border: none !important;
 }
 
 /* Scrollbar Styling */
