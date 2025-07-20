@@ -8,7 +8,7 @@ import { Dropdown } from "react-bootstrap";
 
 const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   const { config, loading } = useContext(ConfigContext);
-  const { isImportRunning, importProgress } = useImportStatus();
+  const { isImportRunning, importProgress, currentImport, cancelImport } = useImportStatus();
   const location = useLocation();
   const navigate = useNavigate();
   const isSanActive = location.pathname.startsWith("/san");
@@ -139,22 +139,51 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
           <ul className="navbar-nav ms-auto align-items-center d-flex">
             {/* Import Button */}
             <li className="nav-item">
-              <NavLink
-                className="nav-link"
-                to="/insights/importer"
-                title={isImportRunning ? `Import Running (${Math.round((importProgress?.current || 0) / (importProgress?.total || 100) * 100)}%)` : "Data Import"}
-              >
-                <Download 
-                  size={24} 
-                  className={isImportRunning ? "import-spinning" : ""} 
-                />
-                <span className="nav-label ms-1">Import</span>
-                {isImportRunning && (
-                  <span className="import-indicator">
-                    <span className="import-pulse"></span>
-                  </span>
-                )}
-              </NavLink>
+              {isImportRunning ? (
+                <Dropdown align="end">
+                  <Dropdown.Toggle 
+                    as="span" 
+                    className="nav-link" 
+                    style={{ cursor: "pointer" }}
+                    title={importProgress?.status || 'Import Running'}
+                  >
+                    <div className="import-progress-container">
+                      <Download size={24} />
+                      <div className="import-progress-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                    <span className="nav-label ms-1">Import</span>
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Item as={NavLink} to="/insights/importer">
+                      View Import Details
+                    </Dropdown.Item>
+                    <Dropdown.Divider />
+                    <Dropdown.Item 
+                      onClick={async () => {
+                        if (currentImport?.id && window.confirm('Cancel the current import?')) {
+                          await cancelImport(currentImport.id);
+                        }
+                      }}
+                      className="text-danger"
+                    >
+                      Cancel Import
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              ) : (
+                <NavLink
+                  className="nav-link"
+                  to="/insights/importer"
+                  title="Data Import"
+                >
+                  <Download size={24} />
+                  <span className="nav-label ms-1">Import</span>
+                </NavLink>
+              )}
             </li>
 
             {/* Tools Group */}

@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect } from "react";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
 import { useImportStatus } from "../context/ImportStatusContext";
+import ImportLogger from "../components/ImportLogger";
 import {
   Form,
   Button,
@@ -16,13 +17,14 @@ import {
 
 const StorageInsightsImporter = () => {
   const { config } = useContext(ConfigContext);
-  const { isImportRunning, currentImport, importProgress, startImport: startGlobalImport } = useImportStatus();
+  const { isImportRunning, currentImport, importProgress, startImport: startGlobalImport, cancelImport } = useImportStatus();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [importHistory, setImportHistory] = useState([]);
   const [pollingActive, setPollingActive] = useState(false);
   const [taskProgress, setTaskProgress] = useState(null);
   const [historyModal, setHistoryModal] = useState({ show: false, imports: [] });
+  const [showLogsModal, setShowLogsModal] = useState(false);
 
   // Check if customer has API credentials configured
   const hasInsightsCredentials = !!(
@@ -58,6 +60,7 @@ const StorageInsightsImporter = () => {
       
       // Also update local state for immediate feedback
       setPollingActive(true);
+      setLoading(false); // Clear loading state immediately after successful start
       
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to start import');
@@ -162,9 +165,48 @@ const StorageInsightsImporter = () => {
     }
   }, [config?.customer?.id]);
 
+  // Refresh import history when import status changes
+  useEffect(() => {
+    if (currentImport && currentImport.status !== 'running') {
+      // Import completed (success or failure), refresh history
+      fetchImportHistory();
+    }
+  }, [currentImport?.status]);
+
   // Show import history modal
   const showImportHistory = () => {
     setHistoryModal({ show: true, imports: importHistory });
+  };
+
+  // Clear import history
+  const clearImportHistory = async () => {
+    if (!config?.customer?.id) {
+      setError('No customer selected');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Are you sure you want to clear all import history? This action cannot be undone.'
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      const response = await axios.post('/api/importer/clear-history/', {
+        customer_id: config.customer.id
+      });
+
+      if (response.data.deleted_count > 0) {
+        await fetchImportHistory(); // Refresh the list
+        setError(null);
+        // Show success message briefly
+        const originalError = error;
+        setError(`Successfully cleared ${response.data.deleted_count} import records`);
+        setTimeout(() => setError(originalError), 3000);
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to clear import history');
+    }
   };
 
   // Format date for display
@@ -186,8 +228,39 @@ const StorageInsightsImporter = () => {
     return statusMap[status] || "secondary";
   };
 
+  // Cancel import handler
+  const handleCancelImport = async () => {
+    if (!currentImport?.id) {
+      setError('No import to cancel');
+      return;
+    }
+
+    const confirmed = window.confirm('Are you sure you want to cancel the current import?');
+    if (!confirmed) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await cancelImport(currentImport.id);
+      
+      if (result.success) {
+        setError(null);
+        // Refresh import history
+        await fetchImportHistory();
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      setError('Failed to cancel import: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Check if import is currently running (use global status)
-  const isCurrentlyImporting = isImportRunning || currentImport?.status === 'running' || pollingActive;
+  // Only rely on isImportRunning from context as it's the authoritative source
+  const isCurrentlyImporting = isImportRunning;
 
   return (
     <div className="container mt-4">
@@ -265,15 +338,49 @@ const StorageInsightsImporter = () => {
                             <div className="mb-2">
                               <small className="text-muted">{importProgress.status}</small>
                             </div>
-                            <ProgressBar 
-                              animated 
-                              now={(importProgress.current / importProgress.total) * 100} 
-                              label={`${Math.round((importProgress.current / importProgress.total) * 100)}%`}
-                            />
+                            {importProgress.state === 'PENDING' ? (
+                              <ProgressBar 
+                                animated 
+                                striped
+                                variant="info"
+                                now={100} 
+                                label="Waiting to start..."
+                              />
+                            ) : (
+                              <ProgressBar 
+                                animated 
+                                now={(importProgress.current / importProgress.total) * 100} 
+                                label={`${Math.round((importProgress.current / importProgress.total) * 100)}%`}
+                              />
+                            )}
                           </>
                         ) : (
-                          <ProgressBar animated now={100} label="Importing..." />
+                          <ProgressBar animated now={100} label="Initializing..." />
                         )}
+                        <div className="mt-3 d-flex justify-content-between">
+                          <Button 
+                            variant="outline-info" 
+                            size="sm"
+                            onClick={() => setShowLogsModal(true)}
+                          >
+                            View Logs
+                          </Button>
+                          <Button 
+                            variant="outline-danger" 
+                            size="sm"
+                            onClick={handleCancelImport}
+                            disabled={loading}
+                          >
+                            {loading ? (
+                              <>
+                                <Spinner as="span" animation="border" size="sm" role="status" />
+                                <span className="ms-1">Cancelling...</span>
+                              </>
+                            ) : (
+                              'Cancel Import'
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     )}
                     
@@ -336,10 +443,20 @@ const StorageInsightsImporter = () => {
                 )}
               </div>
 
+
               {/* Recent Imports Summary */}
               {importHistory.length > 0 && (
                 <Card>
-                  <Card.Header>Recent Imports</Card.Header>
+                  <Card.Header className="d-flex justify-content-between align-items-center">
+                    <span>Recent Imports</span>
+                    <Button 
+                      variant="outline-danger" 
+                      size="sm"
+                      onClick={clearImportHistory}
+                    >
+                      Clear History
+                    </Button>
+                  </Card.Header>
                   <Card.Body>
                     <Table striped bordered hover responsive size="sm">
                       <thead>
@@ -446,6 +563,14 @@ const StorageInsightsImporter = () => {
           </Modal.Footer>
         </Modal>
       )}
+
+      {/* Import Logs Modal */}
+      <ImportLogger 
+        importId={currentImport?.id}
+        isRunning={isImportRunning || currentImport?.status === 'running'}
+        show={showLogsModal}
+        onHide={() => setShowLogsModal(false)}
+      />
     </div>
   );
 };

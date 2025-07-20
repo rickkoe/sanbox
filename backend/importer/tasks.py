@@ -2,6 +2,7 @@ from celery import shared_task
 from django.utils import timezone
 from .models import StorageImport
 from .services import SimpleStorageImporter
+from .logger import ImportLogger
 from customers.models import Customer
 import logging
 import traceback
@@ -18,14 +19,20 @@ def run_simple_import_task(self, import_id):
         # Get the import record
         import_record = StorageImport.objects.get(id=import_id)
         
+        # Initialize logging
+        import_logger = ImportLogger(import_record)
+        import_logger.info(f'Starting import task {self.request.id} for customer {import_record.customer.name}')
+        
         # Update status to running with task ID
         import_record.celery_task_id = self.request.id
         import_record.status = 'running'
         import_record.save()
         
+        import_logger.info('Import status updated to running')
         logger.info(f'Starting simple import task {self.request.id} for customer {import_record.customer.name}')
         
         # Update progress
+        import_logger.info('Initializing import process...')
         self.update_state(
             state='PROGRESS',
             meta={
@@ -37,10 +44,13 @@ def run_simple_import_task(self, import_id):
         )
         
         # Run the import
+        import_logger.info('Creating storage importer instance')
         importer = SimpleStorageImporter(import_record.customer)
         importer.import_record = import_record  # Use existing record
+        importer.logger = import_logger  # Pass logger to importer
         
         # Update progress
+        import_logger.info('Connecting to IBM Storage Insights API...')
         self.update_state(
             state='PROGRESS',
             meta={
@@ -52,8 +62,10 @@ def run_simple_import_task(self, import_id):
         )
         
         # Override the import method to add progress updates
+        import_logger.info('Starting data import process')
         result = importer._run_import_with_progress(self)
         
+        import_logger.info(f'Import completed successfully - {result.total_items_imported} total items imported')
         logger.info(f'Simple import task {self.request.id} completed successfully')
         
         return {
@@ -76,14 +88,39 @@ def run_simple_import_task(self, import_id):
         # Update import record status if we can
         try:
             import_record = StorageImport.objects.get(id=import_id)
+            import_logger = ImportLogger(import_record)
+            import_logger.error(f'Import task failed: {str(e)}', {'error': str(e), 'traceback': traceback.format_exc()})
+            
             import_record.status = 'failed'
             import_record.error_message = str(e)
             import_record.completed_at = timezone.now()
             import_record.save()
-        except:
-            pass
+            
+            import_logger.info('Import status updated to failed')
+        except Exception as log_error:
+            logger.error(f"Failed to log error: {log_error}")
             
         raise
+
+
+@shared_task
+def test_task():
+    """Simple test task to verify Celery is working"""
+    try:
+        # Try to create a test log entry
+        from .models import StorageImport
+        from .logger import ImportLogger
+        
+        # Find the most recent import
+        import_record = StorageImport.objects.filter(status='running').first()
+        if import_record:
+            logger = ImportLogger(import_record)
+            logger.info('TEST TASK EXECUTED - Celery is working!')
+            return {'status': 'success', 'message': 'Test task completed'}
+        else:
+            return {'status': 'no_import', 'message': 'No running import found'}
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
 
 
 @shared_task

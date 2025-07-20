@@ -71,30 +71,76 @@ class SimpleStorageImporter:
     def _run_import_with_progress(self, task):
         """Run import with Celery progress updates"""
         try:
+            # Get logger if available
+            logger = getattr(self, 'logger', None)
+            
             # Get API credentials from customer model
             if not self.customer.insights_api_key or not self.customer.insights_tenant:
-                raise Exception("No Storage Insights API credentials configured for this customer")
+                error_msg = "No Storage Insights API credentials configured for this customer"
+                if logger:
+                    logger.error(error_msg)
+                raise Exception(error_msg)
             
-            # Create API client
-            client = StorageInsightsClient(self.customer.insights_tenant, self.customer.insights_api_key)
+            if logger:
+                logger.info(f"API credentials found - tenant: {self.customer.insights_tenant}")
             
-            # Update progress
-            task.update_state(
-                state='PROGRESS',
-                meta={
-                    'current': 50,
-                    'total': 100,
-                    'status': 'Fetching storage systems and volumes...',
-                    'import_id': self.import_record.id
-                }
-            )
+            # Check if we should use mock data (for testing when API is not available)
+            use_mock_data = False  # Set to True for testing with mock data
             
-            # Fetch all data
-            storage_systems, volumes_by_system, hosts_by_system = client.get_all_data()
+            if use_mock_data:
+                if logger:
+                    logger.info("Using mock data for testing")
+                
+                # Update progress
+                task.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'current': 30,
+                        'total': 100,
+                        'status': 'Generating mock data for testing...',
+                        'import_id': self.import_record.id
+                    }
+                )
+                
+                # Use mock data for testing
+                storage_systems, volumes_by_system, hosts_by_system = self._get_mock_data()
+                
+                if logger:
+                    logger.info(f"Generated {len(storage_systems)} mock storage systems")
+            else:
+                if logger:
+                    logger.info("Creating IBM Storage Insights API client")
+                
+                # Create API client
+                client = StorageInsightsClient(self.customer.insights_tenant, self.customer.insights_api_key)
+                
+                # Update progress
+                task.update_state(
+                    state='PROGRESS',
+                    meta={
+                        'current': 50,
+                        'total': 100,
+                        'status': 'Fetching storage systems and volumes...',
+                        'import_id': self.import_record.id
+                    }
+                )
+                
+                if logger:
+                    logger.info("Calling IBM Storage Insights API...")
+                
+                # Fetch all data
+                storage_systems, volumes_by_system, hosts_by_system = client.get_all_data()
+                
+                if logger:
+                    logger.info("Successfully received data from API")
             
             # Log summary of fetched data
             total_volumes = sum(len(vols) for vols in volumes_by_system.values())
             total_hosts = sum(len(hosts) for hosts in hosts_by_system.values())
+            
+            if logger:
+                logger.info(f"Data fetched successfully: {len(storage_systems)} storage systems, {total_volumes} volumes, {total_hosts} hosts")
+            
             print(f"Fetched {len(storage_systems)} storage systems, {total_volumes} volumes, {total_hosts} hosts")
             
             # Update progress
@@ -109,9 +155,20 @@ class SimpleStorageImporter:
             )
             
             # Import data
+            if logger:
+                logger.info("Starting storage systems import...")
             systems_imported = self._import_storage_systems(storage_systems, volumes_by_system)
+            
+            if logger:
+                logger.info(f"Imported {systems_imported} storage systems, starting volumes import...")
             volumes_imported = self._import_volumes(storage_systems, volumes_by_system)
+            
+            if logger:
+                logger.info(f"Imported {volumes_imported} volumes, starting hosts import...")
             hosts_imported = self._import_hosts(hosts_by_system)
+            
+            if logger:
+                logger.info(f"Imported {hosts_imported} hosts, finalizing import...")
             
             # Update progress
             task.update_state(
@@ -205,11 +262,11 @@ class SimpleStorageImporter:
         """Generate mock data for testing when API is not available"""
         storage_systems = [
             {
-                'id': 'mock_system_1',
+                'storage_system_id': 'mock_system_1',
                 'name': 'Test FlashSystem 9200',
                 'type': '2145',
                 'model': '9200',
-                'serialNumber': 'TEST001',
+                'serial_number': 'TEST001',
                 'vendor': 'IBM',
                 'location': 'Test Data Center',
                 'probe_status': 'successful',
@@ -220,11 +277,11 @@ class SimpleStorageImporter:
                 'volumes_count': 5,
             },
             {
-                'id': 'mock_system_2', 
+                'storage_system_id': 'mock_system_2', 
                 'name': 'Test DS8000',
                 'type': '2107',
                 'model': '8000',
-                'serialNumber': 'TEST002',
+                'serial_number': 'TEST002',
                 'vendor': 'IBM',
                 'location': 'Test Data Center',
                 'probe_status': 'successful',
@@ -239,34 +296,34 @@ class SimpleStorageImporter:
         volumes_by_system = {
             'mock_system_1': [
                 {
-                    'id': 'vol_1_1',
+                    'volume_id': 'vol_1_1',
                     'name': 'Volume_001',
-                    'capacity': 200 * 1024 * 1024 * 1024,  # 200GB
-                    'used_capacity': 100 * 1024 * 1024 * 1024,  # 100GB
-                    'poolName': 'Pool_1',
-                    'poolId': 'pool_1',
+                    'capacity_bytes': 200 * 1024 * 1024 * 1024,  # 200GB
+                    'used_capacity_bytes': 100 * 1024 * 1024 * 1024,  # 100GB
+                    'pool_name': 'Pool_1',
+                    'pool_id': 'pool_1',
                     'thin_provisioned': 'yes',
                     'compressed': True,
                 },
                 {
-                    'id': 'vol_1_2',
+                    'volume_id': 'vol_1_2',
                     'name': 'Volume_002',
-                    'capacity': 300 * 1024 * 1024 * 1024,  # 300GB
-                    'used_capacity': 150 * 1024 * 1024 * 1024,  # 150GB
-                    'poolName': 'Pool_1',
-                    'poolId': 'pool_1',
+                    'capacity_bytes': 300 * 1024 * 1024 * 1024,  # 300GB
+                    'used_capacity_bytes': 150 * 1024 * 1024 * 1024,  # 150GB
+                    'pool_name': 'Pool_1',
+                    'pool_id': 'pool_1',
                     'thin_provisioned': 'yes',
                     'compressed': True,
                 }
             ],
             'mock_system_2': [
                 {
-                    'id': 'vol_2_1',
+                    'volume_id': 'vol_2_1',
                     'name': 'DS_Volume_001',
-                    'capacity': 500 * 1024 * 1024 * 1024,  # 500GB
-                    'used_capacity': 250 * 1024 * 1024 * 1024,  # 250GB
-                    'poolName': 'DS_Pool_1',
-                    'poolId': 'ds_pool_1',
+                    'capacity_bytes': 500 * 1024 * 1024 * 1024,  # 500GB
+                    'used_capacity_bytes': 250 * 1024 * 1024 * 1024,  # 250GB
+                    'pool_name': 'DS_Pool_1',
+                    'pool_id': 'ds_pool_1',
                     'thin_provisioned': 'no',
                     'compressed': False,
                 }

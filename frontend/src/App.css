@@ -125,6 +125,31 @@
 /* Ensure table pages don't have main content scrolling */
 .main-content.table-page {
   overflow: visible;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px); /* Account for navbar + topbar */
+}
+
+/* Ensure page titles are visible on table pages */
+.main-content.table-page > div {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.main-content.table-page h1,
+.main-content.table-page h2, 
+.main-content.table-page h3 {
+  flex-shrink: 0; /* Prevent title from shrinking */
+  margin-bottom: 1rem;
+  padding-top: 0.5rem;
+}
+
+/* Ensure table component takes remaining space */
+.main-content.table-page .generic-table-container,
+.main-content.table-page > div > div:last-child {
+  flex: 1;
+  min-height: 0; /* Allow flex item to shrink below content size */
 }
 
 /* Remove duplicate app-layout definition - already defined above */

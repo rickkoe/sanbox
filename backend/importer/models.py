@@ -72,3 +72,28 @@ class StorageImport(models.Model):
     def total_items_imported(self):
         """Total items imported across all types"""
         return self.storage_systems_imported + self.volumes_imported + self.hosts_imported
+
+
+class ImportLog(models.Model):
+    """Real-time logs for import operations"""
+    
+    LOG_LEVELS = [
+        ('DEBUG', 'Debug'),
+        ('INFO', 'Info'),
+        ('WARNING', 'Warning'),
+        ('ERROR', 'Error'),
+    ]
+    
+    import_record = models.ForeignKey(StorageImport, on_delete=models.CASCADE, related_name='logs')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    level = models.CharField(max_length=10, choices=LOG_LEVELS, default='INFO')
+    message = models.TextField()
+    details = models.JSONField(null=True, blank=True, help_text="Additional structured data")
+    
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name = "Import Log"
+        verbose_name_plural = "Import Logs"
+    
+    def __str__(self):
+        return f"{self.timestamp.strftime('%H:%M:%S')} [{self.level}] {self.message[:50]}..."

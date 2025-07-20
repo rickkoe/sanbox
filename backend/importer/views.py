@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from customers.models import Customer
-from .models import StorageImport
+from .models import StorageImport, ImportLog
 from .services import SimpleStorageImporter
 import json
 
@@ -79,9 +79,17 @@ def start_import(request):
             status='pending'
         )
         
+        # Add immediate logging to see if this part works
+        from .logger import ImportLogger
+        import_logger = ImportLogger(import_record)
+        import_logger.info(f'Import record created with ID: {import_record.id}')
+        import_logger.info(f'About to start Celery task for customer: {customer.name}')
+        
         # Start background import task
         from .tasks import run_simple_import_task
         task = run_simple_import_task.delay(import_record.id)
+        
+        import_logger.info(f'Celery task started with ID: {task.id}')
         
         # Update record with task ID
         import_record.celery_task_id = task.id
@@ -132,6 +140,51 @@ def import_status(request, import_id):
         'error_message': import_record.error_message,
         'api_response_summary': import_record.api_response_summary,
     })
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def cancel_import(request, import_id):
+    """Cancel a running import"""
+    try:
+        import_record = get_object_or_404(StorageImport, id=import_id)
+        
+        # Only allow canceling running imports
+        if import_record.status != 'running':
+            return JsonResponse(
+                {'error': f'Cannot cancel import with status: {import_record.status}'}, 
+                status=400
+            )
+        
+        # Try to revoke the Celery task
+        if import_record.celery_task_id:
+            try:
+                from celery.result import AsyncResult
+                result = AsyncResult(import_record.celery_task_id)
+                result.revoke(terminate=True)
+            except Exception as e:
+                # Log the error but continue with marking as cancelled
+                print(f"Failed to revoke Celery task {import_record.celery_task_id}: {e}")
+        
+        # Mark import as failed/cancelled
+        from django.utils import timezone
+        import_record.status = 'failed'
+        import_record.error_message = 'Import cancelled by user'
+        import_record.completed_at = timezone.now()
+        import_record.save()
+        
+        return JsonResponse({
+            'message': 'Import cancelled successfully',
+            'import_id': import_record.id,
+            'status': import_record.status,
+            'cancelled_at': import_record.completed_at.isoformat() if import_record.completed_at else None
+        })
+        
+    except Exception as e:
+        return JsonResponse(
+            {'error': f'Failed to cancel import: {str(e)}'}, 
+            status=500
+        )
 
 
 @csrf_exempt
@@ -245,3 +298,119 @@ def api_credentials(request, customer_id=None):
                 {'error': str(e)}, 
                 status=400
             )
+
+
+@csrf_exempt
+@require_http_methods(['GET'])
+def import_logs(request, import_id):
+    """Get real-time logs for a specific import"""
+    import_record = get_object_or_404(StorageImport, id=import_id)
+    
+    # Get query parameters
+    since = request.GET.get('since')  # timestamp to get logs since
+    limit = int(request.GET.get('limit', 100))  # max number of logs
+    
+    logs_query = ImportLog.objects.filter(import_record=import_record)
+    
+    if since:
+        try:
+            from django.utils.dateparse import parse_datetime
+            since_dt = parse_datetime(since)
+            if since_dt:
+                logs_query = logs_query.filter(timestamp__gt=since_dt)
+        except:
+            pass  # ignore invalid since parameter
+    
+    logs = logs_query.order_by('-timestamp')[:limit]
+    
+    data = []
+    for log in reversed(logs):  # reverse to get chronological order
+        data.append({
+            'id': log.id,
+            'timestamp': log.timestamp.isoformat(),
+            'level': log.level,
+            'message': log.message,
+            'details': log.details,
+        })
+    
+    return JsonResponse({
+        'logs': data,
+        'import_id': import_record.id,
+        'total_logs': import_record.logs.count()
+    })
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def test_logging(request):
+    """Test endpoint to verify logging system works"""
+    try:
+        data = json.loads(request.body)
+        import_id = data.get('import_id')
+        
+        if not import_id:
+            return JsonResponse({'error': 'import_id required'}, status=400)
+        
+        import_record = get_object_or_404(StorageImport, id=import_id)
+        
+        # Test logging
+        from .logger import ImportLogger
+        logger = ImportLogger(import_record)
+        logger.info('Test log entry - logging system is working!')
+        logger.warning('This is a test warning message')
+        logger.error('This is a test error message')
+        
+        return JsonResponse({
+            'message': 'Test logs added successfully',
+            'import_id': import_record.id
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def test_celery(request):
+    """Test endpoint to verify Celery is working"""
+    try:
+        from .tasks import test_task
+        
+        # Start the test task
+        task = test_task.delay()
+        
+        return JsonResponse({
+            'message': 'Test task started',
+            'task_id': task.id,
+            'status': 'PENDING'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': f'Celery test failed: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def clear_import_history(request):
+    """Clear import history for a customer"""
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+        
+        customer = get_object_or_404(Customer, id=customer_id)
+        
+        # Delete all imports for this customer except running ones
+        deleted_count = StorageImport.objects.filter(
+            customer=customer
+        ).exclude(status='running').delete()[0]
+        
+        return JsonResponse({
+            'message': f'Cleared {deleted_count} import records',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

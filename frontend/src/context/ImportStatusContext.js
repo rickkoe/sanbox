@@ -16,6 +16,7 @@ export const ImportStatusProvider = ({ children }) => {
   const [currentImport, setCurrentImport] = useState(null);
   const [importProgress, setImportProgress] = useState(null);
 
+
   // Check for running imports on mount
   useEffect(() => {
     checkForRunningImports();
@@ -34,6 +35,16 @@ export const ImportStatusProvider = ({ children }) => {
         if (runningImport.celery_task_id) {
           startProgressMonitoring(runningImport.celery_task_id, runningImport.id);
         }
+      } else {
+        // No running imports found, clear running state
+        setIsImportRunning(false);
+        setImportProgress(null);
+        
+        // Update current import to the most recent one if we have one
+        if (response.data.length > 0) {
+          const mostRecentImport = response.data[0]; // History is sorted by most recent first
+          setCurrentImport(mostRecentImport);
+        }
       }
     } catch (error) {
       console.error('Error checking for running imports:', error);
@@ -41,55 +52,178 @@ export const ImportStatusProvider = ({ children }) => {
   };
 
   const startProgressMonitoring = (taskId, importId) => {
+    let progressInterval;
+    
     const pollProgress = async () => {
       try {
-        const progressResponse = await axios.get(`/api/importer/progress/${taskId}/`);
-        const progress = progressResponse.data;
+        // Check both task progress and import status
+        const requests = [
+          axios.get(`/api/importer/progress/${taskId}/`).catch(err => ({ error: err, type: 'progress' })),
+          axios.get(`/api/importer/status/${importId}/`).catch(err => ({ error: err, type: 'status' }))
+        ];
         
-        setImportProgress(progress);
+        const [progressResult, importResult] = await Promise.all(requests);
         
-        // If task is complete, stop monitoring
-        if (progress.state === 'SUCCESS' || progress.state === 'FAILURE') {
-          setIsImportRunning(false);
-          setImportProgress(null);
+        // Handle import status (most important)
+        let importStatus = null;
+        if (!importResult.error) {
+          importStatus = importResult.data;
+          setCurrentImport(importStatus);
           
-          // Get final import details
-          try {
-            const importResponse = await axios.get(`/api/importer/status/${importId}/`);
-            setCurrentImport(importResponse.data);
-          } catch (err) {
-            console.error('Error fetching final import status:', err);
+          // If import is no longer running in database, stop monitoring
+          if (importStatus.status !== 'running') {
+            setIsImportRunning(false);
+            setImportProgress(null);
+            if (progressInterval) clearInterval(progressInterval);
+            // Trigger a final refresh of import history
+            checkForRunningImports();
+            return;
           }
-          
-          clearInterval(progressInterval);
         }
+        
+        // Handle task progress
+        if (!progressResult.error) {
+          const progress = progressResult.data;
+          
+          // Update progress state and running status based on task state
+          if (progress.state === 'PENDING') {
+            // Task is still waiting, show generic importing status
+            setImportProgress({
+              state: 'PROGRESS',
+              current: 0,
+              total: 100,
+              status: 'Import starting...'
+            });
+            setIsImportRunning(true);
+          } else if (progress.state === 'PROGRESS') {
+            // Task is actively running
+            console.log('Task is in PROGRESS state, updating UI');
+            setImportProgress(progress);
+            setIsImportRunning(true);
+          } else if (progress.state === 'SUCCESS') {
+            // Task completed successfully
+            setImportProgress({
+              state: 'SUCCESS',
+              current: 100,
+              total: 100,
+              status: 'Import completed successfully!'
+            });
+            // Continue polling for a bit to catch database updates
+            setTimeout(() => {
+              // Force a final status check after task completion
+              checkForRunningImports();
+            }, 2000);
+          } else if (progress.state === 'FAILURE') {
+            // Task failed
+            setIsImportRunning(false);
+            setImportProgress(null);
+            if (progressInterval) clearInterval(progressInterval);
+          }
+        } else {
+          // If we can't get task progress but import is still running, show generic status
+          if (importStatus && importStatus.status === 'running') {
+            setImportProgress({
+              state: 'PROGRESS',
+              current: 50,
+              total: 100,
+              status: 'Import is running...'
+            });
+            setIsImportRunning(true);
+          }
+        }
+        
       } catch (err) {
-        console.error('Error polling import progress:', err);
-        // Stop monitoring on error
-        setIsImportRunning(false);
-        setImportProgress(null);
-        clearInterval(progressInterval);
+        console.error('Unexpected error in pollProgress:', err);
+        // Continue monitoring unless we're sure the import is done
       }
     };
 
-    // Start polling immediately and then every 3 seconds
+    // Start polling immediately, then more frequently at first
     pollProgress();
-    const progressInterval = setInterval(pollProgress, 3000);
+    
+    // Poll every 500ms for the first 10 seconds to catch rapid state changes
+    let pollCount = 0;
+    const maxFastPolls = 20; // 20 * 500ms = 10 seconds
+    
+    const startPolling = () => {
+      progressInterval = setInterval(() => {
+        pollProgress();
+        pollCount++;
+        
+        // After 10 seconds, switch to slower polling
+        if (pollCount >= maxFastPolls) {
+          clearInterval(progressInterval);
+          progressInterval = setInterval(pollProgress, 2000); // Slower polling
+        }
+      }, 500); // Fast initial polling
+    };
+    
+    startPolling();
 
     // Stop polling after 15 minutes
     setTimeout(() => {
-      clearInterval(progressInterval);
-      setIsImportRunning(false);
-      setImportProgress(null);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        setIsImportRunning(false);
+        setImportProgress(null);
+      }
     }, 900000);
   };
 
   const startImport = (importData) => {
+    
+    // Immediately set the import as running with initial progress
     setCurrentImport(importData);
     setIsImportRunning(true);
+    setImportProgress({
+      state: 'INITIALIZING',
+      current: 0,
+      total: 100,
+      status: 'Initializing import...'
+    });
     
-    if (importData.task_id) {
+    if (importData.task_id && importData.import_id) {
+      console.log('Starting progress monitoring for task:', importData.task_id, 'import:', importData.import_id);
       startProgressMonitoring(importData.task_id, importData.import_id);
+    } else {
+      console.error('Missing task_id or import_id in import data:', importData);
+    }
+  };
+
+  const cancelImport = async (importId) => {
+    try {
+      const response = await axios.post(`/api/importer/cancel/${importId}/`);
+      
+      if (response.data.message) {
+        // Update local state immediately
+        setIsImportRunning(false);
+        setImportProgress(null);
+        
+        // Get the updated import status
+        try {
+          const importResponse = await axios.get(`/api/importer/status/${importId}/`);
+          setCurrentImport(importResponse.data);
+        } catch (err) {
+          // Fallback to local update
+          setCurrentImport(prev => prev ? { 
+            ...prev, 
+            status: 'failed', 
+            error_message: 'Import cancelled by user',
+            completed_at: new Date().toISOString()
+          } : null);
+        }
+        
+        // Refresh the full import list
+        await checkForRunningImports();
+        
+        return { success: true, message: response.data.message };
+      }
+    } catch (error) {
+      console.error('Error cancelling import:', error);
+      return { 
+        success: false, 
+        message: error.response?.data?.error || 'Failed to cancel import' 
+      };
     }
   };
 
@@ -98,6 +232,7 @@ export const ImportStatusProvider = ({ children }) => {
     currentImport,
     importProgress,
     startImport,
+    cancelImport,
     checkForRunningImports
   };
 
