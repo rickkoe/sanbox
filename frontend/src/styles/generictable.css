@@ -965,6 +965,42 @@
   line-height: 1.2 !important;
 }
 
+/* Remove ALL active column indicators and backgrounds */
+.handsontable thead th.ht__active_highlight,
+.handsontable .ht_clone_top thead th.ht__active_highlight,
+.handsontable thead th.ht__highlight,
+.handsontable .ht_clone_top thead th.ht__highlight {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  background-color: transparent !important;
+  border-right: 1px solid #d1d5db !important;
+  border-left: 1px solid #d1d5db !important;
+  box-shadow: none !important;
+  color: #1f2937 !important;
+}
+
+/* Completely remove all border overlays from headers */
+.handsontable .ht_clone_top .wtBorder,
+.handsontable .ht_clone_top .wtBorder.current,
+.handsontable .ht_clone_top .wtBorder.area,
+.handsontable .ht_clone_top .wtBorder.fill,
+.handsontable .ht_clone_top .wtBorder.corner,
+.handsontable thead .wtBorder,
+.handsontable thead .wtBorder.current,
+.handsontable thead .wtBorder.area {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Override any selection highlighting on headers */
+.handsontable .ht_clone_top thead th::after,
+.handsontable .ht_clone_top thead th::before,
+.handsontable thead th::after,
+.handsontable thead th::before {
+  display: none !important;
+  content: none !important;
+}
+
 /* Ensure all header clones are visible */
 .handsontable .ht_clone_top,
 .handsontable .ht_clone_top_left_corner,
@@ -1000,8 +1036,28 @@
   overflow: auto !important;
 }
 
-.handsontable thead th:hover {
+.handsontable thead th:hover,
+.handsontable .ht_clone_top thead th:hover {
   background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%) !important;
+  border-right: 1px solid #d1d5db !important;
+  border-left: 1px solid #d1d5db !important;
+}
+
+/* Ensure headers reset to normal state when not hovered */
+.handsontable thead th,
+.handsontable .ht_clone_top thead th {
+  border-right: 1px solid #d1d5db !important;
+  border-left: 1px solid #d1d5db !important;
+}
+
+/* Override any highlight states that might persist */
+.handsontable thead th.ht__highlight:not(:hover),
+.handsontable .ht_clone_top thead th.ht__highlight:not(:hover),
+.handsontable thead th.ht__active_highlight:not(:hover),
+.handsontable .ht_clone_top thead th.ht__active_highlight:not(:hover) {
+  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  border-right: 1px solid #d1d5db !important;
+  border-left: 1px solid #d1d5db !important;
 }
 
 /* Row Styling with Enhanced Zebra Striping */

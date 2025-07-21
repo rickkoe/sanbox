@@ -195,7 +195,7 @@ const AdvancedFilter = ({
         <Search size={16} className="search-icon" />
         <input
           type="text"
-          placeholder="Quick search across all columns..."
+          placeholder="Quick search..."
           value={quickSearch}
           onChange={(e) => setQuickSearch(e.target.value)}
           className="search-field"
