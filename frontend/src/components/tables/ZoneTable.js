@@ -16,6 +16,21 @@ const API_ENDPOINTS = {
   zoneDelete: `${API_URL}/api/san/zones/delete/`
 };
 
+// Base zone columns (excluding dynamic member columns)
+const BASE_COLUMNS = [
+  { data: "name", title: "Name" },
+  { data: "fabric", title: "Fabric" },
+  { data: "create", title: "Create" },
+  { data: "exists", title: "Exists" },
+  { data: "zone_type", title: "Zone Type" },
+  { data: "imported", title: "Imported" },
+  { data: "updated", title: "Updated" },
+  { data: "notes", title: "Notes" }
+];
+
+// Default visible base column indices (show all base columns by default)
+const DEFAULT_BASE_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7];
+
 // Template for new rows
 const NEW_ZONE_TEMPLATE = {
   id: null, name: "", fabric: "", create: false, exists: false,
@@ -32,6 +47,24 @@ const ZoneTable = () => {
   const tableRef = useRef(null);
   const navigate = useNavigate();
   const [isAddingColumn, setIsAddingColumn] = useState(false);
+
+  // Column visibility state for base columns
+  const [visibleBaseIndices, setVisibleBaseIndices] = useState(() => {
+    const saved = localStorage.getItem("zoneTableColumns");
+    if (saved) {
+      try {
+        const savedColumnNames = JSON.parse(saved);
+        // Convert saved column names to indices (only for base columns)
+        const indices = savedColumnNames
+          .map(name => BASE_COLUMNS.findIndex(col => col.data === name))
+          .filter(index => index !== -1);
+        return indices.length > 0 ? indices : DEFAULT_BASE_VISIBLE_INDICES;
+      } catch (e) {
+        return DEFAULT_BASE_VISIBLE_INDICES;
+      }
+    }
+    return DEFAULT_BASE_VISIBLE_INDICES;
+  });
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -234,23 +267,42 @@ const ZoneTable = () => {
     return {};
   };
 
-  // Dynamic columns and headers based on memberColumns
-  const colHeaders = useMemo(() => [
-    "Name", "Fabric", "Create", "Exists", "Zone Type", "Imported", "Updated", "Notes", 
-    ...Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`)
-  ], [memberColumns]);
-
-  const columns = useMemo(() => [
-    { data: "name" },
-    { data: "fabric", type: "dropdown" },
-    { data: "create", type: "checkbox" },
-    { data: "exists", type: "checkbox" },
-    { data: "zone_type", type: "dropdown" },
-    { data: "imported", readOnly: true },
-    { data: "updated", readOnly: true },
-    { data: "notes" },
-    ...Array.from({ length: memberColumns }, (_, i) => ({ data: `member_${i + 1}` }))
-  ], [memberColumns]);
+  // Compute displayed columns and headers (base + member columns)
+  const { displayedColumns, displayedHeaders, allColumnIndices } = useMemo(() => {
+    // Build base columns
+    const baseColumns = visibleBaseIndices.map(index => {
+      const colConfig = BASE_COLUMNS[index];
+      const column = { data: colConfig.data };
+      
+      // Add specific column configurations
+      if (colConfig.data === "fabric" || colConfig.data === "zone_type") {
+        column.type = "dropdown";
+      } else if (colConfig.data === "create" || colConfig.data === "exists") {
+        column.type = "checkbox";
+      } else if (colConfig.data === "imported" || colConfig.data === "updated") {
+        column.readOnly = true;
+      }
+      
+      return column;
+    });
+    
+    const baseHeaders = visibleBaseIndices.map(index => BASE_COLUMNS[index].title);
+    
+    // Add member columns (always show all member columns)
+    const memberColumns_array = Array.from({ length: memberColumns }, (_, i) => ({ data: `member_${i + 1}` }));
+    const memberHeaders = Array.from({length: memberColumns}, (_, i) => `Member ${i + 1}`);
+    
+    // Combine base + member columns
+    const columns = [...baseColumns, ...memberColumns_array];
+    const headers = [...baseHeaders, ...memberHeaders];
+    
+    // Track indices for GenericTable (base column indices + member column indices)
+    const baseIndicesCount = visibleBaseIndices.length;
+    const memberIndices = Array.from({ length: memberColumns }, (_, i) => baseIndicesCount + i);
+    const allIndices = [...visibleBaseIndices, ...memberIndices];
+    
+    return { displayedColumns: columns, displayedHeaders: headers, allColumnIndices: allIndices };
+  }, [visibleBaseIndices, memberColumns]);
 
   const dropdownSources = useMemo(() => ({
     fabric: fabricOptions.map(f => f.name),
@@ -329,8 +381,9 @@ const ZoneTable = () => {
         saveUrl={API_ENDPOINTS.zoneSave}
         deleteUrl={API_ENDPOINTS.zoneDelete}
         newRowTemplate={NEW_ZONE_TEMPLATE}
-        colHeaders={colHeaders}
-        columns={columns}
+        colHeaders={displayedHeaders}
+        columns={displayedColumns}
+        allColumns={BASE_COLUMNS}
         dropdownSources={dropdownSources}
         customRenderers={customRenderers}
         preprocessData={preprocessData}
@@ -339,6 +392,7 @@ const ZoneTable = () => {
         beforeSave={beforeSaveValidation}
         getCellsConfig={getCellsConfig}
         storageKey="zoneTableColumnWidths"
+        defaultVisibleColumns={allColumnIndices}
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`}
         additionalButtons={[
   {

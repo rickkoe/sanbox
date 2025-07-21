@@ -1,11 +1,40 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import GenericTable from "./GenericTable";
 import axios from "axios";
+
+// All possible customer columns
+const ALL_COLUMNS = [
+  { data: "name", title: "Customer Name" },
+  { data: "insights_tenant", title: "Storage Insights Tenant" },
+  { data: "insights_api_key", title: "Storage Insights API Key" },
+  { data: "notes", title: "Notes" }
+];
+
+// Default visible columns (show all by default for compatibility)
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3];
 
 const CustomerTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
 
     const tableRef = useRef(null);
+
+    // Column visibility state
+    const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
+        const saved = localStorage.getItem("customerTableColumns");
+        if (saved) {
+            try {
+                const savedColumnNames = JSON.parse(saved);
+                // Convert saved column names to indices
+                const indices = savedColumnNames
+                    .map(name => ALL_COLUMNS.findIndex(col => col.data === name))
+                    .filter(index => index !== -1);
+                return indices.length > 0 ? indices : DEFAULT_VISIBLE_INDICES;
+            } catch (e) {
+                return DEFAULT_VISIBLE_INDICES;
+            }
+        }
+        return DEFAULT_VISIBLE_INDICES;
+    });
 
     const NEW_CUSTOMER_TEMPLATE = { 
         id: null, 
@@ -15,19 +44,7 @@ const CustomerTable = () => {
         notes: "" 
     };
 
-    const colHeaders = [
-        "Customer Name", 
-        "Storage Insights Tenant", 
-        "Storage Insights API Key", 
-        "Notes"
-    ];
-
-    const columns = [
-        { data: "name" },
-        { data: "insights_tenant" },
-        { data: "insights_api_key" },
-        { data: "notes" }
-    ];
+    // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
 
     const customRenderers = {
         name: (instance, td, row, col, prop, value) => {
@@ -106,8 +123,8 @@ const CustomerTable = () => {
                 saveUrl={`${API_URL}/api/customers/`}
                 deleteUrl={`${API_URL}/api/customers/delete/`}
                 newRowTemplate={NEW_CUSTOMER_TEMPLATE}
-                colHeaders={colHeaders}
-                columns={columns}
+                colHeaders={ALL_COLUMNS.map(col => col.title)}
+                columns={ALL_COLUMNS.map(col => ({ data: col.data }))}
                 customRenderers={customRenderers}
                 onSave={handleSave}
                 fixedColumnsLeft={2}
@@ -115,6 +132,7 @@ const CustomerTable = () => {
                 filters={false}
                 dropdownMenu={false}
                 storageKey="customerTableColumnWidths"
+                defaultVisibleColumns={visibleColumnIndices}
                 getExportFilename={() => "Customer_Table.csv"}
             />
         </div>

@@ -319,25 +319,129 @@ class SimpleStorageImporter:
                 if not system_id:
                     continue
                 
-                # Map API fields to Storage model fields with correct field names
+                # Map ALL available API fields to Storage model fields
                 defaults = {
                     'customer': self.customer,
                     'name': system_data.get('name', ''),
                     'storage_type': self._map_storage_type(system_data.get('type', '')),
                     'storage_system_id': system_id,
+                    'machine_type': system_data.get('machine_type'),
                     'model': system_data.get('model', ''),
-                    'serial_number': system_data.get('serial_number', ''),  # Correct field name
-                    'firmware_level': system_data.get('firmware', ''),      # Correct field name
+                    'serial_number': system_data.get('serial_number', ''),
+                    'system_id': system_data.get('system_id'),
+                    'wwnn': system_data.get('wwnn'),
+                    'firmware_level': system_data.get('firmware_level'),
+                    'primary_ip': system_data.get('primary_ip'),
+                    'secondary_ip': system_data.get('secondary_ip'),
+                    'uuid': system_data.get('uuid') or system_id,
                     'vendor': system_data.get('vendor', ''),
                     'location': system_data.get('location', ''),
-                    'uuid': system_id,
                     'probe_status': system_data.get('probe_status', ''),
                     'condition': system_data.get('condition', ''),
-                    # Add capacity and other fields as available
+                    
+                    # Capacity fields
+                    'written_capacity_limit_bytes': system_data.get('written_capacity_limit_bytes'),
+                    'unmapped_capacity_percent': system_data.get('unmapped_capacity_percent'),
+                    'provisioned_written_capacity_percent': system_data.get('provisioned_written_capacity_percent'),
+                    'capacity_savings_bytes': system_data.get('capacity_savings_bytes'),
                     'raw_capacity_bytes': system_data.get('raw_capacity_bytes'),
+                    'provisioned_capacity_percent': system_data.get('provisioned_capacity_percent'),
+                    'mapped_capacity_percent': system_data.get('mapped_capacity_percent'),
+                    'available_written_capacity_bytes': system_data.get('available_written_capacity_bytes'),
+                    'mapped_capacity_bytes': system_data.get('mapped_capacity_bytes'),
+                    'available_volume_capacity_bytes': system_data.get('available_volume_capacity_bytes'),
+                    'capacity_savings_percent': system_data.get('capacity_savings_percent'),
+                    'overhead_capacity_bytes': system_data.get('overhead_capacity_bytes'),
+                    'unmapped_capacity_bytes': system_data.get('unmapped_capacity_bytes'),
+                    'capacity_bytes': system_data.get('capacity_bytes'),
+                    'used_written_capacity_percent': system_data.get('used_written_capacity_percent'),
+                    'shortfall_percent': system_data.get('shortfall_percent'),
+                    'used_written_capacity_bytes': system_data.get('used_written_capacity_bytes'),
+                    'available_system_capacity_bytes': system_data.get('available_system_capacity_bytes'),
                     'used_capacity_bytes': system_data.get('used_capacity_bytes'),
+                    'deduplication_savings_percent': system_data.get('deduplication_savings_percent'),
                     'available_capacity_bytes': system_data.get('available_capacity_bytes'),
+                    'used_capacity_percent': system_data.get('used_capacity_percent'),
+                    'unprotected_volumes_count': system_data.get('unprotected_volumes_count'),
+                    'provisioned_capacity_bytes': system_data.get('provisioned_capacity_bytes'),
+                    'available_system_capacity_percent': system_data.get('available_system_capacity_percent'),
+                    'deduplication_savings_bytes': system_data.get('deduplication_savings_bytes'),
+                    
+                    # Monitoring and timestamps
+                    'last_successful_probe': system_data.get('last_successful_probe'),
+                    'last_successful_monitor': system_data.get('last_successful_monitor'),
+                    
+                    # Customer and system info
+                    'customer_country_code': system_data.get('customer_country_code'),
+                    'events_status': system_data.get('events_status'),
+                    'remote_relationships_count': system_data.get('remote_relationships_count'),
+                    'customer_number': system_data.get('customer_number'),
+                    'pm_status': system_data.get('pm_status'),
+                    'data_collection': system_data.get('data_collection'),
+                    'time_zone': system_data.get('time_zone'),
+                    'staas_environment': system_data.get('staas_environment'),
+                    'element_manager_url': system_data.get('element_manager_url'),
+                    'probe_schedule': system_data.get('probe_schedule'),
+                    'acknowledged': system_data.get('acknowledged'),
+                    'compressed': system_data.get('compressed'),
+                    'callhome_system': system_data.get('callhome_system'),
+                    'ransomware_threat_detection': system_data.get('ransomware_threat_detection'),
+                    'threat_notification_recipients': system_data.get('threat_notification_recipients'),
+                    'data_collection_type': system_data.get('data_collection_type'),
+                    'topology': system_data.get('topology'),
+                    'cluster_id_alias': system_data.get('cluster_id_alias'),
+                    
+                    # Counts
                     'volumes_count': system_data.get('volumes_count'),
+                    'pools_count': system_data.get('pools_count'),
+                    'disks_count': system_data.get('disks_count'),
+                    'fc_ports_count': system_data.get('fc_ports_count'),
+                    'host_connections_count': system_data.get('host_connections_count'),
+                    'ip_ports_count': system_data.get('ip_ports_count'),
+                    'managed_disks_count': system_data.get('managed_disks_count'),
+                    'volume_groups_count': system_data.get('volume_groups_count'),
+                    
+                    # Performance and efficiency
+                    'recent_fill_rate': system_data.get('recent_fill_rate'),
+                    'recent_growth': system_data.get('recent_growth'),
+                    'current_power_usage_watts': system_data.get('current_power_usage_watts'),
+                    'system_temperature_celsius': system_data.get('system_temperature_celsius'),
+                    'system_temperature_Fahrenheit': system_data.get('system_temperature_Fahrenheit'),
+                    'power_efficiency': system_data.get('power_efficiency'),
+                    'co2_emission': system_data.get('co2_emission'),
+                    
+                    # Safeguarding
+                    'safe_guarded_capacity_bytes': system_data.get('safe_guarded_capacity_bytes'),
+                    'safeguarded_virtual_capacity_bytes': system_data.get('safeguarded_virtual_capacity_bytes'),
+                    'safeguarded_used_capacity_percentage': system_data.get('safeguarded_used_capacity_percentage'),
+                    
+                    # Cache
+                    'read_cache_bytes': system_data.get('read_cache_bytes'),
+                    'write_cache_bytes': system_data.get('write_cache_bytes'),
+                    
+                    # Data reduction and compression
+                    'data_reduction_savings_percent': system_data.get('data_reduction_savings_percent'),
+                    'data_reduction_savings_bytes': system_data.get('data_reduction_savings_bytes'),
+                    'data_reduction_ratio': system_data.get('data_reduction_ratio'),
+                    'total_compression_ratio': system_data.get('total_compression_ratio'),
+                    'drive_compression_savings_percent': system_data.get('drive_compression_savings_percent'),
+                    'remaining_unallocated_capacity_bytes': system_data.get('remaining_unallocated_capacity_bytes'),
+                    'pool_compression_savings_bytes': system_data.get('pool_compression_savings_bytes'),
+                    'compression_savings_bytes': system_data.get('compression_savings_bytes'),
+                    'compression_savings_percent': system_data.get('compression_savings_percent'),
+                    'overprovisioned_capacity_bytes': system_data.get('overprovisioned_capacity_bytes'),
+                    'unallocated_volume_capacity_bytes': system_data.get('unallocated_volume_capacity_bytes'),
+                    'drive_compression_savings_bytes': system_data.get('drive_compression_savings_bytes'),
+                    'pool_compression_savings_percent': system_data.get('pool_compression_savings_percent'),
+                    'drive_compression_ratio': system_data.get('drive_compression_ratio'),
+                    'pool_compression_ratio': system_data.get('pool_compression_ratio'),
+                    'snapshot_written_capacity_bytes': system_data.get('snapshot_written_capacity_bytes'),
+                    'snapshot_provisioned_capacity_bytes': system_data.get('snapshot_provisioned_capacity_bytes'),
+                    'total_savings_ratio': system_data.get('total_savings_ratio'),
+                    
+                    # Timestamps
+                    'imported': timezone.now(),
+                    'updated': timezone.now(),
                 }
                 
                 # Remove empty/None values

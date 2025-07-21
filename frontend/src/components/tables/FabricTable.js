@@ -1,4 +1,4 @@
-import React, { useRef, useContext } from "react";
+import React, { useRef, useContext, useState, useMemo } from "react";
 import axios from "axios";
 import GenericTable from "./GenericTable";
 import { ConfigContext } from "../../context/ConfigContext";
@@ -8,10 +8,41 @@ const vendorOptions = [
   { code: 'BR', name: 'Brocade' }
 ];
 
+// All possible fabric columns
+const ALL_COLUMNS = [
+  { data: "name", title: "Name" },
+  { data: "san_vendor", title: "Vendor" },
+  { data: "zoneset_name", title: "Zoneset Name" },
+  { data: "vsan", title: "VSAN" },
+  { data: "exists", title: "Exists" },
+  { data: "notes", title: "Notes" }
+];
+
+// Default visible columns (show all by default for compatibility)
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5];
+
 const FabricTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
     const tableRef = useRef(null);
+
+    // Column visibility state
+    const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
+        const saved = localStorage.getItem("fabricTableColumns");
+        if (saved) {
+            try {
+                const savedColumnNames = JSON.parse(saved);
+                // Convert saved column names to indices
+                const indices = savedColumnNames
+                    .map(name => ALL_COLUMNS.findIndex(col => col.data === name))
+                    .filter(index => index !== -1);
+                return indices.length > 0 ? indices : DEFAULT_VISIBLE_INDICES;
+            } catch (e) {
+                return DEFAULT_VISIBLE_INDICES;
+            }
+        }
+        return DEFAULT_VISIBLE_INDICES;
+    });
 
     const NEW_FABRIC_TEMPLATE = { 
         id: null, 
@@ -26,23 +57,7 @@ const FabricTable = () => {
     const fabricsApiUrl = `${API_URL}/api/san/fabrics/`;
     const fabricDeleteApiUrl = `${API_URL}/api/san/fabrics/delete/`;
 
-    const colHeaders = [
-        "Name", 
-        "Vendor", 
-        "Zoneset Name", 
-        "VSAN", 
-        "Exists", 
-        "Notes"
-    ];
-
-    const columns = [
-        { data: "name" },
-        { data: "san_vendor", type: "dropdown", className: "htCenter" },
-        { data: "zoneset_name" },
-        { data: "vsan", type: "numeric", className: "htCenter" },
-        { data: "exists", type: "checkbox", className: "htCenter" },
-        { data: "notes" }
-    ];
+    // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
 
     const dropdownSources = {
         san_vendor: vendorOptions.map(o => o.name)
@@ -151,8 +166,24 @@ const FabricTable = () => {
                 saveUrl={fabricsApiUrl}
                 deleteUrl={fabricDeleteApiUrl}
                 newRowTemplate={NEW_FABRIC_TEMPLATE}
-                colHeaders={colHeaders}
-                columns={columns}
+                colHeaders={ALL_COLUMNS.map(col => col.title)}
+                columns={ALL_COLUMNS.map(col => {
+                    const column = { data: col.data };
+                    
+                    // Add specific column configurations
+                    if (col.data === "san_vendor") {
+                        column.type = "dropdown";
+                        column.className = "htCenter";
+                    } else if (col.data === "vsan") {
+                        column.type = "numeric";
+                        column.className = "htCenter";
+                    } else if (col.data === "exists") {
+                        column.type = "checkbox";
+                        column.className = "htCenter";
+                    }
+                    
+                    return column;
+                })}
                 customRenderers={customRenderers}
                 preprocessData={preprocessData}
                 saveTransform={saveTransform}
@@ -162,6 +193,7 @@ const FabricTable = () => {
                 dropdownMenu={false}
                 columnSorting={true}
                 storageKey="fabricTableColumnWidths"
+                defaultVisibleColumns={visibleColumnIndices}
                 getExportFilename={() => `${config?.customer?.name || 'Customer'}_Fabric_Table.csv`}
                 additionalButtons={
                     <>

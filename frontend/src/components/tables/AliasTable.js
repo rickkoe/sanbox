@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useContext, useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { Button } from "react-bootstrap";
@@ -14,6 +14,24 @@ const API_ENDPOINTS = {
   aliasSave: `${API_URL}/api/san/aliases/save/`,
   aliasDelete: `${API_URL}/api/san/aliases/delete/`
 };
+
+// All possible alias columns
+const ALL_COLUMNS = [
+  { data: "name", title: "Name" },
+  { data: "wwpn", title: "WWPN" },
+  { data: "use", title: "Use" },
+  { data: "fabric_details.name", title: "Fabric" },
+  { data: "cisco_alias", title: "Alias Type" },
+  { data: "create", title: "Create" },
+  { data: "include_in_zoning", title: "Include in Zoning" },
+  { data: "zoned_count", title: "Zoned Count" },
+  { data: "imported", title: "Imported" },
+  { data: "updated", title: "Updated" },
+  { data: "notes", title: "Notes" }
+];
+
+// Default visible columns (show all by default for compatibility)
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 // Template for new rows
 const NEW_ALIAS_TEMPLATE = {
@@ -62,8 +80,28 @@ const AliasTable = () => {
   const tableRef = useRef(null);
   const navigate = useNavigate();
 
+  // Column visibility state
+  const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
+    const saved = localStorage.getItem("aliasTableColumns");
+    if (saved) {
+      try {
+        const savedColumnNames = JSON.parse(saved);
+        // Convert saved column names to indices
+        const indices = savedColumnNames
+          .map(name => ALL_COLUMNS.findIndex(col => col.data === name))
+          .filter(index => index !== -1);
+        return indices.length > 0 ? indices : DEFAULT_VISIBLE_INDICES;
+      } catch (e) {
+        return DEFAULT_VISIBLE_INDICES;
+      }
+    }
+    return DEFAULT_VISIBLE_INDICES;
+  });
+
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
+
+  // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
 
   // Load fabrics
   useEffect(() => {
@@ -368,34 +406,6 @@ const AliasTable = () => {
     },
   };
 
-  const colHeaders = [
-    "Name", "WWPN", "Use", "Fabric", "Alias Type", "Create", 
-    "Include in Zoning", "Zoned Count", "Imported", "Updated", "Notes",
-  ];
-
-  const columns = [
-    { data: "name" },
-    {
-      data: "wwpn",
-      validator: (value, callback) => {
-        if (!value || isValidWWPNFormat(value)) {
-          callback(true);
-        } else {
-          callback(false);
-        }
-      },
-    },
-    { data: "use", type: "dropdown", className: "htCenter" },
-    { data: "fabric_details.name", type: "dropdown" },
-    { data: "cisco_alias", type: "dropdown", className: "htCenter" },
-    { data: "create", type: "checkbox", className: "htCenter" },
-    { data: "include_in_zoning", type: "checkbox", className: "htCenter" },
-    { data: "zoned_count", readOnly: true, className: "htCenter" },
-    { data: "imported", readOnly: true },
-    { data: "updated", readOnly: true },
-    { data: "notes" },
-  ];
-
   const dropdownSources = {
     use: ["init", "target", "both"],
     "fabric_details.name": fabricOptions.map(f => f.name),
@@ -410,8 +420,39 @@ const AliasTable = () => {
         saveUrl={API_ENDPOINTS.aliasSave}
         deleteUrl={API_ENDPOINTS.aliasDelete}
         newRowTemplate={NEW_ALIAS_TEMPLATE}
-        colHeaders={colHeaders}
-        columns={columns}
+        colHeaders={ALL_COLUMNS.map(col => col.title)}
+        columns={ALL_COLUMNS.map(col => {
+          const column = { data: col.data };
+          
+          // Add specific column configurations
+          if (col.data === "wwpn") {
+            column.validator = (value, callback) => {
+              if (!value || isValidWWPNFormat(value)) {
+                callback(true);
+              } else {
+                callback(false);
+              }
+            };
+          } else if (col.data === "use") {
+            column.type = "dropdown";
+            column.className = "htCenter";
+          } else if (col.data === "fabric_details.name") {
+            column.type = "dropdown";
+          } else if (col.data === "cisco_alias") {
+            column.type = "dropdown";
+            column.className = "htCenter";
+          } else if (col.data === "create" || col.data === "include_in_zoning") {
+            column.type = "checkbox";
+            column.className = "htCenter";
+          } else if (col.data === "zoned_count" || col.data === "imported" || col.data === "updated") {
+            column.readOnly = true;
+            if (col.data === "zoned_count") {
+              column.className = "htCenter";
+            }
+          }
+          
+          return column;
+        })}
         dropdownSources={dropdownSources}
         customRenderers={customRenderers}
         preprocessData={preprocessData}
@@ -422,7 +463,7 @@ const AliasTable = () => {
         columnSorting={true}
         filters={false}
         storageKey="aliasTableColumnWidths"
-        defaultVisibleColumns={[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+        defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Alias_Table.csv`}
         additionalButtons={
           <>

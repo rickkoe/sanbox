@@ -68,8 +68,8 @@ const ALL_COLUMNS = [
   { data: "updated", title: "Updated" },
 ];
 
-// Default column indices - matching the original DEFAULT_VISIBLE selection
-const DEFAULT_VISIBLE_INDICES = [1, 44, 7, 8, 39, 33, 56, 57]; // name, unique_id, capacity_bytes, used_capacity_bytes, pool_name, thin_provisioned, imported, updated
+// Default column indices - using the actual indices from the console debug
+const DEFAULT_VISIBLE_INDICES = [1, 44, 7, 8, 39, 33, 59, 60]; // name, unique_id, capacity_bytes, used_capacity_bytes, pool_name, thin_provisioned, imported, updated
 
 const VolumeTable = ({ storage }) => {
   const tableRef = useRef(null);
@@ -80,12 +80,16 @@ const VolumeTable = ({ storage }) => {
     if (saved) {
       try {
         const savedColumnNames = JSON.parse(saved);
-        // Convert saved column names to indices
+        // Convert saved column names to indices and validate them
         const indices = savedColumnNames
           .map(name => ALL_COLUMNS.findIndex(col => col.data === name))
-          .filter(index => index !== -1);
+          .filter(index => index !== -1 && index >= 0 && index < ALL_COLUMNS.length);
+        
+        // If we have valid indices, use them; otherwise fall back to defaults
         return indices.length > 0 ? indices : DEFAULT_VISIBLE_INDICES;
       } catch (e) {
+        // Clear corrupted localStorage and use defaults
+        localStorage.removeItem("volumeTableColumns");
         return DEFAULT_VISIBLE_INDICES;
       }
     }
@@ -100,20 +104,7 @@ const VolumeTable = ({ storage }) => {
     localStorage.setItem("volumeTableColumns", JSON.stringify(columnNames));
   };
 
-  // Compute displayed columns and headers
-  const { displayedColumns, displayedHeaders } = useMemo(() => {
-    const columns = visibleColumnIndices.map(index => {
-      const colConfig = ALL_COLUMNS[index];
-      return {
-        data: colConfig.data,
-        readOnly: colConfig.data === "imported" || colConfig.data === "updated"
-      };
-    });
-    
-    const headers = visibleColumnIndices.map(index => ALL_COLUMNS[index].title);
-    
-    return { displayedColumns: columns, displayedHeaders: headers };
-  }, [visibleColumnIndices]);
+  // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
 
   const customRenderers = {
     name: (instance, td, row, col, prop, value) => {
@@ -153,6 +144,7 @@ const VolumeTable = ({ storage }) => {
     ? `${API_URL}/api/storage/volumes/?storage_system_id=${storage.storage_system_id}`
     : `${API_URL}/api/storage/volumes/?storage_system_id=0`;
 
+
   return (
     <div className="table-container">
       <GenericTable
@@ -160,8 +152,11 @@ const VolumeTable = ({ storage }) => {
         apiUrl={apiUrl}
         saveUrl={`${API_URL}/api/storage/volumes/`}
         deleteUrl={`${API_URL}/api/storage/volumes/`}
-        colHeaders={displayedHeaders}
-        columns={displayedColumns}
+        colHeaders={ALL_COLUMNS.map(col => col.title)}
+        columns={ALL_COLUMNS.map(col => ({
+          data: col.data,
+          readOnly: col.data === "imported" || col.data === "updated"
+        }))}
         customRenderers={customRenderers}
         preprocessData={preprocessData}
         newRowTemplate={{}}
@@ -184,6 +179,17 @@ const VolumeTable = ({ storage }) => {
                 Storage: <strong>{storage.name || storage.storage_system_id}</strong>
               </div>
             )}
+            <button 
+              className="btn btn-sm btn-outline-secondary"
+              style={{ marginLeft: '10px' }}
+              onClick={() => {
+                localStorage.removeItem("volumeTableColumns");
+                window.location.reload();
+              }}
+              title="Clear saved column preferences and use defaults"
+            >
+              Reset Columns
+            </button>
           </>
         }
       />

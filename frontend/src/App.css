@@ -80,7 +80,7 @@
   padding: 0.5rem 1rem;
   background: #f8f9fa;
   border-bottom: 1px solid #ddd;
-  height: 40px;
+  height: 50px;
   z-index: 80;
 }
 
@@ -139,10 +139,15 @@
 
 .main-content.table-page h1,
 .main-content.table-page h2, 
-.main-content.table-page h3 {
+.main-content.table-page h3,
+.main-content.scrollable h1,
+.main-content.scrollable h2,
+.main-content.scrollable h3 {
   flex-shrink: 0; /* Prevent title from shrinking */
   margin-bottom: 1rem;
-  padding-top: 1rem;
+  padding-top: 1.25rem;
+  position: relative;
+  z-index: 10;
 }
 
 /* Ensure table component takes remaining space */

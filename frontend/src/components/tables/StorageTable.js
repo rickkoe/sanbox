@@ -136,8 +136,8 @@ const ALL_STORAGE_COLUMNS = [
   { data: "updated", title: "Updated" },
 ];
 
-// Default columns to show - fixed indices to ensure they exist
-const DEFAULT_VISIBLE_COLUMNS = [0, 1, 2, 3, 5, 6, 7, 9, 10, 11, 12]; // removed indices that don't exist
+// Default visible columns indices
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12]; // removed indices that don't exist
 
 const StorageTable = () => {
   const { config } = useContext(ConfigContext);
@@ -148,40 +148,25 @@ const StorageTable = () => {
   // Get the customer ID from the config context
   const customerId = config?.customer?.id;
 
-  // Column picker state - using indices for compatibility with GenericTable's column management
+  // Column visibility state
   const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
-    const saved = JSON.parse(localStorage.getItem("storageTableColumns"));
-    // Validate saved indices to ensure they're within bounds
-    if (saved && Array.isArray(saved)) {
-      const validIndices = saved.filter(index => 
-        index >= 0 && index < ALL_STORAGE_COLUMNS.length
-      );
-      return validIndices.length > 0 ? validIndices : DEFAULT_VISIBLE_COLUMNS;
+    const saved = localStorage.getItem("storageTableColumns");
+    if (saved) {
+      try {
+        const savedColumnNames = JSON.parse(saved);
+        // Convert saved column names to indices
+        const indices = savedColumnNames
+          .map(name => ALL_STORAGE_COLUMNS.findIndex(col => col.data === name))
+          .filter(index => index !== -1);
+        return indices.length > 0 ? indices : DEFAULT_VISIBLE_INDICES;
+      } catch (e) {
+        return DEFAULT_VISIBLE_INDICES;
+      }
     }
-    return DEFAULT_VISIBLE_COLUMNS;
+    return DEFAULT_VISIBLE_INDICES;
   });
 
-  // Compute dynamic columns and headers based on visible indices
-  const { displayedColumns, displayedHeaders } = useMemo(() => {
-    // Filter out any invalid indices
-    const validIndices = visibleColumnIndices.filter(index => 
-      index >= 0 && index < ALL_STORAGE_COLUMNS.length
-    );
-    
-    const columns = validIndices.map(index => {
-      const colConfig = ALL_STORAGE_COLUMNS[index];
-      return {
-        data: colConfig.data,
-        type: colConfig.data === "storage_type" ? "dropdown" : undefined,
-        className: colConfig.data === "id" ? "htCenter" : undefined,
-        readOnly: colConfig.data === "imported" || colConfig.data === "updated"
-      };
-    });
-    
-    const headers = validIndices.map(index => ALL_STORAGE_COLUMNS[index].title);
-    
-    return { displayedColumns: columns, displayedHeaders: headers };
-  }, [visibleColumnIndices]);
+  // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
 
   const dropdownSources = {
     "storage_type": ["FlashSystem", "DS8000", "Switch", "Data Domain"]
@@ -381,8 +366,13 @@ const StorageTable = () => {
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
-        colHeaders={displayedHeaders}
-        columns={displayedColumns}
+        colHeaders={ALL_STORAGE_COLUMNS.map(col => col.title)}
+        columns={ALL_STORAGE_COLUMNS.map(col => ({
+          data: col.data,
+          type: col.data === "storage_type" ? "dropdown" : undefined,
+          className: col.data === "id" ? "htCenter" : undefined,
+          readOnly: col.data === "imported" || col.data === "updated"
+        }))}
         dropdownSources={dropdownSources}
         customRenderers={customRenderers}
         preprocessData={preprocessData}

@@ -53,20 +53,7 @@ const HostTable = ({ storage }) => {
     localStorage.setItem("hostTableColumns", JSON.stringify(columnNames));
   };
 
-  // Compute displayed columns and headers
-  const { displayedColumns, displayedHeaders } = useMemo(() => {
-    const columns = visibleColumnIndices.map(index => {
-      const colConfig = ALL_COLUMNS[index];
-      return {
-        data: colConfig.data,
-        readOnly: colConfig.data === "imported" || colConfig.data === "updated"
-      };
-    });
-    
-    const headers = visibleColumnIndices.map(index => ALL_COLUMNS[index].title);
-    
-    return { displayedColumns: columns, displayedHeaders: headers };
-  }, [visibleColumnIndices]);
+  // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
 
   const customRenderers = {
     name: (instance, td, row, col, prop, value) => {
@@ -133,8 +120,11 @@ const HostTable = ({ storage }) => {
         apiUrl={apiUrl}
         saveUrl={`${API_URL}/api/storage/hosts/`}
         deleteUrl={`${API_URL}/api/storage/hosts/`}
-        colHeaders={displayedHeaders}
-        columns={displayedColumns}
+        colHeaders={ALL_COLUMNS.map(col => col.title)}
+        columns={ALL_COLUMNS.map(col => ({
+          data: col.data,
+          readOnly: col.data === "imported" || col.data === "updated"
+        }))}
         customRenderers={customRenderers}
         preprocessData={preprocessData}
         newRowTemplate={{}}

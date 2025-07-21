@@ -714,7 +714,6 @@ const GenericTable = forwardRef(({
               viewportRowRenderingOffset={10}
               viewportColumnRenderingOffset={10}
               renderAllRows={false}
-              preventOverflow={false}
               afterInit={() => {
                 if (tableRef.current?.hotInstance) {
                   console.log('Table initialized with data:', data?.length || 0);

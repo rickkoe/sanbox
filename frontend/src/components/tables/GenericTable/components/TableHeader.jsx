@@ -477,7 +477,10 @@ const TableHeader = ({
               }}
               onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
               onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-              onClick={() => toggleAllColumns()}
+              onClick={() => {
+                const allVisible = Object.values(visibleColumns).every(visible => visible);
+                toggleAllColumns(!allVisible);
+              }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="9,11 12,14 22,4"/>
