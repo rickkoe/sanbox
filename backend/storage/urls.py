@@ -3,6 +3,7 @@ from .views import (
     storage_list, 
     storage_detail, 
     volume_list,
+    host_list,
     storage_insights_auth, 
     storage_insights_systems, 
     storage_insights_volumes,
@@ -17,4 +18,5 @@ urlpatterns = [
     path("insights/volumes/", storage_insights_volumes, name="storage-insights-volumes"),
     path("insights/host-connections/", storage_insights_host_connections, name="storage-insights-host-connections"),
     path("volumes/", volume_list, name="volume_list"),
+    path("hosts/", host_list, name="host_list"),
 ]

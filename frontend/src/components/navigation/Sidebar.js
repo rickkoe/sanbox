@@ -11,7 +11,8 @@ import {
   Tags,
   Layers,
   Server,
-  Archive
+  Archive,
+  Monitor
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -39,6 +40,7 @@ const getSidebarLinks = (pathname) => {
         links: [
           { path: `/storage/${storageIdMatch[1]}`, label: "Properties", icon: Server },
           { path: `/storage/${storageIdMatch[1]}/volumes`, label: "Volumes", icon: Archive },
+          { path: `/storage/${storageIdMatch[1]}/hosts`, label: "Hosts", icon: Monitor },
         ],
       };
     }

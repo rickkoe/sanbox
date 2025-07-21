@@ -1,5 +1,5 @@
 from django.utils import timezone
-from storage.models import Storage, Volume
+from storage.models import Storage, Volume, Host
 from .models import StorageImport
 from .api_client import StorageInsightsClient
 from typing import Dict, List
@@ -11,6 +11,14 @@ class SimpleStorageImporter:
     def __init__(self, customer):
         self.customer = customer
         self.import_record = None
+        
+        # Get the active project for this customer
+        try:
+            self.project = self.customer.config.active_project
+            if not self.project:
+                raise Exception("No active project configured for this customer")
+        except AttributeError:
+            raise Exception("Customer has no configuration or active project")
     
     def import_storage_data(self) -> StorageImport:
         """Main import method - simple and straightforward"""
@@ -27,7 +35,7 @@ class SimpleStorageImporter:
                 raise Exception("No Storage Insights API credentials configured for this customer")
             
             # Check if we should use mock data (for testing when API is not available)
-            use_mock_data = False  # Set to True for testing with mock data
+            use_mock_data = False  # Set to False to use real API data
             
             if use_mock_data:
                 # Use mock data for testing
@@ -44,10 +52,76 @@ class SimpleStorageImporter:
                 total_hosts = sum(len(hosts) for hosts in hosts_by_system.values())
                 print(f"Fetched {len(storage_systems)} storage systems, {total_volumes} volumes, {total_hosts} hosts")
             
-            # Import data
-            systems_imported = self._import_storage_systems(storage_systems, volumes_by_system)
-            volumes_imported = self._import_volumes(storage_systems, volumes_by_system)
-            hosts_imported = self._import_hosts(hosts_by_system)
+            # Import data with individual error handling
+            # Log debug info to import logs
+            from .models import ImportLog
+            ImportLog.objects.create(
+                import_record=self.import_record,
+                level='DEBUG',
+                message=f"About to import data: {len(storage_systems)} storage systems, {len(volumes_by_system)} volume systems, {len(hosts_by_system)} host systems"
+            )
+            
+            for sys_id, hosts in hosts_by_system.items():
+                ImportLog.objects.create(
+                    import_record=self.import_record,
+                    level='DEBUG',
+                    message=f"System {sys_id}: {len(hosts)} hosts to import"
+                )
+            
+            print(f"🔍 DEBUG: About to import data:")
+            print(f"   - Storage systems: {len(storage_systems)}")
+            print(f"   - Volumes by system: {len(volumes_by_system)} systems")
+            print(f"   - Hosts by system: {len(hosts_by_system)} systems")
+            for sys_id, hosts in hosts_by_system.items():
+                print(f"     System {sys_id}: {len(hosts)} hosts")
+            
+            systems_imported = 0
+            volumes_imported = 0
+            hosts_imported = 0
+            
+            try:
+                systems_imported = self._import_storage_systems(storage_systems, volumes_by_system)
+                print(f"✅ Storage systems imported: {systems_imported}")
+            except Exception as e:
+                error_msg = f"Storage systems import failed: {str(e)}"
+                print(f"❌ {error_msg}")
+                ImportLog.objects.create(
+                    import_record=self.import_record,
+                    level='ERROR',
+                    message=error_msg
+                )
+            
+            try:
+                volumes_imported = self._import_volumes(storage_systems, volumes_by_system)
+                print(f"✅ Volumes imported: {volumes_imported}")
+            except Exception as e:
+                error_msg = f"Volumes import failed: {str(e)}"
+                print(f"❌ {error_msg}")
+                ImportLog.objects.create(
+                    import_record=self.import_record,
+                    level='ERROR',
+                    message=error_msg
+                )
+            
+            try:
+                print(f"🔍 DEBUG: About to import hosts...")
+                hosts_imported = self._import_hosts(hosts_by_system)
+                print(f"🔍 DEBUG: Hosts imported: {hosts_imported}")
+            except Exception as e:
+                error_msg = f"Hosts import failed: {str(e)}"
+                print(f"❌ {error_msg}")
+                ImportLog.objects.create(
+                    import_record=self.import_record,
+                    level='ERROR',
+                    message=error_msg
+                )
+            
+            # Log host import results
+            ImportLog.objects.create(
+                import_record=self.import_record,
+                level='INFO',
+                message=f"Import results - Systems: {systems_imported}, Volumes: {volumes_imported}, Hosts: {hosts_imported}"
+            )
             
             # Update import record
             self.import_record.status = 'completed'
@@ -85,7 +159,7 @@ class SimpleStorageImporter:
                 logger.info(f"API credentials found - tenant: {self.customer.insights_tenant}")
             
             # Check if we should use mock data (for testing when API is not available)
-            use_mock_data = False  # Set to True for testing with mock data
+            use_mock_data = False  # Set to False to use real API data
             
             if use_mock_data:
                 if logger:
@@ -154,21 +228,48 @@ class SimpleStorageImporter:
                 }
             )
             
-            # Import data
-            if logger:
-                logger.info("Starting storage systems import...")
-            systems_imported = self._import_storage_systems(storage_systems, volumes_by_system)
+            # Import data with individual error handling
+            systems_imported = 0
+            volumes_imported = 0
+            hosts_imported = 0
+            
+            try:
+                if logger:
+                    logger.info("Starting storage systems import...")
+                systems_imported = self._import_storage_systems(storage_systems, volumes_by_system)
+                if logger:
+                    logger.info(f"Imported {systems_imported} storage systems")
+            except Exception as e:
+                error_msg = f"Storage systems import failed: {str(e)}"
+                if logger:
+                    logger.error(error_msg)
+                # Continue with other imports even if storage systems fail
+            
+            try:
+                if logger:
+                    logger.info("Starting volumes import...")
+                volumes_imported = self._import_volumes(storage_systems, volumes_by_system)
+                if logger:
+                    logger.info(f"Imported {volumes_imported} volumes")
+            except Exception as e:
+                error_msg = f"Volumes import failed: {str(e)}"
+                if logger:
+                    logger.error(error_msg)
+                # Continue with hosts import even if volumes fail
+            
+            try:
+                if logger:
+                    logger.info("Starting hosts import...")
+                hosts_imported = self._import_hosts(hosts_by_system)
+                if logger:
+                    logger.info(f"Imported {hosts_imported} hosts")
+            except Exception as e:
+                error_msg = f"Hosts import failed: {str(e)}"
+                if logger:
+                    logger.error(error_msg)
             
             if logger:
-                logger.info(f"Imported {systems_imported} storage systems, starting volumes import...")
-            volumes_imported = self._import_volumes(storage_systems, volumes_by_system)
-            
-            if logger:
-                logger.info(f"Imported {volumes_imported} volumes, starting hosts import...")
-            hosts_imported = self._import_hosts(hosts_by_system)
-            
-            if logger:
-                logger.info(f"Imported {hosts_imported} hosts, finalizing import...")
+                logger.info(f"Import completed - Systems: {systems_imported}, Volumes: {volumes_imported}, Hosts: {hosts_imported}")
             
             # Update progress
             task.update_state(
@@ -332,13 +433,83 @@ class SimpleStorageImporter:
         
         hosts_by_system = {
             'mock_system_1': [
-                {'id': 'host_1_1', 'name': 'TestHost01'},
-                {'id': 'host_1_2', 'name': 'TestHost02'},
+                {
+                    'id': 'host_1_1', 
+                    'name': 'TestHost01',
+                    'acknowledged': 'true',
+                    'wwpns': ['10:00:00:05:1e:12:34:56', '10:00:00:05:1e:12:34:57'],
+                    'status': 'online',
+                    'storage_system': 'mock_system_1',
+                    'associated_resource': 'resource_1',
+                    'host_type': 'Linux',
+                    'vols_count': 3,
+                    'fc_ports_count': 2,
+                    'last_data_collection': 1640995200,  # Unix timestamp
+                    'volume_group': 'vg_test_01',
+                    'natural_key': 'host_1_1_natural',
+                },
+                {
+                    'id': 'host_1_2', 
+                    'name': 'TestHost02',
+                    'acknowledged': 'true',
+                    'wwpns': ['10:00:00:05:1e:12:34:58', '10:00:00:05:1e:12:34:59'],
+                    'status': 'online',
+                    'storage_system': 'mock_system_1',
+                    'associated_resource': 'resource_2',
+                    'host_type': 'Windows',
+                    'vols_count': 2,
+                    'fc_ports_count': 2,
+                    'last_data_collection': 1640995200,
+                    'volume_group': 'vg_test_02',
+                    'natural_key': 'host_1_2_natural',
+                },
             ],
             'mock_system_2': [
-                {'id': 'host_2_1', 'name': 'DSHost01'},
-                {'id': 'host_2_2', 'name': 'DSHost02'},
-                {'id': 'host_2_3', 'name': 'DSHost03'},
+                {
+                    'id': 'host_2_1', 
+                    'name': 'DSHost01',
+                    'acknowledged': 'true',
+                    'wwpns': ['10:00:00:05:1e:56:78:90', '10:00:00:05:1e:56:78:91'],
+                    'status': 'online',
+                    'storage_system': 'mock_system_2',
+                    'associated_resource': 'resource_3',
+                    'host_type': 'AIX',
+                    'vols_count': 5,
+                    'fc_ports_count': 4,
+                    'last_data_collection': 1640995200,
+                    'volume_group': 'vg_prod_01',
+                    'natural_key': 'host_2_1_natural',
+                },
+                {
+                    'id': 'host_2_2', 
+                    'name': 'DSHost02',
+                    'acknowledged': 'false',
+                    'wwpns': ['10:00:00:05:1e:56:78:92', '10:00:00:05:1e:56:78:93'],
+                    'status': 'offline',
+                    'storage_system': 'mock_system_2',
+                    'associated_resource': 'resource_4',
+                    'host_type': 'Linux',
+                    'vols_count': 1,
+                    'fc_ports_count': 2,
+                    'last_data_collection': 1640995100,
+                    'volume_group': 'vg_test_03',
+                    'natural_key': 'host_2_2_natural',
+                },
+                {
+                    'id': 'host_2_3', 
+                    'name': 'DSHost03',
+                    'acknowledged': 'true',
+                    'wwpns': ['10:00:00:05:1e:56:78:94', '10:00:00:05:1e:56:78:95'],
+                    'status': 'online',
+                    'storage_system': 'mock_system_2',
+                    'associated_resource': 'resource_5',
+                    'host_type': 'VMware',
+                    'vols_count': 8,
+                    'fc_ports_count': 4,
+                    'last_data_collection': 1640995200,
+                    'volume_group': 'vg_vmware_01',
+                    'natural_key': 'host_2_3_natural',
+                },
             ]
         }
         
@@ -463,14 +634,217 @@ class SimpleStorageImporter:
         return imported_count
     
     def _import_hosts(self, hosts_by_system: Dict) -> int:
-        """Import hosts - simplified approach"""
+        """Import hosts to database"""
         imported_count = 0
         
-        # For now, just count hosts - you can implement host import based on your models
+        print(f"🔍 DEBUG: _import_hosts called with {len(hosts_by_system)} systems")
+        
+        # Log debug info to import logs
+        from .models import ImportLog
+        ImportLog.objects.create(
+            import_record=self.import_record,
+            level='DEBUG',
+            message=f"Starting host import for {len(hosts_by_system)} storage systems"
+        )
+        
         for system_id, hosts_data in hosts_by_system.items():
-            imported_count += len(hosts_data)
+            print(f"🔍 DEBUG: Processing system {system_id} with {len(hosts_data)} hosts")
+            
+            ImportLog.objects.create(
+                import_record=self.import_record,
+                level='DEBUG',
+                message=f"Processing storage system {system_id}: {len(hosts_data)} hosts to import"
+            )
+            
+            try:
+                # Find the storage system for this system_id
+                storage_system = Storage.objects.filter(
+                    storage_system_id=system_id,
+                    customer=self.customer
+                ).first()
+                
+                if not storage_system:
+                    error_msg = f"Storage system {system_id} not found in database, skipping {len(hosts_data)} hosts"
+                    print(f"⚠️ {error_msg}")
+                    ImportLog.objects.create(
+                        import_record=self.import_record,
+                        level='WARNING',
+                        message=error_msg
+                    )
+                    continue
+                
+                print(f"✅ Found storage system: {storage_system.name} (ID: {storage_system.id})")
+                
+                # Log sample host data for debugging
+                if hosts_data:
+                    sample_host = hosts_data[0]
+                    ImportLog.objects.create(
+                        import_record=self.import_record,
+                        level='DEBUG',
+                        message=f"Sample host data from API",
+                        details=sample_host
+                    )
+                
+                for i, host_data in enumerate(hosts_data):
+                    try:
+                        host_name = host_data.get('name', f'Unknown_Host_{i}')
+                        print(f"🔍 Processing host {i+1}/{len(hosts_data)}: {host_name}")
+                        
+                        # Log the raw host data structure including WWPN format
+                        wwpn_debug_info = {
+                            'wwpns_raw': host_data.get('wwpns'),
+                            'wwpns_type': type(host_data.get('wwpns')).__name__ if host_data.get('wwpns') else None,
+                            'wwpns_length': len(host_data.get('wwpns', [])) if isinstance(host_data.get('wwpns'), (list, str)) else None
+                        }
+                        
+                        ImportLog.objects.create(
+                            import_record=self.import_record,
+                            level='DEBUG',
+                            message=f"Processing host: {host_name} - WWPN analysis",
+                            details={
+                                'wwpn_debug': wwpn_debug_info,
+                                'formatted_wwpns': self._format_wwpns(host_data.get('wwpns', [])),
+                                'project_id': self.project.id if self.project else None,
+                                'storage_system_id': storage_system.id
+                            }
+                        )
+                        
+                        # Map API fields to Host model fields
+                        defaults = {
+                            'project': self.project,
+                            'storage': storage_system,
+                            'name': host_name,
+                            'acknowledged': host_data.get('acknowledged', ''),
+                            'wwpns': self._format_wwpns(host_data.get('wwpns', [])),
+                            'status': host_data.get('status', ''),
+                            'storage_system': host_data.get('storage_system', ''),
+                            'associated_resource': host_data.get('associated_resource', ''),
+                            'host_type': host_data.get('host_type', ''),
+                            'vols_count': host_data.get('vols_count'),
+                            'fc_ports_count': host_data.get('fc_ports_count'),
+                            'last_data_collection': host_data.get('last_data_collection'),
+                            'volume_group': host_data.get('volume_group', ''),
+                            'natural_key': host_data.get('natural_key', ''),
+                        }
+                        
+                        # Remove empty/None values
+                        defaults = {k: v for k, v in defaults.items() if v is not None and v != ''}
+                        
+                        # Create or update host using name and project as unique identifier
+                        host, created = Host.objects.update_or_create(
+                            name=host_name,
+                            project=self.project,
+                            defaults=defaults
+                        )
+                        
+                        # Verify the storage relationship
+                        ImportLog.objects.create(
+                            import_record=self.import_record,
+                            level='DEBUG',
+                            message=f"Host {host.name} storage relationship",
+                            details={
+                                'host_id': host.id,
+                                'host_storage_id': host.storage.id if host.storage else None,
+                                'host_storage_system_id': host.storage.storage_system_id if host.storage else None,
+                                'expected_storage_system_id': system_id
+                            }
+                        )
+                        
+                        # Update timestamps
+                        host.imported = timezone.now()
+                        if not created:
+                            host.updated = timezone.now()
+                        host.save()
+                        
+                        imported_count += 1
+                        
+                        action = "Created" if created else "Updated"
+                        success_msg = f"{action} host: {host.name} (ID: {host.id})"
+                        print(f"✅ {success_msg}")
+                        
+                        ImportLog.objects.create(
+                            import_record=self.import_record,
+                            level='INFO',
+                            message=success_msg
+                        )
+                        
+                    except Exception as e:
+                        error_msg = f"Failed to import host {host_data.get('name', 'Unknown')}: {str(e)}"
+                        print(f"❌ {error_msg}")
+                        ImportLog.objects.create(
+                            import_record=self.import_record,
+                            level='ERROR',
+                            message=error_msg,
+                            details={'host_data': host_data, 'error': str(e)}
+                        )
+                        continue
+                        
+            except Exception as e:
+                error_msg = f"Failed to import hosts for system {system_id}: {str(e)}"
+                print(f"❌ {error_msg}")
+                ImportLog.objects.create(
+                    import_record=self.import_record,
+                    level='ERROR',
+                    message=error_msg
+                )
+                continue
+        
+        # Final summary
+        summary_msg = f"Host import completed: {imported_count} hosts successfully imported to database"
+        print(f"🏁 {summary_msg}")
+        ImportLog.objects.create(
+            import_record=self.import_record,
+            level='INFO',
+            message=summary_msg
+        )
         
         return imported_count
+    
+    def _format_wwpns(self, wwpns_data):
+        """Format WWPNs from IBM Storage Insights API format to standard format"""
+        if not wwpns_data:
+            return ''
+        
+        formatted_wwpns = []
+        
+        # Handle case where wwpns_data is a string (most common case)
+        if isinstance(wwpns_data, str):
+            # Split by comma to get individual WWPNs: "C050760C392D0076,C050760C392D0077" -> ["C050760C392D0076", "C050760C392D0077"]
+            wwpn_strings = [wwpn.strip() for wwpn in wwpns_data.split(',') if wwpn.strip()]
+            
+            for wwpn_hex in wwpn_strings:
+                # Clean up the hex string
+                clean_wwpn = wwpn_hex.replace(':', '').replace('-', '').replace(' ', '').upper()
+                
+                # Validate it's 16 hex characters (8 bytes)
+                if len(clean_wwpn) == 16 and all(c in '0123456789ABCDEF' for c in clean_wwpn):
+                    # Format as standard WWPN: XX:XX:XX:XX:XX:XX:XX:XX
+                    formatted_wwpn = ':'.join([clean_wwpn[i:i+2] for i in range(0, 16, 2)])
+                    formatted_wwpns.append(formatted_wwpn)
+        
+        # Handle case where wwpns_data is a list
+        elif isinstance(wwpns_data, list):
+            for wwpn_raw in wwpns_data:
+                if not wwpn_raw:
+                    continue
+                    
+                if isinstance(wwpn_raw, str):
+                    # Handle individual WWPN strings in the list
+                    clean_wwpn = wwpn_raw.replace(':', '').replace('-', '').replace(' ', '').upper()
+                    if len(clean_wwpn) == 16 and all(c in '0123456789ABCDEF' for c in clean_wwpn):
+                        formatted_wwpn = ':'.join([clean_wwpn[i:i+2] for i in range(0, 16, 2)])
+                        formatted_wwpns.append(formatted_wwpn)
+                
+                elif isinstance(wwpn_raw, list) and len(wwpn_raw) >= 16:
+                    # Handle list of individual hex chars like ['C','0','5','0',...]
+                    hex_chars = [str(x).strip() for x in wwpn_raw[:16] if x is not None and str(x).strip()]
+                    if len(hex_chars) >= 16:
+                        clean_wwpn = ''.join(hex_chars[:16]).upper()
+                        if len(clean_wwpn) == 16 and all(c in '0123456789ABCDEF' for c in clean_wwpn):
+                            formatted_wwpn = ':'.join([clean_wwpn[i:i+2] for i in range(0, 16, 2)])
+                            formatted_wwpns.append(formatted_wwpn)
+        
+        return ', '.join(formatted_wwpns)
     
     def _parse_capacity_to_bytes(self, capacity_str) -> int:
         """Parse capacity string/number to bytes value"""

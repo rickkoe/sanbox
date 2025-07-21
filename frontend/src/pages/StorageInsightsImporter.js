@@ -18,6 +18,7 @@ import {
 const StorageInsightsImporter = () => {
   const { config } = useContext(ConfigContext);
   const { isImportRunning, currentImport, importProgress, startImport: startGlobalImport, cancelImport } = useImportStatus();
+  const [selectedImport, setSelectedImport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [importHistory, setImportHistory] = useState([]);
@@ -331,6 +332,7 @@ const StorageInsightsImporter = () => {
                       )}
                     </div>
                     
+                    {/* Show progress bar only when import is running */}
                     {(currentImport?.status === 'running' || isImportRunning) && (
                       <div className="mt-3">
                         {importProgress ? (
@@ -357,32 +359,39 @@ const StorageInsightsImporter = () => {
                         ) : (
                           <ProgressBar animated now={100} label="Initializing..." />
                         )}
-                        <div className="mt-3 d-flex justify-content-between">
-                          <Button 
-                            variant="outline-info" 
-                            size="sm"
-                            onClick={() => setShowLogsModal(true)}
-                          >
-                            View Logs
-                          </Button>
-                          <Button 
-                            variant="outline-danger" 
-                            size="sm"
-                            onClick={handleCancelImport}
-                            disabled={loading}
-                          >
-                            {loading ? (
-                              <>
-                                <Spinner as="span" animation="border" size="sm" role="status" />
-                                <span className="ms-1">Cancelling...</span>
-                              </>
-                            ) : (
-                              'Cancel Import'
-                            )}
-                          </Button>
-                        </div>
                       </div>
                     )}
+                    
+                    {/* Always show View Logs button and Cancel button (when appropriate) */}
+                    <div className="mt-3 d-flex justify-content-between">
+                      <Button 
+                        variant="outline-info" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedImport(null);
+                          setShowLogsModal(true);
+                        }}
+                      >
+                        View Logs
+                      </Button>
+                      {(currentImport?.status === 'running' || isImportRunning) && (
+                        <Button 
+                          variant="outline-danger" 
+                          size="sm"
+                          onClick={handleCancelImport}
+                          disabled={loading}
+                        >
+                          {loading ? (
+                            <>
+                              <Spinner as="span" animation="border" size="sm" role="status" />
+                              <span className="ms-1">Cancelling...</span>
+                            </>
+                          ) : (
+                            'Cancel Import'
+                          )}
+                        </Button>
+                      )}
+                    </div>
                     
                     {currentImport.status === 'completed' && (
                       <div className="mt-3">
@@ -467,6 +476,7 @@ const StorageInsightsImporter = () => {
                           <th>Systems</th>
                           <th>Volumes</th>
                           <th>Hosts</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -482,6 +492,18 @@ const StorageInsightsImporter = () => {
                             <td>{importRecord.storage_systems_imported}</td>
                             <td>{importRecord.volumes_imported}</td>
                             <td>{importRecord.hosts_imported}</td>
+                            <td>
+                              <Button 
+                                variant="outline-info" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedImport(importRecord);
+                                  setShowLogsModal(true);
+                                }}
+                              >
+                                Logs
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -524,6 +546,7 @@ const StorageInsightsImporter = () => {
                     <th>Volumes</th>
                     <th>Hosts</th>
                     <th>Total</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -540,6 +563,19 @@ const StorageInsightsImporter = () => {
                       <td>{importRecord.volumes_imported}</td>
                       <td>{importRecord.hosts_imported}</td>
                       <td><strong>{importRecord.total_items_imported}</strong></td>
+                      <td>
+                        <Button 
+                          variant="outline-info" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedImport(importRecord);
+                            setShowLogsModal(true);
+                            setHistoryModal({ show: false, imports: [] });
+                          }}
+                        >
+                          Logs
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -566,10 +602,13 @@ const StorageInsightsImporter = () => {
 
       {/* Import Logs Modal */}
       <ImportLogger 
-        importId={currentImport?.id}
+        importId={selectedImport?.id || currentImport?.id}
         isRunning={isImportRunning || currentImport?.status === 'running'}
         show={showLogsModal}
-        onHide={() => setShowLogsModal(false)}
+        onHide={() => {
+          setShowLogsModal(false);
+          setSelectedImport(null);
+        }}
       />
     </div>
   );

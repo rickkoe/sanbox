@@ -465,3 +465,21 @@ def volume_list(request):
         return JsonResponse(serializer.data, safe=False)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def host_list(request):
+    """Return hosts filtered by storage system ID."""
+    print(f"🔥 Host List - Method: {request.method}")
+    
+    try:
+        system_id = request.GET.get("storage_system_id")
+        if not system_id:
+            return JsonResponse({"error": "Missing storage_system_id"}, status=400)
+
+        hosts = Host.objects.filter(storage__storage_system_id=system_id)
+        serializer = HostSerializer(hosts, many=True)
+        return JsonResponse(serializer.data, safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

@@ -31,6 +31,11 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
       const storageId = path.match(/^\/storage\/(\d+)\/volumes$/)[1];
       return `/storage/${storageId}`;
     }
+    // Storage hosts -> Storage system detail
+    if (path.match(/^\/storage\/(\d+)\/hosts$/)) {
+      const storageId = path.match(/^\/storage\/(\d+)\/hosts$/)[1];
+      return `/storage/${storageId}`;
+    }
     // SAN list -> Home
     if (path === "/san") {
       return "/";

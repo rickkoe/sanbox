@@ -142,7 +142,7 @@
 .main-content.table-page h3 {
   flex-shrink: 0; /* Prevent title from shrinking */
   margin-bottom: 1rem;
-  padding-top: 0.5rem;
+  padding-top: 1rem;
 }
 
 /* Ensure table component takes remaining space */

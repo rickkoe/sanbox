@@ -22,6 +22,7 @@ import AliasTable from "./components/tables/AliasTable";
 import ZoneTable from "./components/tables/ZoneTable";
 import StorageTable from "./components/tables/StorageTable";
 import StorageVolumesPage from "./pages/StorageVolumesPage";
+import StorageHostsPage from "./pages/StorageHostsPage";
 import ConfigForm from "./components/forms/ConfigForm";
 import WWPNFormatterTable from "./components/tools/WWPNColonizer";
 import AliasScriptsPage from "./pages/AliasScriptsPage";
@@ -117,6 +118,7 @@ function AppContent() {
                   <Route path="/storage" element={<StorageTable />} />
                   <Route path="/storage/:id" element={<StoragePage />} />
                   <Route path="/storage/:id/volumes" element={<StorageVolumesPage />} />
+                  <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
                   <Route path="/san/fabrics" element={<FabricTable />} />
                   <Route path="/config" element={<ConfigForm />} />
                   <Route path="/tools" element={<ToolsPage />} />
