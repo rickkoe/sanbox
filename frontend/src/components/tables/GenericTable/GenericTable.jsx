@@ -296,24 +296,38 @@ const GenericTable = forwardRef(({
     setSelectedCount(rowSet.size);
   };
 
-  // Scroll detection
+  // Scroll detection using Handsontable's viewport
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const hot = tableRef.current?.hotInstance;
+    if (!hot || !data || data.length === 0) {
+      setShowScrollButtons(false);
+      return;
+    }
 
-    const handleScroll = () => {
-      const hasScrollableContent = container.scrollHeight > container.clientHeight;
-      setShowScrollButtons(hasScrollableContent);
-      
-      if (hasScrollableContent) {
-        setIsAtTop(container.scrollTop <= 10);
-        setIsAtBottom(container.scrollTop + container.clientHeight >= container.scrollHeight - 10);
+    const checkScrollPosition = () => {
+      try {
+        const totalRows = data.length;
+        const firstRenderedRow = hot.view.wt.wtTable.getFirstRenderedRow();
+        const lastRenderedRow = hot.view.wt.wtTable.getLastRenderedRow();
+        
+        setShowScrollButtons(totalRows > 10); // Show buttons if more than 10 rows
+        setIsAtTop(firstRenderedRow <= 0);
+        setIsAtBottom(lastRenderedRow >= totalRows - 1);
+        
+        console.log('Scroll position:', { firstRenderedRow, lastRenderedRow, totalRows, isAtTop: firstRenderedRow <= 0, isAtBottom: lastRenderedRow >= totalRows - 1 });
+      } catch (error) {
+        // Fallback in case of any issues
+        setShowScrollButtons(data.length > 10);
+        setIsAtTop(false); // Changed default to false so top button shows
+        setIsAtBottom(false);
+        console.log('Scroll detection error:', error);
       }
     };
 
-    handleScroll();
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+    // Initial check
+    setTimeout(checkScrollPosition, 100);
+
+    // We'll handle scroll detection through the existing afterScrollVertically callback
   }, [data]);
 
   // Table change handler
@@ -470,16 +484,17 @@ const GenericTable = forwardRef(({
   }, [isDirty]);
 
   const scrollToTop = () => {
-    const container = containerRef.current;
-    if (container) {
-      container.scrollTo({ top: 0, behavior: 'smooth' });
+    const hot = tableRef.current?.hotInstance;
+    if (hot) {
+      hot.scrollViewportTo(0, 0);
     }
   };
 
   const scrollToBottom = () => {
-    const container = containerRef.current;
-    if (container) {
-      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    const hot = tableRef.current?.hotInstance;
+    if (hot && data && data.length > 0) {
+      const lastRowIndex = data.length - 1;
+      hot.scrollViewportTo(lastRowIndex, 0);
     }
   };
 
@@ -622,7 +637,7 @@ const GenericTable = forwardRef(({
       <div 
         ref={containerRef} 
         className="table-scroll-container"
-        style={{ height }}
+        style={{ height, overflow: 'hidden' }}
       >
         {dataLoading && (!data || data.length === 0) ? (
           <div className="loading-container">
@@ -652,6 +667,10 @@ const GenericTable = forwardRef(({
               dropdownMenu={dropdownMenu}
               width="100%"
               height={height}
+              fixedRowsTop={0}
+              fixedColumnsLeft={0}
+              allowHtml={false}
+              preventOverflow={false}
               afterChange={handleAfterChange}
               afterSelection={(r, c, r2, c2) => updateSelectedCount()}
               afterDeselect={() => setSelectedCount(0)}
@@ -664,14 +683,37 @@ const GenericTable = forwardRef(({
                   }
                 }, 10);
               }}
+              afterScrollVertically={() => {
+                setTimeout(() => {
+                  const hot = tableRef.current?.hotInstance;
+                  if (hot) {
+                    hot.render();
+                    
+                    // Update scroll button states
+                    try {
+                      const totalRows = data?.length || 0;
+                      const firstRenderedRow = hot.view.wt.wtTable.getFirstRenderedRow();
+                      const lastRenderedRow = hot.view.wt.wtTable.getLastRenderedRow();
+                      
+                      setIsAtTop(firstRenderedRow <= 0);
+                      setIsAtBottom(lastRenderedRow >= totalRows - 1);
+                      
+                      console.log('Scroll update:', { firstRenderedRow, lastRenderedRow, totalRows, isAtTop: firstRenderedRow <= 0, isAtBottom: lastRenderedRow >= totalRows - 1 });
+                    } catch (error) {
+                      console.log('Scroll update error:', error);
+                    }
+                  }
+                }, 10);
+              }}
               stretchH="all"
               contextMenu={enhancedContextMenu}
               afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
               beforeRemoveRow={() => false}
               colWidths={colWidths}
               cells={getCellsConfig ? cellsFunc : undefined}
-              viewportRowRenderingOffset={30}
-              viewportColumnRenderingOffset={30}
+              viewportRowRenderingOffset={10}
+              viewportColumnRenderingOffset={10}
+              renderAllRows={false}
               preventOverflow={false}
               afterInit={() => {
                 if (tableRef.current?.hotInstance) {

@@ -435,10 +435,10 @@
   font-size: 16px;
 }
 
-/* Table Container */
+/* Table Container - Let Handsontable handle scrolling */
 .table-scroll-container {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   position: relative;
   background: white;
 }
@@ -945,8 +945,11 @@
   background: #ffffff !important;
 }
 
-/* Modern Header Styling */
-.handsontable thead th {
+/* Modern Header Styling - Basic styling only */
+.handsontable thead th,
+.handsontable .ht_clone_top thead th,
+.handsontable .ht_clone_top_left_corner thead th,
+.handsontable .ht_clone_top_inline_start_corner thead th {
   background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
   color: #1f2937 !important;
   font-weight: 600 !important;
@@ -960,6 +963,41 @@
   position: relative !important;
   height: auto !important;
   line-height: 1.2 !important;
+}
+
+/* Ensure all header clones are visible */
+.handsontable .ht_clone_top,
+.handsontable .ht_clone_top_left_corner,
+.handsontable .ht_clone_top_inline_start_corner {
+  z-index: 101 !important;
+}
+
+/* Fixed column synchronization */
+.handsontable .ht_clone_left,
+.handsontable .ht_clone_top_left_corner {
+  z-index: 102 !important;
+}
+
+/* Ensure proper alignment of fixed columns */
+.handsontable .ht_clone_left .wtHolder,
+.handsontable .ht_clone_top_left_corner .wtHolder {
+  overflow: hidden !important;
+}
+
+/* Force fixed columns to maintain alignment */
+.handsontable .ht_clone_left td,
+.handsontable .ht_clone_top_left_corner td {
+  border-right: 2px solid #d1d5db !important;
+  background: rgba(248, 250, 252, 0.95) !important;
+}
+
+/* Make sure the main header area doesn't hide content */
+.handsontable .ht_master .wtHider {
+  overflow: visible !important;
+}
+
+.handsontable .ht_master .wtHolder {
+  overflow: auto !important;
 }
 
 .handsontable thead th:hover {
