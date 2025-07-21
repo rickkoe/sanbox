@@ -197,7 +197,14 @@ const Dashboard = () => {
             
             {isImportRunning && (
               <div className="import-status-compact">
-                <FaDownload className="import-icon spinning" />
+                <div className="import-progress-container">
+                  <FaDownload />
+                  <div className="import-progress-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
                 <div className="import-text-compact">
                   <span>Importing</span>
                   {importProgress && (
