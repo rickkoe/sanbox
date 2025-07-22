@@ -4,6 +4,7 @@ import {
   FaChartLine, FaArrowRight, FaCog, FaPlus, FaCloud,
   FaCheckCircle, FaTimesCircle, FaClock, FaDownload, FaSync
 } from "react-icons/fa";
+import { Modal, Button, Form as BootstrapForm } from "react-bootstrap";
 import { ConfigContext } from "../context/ConfigContext";
 import { useImportStatus } from "../context/ImportStatusContext";
 import { SkeletonDashboard } from "../components/SkeletonLoader";
@@ -28,6 +29,10 @@ const Dashboard = () => {
     lastImport: null,
     importHistory: []
   });
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
+  const [insightsTenant, setInsightsTenant] = useState("");
+  const [insightsApiKey, setInsightsApiKey] = useState("");
+  const [savingInsights, setSavingInsights] = useState(false);
 
   // Optimized single API call for all dashboard data
   const fetchDashboardData = async (forceRefresh = false) => {
@@ -64,12 +69,17 @@ const Dashboard = () => {
       });
       
       // Update insights data
+      console.log("Dashboard API response customer data:", data.customer);
+      console.log("Customer insights_tenant:", data.customer.insights_tenant);
+      console.log("Customer insights_api_key exists:", !!data.customer.insights_api_key);
+      console.log("Raw has_insights value:", data.customer.has_insights);
       setInsightsData({
         hasCredentials: data.customer.has_insights,
         tenant: data.customer.insights_tenant,
         lastImport: data.last_import,
         importHistory: data.last_import ? [data.last_import] : []
       });
+      console.log("Setting hasCredentials to:", data.customer.has_insights);
       
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
@@ -109,6 +119,72 @@ const Dashboard = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [config]);
+
+  const handleSaveInsights = async () => {
+    if (!insightsTenant.trim() || !insightsApiKey.trim()) {
+      alert("Please enter both Tenant ID and API Key");
+      return;
+    }
+
+    setSavingInsights(true);
+    try {
+      console.log("Saving insights credentials...");
+      const response = await axios.put(`/api/customers/${config.customer.id}/`, {
+        insights_tenant: insightsTenant.trim(),
+        insights_api_key: insightsApiKey.trim()
+      });
+      console.log("Customer update response:", response.data);
+      console.log("Updated customer has insights_tenant:", response.data.insights_tenant);
+      console.log("Updated customer has insights_api_key:", response.data.insights_api_key ? "YES (hidden)" : "NO");
+
+      // Clear dashboard cache to force refresh
+      try {
+        console.log("Clearing dashboard cache...");
+        await axios.post('/api/core/dashboard/cache/clear/', {
+          customer_id: config.customer.id,
+          project_id: config.active_project.id
+        });
+        console.log("Dashboard cache cleared");
+      } catch (cacheError) {
+        console.warn("Could not clear dashboard cache:", cacheError);
+      }
+
+      // Clear form and close modal first
+      setInsightsTenant("");
+      setInsightsApiKey("");
+      setShowInsightsModal(false);
+      
+      // Force refresh dashboard data with cache busting - this should update insightsData
+      console.log("Forcing dashboard refresh...");
+      await fetchDashboardData(true);
+      console.log("Dashboard refresh complete, insightsData:", insightsData);
+      
+    } catch (error) {
+      console.error("Error saving Storage Insights credentials:", error);
+      alert("Failed to save Storage Insights credentials. Please try again.");
+    } finally {
+      setSavingInsights(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (!config?.customer?.id || !config?.active_project?.id) {
+      return;
+    }
+
+    try {
+      // Clear dashboard cache first
+      await axios.post('/api/core/dashboard/cache/clear/', {
+        customer_id: config.customer.id,
+        project_id: config.active_project.id
+      });
+    } catch (cacheError) {
+      console.warn("Could not clear dashboard cache:", cacheError);
+    }
+
+    // Force refresh dashboard data
+    await fetchDashboardData(true);
+  };
 
   if (loading || configLoading) {
     return <SkeletonDashboard />;
@@ -171,7 +247,11 @@ const Dashboard = () => {
           
           {/* Storage Insights Status in Header */}
           <div className="header-insights">
-            <div className="insights-status-compact">
+            <div 
+              className={`insights-status-compact ${!insightsData.hasCredentials ? 'clickable' : ''}`}
+              onClick={!insightsData.hasCredentials ? () => setShowInsightsModal(true) : undefined}
+              title={!insightsData.hasCredentials ? 'Click to configure Storage Insights' : ''}
+            >
               {insightsData.hasCredentials ? (
                 <>
                   <FaCheckCircle className="status-icon configured" />
@@ -185,7 +265,7 @@ const Dashboard = () => {
                   <FaTimesCircle className="status-icon not-configured" />
                   <div className="status-text-compact">
                     <span className="status-label">Storage Insights</span>
-                    <small>Not configured</small>
+                    <small>Click to configure</small>
                   </div>
                 </>
               )}
@@ -213,7 +293,7 @@ const Dashboard = () => {
           
           <button 
             className="header-action refresh-button" 
-            onClick={() => fetchDashboardData(true)}
+            onClick={handleRefresh}
             title="Refresh dashboard data"
             disabled={loading}
           >
@@ -300,6 +380,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+
       {/* Quick Actions */}
       <div className="actions-section">
         <h2>Quick Actions</h2>
@@ -310,10 +391,10 @@ const Dashboard = () => {
             <p>Configure and monitor SAN fabrics</p>
           </Link>
 
-          <Link to="/scripts" className="action-card">
-            <FaCog className="action-icon" />
-            <h3>Generate Scripts</h3>
-            <p>Create zoning and storage scripts</p>
+          <Link to="/customers" className="action-card">
+            <FaUsers className="action-icon" />
+            <h3>Customer Settings</h3>
+            <p>Manage customers and Storage Insights</p>
           </Link>
 
           <Link to="/insights/importer" className="action-card">
@@ -329,6 +410,65 @@ const Dashboard = () => {
           </Link>
         </div>
       </div>
+
+      {/* Storage Insights Configuration Modal */}
+      <Modal show={showInsightsModal} onHide={() => setShowInsightsModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <FaCloud className="me-2" />
+            Configure Storage Insights
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="text-muted mb-3">
+            Connect your IBM Storage Insights account to automatically import storage data.
+          </p>
+          <BootstrapForm>
+            <BootstrapForm.Group className="mb-3">
+              <BootstrapForm.Label>Tenant ID</BootstrapForm.Label>
+              <BootstrapForm.Control
+                type="text"
+                value={insightsTenant}
+                onChange={(e) => setInsightsTenant(e.target.value)}
+                placeholder="Enter your Storage Insights Tenant ID"
+              />
+            </BootstrapForm.Group>
+            <BootstrapForm.Group className="mb-3">
+              <BootstrapForm.Label>API Key</BootstrapForm.Label>
+              <BootstrapForm.Control
+                type="password"
+                value={insightsApiKey}
+                onChange={(e) => setInsightsApiKey(e.target.value)}
+                placeholder="Enter your Storage Insights API Key"
+              />
+            </BootstrapForm.Group>
+          </BootstrapForm>
+          <hr />
+          <div className="d-flex align-items-center">
+            <FaUsers className="text-primary me-2" />
+            <span className="me-auto">Need to manage customers?</span>
+            <Link to="/customers" className="btn btn-outline-primary btn-sm">
+              Customer Management
+            </Link>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant="secondary" 
+            onClick={() => setShowInsightsModal(false)}
+            disabled={savingInsights}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="primary" 
+            onClick={handleSaveInsights}
+            disabled={savingInsights}
+          >
+            {savingInsights ? 'Saving...' : 'Save Configuration'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

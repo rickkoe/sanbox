@@ -96,20 +96,6 @@ export const createContextMenu = (tableRef, setIsDirty, handleAfterContextMenu) 
         callback: (key, selection, clickEvent) => {
           handleAfterContextMenu(key, selection);
         }
-      },
-      "hsep5": "---------",
-      "export_selected": {
-        name: "Export selected rows",
-        callback: (key, selection) => {
-          if (!selection || selection.length === 0) return;
-          
-          const hot = tableRef.current?.hotInstance;
-          if (!hot) return;
-          
-          // This would need access to unsavedData, columns, and colHeaders
-          // For now, we'll just log the selection
-          console.log("Export selected rows:", selection);
-        }
       }
     }
   };

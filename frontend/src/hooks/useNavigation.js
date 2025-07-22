@@ -27,6 +27,15 @@ export const useNavigation = () => {
     if (path.startsWith("/san/") && path !== "/san") {
       return "/san";
     }
+    if (path === "/customers") {
+      return "/";
+    }
+    if (path === "/insights") {
+      return "/";
+    }
+    if (path.startsWith("/insights/") && path !== "/insights") {
+      return "/insights";
+    }
     if (["/config", "/tools", "/scripts"].some(p => path.startsWith(p))) {
       return "/";
     }

@@ -29,6 +29,7 @@ import { ImportStatusProvider } from "./context/ImportStatusContext";
 
 // Lazy-loaded components for better performance
 const SanPage = React.lazy(() => import("./pages/SanPage"));
+const InsightsPage = React.lazy(() => import("./pages/InsightsPage"));
 const ToolsPage = React.lazy(() => import("./pages/ToolsPage"));
 const StorageCalculatorPage = React.lazy(() => import("./pages/StorageCalculatorPage"));
 const StoragePage = React.lazy(() => import("./pages/StoragePage"));
@@ -78,6 +79,7 @@ function AppContent() {
   const scrollableRoutes = [
     '/',
     '/san',
+    '/insights',
     '/config',
     '/tools',
     '/scripts',
@@ -119,6 +121,7 @@ function AppContent() {
                     <Route path="/" element={<Home />} />
                     <Route path="/customers" element={<CustomerTable />} />
                     <Route path="/san" element={<SanPage />} />
+                    <Route path="/insights" element={<InsightsPage />} />
                     <Route path="/san/aliases" element={<AliasTable />} />
                     <Route path="/san/zones" element={<ZoneTable />} />
                     <Route path="/storage" element={<StorageTable />} />

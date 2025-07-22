@@ -29,8 +29,13 @@ const NavbarBrand = ({ showBackButton, backPath }) => {
 };
 
 NavbarBrand.propTypes = {
-  showBackButton: PropTypes.bool.isRequired,
+  showBackButton: PropTypes.bool,
   backPath: PropTypes.string,
+};
+
+NavbarBrand.defaultProps = {
+  showBackButton: false,
+  backPath: null,
 };
 
 export default NavbarBrand;

@@ -17,10 +17,6 @@ const ToolsDropdown = () => {
           <span className="nav-label ms-1">Tools</span>
         </Dropdown.Toggle>
         <Dropdown.Menu>
-          <Dropdown.Item as={NavLink} to="/customers">
-            Customers
-          </Dropdown.Item>
-          <Dropdown.Divider />
           <Dropdown.Item as={NavLink} to="/scripts">
             Script Builder
           </Dropdown.Item>

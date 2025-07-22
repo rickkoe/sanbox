@@ -71,6 +71,13 @@ const ConfigForm = () => {
                 active_project_id: config.active_project ? String(config.active_project.id) : "",
             });
             fetchProjects(config.customer.id);
+        } else {
+            // Initialize empty config when no config exists (new user scenario)
+            setUnsavedConfig({
+                customer: "",
+                project: "",
+                active_project_id: ""
+            });
         }
     }, [config]);
 
@@ -237,6 +244,29 @@ const ConfigForm = () => {
                         <p>Select your customer and project to configure your workspace</p>
                     </div>
 
+                    {/* Show setup guidance for new users */}
+                    {customers.length === 0 && !loading && (
+                        <div className="setup-guidance">
+                            <div className="guidance-icon">🚀</div>
+                            <h3>Welcome to Sanbox!</h3>
+                            <p>Let's set up your first customer and project to get started.</p>
+                            <div className="guidance-steps">
+                                <div className="step">
+                                    <span className="step-number">1</span>
+                                    <span>Click the <strong>+ button</strong> next to "Customer Organization" below</span>
+                                </div>
+                                <div className="step">
+                                    <span className="step-number">2</span>
+                                    <span>Add your customer/organization name</span>
+                                </div>
+                                <div className="step">
+                                    <span className="step-number">3</span>
+                                    <span>Then add your first project</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {unsavedConfig && (
                         <form className="config-form">
                             <div className="form-section">
@@ -253,7 +283,9 @@ const ConfigForm = () => {
                                             onChange={handleInputChange}
                                             required
                                         >
-                                            <option value="">Choose a customer...</option>
+                                            <option value="">
+                                                {customers.length === 0 ? "Click + to add your first customer" : "Choose a customer..."}
+                                            </option>
                                             {Array.isArray(customers) && customers.map(customer => (
                                                 <option key={customer.id} value={String(customer.id)}>
                                                     {customer.name}
@@ -262,13 +294,18 @@ const ConfigForm = () => {
                                         </select>
                                         <button 
                                             type="button" 
-                                            className="add-btn" 
+                                            className={`add-btn ${customers.length === 0 ? "add-btn-highlight" : ""}`}
                                             onClick={() => setShowCustomerModal(true)}
                                             title="Add new customer"
                                         >
                                             +
                                         </button>
                                     </div>
+                                    {customers.length === 0 && (
+                                        <div className="field-guidance">
+                                            👆 <strong>Click the + button</strong> to add your first customer
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="form-group">
@@ -296,7 +333,7 @@ const ConfigForm = () => {
                                         </select>
                                         <button 
                                             type="button" 
-                                            className="add-btn" 
+                                            className={`add-btn ${unsavedConfig.customer && projects.length === 0 ? "add-btn-highlight" : ""}`}
                                             onClick={() => setShowProjectModal(true)}
                                             disabled={!unsavedConfig.customer}
                                             title="Add new project"
@@ -304,6 +341,11 @@ const ConfigForm = () => {
                                             +
                                         </button>
                                     </div>
+                                    {unsavedConfig.customer && projects.length === 0 && (
+                                        <div className="field-guidance">
+                                            👆 <strong>Click the + button</strong> to add your first project
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

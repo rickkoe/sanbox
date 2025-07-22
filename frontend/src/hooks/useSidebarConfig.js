@@ -10,10 +10,35 @@ import {
   Layers,
   Server,
   Archive,
-  Monitor
+  Monitor,
+  Users,
+  Settings,
+  Database
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
+  if (pathname.startsWith("/customers")) {
+    return {
+      header: "Customer Management",
+      icon: Users,
+      showBackButton: false,
+      links: [
+        { path: "/customers", label: "Customers", icon: Users },
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/insights")) {
+    return {
+      header: "Storage Insights",
+      icon: Database,
+      showBackButton: false,
+      links: [
+        { path: "/insights/importer", label: "Data Importer", icon: Database },
+      ],
+    };
+  }
+
   if (pathname.startsWith("/san")) {
     return {
       header: "SAN Management",
@@ -59,6 +84,8 @@ const getSidebarLinks = (pathname) => {
     icon: Menu,
     showBackButton: false,
     links: [
+      { path: "/customers", label: "Customers", icon: Users },
+      { path: "/insights", label: "Storage Insights", icon: Database },
       { path: "/san", label: "SAN", icon: Network },
       { path: "/storage", label: "Storage", icon: HardDrive },
     ],

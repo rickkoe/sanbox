@@ -1,66 +1,47 @@
 
-
 import React from "react";
-import { Container, Row, Col, Card, Button } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import { FaDatabase, FaServer, FaNetworkWired } from "react-icons/fa";
 
 const ScriptsPage = () => {
-  const navigate = useNavigate();
-
   return (
-    <Container className="mt-5">
-      <h1 className="mb-4 text-center">Script Builder</h1>
-      <Row>
-        <Col md={4}>
-          <Card className="mb-4">
-            <Card.Body>
-              <Card.Title>DS8000 DSCLI Scripts</Card.Title>
-              <Card.Text>
-                Build and customize DSCLI scripts for IBM DS8000 storage systems.
-              </Card.Text>
-              <Button
-                variant="primary"
-                onClick={() => navigate("/scripts/ds8000")}
-              >
-                Start DS8000 Script Builder
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card className="mb-4">
-            <Card.Body>
-              <Card.Title>FlashSystem Scripts</Card.Title>
-              <Card.Text>
-                Generate scripts for IBM FlashSystem storage management and automation.
-              </Card.Text>
-              <Button
-                variant="primary"
-                onClick={() => navigate("/scripts/flashsystem")}
-              >
-                Start FlashSystem Script Builder
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card className="mb-4">
-            <Card.Body>
-              <Card.Title>SAN Zoning Scripts</Card.Title>
-              <Card.Text>
-                Create SAN zoning scripts to simplify fabric configuration.
-              </Card.Text>
-              <Button
-                variant="primary"
-                onClick={() => navigate("/scripts/zoning")}
-              >
-                Start SAN Zoning Script Builder
-              </Button>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+    <div className="container mt-5 text-center">
+      <h1 className="mb-4">Script Builder</h1>
+      
+      <div className="row">
+        {/* DS8000 Scripts Card */}
+        <div className="col-md-4 mb-4">
+          <a href="/scripts/ds8000" className="home-card card text-center h-100">
+            <div className="card-body">
+              <FaDatabase size={48} className="home-icon mb-3" />
+              <h5 className="card-title">DS8000 DSCLI Scripts</h5>
+              <p className="card-text">Build and customize DSCLI scripts for IBM DS8000 storage systems.</p>
+            </div>
+          </a>
+        </div>
+        
+        {/* FlashSystem Scripts Card */}
+        <div className="col-md-4 mb-4">
+          <a href="/scripts/flashsystem" className="home-card card text-center h-100">
+            <div className="card-body">
+              <FaServer size={48} className="home-icon mb-3" />
+              <h5 className="card-title">FlashSystem Scripts</h5>
+              <p className="card-text">Generate scripts for IBM FlashSystem storage management and automation.</p>
+            </div>
+          </a>
+        </div>
+        
+        {/* SAN Zoning Scripts Card */}
+        <div className="col-md-4 mb-4">
+          <a href="/scripts/zoning" className="home-card card text-center h-100">
+            <div className="card-body">
+              <FaNetworkWired size={48} className="home-icon mb-3" />
+              <h5 className="card-title">SAN Zoning Scripts</h5>
+              <p className="card-text">Create SAN zoning scripts to simplify fabric configuration.</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
   );
 };
 
