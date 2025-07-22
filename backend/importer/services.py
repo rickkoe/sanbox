@@ -3,6 +3,7 @@ from storage.models import Storage, Volume, Host
 from .models import StorageImport
 from .api_client import StorageInsightsClient
 from typing import Dict, List
+from core.dashboard_views import clear_dashboard_cache_for_customer
 
 
 class SimpleStorageImporter:
@@ -135,6 +136,9 @@ class SimpleStorageImporter:
                 'total_hosts': sum(len(hosts) for hosts in hosts_by_system.values())
             }
             self.import_record.save()
+            
+            # Clear dashboard cache when import completes successfully
+            clear_dashboard_cache_for_customer(self.customer.id)
             
             return self.import_record
             
@@ -294,6 +298,9 @@ class SimpleStorageImporter:
                 'total_hosts': sum(len(hosts) for hosts in hosts_by_system.values())
             }
             self.import_record.save()
+            
+            # Clear dashboard cache when import completes successfully
+            clear_dashboard_cache_for_customer(self.customer.id)
             
             return self.import_record
             

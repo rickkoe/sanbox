@@ -13,6 +13,7 @@ import logging
 from django.core.paginator import Paginator
 from django.db.models import Q
 from urllib.parse import urlencode
+from core.dashboard_views import clear_dashboard_cache_for_customer
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +177,11 @@ def storage_detail(request, pk):
                 storage_instance = serializer.save()
                 storage_instance.updated = timezone.now()
                 storage_instance.save(update_fields=['updated'])
+                
+                # Clear dashboard cache when storage is updated
+                if storage_instance.customer_id:
+                    clear_dashboard_cache_for_customer(storage_instance.customer_id)
+                
                 return JsonResponse(serializer.data)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
@@ -183,7 +189,13 @@ def storage_detail(request, pk):
     
     elif request.method == "DELETE":
         try:
+            customer_id = storage.customer_id
             storage.delete()
+            
+            # Clear dashboard cache when storage is deleted
+            if customer_id:
+                clear_dashboard_cache_for_customer(customer_id)
+                
             return JsonResponse({"message": "Storage deleted successfully"}, status=204)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)

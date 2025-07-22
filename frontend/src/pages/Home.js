@@ -30,7 +30,7 @@ const Dashboard = () => {
   });
 
   // Optimized single API call for all dashboard data
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (forceRefresh = false) => {
     if (!config?.customer?.id || !config?.active_project?.id) {
       setLoading(false);
       return;
@@ -40,13 +40,18 @@ const Dashboard = () => {
     setError(null);
     
     try {
-      // Single optimized API call with caching
-      const response = await axios.get('/api/core/dashboard/stats/', {
-        params: { 
-          customer_id: config.customer.id,
-          project_id: config.active_project.id
-        }
-      });
+      // Single optimized API call with optional cache busting
+      const params = { 
+        customer_id: config.customer.id,
+        project_id: config.active_project.id
+      };
+      
+      // Add timestamp to bypass cache when needed
+      if (forceRefresh) {
+        params._t = Date.now();
+      }
+      
+      const response = await axios.get('/api/core/dashboard/stats/', { params });
       
       const data = response.data;
       
@@ -77,6 +82,32 @@ const Dashboard = () => {
   // Fetch dashboard data when config changes
   useEffect(() => {
     fetchDashboardData();
+  }, [config]);
+
+  // Refetch data when component comes back into view (e.g., navigating back from other pages)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (config?.customer?.id && config?.active_project?.id) {
+        fetchDashboardData(true); // Force refresh when coming back
+      }
+    };
+
+    // Listen for when the window/tab comes back into focus
+    window.addEventListener('focus', handleFocus);
+    
+    // Listen for when user navigates back to this page
+    const handleVisibilityChange = () => {
+      if (!document.hidden && config?.customer?.id && config?.active_project?.id) {
+        fetchDashboardData(true); // Force refresh when page becomes visible
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [config]);
 
   if (loading || configLoading) {

@@ -11,6 +11,20 @@ from importer.models import StorageImport
 import json
 
 
+def clear_dashboard_cache_for_customer(customer_id):
+    """Helper function to clear dashboard cache for a customer across all their projects"""
+    try:
+        customer = Customer.objects.get(id=customer_id)
+        projects = Project.objects.filter(customer=customer)
+        
+        for project in projects:
+            cache_key = f"dashboard_stats_{customer_id}_{project.id}"
+            cache.delete(cache_key)
+            
+    except Customer.DoesNotExist:
+        pass
+
+
 @csrf_exempt
 @require_http_methods(["GET"])
 def dashboard_stats(request):

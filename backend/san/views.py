@@ -11,6 +11,7 @@ from django.db import IntegrityError
 from collections import defaultdict
 from .san_utils import generate_alias_commands, generate_zone_commands
 from django.utils import timezone
+from core.dashboard_views import clear_dashboard_cache_for_customer
 
 
 @csrf_exempt
@@ -117,6 +118,9 @@ def alias_save_view(request):
         if errors:
             return JsonResponse({"error": "Some aliases could not be saved.", "details": errors}, status=400)
 
+        # Clear dashboard cache when aliases are saved
+        clear_dashboard_cache_for_customer(project.customer.id)
+        
         return JsonResponse({"message": "Aliases saved successfully!", "aliases": saved_aliases})
     
     except Exception as e:
@@ -131,8 +135,17 @@ def alias_delete_view(request, pk):
     
     try:
         alias = Alias.objects.get(pk=pk)
+        customer_id = None
+        # Get customer ID from any project the alias belongs to
+        if alias.projects.exists():
+            customer_id = alias.projects.first().customer.id
         print(f'Deleting Alias: {alias.name}')
         alias.delete()
+        
+        # Clear dashboard cache when alias is deleted
+        if customer_id:
+            clear_dashboard_cache_for_customer(customer_id)
+            
         return JsonResponse({"message": "Alias deleted successfully."})
     except Alias.DoesNotExist:
         return JsonResponse({"error": "Alias not found"}, status=404)
@@ -249,6 +262,9 @@ def zone_save_view(request):
         if errors:
             return JsonResponse({"error": "Some zones could not be saved.", "details": errors}, status=400)
 
+        # Clear dashboard cache when zones are saved
+        clear_dashboard_cache_for_customer(project.customer.id)
+        
         return JsonResponse({"message": "Zones saved successfully!", "zones": saved_zones})
     
     except Exception as e:
@@ -263,8 +279,17 @@ def zone_delete_view(request, pk):
     
     try:
         zone = Zone.objects.get(pk=pk)
+        customer_id = None
+        # Get customer ID from any project the zone belongs to
+        if zone.projects.exists():
+            customer_id = zone.projects.first().customer.id
         print(f'Deleting Zone: {zone.name}')
         zone.delete()
+        
+        # Clear dashboard cache when zone is deleted
+        if customer_id:
+            clear_dashboard_cache_for_customer(customer_id)
+            
         return JsonResponse({"message": "Zone deleted successfully."})
     except Zone.DoesNotExist:
         return JsonResponse({"error": "Zone not found"}, status=404)
@@ -330,6 +355,11 @@ def fabric_management(request, pk=None):
             serializer = FabricSerializer(data=data)
             if serializer.is_valid():
                 fabric = serializer.save()
+                
+                # Clear dashboard cache when fabric is created
+                if fabric.customer_id:
+                    clear_dashboard_cache_for_customer(fabric.customer_id)
+                    
                 return JsonResponse(FabricSerializer(fabric).data, status=201)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
@@ -350,6 +380,11 @@ def fabric_management(request, pk=None):
             serializer = FabricSerializer(fabric, data=data, partial=True)
             if serializer.is_valid():
                 updated = serializer.save()
+                
+                # Clear dashboard cache when fabric is updated
+                if updated.customer_id:
+                    clear_dashboard_cache_for_customer(updated.customer_id)
+                    
                 return JsonResponse(FabricSerializer(updated).data)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
@@ -364,8 +399,14 @@ def fabric_delete_view(request, pk):
     
     try:
         fabric = Fabric.objects.get(pk=pk)
+        customer_id = fabric.customer_id
         print(f'Deleting Fabric: {fabric.name}')
         fabric.delete()
+        
+        # Clear dashboard cache when fabric is deleted
+        if customer_id:
+            clear_dashboard_cache_for_customer(customer_id)
+            
         return JsonResponse({"message": "Fabric deleted successfully."})
     except Fabric.DoesNotExist:
         return JsonResponse({"error": "Fabric not found"}, status=404)
