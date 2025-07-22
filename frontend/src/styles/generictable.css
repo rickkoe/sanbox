@@ -1341,9 +1341,9 @@
   height: auto !important;
   max-height: none !important;
   overflow: visible !important;
-  overflow-x: hidden !important;
-  overflow-y: visible !important;
   z-index: 99999 !important;
+  position: absolute !important;
+  pointer-events: auto !important;
 }
 
 /* Target all possible table structures */
@@ -1389,7 +1389,7 @@
   width: auto !important;
 }
 
-/* Target all td elements */
+/* Target all td elements - preserve click functionality */
 .htContextMenu td,
 .htContextMenu tbody td,
 .htContextMenu tr td,
@@ -1405,10 +1405,6 @@
   color: #374151 !important;
   background: transparent !important;
   border: none !important;
-  border-top: none !important;
-  border-bottom: none !important;
-  border-left: none !important;
-  border-right: none !important;
   transition: color 0.15s ease !important;
   line-height: 1.4 !important;
   margin: 0 !important;
@@ -1416,6 +1412,7 @@
   vertical-align: middle !important;
   font-weight: 400 !important;
   white-space: nowrap !important;
+  cursor: pointer !important;
 }
 
 /* Hover states */
@@ -1429,28 +1426,13 @@
   color: #3b82f6 !important;
 }
 
-/* Hide ALL Context Menu Scrollbars - Aggressive Approach */
-.htContextMenu::-webkit-scrollbar,
-.htContextMenu *::-webkit-scrollbar,
-.htContextMenu .wtHolder::-webkit-scrollbar,
-.htContextMenu .wtTable::-webkit-scrollbar,
-.htContextMenu table::-webkit-scrollbar,
-.htContextMenu tbody::-webkit-scrollbar,
-.htContextMenu tr::-webkit-scrollbar,
-.htContextMenu td::-webkit-scrollbar {
+/* Hide Context Menu Scrollbars - Less Aggressive */
+.htContextMenu::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
-  height: 0 !important;
 }
 
-.htContextMenu,
-.htContextMenu *,
-.htContextMenu .wtHolder,
-.htContextMenu .wtTable,
-.htContextMenu table,
-.htContextMenu tbody,
-.htContextMenu tr,
-.htContextMenu td {
+.htContextMenu {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
@@ -1567,16 +1549,18 @@
   width: auto !important;
 }
 
-/* Force all nested elements to be transparent and auto-sized */
-.htContextMenu * {
+/* More selective styling to avoid breaking functionality */
+.htContextMenu table,
+.htContextMenu tbody,
+.htContextMenu tr,
+.htContextMenu .wtHolder,
+.htContextMenu .wtTable {
   overflow: visible !important;
   max-height: none !important;
   height: auto !important;
   width: auto !important;
   background: transparent !important;
   border: none !important;
-  margin: 0 !important;
-  box-sizing: border-box !important;
 }
 
 /* Only the main context menu should have a background */
