@@ -27,8 +27,11 @@ def alias_list_view(request, project_id):
     # Get search parameter (keep search functionality)
     search = request.GET.get('search', '').strip()
     
-    # Base queryset
-    aliases_queryset = Alias.objects.filter(projects=project)
+    # Base queryset with optimizations and zoned_count annotation
+    from django.db.models import Count, Q as Q_models
+    aliases_queryset = Alias.objects.select_related('fabric').prefetch_related('projects').annotate(
+        _zoned_count=Count('zone', filter=Q_models(zone__projects=project), distinct=True)
+    ).filter(projects=project)
     
     # Apply search if provided
     if search:
@@ -151,8 +154,8 @@ def zones_by_project_view(request, project_id):
         search = request.GET.get('search', '')
         ordering = request.GET.get('ordering', 'id')
         
-        # Build queryset
-        zones = Zone.objects.filter(projects=project)
+        # Build queryset with optimizations
+        zones = Zone.objects.select_related('fabric').prefetch_related('members', 'projects').filter(projects=project)
         
         # Apply search if provided
         if search:
@@ -295,8 +298,8 @@ def fabric_management(request, pk=None):
         search = request.GET.get('search', '')
         ordering = request.GET.get('ordering', 'id')
         
-        # Build queryset
-        qs = Fabric.objects.all()
+        # Build queryset with optimizations
+        qs = Fabric.objects.select_related('customer').all()
         
         # Filter by customer if provided
         if customer_id:

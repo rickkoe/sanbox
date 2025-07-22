@@ -33,22 +33,12 @@ class AliasSerializer(serializers.ModelSerializer):
 
     def get_zoned_count(self, obj):
         """Count how many zones in the current project contain this alias"""
-        # Get project_id from context (passed from the view)
-        request = self.context.get('request')
-        view = self.context.get('view')
-        
-        # Try to get project_id from the URL kwargs
-        project_id = None
-        if hasattr(view, 'kwargs') and 'project_id' in view.kwargs:
-            project_id = view.kwargs['project_id']
-        
-        # Fallback: try to get from view attributes
-        if not project_id and hasattr(view, 'project_id'):
-            project_id = view.project_id
+        # Use prefetched data if available to avoid N+1 queries
+        if hasattr(obj, '_zoned_count'):
+            return obj._zoned_count
             
-        # Fallback: try to get from context directly
-        if not project_id:
-            project_id = self.context.get('project_id')
+        # Get project_id from context (passed from the view)
+        project_id = self.context.get('project_id')
         
         if project_id:
             # Count zones in this project that contain this alias

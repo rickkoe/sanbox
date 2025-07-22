@@ -46,8 +46,8 @@ def storage_list(request):
                 page_number = 1
                 page_size = 100
             
-            # Build queryset
-            storages = Storage.objects.all()
+            # Build queryset with optimizations
+            storages = Storage.objects.select_related('customer').all()
             
             # Filter by customer if provided
             if customer_id:

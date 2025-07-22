@@ -11,6 +11,7 @@ from .views import (
     dashboard_overview,
     customer_statistics,
 )
+from .dashboard_views import dashboard_stats, clear_dashboard_cache
 
 urlpatterns = [
     path("config/", config_detail, name="config-detail"),  # Function-based view
@@ -28,4 +29,8 @@ urlpatterns = [
     # Add these to your existing core/urls.py urlpatterns:
     path("dashboard/overview/", dashboard_overview, name="dashboard-overview"),
     path("customers/<int:customer_id>/statistics/", customer_statistics, name="customer-statistics"),
+    
+    # Optimized dashboard endpoints
+    path("dashboard/stats/", dashboard_stats, name="dashboard-stats"),
+    path("dashboard/cache/clear/", clear_dashboard_cache, name="clear-dashboard-cache"),
 ]

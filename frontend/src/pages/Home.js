@@ -6,6 +6,7 @@ import {
 } from "react-icons/fa";
 import { ConfigContext } from "../context/ConfigContext";
 import { useImportStatus } from "../context/ImportStatusContext";
+import { SkeletonDashboard } from "../components/SkeletonLoader";
 import axios from "axios";
 import { Link } from "react-router-dom";
 
@@ -28,35 +29,7 @@ const Dashboard = () => {
     importHistory: []
   });
 
-  // Fetch Storage Insights data
-  const fetchInsightsData = async () => {
-    if (!config?.customer?.id) return;
-    
-    try {
-      // Check if customer has Storage Insights credentials
-      const hasCredentials = !!(config.customer.insights_tenant && config.customer.insights_api_key);
-      
-      let importHistory = [];
-      if (hasCredentials) {
-        // Fetch recent import history
-        const historyRes = await axios.get('/api/importer/history/', {
-          params: { customer_id: config.customer.id }
-        });
-        importHistory = historyRes.data.slice(0, 5); // Last 5 imports
-      }
-      
-      setInsightsData({
-        hasCredentials,
-        tenant: config.customer.insights_tenant,
-        lastImport: importHistory.length > 0 ? importHistory[0] : null,
-        importHistory
-      });
-    } catch (err) {
-      console.error("Error fetching Storage Insights data:", err);
-    }
-  };
-
-  // Simplified data fetching - only get key metrics for current active project
+  // Optimized single API call for all dashboard data
   const fetchDashboardData = async () => {
     if (!config?.customer?.id || !config?.active_project?.id) {
       setLoading(false);
@@ -67,31 +40,30 @@ const Dashboard = () => {
     setError(null);
     
     try {
-      // Fetch dashboard metrics and insights data
-      const [fabricsRes, zonesRes, aliasesRes, storageRes] = await Promise.allSettled([
-        axios.get(`/api/san/fabrics/?customer_id=${config.customer.id}`),
-        axios.get(`/api/san/zones/project/${config.active_project.id}/`),
-        axios.get(`/api/san/aliases/project/${config.active_project.id}/`),
-        axios.get(`/api/storage/?customer=${config.customer.id}`)
-      ]);
-
-      // Also fetch insights data
-      await fetchInsightsData();
+      // Single optimized API call with caching
+      const response = await axios.get('/api/core/dashboard/stats/', {
+        params: { 
+          customer_id: config.customer.id,
+          project_id: config.active_project.id
+        }
+      });
       
-      const fabrics = fabricsRes.status === 'fulfilled' ? 
-        (Array.isArray(fabricsRes.value.data) ? fabricsRes.value.data : fabricsRes.value.data.results || []) : [];
-      const zones = zonesRes.status === 'fulfilled' ? 
-        (Array.isArray(zonesRes.value.data) ? zonesRes.value.data : zonesRes.value.data.results || []) : [];
-      const aliases = aliasesRes.status === 'fulfilled' ? 
-        (Array.isArray(aliasesRes.value.data) ? aliasesRes.value.data : aliasesRes.value.data.results || []) : [];
-      const storage = storageRes.status === 'fulfilled' ? 
-        (Array.isArray(storageRes.value.data) ? storageRes.value.data : storageRes.value.data.results || []) : [];
+      const data = response.data;
       
+      // Update stats from the single response
       setStats({
-        totalFabrics: fabrics.length,
-        totalZones: zones.length,
-        totalAliases: aliases.length,
-        totalStorage: storage.length
+        totalFabrics: data.stats.total_fabrics,
+        totalZones: data.stats.total_zones,
+        totalAliases: data.stats.total_aliases,
+        totalStorage: data.stats.total_storage
+      });
+      
+      // Update insights data
+      setInsightsData({
+        hasCredentials: data.customer.has_insights,
+        tenant: data.customer.insights_tenant,
+        lastImport: data.last_import,
+        importHistory: data.last_import ? [data.last_import] : []
       });
       
     } catch (err) {
@@ -108,14 +80,7 @@ const Dashboard = () => {
   }, [config]);
 
   if (loading || configLoading) {
-    return (
-      <div className="dashboard-container">
-        <div className="loading-state">
-          <div className="spinner"></div>
-          <span>Loading dashboard...</span>
-        </div>
-      </div>
-    );
+    return <SkeletonDashboard />;
   }
 
   if (error) {
