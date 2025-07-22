@@ -117,13 +117,13 @@ const FabricTable = () => {
                     
                     if (fabric.id) {
                         // Update existing fabric
-                        await axios.put(`${API_URL}/api/san/fabrics/${fabric.id}/`, payload);
-                        successes.push(`Updated ${fabric.name}`);
+                        const response = await axios.put(`${API_URL}/api/san/fabrics/${fabric.id}/`, payload);
+                        successes.push(response.data.message || `Updated ${fabric.name} successfully`);
                     } else {
                         // Create new fabric
                         delete payload.id;
-                        await axios.post(`${API_URL}/api/san/fabrics/`, payload);
-                        successes.push(`Created ${fabric.name}`);
+                        const response = await axios.post(`${API_URL}/api/san/fabrics/`, payload);
+                        successes.push(response.data.message || `Created ${fabric.name} successfully`);
                     }
                 } catch (error) {
                     console.error('Error saving fabric:', error.response?.data);

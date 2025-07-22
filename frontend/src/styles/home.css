@@ -125,6 +125,35 @@
   }
 }
 
+/* Refresh button styles */
+.refresh-button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  margin-right: 1rem;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.refresh-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.refresh-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
 .error-state {
   color: #dc3545;
 }

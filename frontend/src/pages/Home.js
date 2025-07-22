@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { 
   FaNetworkWired, FaProjectDiagram, FaServer, FaUsers,
   FaChartLine, FaArrowRight, FaCog, FaPlus, FaCloud,
-  FaCheckCircle, FaTimesCircle, FaClock, FaDownload
+  FaCheckCircle, FaTimesCircle, FaClock, FaDownload, FaSync
 } from "react-icons/fa";
 import { ConfigContext } from "../context/ConfigContext";
 import { useImportStatus } from "../context/ImportStatusContext";
@@ -210,6 +210,16 @@ const Dashboard = () => {
               </div>
             )}
           </div>
+          
+          <button 
+            className="header-action refresh-button" 
+            onClick={() => fetchDashboardData(true)}
+            title="Refresh dashboard data"
+            disabled={loading}
+          >
+            <FaSync className={loading ? 'spinning' : ''} />
+            Refresh
+          </button>
           
           <Link to="/config" className="header-action">
             <FaCog />

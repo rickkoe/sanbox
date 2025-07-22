@@ -109,7 +109,7 @@ def generate_zone_commands(zones, config):
     alias_commands = generate_alias_commands(all_aliases, config)
     
     # Create Zone Commands
-    all_zones = Zone.objects.select_related('fabric').prefetch_related('members').filter(create='True', projects=config.active_project).order_by('id')
+    all_zones = Zone.objects.select_related('fabric').prefetch_related('members').filter(create=True, projects=config.active_project).order_by('id')
     
     for zone in all_zones:
         zone_members = zone.members.filter(include_in_zoning=True)

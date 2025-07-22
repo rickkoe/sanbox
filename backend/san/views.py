@@ -119,7 +119,10 @@ def alias_save_view(request):
             return JsonResponse({"error": "Some aliases could not be saved.", "details": errors}, status=400)
 
         # Clear dashboard cache when aliases are saved
-        clear_dashboard_cache_for_customer(project.customer.id)
+        # Get customer through project's customers relationship
+        customer = project.customers.first()
+        if customer:
+            clear_dashboard_cache_for_customer(customer.id)
         
         return JsonResponse({"message": "Aliases saved successfully!", "aliases": saved_aliases})
     
@@ -138,7 +141,10 @@ def alias_delete_view(request, pk):
         customer_id = None
         # Get customer ID from any project the alias belongs to
         if alias.projects.exists():
-            customer_id = alias.projects.first().customer.id
+            project = alias.projects.first()
+            customer = project.customers.first()
+            if customer:
+                customer_id = customer.id
         print(f'Deleting Alias: {alias.name}')
         alias.delete()
         
@@ -263,7 +269,10 @@ def zone_save_view(request):
             return JsonResponse({"error": "Some zones could not be saved.", "details": errors}, status=400)
 
         # Clear dashboard cache when zones are saved
-        clear_dashboard_cache_for_customer(project.customer.id)
+        # Get customer through project's customers relationship
+        customer = project.customers.first()
+        if customer:
+            clear_dashboard_cache_for_customer(customer.id)
         
         return JsonResponse({"message": "Zones saved successfully!", "zones": saved_zones})
     
@@ -282,7 +291,10 @@ def zone_delete_view(request, pk):
         customer_id = None
         # Get customer ID from any project the zone belongs to
         if zone.projects.exists():
-            customer_id = zone.projects.first().customer.id
+            project = zone.projects.first()
+            customer = project.customers.first()
+            if customer:
+                customer_id = customer.id
         print(f'Deleting Zone: {zone.name}')
         zone.delete()
         
@@ -360,7 +372,10 @@ def fabric_management(request, pk=None):
                 if fabric.customer_id:
                     clear_dashboard_cache_for_customer(fabric.customer_id)
                     
-                return JsonResponse(FabricSerializer(fabric).data, status=201)
+                return JsonResponse({
+                    "message": "Fabric created successfully!",
+                    "fabric": FabricSerializer(fabric).data
+                }, status=201)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
@@ -385,7 +400,10 @@ def fabric_management(request, pk=None):
                 if updated.customer_id:
                     clear_dashboard_cache_for_customer(updated.customer_id)
                     
-                return JsonResponse(FabricSerializer(updated).data)
+                return JsonResponse({
+                    "message": "Fabric updated successfully!",
+                    "fabric": FabricSerializer(updated).data
+                })
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)

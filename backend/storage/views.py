@@ -52,7 +52,7 @@ def storage_list(request):
             
             # Filter by customer if provided
             if customer_id:
-                storages = storages.filter(customer_id=customer_id)
+                storages = storages.filter(customer=customer_id)
             
             # Apply search if provided
             if search:
@@ -136,7 +136,7 @@ def storage_list(request):
             name = data.get("name")
             
             try:
-                storage = Storage.objects.get(customer_id=customer, name=name)
+                storage = Storage.objects.get(customer=customer, name=name)
                 serializer = StorageSerializer(storage, data=data)
             except Storage.DoesNotExist:
                 serializer = StorageSerializer(data=data)
@@ -145,6 +145,11 @@ def storage_list(request):
                 storage_instance = serializer.save()
                 storage_instance.imported = timezone.now()
                 storage_instance.save(update_fields=['imported'])
+                
+                # Clear dashboard cache when storage is created/updated
+                if storage_instance.customer_id:
+                    clear_dashboard_cache_for_customer(storage_instance.customer_id)
+                
                 return JsonResponse(serializer.data, status=201)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
