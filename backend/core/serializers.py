@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Config, Project
+from .models import Config, Project, TableConfiguration
 from customers.models import Customer
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -55,3 +55,44 @@ class ConfigSerializer(serializers.ModelSerializer):
         
         instance.save()
         return instance
+
+
+class TableConfigurationSerializer(serializers.ModelSerializer):
+    """Serializer for table configuration settings"""
+    
+    class Meta:
+        model = TableConfiguration
+        fields = [
+            'id',
+            'customer',
+            'user',
+            'table_name',
+            'visible_columns',
+            'column_widths',
+            'filters',
+            'sorting',
+            'page_size',
+            'additional_settings',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate(self, data):
+        """Ensure visible_columns is a list and filters is a dict"""
+        if 'visible_columns' in data and not isinstance(data['visible_columns'], list):
+            raise serializers.ValidationError("visible_columns must be a list")
+        
+        if 'filters' in data and not isinstance(data['filters'], dict):
+            raise serializers.ValidationError("filters must be a dictionary")
+        
+        if 'column_widths' in data and not isinstance(data['column_widths'], dict):
+            raise serializers.ValidationError("column_widths must be a dictionary")
+        
+        if 'sorting' in data and not isinstance(data['sorting'], dict):
+            raise serializers.ValidationError("sorting must be a dictionary")
+        
+        if 'additional_settings' in data and not isinstance(data['additional_settings'], dict):
+            raise serializers.ValidationError("additional_settings must be a dictionary")
+        
+        return data

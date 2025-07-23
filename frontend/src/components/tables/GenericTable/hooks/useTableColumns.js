@@ -1,22 +1,60 @@
 import { useState, useEffect } from 'react';
+import { useTableConfiguration } from './useTableConfiguration';
 
-export const useTableColumns = (columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources) => {
+export const useTableColumns = (
+  columns, 
+  colHeaders, 
+  defaultVisibleColumns, 
+  customRenderers, 
+  dropdownSources,
+  tableName,
+  userId = null
+) => {
   const [visibleColumns, setVisibleColumns] = useState({});
   const [columnFilter, setColumnFilter] = useState('');
 
-  // Initialize visible columns
+  // Always call the configuration hook, but it will handle null tableName gracefully
+  const {
+    tableConfig,
+    isConfigLoaded,
+    configError,
+    getVisibleColumnsState,
+    updateVisibleColumns,
+    updateConfig,
+    resetConfiguration
+  } = useTableConfiguration({
+    tableName,
+    columns,
+    colHeaders,
+    defaultVisibleColumns,
+    userId
+  });
+
+  // Initialize visible columns from saved configuration
   useEffect(() => {
-    const newVisibleState = columns.reduce((acc, col, index) => {
-      if (defaultVisibleColumns && defaultVisibleColumns.length > 0) {
-        acc[index] = defaultVisibleColumns.includes(index);
+    if (isConfigLoaded && columns.length > 0) {
+      const savedVisibleState = getVisibleColumnsState();
+      
+      // If no saved configuration or all columns are false (no tableName scenario), use defaults
+      const hasValidSavedState = Object.keys(savedVisibleState).length > 0 && 
+                                Object.values(savedVisibleState).some(Boolean);
+      
+      if (!hasValidSavedState || !tableName) {
+        const defaultVisibleState = columns.reduce((acc, col, index) => {
+          if (defaultVisibleColumns && defaultVisibleColumns.length > 0) {
+            acc[index] = defaultVisibleColumns.includes(index);
+          } else {
+            acc[index] = true; // Show all columns by default
+          }
+          return acc;
+        }, {});
+        setVisibleColumns(defaultVisibleState);
+        // Don't call updateVisibleColumns here to avoid infinite loop during initialization
       } else {
-        acc[index] = true; // Show all columns by default
+        setVisibleColumns(savedVisibleState);
       }
-      return acc;
-    }, {});
-    
-    setVisibleColumns(newVisibleState);
-  }, [columns.length]);
+    }
+  }, [isConfigLoaded, columns.length, tableName]); // Add tableName to dependencies
 
   const isRequiredColumn = (columnIndex) => {
     return defaultVisibleColumns.includes(columnIndex);
@@ -59,6 +97,11 @@ export const useTableColumns = (columns, colHeaders, defaultVisibleColumns, cust
     };
     
     setVisibleColumns(newVisibleState);
+    
+    // Only save to API if configuration is working
+    if (!configError) {
+      updateVisibleColumns(newVisibleState);
+    }
   };
 
   const toggleAllColumns = (showAll) => {
@@ -73,6 +116,11 @@ export const useTableColumns = (columns, colHeaders, defaultVisibleColumns, cust
     }, {});
     
     setVisibleColumns(newVisibleState);
+    
+    // Only save to API if configuration is working
+    if (!configError) {
+      updateVisibleColumns(newVisibleState);
+    }
   };
 
   return {
@@ -84,6 +132,12 @@ export const useTableColumns = (columns, colHeaders, defaultVisibleColumns, cust
     createVisibleHeaders,
     toggleColumnVisibility,
     toggleAllColumns,
-    isRequiredColumn
+    isRequiredColumn,
+    // Table configuration methods
+    tableConfig,
+    isConfigLoaded,
+    configError,
+    updateConfig,
+    resetConfiguration
   };
 };

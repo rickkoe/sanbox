@@ -10,6 +10,9 @@ from .views import (
     customer_list,
     dashboard_overview,
     customer_statistics,
+    table_configuration_list,
+    table_configuration_detail,
+    reset_table_configuration,
 )
 from .dashboard_views import dashboard_stats, clear_dashboard_cache
 
@@ -33,4 +36,9 @@ urlpatterns = [
     # Optimized dashboard endpoints
     path("dashboard/stats/", dashboard_stats, name="dashboard-stats"),
     path("dashboard/cache/clear/", clear_dashboard_cache, name="clear-dashboard-cache"),
+    
+    # Table Configuration endpoints
+    path("table-config/", table_configuration_list, name="table-config-list"),
+    path("table-config/<int:pk>/", table_configuration_detail, name="table-config-detail"),
+    path("table-config/reset/", reset_table_configuration, name="table-config-reset"),
 ]

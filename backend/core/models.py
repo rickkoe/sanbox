@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 from customers.models import Customer
 
 class Project(models.Model):
@@ -75,3 +76,116 @@ class Config(models.Model):
     def get_active_config(cls):
         """Retrieve the active config, if it exists."""
         return cls.objects.filter(is_active=True).first()  # ✅ Returns one active config or None
+
+
+class TableConfiguration(models.Model):
+    """
+    Stores table configuration settings for each user/customer/table combination.
+    This includes visible columns, filters, sorting, and other table preferences.
+    """
+    
+    # Identification fields
+    customer = models.ForeignKey(
+        Customer, 
+        on_delete=models.CASCADE, 
+        related_name='table_configurations',
+        help_text="Customer this configuration belongs to"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='table_configurations',
+        null=True,
+        blank=True,
+        help_text="User this configuration belongs to (optional for global settings)"
+    )
+    table_name = models.CharField(
+        max_length=100,
+        help_text="Name of the table (e.g., 'storage', 'volumes', 'hosts', 'zones', 'aliases')"
+    )
+    
+    # Configuration data
+    visible_columns = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of visible column names/keys in order"
+    )
+    column_widths = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Dictionary mapping column names to their widths"
+    )
+    filters = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Active filters as key-value pairs"
+    )
+    sorting = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Sorting configuration (column, direction)"
+    )
+    page_size = models.IntegerField(
+        default=25,
+        help_text="Number of rows per page"
+    )
+    additional_settings = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Any additional table-specific settings"
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['customer', 'user', 'table_name']
+        indexes = [
+            models.Index(fields=['customer', 'table_name']),
+            models.Index(fields=['user', 'table_name']),
+        ]
+        verbose_name = "Table Configuration"
+        verbose_name_plural = "Table Configurations"
+    
+    def __str__(self):
+        user_part = f" (User: {self.user.username})" if self.user else " (Global)"
+        return f"{self.customer.name} - {self.table_name}{user_part}"
+    
+    @classmethod
+    def get_config(cls, customer, table_name, user=None):
+        """
+        Get table configuration for a customer/table/user combination.
+        Falls back to customer-level config if user-specific config doesn't exist.
+        """
+        # Try to get user-specific config first
+        if user:
+            config = cls.objects.filter(
+                customer=customer,
+                table_name=table_name,
+                user=user
+            ).first()
+            if config:
+                return config
+        
+        # Fall back to customer-level config
+        config = cls.objects.filter(
+            customer=customer,
+            table_name=table_name,
+            user__isnull=True
+        ).first()
+        
+        return config
+    
+    @classmethod
+    def save_config(cls, customer, table_name, config_data, user=None):
+        """
+        Save or update table configuration.
+        """
+        config, created = cls.objects.update_or_create(
+            customer=customer,
+            table_name=table_name,
+            user=user,
+            defaults=config_data
+        )
+        return config

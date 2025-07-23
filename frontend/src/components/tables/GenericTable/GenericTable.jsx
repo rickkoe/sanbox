@@ -48,7 +48,9 @@ const GenericTable = forwardRef(({
   storageKey,
   height = "calc(100vh - 200px)",
   getExportFilename,
-  defaultVisibleColumns = []
+  defaultVisibleColumns = [],
+  tableName = 'generic_table',  // Add tableName prop
+  userId = null  // Add userId prop for user-specific settings
 }, ref) => {
   
   // Core state
@@ -198,8 +200,35 @@ const GenericTable = forwardRef(({
     createVisibleHeaders,
     toggleColumnVisibility,
     toggleAllColumns,
-    isRequiredColumn
-  } = useTableColumns(columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources);
+    isRequiredColumn,
+    tableConfig,
+    isConfigLoaded,
+    configError,
+    updateConfig,
+    resetConfiguration
+  } = useTableColumns(columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources, tableName, userId);
+
+  // Load saved filters when configuration is loaded
+  useEffect(() => {
+    if (isConfigLoaded && tableConfig?.filters && Object.keys(tableConfig.filters).length > 0) {
+      setColumnFilters(tableConfig.filters);
+    }
+  }, [isConfigLoaded, tableConfig?.filters]);
+
+  // Save filters when they change (with debouncing to prevent excessive calls)
+  useEffect(() => {
+    if (isConfigLoaded && Object.keys(columnFilters).length > 0 && updateConfig) {
+      const timeoutId = setTimeout(() => {
+        try {
+          updateConfig('filters', columnFilters);
+        } catch (error) {
+          console.warn('Failed to save filter configuration:', error);
+        }
+      }, 1000); // 1 second delay
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [columnFilters, isConfigLoaded, updateConfig]);
 
   // Debug column creation
   useEffect(() => {
@@ -617,6 +646,13 @@ const GenericTable = forwardRef(({
         showCustomFilter={showCustomFilter}
         setShowCustomFilter={setShowCustomFilter}
         additionalButtons={additionalButtons}
+        columnFilters={columnFilters}
+        onClearAllFilters={() => {
+          setColumnFilters({});
+          if (updateConfig && !configError) {
+            updateConfig('filters', {});
+          }
+        }}
         pagination={null} // Remove the custom pagination since we fixed hasNonEmptyValues
         data={preprocessData ? preprocessData(rawData) : rawData}
         onFilterChange={handleFilterChange}
@@ -631,6 +667,7 @@ const GenericTable = forwardRef(({
           data={data}
           onFilterChange={handleFilterChange}
           visibleColumns={visibleColumns}
+          initialFilters={columnFilters}
         />
       )}
 

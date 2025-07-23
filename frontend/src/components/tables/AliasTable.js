@@ -420,6 +420,7 @@ const AliasTable = () => {
         saveUrl={API_ENDPOINTS.aliasSave}
         deleteUrl={API_ENDPOINTS.aliasDelete}
         newRowTemplate={NEW_ALIAS_TEMPLATE}
+        tableName="aliases"
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => {
           const column = { data: col.data };

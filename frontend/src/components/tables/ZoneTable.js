@@ -381,6 +381,7 @@ const ZoneTable = () => {
         saveUrl={API_ENDPOINTS.zoneSave}
         deleteUrl={API_ENDPOINTS.zoneDelete}
         newRowTemplate={NEW_ZONE_TEMPLATE}
+        tableName="zones"
         colHeaders={displayedHeaders}
         columns={displayedColumns}
         allColumns={BASE_COLUMNS}

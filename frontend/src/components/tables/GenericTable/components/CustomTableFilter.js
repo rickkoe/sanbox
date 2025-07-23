@@ -6,13 +6,19 @@ const CustomTableFilter = ({
   colHeaders, 
   data, 
   onFilterChange, 
-  visibleColumns = {} 
+  visibleColumns = {},
+  initialFilters = {}
 }) => {
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(() => initialFilters || {});
   const [activeFilterColumn, setActiveFilterColumn] = useState(null);
   const [filterDropdownPosition, setFilterDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef(null);
   const buttonRefs = useRef({});
+
+  // Update filters when initialFilters prop changes
+  useEffect(() => {
+    setFilters(initialFilters);
+  }, [initialFilters]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -42,42 +48,8 @@ const CustomTableFilter = ({
 
   // Apply filters to data
   const applyFilters = (newFilters) => {
-    if (Object.keys(newFilters).length === 0) {
-      onFilterChange(data);
-      return;
-    }
-
-    const filteredData = data.filter(row => {
-      return Object.entries(newFilters).every(([columnIndex, filter]) => {
-        const column = columns[parseInt(columnIndex)];
-        const cellValue = String(row[column.data] || '').toLowerCase().trim();
-        
-        if (filter.type === 'text' && filter.value) {
-          const filterValue = filter.value.toLowerCase().trim();
-          switch (filter.condition) {
-            case 'contains':
-              return cellValue.includes(filterValue);
-            case 'equals':
-              return cellValue === filterValue;
-            case 'starts_with':
-              return cellValue.startsWith(filterValue);
-            case 'ends_with':
-              return cellValue.endsWith(filterValue);
-            case 'not_contains':
-              return !cellValue.includes(filterValue);
-            default:
-              return true;
-          }
-        } else if (filter.type === 'values' && filter.selectedValues) {
-          if (filter.selectedValues.length === 0) return true;
-          return filter.selectedValues.includes(String(row[column.data] || ''));
-        }
-        
-        return true;
-      });
-    });
-
-    onFilterChange(filteredData);
+    // Pass the filter object to the parent component
+    onFilterChange(newFilters);
   };
 
   // Update filter for a column
@@ -98,7 +70,7 @@ const CustomTableFilter = ({
   const clearAllFilters = () => {
     setFilters({});
     setActiveFilterColumn(null);
-    onFilterChange(data);
+    onFilterChange({});
   };
 
   // Toggle filter dropdown

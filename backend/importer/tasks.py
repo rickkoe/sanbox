@@ -11,9 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True)
-def run_simple_import_task(self, import_id):
+def run_simple_import_task(self, import_id, selective_options=None):
     """
-    Async task to run simple storage import in the background
+    Async task to run storage import in the background
+    Supports selective import based on user selections
     """
     try:
         # Get the import record
@@ -43,6 +44,16 @@ def run_simple_import_task(self, import_id):
             }
         )
         
+        # Check if this is a selective import and extract options
+        selective_options = None
+        if hasattr(import_record, 'api_response_summary') and import_record.api_response_summary:
+            if import_record.api_response_summary.get('selective_import'):
+                selective_options = {
+                    'selected_systems': import_record.api_response_summary.get('selected_systems', []),
+                    'import_options': import_record.api_response_summary.get('import_options', {})
+                }
+                import_logger.info(f'Selective import detected: {len(selective_options["selected_systems"])} systems, options: {selective_options["import_options"]}')
+        
         # Run the import
         import_logger.info('Creating storage importer instance')
         importer = SimpleStorageImporter(import_record.customer)
@@ -61,9 +72,12 @@ def run_simple_import_task(self, import_id):
             }
         )
         
-        # Override the import method to add progress updates
+        # Override the import method to add progress updates with selective options
         import_logger.info('Starting data import process')
-        result = importer._run_import_with_progress(self)
+        if selective_options:
+            result = importer._run_selective_import_with_progress(self, selective_options)
+        else:
+            result = importer._run_import_with_progress(self)
         
         import_logger.info(f'Import completed successfully - {result.total_items_imported} total items imported')
         logger.info(f'Simple import task {self.request.id} completed successfully')

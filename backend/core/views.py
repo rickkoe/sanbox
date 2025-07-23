@@ -3,9 +3,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
-from .models import Config, Project
+from .models import Config, Project, TableConfiguration
 from customers.models import Customer 
-from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer
+from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer, TableConfigurationSerializer
 from customers.serializers import CustomerSerializer 
 
 
@@ -464,4 +464,192 @@ def customer_statistics(request, customer_id):
         
     except Exception as e:
         print(f"❌ Error in customer_statistics: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ====================
+# TABLE CONFIGURATION API VIEWS
+# ====================
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def table_configuration_list(request):
+    """
+    Get or create table configurations
+    GET /api/core/table-config/?customer=<id>&table_name=<name>&user=<id>
+    POST /api/core/table-config/ (create new configuration)
+    """
+    print(f"🔥 Table Configuration List - Method: {request.method}")
+    
+    if request.method == "GET":
+        try:
+            customer_id = request.GET.get('customer')
+            table_name = request.GET.get('table_name')
+            user_id = request.GET.get('user')
+            
+            if not customer_id or not table_name:
+                return JsonResponse({
+                    'error': 'customer and table_name parameters are required'
+                }, status=400)
+            
+            customer = get_object_or_404(Customer, id=customer_id)
+            user = None
+            if user_id:
+                from django.contrib.auth.models import User
+                user = get_object_or_404(User, id=user_id)
+            
+            # Get configuration using the model's helper method
+            config = TableConfiguration.get_config(customer, table_name, user)
+            
+            if config:
+                serializer = TableConfigurationSerializer(config)
+                return JsonResponse(serializer.data)
+            else:
+                # Return empty configuration structure
+                return JsonResponse({
+                    'customer': customer_id,
+                    'user': user_id,
+                    'table_name': table_name,
+                    'visible_columns': [],
+                    'column_widths': {},
+                    'filters': {},
+                    'sorting': {},
+                    'page_size': 25,
+                    'additional_settings': {}
+                })
+                
+        except Exception as e:
+            print(f"❌ Error in table_configuration_list GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            
+            # Validate required fields
+            if not data.get('customer') or not data.get('table_name'):
+                return JsonResponse({
+                    'error': 'customer and table_name are required'
+                }, status=400)
+            
+            customer = get_object_or_404(Customer, id=data['customer'])
+            user = None
+            if data.get('user'):
+                from django.contrib.auth.models import User
+                user = get_object_or_404(User, id=data['user'])
+            
+            # Use the model's helper method to save configuration
+            config_data = {
+                'visible_columns': data.get('visible_columns', []),
+                'column_widths': data.get('column_widths', {}),
+                'filters': data.get('filters', {}),
+                'sorting': data.get('sorting', {}),
+                'page_size': data.get('page_size', 25),
+                'additional_settings': data.get('additional_settings', {})
+            }
+            
+            config = TableConfiguration.save_config(
+                customer=customer,
+                table_name=data['table_name'],
+                config_data=config_data,
+                user=user
+            )
+            
+            serializer = TableConfigurationSerializer(config)
+            return JsonResponse(serializer.data, status=201)
+            
+        except Exception as e:
+            print(f"❌ Error in table_configuration_list POST: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def table_configuration_detail(request, pk):
+    """
+    Get, update, or delete a specific table configuration
+    GET /api/core/table-config/<id>/
+    PUT /api/core/table-config/<id>/
+    DELETE /api/core/table-config/<id>/
+    """
+    print(f"🔥 Table Configuration Detail - Method: {request.method}, PK: {pk}")
+    
+    try:
+        config = get_object_or_404(TableConfiguration, pk=pk)
+    except TableConfiguration.DoesNotExist:
+        return JsonResponse({'error': 'Table configuration not found'}, status=404)
+    
+    if request.method == "GET":
+        try:
+            serializer = TableConfigurationSerializer(config)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            print(f"❌ Error in table_configuration_detail GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+            serializer = TableConfigurationSerializer(config, data=data, partial=True)
+            
+            if serializer.is_valid():
+                updated_config = serializer.save()
+                return JsonResponse(TableConfigurationSerializer(updated_config).data)
+            else:
+                return JsonResponse(serializer.errors, status=400)
+                
+        except Exception as e:
+            print(f"❌ Error in table_configuration_detail PUT: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "DELETE":
+        try:
+            config.delete()
+            return JsonResponse({'message': 'Table configuration deleted successfully'}, status=204)
+        except Exception as e:
+            print(f"❌ Error in table_configuration_detail DELETE: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def reset_table_configuration(request):
+    """
+    Reset table configuration for a customer/table/user combination
+    POST /api/core/table-config/reset/
+    Body: {"customer": <id>, "table_name": <name>, "user": <id>}
+    """
+    print(f"🔥 Reset Table Configuration - Method: {request.method}")
+    
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer')
+        table_name = data.get('table_name')
+        user_id = data.get('user')
+        
+        if not customer_id or not table_name:
+            return JsonResponse({
+                'error': 'customer and table_name are required'
+            }, status=400)
+        
+        customer = get_object_or_404(Customer, id=customer_id)
+        user = None
+        if user_id:
+            from django.contrib.auth.models import User
+            user = get_object_or_404(User, id=user_id)
+        
+        # Delete existing configuration
+        deleted_count = TableConfiguration.objects.filter(
+            customer=customer,
+            table_name=table_name,
+            user=user
+        ).delete()[0]
+        
+        return JsonResponse({
+            'message': f'Reset table configuration for {table_name}',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in reset_table_configuration: {e}")
         return JsonResponse({'error': str(e)}, status=500)

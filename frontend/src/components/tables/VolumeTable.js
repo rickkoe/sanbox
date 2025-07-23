@@ -152,6 +152,7 @@ const VolumeTable = ({ storage }) => {
         apiUrl={apiUrl}
         saveUrl={`${API_URL}/api/storage/volumes/`}
         deleteUrl={`${API_URL}/api/storage/volumes/`}
+        tableName="volumes"
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => ({
           data: col.data,

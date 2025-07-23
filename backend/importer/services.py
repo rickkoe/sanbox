@@ -21,14 +21,15 @@ class SimpleStorageImporter:
         except AttributeError:
             raise Exception("Customer has no configuration or active project")
     
-    def import_storage_data(self) -> StorageImport:
-        """Main import method - simple and straightforward"""
+    def import_storage_data(self, selective_options=None) -> StorageImport:
+        """Main import method - supports selective import"""
         
-        # Create import record
-        self.import_record = StorageImport.objects.create(
-            customer=self.customer,
-            status='running'
-        )
+        # If import record already exists (passed from task), use it
+        if not self.import_record:
+            self.import_record = StorageImport.objects.create(
+                customer=self.customer,
+                status='running'
+            )
         
         try:
             # Get API credentials from customer model
@@ -52,6 +53,12 @@ class SimpleStorageImporter:
                 total_volumes = sum(len(vols) for vols in volumes_by_system.values())
                 total_hosts = sum(len(hosts) for hosts in hosts_by_system.values())
                 print(f"Fetched {len(storage_systems)} storage systems, {total_volumes} volumes, {total_hosts} hosts")
+            
+            # Apply selective filtering if options are provided
+            if selective_options:
+                storage_systems, volumes_by_system, hosts_by_system = self._apply_selective_filtering(
+                    storage_systems, volumes_by_system, hosts_by_system, selective_options
+                )
             
             # Import data with individual error handling
             # Log debug info to import logs
@@ -984,3 +991,238 @@ class SimpleStorageImporter:
                 
         except (ValueError, TypeError):
             return 0
+    
+    def _apply_selective_filtering(self, storage_systems, volumes_by_system, hosts_by_system, selective_options):
+        """Apply selective filtering based on user selections"""
+        
+        # Extract selective options
+        selected_systems = selective_options.get('selected_systems', [])
+        import_options = selective_options.get('import_options', {})
+        
+        # Log the selective filtering being applied
+        from .models import ImportLog
+        ImportLog.objects.create(
+            import_record=self.import_record,
+            level='INFO',
+            message=f"Applying selective import: {len(selected_systems)} systems selected",
+            details={
+                'selected_systems': selected_systems,
+                'import_options': import_options
+            }
+        )
+        
+        # Filter storage systems based on selected systems
+        filtered_storage_systems = []
+        for system in storage_systems:
+            system_serial = system.get('serial_number', system.get('id', ''))
+            if system_serial in selected_systems:
+                filtered_storage_systems.append(system)
+        
+        # Filter volumes and hosts based on selected systems
+        filtered_volumes_by_system = {}
+        filtered_hosts_by_system = {}
+        
+        for system in filtered_storage_systems:
+            system_id = system.get('storage_system_id', system.get('id', ''))
+            
+            # Include volumes only if volumes option is selected
+            if import_options.get('volumes', False):
+                if system_id in volumes_by_system:
+                    filtered_volumes_by_system[system_id] = volumes_by_system[system_id]
+            
+            # Include hosts only if hosts option is selected  
+            if import_options.get('hosts', False):
+                if system_id in hosts_by_system:
+                    filtered_hosts_by_system[system_id] = hosts_by_system[system_id]
+        
+        # If storage_systems option is not selected, clear the storage systems list
+        if not import_options.get('storage_systems', False):
+            filtered_storage_systems = []
+        
+        # Log the results of filtering
+        ImportLog.objects.create(
+            import_record=self.import_record,
+            level='INFO',
+            message=f"Selective filtering complete: {len(filtered_storage_systems)} systems, {len(filtered_volumes_by_system)} volume systems, {len(filtered_hosts_by_system)} host systems",
+            details={
+                'filtered_systems_count': len(filtered_storage_systems),
+                'filtered_volumes_systems': len(filtered_volumes_by_system),
+                'filtered_hosts_systems': len(filtered_hosts_by_system)
+            }
+        )
+        
+        return filtered_storage_systems, filtered_volumes_by_system, filtered_hosts_by_system
+    
+    def _run_selective_import_with_progress(self, task, selective_options):
+        """Run selective import with Celery progress updates"""
+        try:
+            # Get logger if available
+            logger = getattr(self, 'logger', None)
+            
+            # Get API credentials from customer model
+            if not self.customer.insights_api_key or not self.customer.insights_tenant:
+                error_msg = "No Storage Insights API credentials configured for this customer"
+                if logger:
+                    logger.error(error_msg)
+                raise Exception(error_msg)
+            
+            if logger:
+                logger.info(f"Starting selective import - API credentials found - tenant: {self.customer.insights_tenant}")
+                logger.info(f"Selective options: {selective_options}")
+            
+            # Create API client
+            client = StorageInsightsClient(self.customer.insights_tenant, self.customer.insights_api_key)
+            
+            # Create dynamic progress message based on import options
+            import_options = selective_options.get('import_options', {})
+            selected_items = []
+            if import_options.get('storage_systems', False):
+                selected_items.append('storage systems')
+            if import_options.get('volumes', False):
+                selected_items.append('volumes')
+            if import_options.get('hosts', False):
+                selected_items.append('hosts')
+            
+            if selected_items:
+                items_text = ', '.join(selected_items)
+                progress_message = f'Fetching {items_text}...'
+            else:
+                progress_message = 'Fetching data...'
+            
+            # Update progress
+            task.update_state(
+                state='PROGRESS',
+                meta={
+                    'current': 50,
+                    'total': 100,
+                    'status': progress_message,
+                    'import_id': self.import_record.id
+                }
+            )
+            
+            if logger:
+                logger.info("Calling IBM Storage Insights API...")
+            
+            # Fetch all data
+            storage_systems, volumes_by_system, hosts_by_system = client.get_all_data()
+            
+            if logger:
+                logger.info("Successfully received data from API - applying selective filtering")
+            
+            # Apply selective filtering
+            storage_systems, volumes_by_system, hosts_by_system = self._apply_selective_filtering(
+                storage_systems, volumes_by_system, hosts_by_system, selective_options
+            )
+            
+            # Log summary of filtered data
+            total_volumes = sum(len(vols) for vols in volumes_by_system.values())
+            total_hosts = sum(len(hosts) for hosts in hosts_by_system.values())
+            
+            if logger:
+                logger.info(f"Data filtered successfully: {len(storage_systems)} storage systems, {total_volumes} volumes, {total_hosts} hosts")
+            
+            # Create dynamic importing message based on what's actually being imported
+            importing_items = []
+            if len(storage_systems) > 0:
+                importing_items.append(f'{len(storage_systems)} storage system{"s" if len(storage_systems) != 1 else ""}')
+            if total_volumes > 0:
+                importing_items.append(f'{total_volumes} volume{"s" if total_volumes != 1 else ""}')
+            if total_hosts > 0:
+                importing_items.append(f'{total_hosts} host{"s" if total_hosts != 1 else ""}')
+            
+            if importing_items:
+                importing_text = ', '.join(importing_items)
+                importing_message = f'Importing {importing_text}...'
+            else:
+                importing_message = 'Processing import...'
+            
+            # Update progress
+            task.update_state(
+                state='PROGRESS',
+                meta={
+                    'current': 75,
+                    'total': 100,
+                    'status': importing_message,
+                    'import_id': self.import_record.id
+                }
+            )
+            
+            # Import data with individual error handling
+            systems_imported = 0
+            volumes_imported = 0
+            hosts_imported = 0
+            
+            try:
+                if logger:
+                    logger.info("Starting storage systems import...")
+                systems_imported = self._import_storage_systems(storage_systems, volumes_by_system)
+                if logger:
+                    logger.info(f"Imported {systems_imported} storage systems")
+            except Exception as e:
+                error_msg = f"Storage systems import failed: {str(e)}"
+                if logger:
+                    logger.error(error_msg)
+                # Continue with other imports even if storage systems fail
+            
+            try:
+                if logger:
+                    logger.info("Starting volumes import...")
+                volumes_imported = self._import_volumes(storage_systems, volumes_by_system)
+                if logger:
+                    logger.info(f"Imported {volumes_imported} volumes")
+            except Exception as e:
+                error_msg = f"Volumes import failed: {str(e)}"
+                if logger:
+                    logger.error(error_msg)
+                # Continue with hosts import even if volumes fail
+            
+            try:
+                if logger:
+                    logger.info("Starting hosts import...")
+                hosts_imported = self._import_hosts(hosts_by_system)
+                if logger:
+                    logger.info(f"Imported {hosts_imported} hosts")
+            except Exception as e:
+                error_msg = f"Hosts import failed: {str(e)}"
+                if logger:
+                    logger.error(error_msg)
+            
+            if logger:
+                logger.info(f"Selective import completed - Systems: {systems_imported}, Volumes: {volumes_imported}, Hosts: {hosts_imported}")
+            
+            # Update progress
+            task.update_state(
+                state='PROGRESS',
+                meta={
+                    'current': 100,
+                    'total': 100,
+                    'status': 'Finalizing selective import...',
+                    'import_id': self.import_record.id
+                }
+            )
+            
+            # Update import record
+            self.import_record.status = 'completed'
+            self.import_record.completed_at = timezone.now()
+            self.import_record.storage_systems_imported = systems_imported
+            self.import_record.volumes_imported = volumes_imported
+            self.import_record.hosts_imported = hosts_imported
+            
+            # Update the summary to include selective options
+            self.import_record.api_response_summary.update({
+                'selective_filtering_applied': True,
+                'import_results': {
+                    'systems_imported': systems_imported,
+                    'volumes_imported': volumes_imported,
+                    'hosts_imported': hosts_imported
+                }
+            })
+            self.import_record.save()
+            
+            # Clear dashboard cache when import completes successfully
+            clear_dashboard_cache_for_customer(self.customer.id)
+            
+            return self.import_record
+            
+        except Exception as e:
+            return self._fail_import(f"Selective import failed: {str(e)}")

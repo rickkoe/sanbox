@@ -125,6 +125,13 @@ class Storage(models.Model):
         Returns the count of Volume records related to this Storage in the database.
         """
         return self.volumes.count()
+    
+    @property
+    def db_hosts_count(self):
+        """
+        Returns the count of Host records related to this Storage in the database.
+        """
+        return self.owning_storage.count()
 
 
     def storage_image(self):

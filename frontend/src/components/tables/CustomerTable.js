@@ -123,6 +123,7 @@ const CustomerTable = () => {
                 saveUrl={`${API_URL}/api/customers/`}
                 deleteUrl={`${API_URL}/api/customers/delete/`}
                 newRowTemplate={NEW_CUSTOMER_TEMPLATE}
+                tableName="customers"
                 colHeaders={ALL_COLUMNS.map(col => col.title)}
                 columns={ALL_COLUMNS.map(col => ({ data: col.data }))}
                 customRenderers={customRenderers}

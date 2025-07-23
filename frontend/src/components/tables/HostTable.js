@@ -120,6 +120,7 @@ const HostTable = ({ storage }) => {
         apiUrl={apiUrl}
         saveUrl={`${API_URL}/api/storage/hosts/`}
         deleteUrl={`${API_URL}/api/storage/hosts/`}
+        tableName="hosts"
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => ({
           data: col.data,

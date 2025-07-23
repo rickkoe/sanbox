@@ -165,6 +165,7 @@ const FabricTable = () => {
                 apiParams={customerId ? { customer_id: customerId } : {}}
                 saveUrl={fabricsApiUrl}
                 deleteUrl={fabricDeleteApiUrl}
+                tableName="fabrics"
                 newRowTemplate={NEW_FABRIC_TEMPLATE}
                 colHeaders={ALL_COLUMNS.map(col => col.title)}
                 columns={ALL_COLUMNS.map(col => {

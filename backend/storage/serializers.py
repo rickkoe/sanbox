@@ -3,8 +3,9 @@ from .models import Storage, Volume, Host
 from customers.serializers import CustomerSerializer
 
 class StorageSerializer(serializers.ModelSerializer):
-    # expose the calculated count
+    # expose the calculated counts
     db_volumes_count = serializers.IntegerField(read_only=True)
+    db_hosts_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Storage

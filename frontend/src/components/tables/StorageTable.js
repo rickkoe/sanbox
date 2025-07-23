@@ -37,7 +37,8 @@ const ALL_STORAGE_COLUMNS = [
   { data: "machine_type", title: "Machine Type" },
   { data: "model", title: "Model" },
   { data: "serial_number", title: "Serial Number" },
-  { data: "db_volumes_count", title: "DB Volumes Count" },
+  { data: "db_volumes_count", title: "DB Volumes" },
+  { data: "db_hosts_count", title: "DB Hosts" },
   { data: "system_id", title: "System ID" },
   { data: "wwnn", title: "WWNN" },
   { data: "firmware_level", title: "Firmware Level" },
@@ -136,37 +137,21 @@ const ALL_STORAGE_COLUMNS = [
   { data: "updated", title: "Updated" },
 ];
 
-// Default visible columns indices
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12]; // removed indices that don't exist
+// Default visible columns indices - includes ID, Name, Type, Location, Storage System ID, Machine Type, Model, Serial Number, DB Volumes, DB Hosts, System ID, WWNN, Firmware Level, Primary IP
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]; // includes the new db_hosts_count column
 
 const StorageTable = () => {
   const { config } = useContext(ConfigContext);
   const tableRef = useRef(null);
   const navigate = useNavigate();
   const [debug, setDebug] = useState(null);
+  const [resetingConfig, setResetingConfig] = useState(false);
   
   // Get the customer ID from the config context
   const customerId = config?.customer?.id;
 
-  // Column visibility state
-  const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
-    const saved = localStorage.getItem("storageTableColumns");
-    if (saved) {
-      try {
-        const savedColumnNames = JSON.parse(saved);
-        // Convert saved column names to indices
-        const indices = savedColumnNames
-          .map(name => ALL_STORAGE_COLUMNS.findIndex(col => col.data === name))
-          .filter(index => index !== -1);
-        return indices.length > 0 ? indices : DEFAULT_VISIBLE_INDICES;
-      } catch (e) {
-        return DEFAULT_VISIBLE_INDICES;
-      }
-    }
-    return DEFAULT_VISIBLE_INDICES;
-  });
-
-  // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
+  // Use the default visible columns defined in the constant
+  const visibleColumnIndices = DEFAULT_VISIBLE_INDICES;
 
   const dropdownSources = {
     "storage_type": ["FlashSystem", "DS8000", "Switch", "Data Domain"]
@@ -328,6 +313,33 @@ const StorageTable = () => {
     }
   };
 
+  // Reset table configuration
+  const handleResetConfiguration = async () => {
+    if (!customerId) return;
+    
+    const confirmed = window.confirm(
+      'Are you sure you want to reset the table configuration? This will restore default column visibility and clear all filters.'
+    );
+    
+    if (!confirmed) return;
+    
+    setResetingConfig(true);
+    try {
+      await axios.post('/api/core/table-config/reset/', {
+        customer: customerId,
+        table_name: 'storage'
+      });
+      
+      // Refresh the page to reload with default settings
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to reset table configuration:', error);
+      alert('Failed to reset table configuration. Please try again.');
+    } finally {
+      setResetingConfig(false);
+    }
+  };
+
   // Pre-save validation
   const beforeSaveValidation = (data) => {
     if (!customerId) {
@@ -362,7 +374,7 @@ const StorageTable = () => {
       <GenericTable
         ref={tableRef}
         apiUrl={apiUrl}
-        apiParams={{ customer: customerId }}  // Add this line
+        apiParams={{ customer: customerId }}
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
@@ -371,7 +383,7 @@ const StorageTable = () => {
           data: col.data,
           type: col.data === "storage_type" ? "dropdown" : undefined,
           className: col.data === "id" ? "htCenter" : undefined,
-          readOnly: col.data === "imported" || col.data === "updated"
+          readOnly: col.data === "imported" || col.data === "updated" || col.data === "db_volumes_count" || col.data === "db_hosts_count"
         }))}
         dropdownSources={dropdownSources}
         customRenderers={customRenderers}
@@ -385,9 +397,28 @@ const StorageTable = () => {
         dropdownMenu={false}
         storageKey="storageTableColumnWidths"
         defaultVisibleColumns={visibleColumnIndices}
+        tableName="storage"
         getExportFilename={() => `${config?.customer?.name}_Storage_Table.csv`}
         additionalButtons={
           <>
+            <button
+              className="btn btn-outline-secondary btn-sm"
+              onClick={handleResetConfiguration}
+              disabled={resetingConfig}
+              title="Reset table configuration to default settings"
+            >
+              {resetingConfig ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                  Resetting...
+                </>
+              ) : (
+                <>
+                  <i className="fa fa-refresh me-1"></i>
+                  Reset Config
+                </>
+              )}
+            </button>
             {debug && (
               <div style={{ fontSize: '12px', color: '#666', marginLeft: '10px' }}>
                 Debug: {JSON.stringify(debug, null, 2)}
