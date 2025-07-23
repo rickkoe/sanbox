@@ -252,44 +252,6 @@ const TableHeader = ({
             </div>
           </div>
           
-          {/* Filter Status Indicator */}
-          {Object.keys(columnFilters).length > 0 && (
-            <div className="filter-status-indicator" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginLeft: '12px',
-              padding: '6px 12px',
-              backgroundColor: '#fef3c7',
-              border: '1px solid #f59e0b',
-              borderRadius: '6px',
-              fontSize: '13px',
-              color: '#92400e'
-            }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
-              </svg>
-              <span>{Object.keys(columnFilters).length} filter{Object.keys(columnFilters).length > 1 ? 's' : ''} active</span>
-              {onClearAllFilters && (
-                <button
-                  onClick={onClearAllFilters}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#92400e',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    textDecoration: 'underline',
-                    padding: '0',
-                    marginLeft: '4px'
-                  }}
-                  title="Clear all filters"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="header-right">
