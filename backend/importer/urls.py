@@ -18,4 +18,8 @@ urlpatterns = [
     # API credentials management
     path('credentials/', views.api_credentials, name='api_credentials_list'),
     path('credentials/<int:customer_id>/', views.api_credentials, name='api_credentials_detail'),
+    
+    # Selective import endpoints
+    path('fetch-systems/', views.fetch_storage_systems, name='fetch_storage_systems'),
+    path('start-selective/', views.start_selective_import, name='start_selective_import'),
 ]

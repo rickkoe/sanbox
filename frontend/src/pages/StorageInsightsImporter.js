@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
 import { useImportStatus } from "../context/ImportStatusContext";
@@ -13,17 +14,31 @@ import {
   Modal,
   Badge,
   ProgressBar,
+  Row,
+  Col,
 } from "react-bootstrap";
 
 const StorageInsightsImporter = () => {
+  const navigate = useNavigate();
   const { config } = useContext(ConfigContext);
   const { isImportRunning, currentImport, importProgress, startImport: startGlobalImport, cancelImport } = useImportStatus();
+  
+  // State for the new selective import interface
+  const [fetchingStorageSystems, setFetchingStorageSystems] = useState(false);
+  const [availableStorageSystems, setAvailableStorageSystems] = useState([]);
+  const [selectedSystems, setSelectedSystems] = useState({});
+  const [importOptions, setImportOptions] = useState({
+    storage_systems: true,
+    volumes: true,
+    hosts: true,
+    // Future expansion: performance_data, alerts, etc.
+  });
+  
+  // Legacy state
   const [selectedImport, setSelectedImport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [importHistory, setImportHistory] = useState([]);
-  const [pollingActive, setPollingActive] = useState(false);
-  const [taskProgress, setTaskProgress] = useState(null);
   const [historyModal, setHistoryModal] = useState({ show: false, imports: [] });
   const [showLogsModal, setShowLogsModal] = useState(false);
 
@@ -32,11 +47,53 @@ const StorageInsightsImporter = () => {
     config?.customer?.insights_tenant && config?.customer?.insights_api_key
   );
 
-
-  // Start new import
-  const startImport = async () => {
+  // Fetch available storage systems from Storage Insights
+  const fetchStorageSystems = async () => {
     if (!hasInsightsCredentials) {
       setError('No Storage Insights credentials configured for this customer.');
+      return;
+    }
+
+    setFetchingStorageSystems(true);
+    setError(null);
+    setAvailableStorageSystems([]);
+
+    try {
+      // First save/update credentials
+      await axios.post('/api/importer/credentials/', {
+        customer_id: config.customer.id,
+        insights_tenant: config.customer.insights_tenant,
+        insights_api_key: config.customer.insights_api_key
+      });
+
+      // Fetch available storage systems
+      const response = await axios.post('/api/importer/fetch-systems/', {
+        customer_id: config.customer.id
+      });
+
+      setAvailableStorageSystems(response.data.storage_systems || []);
+      
+      // Initialize all systems as selected by default
+      const initialSelection = {};
+      response.data.storage_systems.forEach(system => {
+        initialSelection[system.serial] = true;
+      });
+      setSelectedSystems(initialSelection);
+      
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to fetch storage systems');
+      setAvailableStorageSystems([]);
+    } finally {
+      setFetchingStorageSystems(false);
+    }
+  };
+
+  // Start selective import
+  const startSelectiveImport = async () => {
+    const selectedSystemSerials = Object.keys(selectedSystems).filter(serial => selectedSystems[serial]);
+    
+    if (selectedSystemSerials.length === 0) {
+      setError('Please select at least one storage system to import.');
       return;
     }
 
@@ -44,105 +101,53 @@ const StorageInsightsImporter = () => {
     setError(null);
 
     try {
-      // First save/update credentials in the new importer system
-      await axios.post('/api/importer/credentials/', {
+      const response = await axios.post('/api/importer/start-selective/', {
         customer_id: config.customer.id,
-        insights_tenant: config.customer.insights_tenant,
-        insights_api_key: config.customer.insights_api_key
-      });
-
-      // Then start the import
-      const response = await axios.post('/api/importer/start/', {
-        customer_id: config.customer.id
+        selected_systems: selectedSystemSerials,
+        import_options: importOptions
       });
 
       // Update global import status
       startGlobalImport(response.data);
-      
-      // Also update local state for immediate feedback
-      setPollingActive(true);
-      setLoading(false); // Clear loading state immediately after successful start
+      setLoading(false);
       
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to start import');
+      setError(err.response?.data?.error || err.message || 'Failed to start selective import');
       setLoading(false);
     }
   };
 
-  // Poll task progress (new async method)
-  const pollTaskProgress = async (taskId, importId) => {
-    let pollInterval;
-    
-    const pollProgress = async () => {
-      try {
-        const progressResponse = await axios.get(`/api/importer/progress/${taskId}/`);
-        const progress = progressResponse.data;
-        
-        setTaskProgress(progress);
-        
-        // If task is complete, get final import status
-        if (progress.state === 'SUCCESS' || progress.state === 'FAILURE') {
-          clearInterval(pollInterval);
-          setPollingActive(false);
-          setLoading(false);
-          
-          // Get final import details (handled by global context)
-          console.log('Import task completed');
-          
-          // Refresh import history
-          fetchImportHistory();
-        }
-      } catch (err) {
-        console.error('Error polling task progress:', err);
-        // Fallback to regular status polling
-        clearInterval(pollInterval);
-        pollImportStatus(importId);
-      }
-    };
-
-    // Start polling immediately and then every 2 seconds
-    pollProgress();
-    pollInterval = setInterval(pollProgress, 2000);
-
-    // Stop polling after 15 minutes
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      setPollingActive(false);
-      setLoading(false);
-    }, 900000);
+  // Toggle system selection
+  const toggleSystemSelection = (serial) => {
+    setSelectedSystems(prev => ({
+      ...prev,
+      [serial]: !prev[serial]
+    }));
   };
 
-  // Poll import status (fallback method)
-  const pollImportStatus = async (importId) => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await axios.get(`/api/importer/status/${importId}/`);
-        const importData = response.data;
-        
-        // Import data is now handled by global context
-        
-        if (importData.status === 'completed' || importData.status === 'failed') {
-          clearInterval(pollInterval);
-          setPollingActive(false);
-          setLoading(false);
-          
-          // Refresh import history
-          fetchImportHistory();
-        }
-      } catch (err) {
-        console.error('Error polling import status:', err);
-        clearInterval(pollInterval);
-        setPollingActive(false);
-        setLoading(false);
-      }
-    }, 2000);
+  // Toggle all systems
+  const toggleAllSystems = () => {
+    const allSelected = Object.values(selectedSystems).every(selected => selected);
+    const newSelection = {};
+    availableStorageSystems.forEach(system => {
+      newSelection[system.serial] = !allSelected;
+    });
+    setSelectedSystems(newSelection);
+  };
 
-    // Stop polling after 10 minutes
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      setPollingActive(false);
-      setLoading(false);
-    }, 600000);
+  // Toggle import option
+  const toggleImportOption = (option) => {
+    setImportOptions(prev => ({
+      ...prev,
+      [option]: !prev[option]
+    }));
+  };
+
+  // Reset to fetch new systems
+  const resetToFetch = () => {
+    setAvailableStorageSystems([]);
+    setSelectedSystems({});
+    setError(null);
   };
 
   // Fetch import history
@@ -169,7 +174,6 @@ const StorageInsightsImporter = () => {
   // Refresh import history when import status changes
   useEffect(() => {
     if (currentImport && currentImport.status !== 'running') {
-      // Import completed (success or failure), refresh history
       fetchImportHistory();
     }
   }, [currentImport?.status]);
@@ -220,13 +224,15 @@ const StorageInsightsImporter = () => {
 
   // Get status badge color
   const getStatusBadge = (status) => {
+    if (!status) return "secondary";
+    
     const statusMap = {
       pending: "warning",
-      running: "primary",
+      running: "primary", 
       completed: "success",
       failed: "danger",
     };
-    return statusMap[status] || "secondary";
+    return statusMap[status.toLowerCase()] || "secondary";
   };
 
   // Cancel import handler
@@ -247,7 +253,6 @@ const StorageInsightsImporter = () => {
       
       if (result.success) {
         setError(null);
-        // Refresh import history
         await fetchImportHistory();
       } else {
         setError(result.message);
@@ -259,9 +264,9 @@ const StorageInsightsImporter = () => {
     }
   };
 
-  // Check if import is currently running (use global status)
-  // Only rely on isImportRunning from context as it's the authoritative source
   const isCurrentlyImporting = isImportRunning;
+  const selectedSystemCount = Object.values(selectedSystems).filter(Boolean).length;
+  const selectedOptionsCount = Object.values(importOptions).filter(Boolean).length;
 
   return (
     <div className="container mt-4">
@@ -293,19 +298,28 @@ const StorageInsightsImporter = () => {
             </Alert>
           ) : (
             <>
-              <div className="mb-4">
-                <p className="mb-1">
-                  Import storage data from IBM Storage Insights for:
-                  <strong> {config?.customer?.name}</strong>
-                </p>
-                <small className="text-muted">
-                  Tenant: {config?.customer?.insights_tenant}
-                </small>
+              <div className="mb-4 d-flex justify-content-between align-items-center">
+                <div>
+                  <p className="mb-1">
+                    Import storage data from IBM Storage Insights for:
+                    <strong> {config?.customer?.name}</strong>
+                  </p>
+                  <small className="text-muted">
+                    Tenant: {config?.customer?.insights_tenant}
+                  </small>
+                </div>
+                {config?.customer?.insights_tenant && (
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    href={`https://insights.ibm.com/cui/${config.customer.insights_tenant}/dashboard`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Go To Storage Insights
+                  </Button>
+                )}
               </div>
-
-              <Alert variant="info">
-                <strong>Background Import System</strong> - This streamlined importer runs in the background and automatically imports all available storage systems, volumes, and hosts from IBM Storage Insights. You can navigate to other pages while the import is running.
-              </Alert>
 
               {error && <Alert variant="danger">{error}</Alert>}
 
@@ -315,7 +329,7 @@ const StorageInsightsImporter = () => {
                   <Card.Header className="d-flex justify-content-between align-items-center">
                     <span>Current Import Status</span>
                     <Badge bg={getStatusBadge(currentImport.status)}>
-                      {currentImport.status.toUpperCase()}
+                      {currentImport.status ? currentImport.status.toUpperCase() : 'UNKNOWN'}
                     </Badge>
                   </Card.Header>
                   <Card.Body>
@@ -362,7 +376,6 @@ const StorageInsightsImporter = () => {
                       </div>
                     )}
                     
-                    {/* Always show View Logs button and Cancel button (when appropriate) */}
                     <div className="mt-3 d-flex justify-content-between">
                       <Button 
                         variant="outline-info" 
@@ -397,21 +410,29 @@ const StorageInsightsImporter = () => {
                       <div className="mt-3">
                         <div className="row text-center">
                           <div className="col">
-                            <strong>{currentImport.storage_systems_imported}</strong><br />
+                            <strong>{currentImport.storage_systems_imported || 0}</strong><br />
                             <small className="text-muted">Storage Systems</small>
                           </div>
                           <div className="col">
-                            <strong>{currentImport.volumes_imported}</strong><br />
+                            <strong>{currentImport.volumes_imported || 0}</strong><br />
                             <small className="text-muted">Volumes</small>
                           </div>
                           <div className="col">
-                            <strong>{currentImport.hosts_imported}</strong><br />
+                            <strong>{currentImport.hosts_imported || 0}</strong><br />
                             <small className="text-muted">Hosts</small>
                           </div>
                           <div className="col">
-                            <strong>{currentImport.total_items_imported}</strong><br />
+                            <strong>{currentImport.total_items_imported || 0}</strong><br />
                             <small className="text-muted">Total Items</small>
                           </div>
+                        </div>
+                        <div className="text-center mt-3">
+                          <Button
+                            variant="success"
+                            onClick={() => navigate('/storage')}
+                          >
+                            View Storage Systems
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -425,33 +446,168 @@ const StorageInsightsImporter = () => {
                 </Card>
               )}
 
-              {/* Import Actions */}
-              <div className="text-center py-4">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={startImport}
-                  disabled={isCurrentlyImporting}
-                >
-                  {isCurrentlyImporting ? (
-                    <>
-                      <Spinner as="span" animation="border" size="sm" className="me-2" />
-                      Import Running...
-                    </>
+              {/* Main Import Interface */}
+              {!isCurrentlyImporting && (
+                <>
+                  {availableStorageSystems.length === 0 ? (
+                    // Step 1: Fetch Storage Systems
+                    <Card className="mb-4">
+                      <Card.Header>
+                        <h6 className="mb-0">Step 1: Discover Storage Systems</h6>
+                      </Card.Header>
+                      <Card.Body>
+                        <p className="mb-3">
+                          First, we'll connect to IBM Storage Insights to discover available storage systems.
+                        </p>
+                        <Button
+                          variant="primary"
+                          onClick={fetchStorageSystems}
+                          disabled={fetchingStorageSystems}
+                        >
+                          {fetchingStorageSystems ? (
+                            <>
+                              <Spinner as="span" animation="border" size="sm" className="me-2" />
+                              Fetching Storage Systems...
+                            </>
+                          ) : (
+                            'Fetch Storage Systems'
+                          )}
+                        </Button>
+                      </Card.Body>
+                    </Card>
                   ) : (
-                    'Start New Import'
-                  )}
-                </Button>
-                
-                {!isCurrentlyImporting && importHistory.length > 0 && (
-                  <div className="mt-2">
-                    <small className="text-muted">
-                      Last import: {formatDate(importHistory[0]?.started_at)}
-                    </small>
-                  </div>
-                )}
-              </div>
+                    // Step 2: Select Systems and Options
+                    <>
+                      <Card className="mb-4">
+                        <Card.Header className="d-flex justify-content-between align-items-center">
+                          <h6 className="mb-0">Step 2: Select Storage Systems ({selectedSystemCount} of {availableStorageSystems.length} selected)</h6>
+                          <Button variant="outline-secondary" size="sm" onClick={resetToFetch}>
+                            Fetch Different Systems
+                          </Button>
+                        </Card.Header>
+                        <Card.Body>
+                          <div className="mb-3">
+                            <Button 
+                              variant="outline-primary" 
+                              size="sm" 
+                              onClick={toggleAllSystems}
+                            >
+                              {Object.values(selectedSystems).every(selected => selected) ? 'Deselect All' : 'Select All'}
+                            </Button>
+                          </div>
+                          
+                          <Table striped hover responsive>
+                            <thead>
+                              <tr>
+                                <th width="50">Select</th>
+                                <th>Storage System</th>
+                                <th>Serial Number</th>
+                                <th>Model</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {availableStorageSystems.map((system) => (
+                                <tr key={system.serial}>
+                                  <td>
+                                    <Form.Check
+                                      type="checkbox"
+                                      checked={selectedSystems[system.serial] || false}
+                                      onChange={() => toggleSystemSelection(system.serial)}
+                                    />
+                                  </td>
+                                  <td><strong>{system.name}</strong></td>
+                                  <td><code>{system.serial}</code></td>
+                                  <td>{system.model}</td>
+                                  <td>
+                                    <Badge bg={system.status === 'online' ? 'success' : 'warning'}>
+                                      {system.status}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </Card.Body>
+                      </Card>
 
+                      <Card className="mb-4">
+                        <Card.Header>
+                          <h6 className="mb-0">Step 3: Choose What to Import ({selectedOptionsCount} options selected)</h6>
+                        </Card.Header>
+                        <Card.Body>
+                          <Row>
+                            <Col md={4}>
+                              <Form.Check
+                                type="checkbox"
+                                label="Storage Systems"
+                                checked={importOptions.storage_systems}
+                                onChange={() => toggleImportOption('storage_systems')}
+                              />
+                              <small className="text-muted">Import basic storage system information</small>
+                            </Col>
+                            <Col md={4}>
+                              <Form.Check
+                                type="checkbox"
+                                label="Volumes"
+                                checked={importOptions.volumes}
+                                onChange={() => toggleImportOption('volumes')}
+                              />
+                              <small className="text-muted">Import volume and LUN data</small>
+                            </Col>
+                            <Col md={4}>
+                              <Form.Check
+                                type="checkbox"
+                                label="Hosts"
+                                checked={importOptions.hosts}
+                                onChange={() => toggleImportOption('hosts')}
+                              />
+                              <small className="text-muted">Import host connection information</small>
+                            </Col>
+                          </Row>
+                          
+                          {/* Future expansion area */}
+                          <Alert variant="info" className="mt-3 mb-0">
+                            <small>
+                              <strong>Coming Soon:</strong> Performance data, alerts, capacity forecasting, and more import options will be available in future updates.
+                            </small>
+                          </Alert>
+                        </Card.Body>
+                      </Card>
+
+                      <div className="text-center py-3">
+                        <Button
+                          variant="success"
+                          size="lg"
+                          onClick={startSelectiveImport}
+                          disabled={selectedSystemCount === 0 || selectedOptionsCount === 0 || loading}
+                        >
+                          {loading ? (
+                            <>
+                              <Spinner as="span" animation="border" size="sm" className="me-2" />
+                              Starting Import...
+                            </>
+                          ) : (
+                            `Import ${selectedSystemCount} Storage System${selectedSystemCount !== 1 ? 's' : ''}`
+                          )}
+                        </Button>
+                        
+                        {selectedSystemCount === 0 && (
+                          <div className="mt-2">
+                            <small className="text-danger">Please select at least one storage system</small>
+                          </div>
+                        )}
+                        
+                        {selectedOptionsCount === 0 && (
+                          <div className="mt-2">
+                            <small className="text-danger">Please select at least one import option</small>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
 
               {/* Recent Imports Summary */}
               {importHistory.length > 0 && (
@@ -472,7 +628,6 @@ const StorageInsightsImporter = () => {
                         <tr>
                           <th>Started</th>
                           <th>Status</th>
-                          <th>Duration</th>
                           <th>Systems</th>
                           <th>Volumes</th>
                           <th>Hosts</th>
@@ -480,7 +635,7 @@ const StorageInsightsImporter = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {importHistory.slice(0, 5).map((importRecord) => (
+                        {importHistory.slice(0, 3).map((importRecord) => (
                           <tr key={importRecord.id}>
                             <td>{formatDate(importRecord.started_at)}</td>
                             <td>
@@ -488,10 +643,9 @@ const StorageInsightsImporter = () => {
                                 {importRecord.status}
                               </Badge>
                             </td>
-                            <td>{importRecord.duration || '-'}</td>
-                            <td>{importRecord.storage_systems_imported}</td>
-                            <td>{importRecord.volumes_imported}</td>
-                            <td>{importRecord.hosts_imported}</td>
+                            <td>{importRecord.storage_systems_imported || 0}</td>
+                            <td>{importRecord.volumes_imported || 0}</td>
+                            <td>{importRecord.hosts_imported || 0}</td>
                             <td>
                               <Button 
                                 variant="outline-info" 
@@ -508,13 +662,6 @@ const StorageInsightsImporter = () => {
                         ))}
                       </tbody>
                     </Table>
-                    {importHistory.length > 5 && (
-                      <div className="text-center mt-2">
-                        <Button variant="outline-primary" size="sm" onClick={showImportHistory}>
-                          View All ({importHistory.length} total)
-                        </Button>
-                      </div>
-                    )}
                   </Card.Body>
                 </Card>
               )}
@@ -522,7 +669,6 @@ const StorageInsightsImporter = () => {
           )}
         </Card.Body>
       </Card>
-
 
       {/* Import History Modal */}
       {historyModal.show && (
@@ -559,10 +705,10 @@ const StorageInsightsImporter = () => {
                         </Badge>
                       </td>
                       <td>{importRecord.duration || '-'}</td>
-                      <td>{importRecord.storage_systems_imported}</td>
-                      <td>{importRecord.volumes_imported}</td>
-                      <td>{importRecord.hosts_imported}</td>
-                      <td><strong>{importRecord.total_items_imported}</strong></td>
+                      <td>{importRecord.storage_systems_imported || 0}</td>
+                      <td>{importRecord.volumes_imported || 0}</td>
+                      <td>{importRecord.hosts_imported || 0}</td>
+                      <td><strong>{importRecord.total_items_imported || 0}</strong></td>
                       <td>
                         <Button 
                           variant="outline-info" 
@@ -587,6 +733,15 @@ const StorageInsightsImporter = () => {
             )}
           </Modal.Body>
           <Modal.Footer>
+            <Button
+              variant="outline-danger"
+              onClick={async () => {
+                await clearImportHistory();
+                setHistoryModal({ show: false, imports: [] });
+              }}
+            >
+              Clear History
+            </Button>
             <Button
               variant="secondary"
               onClick={() => setHistoryModal({ show: false, imports: [] })}

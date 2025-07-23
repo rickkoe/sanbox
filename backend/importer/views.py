@@ -414,3 +414,100 @@ def clear_import_history(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def fetch_storage_systems(request):
+    """Fetch available storage systems from IBM Storage Insights without importing"""
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+        
+        customer = get_object_or_404(Customer, id=customer_id)
+        
+        # Check API credentials
+        if not customer.insights_api_key or not customer.insights_tenant:
+            return JsonResponse({
+                'error': 'No Storage Insights API credentials configured for this customer'
+            }, status=400)
+        
+        # Create API client and fetch storage systems
+        from .api_client import StorageInsightsClient
+        client = StorageInsightsClient(customer.insights_tenant, customer.insights_api_key)
+        storage_systems = client.get_storage_systems()
+        
+        # Format the response for the frontend
+        formatted_systems = []
+        for system in storage_systems:
+            formatted_systems.append({
+                'serial': system.get('serial_number', system.get('id', 'unknown')),
+                'name': system.get('name', system.get('display_name', 'Unknown System')),
+                'model': system.get('model', system.get('product_name', 'Unknown Model')),
+                'status': system.get('status', 'unknown').lower(),
+                'raw_data': system  # Include raw data for debugging
+            })
+        
+        return JsonResponse({
+            'storage_systems': formatted_systems,
+            'count': len(formatted_systems)
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def start_selective_import(request):
+    """Start a selective import for specific storage systems and data types"""
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        selected_systems = data.get('selected_systems', [])
+        import_options = data.get('import_options', {})
+        
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+        
+        if not selected_systems:
+            return JsonResponse({'error': 'selected_systems required'}, status=400)
+        
+        customer = get_object_or_404(Customer, id=customer_id)
+        
+        # Create import record with selective options stored for future use
+        import_record = StorageImport.objects.create(
+            customer=customer,
+            status='pending',
+            api_response_summary={
+                'selective_import': True,
+                'selected_systems': selected_systems,
+                'import_options': import_options,
+                'note': 'Selective import - currently imports all data but options stored for future implementation'
+            }
+        )
+        
+        # For now, use the existing import task
+        # TODO: Create a new selective import task that respects the selective options
+        from .tasks import run_simple_import_task
+        
+        task = run_simple_import_task.delay(import_record.id)
+        
+        # Update import record with task ID
+        import_record.celery_task_id = task.id
+        import_record.status = 'running'
+        import_record.save()
+        
+        return JsonResponse({
+            'message': 'Selective import started successfully',
+            'import_id': import_record.id,
+            'task_id': task.id,
+            'selected_systems_count': len(selected_systems),
+            'import_options': import_options
+        }, status=201)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
