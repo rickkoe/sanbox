@@ -9,13 +9,22 @@ const AdvancedFilter = ({
   quickSearch,
   setQuickSearch,
   onFilterChange,
-  data = []
+  data = [],
+  initialFilters = {}
 }) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [activeFilters, setActiveFilters] = useState({});
   const [filterDropdownPosition, setFilterDropdownPosition] = useState({ top: 0, left: 0 });
   const [activeColumn, setActiveColumn] = useState(null);
   const [columnSearch, setColumnSearch] = useState('');
+
+  // Synchronize activeFilters with initialFilters (from persisted configuration)
+  useEffect(() => {
+    if (initialFilters && Object.keys(initialFilters).length > 0) {
+      console.log('AdvancedFilter: Setting activeFilters from initialFilters:', initialFilters);
+      setActiveFilters(initialFilters);
+    }
+  }, [initialFilters]);
   
   const filterButtonRef = useRef(null);
   const filterDropdownRef = useRef(null);

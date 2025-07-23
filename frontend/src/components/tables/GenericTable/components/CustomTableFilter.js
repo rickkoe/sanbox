@@ -100,6 +100,7 @@ const CustomTableFilter = ({
 
   const visibleCols = getVisibleColumns();
 
+
   return (
     <div className="custom-table-filter">
       {/* Filter Bar */}
@@ -107,8 +108,17 @@ const CustomTableFilter = ({
         <div className="filter-buttons">
           {visibleCols.map((column, displayIndex) => {
             const originalIndex = column.originalIndex;
-            const hasFilter = filters[originalIndex];
+            const filter = filters[originalIndex];
+            const hasFilter = !!filter && (
+              // Text-based filters (contains, equals, starts_with, ends_with, not_contains)
+              (['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(filter.type) && 
+               filter.value && typeof filter.value === 'string' && filter.value.trim() !== '') ||
+              // Multi-select filters
+              (filter.type === 'multi_select' && 
+               Array.isArray(filter.value) && filter.value.length > 0)
+            );
             const headerText = colHeaders[originalIndex] || column.data;
+            
             
             return (
               <button
@@ -164,15 +174,75 @@ const FilterDropdown = React.forwardRef(({
   onFilterUpdate,
   onClose
 }, ref) => {
-  const [filterType, setFilterType] = useState(currentFilter?.type || 'text');
-  const [textFilter, setTextFilter] = useState({
-    condition: currentFilter?.condition || 'contains',
-    value: currentFilter?.value || ''
-  });
-  const [selectedValues, setSelectedValues] = useState(
-    new Set(currentFilter?.selectedValues || uniqueValues)
-  );
+  // Initialize state based on GenericTable filter format
+  const initializeState = (filter) => {
+    if (!filter) {
+      return {
+        filterType: 'text',
+        textFilter: { condition: 'contains', value: '' },
+        selectedValues: new Set(uniqueValues)
+      };
+    }
+    
+    if (['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(filter.type)) {
+      return {
+        filterType: 'text',
+        textFilter: { condition: filter.type, value: filter.value || '' },
+        selectedValues: new Set(uniqueValues)
+      };
+    } else if (filter.type === 'multi_select') {
+      return {
+        filterType: 'values',
+        textFilter: { condition: 'contains', value: '' },
+        selectedValues: new Set(Array.isArray(filter.value) ? filter.value : uniqueValues)
+      };
+    } else {
+      return {
+        filterType: 'text',
+        textFilter: { condition: 'contains', value: filter.value || '' },
+        selectedValues: new Set(uniqueValues)
+      };
+    }
+  };
+
+  const initialState = initializeState(currentFilter);
+  const [filterType, setFilterType] = useState(initialState.filterType);
+  const [textFilter, setTextFilter] = useState(initialState.textFilter);
+  const [selectedValues, setSelectedValues] = useState(initialState.selectedValues);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Update state when currentFilter changes (when dropdown reopens with different filter)
+  useEffect(() => {
+    if (currentFilter) {
+      // Convert GenericTable format to CustomTableFilter format
+      if (['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(currentFilter.type)) {
+        // Text-based filter
+        setFilterType('text');
+        setTextFilter({
+          condition: currentFilter.type,
+          value: currentFilter.value || ''
+        });
+        setSelectedValues(new Set(uniqueValues));
+      } else if (currentFilter.type === 'multi_select') {
+        // Multi-select filter
+        setFilterType('values');
+        setTextFilter({ condition: 'contains', value: '' });
+        const selectedVals = Array.isArray(currentFilter.value) ? currentFilter.value : [];
+        setSelectedValues(new Set(selectedVals));
+      } else {
+        // Fallback
+        setFilterType('text');
+        setTextFilter({ condition: 'contains', value: currentFilter.value || '' });
+        setSelectedValues(new Set(uniqueValues));
+      }
+    } else {
+      // Reset to defaults when no current filter
+      setFilterType('text');
+      setTextFilter({ condition: 'contains', value: '' });
+      setSelectedValues(new Set(uniqueValues));
+    }
+    setSearchTerm(''); // Always reset search term
+  }, [currentFilter, uniqueValues]);
 
   const textConditions = [
     { value: 'contains', label: 'Contains' },
@@ -189,9 +259,9 @@ const FilterDropdown = React.forwardRef(({
   const handleApplyFilter = () => {
     if (filterType === 'text') {
       if (textFilter.value.trim()) {
+        // Convert CustomTableFilter format to GenericTable format
         onFilterUpdate({
-          type: 'text',
-          condition: textFilter.condition,
+          type: textFilter.condition, // contains, equals, starts_with, etc.
           value: textFilter.value.trim()
         });
       } else {
@@ -201,9 +271,10 @@ const FilterDropdown = React.forwardRef(({
       if (selectedValues.size === uniqueValues.length || selectedValues.size === 0) {
         onFilterUpdate(null);
       } else {
+        // Convert CustomTableFilter format to GenericTable format
         onFilterUpdate({
-          type: 'values',
-          selectedValues: Array.from(selectedValues)
+          type: 'multi_select',
+          value: Array.from(selectedValues)
         });
       }
     }

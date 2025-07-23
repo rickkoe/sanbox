@@ -301,6 +301,7 @@ const TableHeader = ({
             setQuickSearch={setQuickSearch}
             onFilterChange={onFilterChange}
             data={data}
+            initialFilters={columnFilters}
           />
           
           <StatsContainer

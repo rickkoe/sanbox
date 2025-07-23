@@ -210,10 +210,21 @@ const GenericTable = forwardRef(({
 
   // Load saved filters when configuration is loaded
   useEffect(() => {
+    console.log('Filter loading check:', { isConfigLoaded, 'tableConfig?.filters': tableConfig?.filters });
     if (isConfigLoaded && tableConfig?.filters && Object.keys(tableConfig.filters).length > 0) {
+      console.log('Loading filters from config:', tableConfig.filters);
       setColumnFilters(tableConfig.filters);
+    } else if (isConfigLoaded) {
+      console.log('No filters to load, tableConfig:', tableConfig);
     }
   }, [isConfigLoaded, tableConfig?.filters]);
+
+  // Log column widths loading
+  useEffect(() => {
+    if (isConfigLoaded && tableConfig?.column_widths) {
+      console.log('Column widths available in config:', tableConfig.column_widths);
+    }
+  }, [isConfigLoaded, tableConfig?.column_widths]);
 
   // Save filters when they change (with debouncing to prevent excessive calls)
   useEffect(() => {
@@ -286,6 +297,39 @@ const GenericTable = forwardRef(({
   // Current visible columns and headers
   const enhancedColumns = createVisibleColumns();
   const visibleColHeaders = createVisibleHeaders();
+
+  // Convert saved column widths to array format for Handsontable
+  const getColumnWidths = () => {
+    if (tableConfig?.column_widths && Object.keys(tableConfig.column_widths).length > 0) {
+      // Convert saved widths (header name -> width) to array format for visible columns
+      const widths = visibleColHeaders.map(header => {
+        const savedWidth = tableConfig.column_widths[header];
+        return savedWidth || undefined; // undefined lets Handsontable use auto width
+      });
+      console.log('Using saved column widths:', tableConfig.column_widths, 'converted to:', widths);
+      return widths;
+    }
+    
+    // Fallback to localStorage for backward compatibility
+    if (storageKey) {
+      try {
+        const savedWidths = localStorage.getItem(storageKey);
+        if (savedWidths) {
+          const parsedWidths = JSON.parse(savedWidths);
+          if (Array.isArray(parsedWidths) && parsedWidths.length === visibleColHeaders.length) {
+            return parsedWidths;
+          }
+        }
+      } catch (error) {
+        console.warn('Error parsing saved column widths from localStorage:', error);
+      }
+    }
+    
+    // Use provided colWidths prop as final fallback
+    return colWidths;
+  };
+
+  const dynamicColWidths = getColumnWidths();
 
   // Context menu handler
   const handleAfterContextMenu = (key, selection) => {
@@ -470,11 +514,29 @@ const GenericTable = forwardRef(({
   const handleAfterColumnResize = (currentColumn, newSize, isDoubleClick) => {
     if (tableRef.current && tableRef.current.hotInstance) {
       const totalCols = tableRef.current.hotInstance.countCols();
-      const widths = [];
+      const widths = {};
+      
+      // Create column widths object mapping column headers to widths
       for (let i = 0; i < totalCols; i++) {
-        widths.push(tableRef.current.hotInstance.getColWidth(i));
+        const width = tableRef.current.hotInstance.getColWidth(i);
+        const headerName = visibleColHeaders[i];
+        if (headerName) {
+          widths[headerName] = width;
+        }
       }
-      localStorage.setItem(storageKey || "tableColumnWidths", JSON.stringify(widths));
+      
+      // Save to table configuration if available, otherwise fallback to localStorage
+      if (!configError && updateConfig) {
+        console.log('Saving column widths to table configuration:', widths);
+        updateConfig('column_widths', widths);
+      } else {
+        // Fallback to localStorage for backward compatibility
+        const widthsArray = [];
+        for (let i = 0; i < totalCols; i++) {
+          widthsArray.push(tableRef.current.hotInstance.getColWidth(i));
+        }
+        localStorage.setItem(storageKey || "tableColumnWidths", JSON.stringify(widthsArray));
+      }
     }
   };
 
@@ -670,6 +732,7 @@ const GenericTable = forwardRef(({
           initialFilters={columnFilters}
         />
       )}
+      
 
       <div 
         ref={containerRef} 
@@ -747,7 +810,7 @@ const GenericTable = forwardRef(({
               contextMenu={enhancedContextMenu}
               afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
               beforeRemoveRow={() => false}
-              colWidths={colWidths}
+              colWidths={dynamicColWidths}
               cells={getCellsConfig ? cellsFunc : undefined}
               viewportRowRenderingOffset={10}
               viewportColumnRenderingOffset={10}
