@@ -218,7 +218,7 @@ const TableHeader = ({
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
                 </svg>
-                Data
+                Actions
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="dropdown-arrow">
                   <polyline points="6,9 12,15 18,9"/>
                 </svg>
@@ -242,7 +242,7 @@ const TableHeader = ({
                   <circle cx="12" cy="12" r="3"/>
                   <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
                 </svg>
-                View
+                Columns
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="dropdown-arrow">
                   <polyline points="6,9 12,15 18,9"/>
                 </svg>

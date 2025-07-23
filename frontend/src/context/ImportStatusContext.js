@@ -27,6 +27,11 @@ export const ImportStatusProvider = ({ children }) => {
       const response = await axios.get('/api/importer/history/');
       const runningImport = response.data.find(imp => imp.status === 'running');
       
+      console.log('Checking for running imports, found:', runningImport ? 'YES' : 'NO');
+      if (response.data.length > 0) {
+        console.log('Most recent import status:', response.data[0].status);
+      }
+      
       if (runningImport) {
         setCurrentImport(runningImport);
         setIsImportRunning(true);
@@ -37,6 +42,7 @@ export const ImportStatusProvider = ({ children }) => {
         }
       } else {
         // No running imports found, clear running state
+        console.log('No running imports found, clearing running state');
         setIsImportRunning(false);
         setImportProgress(null);
         
@@ -72,11 +78,12 @@ export const ImportStatusProvider = ({ children }) => {
           
           // If import is no longer running in database, stop monitoring
           if (importStatus.status !== 'running') {
+            console.log('Import no longer running in database, status:', importStatus.status);
             setIsImportRunning(false);
             setImportProgress(null);
             if (progressInterval) clearInterval(progressInterval);
-            // Trigger a final refresh of import history
-            checkForRunningImports();
+            // Trigger a final refresh of import history to update UI
+            setTimeout(() => checkForRunningImports(), 500);
             return;
           }
         }
@@ -101,18 +108,27 @@ export const ImportStatusProvider = ({ children }) => {
             setImportProgress(progress);
             setIsImportRunning(true);
           } else if (progress.state === 'SUCCESS') {
-            // Task completed successfully
+            // Task completed successfully - immediately clear running state
+            console.log('Task completed successfully, clearing import status');
             setImportProgress({
               state: 'SUCCESS',
               current: 100,
               total: 100,
               status: 'Import completed successfully!'
             });
-            // Continue polling for a bit to catch database updates
+            
+            // Immediately clear the running state
+            setIsImportRunning(false);
+            if (progressInterval) clearInterval(progressInterval);
+            
+            // Update the import status after a brief delay to catch database updates
             setTimeout(() => {
-              // Force a final status check after task completion
               checkForRunningImports();
-            }, 2000);
+              // Clear progress after showing completion message
+              setTimeout(() => {
+                setImportProgress(null);
+              }, 3000); // Show success message for 3 seconds
+            }, 1000);
           } else if (progress.state === 'FAILURE') {
             // Task failed
             setIsImportRunning(false);

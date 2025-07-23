@@ -663,6 +663,7 @@ const GenericTable = forwardRef(({
               licenseKey="non-commercial-and-evaluation"
               rowHeaders={false}
               columnSorting={columnSorting}
+              dragToScroll={true}
               filters={filters}
               dropdownMenu={dropdownMenu}
               width="100%"

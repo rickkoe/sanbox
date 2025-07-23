@@ -31,7 +31,7 @@ const ALL_COLUMNS = [
 ];
 
 // Default visible columns (show all by default for compatibility)
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7];
 
 // Template for new rows
 const NEW_ALIAS_TEMPLATE = {
