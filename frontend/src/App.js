@@ -52,6 +52,7 @@ const StorageInsightsImporter = React.lazy(() => import("./pages/StorageInsights
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
 const AliasImportPage = React.lazy(() => import("./pages/AliasImportPage"));
 const ZoneImportPage = React.lazy(() => import("./pages/ZoneImportPage"));
+const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -138,6 +139,7 @@ function AppContent() {
                     <Route path="/test" element={<TestFilters />} />
                     <Route path="/san/aliases/import" element={<AliasImportPage />} />
                     <Route path="/san/zones/import" element={<ZoneImportPage />} />
+                    <Route path="/san/bulk-import" element={<BulkZoningImportPage />} />
                   <Route
                     path="/insights/importer"
                     element={<StorageInsightsImporter />}

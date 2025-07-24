@@ -1,5 +1,5 @@
 import React from "react";
-import { FaNetworkWired, FaAddressBook, FaProjectDiagram } from "react-icons/fa";
+import { FaNetworkWired, FaAddressBook, FaProjectDiagram, FaFileImport } from "react-icons/fa";
 
 const SanPage = () => {
   return (
@@ -8,7 +8,7 @@ const SanPage = () => {
       
       <div className="row">
         {/* Fabrics Card */}
-        <div className="col-md-4 mb-4">
+        <div className="col-md-3 mb-4">
           <a href="/san/fabrics" className="home-card card text-center h-100">
             <div className="card-body">
               <FaNetworkWired size={48} className="home-icon mb-3" />
@@ -19,7 +19,7 @@ const SanPage = () => {
         </div>
         
         {/* Aliases Card */}
-        <div className="col-md-4 mb-4">
+        <div className="col-md-3 mb-4">
           <a href="/san/aliases" className="home-card card text-center h-100">
             <div className="card-body">
               <FaAddressBook size={48} className="home-icon mb-3" />
@@ -30,12 +30,23 @@ const SanPage = () => {
         </div>
         
         {/* Zones Card */}
-        <div className="col-md-4 mb-4">
+        <div className="col-md-3 mb-4">
           <a href="/san/zones" className="home-card card text-center h-100">
             <div className="card-body">
               <FaProjectDiagram size={48} className="home-icon mb-3" />
               <h5 className="card-title">Zones</h5>
               <p className="card-text">Configure SAN zoning policies.</p>
+            </div>
+          </a>
+        </div>
+
+        {/* Bulk Import Card */}
+        <div className="col-md-3 mb-4">
+          <a href="/san/bulk-import" className="home-card card text-center h-100">
+            <div className="card-body">
+              <FaFileImport size={48} className="home-icon mb-3" />
+              <h5 className="card-title">Bulk Import</h5>
+              <p className="card-text">Import multiple files with aliases and zones.</p>
             </div>
           </a>
         </div>

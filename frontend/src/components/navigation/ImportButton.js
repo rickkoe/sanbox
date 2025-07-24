@@ -53,14 +53,32 @@ const ImportButton = ({
 
   return (
     <li className="nav-item">
-      <NavLink
-        className="nav-link"
-        to="/insights/importer"
-        title="Data Import"
-      >
-        <Download size={24} />
-        <span className="nav-label ms-1">Import</span>
-      </NavLink>
+      <Dropdown align="end">
+        <Dropdown.Toggle 
+          as="span" 
+          className="nav-link" 
+          style={{ cursor: "pointer" }}
+          title="Data Import"
+        >
+          <Download size={24} />
+          <span className="nav-label ms-1">Import</span>
+        </Dropdown.Toggle>
+        <Dropdown.Menu>
+          <Dropdown.Item as={NavLink} to="/insights/importer">
+            Storage Insights Import
+          </Dropdown.Item>
+          <Dropdown.Divider />
+          <Dropdown.Item as={NavLink} to="/san/aliases/import">
+            Import Aliases
+          </Dropdown.Item>
+          <Dropdown.Item as={NavLink} to="/san/zones/import">
+            Import Zones
+          </Dropdown.Item>
+          <Dropdown.Item as={NavLink} to="/san/bulk-import">
+            <strong>Bulk Zoning Import</strong>
+          </Dropdown.Item>
+        </Dropdown.Menu>
+      </Dropdown>
     </li>
   );
 };
