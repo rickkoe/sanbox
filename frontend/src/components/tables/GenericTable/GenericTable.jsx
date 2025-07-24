@@ -214,10 +214,44 @@ const GenericTable = forwardRef(({
     if (isConfigLoaded && tableConfig?.filters && Object.keys(tableConfig.filters).length > 0) {
       console.log('Loading filters from config:', tableConfig.filters);
       setColumnFilters(tableConfig.filters);
+      lastSavedFiltersRef.current = tableConfig.filters; // Initialize the last saved reference
     } else if (isConfigLoaded) {
       console.log('No filters to load, tableConfig:', tableConfig);
+      lastSavedFiltersRef.current = {}; // Initialize with empty filters
     }
   }, [isConfigLoaded, tableConfig?.filters]);
+
+  // Load saved sorting when configuration is loaded
+  useEffect(() => {
+    if (isConfigLoaded && tableConfig?.sorting && Array.isArray(tableConfig.sorting) && tableConfig.sorting.length > 0) {
+      lastSavedSortingRef.current = tableConfig.sorting; // Initialize the last saved reference
+      
+      // Apply sorting configuration to the table instance when it's ready
+      setTimeout(() => {
+        const hotInstance = tableRef.current?.hotInstance;
+        if (hotInstance && hotInstance.getPlugin('columnSorting')) {
+          try {
+            // Set flag to prevent saving during restoration
+            isLoadingSortingRef.current = true;
+            
+            const sortingPlugin = hotInstance.getPlugin('columnSorting');
+            sortingPlugin.sort(tableConfig.sorting);
+            
+            // Clear the flag after a short delay to allow the sorting to complete
+            setTimeout(() => {
+              isLoadingSortingRef.current = false;
+            }, 800); // Increased delay to ensure loading is complete
+          } catch (error) {
+            console.warn('Failed to apply saved sorting:', error);
+            isLoadingSortingRef.current = false;
+          }
+        }
+      }, 100);
+    } else if (isConfigLoaded) {
+      lastSavedSortingRef.current = []; // Initialize with empty sorting
+      isLoadingSortingRef.current = false;
+    }
+  }, [isConfigLoaded, tableConfig?.sorting]);
 
   // Log column widths loading
   useEffect(() => {
@@ -226,20 +260,7 @@ const GenericTable = forwardRef(({
     }
   }, [isConfigLoaded, tableConfig?.column_widths]);
 
-  // Save filters when they change (with debouncing to prevent excessive calls)
-  useEffect(() => {
-    if (isConfigLoaded && Object.keys(columnFilters).length > 0 && updateConfig) {
-      const timeoutId = setTimeout(() => {
-        try {
-          updateConfig('filters', columnFilters);
-        } catch (error) {
-          console.warn('Failed to save filter configuration:', error);
-        }
-      }, 1000); // 1 second delay
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [columnFilters, isConfigLoaded, updateConfig]);
+  // Note: Filter saving is now handled in handleFilterChange to avoid duplicate saves
 
   // Debug column creation
   useEffect(() => {
@@ -504,10 +525,108 @@ const GenericTable = forwardRef(({
     }
   };
 
-  // Filter change handler
+  // Filter change handler with debounced saving
+  const filterSaveTimeoutRef = useRef(null);
+  const lastSavedFiltersRef = useRef(null);
+  
+  // Sorting save handler with debounced saving
+  const sortingSaveTimeoutRef = useRef(null);
+  const lastSavedSortingRef = useRef(null);
+  const isLoadingSortingRef = useRef(false);
+  
   const handleFilterChange = (filters) => {
     console.log("Filter change:", filters);
     setColumnFilters(filters);
+    
+    // Save filters to backend configuration with debouncing
+    if (isConfigLoaded && updateConfig && !configError) {
+      // Only save if filters actually changed
+      const filtersString = JSON.stringify(filters);
+      const lastSavedString = JSON.stringify(lastSavedFiltersRef.current);
+      
+      if (filtersString === lastSavedString) {
+        console.log('Filters unchanged, skipping save');
+        return;
+      }
+      
+      // Clear existing timeout
+      if (filterSaveTimeoutRef.current) {
+        clearTimeout(filterSaveTimeoutRef.current);
+      }
+      
+      // Set new timeout to save filters
+      filterSaveTimeoutRef.current = setTimeout(() => {
+        try {
+          updateConfig('filters', filters);
+          lastSavedFiltersRef.current = filters;
+          console.log('Filters saved to backend configuration:', filters);
+        } catch (error) {
+          console.warn('Failed to save filter configuration:', error);
+        }
+      }, 300); // 300ms delay for filter changes from AdvancedFilter
+    }
+  };
+
+  // Sorting change handler with debounced saving
+  const handleAfterColumnSort = (...args) => {
+    
+    // Don't save if we're currently loading/restoring sorting configuration
+    if (isLoadingSortingRef.current) {
+      return;
+    }
+    
+    // Extract sort configuration from the arguments
+    // The callback receives: (currentSortConfig, destinationSortConfig, isTriggeredByUser)
+    let sortConfig = null;
+    
+    if (args.length >= 1 && Array.isArray(args[0])) {
+      sortConfig = args[0];
+    } else if (args.length >= 2 && Array.isArray(args[1])) {
+      sortConfig = args[1];
+    }
+    
+    // Fallback: get from plugin if needed
+    if (!sortConfig) {
+      const hotInstance = tableRef.current?.hotInstance;
+      if (hotInstance && hotInstance.getPlugin('columnSorting')) {
+        try {
+          const sortingPlugin = hotInstance.getPlugin('columnSorting');
+          sortConfig = sortingPlugin.getSortConfig();
+        } catch (error) {
+          console.warn('Failed to get sort config from plugin:', error);
+        }
+      }
+    }
+    
+    if (!sortConfig) {
+      return;
+    }
+    
+    // Save sorting to backend configuration with debouncing
+    if (isConfigLoaded && updateConfig && !configError) {
+      // Only save if sorting actually changed
+      const sortingString = JSON.stringify(sortConfig);
+      const lastSavedString = JSON.stringify(lastSavedSortingRef.current);
+      
+      if (sortingString === lastSavedString) {
+        return;
+      }
+      
+      // Clear existing timeout
+      if (sortingSaveTimeoutRef.current) {
+        clearTimeout(sortingSaveTimeoutRef.current);
+      }
+      
+      // Set new timeout to save sorting - increased delay for rapid clicks
+      sortingSaveTimeoutRef.current = setTimeout(() => {
+        try {
+          updateConfig('sorting', sortConfig);
+          lastSavedSortingRef.current = sortConfig;
+        } catch (error) {
+          console.warn('Failed to save sorting configuration:', error);
+        }
+      }, 500); // 500ms delay to handle rapid double-clicks better
+    }
   };
 
   // Column resize handler
@@ -559,6 +678,18 @@ const GenericTable = forwardRef(({
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
+
+  // Cleanup filter and sorting save timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (filterSaveTimeoutRef.current) {
+        clearTimeout(filterSaveTimeoutRef.current);
+      }
+      if (sortingSaveTimeoutRef.current) {
+        clearTimeout(sortingSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -777,6 +908,7 @@ const GenericTable = forwardRef(({
               afterDeselect={() => setSelectedCount(0)}
               manualColumnResize={true}
               afterColumnResize={handleAfterColumnResize}
+              afterColumnSort={handleAfterColumnSort}
               afterScrollHorizontally={() => {
                 setTimeout(() => {
                   if (tableRef.current?.hotInstance) {
@@ -817,7 +949,6 @@ const GenericTable = forwardRef(({
               renderAllRows={false}
               afterInit={() => {
                 if (tableRef.current?.hotInstance) {
-                  console.log('Table initialized with data:', data?.length || 0);
                   setTimeout(() => {
                     tableRef.current.hotInstance.render();
                   }, 0);

@@ -137,12 +137,23 @@ export const useTableConfiguration = ({
   const updateConfig = useCallback((section, value) => {
     if (configError) return; // Don't update if there's a configuration error
     
+    // Check if the value actually changed to prevent unnecessary saves
+    const currentValue = tableConfig[section];
+    const valueString = JSON.stringify(value);
+    const currentValueString = JSON.stringify(currentValue);
+    
+    if (valueString === currentValueString) {
+      console.log(`🔄 ${section} unchanged, skipping save`);
+      return;
+    }
+    
     const newConfig = {
       ...tableConfig,
       [section]: value
     };
     setTableConfig(newConfig);
     debouncedSave(newConfig);
+    console.log(`📝 Queued save for ${section}:`, value);
   }, [tableConfig, debouncedSave, configError]);
 
   // Convert visible columns from names to column indices
