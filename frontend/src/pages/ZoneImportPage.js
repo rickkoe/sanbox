@@ -31,6 +31,9 @@ const ZoneImportPage = () => {
   const [selectedZonesToCopy, setSelectedZonesToCopy] = useState([]);
   const [memberColumns, setMemberColumns] = useState(5);
   const [unmatchedWWPNs, setUnmatchedWWPNs] = useState([]);
+  const [createByDefault, setCreateByDefault] = useState(true);
+  const [existsByDefault, setExistsByDefault] = useState(false);
+  const [zoneTypeDefault, setZoneTypeDefault] = useState("standard");
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -94,6 +97,7 @@ const ZoneImportPage = () => {
     const lines = text.split("\n");
     const zones = [];
     let currentZone = null;
+    let currentZoneset = null;
     let vsanId = null;
 
     // First, extract VSAN ID from the header
@@ -109,6 +113,19 @@ const ZoneImportPage = () => {
         return;
       }
 
+      // Zoneset declaration: "zoneset name <zoneset_name> vsan <vsan_id>"
+      const zonesetRegex = /^zoneset\s+name\s+(\S+)\s+vsan\s+(\d+)/;
+      const zonesetMatch = trimmedLine.match(zonesetRegex);
+
+      if (zonesetMatch) {
+        const [, zonesetName, zonesetVsan] = zonesetMatch;
+        currentZoneset = {
+          name: zonesetName,
+          vsan: parseInt(zonesetVsan)
+        };
+        return;
+      }
+
       // Zone name line: "zone name <zone_name> vsan <vsan_id>"
       const zoneNameRegex = /^zone\s+name\s+(\S+)\s+vsan\s+(\d+)/;
       const zoneMatch = trimmedLine.match(zoneNameRegex);
@@ -120,15 +137,20 @@ const ZoneImportPage = () => {
         }
 
         const [, zoneName, zoneVsan] = zoneMatch;
+        let notes = `Imported from zone database (VSAN ${zoneVsan})`;
+        if (currentZoneset) {
+          notes += ` - Zoneset: ${currentZoneset.name}`;
+        }
+
         currentZone = {
           lineNumber: index + 1,
           name: zoneName,
           vsan: parseInt(zoneVsan),
           fabric: selectedFabric,
-          zone_type: "standard", // Default to standard
-          create: true,
-          exists: false,
-          notes: `Imported from zone database (VSAN ${zoneVsan})`,
+          zone_type: zoneTypeDefault,
+          create: createByDefault,
+          exists: existsByDefault,
+          notes: notes,
           imported: new Date().toISOString(),
           updated: null,
           saved: false,
@@ -153,6 +175,50 @@ const ZoneImportPage = () => {
         currentZone.members.push(formattedWWPN);
       }
 
+      // FCID member with device-alias and WWPN: "* fcid 0x190000 [device-alias DS-75LVW91-E1C4P1-I0030] [pwwn 50:05:07:63:0a:03:17:e4]"
+      const fcidMemberRegex = /^\s*\*\s+fcid\s+0x[0-9a-fA-F]+\s+\[device-alias\s+([^\]]+)\]\s+\[pwwn\s+([0-9a-fA-F:]{23})\]/;
+      const fcidMemberMatch = trimmedLine.match(fcidMemberRegex);
+
+      if (fcidMemberMatch && currentZone) {
+        const [, deviceAlias, wwpn] = fcidMemberMatch;
+        // Format WWPN to standard format
+        const formattedWWPN =
+          wwpn
+            .toLowerCase()
+            .replace(/[^0-9a-f]/g, "")
+            .match(/.{2}/g)
+            ?.join(":") || wwpn;
+        currentZone.members.push(formattedWWPN);
+        
+        // Add device-alias info to notes if not already present
+        if (!currentZone.deviceAliases) {
+          currentZone.deviceAliases = [];
+        }
+        currentZone.deviceAliases.push(deviceAlias);
+      }
+
+      // Device-alias member: "device-alias P8-SYSPOS-VIOS1-611-11-VFC [pwwn c0:50:76:0a:83:6f:00:14]"
+      const deviceAliasMemberRegex = /^\s*device-alias\s+([^\[]+)\s+\[pwwn\s+([0-9a-fA-F:]{23})\]/;
+      const deviceAliasMemberMatch = trimmedLine.match(deviceAliasMemberRegex);
+
+      if (deviceAliasMemberMatch && currentZone) {
+        const [, deviceAlias, wwpn] = deviceAliasMemberMatch;
+        // Format WWPN to standard format
+        const formattedWWPN =
+          wwpn
+            .toLowerCase()
+            .replace(/[^0-9a-f]/g, "")
+            .match(/.{2}/g)
+            ?.join(":") || wwpn;
+        currentZone.members.push(formattedWWPN);
+        
+        // Add device-alias info to notes if not already present
+        if (!currentZone.deviceAliases) {
+          currentZone.deviceAliases = [];
+        }
+        currentZone.deviceAliases.push(deviceAlias.trim());
+      }
+
       // Comment line with alias reference: "!           [alias_name]"
       const commentRegex = /^\s*!\s*\[([^\]]+)\]/;
       const commentMatch = trimmedLine.match(commentRegex);
@@ -170,6 +236,13 @@ const ZoneImportPage = () => {
     if (currentZone) {
       zones.push(currentZone);
     }
+
+    // Add device-alias information to zone notes
+    zones.forEach(zone => {
+      if (zone.deviceAliases && zone.deviceAliases.length > 0) {
+        zone.notes += ` - Device aliases: ${zone.deviceAliases.join(', ')}`;
+      }
+    });
 
     return zones;
   };
@@ -595,7 +668,7 @@ const ZoneImportPage = () => {
                 Import Zones
               </h4>
               <small className="text-muted">
-                Import zones from Cisco zone database output
+                Import zones from Cisco zone database output or zoneset configurations
               </small>
             </Card.Header>
 
@@ -622,6 +695,44 @@ const ZoneImportPage = () => {
                 )}
               </Form.Group>
 
+              {/* Import Defaults */}
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  <strong>Import Defaults</strong>
+                </Form.Label>
+                <div className="row mt-2">
+                  <div className="col-md-4">
+                    <Form.Label>Zone Type</Form.Label>
+                    <Form.Select
+                      value={zoneTypeDefault}
+                      onChange={(e) => setZoneTypeDefault(e.target.value)}
+                    >
+                      <option value="standard">Standard</option>
+                      <option value="smart">Smart</option>
+                    </Form.Select>
+                  </div>
+                  <div className="col-md-8 d-flex align-items-end gap-4">
+                    <Form.Check
+                      type="checkbox"
+                      id="createByDefault"
+                      label="Create by default"
+                      checked={createByDefault}
+                      onChange={(e) => setCreateByDefault(e.target.checked)}
+                    />
+                    <Form.Check
+                      type="checkbox"
+                      id="existsByDefault"
+                      label="Exists by default"
+                      checked={existsByDefault}
+                      onChange={(e) => setExistsByDefault(e.target.checked)}
+                    />
+                  </div>
+                </div>
+                <Form.Text className="text-muted">
+                  These settings will be applied to all imported zones
+                </Form.Text>
+              </Form.Group>
+
               {/* Text Input */}
               <Form.Group className="mb-3">
                 <Form.Label>
@@ -632,15 +743,19 @@ const ZoneImportPage = () => {
                   rows={12}
                   value={rawText}
                   onChange={(e) => setRawText(e.target.value)}
-                  placeholder={`Paste your zone database output here, for example:
+                  placeholder={`Paste your zone database output here. Supports both individual zones and zoneset formats:
 
+Example 1 - Individual zones:
 !Active Zone Database Section for vsan 75
 zone name zv_FCS01A_sys01a_usmnd01shmc0002p_I0030 vsan 75
     member pwwn 50:05:07:63:08:03:11:9a
     member pwwn c0:50:76:09:e3:f8:02:4c
-zone name zv_FCS01A_sys02a_usmnd01shmc0002p_I0100 vsan 75
-    member pwwn 50:05:07:63:08:08:11:9a
-    member pwwn c0:50:76:09:e3:f8:02:4e
+
+Example 2 - Zoneset format:
+zoneset name P8-DR-HOST-vsan343 vsan 343
+zone name P8-SYSPOS-VIOS1-611-11-VFC_DS-75LVW91-E1C4P1-I0030 vsan 343
+* fcid 0x190000 [device-alias DS-75LVW91-E1C4P1-I0030] [pwwn 50:05:07:63:0a:03:17:e4]
+device-alias P8-SYSPOS-VIOS1-611-11-VFC [pwwn c0:50:76:0a:83:6f:00:14]
 ...`}
                   style={{
                     fontFamily: 'Monaco, Consolas, "Courier New", monospace',
@@ -648,8 +763,7 @@ zone name zv_FCS01A_sys02a_usmnd01shmc0002p_I0100 vsan 75
                   }}
                 />
                 <Form.Text className="text-muted">
-                  Paste the output from "show zone" or zone database export
-                  command
+                  Paste the output from "show zone", zone database export, or zoneset configuration commands
                 </Form.Text>
               </Form.Group>
 
