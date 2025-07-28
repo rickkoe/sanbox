@@ -33,6 +33,7 @@ const BulkZoningImportPage = () => {
   const [showPreview, setShowPreview] = useState({ aliases: false });
   const [activeTab, setActiveTab] = useState("files");
   const [showPreviewSection, setShowPreviewSection] = useState(false);
+  const [preferencesStatus, setPreferencesStatus] = useState(""); // "", "saving", "saved"
   
   // Import defaults
   const [aliasDefaults, setAliasDefaults] = useState({
@@ -135,6 +136,81 @@ const BulkZoningImportPage = () => {
         });
     }
   }, [activeProjectId, selectedFabric]);
+
+  // Load user preferences for bulk import
+  useEffect(() => {
+    if (activeCustomerId) {
+      console.log("🔧 Loading bulk import preferences...");
+      console.log("🔧 Available config:", config);
+      console.log("🔧 Parameters:", {
+        customer: activeCustomerId,
+        table_name: 'bulk_alias_import'
+      });
+      
+      axios.get('/api/core/table-config/', {
+        params: {
+          customer: activeCustomerId,
+          table_name: 'bulk_alias_import'
+        }
+      })
+        .then((response) => {
+          console.log("🔍 Full API response:", response.data);
+          
+          // Handle both single object and array responses
+          const configData = Array.isArray(response.data) ? response.data[0] : response.data;
+          
+          if (configData && configData.additional_settings) {
+            const preferences = configData.additional_settings;
+            console.log("✅ Loaded preferences:", preferences);
+            setAliasDefaults(prev => {
+              const newDefaults = { ...prev, ...preferences };
+              console.log("🔄 Updated aliasDefaults from:", prev, "to:", newDefaults);
+              return newDefaults;
+            });
+          } else {
+            console.log("📋 No saved preferences found in response, using defaults");
+            console.log("📋 Available keys in response:", Object.keys(configData || {}));
+          }
+        })
+        .catch((err) => {
+          console.log("ℹ️ Could not load preferences (first time?), using defaults");
+          console.log("❌ Error details:", err.response?.status, err.response?.data);
+        });
+    }
+  }, [activeCustomerId]);
+
+  // Save user preferences when they change
+  const savePreferences = useCallback(async (newDefaults) => {
+    if (activeCustomerId) {
+      try {
+        setPreferencesStatus("saving");
+        console.log("💾 Saving bulk import preferences:", newDefaults);
+        await axios.post('/api/core/table-config/', {
+          customer: activeCustomerId,
+          table_name: 'bulk_alias_import',
+          additional_settings: newDefaults
+        });
+        console.log("✅ Preferences saved successfully");
+        setPreferencesStatus("saved");
+        
+        // Clear "saved" status after 2 seconds
+        setTimeout(() => setPreferencesStatus(""), 2000);
+      } catch (error) {
+        console.error("❌ Failed to save preferences:", error);
+        setPreferencesStatus("");
+      }
+    }
+  }, [activeCustomerId]);
+
+  // Update alias defaults and save to database
+  const updateAliasDefaults = useCallback((updater) => {
+    setAliasDefaults(prev => {
+      const newDefaults = typeof updater === 'function' ? updater(prev) : updater;
+      // Save to database (async, fire and forget)
+      savePreferences(newDefaults);
+      return newDefaults;
+    });
+  }, [savePreferences]);
 
   // Function to refresh alias options after import
   const refreshAliasOptions = useCallback(() => {
@@ -937,8 +1013,19 @@ const BulkZoningImportPage = () => {
 
               {/* Import Defaults */}
               <Card className="mb-3">
-                <Card.Header>
+                <Card.Header className="d-flex justify-content-between align-items-center">
                   <h6 className="mb-0">Alias Import Defaults</h6>
+                  {preferencesStatus === "saving" && (
+                    <small className="text-muted">
+                      <Spinner size="sm" className="me-1" />
+                      Saving...
+                    </small>
+                  )}
+                  {preferencesStatus === "saved" && (
+                    <small className="text-success">
+                      ✅ Saved
+                    </small>
+                  )}
                 </Card.Header>
                 <Card.Body>
                   <div className="row">
@@ -948,7 +1035,7 @@ const BulkZoningImportPage = () => {
                           <Form.Label>Use</Form.Label>
                           <Form.Select
                             value={aliasDefaults.use}
-                            onChange={(e) => setAliasDefaults(prev => ({...prev, use: e.target.value}))}
+                            onChange={(e) => updateAliasDefaults(prev => ({...prev, use: e.target.value}))}
                             size="sm"
                           >
                             <option value="init">Initiator</option>
@@ -960,7 +1047,7 @@ const BulkZoningImportPage = () => {
                           <Form.Label>Alias Type</Form.Label>
                           <Form.Select
                             value={aliasDefaults.aliasType}
-                            onChange={(e) => setAliasDefaults(prev => ({...prev, aliasType: e.target.value}))}
+                            onChange={(e) => updateAliasDefaults(prev => ({...prev, aliasType: e.target.value}))}
                             size="sm"
                           >
                             <option value="original">original (preserve from source)</option>
@@ -975,7 +1062,7 @@ const BulkZoningImportPage = () => {
                           <Form.Label>Conflict Resolution</Form.Label>
                           <Form.Select
                             value={aliasDefaults.conflictResolution}
-                            onChange={(e) => setAliasDefaults(prev => ({...prev, conflictResolution: e.target.value}))}
+                            onChange={(e) => updateAliasDefaults(prev => ({...prev, conflictResolution: e.target.value}))}
                             size="sm"
                           >
                             <option value="device-alias">Prefer device-alias (when WWPN exists in both)</option>
@@ -992,13 +1079,13 @@ const BulkZoningImportPage = () => {
                           type="checkbox"
                           label="Create"
                           checked={aliasDefaults.create}
-                          onChange={(e) => setAliasDefaults(prev => ({...prev, create: e.target.checked}))}
+                          onChange={(e) => updateAliasDefaults(prev => ({...prev, create: e.target.checked}))}
                         />
                         <Form.Check
                           type="checkbox"
                           label="Include in Zoning"
                           checked={aliasDefaults.includeInZoning}
-                          onChange={(e) => setAliasDefaults(prev => ({...prev, includeInZoning: e.target.checked}))}
+                          onChange={(e) => updateAliasDefaults(prev => ({...prev, includeInZoning: e.target.checked}))}
                         />
                       </div>
                     </div>
