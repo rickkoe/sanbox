@@ -41,7 +41,7 @@ const BulkZoningImportPage = () => {
     includeInZoning: false,
     use: "init",
     aliasType: "original",
-    conflictResolution: "device-alias" // device-alias, fcalias, or both
+    conflictResolution: "device-alias" // device-alias or fcalias
   });
 
   const activeProjectId = config?.active_project?.id;
@@ -1067,7 +1067,6 @@ const BulkZoningImportPage = () => {
                           >
                             <option value="device-alias">Prefer device-alias (when WWPN exists in both)</option>
                             <option value="fcalias">Prefer fcalias (when WWPN exists in both)</option>
-                            <option value="both">Import both (create separate entries)</option>
                           </Form.Select>
                           <small className="text-muted">
                             Choose how to handle WWPNs that appear in both device-alias and fcalias entries
