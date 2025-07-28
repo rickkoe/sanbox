@@ -39,7 +39,8 @@ const BulkZoningImportPage = () => {
     create: true,
     includeInZoning: false,
     use: "init",
-    aliasType: "device-alias"
+    aliasType: "original",
+    conflictResolution: "device-alias" // device-alias, fcalias, or both
   });
 
   const activeProjectId = config?.active_project?.id;
@@ -153,14 +154,47 @@ const BulkZoningImportPage = () => {
     }
   }, [activeProjectId, selectedFabric]);
 
-  // Deduplicate aliases
+  // Deduplicate aliases and handle conflicts
   const deduplicateItems = (items) => {
     const aliasMap = new Map();
+    const wwpnConflicts = new Map(); // Track WWPNs that appear in multiple alias types
     
+    // First pass: identify conflicts
     items.forEach(item => {
       if (item.wwpn !== undefined) {
-        // This is an alias - dedupe by name and WWPN
+        const wwpn = item.wwpn;
+        if (!wwpnConflicts.has(wwpn)) {
+          wwpnConflicts.set(wwpn, []);
+        }
+        wwpnConflicts.get(wwpn).push(item);
+      }
+    });
+    
+    // Second pass: resolve conflicts and deduplicate
+    items.forEach(item => {
+      if (item.wwpn !== undefined) {
         const key = `${item.name}_${item.wwpn}`;
+        const wwpnEntries = wwpnConflicts.get(item.wwpn);
+        
+        // Check if there's a conflict (same WWPN, different cisco_alias types)
+        const hasConflict = wwpnEntries.length > 1 && 
+          new Set(wwpnEntries.map(e => e.cisco_alias)).size > 1;
+        
+        if (hasConflict) {
+          console.log(`⚠️ WWPN conflict detected: ${item.wwpn} exists as both ${wwpnEntries.map(e => e.cisco_alias).join(' and ')}`);
+          
+          // Apply conflict resolution strategy
+          if (aliasDefaults.conflictResolution === "device-alias" && item.cisco_alias !== "device-alias") {
+            console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring device-alias`);
+            return; // Skip non-device-alias entries
+          } else if (aliasDefaults.conflictResolution === "fcalias" && item.cisco_alias !== "fcalias") {
+            console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring fcalias`);
+            return; // Skip non-fcalias entries
+          }
+          // If "both" is selected, allow all entries through
+        }
+        
+        // Standard deduplication by name and WWPN
         if (!aliasMap.has(key)) {
           aliasMap.set(key, item);
         }
@@ -168,7 +202,13 @@ const BulkZoningImportPage = () => {
     });
     
     const deduped = [...aliasMap.values()];
-    console.log(`🔄 Deduplication: ${items.length} -> ${deduped.length} aliases (removed ${items.length - deduped.length} duplicates)`);
+    const conflictCount = items.length - deduped.length;
+    console.log(`🔄 Deduplication: ${items.length} -> ${deduped.length} aliases (removed ${conflictCount} duplicates/conflicts)`);
+    
+    if (conflictCount > 0) {
+      console.log(`⚙️ Conflict resolution: ${aliasDefaults.conflictResolution}`);
+    }
+    
     return deduped;
   };
 
@@ -304,9 +344,44 @@ const BulkZoningImportPage = () => {
       extractedSections.deviceAliases = deviceAliasMatches;
       console.log(`📝 Direct extraction found ${deviceAliasMatches.length} device-alias entries`);
       
-      // Extract fcalias patterns with their members
-      const fcAliasPattern = /fcalias\s+name\s+\S+[\s\S]*?(?=(?:fcalias\s+name|zone\s+name|zoneset\s+name|\n\S|$))/gim;
-      const fcAliasMatches = text.match(fcAliasPattern) || [];
+      // Extract fcalias patterns with their members - more robust approach
+      const fcAliasPattern = /fcalias\s+name\s+\S+\s+vsan\s+\d+(?:\r?\n\s+member\s+pwwn\s+[0-9a-fA-F:]+)*/gim;
+      let fcAliasMatches = text.match(fcAliasPattern) || [];
+      
+      // If the complex pattern doesn't work, try simpler extraction
+      if (fcAliasMatches.length === 0) {
+        console.log("🔄 Complex fcalias pattern failed, trying simple extraction...");
+        // Extract each fcalias block manually
+        const lines = text.split('\n');
+        const fcAliasBlocks = [];
+        let currentBlock = '';
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.match(/^fcalias\s+name\s+\S+\s+vsan\s+\d+/)) {
+            // Start of new fcalias block
+            if (currentBlock) {
+              fcAliasBlocks.push(currentBlock);
+            }
+            currentBlock = line;
+          } else if (currentBlock && line.match(/^\s+member\s+pwwn\s+[0-9a-fA-F:]+/)) {
+            // Member line for current fcalias
+            currentBlock += '\n' + line;
+          } else if (currentBlock && line.trim() && !line.match(/^\s/)) {
+            // End of current block (non-indented, non-empty line)
+            fcAliasBlocks.push(currentBlock);
+            currentBlock = '';
+          }
+        }
+        
+        // Don't forget the last block
+        if (currentBlock) {
+          fcAliasBlocks.push(currentBlock);
+        }
+        
+        fcAliasMatches = fcAliasBlocks;
+      }
+      
       extractedSections.fcAliases = fcAliasMatches;
       console.log(`🏷️ Direct extraction found ${fcAliasMatches.length} fcalias entries`);
     }
@@ -389,6 +464,9 @@ const BulkZoningImportPage = () => {
   const parseAliasData = (text, fabricId = selectedFabric, defaults = aliasDefaults) => {
     console.log("🏗️ parseAliasData called with fabricId:", fabricId, typeof fabricId);
     console.log("🎛️ Using defaults:", defaults);
+    if (defaults.aliasType === "original") {
+      console.log("🔄 Using 'original' mode - preserving source alias types");
+    }
     if (!fabricId || (typeof fabricId === 'string' && fabricId.trim() === "")) {
       console.warn("⚠️ No fabric selected, cannot parse aliases");
       return [];
@@ -417,7 +495,7 @@ const BulkZoningImportPage = () => {
           wwpn: formattedWWPN,
           fabric: fabricId ? (typeof fabricId === 'number' ? fabricId : parseInt(fabricId)) : null,
           use: defaults.use,
-          cisco_alias: defaults.aliasType,
+          cisco_alias: defaults.aliasType === "original" ? "device-alias" : defaults.aliasType,
           create: defaults.create,
           include_in_zoning: defaults.includeInZoning,
           notes: "Imported from bulk import",
@@ -431,15 +509,16 @@ const BulkZoningImportPage = () => {
       const fcMatch = trimmedLine.match(fcAliasRegex);
       if (fcMatch) {
         const [, name, vsan] = fcMatch;
+        console.log(`🏷️ Found fcalias: ${name} vsan ${vsan}`);
         currentFcAlias = {
           lineNumber: index + 1,
           name: name,
           vsan: parseInt(vsan),
           fabric: fabricId ? (typeof fabricId === 'number' ? fabricId : parseInt(fabricId)) : null,
-          use: aliasDefaults.use,
-          cisco_alias: "fcalias",
-          create: aliasDefaults.create,
-          include_in_zoning: aliasDefaults.includeInZoning,
+          use: defaults.use,
+          cisco_alias: defaults.aliasType === "original" ? "fcalias" : defaults.aliasType,
+          create: defaults.create,
+          include_in_zoning: defaults.includeInZoning,
           notes: `Imported from bulk import (VSAN ${vsan})`,
           imported: new Date().toISOString(),
           updated: null,
@@ -448,14 +527,16 @@ const BulkZoningImportPage = () => {
         };
       }
       
-      // FCAlias member
-      const memberRegex = /member\s+pwwn\s+([0-9a-fA-F:]{23})/i;
-      const memberMatch = trimmedLine.match(memberRegex);
+      // FCAlias member - look for member pwwn with more flexible whitespace handling
+      const memberRegex = /member\s+pwwn\s+([0-9a-fA-F:]+)/i;
+      const memberMatch = line.match(memberRegex); // Use original line, not trimmed, to handle indentation
       if (memberMatch && currentFcAlias) {
         const [, wwpn] = memberMatch;
+        console.log(`    📝 Found member for ${currentFcAlias.name}: ${wwpn}`);
         const formattedWWPN = wwpn.toLowerCase().replace(/[^0-9a-f]/g, "").match(/.{2}/g)?.join(":") || wwpn;
         currentFcAlias.wwpn = formattedWWPN;
         aliases.push({ ...currentFcAlias });
+        console.log(`    ✅ Added fcalias: ${currentFcAlias.name} -> ${formattedWWPN}`);
         currentFcAlias = null;
       }
     });
@@ -882,10 +963,28 @@ const BulkZoningImportPage = () => {
                             onChange={(e) => setAliasDefaults(prev => ({...prev, aliasType: e.target.value}))}
                             size="sm"
                           >
+                            <option value="original">original (preserve from source)</option>
                             <option value="device-alias">device-alias</option>
                             <option value="fcalias">fcalias</option>
                             <option value="wwpn">wwpn</option>
                           </Form.Select>
+                        </div>
+                      </div>
+                      <div className="row mb-2">
+                        <div className="col-12">
+                          <Form.Label>Conflict Resolution</Form.Label>
+                          <Form.Select
+                            value={aliasDefaults.conflictResolution}
+                            onChange={(e) => setAliasDefaults(prev => ({...prev, conflictResolution: e.target.value}))}
+                            size="sm"
+                          >
+                            <option value="device-alias">Prefer device-alias (when WWPN exists in both)</option>
+                            <option value="fcalias">Prefer fcalias (when WWPN exists in both)</option>
+                            <option value="both">Import both (create separate entries)</option>
+                          </Form.Select>
+                          <small className="text-muted">
+                            Choose how to handle WWPNs that appear in both device-alias and fcalias entries
+                          </small>
                         </div>
                       </div>
                       <div className="d-flex gap-3">
