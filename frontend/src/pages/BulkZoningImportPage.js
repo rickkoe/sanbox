@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import { Button, Form, Alert, Card, Spinner, Badge, Tab, Tabs } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
-import { HotTable } from "@handsontable/react";
 import "handsontable/dist/handsontable.full.css";
 
 const BulkZoningImportPage = () => {
@@ -14,6 +13,11 @@ const BulkZoningImportPage = () => {
   const [fabricOptions, setFabricOptions] = useState([]);
   const [aliasOptions, setAliasOptions] = useState([]);
   const [selectedFabric, setSelectedFabric] = useState("");
+  
+  // Debug selectedFabric changes
+  useEffect(() => {
+    console.log("🔄 selectedFabric changed to:", selectedFabric, typeof selectedFabric);
+  }, [selectedFabric]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
@@ -26,10 +30,9 @@ const BulkZoningImportPage = () => {
   
   // Parsed data state
   const [parsedData, setParsedData] = useState([]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState({ aliases: false });
   const [activeTab, setActiveTab] = useState("files");
   const [showPreviewSection, setShowPreviewSection] = useState(false);
-  const [unmatchedWWPNs, setUnmatchedWWPNs] = useState([]);
   
   // Import defaults
   const [aliasDefaults, setAliasDefaults] = useState({
@@ -38,15 +41,59 @@ const BulkZoningImportPage = () => {
     use: "init",
     aliasType: "device-alias"
   });
-  
-  const [zoneDefaults, setZoneDefaults] = useState({
-    create: true,
-    exists: false,
-    zoneType: "standard"
-  });
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
+
+  // Calculate import statistics
+  const getImportStats = () => {
+    const allAliases = parsedData.filter(item => item.wwpn !== undefined);
+    const newAliases = allAliases.filter(alias => !alias.existsInDatabase);
+    const duplicateAliases = allAliases.filter(alias => alias.existsInDatabase);
+    
+    return {
+      total: allAliases.length,
+      new: newAliases.length,
+      duplicates: duplicateAliases.length
+    };
+  };
+
+  // Update parsed data when defaults change
+  useEffect(() => {
+    console.log("🔄 aliasDefaults changed:", aliasDefaults);
+    console.log("📊 Current parsedData length:", parsedData.length);
+    console.log("📁 Current uploadedFiles length:", uploadedFiles.length);
+    
+    if (parsedData.length > 0) {
+      console.log("✏️ Updating parsedData with new defaults");
+      const updatedData = parsedData.map(item => ({
+        ...item,
+        create: aliasDefaults.create,
+        include_in_zoning: aliasDefaults.includeInZoning,
+        use: aliasDefaults.use,
+        cisco_alias: aliasDefaults.aliasType
+      }));
+      console.log("📋 Updated data sample:", updatedData[0]);
+      setParsedData(updatedData);
+    }
+    
+    // Also update uploaded files data so it applies to future processing
+    if (uploadedFiles.length > 0) {
+      console.log("🗂️ Updating uploadedFiles items with new defaults");
+      const updatedFiles = uploadedFiles.map(file => ({
+        ...file,
+        items: file.items.map(item => ({
+          ...item,
+          create: aliasDefaults.create,
+          include_in_zoning: aliasDefaults.includeInZoning,
+          use: aliasDefaults.use,
+          cisco_alias: aliasDefaults.aliasType
+        }))
+      }));
+      setUploadedFiles(updatedFiles);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aliasDefaults]);
 
   // Load fabrics
   useEffect(() => {
@@ -54,9 +101,13 @@ const BulkZoningImportPage = () => {
       setLoading(true);
       axios.get(`/api/san/fabrics/?customer_id=${activeCustomerId}`)
         .then((response) => {
+          console.log("🏗️ Fabrics loaded:", response.data);
           setFabricOptions(response.data);
           if (response.data.length > 0) {
+            console.log("🎯 Auto-selecting fabric:", response.data[0].id);
             setSelectedFabric(response.data[0].id);
+          } else {
+            console.warn("⚠️ No fabrics found for customer");
           }
         })
         .catch((err) => {
@@ -84,36 +135,265 @@ const BulkZoningImportPage = () => {
     }
   }, [activeProjectId, selectedFabric]);
 
-  // Auto-detect data type
-  const detectDataType = (text) => {
-    const lines = text.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("!"));
+  // Function to refresh alias options after import
+  const refreshAliasOptions = useCallback(() => {
+    if (activeProjectId && selectedFabric) {
+      console.log("🔄 Refreshing alias options after import");
+      axios.get(`/api/san/aliases/project/${activeProjectId}/`)
+        .then((res) => {
+          const fabricAliases = res.data.filter(
+            (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
+          );
+          setAliasOptions(fabricAliases);
+          console.log(`✅ Refreshed aliasOptions: ${fabricAliases.length} aliases`);
+        })
+        .catch((err) => {
+          console.error("Error refreshing aliases:", err);
+        });
+    }
+  }, [activeProjectId, selectedFabric]);
+
+  // Deduplicate aliases
+  const deduplicateItems = (items) => {
+    const aliasMap = new Map();
     
-    // Count different patterns
-    let aliasPatterns = 0;
-    let zonePatterns = 0;
-    
-    for (const line of lines) {
-      // Alias patterns
-      if (line.match(/device-alias\s+name\s+\S+\s+pwwn\s+[0-9a-fA-F:]/i) ||
-          line.match(/fcalias\s+name\s+\S+\s+vsan\s+\d+/i)) {
-        aliasPatterns++;
+    items.forEach(item => {
+      if (item.wwpn !== undefined) {
+        // This is an alias - dedupe by name and WWPN
+        const key = `${item.name}_${item.wwpn}`;
+        if (!aliasMap.has(key)) {
+          aliasMap.set(key, item);
+        }
       }
-      
-      // Zone patterns
-      if (line.match(/zone\s+name\s+\S+\s+vsan\s+\d+/i) ||
-          line.match(/zoneset\s+name\s+\S+\s+vsan\s+\d+/i) ||
-          line.match(/member\s+pwwn\s+[0-9a-fA-F:]/i)) {
-        zonePatterns++;
+    });
+    
+    const deduped = [...aliasMap.values()];
+    console.log(`🔄 Deduplication: ${items.length} -> ${deduped.length} aliases (removed ${items.length - deduped.length} duplicates)`);
+    return deduped;
+  };
+
+  // Check for existing aliases in database
+  const enhanceWithExistenceCheck = async (items) => {
+    const aliases = items.filter(item => item.wwpn !== undefined);
+    
+    // Get fresh alias data from database if needed
+    let currentAliasOptions = aliasOptions;
+    if (aliasOptions.length === 0 && activeProjectId && selectedFabric) {
+      console.log("🔄 aliasOptions is empty, loading fresh data from database...");
+      try {
+        const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
+        const fabricAliases = res.data.filter(
+          (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
+        );
+        currentAliasOptions = fabricAliases;
+        setAliasOptions(fabricAliases);
+        console.log(`✅ Loaded ${fabricAliases.length} existing aliases from database`);
+      } catch (err) {
+        console.error("Error loading aliases:", err);
       }
     }
     
-    if (aliasPatterns > zonePatterns) return "alias";
-    if (zonePatterns > aliasPatterns) return "zone";
-    return "mixed"; // Or could be empty/unknown
+    console.log(`🔍 Checking ${aliases.length} aliases against ${currentAliasOptions.length} existing aliases in database`);
+    
+    // Check aliases for database existence
+    const enhancedAliases = aliases.map(alias => {
+      const existsInDb = currentAliasOptions.some(existing => 
+        existing.name.toLowerCase() === alias.name.toLowerCase() ||
+        existing.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '') === alias.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '')
+      );
+      
+      if (existsInDb) {
+        console.log(`🎯 Found duplicate: ${alias.name} (${alias.wwpn})`);
+      }
+      
+      return {
+        ...alias,
+        existsInDatabase: existsInDb
+      };
+    });
+    
+    console.log(`✅ Enhanced ${enhancedAliases.length} aliases`);
+    console.log(`🔍 Found ${enhancedAliases.filter(a => a.existsInDatabase).length} aliases that exist in database`);
+    
+    return enhancedAliases;
+  };
+
+  // Parse show tech-support files and extract alias sections only
+  const parseTechSupportFile = (text) => {
+    const lines = text.split("\n");
+    const extractedSections = {
+      deviceAliases: [],
+      fcAliases: []
+    };
+    
+    let currentSection = null;
+    let currentVsan = null;
+    let sectionLines = [];
+    let inTargetSection = false;
+    let foundShowDeviceAlias = false;
+    
+    console.log("🔍 Parsing tech-support file with", lines.length, "lines");
+    console.log("🎯 Looking for 'show device-alias database' sections only");
+    
+    // Also try a simpler approach - look for patterns anywhere in the file
+    console.log("🔍 Simple pattern search:");
+    const deviceAliasCount = (text.match(/device-alias\s+name\s+\S+\s+pwwn\s+[0-9a-fA-F:]+/gi) || []).length;
+    const fcAliasCount = (text.match(/fcalias\s+name\s+\S+/gi) || []).length;
+    console.log(`Found patterns: ${deviceAliasCount} device-alias, ${fcAliasCount} fcalias`);
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmedLine = line.trim();
+      
+      // Look for "show device-alias database" section (only first occurrence)
+      if (!foundShowDeviceAlias && (
+          trimmedLine.match(/^-+\s*show\s+device-alias\s+database/i) ||
+          trimmedLine.match(/^show\s+device-alias\s+database/i))) {
+        if (currentSection && sectionLines.length > 0) {
+          processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
+        }
+        currentSection = "device-alias-show";
+        sectionLines = [];
+        inTargetSection = true;
+        foundShowDeviceAlias = true;
+        console.log("📝 Found FIRST 'show device-alias database' section at line", i + 1);
+        continue;
+      }
+      
+      
+      // Detect end of show command sections (next show command or major section break)
+      if (inTargetSection && (
+          trimmedLine.match(/^-+\s*show\s+(?!(device-alias\s+database))/i) ||
+          trimmedLine.match(/^show\s+(?!(device-alias\s+database))/i) ||
+          (trimmedLine.startsWith("---") && trimmedLine.length > 10)
+        )) {
+        if (currentSection && sectionLines.length > 0) {
+          processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
+        }
+        currentSection = null;
+        sectionLines = [];
+        inTargetSection = false;
+        console.log("🏁 Exiting show section at line", i + 1);
+        continue;
+      }
+      
+      // Collect lines for current section
+      if (inTargetSection && currentSection) {
+        sectionLines.push(line);
+      }
+    }
+    
+    // Process any remaining section
+    if (currentSection && sectionLines.length > 0) {
+      processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
+    }
+    
+    console.log("🏆 Tech-support parsing complete. Found:", {
+      deviceAliases: extractedSections.deviceAliases.length,
+      fcAliases: extractedSections.fcAliases.length
+    });
+    
+    // If section-based parsing didn't find much, try direct pattern extraction as fallback
+    const totalFound = extractedSections.deviceAliases.length + extractedSections.fcAliases.length;
+    
+    if (totalFound === 0 && (deviceAliasCount > 0 || fcAliasCount > 0)) {
+      console.log("🔄 Section parsing found nothing, trying direct pattern extraction...");
+      
+      // Extract device-alias patterns directly
+      const deviceAliasMatches = text.match(/device-alias\s+name\s+\S+\s+pwwn\s+[0-9a-fA-F:]+/gi) || [];
+      extractedSections.deviceAliases = deviceAliasMatches;
+      console.log(`📝 Direct extraction found ${deviceAliasMatches.length} device-alias entries`);
+      
+      // Extract fcalias patterns with their members
+      const fcAliasPattern = /fcalias\s+name\s+\S+[\s\S]*?(?=(?:fcalias\s+name|zone\s+name|zoneset\s+name|\n\S|$))/gim;
+      const fcAliasMatches = text.match(fcAliasPattern) || [];
+      extractedSections.fcAliases = fcAliasMatches;
+      console.log(`🏷️ Direct extraction found ${fcAliasMatches.length} fcalias entries`);
+    }
+    
+    return extractedSections;
+  };
+  
+  // Process individual sections from tech-support
+  const processTechSupportSection = (sectionType, lines, extractedSections, currentVsan) => {
+    const sectionText = lines.join("\n");
+    
+    console.log(`🔧 Processing ${sectionType} section with ${lines.length} lines`, currentVsan ? `(VSAN ${currentVsan})` : "");
+    console.log(`🔍 Section text preview:`, sectionText.substring(0, 200) + "...");
+    
+    if (sectionType === "device-alias-show") {
+      // Process "show device-alias database" output
+      // Look for lines like: device-alias P1-VC1-I01-p1 50:05:07:63:0a:03:17:e4
+      const deviceAliasMatches = sectionText.match(/device-alias\s+\S+\s+[0-9a-fA-F:]{23}/gi);
+      if (deviceAliasMatches) {
+        console.log(`📝 Found ${deviceAliasMatches.length} device-alias entries in show output`);
+        // Convert to standard format: device-alias name X pwwn Y
+        const standardFormat = deviceAliasMatches.map(match => 
+          match.replace(/^device-alias\s+(\S+)\s+([0-9a-fA-F:]{23})/i, "device-alias name $1 pwwn $2")
+        );
+        extractedSections.deviceAliases.push(...standardFormat);
+      }
+      
+      // Also look for alternate format in database output
+      const alternateMatches = lines.filter(line => 
+        line.trim().match(/^\s*\S+\s+[0-9a-fA-F:]{23}/i) && 
+        !line.trim().match(/^device-alias/i)
+      );
+      if (alternateMatches.length > 0) {
+        console.log(`📝 Found ${alternateMatches.length} device-alias entries in alternate format`);
+        const convertedEntries = alternateMatches.map(line => {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 2) {
+            return `device-alias name ${parts[0]} pwwn ${parts[1]}`;
+          }
+          return null;
+        }).filter(entry => entry !== null);
+        extractedSections.deviceAliases.push(...convertedEntries);  
+      }
+      
+    } else {
+      // Fallback for other section types
+      console.log(`⚠️ Unknown section type: ${sectionType}`);
+    }
+  };
+
+  // Auto-detect data type (focused on aliases and tech-support)
+  const detectDataType = (text) => {
+    // Check if this looks like a tech-support file
+    if (text.includes("show tech-support") || 
+        text.includes("show running-config") ||
+        text.includes("show startup-config") ||
+        text.includes("device-alias database") ||
+        text.length > 50000) { // Tech support files are typically very large
+      return "tech-support";
+    }
+    
+    const lines = text.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("!"));
+    
+    // Count alias patterns
+    let aliasPatterns = 0;
+    
+    for (const line of lines) {
+      // Alias patterns - device-alias and fcalias
+      if (line.match(/device-alias\s+name\s+\S+\s+pwwn\s+[0-9a-fA-F:]/i) ||
+          line.match(/fcalias\s+name\s+\S+/i)) {
+        aliasPatterns++;
+      }
+    }
+    
+    if (aliasPatterns > 0) return "alias";
+    return "unknown";
   };
 
   // Parse alias data (reused from AliasImportPage)
-  const parseAliasData = (text) => {
+  const parseAliasData = (text, fabricId = selectedFabric, defaults = aliasDefaults) => {
+    console.log("🏗️ parseAliasData called with fabricId:", fabricId, typeof fabricId);
+    console.log("🎛️ Using defaults:", defaults);
+    if (!fabricId || (typeof fabricId === 'string' && fabricId.trim() === "")) {
+      console.warn("⚠️ No fabric selected, cannot parse aliases");
+      return [];
+    }
+    
     const lines = text.split("\n");
     const aliases = [];
     
@@ -135,11 +415,11 @@ const BulkZoningImportPage = () => {
           lineNumber: index + 1,
           name: name,
           wwpn: formattedWWPN,
-          fabric: selectedFabric,
-          use: aliasDefaults.use,
-          cisco_alias: aliasDefaults.aliasType,
-          create: aliasDefaults.create,
-          include_in_zoning: aliasDefaults.includeInZoning,
+          fabric: fabricId ? (typeof fabricId === 'number' ? fabricId : parseInt(fabricId)) : null,
+          use: defaults.use,
+          cisco_alias: defaults.aliasType,
+          create: defaults.create,
+          include_in_zoning: defaults.includeInZoning,
           notes: "Imported from bulk import",
           imported: new Date().toISOString(),
           updated: null,
@@ -155,7 +435,7 @@ const BulkZoningImportPage = () => {
           lineNumber: index + 1,
           name: name,
           vsan: parseInt(vsan),
-          fabric: selectedFabric,
+          fabric: fabricId ? (typeof fabricId === 'number' ? fabricId : parseInt(fabricId)) : null,
           use: aliasDefaults.use,
           cisco_alias: "fcalias",
           create: aliasDefaults.create,
@@ -183,108 +463,9 @@ const BulkZoningImportPage = () => {
     return aliases;
   };
 
-  // Parse zone data with cross-batch alias matching
-  const parseZoneData = (text, batchAliases = []) => {
-    const lines = text.split("\n");
-    const zones = [];
-    let currentZone = null;
-    let currentZoneset = null;
-    let vsanId = null;
-
-    // Combine database aliases with batch aliases for matching
-    const allAliasesForMatching = [...aliasOptions, ...batchAliases];
-
-    const vsanHeaderRegex = /!Active Zone Database Section for vsan (\d+)/;
-
-    lines.forEach((line, index) => {
-      const trimmedLine = line.trim();
-
-      // Extract VSAN ID from header
-      const vsanMatch = trimmedLine.match(vsanHeaderRegex);
-      if (vsanMatch) {
-        vsanId = parseInt(vsanMatch[1]);
-        return;
-      }
-
-      // Zoneset declaration
-      const zonesetRegex = /^zoneset\s+name\s+(\S+)\s+vsan\s+(\d+)/i;
-      const zonesetMatch = trimmedLine.match(zonesetRegex);
-      if (zonesetMatch) {
-        const [, zonesetName, zonesetVsan] = zonesetMatch;
-        currentZoneset = { name: zonesetName, vsan: parseInt(zonesetVsan) };
-        return;
-      }
-
-      // Zone name line
-      const zoneNameRegex = /^zone\s+name\s+(\S+)\s+vsan\s+(\d+)/i;
-      const zoneMatch = trimmedLine.match(zoneNameRegex);
-      if (zoneMatch) {
-        if (currentZone) zones.push(currentZone);
-
-        const [, zoneName, zoneVsan] = zoneMatch;
-        let notes = `Imported from bulk import (VSAN ${zoneVsan})`;
-        if (currentZoneset) {
-          notes += ` - Zoneset: ${currentZoneset.name}`;
-        }
-
-        currentZone = {
-          lineNumber: index + 1,
-          name: zoneName,
-          vsan: parseInt(zoneVsan),
-          fabric: selectedFabric,
-          zone_type: zoneDefaults.zoneType,
-          create: zoneDefaults.create,
-          exists: zoneDefaults.exists,
-          notes: notes,
-          imported: new Date().toISOString(),
-          updated: null,
-          saved: false,
-          members: []
-        };
-        return;
-      }
-
-      // Member patterns
-      const memberRegex = /^\s+member\s+pwwn\s+([0-9a-fA-F:]{23})/i;
-      const fcidMemberRegex = /^\s*\*\s+fcid\s+0x[0-9a-fA-F]+\s+\[device-alias\s+([^\]]+)\]\s+\[pwwn\s+([0-9a-fA-F:]{23})\]/i;
-      const deviceAliasMemberRegex = /^\s*device-alias\s+([^\[]+)\s+\[pwwn\s+([0-9a-fA-F:]{23})\]/i;
-
-      const memberMatch = trimmedLine.match(memberRegex);
-      const fcidMemberMatch = trimmedLine.match(fcidMemberRegex);
-      const deviceAliasMemberMatch = trimmedLine.match(deviceAliasMemberRegex);
-
-      if (currentZone && (memberMatch || fcidMemberMatch || deviceAliasMemberMatch)) {
-        let wwpn = "";
-        if (memberMatch) wwpn = memberMatch[1];
-        else if (fcidMemberMatch) wwpn = fcidMemberMatch[2];
-        else if (deviceAliasMemberMatch) wwpn = deviceAliasMemberMatch[2];
-
-        const formattedWWPN = wwpn.toLowerCase().replace(/[^0-9a-f]/g, "").match(/.{2}/g)?.join(":") || wwpn;
-        currentZone.members.push(formattedWWPN);
-        
-        // Try to match WWPN to existing or batch aliases
-        const matchingAlias = allAliasesForMatching.find(
-          (alias) =>
-            alias.wwpn.toLowerCase().replace(/[^0-9a-f]/g, "") ===
-            formattedWWPN.toLowerCase().replace(/[^0-9a-f]/g, "")
-        );
-        
-        if (matchingAlias) {
-          if (!currentZone.memberAliases) currentZone.memberAliases = [];
-          currentZone.memberAliases.push(matchingAlias.name);
-        } else {
-          if (!currentZone.unmatchedWWPNs) currentZone.unmatchedWWPNs = [];
-          currentZone.unmatchedWWPNs.push(formattedWWPN);
-        }
-      }
-    });
-
-    if (currentZone) zones.push(currentZone);
-    return zones;
-  };
 
   // Process uploaded files with cross-batch alias matching
-  const processFiles = async (files) => {
+  const processFiles = useCallback(async (files) => {
     const results = [];
     const allBatchAliases = [];
     
@@ -294,8 +475,29 @@ const BulkZoningImportPage = () => {
         const text = await file.text();
         const dataType = detectDataType(text);
         
-        if (dataType === "alias" || dataType === "mixed") {
-          const aliasItems = parseAliasData(text);
+        if (dataType === "tech-support") {
+          // Extract sections from tech-support file
+          const extractedSections = parseTechSupportFile(text);
+          
+          // Parse device-alias sections
+          if (extractedSections.deviceAliases.length > 0) {
+            const combinedDeviceAliasText = extractedSections.deviceAliases.join("\n");
+            console.log("🔄 First pass - parsing device-alias text:", combinedDeviceAliasText.substring(0, 100));
+            const aliasItems = parseAliasData(combinedDeviceAliasText, selectedFabric, aliasDefaults);
+            console.log("✅ First pass - parsed device-alias items:", aliasItems.length);
+            allBatchAliases.push(...aliasItems);
+          }
+          
+          // Parse fcalias sections
+          if (extractedSections.fcAliases.length > 0) {
+            const combinedFcAliasText = extractedSections.fcAliases.join("\n");
+            console.log("🔄 First pass - parsing fcalias text:", combinedFcAliasText.substring(0, 100));
+            const aliasItems = parseAliasData(combinedFcAliasText, selectedFabric, aliasDefaults);
+            console.log("✅ First pass - parsed fcalias items:", aliasItems.length);
+            allBatchAliases.push(...aliasItems);
+          }
+        } else if (dataType === "alias") {
+          const aliasItems = parseAliasData(text, selectedFabric, aliasDefaults);
           allBatchAliases.push(...aliasItems);
         }
       } catch (error) {
@@ -310,23 +512,52 @@ const BulkZoningImportPage = () => {
         const dataType = detectDataType(text);
         
         let parsedItems = [];
-        if (dataType === "alias") {
-          parsedItems = parseAliasData(text);
-        } else if (dataType === "zone") {
-          parsedItems = parseZoneData(text, allBatchAliases);
+        if (dataType === "tech-support") {
+          // Handle tech-support files by extracting relevant sections
+          const extractedSections = parseTechSupportFile(text);
+          
+          console.log("🔄 Processing extracted sections:", {
+            deviceAliases: extractedSections.deviceAliases.length,
+            fcAliases: extractedSections.fcAliases.length
+          });
+          
+          // Parse device-alias sections
+          if (extractedSections.deviceAliases.length > 0) {
+            const combinedDeviceAliasText = extractedSections.deviceAliases.join("\n");
+            console.log("📝 Parsing combined device-alias text:", combinedDeviceAliasText.substring(0, 200));
+            const aliasItems = parseAliasData(combinedDeviceAliasText, selectedFabric, aliasDefaults);
+            console.log("✅ Parsed device-alias items:", aliasItems.length);
+            parsedItems.push(...aliasItems);
+          }
+          
+          // Parse fcalias sections
+          if (extractedSections.fcAliases.length > 0) {
+            const combinedFcAliasText = extractedSections.fcAliases.join("\n");
+            console.log("🏷️ Parsing combined fcalias text:", combinedFcAliasText.substring(0, 200));
+            const aliasItems = parseAliasData(combinedFcAliasText, selectedFabric, aliasDefaults);
+            console.log("✅ Parsed fcalias items:", aliasItems.length);
+            parsedItems.push(...aliasItems);
+          }
+          
+        } else if (dataType === "alias") {
+          parsedItems = parseAliasData(text, selectedFabric, aliasDefaults);
         } else {
-          // For mixed data, parse both with batch context
-          const aliasItems = parseAliasData(text);
-          const zoneItems = parseZoneData(text, allBatchAliases);
-          parsedItems = [...aliasItems, ...zoneItems];
+          // For unknown data, try to parse as aliases
+          parsedItems = parseAliasData(text, selectedFabric, aliasDefaults);
         }
+        
+        // Deduplicate items
+        const dedupedItems = deduplicateItems(parsedItems);
+        
+        // Enhance with existence check and cross-referencing
+        const enhancedItems = await enhanceWithExistenceCheck(dedupedItems);
         
         results.push({
           fileName: file.name,
           fileSize: file.size,
           dataType: dataType,
-          itemCount: parsedItems.length,
-          items: parsedItems,
+          itemCount: enhancedItems.length,
+          items: enhancedItems,
           rawText: text
         });
       } catch (error) {
@@ -336,7 +567,8 @@ const BulkZoningImportPage = () => {
     }
     
     return results;
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFabric, aliasDefaults]);
 
   // Drag and drop handlers
   const handleDrag = useCallback((e) => {
@@ -371,24 +603,9 @@ const BulkZoningImportPage = () => {
     setUploadedFiles(prev => [...prev, ...results]);
     setParsedData(prev => [...prev, ...results.flatMap(r => r.items)]);
     setLoading(false);
-    setShowPreview(true);
+    setShowPreview({ aliases: true });
     setShowPreviewSection(true);
-    
-    // Collect unmatched WWPNs from zones
-    const allUnmatched = [];
-    results.flatMap(r => r.items).forEach(item => {
-      if (item.unmatchedWWPNs) {
-        item.unmatchedWWPNs.forEach(wwpn => {
-          allUnmatched.push({
-            zoneName: item.name,
-            wwpn: wwpn,
-            fileName: results.find(r => r.items.includes(item))?.fileName || "Unknown"
-          });
-        });
-      }
-    });
-    setUnmatchedWWPNs(allUnmatched);
-  }, [selectedFabric]);
+  }, [selectedFabric, processFiles]);
 
   // File input handler
   const handleFileSelect = async (e) => {
@@ -405,23 +622,8 @@ const BulkZoningImportPage = () => {
     setUploadedFiles(prev => [...prev, ...results]);
     setParsedData(prev => [...prev, ...results.flatMap(r => r.items)]);
     setLoading(false);
-    setShowPreview(true);
+    setShowPreview({ aliases: true });
     setShowPreviewSection(true);
-    
-    // Collect unmatched WWPNs from zones (same logic as drop handler)
-    const allUnmatched = [];
-    results.flatMap(r => r.items).forEach(item => {
-      if (item.unmatchedWWPNs) {
-        item.unmatchedWWPNs.forEach(wwpn => {
-          allUnmatched.push({
-            zoneName: item.name,
-            wwpn: wwpn,
-            fileName: results.find(r => r.items.includes(item))?.fileName || "File Upload"
-          });
-        });
-      }
-    });
-    setUnmatchedWWPNs(allUnmatched);
   };
 
   // Text paste handler
@@ -440,53 +642,64 @@ const BulkZoningImportPage = () => {
     const dataType = detectDataType(textInput);
     
     let parsedItems = [];
-    if (dataType === "alias") {
-      parsedItems = parseAliasData(textInput);
-    } else if (dataType === "zone") {
-      // For zones, first collect any aliases from the same text input
-      const batchAliases = parseAliasData(textInput);
-      parsedItems = parseZoneData(textInput, batchAliases);
+    if (dataType === "tech-support") {
+      // Handle tech-support text by extracting alias sections
+      const extractedSections = parseTechSupportFile(textInput);
+      
+      console.log("🔄 Processing pasted tech-support sections:", {
+        deviceAliases: extractedSections.deviceAliases.length,
+        fcAliases: extractedSections.fcAliases.length
+      });
+      
+      if (extractedSections.deviceAliases.length > 0) {
+        const combinedDeviceAliasText = extractedSections.deviceAliases.join("\n");
+        const aliasItems = parseAliasData(combinedDeviceAliasText);
+        parsedItems.push(...aliasItems);
+        console.log("✅ Parsed device-alias items from paste:", aliasItems.length);
+      }
+      
+      if (extractedSections.fcAliases.length > 0) {
+        const combinedFcAliasText = extractedSections.fcAliases.join("\n");
+        const aliasItems = parseAliasData(combinedFcAliasText);
+        parsedItems.push(...aliasItems);
+        console.log("✅ Parsed fcalias items from paste:", aliasItems.length);
+      }
+      
+    } else if (dataType === "alias") {
+      parsedItems = parseAliasData(textInput, selectedFabric, aliasDefaults);
     } else {
-      // For mixed data, parse aliases first, then zones with alias context
-      const aliasItems = parseAliasData(textInput);
-      const zoneItems = parseZoneData(textInput, aliasItems);
-      parsedItems = [...aliasItems, ...zoneItems];
+      // For unknown data, try to parse as aliases
+      parsedItems = parseAliasData(textInput, selectedFabric, aliasDefaults);
     }
+    
+    // Deduplicate items
+    const dedupedItems = deduplicateItems(parsedItems);
+    
+    // Enhance with existence check and cross-referencing
+    const enhancedItems = await enhanceWithExistenceCheck(dedupedItems);
     
     const result = {
       fileName: "Pasted Text",
       fileSize: textInput.length,
       dataType: dataType,
-      itemCount: parsedItems.length,
-      items: parsedItems,
+      itemCount: enhancedItems.length,
+      items: enhancedItems,
       rawText: textInput
     };
     
     setUploadedFiles(prev => [...prev, result]);
-    setParsedData(prev => [...prev, ...parsedItems]);
+    setParsedData(prev => [...prev, ...enhancedItems]);
     setLoading(false);
-    setShowPreview(true);
+    setShowPreview({ aliases: true });
     setShowPreviewSection(true);
     setTextInput("");
-    
-    // Collect unmatched WWPNs from zones (text paste)
-    const allUnmatched = [];
-    parsedItems.forEach(item => {
-      if (item.unmatchedWWPNs) {
-        item.unmatchedWWPNs.forEach(wwpn => {
-          allUnmatched.push({
-            zoneName: item.name,
-            wwpn: wwpn,
-            fileName: "Pasted Text"
-          });
-        });
-      }
-    });
-    setUnmatchedWWPNs(prev => [...prev, ...allUnmatched]);
   };
 
   // Import all data
   const handleImportAll = async () => {
+    console.log("🚀 Starting import process");
+    console.log("📊 Total parsedData items:", parsedData.length);
+    
     if (parsedData.length === 0) {
       setError("No data to import");
       return;
@@ -494,59 +707,67 @@ const BulkZoningImportPage = () => {
 
     setImporting(true);
     setError("");
+    console.log("✅ Import state set to true");
     
     try {
-      // Separate aliases and zones
-      const aliases = parsedData.filter(item => item.wwpn !== undefined);
-      const zones = parsedData.filter(item => item.members !== undefined);
+      // Get aliases only
+      const allAliases = parsedData.filter(item => item.wwpn !== undefined);
+      console.log("🏷️ Total filtered aliases:", allAliases.length);
       
-      let aliasResults = null;
-      let zoneResults = null;
+      // Filter out duplicates that already exist in database
+      const aliases = allAliases.filter(alias => !alias.existsInDatabase);
+      const duplicateCount = allAliases.length - aliases.length;
       
-      // Import aliases if any
+      console.log("✨ New aliases to import:", aliases.length);
+      console.log("⚠️ Duplicate aliases skipped:", duplicateCount);
       if (aliases.length > 0) {
-        const aliasPayload = {
-          project_id: activeProjectId,
-          aliases: aliases.map(alias => {
-            const cleanAlias = { ...alias };
-            delete cleanAlias.lineNumber;
-            delete cleanAlias.saved;
-            return {
-              ...cleanAlias,
-              projects: [activeProjectId]
-            };
-          })
-        };
-        
-        aliasResults = await axios.post("/api/san/aliases/save/", aliasPayload);
+        console.log("📋 Sample new alias:", aliases[0]);
       }
       
-      // Import zones if any
-      if (zones.length > 0) {
-        const zonePayload = {
-          project_id: activeProjectId,
-          zones: zones.map(zone => {
-            const cleanZone = { ...zone };
-            delete cleanZone.lineNumber;
-            delete cleanZone.saved;
-            delete cleanZone.members; // Will be handled separately if needed
-            return {
-              ...cleanZone,
-              projects: [activeProjectId],
-              members: [] // For now, import zones without members
-            };
-          })
-        };
-        
-        zoneResults = await axios.post("/api/san/zones/save/", zonePayload);
+      if (aliases.length === 0) {
+        if (duplicateCount > 0) {
+          setError(`All ${duplicateCount} aliases already exist in the database. Nothing to import.`);
+        } else {
+          setError("No aliases found to import");
+        }
+        setImporting(false);
+        return;
       }
       
-      // Success message
-      let message = "Import completed successfully! ";
-      if (aliases.length > 0) message += `${aliases.length} aliases imported. `;
-      if (zones.length > 0) message += `${zones.length} zones imported.`;
+      if (duplicateCount > 0) {
+        console.log(`ℹ️ Importing ${aliases.length} new aliases, skipping ${duplicateCount} duplicates`);
+      }
       
-      setSuccess(message);
+      // Import aliases
+      const aliasPayload = {
+        project_id: activeProjectId,
+        aliases: aliases.map(alias => {
+          const cleanAlias = { ...alias };
+          delete cleanAlias.lineNumber;
+          delete cleanAlias.saved;
+          delete cleanAlias.existsInDatabase;
+          delete cleanAlias.imported;
+          delete cleanAlias.updated;
+          
+          return {
+            ...cleanAlias,
+            fabric: parseInt(cleanAlias.fabric), // Ensure fabric is integer
+            projects: [activeProjectId]
+          };
+        })
+      };
+      
+      console.log("Sending alias payload:", aliasPayload);
+      const response = await axios.post("/api/san/aliases/save/", aliasPayload);
+      console.log("✅ API Response:", response.data);
+      
+      const successMessage = duplicateCount > 0 
+        ? `Import completed successfully! ${aliases.length} new aliases imported, ${duplicateCount} duplicates skipped.`
+        : `Import completed successfully! ${aliases.length} aliases imported.`;
+      setSuccess(successMessage);
+      
+      // Refresh alias options to include newly imported aliases
+      refreshAliasOptions();
       
       // Clear data after successful import
       setTimeout(() => {
@@ -579,9 +800,8 @@ const BulkZoningImportPage = () => {
     setUploadedFiles([]);
     setParsedData([]);
     setTextInput("");
-    setShowPreview(false);
+    setShowPreview({ aliases: false });
     setShowPreviewSection(false);
-    setUnmatchedWWPNs([]);
     setError("");
     setSuccess("");
   };
@@ -608,10 +828,10 @@ const BulkZoningImportPage = () => {
                   <path d="M16 17H8"/>
                   <path d="M10 9H8"/>
                 </svg>
-                Bulk Zoning Import
+                Bulk Alias Import
               </h4>
               <small className="text-muted">
-                Import multiple files containing alias or zone data automatically
+                Import multiple files containing alias data automatically. Supports Cisco show tech-support files, device-alias, and fcalias configurations.
               </small>
             </Card.Header>
 
@@ -637,12 +857,11 @@ const BulkZoningImportPage = () => {
               {/* Import Defaults */}
               <Card className="mb-3">
                 <Card.Header>
-                  <h6 className="mb-0">Import Defaults</h6>
+                  <h6 className="mb-0">Alias Import Defaults</h6>
                 </Card.Header>
                 <Card.Body>
                   <div className="row">
                     <div className="col-md-6">
-                      <h6>Alias Defaults</h6>
                       <div className="row mb-2">
                         <div className="col-6">
                           <Form.Label>Use</Form.Label>
@@ -684,36 +903,6 @@ const BulkZoningImportPage = () => {
                         />
                       </div>
                     </div>
-                    <div className="col-md-6">
-                      <h6>Zone Defaults</h6>
-                      <div className="row mb-2">
-                        <div className="col-6">
-                          <Form.Label>Zone Type</Form.Label>
-                          <Form.Select
-                            value={zoneDefaults.zoneType}
-                            onChange={(e) => setZoneDefaults(prev => ({...prev, zoneType: e.target.value}))}
-                            size="sm"
-                          >
-                            <option value="standard">Standard</option>
-                            <option value="smart">Smart</option>
-                          </Form.Select>
-                        </div>
-                      </div>
-                      <div className="d-flex gap-3">
-                        <Form.Check
-                          type="checkbox"
-                          label="Create"
-                          checked={zoneDefaults.create}
-                          onChange={(e) => setZoneDefaults(prev => ({...prev, create: e.target.checked}))}
-                        />
-                        <Form.Check
-                          type="checkbox"
-                          label="Exists"
-                          checked={zoneDefaults.exists}
-                          onChange={(e) => setZoneDefaults(prev => ({...prev, exists: e.target.checked}))}
-                        />
-                      </div>
-                    </div>
                   </div>
                 </Card.Body>
               </Card>
@@ -738,8 +927,8 @@ const BulkZoningImportPage = () => {
                         <polyline points="17,8 12,3 7,8"/>
                         <line x1="12" y1="3" x2="12" y2="15"/>
                       </svg>
-                      <h5 className="text-muted">Drop text files here</h5>
-                      <p className="text-muted mb-2">or click to select files</p>
+                      <h5 className="text-muted">Drop alias files here</h5>
+                      <p className="text-muted mb-2">or click to select files containing alias configurations</p>
                       <input
                         type="file"
                         multiple
@@ -767,7 +956,7 @@ const BulkZoningImportPage = () => {
                       rows={12}
                       value={textInput}
                       onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Paste your alias or zone configuration data here..."
+                      placeholder="Paste your alias configuration data here (device-alias, fcalias, or tech-support output)..."
                       style={{
                         fontFamily: 'Monaco, Consolas, "Courier New", monospace',
                         fontSize: "13px",
@@ -828,7 +1017,11 @@ const BulkZoningImportPage = () => {
                           </small>
                         </div>
                         <div className="d-flex gap-2">
-                          <Badge bg={file.dataType === "alias" ? "primary" : file.dataType === "zone" ? "success" : "secondary"}>
+                          <Badge bg={
+                            file.dataType === "alias" ? "primary" : 
+                            file.dataType === "tech-support" ? "warning" :
+                            "secondary"
+                          }>
                             {file.dataType}
                           </Badge>
                           <Badge bg="info">{file.itemCount} items</Badge>
@@ -842,53 +1035,31 @@ const BulkZoningImportPage = () => {
                 </Card>
               )}
 
-              {/* Unmatched WWPNs Warning */}
-              {unmatchedWWPNs.length > 0 && (
-                <Alert variant="warning" className="mb-3">
-                  <Alert.Heading className="h6">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
-                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                      <line x1="12" y1="9" x2="12" y2="13"/>
-                      <line x1="12" y1="17" x2="12.01" y2="17"/>
-                    </svg>
-                    {unmatchedWWPNs.length} Unmatched WWPN(s) Found
-                  </Alert.Heading>
-                  <p>The following WWPNs could not be matched to existing aliases:</p>
-                  <div style={{ maxHeight: "200px", overflowY: "auto" }}>
-                    {unmatchedWWPNs.map((unmatched, index) => (
-                      <div key={index} className="mb-1" style={{ fontFamily: "monospace", fontSize: "12px" }}>
-                        <strong>{unmatched.zoneName}</strong> ({unmatched.fileName}): {unmatched.wwpn}
-                      </div>
-                    ))}
-                  </div>
-                </Alert>
-              )}
 
               {/* Preview Section */}
               {showPreviewSection && parsedData.length > 0 && (
-                <Card className="mb-3">
-                  <Card.Header 
-                    onClick={() => setShowPreview(!showPreview)}
-                    style={{ cursor: "pointer" }}
-                    className="d-flex justify-content-between align-items-center"
-                  >
-                    <h6 className="mb-0">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
-                        <polyline points="6,9 12,15 18,9"/>
-                      </svg>
-                      Import Preview ({parsedData.length} items)
-                      {showPreview ? " - Click to collapse" : " - Click to expand"}
-                    </h6>
-                    <Badge bg="info">
-                      {parsedData.filter(item => item.wwpn !== undefined).length} aliases, {parsedData.filter(item => item.members !== undefined).length} zones
-                    </Badge>
-                  </Card.Header>
-                  {showPreview && (
-                    <Card.Body style={{ maxHeight: "400px", overflowY: "auto" }}>
-                      {/* Aliases Preview */}
-                      {parsedData.filter(item => item.wwpn !== undefined).length > 0 && (
-                        <div className="mb-4">
-                          <h6 className="text-primary">Aliases ({parsedData.filter(item => item.wwpn !== undefined).length})</h6>
+                <div className="mb-3">
+                  {/* Aliases Preview */}
+                  {parsedData.filter(item => item.wwpn !== undefined).length > 0 && (
+                    <Card className="mb-3">
+                      <Card.Header 
+                        onClick={() => setShowPreview(prev => ({ ...prev, aliases: !prev.aliases }))}
+                        style={{ cursor: "pointer" }}
+                        className="d-flex justify-content-between align-items-center"
+                      >
+                        <h6 className="mb-0 text-primary">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
+                            <polyline points={showPreview.aliases ? "6,9 12,15 18,9" : "9,6 15,12 9,18"}/>
+                          </svg>
+                          Aliases Preview ({parsedData.filter(item => item.wwpn !== undefined).length} items)
+                          {showPreview.aliases ? " - Click to collapse" : " - Click to expand"}
+                        </h6>
+                        <Badge bg="primary">
+                          {parsedData.filter(item => item.wwpn !== undefined).length} aliases
+                        </Badge>
+                      </Card.Header>
+                      {showPreview.aliases && (
+                        <Card.Body style={{ maxHeight: "400px", overflowY: "auto" }}>
                           <div className="table-responsive">
                             <table className="table table-sm">
                               <thead>
@@ -899,81 +1070,84 @@ const BulkZoningImportPage = () => {
                                   <th>Type</th>
                                   <th>Create</th>
                                   <th>Include in Zoning</th>
+                                  <th>Status</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {parsedData.filter(item => item.wwpn !== undefined).map((alias, index) => (
-                                  <tr key={index}>
+                                  <tr key={index} className={alias.existsInDatabase ? "table-warning" : ""}>
                                     <td><code>{alias.name}</code></td>
                                     <td><code>{alias.wwpn}</code></td>
                                     <td><Badge bg="secondary">{alias.use}</Badge></td>
                                     <td><Badge bg="info">{alias.cisco_alias}</Badge></td>
                                     <td>{alias.create ? "✅" : "❌"}</td>
                                     <td>{alias.include_in_zoning ? "✅" : "❌"}</td>
+                                    <td>
+                                      {alias.existsInDatabase ? (
+                                        <Badge bg="warning" title="This alias already exists in the database">
+                                          ⚠️ Exists
+                                        </Badge>
+                                      ) : (
+                                        <Badge bg="success" title="New alias - will be created">
+                                          ✨ New
+                                        </Badge>
+                                      )}
+                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
                           </div>
-                        </div>
+                        </Card.Body>
                       )}
-
-                      {/* Zones Preview */}
-                      {parsedData.filter(item => item.members !== undefined).length > 0 && (
-                        <div>
-                          <h6 className="text-success">Zones ({parsedData.filter(item => item.members !== undefined).length})</h6>
-                          <div className="table-responsive">
-                            <table className="table table-sm">
-                              <thead>
-                                <tr>
-                                  <th>Name</th>
-                                  <th>VSAN</th>
-                                  <th>Type</th>
-                                  <th>Create</th>
-                                  <th>Exists</th>
-                                  <th>Members</th>
-                                  <th>Matched Aliases</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {parsedData.filter(item => item.members !== undefined).map((zone, index) => (
-                                  <tr key={index}>
-                                    <td><code>{zone.name}</code></td>
-                                    <td><Badge bg="warning">{zone.vsan}</Badge></td>
-                                    <td><Badge bg="info">{zone.zone_type}</Badge></td>
-                                    <td>{zone.create ? "✅" : "❌"}</td>
-                                    <td>{zone.exists ? "✅" : "❌"}</td>
-                                    <td><Badge bg="secondary">{zone.members?.length || 0}</Badge></td>
-                                    <td><Badge bg="success">{zone.memberAliases?.length || 0}</Badge></td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </Card.Body>
+                    </Card>
                   )}
-                </Card>
+
+                </div>
               )}
 
               {/* Action Buttons */}
-              {showPreview && parsedData.length > 0 && (
-                <div className="d-flex gap-2">
-                  <Button variant="success" onClick={handleImportAll} disabled={importing}>
-                    {importing ? (
+              {showPreviewSection && parsedData.length > 0 && (
+                <>
+                  {(() => {
+                    const stats = getImportStats();
+                    return (
                       <>
-                        <Spinner size="sm" className="me-1" />
-                        Importing...
+                        {/* Duplicate Warning */}
+                        {stats.duplicates > 0 && (
+                          <Alert variant="warning" className="mb-3">
+                            <strong>⚠️ Duplicate Detection:</strong> {stats.duplicates} aliases already exist in the database and will be skipped. 
+                            Only {stats.new} new aliases will be imported.
+                          </Alert>
+                        )}
+                        
+                        <div className="d-flex gap-2">
+                          <Button 
+                            variant="success" 
+                            onClick={handleImportAll} 
+                            disabled={importing || stats.new === 0}
+                          >
+                            {importing ? (
+                              <>
+                                <Spinner size="sm" className="me-1" />
+                                Importing...
+                              </>
+                            ) : stats.new === 0 ? (
+                              "No New Aliases to Import"
+                            ) : stats.duplicates > 0 ? (
+                              `Import ${stats.new} New Aliases (${stats.duplicates} duplicates will be skipped)`
+                            ) : (
+                              `Import All ${stats.new} Aliases`
+                            )}
+                          </Button>
+                          <Button variant="outline-secondary" onClick={() => navigate(-1)}>
+                            Cancel
+                          </Button>
+                        </div>
                       </>
-                    ) : (
-                      `Import All ${parsedData.length} Items`
-                    )}
-                  </Button>
-                  <Button variant="outline-secondary" onClick={() => navigate(-1)}>
-                    Cancel
-                  </Button>
-                </div>
+                    );
+                  })()}
+                </>
               )}
             </Card.Body>
           </Card>
