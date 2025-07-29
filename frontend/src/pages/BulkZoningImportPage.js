@@ -5,6 +5,19 @@ import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
 import "handsontable/dist/handsontable.full.css";
 
+// Smart detection function for WWPN type
+const detectWwpnType = async (wwpn) => {
+  try {
+    const response = await axios.post('/api/san/wwpn-prefixes/detect-type/', {
+      wwpn: wwpn
+    });
+    return response.data.detected_type || null;
+  } catch (error) {
+    console.warn(`Failed to detect WWPN type for ${wwpn}:`, error);
+    return null;
+  }
+};
+
 const BulkZoningImportPage = () => {
   const { config } = useContext(ConfigContext);
   const navigate = useNavigate();
@@ -52,11 +65,17 @@ const BulkZoningImportPage = () => {
     const allAliases = parsedData.filter(item => item.wwpn !== undefined);
     const newAliases = allAliases.filter(alias => !alias.existsInDatabase);
     const duplicateAliases = allAliases.filter(alias => alias.existsInDatabase);
+    const smartDetectedAliases = allAliases.filter(alias => alias.smartDetectionNote);
+    const smartDetectedWithRules = smartDetectedAliases.filter(alias => !alias.smartDetectionNote.includes('No prefix rule found'));
+    const smartDetectedWithoutRules = smartDetectedAliases.filter(alias => alias.smartDetectionNote.includes('No prefix rule found'));
     
     return {
       total: allAliases.length,
       new: newAliases.length,
-      duplicates: duplicateAliases.length
+      duplicates: duplicateAliases.length,
+      smartDetected: smartDetectedAliases.length,
+      smartDetectedWithRules: smartDetectedWithRules.length,
+      smartDetectedWithoutRules: smartDetectedWithoutRules.length
     };
   };
 
@@ -67,16 +86,25 @@ const BulkZoningImportPage = () => {
     console.log("📁 Current uploadedFiles length:", uploadedFiles.length);
     
     if (parsedData.length > 0) {
-      console.log("✏️ Updating parsedData with new defaults");
-      const updatedData = parsedData.map(item => ({
-        ...item,
-        create: aliasDefaults.create,
-        include_in_zoning: aliasDefaults.includeInZoning,
-        use: aliasDefaults.use,
-        cisco_alias: aliasDefaults.aliasType
-      }));
-      console.log("📋 Updated data sample:", updatedData[0]);
-      setParsedData(updatedData);
+      // If smart detection is enabled, we need to reprocess the files
+      if (aliasDefaults.use === "smart") {
+        console.log("🧠 Smart detection enabled, reprocessing files...");
+        if (uploadedFiles.length > 0) {
+          processFiles(uploadedFiles);
+        }
+      } else {
+        // For non-smart options, we can just update the existing data
+        console.log("✏️ Updating parsedData with new defaults");
+        const updatedData = parsedData.map(item => ({
+          ...item,
+          create: aliasDefaults.create,
+          include_in_zoning: aliasDefaults.includeInZoning,
+          use: aliasDefaults.use,
+          cisco_alias: aliasDefaults.aliasType
+        }));
+        console.log("📋 Updated data sample:", updatedData[0]);
+        setParsedData(updatedData);
+      }
     }
     
     // Also update uploaded files data so it applies to future processing
@@ -537,11 +565,14 @@ const BulkZoningImportPage = () => {
   };
 
   // Parse alias data (reused from AliasImportPage)
-  const parseAliasData = (text, fabricId = selectedFabric, defaults = aliasDefaults) => {
+  const parseAliasData = async (text, fabricId = selectedFabric, defaults = aliasDefaults) => {
     console.log("🏗️ parseAliasData called with fabricId:", fabricId, typeof fabricId);
     console.log("🎛️ Using defaults:", defaults);
     if (defaults.aliasType === "original") {
       console.log("🔄 Using 'original' mode - preserving source alias types");
+    }
+    if (defaults.use === "smart") {
+      console.log("🧠 Using smart detection mode");
     }
     if (!fabricId || (typeof fabricId === 'string' && fabricId.trim() === "")) {
       console.warn("⚠️ No fabric selected, cannot parse aliases");
@@ -556,7 +587,8 @@ const BulkZoningImportPage = () => {
     
     let currentFcAlias = null;
     
-    lines.forEach((line, index) => {
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
       const trimmedLine = line.trim();
       
       // Device-alias format
@@ -565,19 +597,36 @@ const BulkZoningImportPage = () => {
         const [, name, wwpn] = deviceMatch;
         const formattedWWPN = wwpn.toLowerCase().replace(/[^0-9a-f]/g, "").match(/.{2}/g)?.join(":") || wwpn;
         
+        // Determine use type (with smart detection if enabled)
+        let useType = defaults.use;
+        let smartDetectionNote = null;
+        if (defaults.use === "smart") {
+          const detectedType = await detectWwpnType(formattedWWPN);
+          if (detectedType) {
+            useType = detectedType;
+            smartDetectionNote = `Smart detected: ${detectedType}`;
+            console.log(`🧠 Smart detection: ${formattedWWPN} -> ${detectedType}`);
+          } else {
+            console.log(`🧠 Smart detection: No rule found for ${formattedWWPN}, using default fallback`);
+            useType = "init"; // Default fallback for smart detection
+            smartDetectionNote = `No prefix rule found - defaulted to init`;
+          }
+        }
+        
         aliases.push({
           lineNumber: index + 1,
           name: name,
           wwpn: formattedWWPN,
           fabric: fabricId ? (typeof fabricId === 'number' ? fabricId : parseInt(fabricId)) : null,
-          use: defaults.use,
+          use: useType,
           cisco_alias: defaults.aliasType === "original" ? "device-alias" : defaults.aliasType,
           create: defaults.create,
           include_in_zoning: defaults.includeInZoning,
-          notes: "Imported from bulk import",
+          notes: smartDetectionNote ? `Imported from bulk import (${smartDetectionNote})` : "Imported from bulk import",
           imported: new Date().toISOString(),
           updated: null,
-          saved: false
+          saved: false,
+          smartDetectionNote: smartDetectionNote
         });
       }
       
@@ -591,7 +640,7 @@ const BulkZoningImportPage = () => {
           name: name,
           vsan: parseInt(vsan),
           fabric: fabricId ? (typeof fabricId === 'number' ? fabricId : parseInt(fabricId)) : null,
-          use: defaults.use,
+          use: defaults.use, // Will be updated when WWPN is found if smart detection is enabled
           cisco_alias: defaults.aliasType === "original" ? "fcalias" : defaults.aliasType,
           create: defaults.create,
           include_in_zoning: defaults.includeInZoning,
@@ -611,11 +660,32 @@ const BulkZoningImportPage = () => {
         console.log(`    📝 Found member for ${currentFcAlias.name}: ${wwpn}`);
         const formattedWWPN = wwpn.toLowerCase().replace(/[^0-9a-f]/g, "").match(/.{2}/g)?.join(":") || wwpn;
         currentFcAlias.wwpn = formattedWWPN;
+        // Determine use type (with smart detection if enabled)
+        let useType = defaults.use;
+        let smartDetectionNote = null;
+        if (defaults.use === "smart") {
+          const detectedType = await detectWwpnType(formattedWWPN);
+          if (detectedType) {
+            useType = detectedType;
+            smartDetectionNote = `Smart detected: ${detectedType}`;
+            console.log(`🧠 Smart detection (fcalias): ${formattedWWPN} -> ${detectedType}`);
+          } else {
+            console.log(`🧠 Smart detection (fcalias): No rule found for ${formattedWWPN}, using default fallback`);
+            useType = "init"; // Default fallback for smart detection
+            smartDetectionNote = `No prefix rule found - defaulted to init`;
+          }
+        }
+        
+        currentFcAlias.use = useType;
+        if (smartDetectionNote) {
+          currentFcAlias.notes = `Imported from bulk import (VSAN ${currentFcAlias.vsan}) (${smartDetectionNote})`;
+          currentFcAlias.smartDetectionNote = smartDetectionNote;
+        }
         aliases.push({ ...currentFcAlias });
         console.log(`    ✅ Added fcalias: ${currentFcAlias.name} -> ${formattedWWPN}`);
         currentFcAlias = null;
       }
-    });
+    }
     
     return aliases;
   };
@@ -640,7 +710,7 @@ const BulkZoningImportPage = () => {
           if (extractedSections.deviceAliases.length > 0) {
             const combinedDeviceAliasText = extractedSections.deviceAliases.join("\n");
             console.log("🔄 First pass - parsing device-alias text:", combinedDeviceAliasText.substring(0, 100));
-            const aliasItems = parseAliasData(combinedDeviceAliasText, selectedFabric, aliasDefaults);
+            const aliasItems = await parseAliasData(combinedDeviceAliasText, selectedFabric, aliasDefaults);
             console.log("✅ First pass - parsed device-alias items:", aliasItems.length);
             allBatchAliases.push(...aliasItems);
           }
@@ -649,12 +719,12 @@ const BulkZoningImportPage = () => {
           if (extractedSections.fcAliases.length > 0) {
             const combinedFcAliasText = extractedSections.fcAliases.join("\n");
             console.log("🔄 First pass - parsing fcalias text:", combinedFcAliasText.substring(0, 100));
-            const aliasItems = parseAliasData(combinedFcAliasText, selectedFabric, aliasDefaults);
+            const aliasItems = await parseAliasData(combinedFcAliasText, selectedFabric, aliasDefaults);
             console.log("✅ First pass - parsed fcalias items:", aliasItems.length);
             allBatchAliases.push(...aliasItems);
           }
         } else if (dataType === "alias") {
-          const aliasItems = parseAliasData(text, selectedFabric, aliasDefaults);
+          const aliasItems = await parseAliasData(text, selectedFabric, aliasDefaults);
           allBatchAliases.push(...aliasItems);
         }
       } catch (error) {
@@ -682,7 +752,7 @@ const BulkZoningImportPage = () => {
           if (extractedSections.deviceAliases.length > 0) {
             const combinedDeviceAliasText = extractedSections.deviceAliases.join("\n");
             console.log("📝 Parsing combined device-alias text:", combinedDeviceAliasText.substring(0, 200));
-            const aliasItems = parseAliasData(combinedDeviceAliasText, selectedFabric, aliasDefaults);
+            const aliasItems = await parseAliasData(combinedDeviceAliasText, selectedFabric, aliasDefaults);
             console.log("✅ Parsed device-alias items:", aliasItems.length);
             parsedItems.push(...aliasItems);
           }
@@ -691,16 +761,16 @@ const BulkZoningImportPage = () => {
           if (extractedSections.fcAliases.length > 0) {
             const combinedFcAliasText = extractedSections.fcAliases.join("\n");
             console.log("🏷️ Parsing combined fcalias text:", combinedFcAliasText.substring(0, 200));
-            const aliasItems = parseAliasData(combinedFcAliasText, selectedFabric, aliasDefaults);
+            const aliasItems = await parseAliasData(combinedFcAliasText, selectedFabric, aliasDefaults);
             console.log("✅ Parsed fcalias items:", aliasItems.length);
             parsedItems.push(...aliasItems);
           }
           
         } else if (dataType === "alias") {
-          parsedItems = parseAliasData(text, selectedFabric, aliasDefaults);
+          parsedItems = await parseAliasData(text, selectedFabric, aliasDefaults);
         } else {
           // For unknown data, try to parse as aliases
-          parsedItems = parseAliasData(text, selectedFabric, aliasDefaults);
+          parsedItems = await parseAliasData(text, selectedFabric, aliasDefaults);
         }
         
         // Deduplicate items
@@ -810,23 +880,23 @@ const BulkZoningImportPage = () => {
       
       if (extractedSections.deviceAliases.length > 0) {
         const combinedDeviceAliasText = extractedSections.deviceAliases.join("\n");
-        const aliasItems = parseAliasData(combinedDeviceAliasText);
+        const aliasItems = await parseAliasData(combinedDeviceAliasText);
         parsedItems.push(...aliasItems);
         console.log("✅ Parsed device-alias items from paste:", aliasItems.length);
       }
       
       if (extractedSections.fcAliases.length > 0) {
         const combinedFcAliasText = extractedSections.fcAliases.join("\n");
-        const aliasItems = parseAliasData(combinedFcAliasText);
+        const aliasItems = await parseAliasData(combinedFcAliasText);
         parsedItems.push(...aliasItems);
         console.log("✅ Parsed fcalias items from paste:", aliasItems.length);
       }
       
     } else if (dataType === "alias") {
-      parsedItems = parseAliasData(textInput, selectedFabric, aliasDefaults);
+      parsedItems = await parseAliasData(textInput, selectedFabric, aliasDefaults);
     } else {
       // For unknown data, try to parse as aliases
-      parsedItems = parseAliasData(textInput, selectedFabric, aliasDefaults);
+      parsedItems = await parseAliasData(textInput, selectedFabric, aliasDefaults);
     }
     
     // Deduplicate items
@@ -1041,6 +1111,7 @@ const BulkZoningImportPage = () => {
                             <option value="init">Initiator</option>
                             <option value="target">Target</option>
                             <option value="both">Both</option>
+                            <option value="smart">Smart Detection</option>
                           </Form.Select>
                         </div>
                         <div className="col-6">
@@ -1245,6 +1316,32 @@ const BulkZoningImportPage = () => {
                       </Card.Header>
                       {showPreview.aliases && (
                         <Card.Body style={{ maxHeight: "400px", overflowY: "auto" }}>
+                          {(() => {
+                            const stats = getImportStats();
+                            return stats.smartDetected > 0 && (
+                              <Alert variant="info" className="mb-3">
+                                <div className="d-flex align-items-center">
+                                  <span className="me-2">🧠</span>
+                                  <div>
+                                    <strong>Smart Detection Summary:</strong> {stats.smartDetected} aliases processed
+                                    <br />
+                                    <small>
+                                      {stats.smartDetectedWithRules > 0 && (
+                                        <span className="text-success me-3">
+                                          ✅ {stats.smartDetectedWithRules} matched rules
+                                        </span>
+                                      )}
+                                      {stats.smartDetectedWithoutRules > 0 && (
+                                        <span className="text-warning">
+                                          ⚠️ {stats.smartDetectedWithoutRules} used default (no rule found)
+                                        </span>
+                                      )}
+                                    </small>
+                                  </div>
+                                </div>
+                              </Alert>
+                            );
+                          })()}
                           <div className="table-responsive">
                             <table className="table table-sm">
                               <thead>
@@ -1263,7 +1360,23 @@ const BulkZoningImportPage = () => {
                                   <tr key={index} className={alias.existsInDatabase ? "table-warning" : ""}>
                                     <td><code>{alias.name}</code></td>
                                     <td><code>{alias.wwpn}</code></td>
-                                    <td><Badge bg="secondary">{alias.use}</Badge></td>
+                                    <td>
+                                      {alias.smartDetectionNote ? (
+                                        <div>
+                                          <Badge 
+                                            bg={alias.smartDetectionNote.includes('No prefix rule found') ? "warning" : "success"} 
+                                            title={alias.smartDetectionNote}
+                                          >
+                                            🧠 {alias.use}
+                                          </Badge>
+                                          {alias.smartDetectionNote.includes('No prefix rule found') && (
+                                            <small className="text-muted d-block">No rule found</small>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <Badge bg="secondary">{alias.use}</Badge>
+                                      )}
+                                    </td>
                                     <td><Badge bg="info">{alias.cisco_alias}</Badge></td>
                                     <td>{alias.create ? "✅" : "❌"}</td>
                                     <td>{alias.include_in_zoning ? "✅" : "❌"}</td>

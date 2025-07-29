@@ -1,8 +1,5 @@
 from rest_framework import serializers
-from .models import Alias, Zone, Fabric
-
-from rest_framework import serializers
-from .models import Alias
+from .models import Alias, Zone, Fabric, WwpnPrefix
 from core.models import Project
 
 
@@ -137,3 +134,13 @@ class ZoneSerializer(serializers.ModelSerializer):
             instance.members.add(*members)  # ✅ Append instead of overwriting
 
         return instance
+
+
+class WwpnPrefixSerializer(serializers.ModelSerializer):
+    wwpn_type_display = serializers.CharField(source='get_wwpn_type_display', read_only=True)
+    
+    class Meta:
+        model = WwpnPrefix
+        fields = ['id', 'prefix', 'wwpn_type', 'wwpn_type_display', 
+                 'vendor', 'description', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'wwpn_type_display']

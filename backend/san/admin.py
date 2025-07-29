@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Fabric, Alias, Zone
+from .models import Fabric, Alias, Zone, WwpnPrefix
 from django.db.models import Count
 
 @admin.register(Fabric)
@@ -195,3 +195,42 @@ class ZoneAdmin(admin.ModelAdmin):
         updated = queryset.update(exists=False)
         self.message_user(request, f"{updated} zones marked as not existing.")
     mark_as_not_existing.short_description = "Mark selected zones as not existing"
+
+
+@admin.register(WwpnPrefix)
+class WwpnPrefixAdmin(admin.ModelAdmin):
+    list_display = [
+        "prefix", 
+        "wwpn_type", 
+        "vendor", 
+        "description", 
+        "created_at", 
+        "updated_at"
+    ]
+    list_filter = [
+        "wwpn_type", 
+        "vendor",
+        ("created_at", admin.DateFieldListFilter),
+        ("updated_at", admin.DateFieldListFilter),
+    ]
+    search_fields = [
+        "prefix", 
+        "vendor", 
+        "description"
+    ]
+    list_editable = ["wwpn_type", "vendor"]
+    ordering = ["prefix"]
+    list_per_page = 100
+    
+    # Add actions
+    actions = ["mark_as_initiator", "mark_as_target"]
+    
+    def mark_as_initiator(self, request, queryset):
+        updated = queryset.update(wwpn_type='init')
+        self.message_user(request, f"{updated} prefixes marked as initiator.")
+    mark_as_initiator.short_description = "Mark selected prefixes as initiator"
+    
+    def mark_as_target(self, request, queryset):
+        updated = queryset.update(wwpn_type='target')
+        self.message_user(request, f"{updated} prefixes marked as target.")
+    mark_as_target.short_description = "Mark selected prefixes as target"

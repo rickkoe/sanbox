@@ -3,10 +3,10 @@ from django.http import JsonResponse
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from .models import Alias, Zone, Fabric
+from .models import Alias, Zone, Fabric, WwpnPrefix
 from customers.models import Customer
 from core.models import Config, Project
-from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer
+from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer, WwpnPrefixSerializer
 from django.db import IntegrityError
 from collections import defaultdict
 from .san_utils import generate_alias_commands, generate_zone_commands
@@ -541,5 +541,123 @@ def alias_copy_to_project_view(request):
             "message": f"Successfully copied {copied_count} aliases to project!"
         })
     
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def wwpn_prefix_list_view(request):
+    """
+    GET /wwpn-prefixes/  -> List all WWPN prefixes
+    POST /wwpn-prefixes/ -> Create a new WWPN prefix
+    """
+    print(f"🔥 WWPN Prefix List - Method: {request.method}")
+    
+    if request.method == "GET":
+        search = request.GET.get('search', '')
+        ordering = request.GET.get('ordering', 'prefix')
+        
+        # Build queryset
+        qs = WwpnPrefix.objects.all()
+        
+        # Apply search if provided
+        if search:
+            qs = qs.filter(
+                Q(prefix__icontains=search) |
+                Q(vendor__icontains=search) |
+                Q(description__icontains=search)
+            )
+        
+        # Apply ordering
+        if ordering:
+            qs = qs.order_by(ordering)
+        
+        # Serialize all results
+        data = WwpnPrefixSerializer(qs, many=True).data
+        return JsonResponse(data, safe=False)
+    
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            serializer = WwpnPrefixSerializer(data=data)
+            if serializer.is_valid():
+                wwpn_prefix = serializer.save()
+                return JsonResponse({
+                    "message": "WWPN prefix created successfully!",
+                    "wwpn_prefix": WwpnPrefixSerializer(wwpn_prefix).data
+                }, status=201)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def wwpn_prefix_detail_view(request, pk):
+    """
+    GET /wwpn-prefixes/{pk}/    -> Retrieve a single WWPN prefix
+    PUT /wwpn-prefixes/{pk}/    -> Update an existing WWPN prefix
+    DELETE /wwpn-prefixes/{pk}/ -> Delete a WWPN prefix
+    """
+    print(f"🔥 WWPN Prefix Detail - Method: {request.method}, PK: {pk}")
+    
+    try:
+        wwpn_prefix = WwpnPrefix.objects.get(pk=pk)
+    except WwpnPrefix.DoesNotExist:
+        return JsonResponse({"error": "WWPN prefix not found"}, status=404)
+    
+    if request.method == "GET":
+        data = WwpnPrefixSerializer(wwpn_prefix).data
+        return JsonResponse(data)
+    
+    elif request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+            serializer = WwpnPrefixSerializer(wwpn_prefix, data=data, partial=True)
+            if serializer.is_valid():
+                updated = serializer.save()
+                return JsonResponse({
+                    "message": "WWPN prefix updated successfully!",
+                    "wwpn_prefix": WwpnPrefixSerializer(updated).data
+                })
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    elif request.method == "DELETE":
+        try:
+            print(f'Deleting WWPN Prefix: {wwpn_prefix.prefix}')
+            wwpn_prefix.delete()
+            return JsonResponse({"message": "WWPN prefix deleted successfully."})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def wwpn_detect_type_view(request):
+    """
+    POST /wwpn-prefixes/detect-type/
+    Detect WWPN type (initiator/target) based on global prefix rules
+    Body: {"wwpn": "<wwpn>"}
+    """
+    print(f"🔥 WWPN Detect Type - Method: {request.method}")
+    
+    try:
+        data = json.loads(request.body)
+        wwpn = data.get("wwpn")
+        
+        if not wwpn:
+            return JsonResponse({"error": "wwpn is required"}, status=400)
+        
+        # Use the model's detection method
+        detected_type = WwpnPrefix.detect_wwpn_type(wwpn)
+        
+        return JsonResponse({
+            "wwpn": wwpn,
+            "detected_type": detected_type
+        })
+        
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

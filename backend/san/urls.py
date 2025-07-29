@@ -11,7 +11,10 @@ from .views import (
     zone_save_view,
     alias_delete_view,
     zone_delete_view,
-    alias_by_fabric_view
+    alias_by_fabric_view,
+    wwpn_prefix_list_view,
+    wwpn_prefix_detail_view,
+    wwpn_detect_type_view
 )
 
 urlpatterns = [
@@ -29,4 +32,9 @@ urlpatterns = [
     path("fabrics/", fabric_management, name="fabric-list"),
     path("fabrics/<int:pk>/", fabric_management, name="fabric-detail"),
     path("fabrics/delete/<int:pk>/", fabric_delete_view, name="fabric-delete"),
+    
+    # WWPN Prefix management endpoints
+    path("wwpn-prefixes/", wwpn_prefix_list_view, name="wwpn-prefix-list"),
+    path("wwpn-prefixes/<int:pk>/", wwpn_prefix_detail_view, name="wwpn-prefix-detail"),
+    path("wwpn-prefixes/detect-type/", wwpn_detect_type_view, name="wwpn-detect-type"),
 ]
