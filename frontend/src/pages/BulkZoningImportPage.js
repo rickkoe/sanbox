@@ -47,6 +47,7 @@ const BulkZoningImportPage = () => {
   const [activeTab, setActiveTab] = useState("files");
   const [showPreviewSection, setShowPreviewSection] = useState(false);
   const [preferencesStatus, setPreferencesStatus] = useState(""); // "", "saving", "saved"
+  const [zonePreferencesStatus, setZonePreferencesStatus] = useState(""); // "", "saving", "saved"
   
   // Import defaults
   const [aliasDefaults, setAliasDefaults] = useState({
@@ -141,6 +142,27 @@ const BulkZoningImportPage = () => {
     }
   };
 
+  const handleSelectZone = (index, checked) => {
+    const newSelected = new Set(selectedZones);
+    if (checked) {
+      newSelected.add(index);
+    } else {
+      newSelected.delete(index);
+    }
+    setSelectedZones(newSelected);
+  };
+
+  const handleSelectAllZones = (checked) => {
+    if (checked) {
+      const newZones = parsedData
+        .filter(item => (item.zone_type !== undefined || item.members !== undefined) && !item.existsInDatabase)
+        .map((_, index) => index);
+      setSelectedZones(new Set(newZones));
+    } else {
+      setSelectedZones(new Set());
+    }
+  };
+
   // Update parsed data when defaults change
   useEffect(() => {
     console.log("🔄 aliasDefaults changed:", aliasDefaults);
@@ -186,6 +208,53 @@ const BulkZoningImportPage = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aliasDefaults]);
+
+  // Update parsed data when zone defaults change
+  useEffect(() => {
+    console.log("🔄 zoneDefaults changed:", zoneDefaults);
+    console.log("📊 Current parsedData length:", parsedData.length);
+    
+    if (parsedData.length > 0) {
+      // Update zone data with new defaults
+      console.log("✏️ Updating parsedData zones with new defaults");
+      const updatedData = parsedData.map(item => {
+        // Only update zones, leave aliases unchanged
+        if (item.zone_type !== undefined || item.members !== undefined) {
+          return {
+            ...item,
+            create: zoneDefaults.create,
+            exists: zoneDefaults.exists,
+            zone_type: zoneDefaults.zoneType === "detect" ? (item.zone_type || "standard") : zoneDefaults.zoneType
+          };
+        }
+        return item; // Return aliases unchanged
+      });
+      console.log("📋 Updated zone data sample:", updatedData.find(item => item.zone_type !== undefined || item.members !== undefined));
+      setParsedData(updatedData);
+    }
+    
+    // Also update uploaded files data so it applies to future processing
+    if (uploadedFiles.length > 0) {
+      console.log("🗂️ Updating uploadedFiles zone items with new defaults");
+      const updatedFiles = uploadedFiles.map(file => ({
+        ...file,
+        items: file.items.map(item => {
+          // Only update zones, leave aliases unchanged
+          if (item.zone_type !== undefined || item.members !== undefined) {
+            return {
+              ...item,
+              create: zoneDefaults.create,
+              exists: zoneDefaults.exists,
+              zone_type: zoneDefaults.zoneType === "detect" ? (item.zone_type || "standard") : zoneDefaults.zoneType
+            };
+          }
+          return item; // Return aliases unchanged
+        })
+      }));
+      setUploadedFiles(updatedFiles);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoneDefaults]);
 
   // Load fabrics
   useEffect(() => {
@@ -269,6 +338,43 @@ const BulkZoningImportPage = () => {
     }
   }, [activeCustomerId]);
 
+  // Load zone preferences for bulk import
+  useEffect(() => {
+    if (activeCustomerId) {
+      console.log("🔧 Loading bulk zone import preferences...");
+      
+      axios.get('/api/core/table-config/', {
+        params: {
+          customer: activeCustomerId,
+          table_name: 'bulk_zone_import'
+        }
+      })
+        .then((response) => {
+          console.log("🔍 Full zone preferences API response:", response.data);
+          
+          // Handle both single object and array responses
+          const configData = Array.isArray(response.data) ? response.data[0] : response.data;
+          
+          if (configData && configData.additional_settings) {
+            const preferences = configData.additional_settings;
+            console.log("✅ Loaded zone preferences:", preferences);
+            setZoneDefaults(prev => {
+              const newDefaults = { ...prev, ...preferences };
+              console.log("🔄 Updated zoneDefaults from:", prev, "to:", newDefaults);
+              return newDefaults;
+            });
+          } else {
+            console.log("📋 No saved zone preferences found in response, using defaults");
+            console.log("📋 Available keys in response:", Object.keys(configData || {}));
+          }
+        })
+        .catch((err) => {
+          console.log("ℹ️ Could not load zone preferences (first time?), using defaults");
+          console.log("❌ Zone preferences error details:", err.response?.status, err.response?.data);
+        });
+    }
+  }, [activeCustomerId]);
+
   // Save user preferences when they change
   const savePreferences = useCallback(async (newDefaults) => {
     if (activeCustomerId) {
@@ -292,6 +398,38 @@ const BulkZoningImportPage = () => {
     }
   }, [activeCustomerId]);
 
+  // Save zone preferences when they change
+  const saveZonePreferences = useCallback(async (newDefaults) => {
+    if (activeCustomerId) {
+      try {
+        setZonePreferencesStatus("saving");
+        const payload = {
+          customer: activeCustomerId,
+          table_name: 'bulk_zone_import',
+          additional_settings: newDefaults
+        };
+        console.log("💾 Saving bulk zone import preferences:", newDefaults);
+        await axios.post('/api/core/table-config/', payload);
+        console.log("✅ Zone preferences saved successfully");
+        setZonePreferencesStatus("saved");
+        
+        // Clear "saved" status after 2 seconds
+        setTimeout(() => setZonePreferencesStatus(""), 2000);
+      } catch (error) {
+        // Handle database lock errors (common with SQLite)
+        if (error.response?.data?.error === 'database is locked') {
+          console.log("⚠️ Database temporarily locked, preferences may still save");
+          // Still show saved status for database lock since it usually works
+          setZonePreferencesStatus("saved");
+          setTimeout(() => setZonePreferencesStatus(""), 2000);
+        } else {
+          console.error("❌ Failed to save zone preferences:", error.response?.data || error.message);
+          setZonePreferencesStatus("");
+        }
+      }
+    }
+  }, [activeCustomerId]);
+
   // Update alias defaults and save to database
   const updateAliasDefaults = useCallback((updater) => {
     setAliasDefaults(prev => {
@@ -302,22 +440,34 @@ const BulkZoningImportPage = () => {
     });
   }, [savePreferences]);
 
+  // Update zone defaults and save to database
+  const updateZoneDefaults = useCallback((updater) => {
+    setZoneDefaults(prev => {
+      const newDefaults = typeof updater === 'function' ? updater(prev) : updater;
+      // Save to database (async, fire and forget) - use a different table name for zones
+      saveZonePreferences(newDefaults);
+      return newDefaults;
+    });
+  }, [saveZonePreferences]);
+
   // Function to refresh alias options after import
-  const refreshAliasOptions = useCallback(() => {
+  const refreshAliasOptions = useCallback(async () => {
     if (activeProjectId && selectedFabric) {
       console.log("🔄 Refreshing alias options after import");
-      axios.get(`/api/san/aliases/project/${activeProjectId}/`)
-        .then((res) => {
-          const fabricAliases = res.data.filter(
-            (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
-          );
-          setAliasOptions(fabricAliases);
-          console.log(`✅ Refreshed aliasOptions: ${fabricAliases.length} aliases`);
-        })
-        .catch((err) => {
-          console.error("Error refreshing aliases:", err);
-        });
+      try {
+        const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
+        const fabricAliases = res.data.filter(
+          (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
+        );
+        setAliasOptions(fabricAliases);
+        console.log(`✅ Refreshed aliasOptions: ${fabricAliases.length} aliases`);
+        return fabricAliases;
+      } catch (err) {
+        console.error("Error refreshing aliases:", err);
+        return [];
+      }
     }
+    return [];
   }, [activeProjectId, selectedFabric]);
 
   // Deduplicate aliases and zones, handle conflicts
@@ -889,13 +1039,23 @@ const BulkZoningImportPage = () => {
         const zoneName = zoneMatch[1];
         const zoneVsan = zoneMatch[3] ? parseInt(zoneMatch[3]) : vsan;
         
+        // Determine zone type based on defaults setting
+        let finalZoneType = defaults.zoneType;
+        if (defaults.zoneType === "detect") {
+          // Try to detect zone type from the zone name or other indicators
+          // For now, default to "standard" if we can't detect
+          finalZoneType = "standard";
+        }
+        
+        console.log(`🔧 Applying zone defaults: create=${defaults.create}, exists=${defaults.exists}, zoneType=${finalZoneType}`);
+        
         currentZone = {
           name: zoneName,
           fabric: parseInt(fabricId),
           vsan: zoneVsan,
           create: defaults.create,
           exists: defaults.exists,
-          zone_type: defaults.zoneType,
+          zone_type: finalZoneType,
           members: [],
           notes: `Imported from bulk import${zoneVsan ? ` (VSAN ${zoneVsan})` : ''}${currentZoneset ? ` from zoneset ${currentZoneset}` : ''}`,
           imported: null,
@@ -1101,6 +1261,7 @@ const BulkZoningImportPage = () => {
           if (extractedSections.zones.length > 0) {
             const combinedZoneText = extractedSections.zones.join("\n");
             console.log("🔄 Parsing combined zone text:", combinedZoneText.substring(0, 200));
+            console.log("🎛️ Using current zoneDefaults:", zoneDefaults);
             const zoneItems = await parseZoneData(combinedZoneText, selectedFabric, zoneDefaults, allBatchAliases);
             console.log("✅ Parsed zone items:", zoneItems.length);
             parsedItems.push(...zoneItems);
@@ -1108,6 +1269,7 @@ const BulkZoningImportPage = () => {
           
         } else if (dataType === "zone") {
           console.log("🎯 Processing file as ZONE type");
+          console.log("🎛️ Using current zoneDefaults:", zoneDefaults);
           parsedItems = await parseZoneData(text, selectedFabric, zoneDefaults, allBatchAliases);
           console.log("🎯 Zone parsing returned:", parsedItems.length, "items");
         } else if (dataType === "alias") {
@@ -1139,7 +1301,7 @@ const BulkZoningImportPage = () => {
     
     return results;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFabric, aliasDefaults]);
+  }, [selectedFabric, aliasDefaults, zoneDefaults]);
 
   // Drag and drop handlers
   const handleDrag = useCallback((e) => {
@@ -1244,6 +1406,7 @@ const BulkZoningImportPage = () => {
         const combinedZoneText = extractedSections.zones.join("\n");
         // For paste, we need to collect aliases first, then parse zones with batch context
         const allAliases = parsedItems.filter(item => item.wwpn !== undefined);
+        console.log("🎛️ Using current zoneDefaults for paste:", zoneDefaults);
         const zoneItems = await parseZoneData(combinedZoneText, selectedFabric, zoneDefaults, allAliases);
         parsedItems.push(...zoneItems);
         console.log("🔄 Parsed zone items from paste:", zoneItems.length);
@@ -1251,6 +1414,7 @@ const BulkZoningImportPage = () => {
       
     } else if (dataType === "zone") {
       console.log("🎯 Processing text as ZONE type");
+      console.log("🎛️ Using current zoneDefaults for paste:", zoneDefaults);
       parsedItems = await parseZoneData(textInput, selectedFabric, zoneDefaults, []);
       console.log("🎯 Zone parsing returned:", parsedItems.length, "items");
     } else if (dataType === "alias") {
@@ -1327,9 +1491,10 @@ const BulkZoningImportPage = () => {
         return;
       }
       
-      const importPromises = [];
+      const results = [];
+      let resolvedZones = zones; // Initialize with original zones
       
-      // Import aliases if any
+      // Import aliases first if any
       if (aliases.length > 0) {
         console.log("📋 Sample new alias:", aliases[0]);
         const aliasPayload = {
@@ -1351,46 +1516,105 @@ const BulkZoningImportPage = () => {
         };
         
         console.log("Sending alias payload:", aliasPayload);
-        importPromises.push(
-          axios.post("/api/san/aliases/save/", aliasPayload).then(response => {
-            console.log("✅ Alias API Response:", response.data);
-            return { type: 'aliases', count: aliases.length, response: response.data };
+        console.log("📋 Sample alias being sent:", aliases[0]);
+        console.log("📋 Total aliases to import:", aliases.length);
+        
+        // Retry logic for database lock errors
+        const importAliasesWithRetry = async (payload, retries = 3) => {
+          for (let i = 0; i < retries; i++) {
+            try {
+              const response = await axios.post("/api/san/aliases/save/", payload);
+              console.log("✅ Alias API Response:", response.data);
+              return { type: 'aliases', count: aliases.length, response: response.data };
+            } catch (error) {
+              if (error.response?.data?.error === 'database is locked' && i < retries - 1) {
+                console.log(`⚠️ Database locked, retrying alias import (attempt ${i + 2}/${retries})...`);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                continue;
+              }
+              console.error("❌ Alias import error details:", error.response?.data);
+              console.error("❌ Alias import error status:", error.response?.status);
+              throw error;
+            }
+          }
+        };
+        
+        const aliasResult = await importAliasesWithRetry(aliasPayload);
+        results.push(aliasResult);
+        
+        // Refresh alias options after importing aliases so zones can reference them
+        const updatedAliases = await refreshAliasOptions();
+        console.log(`🔄 Updated alias options: ${updatedAliases.length} aliases available for zone resolution`);
+        
+        // Update zones to use the fresh alias data for member resolution
+        resolvedZones = zones.map(zone => ({
+          ...zone,
+          members: (zone.members || []).map(aliasId => {
+            // Resolve batch alias references using fresh alias data
+            if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
+              const aliasName = aliasId.replace('batch:', '');
+              const foundAlias = updatedAliases.find(alias => alias.name === aliasName);
+              if (foundAlias) {
+                console.log(`🔄 Pre-resolved batch alias: ${aliasName} -> ID ${foundAlias.id}`);
+                return foundAlias.id;
+              } else {
+                console.log(`⚠️ Could not pre-resolve batch alias: ${aliasName}`);
+                return aliasId; // Keep original for later processing
+              }
+            }
+            return aliasId;
           })
-        );
+        }));
       }
       
-      // Import zones if any
+      // Import zones after aliases if any
       if (zones.length > 0) {
-        console.log("📋 Sample new zone:", zones[0]);
+        console.log("📋 Sample new zone:", resolvedZones[0]);
+        console.log("📋 Sample zone members after pre-resolution:", resolvedZones[0]?.members);
         const zonePayload = {
           project_id: activeProjectId,
-          zones: zones.map(zone => {
+          zones: resolvedZones.map(zone => {
             const cleanZone = { ...zone };
             delete cleanZone.existsInDatabase;
             delete cleanZone.unresolvedMembers;
             delete cleanZone.imported;
             delete cleanZone.updated;
             
+            // Filter and convert alias IDs (batch aliases should already be resolved)
+            const validMembers = (cleanZone.members || []).filter(aliasId => {
+              // Only keep numeric alias IDs (batch aliases should be resolved by now)
+              if (typeof aliasId === 'number' || !isNaN(parseInt(aliasId))) {
+                return true;
+              }
+              // Log any remaining unresolved batch aliases
+              if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
+                console.log(`⚠️ Unresolved batch alias found: ${aliasId}`);
+              }
+              return false;
+            }).map(aliasId => parseInt(aliasId));
+            
             return {
               ...cleanZone,
               fabric: parseInt(cleanZone.fabric || selectedFabric),
               projects: [activeProjectId],
-              members: (cleanZone.members || []).map(aliasId => ({ alias: aliasId }))
+              members: validMembers.map(aliasId => ({ alias: parseInt(aliasId) }))
             };
           })
         };
         
         console.log("Sending zone payload:", zonePayload);
-        importPromises.push(
-          axios.post("/api/san/zones/save/", zonePayload).then(response => {
-            console.log("✅ Zone API Response:", response.data);
-            return { type: 'zones', count: zones.length, response: response.data };
-          })
-        );
+        console.log("📋 Sample zone with members:", resolvedZones[0]);
+        console.log("📋 Sample zone members format:", resolvedZones[0]?.members);
+        
+        try {
+          const response = await axios.post("/api/san/zones/save/", zonePayload);
+          console.log("✅ Zone API Response:", response.data);
+          results.push({ type: 'zones', count: resolvedZones.length, response: response.data });
+        } catch (error) {
+          console.error("❌ Zone import error details:", error.response?.data);
+          throw error;
+        }
       }
-      
-      // Wait for all imports to complete
-      const results = await Promise.all(importPromises);
       
       // Build success message
       let successParts = [];
@@ -1424,6 +1648,110 @@ const BulkZoningImportPage = () => {
       console.error("Import error:", error);
       
       let errorMessage = "Import failed: ";
+      if (error.response?.data?.details) {
+        const errorMessages = error.response.data.details.map((e) => {
+          const errorText = Object.values(e.errors).flat().join(", ");
+          return `${e.alias || e.zone}: ${errorText}`;
+        });
+        errorMessage += errorMessages.join(", ");
+      } else {
+        errorMessage += error.response?.data?.message || error.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // Import selected zones only
+  const handleImportSelectedZones = async () => {
+    console.log("🚀 Starting selective zone import process");
+    console.log("📊 Selected zone indices:", Array.from(selectedZones));
+    
+    if (selectedZones.size === 0) {
+      setError("No zones selected for import");
+      return;
+    }
+
+    setImporting(true);
+    setError("");
+    
+    try {
+      // Get all zones and filter by selected indices
+      const allZones = parsedData.filter(item => item.zone_type !== undefined || item.members !== undefined);
+      const selectedZoneData = allZones.filter((_, index) => selectedZones.has(index));
+      
+      // Filter out duplicates that already exist in database
+      const zones = selectedZoneData.filter(zone => !zone.existsInDatabase);
+      const duplicateCount = selectedZoneData.length - zones.length;
+      
+      console.log("✨ Selected new zones to import:", zones.length);
+      console.log("⚠️ Selected duplicate zones skipped:", duplicateCount);
+      
+      if (zones.length === 0) {
+        if (duplicateCount > 0) {
+          setError(`All ${duplicateCount} selected zones already exist in the database. Nothing to import.`);
+        } else {
+          setError("No valid selected zones found to import");
+        }
+        setImporting(false);
+        return;
+      }
+      
+      if (duplicateCount > 0) {
+        console.log(`ℹ️ Importing ${zones.length} selected new zones, skipping ${duplicateCount} selected duplicates`);
+      }
+      
+      // Import zones
+      const zonePayload = {
+        project_id: activeProjectId,
+        zones: zones.map(zone => {
+          const cleanZone = { ...zone };
+          delete cleanZone.existsInDatabase;
+          delete cleanZone.unresolvedMembers;
+          delete cleanZone.imported;
+          delete cleanZone.updated;
+          
+          // Filter out batch alias references and only keep numeric alias IDs
+          const validMembers = (cleanZone.members || []).filter(aliasId => {
+            // Skip batch alias references (strings like "batch:aliasName")
+            if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
+              console.log(`⚠️ Skipping batch alias reference: ${aliasId}`);
+              return false;
+            }
+            // Only keep numeric alias IDs
+            return typeof aliasId === 'number' || !isNaN(parseInt(aliasId));
+          });
+          
+          return {
+            ...cleanZone,
+            fabric: parseInt(cleanZone.fabric || selectedFabric),
+            projects: [activeProjectId],
+            members: validMembers.map(aliasId => ({ alias: parseInt(aliasId) }))
+          };
+        })
+      };
+      
+      console.log("Sending selected zone payload:", zonePayload);
+      const response = await axios.post("/api/san/zones/save/", zonePayload);
+      console.log("✅ API Response:", response.data);
+      
+      const successMessage = duplicateCount > 0 
+        ? `Selective zone import completed successfully! ${zones.length} new zones imported, ${duplicateCount} duplicates skipped.`
+        : `Selective zone import completed successfully! ${zones.length} zones imported.`;
+      setSuccess(successMessage);
+      
+      // Clear data after successful import
+      setTimeout(() => {
+        clearAll();
+        navigate("/san/zones"); // Navigate to zones page
+      }, 2000);
+      
+    } catch (error) {
+      console.error("Selective zone import error:", error);
+      
+      let errorMessage = "Selective zone import failed: ";
       if (error.response?.data?.details) {
         const errorMessages = error.response.data.details.map((e) => {
           const errorText = Object.values(e.errors).flat().join(", ");
@@ -1670,6 +1998,61 @@ const BulkZoningImportPage = () => {
                           label="Include in Zoning"
                           checked={aliasDefaults.includeInZoning}
                           onChange={(e) => updateAliasDefaults(prev => ({...prev, includeInZoning: e.target.checked}))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+
+              {/* Zone Import Defaults */}
+              <Card className="mb-3">
+                <Card.Header className="d-flex justify-content-between align-items-center">
+                  <h6 className="mb-0">Zone Import Defaults</h6>
+                  {zonePreferencesStatus === "saving" && (
+                    <small className="text-muted">
+                      <Spinner size="sm" className="me-1" />
+                      Saving...
+                    </small>
+                  )}
+                  {zonePreferencesStatus === "saved" && (
+                    <small className="text-success">
+                      ✅ Saved
+                    </small>
+                  )}
+                </Card.Header>
+                <Card.Body>
+                  <div className="row">
+                    <div className="col-md-6">
+                      <div className="row mb-2">
+                        <div className="col-12">
+                          <Form.Label>Zone Type</Form.Label>
+                          <Form.Select
+                            value={zoneDefaults.zoneType}
+                            onChange={(e) => updateZoneDefaults(prev => ({...prev, zoneType: e.target.value}))}
+                            size="sm"
+                          >
+                            <option value="standard">Standard (force all zones to standard)</option>
+                            <option value="smart">Smart (force all zones to smart)</option>
+                            <option value="detect">Auto-detect (use zone type from file)</option>
+                          </Form.Select>
+                          <small className="text-muted">
+                            Choose how to set zone types: force all to standard/smart, or detect from file
+                          </small>
+                        </div>
+                      </div>
+                      <div className="d-flex gap-3">
+                        <Form.Check
+                          type="checkbox"
+                          label="Create"
+                          checked={zoneDefaults.create}
+                          onChange={(e) => updateZoneDefaults(prev => ({...prev, create: e.target.checked}))}
+                        />
+                        <Form.Check
+                          type="checkbox"
+                          label="Exists"
+                          checked={zoneDefaults.exists}
+                          onChange={(e) => updateZoneDefaults(prev => ({...prev, exists: e.target.checked}))}
                         />
                       </div>
                     </div>
@@ -1969,6 +2352,14 @@ const BulkZoningImportPage = () => {
                             <table className="table table-sm">
                               <thead>
                                 <tr>
+                                  <th style={{width: '40px'}}>
+                                    <Form.Check
+                                      type="checkbox"
+                                      checked={selectedZones.size > 0 && selectedZones.size === parsedData.filter(item => (item.zone_type !== undefined || item.members !== undefined) && !item.existsInDatabase).length}
+                                      onChange={(e) => handleSelectAllZones(e.target.checked)}
+                                      title="Select all new zones"
+                                    />
+                                  </th>
                                   <th>Name</th>
                                   <th>VSAN</th>
                                   <th>Type</th>
@@ -1981,6 +2372,15 @@ const BulkZoningImportPage = () => {
                               <tbody>
                                 {parsedData.filter(item => item.zone_type !== undefined || item.members !== undefined).map((zone, index) => (
                                   <tr key={index} className={zone.existsInDatabase ? "table-warning" : ""}>
+                                    <td>
+                                      <Form.Check
+                                        type="checkbox"
+                                        checked={selectedZones.has(index)}
+                                        onChange={(e) => handleSelectZone(index, e.target.checked)}
+                                        disabled={zone.existsInDatabase}
+                                        title={zone.existsInDatabase ? "Cannot select existing zones" : "Select for import"}
+                                      />
+                                    </td>
                                     <td><code>{zone.name}</code></td>
                                     <td>{zone.vsan || 'N/A'}</td>
                                     <td>
@@ -2068,7 +2468,23 @@ const BulkZoningImportPage = () => {
                             ) : selectedAliases.size === 0 ? (
                               "No Aliases Selected"
                             ) : (
-                              `Import Selected (${selectedAliases.size})`
+                              `Import Selected Aliases (${selectedAliases.size})`
+                            )}
+                          </Button>
+                          <Button 
+                            variant="info" 
+                            onClick={handleImportSelectedZones} 
+                            disabled={importing || selectedZones.size === 0}
+                          >
+                            {importing ? (
+                              <>
+                                <Spinner size="sm" className="me-1" />
+                                Importing...
+                              </>
+                            ) : selectedZones.size === 0 ? (
+                              "No Zones Selected"
+                            ) : (
+                              `Import Selected Zones (${selectedZones.size})`
                             )}
                           </Button>
                           <Button 
