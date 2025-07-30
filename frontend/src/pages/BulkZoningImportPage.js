@@ -649,24 +649,35 @@ const BulkZoningImportPage = () => {
         continue;
       }
       
-      // Look for zone sections - "show zone" or "show zoneset"
+      // Look for zone sections - "show zone" or "show zoneset" or "Full Zone Database Section"
       if (trimmedLine.match(/^-+\s*show\s+(zone|zoneset)/i) ||
-          trimmedLine.match(/^show\s+(zone|zoneset)/i)) {
+          trimmedLine.match(/^show\s+(zone|zoneset)/i) ||
+          trimmedLine.match(/^!Full Zone Database Section for vsan\s+\d+/i)) {
         if (currentSection && sectionLines.length > 0) {
           processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
         }
+        
+        // Extract VSAN from Full Zone Database Section header
+        const vsanMatch = trimmedLine.match(/^!Full Zone Database Section for vsan\s+(\d+)/i);
+        if (vsanMatch) {
+          currentVsan = parseInt(vsanMatch[1]);
+          console.log("📝 Found Full Zone Database Section for VSAN", currentVsan, "at line", i + 1);
+        } else {
+          console.log("📝 Found zone section at line", i + 1);
+        }
+        
         currentSection = "zone-show";
         sectionLines = [];
         inTargetSection = true;
-        console.log("📝 Found zone section at line", i + 1);
         continue;
       }
       
-      // Detect end of show command sections (next show command or major section break)
+      // Detect end of show command sections (next show command, major section break, or next Full Zone Database Section)
       if (inTargetSection && (
           trimmedLine.match(/^-+\s*show\s+(?!(device-alias\s+database|zone|zoneset))/i) ||
           trimmedLine.match(/^show\s+(?!(device-alias\s+database|zone|zoneset))/i) ||
-          (trimmedLine.startsWith("---") && trimmedLine.length > 10)
+          (trimmedLine.startsWith("---") && trimmedLine.length > 10) ||
+          trimmedLine.match(/^!\w+.*Section/i) // End when hitting another section like "!Active Zone Database Section"
         )) {
         if (currentSection && sectionLines.length > 0) {
           processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
@@ -674,7 +685,7 @@ const BulkZoningImportPage = () => {
         currentSection = null;
         sectionLines = [];
         inTargetSection = false;
-        console.log("🏁 Exiting show section at line", i + 1);
+        console.log("🏁 Exiting section at line", i + 1);
         continue;
       }
       
@@ -788,9 +799,24 @@ const BulkZoningImportPage = () => {
       }
       
     } else if (sectionType === "zone-show") {
-      // Process "show zone" or "show zoneset" output
-      console.log(`📝 Processing zone section with ${lines.length} lines`);
-      extractedSections.zones.push(sectionText);
+      // Process "show zone" or "show zoneset" or "Full Zone Database Section" output
+      console.log(`📝 Processing zone section with ${lines.length} lines${currentVsan ? ` (VSAN ${currentVsan})` : ""}`);
+      
+      // For Full Zone Database sections, we need to clean up the format to match standard zone syntax
+      let processedZoneText = sectionText;
+      
+      // Check if this is a Full Zone Database Section
+      if (sectionText.includes("!Full Zone Database Section")) {
+        console.log("🔧 Processing Full Zone Database Section format");
+        // Remove the header line and clean up the format
+        const cleanedLines = lines.filter(line => 
+          !line.trim().startsWith("!Full Zone Database Section") && 
+          line.trim() !== ""
+        );
+        processedZoneText = cleanedLines.join("\n");
+      }
+      
+      extractedSections.zones.push(processedZoneText);
     } else {
       // Fallback for other section types
       console.log(`⚠️ Unknown section type: ${sectionType}`);
