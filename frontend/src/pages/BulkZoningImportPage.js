@@ -43,7 +43,7 @@ const BulkZoningImportPage = () => {
   
   // Parsed data state
   const [parsedData, setParsedData] = useState([]);
-  const [showPreview, setShowPreview] = useState({ aliases: false });
+  const [showPreview, setShowPreview] = useState({ aliases: false, zones: false });
   const [activeTab, setActiveTab] = useState("files");
   const [showPreviewSection, setShowPreviewSection] = useState(false);
   const [preferencesStatus, setPreferencesStatus] = useState(""); // "", "saving", "saved"
@@ -57,34 +57,66 @@ const BulkZoningImportPage = () => {
     conflictResolution: "device-alias" // device-alias or fcalias
   });
 
-  // Selected aliases for selective import
+  // Zone import defaults
+  const [zoneDefaults, setZoneDefaults] = useState({
+    create: true,
+    exists: false,
+    zoneType: "standard" // smart or standard
+  });
+
+  // Selected aliases and zones for selective import
   const [selectedAliases, setSelectedAliases] = useState(new Set());
+  const [selectedZones, setSelectedZones] = useState(new Set());
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
-  // Calculate import statistics
+  // Helper function to detect what types of data are in parsed data
+  const detectDataTypes = (items) => {
+    const hasAliases = items.some(item => item.wwpn !== undefined);
+    const hasZones = items.some(item => item.zone_type !== undefined || item.members !== undefined);
+    return { aliases: hasAliases, zones: hasZones };
+  };
+
+  // Calculate import statistics for both aliases and zones
   const getImportStats = () => {
     const allAliases = parsedData.filter(item => item.wwpn !== undefined);
+    const allZones = parsedData.filter(item => item.zone_type !== undefined || item.members !== undefined);
+    
     const newAliases = allAliases.filter(alias => !alias.existsInDatabase);
     const duplicateAliases = allAliases.filter(alias => alias.existsInDatabase);
     const smartDetectedAliases = allAliases.filter(alias => alias.smartDetectionNote);
     const smartDetectedWithRules = smartDetectedAliases.filter(alias => !alias.smartDetectionNote.includes('No prefix rule found'));
     const smartDetectedWithoutRules = smartDetectedAliases.filter(alias => alias.smartDetectionNote.includes('No prefix rule found'));
     
+    const newZones = allZones.filter(zone => !zone.existsInDatabase);
+    const duplicateZones = allZones.filter(zone => zone.existsInDatabase);
+    
     return {
-      total: allAliases.length,
-      new: newAliases.length,
-      duplicates: duplicateAliases.length,
+      // Alias stats
+      totalAliases: allAliases.length,
+      newAliases: newAliases.length,
+      duplicateAliases: duplicateAliases.length,
       smartDetected: smartDetectedAliases.length,
       smartDetectedWithRules: smartDetectedWithRules.length,
-      smartDetectedWithoutRules: smartDetectedWithoutRules.length
+      smartDetectedWithoutRules: smartDetectedWithoutRules.length,
+      
+      // Zone stats
+      totalZones: allZones.length,
+      newZones: newZones.length,
+      duplicateZones: duplicateZones.length,
+      
+      // Combined stats (for backward compatibility)
+      total: allAliases.length + allZones.length,
+      new: newAliases.length + newZones.length,
+      duplicates: duplicateAliases.length + duplicateZones.length
     };
   };
 
-  // Clear selected aliases when data changes
+  // Clear selected aliases and zones when data changes
   useEffect(() => {
     setSelectedAliases(new Set());
+    setSelectedZones(new Set());
   }, [parsedData]);
 
   // Functions to handle checkbox selection
@@ -288,67 +320,84 @@ const BulkZoningImportPage = () => {
     }
   }, [activeProjectId, selectedFabric]);
 
-  // Deduplicate aliases and handle conflicts
+  // Deduplicate aliases and zones, handle conflicts
   const deduplicateItems = (items) => {
     const aliasMap = new Map();
+    const zoneMap = new Map();
     const wwpnConflicts = new Map(); // Track WWPNs that appear in multiple alias types
     
-    // First pass: identify conflicts
-    items.forEach(item => {
-      if (item.wwpn !== undefined) {
-        const wwpn = item.wwpn;
-        if (!wwpnConflicts.has(wwpn)) {
-          wwpnConflicts.set(wwpn, []);
+    // Separate aliases and zones
+    const aliases = items.filter(item => item.wwpn !== undefined);
+    const zones = items.filter(item => item.zone_type !== undefined || item.members !== undefined);
+    
+    console.log(`🔄 Deduplication input: ${items.length} total items (${aliases.length} aliases, ${zones.length} zones)`);
+    
+    // Process aliases with conflict detection
+    aliases.forEach(item => {
+      const wwpn = item.wwpn;
+      if (!wwpnConflicts.has(wwpn)) {
+        wwpnConflicts.set(wwpn, []);
+      }
+      wwpnConflicts.get(wwpn).push(item);
+    });
+    
+    // Resolve alias conflicts and deduplicate
+    aliases.forEach(item => {
+      const key = `${item.name}_${item.wwpn}`;
+      const wwpnEntries = wwpnConflicts.get(item.wwpn);
+      
+      // Check if there's a conflict (same WWPN, different cisco_alias types)
+      const hasConflict = wwpnEntries.length > 1 && 
+        new Set(wwpnEntries.map(e => e.cisco_alias)).size > 1;
+      
+      if (hasConflict) {
+        console.log(`⚠️ WWPN conflict detected: ${item.wwpn} exists as both ${wwpnEntries.map(e => e.cisco_alias).join(' and ')}`);
+        
+        // Apply conflict resolution strategy
+        if (aliasDefaults.conflictResolution === "device-alias" && item.cisco_alias !== "device-alias") {
+          console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring device-alias`);
+          return; // Skip non-device-alias entries
+        } else if (aliasDefaults.conflictResolution === "fcalias" && item.cisco_alias !== "fcalias") {
+          console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring fcalias`);
+          return; // Skip non-fcalias entries
         }
-        wwpnConflicts.get(wwpn).push(item);
+        // If "both" is selected, allow all entries through
+      }
+      
+      // Standard deduplication by name and WWPN
+      if (!aliasMap.has(key)) {
+        aliasMap.set(key, item);
       }
     });
     
-    // Second pass: resolve conflicts and deduplicate
-    items.forEach(item => {
-      if (item.wwpn !== undefined) {
-        const key = `${item.name}_${item.wwpn}`;
-        const wwpnEntries = wwpnConflicts.get(item.wwpn);
-        
-        // Check if there's a conflict (same WWPN, different cisco_alias types)
-        const hasConflict = wwpnEntries.length > 1 && 
-          new Set(wwpnEntries.map(e => e.cisco_alias)).size > 1;
-        
-        if (hasConflict) {
-          console.log(`⚠️ WWPN conflict detected: ${item.wwpn} exists as both ${wwpnEntries.map(e => e.cisco_alias).join(' and ')}`);
-          
-          // Apply conflict resolution strategy
-          if (aliasDefaults.conflictResolution === "device-alias" && item.cisco_alias !== "device-alias") {
-            console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring device-alias`);
-            return; // Skip non-device-alias entries
-          } else if (aliasDefaults.conflictResolution === "fcalias" && item.cisco_alias !== "fcalias") {
-            console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring fcalias`);
-            return; // Skip non-fcalias entries
-          }
-          // If "both" is selected, allow all entries through
-        }
-        
-        // Standard deduplication by name and WWPN
-        if (!aliasMap.has(key)) {
-          aliasMap.set(key, item);
-        }
+    // Process zones - deduplicate by name and fabric
+    zones.forEach(item => {
+      const key = `${item.name}_${item.fabric || selectedFabric}`;
+      if (!zoneMap.has(key)) {
+        zoneMap.set(key, item);
       }
     });
     
-    const deduped = [...aliasMap.values()];
-    const conflictCount = items.length - deduped.length;
-    console.log(`🔄 Deduplication: ${items.length} -> ${deduped.length} aliases (removed ${conflictCount} duplicates/conflicts)`);
+    const dedupedAliases = [...aliasMap.values()];
+    const dedupedZones = [...zoneMap.values()];
+    const totalDeduped = dedupedAliases.length + dedupedZones.length;
+    const conflictCount = items.length - totalDeduped;
+    
+    console.log(`🔄 Deduplication result: ${items.length} -> ${totalDeduped} items (${dedupedAliases.length} aliases, ${dedupedZones.length} zones, removed ${conflictCount} duplicates/conflicts)`);
     
     if (conflictCount > 0) {
       console.log(`⚙️ Conflict resolution: ${aliasDefaults.conflictResolution}`);
     }
     
-    return deduped;
+    return [...dedupedAliases, ...dedupedZones];
   };
 
-  // Check for existing aliases in database
+  // Check for existing aliases and zones in database
   const enhanceWithExistenceCheck = async (items) => {
     const aliases = items.filter(item => item.wwpn !== undefined);
+    const zones = items.filter(item => item.zone_type !== undefined || item.members !== undefined);
+    
+    console.log(`🔍 Processing ${aliases.length} aliases and ${zones.length} zones for existence check`);
     
     // Get fresh alias data from database if needed
     let currentAliasOptions = aliasOptions;
@@ -377,7 +426,7 @@ const BulkZoningImportPage = () => {
       );
       
       if (existsInDb) {
-        console.log(`🎯 Found duplicate: ${alias.name} (${alias.wwpn})`);
+        console.log(`🎯 Found duplicate alias: ${alias.name} (${alias.wwpn})`);
       }
       
       return {
@@ -386,18 +435,26 @@ const BulkZoningImportPage = () => {
       };
     });
     
-    console.log(`✅ Enhanced ${enhancedAliases.length} aliases`);
+    // For zones, we don't need database existence check (zones are created fresh)
+    // Just add existsInDatabase: false to maintain consistency
+    const enhancedZones = zones.map(zone => ({
+      ...zone,
+      existsInDatabase: false
+    }));
+    
+    console.log(`✅ Enhanced ${enhancedAliases.length} aliases and ${enhancedZones.length} zones`);
     console.log(`🔍 Found ${enhancedAliases.filter(a => a.existsInDatabase).length} aliases that exist in database`);
     
-    return enhancedAliases;
+    return [...enhancedAliases, ...enhancedZones];
   };
 
-  // Parse show tech-support files and extract alias sections only
+  // Parse show tech-support files and extract alias and zone sections
   const parseTechSupportFile = (text) => {
     const lines = text.split("\n");
     const extractedSections = {
       deviceAliases: [],
-      fcAliases: []
+      fcAliases: [],
+      zones: []
     };
     
     let currentSection = null;
@@ -434,11 +491,23 @@ const BulkZoningImportPage = () => {
         continue;
       }
       
+      // Look for zone sections - "show zone" or "show zoneset"
+      if (trimmedLine.match(/^-+\s*show\s+(zone|zoneset)/i) ||
+          trimmedLine.match(/^show\s+(zone|zoneset)/i)) {
+        if (currentSection && sectionLines.length > 0) {
+          processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
+        }
+        currentSection = "zone-show";
+        sectionLines = [];
+        inTargetSection = true;
+        console.log("📝 Found zone section at line", i + 1);
+        continue;
+      }
       
       // Detect end of show command sections (next show command or major section break)
       if (inTargetSection && (
-          trimmedLine.match(/^-+\s*show\s+(?!(device-alias\s+database))/i) ||
-          trimmedLine.match(/^show\s+(?!(device-alias\s+database))/i) ||
+          trimmedLine.match(/^-+\s*show\s+(?!(device-alias\s+database|zone|zoneset))/i) ||
+          trimmedLine.match(/^show\s+(?!(device-alias\s+database|zone|zoneset))/i) ||
           (trimmedLine.startsWith("---") && trimmedLine.length > 10)
         )) {
         if (currentSection && sectionLines.length > 0) {
@@ -560,13 +629,17 @@ const BulkZoningImportPage = () => {
         extractedSections.deviceAliases.push(...convertedEntries);  
       }
       
+    } else if (sectionType === "zone-show") {
+      // Process "show zone" or "show zoneset" output
+      console.log(`📝 Processing zone section with ${lines.length} lines`);
+      extractedSections.zones.push(sectionText);
     } else {
       // Fallback for other section types
       console.log(`⚠️ Unknown section type: ${sectionType}`);
     }
   };
 
-  // Auto-detect data type (focused on aliases and tech-support)
+  // Auto-detect data type (aliases, zones, and tech-support)
   const detectDataType = (text) => {
     // Check if this looks like a tech-support file
     if (text.includes("show tech-support") || 
@@ -579,8 +652,10 @@ const BulkZoningImportPage = () => {
     
     const lines = text.split("\n").map(line => line.trim()).filter(line => line && !line.startsWith("!"));
     
-    // Count alias patterns
+    // Count different patterns
     let aliasPatterns = 0;
+    let zonePatterns = 0;
+    let hasExplicitZoneKeywords = false;
     
     for (const line of lines) {
       // Alias patterns - device-alias and fcalias
@@ -588,8 +663,24 @@ const BulkZoningImportPage = () => {
           line.match(/fcalias\s+name\s+\S+/i)) {
         aliasPatterns++;
       }
+      
+      // Zone patterns - look for explicit zone/zoneset keywords first
+      if (line.match(/^zone\s+name\s+\S+(\s+vsan\s+\d+)?/i) ||
+          line.match(/^zoneset\s+name\s+\S+(\s+vsan\s+\d+)?/i)) {
+        hasExplicitZoneKeywords = true;
+        zonePatterns++;
+      }
+      
+      // Zone member patterns (only count if we've seen zone keywords)
+      if (hasExplicitZoneKeywords && (
+          line.match(/^\s*member\s+(fcalias|device-alias|pwwn)/i) ||
+          line.match(/^\s*\*\s+fcid\s+0x[0-9a-fA-F]+.*\[device-alias\s+\S+\]/i))) {
+        zonePatterns++;
+      }
     }
     
+    // Only return "zone" if we have explicit zone/zoneset keywords
+    if (hasExplicitZoneKeywords) return "zone";
     if (aliasPatterns > 0) return "alias";
     return "unknown";
   };
@@ -720,6 +811,203 @@ const BulkZoningImportPage = () => {
     return aliases;
   };
 
+  // Parse zone data from Cisco zone configuration
+  const parseZoneData = async (text, fabricId = selectedFabric, defaults = zoneDefaults, batchAliases = []) => {
+    console.log("🏗️ parseZoneData called with fabricId:", fabricId, typeof fabricId);
+    console.log("🎛️ Using zone defaults:", defaults);
+    console.log("🎛️ Available aliasOptions:", aliasOptions.length, "aliases");
+    console.log("🎛️ Available batchAliases:", batchAliases.length, "aliases");
+    
+    // Get fresh alias data from database if needed
+    let currentAliasOptions = aliasOptions;
+    if (aliasOptions.length === 0 && activeProjectId && fabricId) {
+      console.log("🔄 aliasOptions is empty during zone parsing, loading fresh data...");
+      try {
+        const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
+        const fabricAliases = res.data.filter(
+          (alias) => alias.fabric_details?.id === parseInt(fabricId)
+        );
+        currentAliasOptions = fabricAliases;
+        setAliasOptions(fabricAliases);
+        console.log(`✅ Loaded ${fabricAliases.length} existing aliases for zone parsing`);
+      } catch (err) {
+        console.error("Error loading aliases for zone parsing:", err);
+      }
+    }
+    
+    console.log("🎛️ Using currentAliasOptions:", currentAliasOptions.length, "aliases");
+    
+    if (!fabricId || (typeof fabricId === 'string' && fabricId.trim() === "")) {
+      console.warn("⚠️ No fabric selected, cannot parse zones");
+      return [];
+    }
+    
+    const lines = text.split("\n");
+    const zones = [];
+    let currentZone = null;
+    let currentZoneset = null;
+    let vsan = null;
+    
+    console.log(`🔍 Parsing ${lines.length} lines for zone data`);
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip empty lines and comments
+      if (!line || line.startsWith("!")) continue;
+      
+      // Extract VSAN from zoneset
+      const zonesetMatch = line.match(/zoneset\s+name\s+(\S+)(\s+vsan\s+(\d+))?/i);
+      if (zonesetMatch) {
+        currentZoneset = zonesetMatch[1];
+        if (zonesetMatch[3]) {
+          vsan = parseInt(zonesetMatch[3]);
+        }
+        console.log(`📁 Found zoneset: ${currentZoneset}${vsan ? ` (VSAN ${vsan})` : ''}`);
+        continue;
+      }
+      
+      // Zone definition line
+      const zoneMatch = line.match(/zone\s+name\s+(\S+)(\s+vsan\s+(\d+))?/i);
+      if (zoneMatch) {
+        // Save previous zone if exists
+        if (currentZone) {
+          zones.push({ ...currentZone });
+        }
+        
+        const zoneName = zoneMatch[1];
+        const zoneVsan = zoneMatch[3] ? parseInt(zoneMatch[3]) : vsan;
+        
+        currentZone = {
+          name: zoneName,
+          fabric: parseInt(fabricId),
+          vsan: zoneVsan,
+          create: defaults.create,
+          exists: defaults.exists,
+          zone_type: defaults.zoneType,
+          members: [],
+          notes: `Imported from bulk import${zoneVsan ? ` (VSAN ${zoneVsan})` : ''}${currentZoneset ? ` from zoneset ${currentZoneset}` : ''}`,
+          imported: null,
+          updated: null,
+          saved: false,
+          _isNew: true
+        };
+        
+        console.log(`🔍 Found zone: ${zoneName}${zoneVsan ? ` (VSAN ${zoneVsan})` : ''}`);
+        continue;
+      }
+      
+      // Member lines within a zone
+      if (currentZone) {
+        // Format 1: member fcalias/device-alias
+        const memberAliasMatch = line.match(/member\s+(fcalias|device-alias)\s+(\S+)/i);
+        if (memberAliasMatch) {
+          const aliasName = memberAliasMatch[2];
+          console.log(`  👥 Found member (${memberAliasMatch[1]}): ${aliasName}`);
+          
+          // Find the alias in our available aliases (existing from database)
+          let foundAlias = currentAliasOptions.find(alias => alias.name === aliasName);
+          
+          // If not found in database, check batch aliases
+          if (!foundAlias) {
+            foundAlias = batchAliases.find(alias => alias.name === aliasName);
+            if (foundAlias) {
+              console.log(`    ✅ Matched to batch alias: ${aliasName}`);
+              // For batch aliases, we use a special marker since they don't have IDs yet
+              currentZone.members.push(`batch:${aliasName}`);
+            }
+          } else {
+            currentZone.members.push(foundAlias.id);
+            console.log(`    ✅ Matched to existing alias ID: ${foundAlias.id}`);
+          }
+          
+          if (!foundAlias) {
+            console.log(`    ⚠️ Alias not found in database or batch: ${aliasName}`);
+            // Store as a reference for later resolution
+            if (!currentZone.unresolvedMembers) currentZone.unresolvedMembers = [];
+            currentZone.unresolvedMembers.push({ type: memberAliasMatch[1], name: aliasName });
+          }
+          continue;
+        }
+        
+        // Format 2: member pwwn
+        const memberPwwnMatch = line.match(/member\s+pwwn\s+([0-9a-fA-F:]+)/i);
+        if (memberPwwnMatch) {
+          const pwwn = memberPwwnMatch[1];
+          console.log(`  👥 Found member (pwwn): ${pwwn}`);
+          
+          // Find alias by WWPN in existing aliases
+          let foundAlias = currentAliasOptions.find(alias => 
+            alias.wwpn && alias.wwpn.replace(/[^0-9a-fA-F]/g, '').toLowerCase() === 
+            pwwn.replace(/[^0-9a-fA-F]/g, '').toLowerCase()
+          );
+          
+          // If not found in database, check batch aliases
+          if (!foundAlias) {
+            foundAlias = batchAliases.find(alias => 
+              alias.wwpn && alias.wwpn.replace(/[^0-9a-fA-F]/g, '').toLowerCase() === 
+              pwwn.replace(/[^0-9a-fA-F]/g, '').toLowerCase()
+            );
+            if (foundAlias) {
+              console.log(`    ✅ Matched WWPN to batch alias: ${foundAlias.name}`);
+              currentZone.members.push(`batch:${foundAlias.name}`);
+            }
+          } else {
+            currentZone.members.push(foundAlias.id);
+            console.log(`    ✅ Matched WWPN to existing alias: ${foundAlias.name} (ID: ${foundAlias.id})`);
+          }
+          
+          if (!foundAlias) {
+            console.log(`    ⚠️ No alias found for WWPN: ${pwwn}`);
+            if (!currentZone.unresolvedMembers) currentZone.unresolvedMembers = [];
+            currentZone.unresolvedMembers.push({ type: 'pwwn', name: pwwn });
+          }
+          continue;
+        }
+        
+        // Format 3: * fcid 0xab0040 [device-alias DS-75LVW91-E2C1P2-I0101] [pwwn 50:05:07:63:0a:08:57:e4]
+        const fcidMatch = line.match(/\*\s+fcid\s+0x[0-9a-fA-F]+\s+\[device-alias\s+(\S+)\]/i);
+        if (fcidMatch) {
+          const aliasName = fcidMatch[1];
+          console.log(`  👥 Found member (fcid device-alias): ${aliasName}`);
+          
+          // Find the alias in existing aliases
+          let foundAlias = currentAliasOptions.find(alias => alias.name === aliasName);
+          
+          // If not found in database, check batch aliases
+          if (!foundAlias) {
+            foundAlias = batchAliases.find(alias => alias.name === aliasName);
+            if (foundAlias) {
+              console.log(`    ✅ Matched to batch alias: ${aliasName}`);
+              currentZone.members.push(`batch:${aliasName}`);
+            }
+          } else {
+            currentZone.members.push(foundAlias.id);
+            console.log(`    ✅ Matched to existing alias ID: ${foundAlias.id}`);
+          }
+          
+          if (!foundAlias) {
+            console.log(`    ⚠️ Alias not found in database or batch: ${aliasName}`);
+            if (!currentZone.unresolvedMembers) currentZone.unresolvedMembers = [];
+            currentZone.unresolvedMembers.push({ type: 'device-alias', name: aliasName });
+          }
+          continue;
+        }
+      }
+    }
+    
+    // Add the last zone if exists
+    if (currentZone) {
+      zones.push({ ...currentZone });
+    }
+    
+    console.log(`✅ Parsed ${zones.length} zones`);
+    zones.forEach(zone => {
+      console.log(`  📋 Zone: ${zone.name} (${zone.members.length} members${zone.unresolvedMembers ? `, ${zone.unresolvedMembers.length} unresolved` : ''})`);
+    });
+    
+    return zones;
+  };
 
   // Process uploaded files with cross-batch alias matching
   const processFiles = useCallback(async (files) => {
@@ -767,6 +1055,7 @@ const BulkZoningImportPage = () => {
       try {
         const text = await file.text();
         const dataType = detectDataType(text);
+        console.log("🔍 File", file.name, "detected as type:", dataType);
         
         let parsedItems = [];
         if (dataType === "tech-support") {
@@ -775,7 +1064,8 @@ const BulkZoningImportPage = () => {
           
           console.log("🔄 Processing extracted sections:", {
             deviceAliases: extractedSections.deviceAliases.length,
-            fcAliases: extractedSections.fcAliases.length
+            fcAliases: extractedSections.fcAliases.length,
+            zones: extractedSections.zones.length
           });
           
           // Parse device-alias sections
@@ -796,6 +1086,19 @@ const BulkZoningImportPage = () => {
             parsedItems.push(...aliasItems);
           }
           
+          // Parse zone sections
+          if (extractedSections.zones.length > 0) {
+            const combinedZoneText = extractedSections.zones.join("\n");
+            console.log("🔄 Parsing combined zone text:", combinedZoneText.substring(0, 200));
+            const zoneItems = await parseZoneData(combinedZoneText, selectedFabric, zoneDefaults, allBatchAliases);
+            console.log("✅ Parsed zone items:", zoneItems.length);
+            parsedItems.push(...zoneItems);
+          }
+          
+        } else if (dataType === "zone") {
+          console.log("🎯 Processing file as ZONE type");
+          parsedItems = await parseZoneData(text, selectedFabric, zoneDefaults, allBatchAliases);
+          console.log("🎯 Zone parsing returned:", parsedItems.length, "items");
         } else if (dataType === "alias") {
           parsedItems = await parseAliasData(text, selectedFabric, aliasDefaults);
         } else {
@@ -858,9 +1161,10 @@ const BulkZoningImportPage = () => {
     setLoading(true);
     const results = await processFiles(files);
     setUploadedFiles(prev => [...prev, ...results]);
-    setParsedData(prev => [...prev, ...results.flatMap(r => r.items)]);
+    const allItems = results.flatMap(r => r.items);
+    setParsedData(prev => [...prev, ...allItems]);
     setLoading(false);
-    setShowPreview({ aliases: true });
+    setShowPreview(detectDataTypes(allItems));
     setShowPreviewSection(true);
   }, [selectedFabric, processFiles]);
 
@@ -877,9 +1181,10 @@ const BulkZoningImportPage = () => {
     setLoading(true);
     const results = await processFiles(files);
     setUploadedFiles(prev => [...prev, ...results]);
-    setParsedData(prev => [...prev, ...results.flatMap(r => r.items)]);
+    const allItems = results.flatMap(r => r.items);
+    setParsedData(prev => [...prev, ...allItems]);
     setLoading(false);
-    setShowPreview({ aliases: true });
+    setShowPreview(detectDataTypes(allItems));
     setShowPreviewSection(true);
   };
 
@@ -897,6 +1202,7 @@ const BulkZoningImportPage = () => {
 
     setLoading(true);
     const dataType = detectDataType(textInput);
+    console.log("🔍 Pasted text detected as type:", dataType);
     
     let parsedItems = [];
     if (dataType === "tech-support") {
@@ -905,7 +1211,8 @@ const BulkZoningImportPage = () => {
       
       console.log("🔄 Processing pasted tech-support sections:", {
         deviceAliases: extractedSections.deviceAliases.length,
-        fcAliases: extractedSections.fcAliases.length
+        fcAliases: extractedSections.fcAliases.length,
+        zones: extractedSections.zones.length
       });
       
       if (extractedSections.deviceAliases.length > 0) {
@@ -922,6 +1229,19 @@ const BulkZoningImportPage = () => {
         console.log("✅ Parsed fcalias items from paste:", aliasItems.length);
       }
       
+      if (extractedSections.zones.length > 0) {
+        const combinedZoneText = extractedSections.zones.join("\n");
+        // For paste, we need to collect aliases first, then parse zones with batch context
+        const allAliases = parsedItems.filter(item => item.wwpn !== undefined);
+        const zoneItems = await parseZoneData(combinedZoneText, selectedFabric, zoneDefaults, allAliases);
+        parsedItems.push(...zoneItems);
+        console.log("🔄 Parsed zone items from paste:", zoneItems.length);
+      }
+      
+    } else if (dataType === "zone") {
+      console.log("🎯 Processing text as ZONE type");
+      parsedItems = await parseZoneData(textInput, selectedFabric, zoneDefaults, []);
+      console.log("🎯 Zone parsing returned:", parsedItems.length, "items");
     } else if (dataType === "alias") {
       parsedItems = await parseAliasData(textInput, selectedFabric, aliasDefaults);
     } else {
@@ -947,7 +1267,7 @@ const BulkZoningImportPage = () => {
     setUploadedFiles(prev => [...prev, result]);
     setParsedData(prev => [...prev, ...enhancedItems]);
     setLoading(false);
-    setShowPreview({ aliases: true });
+    setShowPreview(detectDataTypes(parsedItems));
     setShowPreviewSection(true);
     setTextInput("");
   };
@@ -967,69 +1287,126 @@ const BulkZoningImportPage = () => {
     console.log("✅ Import state set to true");
     
     try {
-      // Get aliases only
+      // Separate aliases and zones
       const allAliases = parsedData.filter(item => item.wwpn !== undefined);
+      const allZones = parsedData.filter(item => item.zone_type !== undefined || item.members !== undefined);
+      
       console.log("🏷️ Total filtered aliases:", allAliases.length);
+      console.log("🔧 Total filtered zones:", allZones.length);
       
       // Filter out duplicates that already exist in database
       const aliases = allAliases.filter(alias => !alias.existsInDatabase);
-      const duplicateCount = allAliases.length - aliases.length;
+      const zones = allZones.filter(zone => !zone.existsInDatabase);
+      const aliasDuplicateCount = allAliases.length - aliases.length;
+      const zoneDuplicateCount = allZones.length - zones.length;
       
       console.log("✨ New aliases to import:", aliases.length);
-      console.log("⚠️ Duplicate aliases skipped:", duplicateCount);
-      if (aliases.length > 0) {
-        console.log("📋 Sample new alias:", aliases[0]);
-      }
+      console.log("✨ New zones to import:", zones.length);
+      console.log("⚠️ Duplicate aliases skipped:", aliasDuplicateCount);
+      console.log("⚠️ Duplicate zones skipped:", zoneDuplicateCount);
       
-      if (aliases.length === 0) {
-        if (duplicateCount > 0) {
-          setError(`All ${duplicateCount} aliases already exist in the database. Nothing to import.`);
+      if (aliases.length === 0 && zones.length === 0) {
+        const totalDuplicates = aliasDuplicateCount + zoneDuplicateCount;
+        if (totalDuplicates > 0) {
+          setError(`All ${aliasDuplicateCount} aliases and ${zoneDuplicateCount} zones already exist in the database. Nothing to import.`);
         } else {
-          setError("No aliases found to import");
+          setError("No new items found to import");
         }
         setImporting(false);
         return;
       }
       
-      if (duplicateCount > 0) {
-        console.log(`ℹ️ Importing ${aliases.length} new aliases, skipping ${duplicateCount} duplicates`);
+      const importPromises = [];
+      
+      // Import aliases if any
+      if (aliases.length > 0) {
+        console.log("📋 Sample new alias:", aliases[0]);
+        const aliasPayload = {
+          project_id: activeProjectId,
+          aliases: aliases.map(alias => {
+            const cleanAlias = { ...alias };
+            delete cleanAlias.lineNumber;
+            delete cleanAlias.saved;
+            delete cleanAlias.existsInDatabase;
+            delete cleanAlias.imported;
+            delete cleanAlias.updated;
+            
+            return {
+              ...cleanAlias,
+              fabric: parseInt(cleanAlias.fabric),
+              projects: [activeProjectId]
+            };
+          })
+        };
+        
+        console.log("Sending alias payload:", aliasPayload);
+        importPromises.push(
+          axios.post("/api/san/aliases/save/", aliasPayload).then(response => {
+            console.log("✅ Alias API Response:", response.data);
+            return { type: 'aliases', count: aliases.length, response: response.data };
+          })
+        );
       }
       
-      // Import aliases
-      const aliasPayload = {
-        project_id: activeProjectId,
-        aliases: aliases.map(alias => {
-          const cleanAlias = { ...alias };
-          delete cleanAlias.lineNumber;
-          delete cleanAlias.saved;
-          delete cleanAlias.existsInDatabase;
-          delete cleanAlias.imported;
-          delete cleanAlias.updated;
-          
-          return {
-            ...cleanAlias,
-            fabric: parseInt(cleanAlias.fabric), // Ensure fabric is integer
-            projects: [activeProjectId]
-          };
-        })
-      };
+      // Import zones if any
+      if (zones.length > 0) {
+        console.log("📋 Sample new zone:", zones[0]);
+        const zonePayload = {
+          project_id: activeProjectId,
+          zones: zones.map(zone => {
+            const cleanZone = { ...zone };
+            delete cleanZone.existsInDatabase;
+            delete cleanZone.unresolvedMembers;
+            delete cleanZone.imported;
+            delete cleanZone.updated;
+            
+            return {
+              ...cleanZone,
+              fabric: parseInt(cleanZone.fabric || selectedFabric),
+              projects: [activeProjectId],
+              members: (cleanZone.members || []).map(aliasId => ({ alias: aliasId }))
+            };
+          })
+        };
+        
+        console.log("Sending zone payload:", zonePayload);
+        importPromises.push(
+          axios.post("/api/san/zones/save/", zonePayload).then(response => {
+            console.log("✅ Zone API Response:", response.data);
+            return { type: 'zones', count: zones.length, response: response.data };
+          })
+        );
+      }
       
-      console.log("Sending alias payload:", aliasPayload);
-      const response = await axios.post("/api/san/aliases/save/", aliasPayload);
-      console.log("✅ API Response:", response.data);
+      // Wait for all imports to complete
+      const results = await Promise.all(importPromises);
       
-      const successMessage = duplicateCount > 0 
-        ? `Import completed successfully! ${aliases.length} new aliases imported, ${duplicateCount} duplicates skipped.`
-        : `Import completed successfully! ${aliases.length} aliases imported.`;
+      // Build success message
+      let successParts = [];
+      const totalDuplicates = aliasDuplicateCount + zoneDuplicateCount;
+      
+      results.forEach(result => {
+        if (result.type === 'aliases') {
+          successParts.push(`${result.count} aliases`);
+        } else if (result.type === 'zones') {
+          successParts.push(`${result.count} zones`);
+        }
+      });
+      
+      const successMessage = totalDuplicates > 0 
+        ? `Import completed successfully! ${successParts.join(' & ')} imported, ${totalDuplicates} duplicates skipped.`
+        : `Import completed successfully! ${successParts.join(' & ')} imported.`;
       setSuccess(successMessage);
       
       // Refresh alias options to include newly imported aliases
-      refreshAliasOptions();
+      if (aliases.length > 0) {
+        refreshAliasOptions();
+      }
       
       // Clear data after successful import
       setTimeout(() => {
         clearAll();
-        navigate("/san/aliases"); // Navigate to aliases page or dashboard
+        navigate("/san/zones"); // Navigate to zones page
       }, 2000);
       
     } catch (error) {
@@ -1153,7 +1530,7 @@ const BulkZoningImportPage = () => {
     setUploadedFiles([]);
     setParsedData([]);
     setTextInput("");
-    setShowPreview({ aliases: false });
+    setShowPreview({ aliases: false, zones: false });
     setShowPreviewSection(false);
     setError("");
     setSuccess("");
@@ -1181,10 +1558,10 @@ const BulkZoningImportPage = () => {
                   <path d="M16 17H8"/>
                   <path d="M10 9H8"/>
                 </svg>
-                Bulk Alias Import
+                Bulk Alias & Zone Import
               </h4>
               <small className="text-muted">
-                Import multiple files containing alias data automatically. Supports Cisco show tech-support files, device-alias, and fcalias configurations.
+                Import multiple files containing alias and zone data automatically. Supports Cisco show tech-support files, device-alias, fcalias, and zone configurations.
               </small>
             </Card.Header>
 
@@ -1550,6 +1927,104 @@ const BulkZoningImportPage = () => {
                     </Card>
                   )}
 
+                  {/* Zones Preview */}
+                  {parsedData.filter(item => item.zone_type !== undefined || item.members !== undefined).length > 0 && (
+                    <Card className="mb-3">
+                      <Card.Header 
+                        onClick={() => setShowPreview(prev => ({ ...prev, zones: !prev.zones }))}
+                        style={{ cursor: "pointer" }}
+                        className="d-flex justify-content-between align-items-center"
+                      >
+                        <h6 className="mb-0 text-success">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
+                            <polyline points={showPreview.zones ? "6,9 12,15 18,9" : "9,6 15,12 9,18"}/>
+                          </svg>
+                          Zones Preview ({parsedData.filter(item => item.zone_type !== undefined || item.members !== undefined).length} items)
+                          {showPreview.zones ? " - Click to collapse" : " - Click to expand"}
+                        </h6>
+                        <Badge bg="success">
+                          {parsedData.filter(item => item.zone_type !== undefined || item.members !== undefined).length} zones
+                        </Badge>
+                      </Card.Header>
+                      {showPreview.zones && (
+                        <Card.Body style={{ maxHeight: "400px", overflowY: "auto" }}>
+                          <div className="mb-2">
+                            <small className="text-muted">
+                              💡 <strong>Tip:</strong> Zone members are automatically resolved against existing aliases. 
+                              Unresolved members will be noted for review.
+                            </small>
+                          </div>
+                          <div className="table-responsive">
+                            <table className="table table-sm">
+                              <thead>
+                                <tr>
+                                  <th>Name</th>
+                                  <th>VSAN</th>
+                                  <th>Type</th>
+                                  <th>Members</th>
+                                  <th>Create</th>
+                                  <th>Exists</th>
+                                  <th>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {parsedData.filter(item => item.zone_type !== undefined || item.members !== undefined).map((zone, index) => (
+                                  <tr key={index} className={zone.existsInDatabase ? "table-warning" : ""}>
+                                    <td><code>{zone.name}</code></td>
+                                    <td>{zone.vsan || 'N/A'}</td>
+                                    <td>
+                                      <Badge bg="info">{zone.zone_type || 'standard'}</Badge>
+                                    </td>
+                                    <td>
+                                      <div>
+                                        {zone.members && zone.members.length > 0 && (
+                                          <small className="text-success">
+                                            ✅ {zone.members.length} resolved
+                                          </small>
+                                        )}
+                                        {zone.unresolvedMembers && zone.unresolvedMembers.length > 0 && (
+                                          <div>
+                                            <small className="text-warning d-block">
+                                              ⚠️ {zone.unresolvedMembers.length} unresolved
+                                            </small>
+                                            <div className="text-muted" style={{fontSize: '0.75rem'}}>
+                                              {zone.unresolvedMembers.slice(0, 3).map((member, idx) => (
+                                                <div key={idx}>{member.type}: {member.name}</div>
+                                              ))}
+                                              {zone.unresolvedMembers.length > 3 && (
+                                                <div>... and {zone.unresolvedMembers.length - 3} more</div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {(!zone.members || zone.members.length === 0) && (!zone.unresolvedMembers || zone.unresolvedMembers.length === 0) && (
+                                          <small className="text-muted">No members</small>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td>{zone.create ? "✅" : "❌"}</td>
+                                    <td>{zone.exists ? "✅" : "❌"}</td>
+                                    <td>
+                                      {zone.existsInDatabase ? (
+                                        <Badge bg="warning" title="This zone already exists in the database">
+                                          ⚠️ Exists
+                                        </Badge>
+                                      ) : (
+                                        <Badge bg="success" title="New zone - will be created">
+                                          ✨ New
+                                        </Badge>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </Card.Body>
+                      )}
+                    </Card>
+                  )}
+
                 </div>
               )}
 
@@ -1563,8 +2038,8 @@ const BulkZoningImportPage = () => {
                         {/* Duplicate Warning */}
                         {stats.duplicates > 0 && (
                           <Alert variant="warning" className="mb-3">
-                            <strong>⚠️ Duplicate Detection:</strong> {stats.duplicates} aliases already exist in the database and will be skipped. 
-                            Only {stats.new} new aliases will be imported.
+                            <strong>⚠️ Duplicate Detection:</strong> {stats.duplicateAliases} aliases already exist in the database and will be skipped. 
+                            Only {stats.newAliases} new aliases and {stats.newZones} zones will be imported.
                           </Alert>
                         )}
                         
@@ -1596,11 +2071,15 @@ const BulkZoningImportPage = () => {
                                 Importing...
                               </>
                             ) : stats.new === 0 ? (
-                              "No New Aliases to Import"
+                              "No New Items to Import"
                             ) : stats.duplicates > 0 ? (
-                              `Import All ${stats.new} New Aliases (${stats.duplicates} duplicates will be skipped)`
+                              `Import All ${stats.newAliases} Aliases & ${stats.newZones} Zones (${stats.duplicates} duplicates will be skipped)`
+                            ) : stats.newAliases > 0 && stats.newZones > 0 ? (
+                              `Import All ${stats.newAliases} Aliases & ${stats.newZones} Zones`
+                            ) : stats.newAliases > 0 ? (
+                              `Import All ${stats.newAliases} Aliases`
                             ) : (
-                              `Import All ${stats.new} Aliases`
+                              `Import All ${stats.newZones} Zones`
                             )}
                           </Button>
                           <Button variant="outline-secondary" onClick={() => navigate(-1)}>
