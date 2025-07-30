@@ -81,12 +81,50 @@ export const createContextMenu = (tableRef, setIsDirty, handleAfterContextMenu) 
         }
       },
       "hsep3": "---------",
-      "select_all": {
-        name: "Select all",
-        callback: () => {
+      "select_column": {
+        name: "Select column",
+        callback: (key, selection, clickEvent) => {
           const hot = tableRef.current?.hotInstance;
-          if (hot) {
-            hot.selectAll();
+          if (hot && selection && selection.length > 0) {
+            // Get the column from the first selection
+            const targetCol = selection[0].start.col;
+            const totalRows = hot.countRows();
+            const totalCols = hot.countCols();
+            
+            // Validate column index
+            if (targetCol < 0 || targetCol >= totalCols || totalRows === 0) {
+              return;
+            }
+            
+            // Get visible rows by checking the filters plugin
+            const filters = hot.getPlugin('filters');
+            let visibleRows = [];
+            
+            if (filters && filters.isEnabled()) {
+              // Get the filtered data indices
+              const filteredData = hot.getData();
+              const sourceData = hot.getSourceData();
+              
+              // Find which rows are visible by comparing filtered data with source data
+              for (let visualRow = 0; visualRow < filteredData.length; visualRow++) {
+                // Each visual row corresponds to a data row that passed the filter
+                visibleRows.push(visualRow);
+              }
+            } else {
+              // No filtering active, all rows are visible
+              for (let row = 0; row < totalRows; row++) {
+                visibleRows.push(row);
+              }
+            }
+            
+            // If we have visible rows, select the entire column for those rows
+            if (visibleRows.length > 0) {
+              const startRow = visibleRows[0];
+              const endRow = visibleRows[visibleRows.length - 1];
+              
+              // Select the entire column for visible rows
+              hot.selectCell(startRow, targetCol, endRow, targetCol);
+            }
           }
         }
       },
