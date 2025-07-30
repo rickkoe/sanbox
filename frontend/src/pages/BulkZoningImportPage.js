@@ -57,6 +57,9 @@ const BulkZoningImportPage = () => {
     conflictResolution: "device-alias" // device-alias or fcalias
   });
 
+  // Selected aliases for selective import
+  const [selectedAliases, setSelectedAliases] = useState(new Set());
+
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
@@ -77,6 +80,33 @@ const BulkZoningImportPage = () => {
       smartDetectedWithRules: smartDetectedWithRules.length,
       smartDetectedWithoutRules: smartDetectedWithoutRules.length
     };
+  };
+
+  // Clear selected aliases when data changes
+  useEffect(() => {
+    setSelectedAliases(new Set());
+  }, [parsedData]);
+
+  // Functions to handle checkbox selection
+  const handleSelectAlias = (index, checked) => {
+    const newSelected = new Set(selectedAliases);
+    if (checked) {
+      newSelected.add(index);
+    } else {
+      newSelected.delete(index);
+    }
+    setSelectedAliases(newSelected);
+  };
+
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      const newAliases = parsedData
+        .filter(item => item.wwpn !== undefined && !item.existsInDatabase)
+        .map((_, index) => index);
+      setSelectedAliases(new Set(newAliases));
+    } else {
+      setSelectedAliases(new Set());
+    }
   };
 
   // Update parsed data when defaults change
@@ -1022,6 +1052,102 @@ const BulkZoningImportPage = () => {
     }
   };
 
+  // Import selected aliases only
+  const handleImportSelected = async () => {
+    console.log("🚀 Starting selective import process");
+    console.log("📊 Selected alias indices:", Array.from(selectedAliases));
+    
+    if (selectedAliases.size === 0) {
+      setError("No aliases selected for import");
+      return;
+    }
+
+    setImporting(true);
+    setError("");
+    
+    try {
+      // Get all aliases and filter by selected indices
+      const allAliases = parsedData.filter(item => item.wwpn !== undefined);
+      const selectedAliasData = allAliases.filter((_, index) => selectedAliases.has(index));
+      
+      // Filter out duplicates that already exist in database
+      const aliases = selectedAliasData.filter(alias => !alias.existsInDatabase);
+      const duplicateCount = selectedAliasData.length - aliases.length;
+      
+      console.log("✨ Selected new aliases to import:", aliases.length);
+      console.log("⚠️ Selected duplicate aliases skipped:", duplicateCount);
+      
+      if (aliases.length === 0) {
+        if (duplicateCount > 0) {
+          setError(`All ${duplicateCount} selected aliases already exist in the database. Nothing to import.`);
+        } else {
+          setError("No valid selected aliases found to import");
+        }
+        setImporting(false);
+        return;
+      }
+      
+      if (duplicateCount > 0) {
+        console.log(`ℹ️ Importing ${aliases.length} selected new aliases, skipping ${duplicateCount} selected duplicates`);
+      }
+      
+      // Import aliases
+      const aliasPayload = {
+        project_id: activeProjectId,
+        aliases: aliases.map(alias => {
+          const cleanAlias = { ...alias };
+          delete cleanAlias.lineNumber;
+          delete cleanAlias.saved;
+          delete cleanAlias.existsInDatabase;
+          delete cleanAlias.imported;
+          delete cleanAlias.updated;
+          
+          return {
+            ...cleanAlias,
+            fabric: parseInt(cleanAlias.fabric), // Ensure fabric is integer
+            projects: [activeProjectId]
+          };
+        })
+      };
+      
+      console.log("Sending selected alias payload:", aliasPayload);
+      const response = await axios.post("/api/san/aliases/save/", aliasPayload);
+      console.log("✅ API Response:", response.data);
+      
+      const successMessage = duplicateCount > 0 
+        ? `Selective import completed successfully! ${aliases.length} new aliases imported, ${duplicateCount} duplicates skipped.`
+        : `Selective import completed successfully! ${aliases.length} aliases imported.`;
+      setSuccess(successMessage);
+      
+      // Refresh alias options to include newly imported aliases
+      refreshAliasOptions();
+      
+      // Clear data after successful import
+      setTimeout(() => {
+        clearAll();
+        navigate("/san/aliases"); // Navigate to aliases page or dashboard
+      }, 2000);
+      
+    } catch (error) {
+      console.error("Selective import error:", error);
+      
+      let errorMessage = "Selective import failed: ";
+      if (error.response?.data?.details) {
+        const errorMessages = error.response.data.details.map((e) => {
+          const errorText = Object.values(e.errors).flat().join(", ");
+          return `${e.alias || e.zone}: ${errorText}`;
+        });
+        errorMessage += errorMessages.join(", ");
+      } else {
+        errorMessage += error.response?.data?.message || error.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   // Clear all data
   const clearAll = () => {
     setUploadedFiles([]);
@@ -1342,10 +1468,24 @@ const BulkZoningImportPage = () => {
                               </Alert>
                             );
                           })()}
+                          <div className="mb-2">
+                            <small className="text-muted">
+                              💡 <strong>Tip:</strong> Use checkboxes to select specific aliases for import, or use "Import All" to import all new aliases. 
+                              Existing aliases (highlighted in yellow) cannot be selected.
+                            </small>
+                          </div>
                           <div className="table-responsive">
                             <table className="table table-sm">
                               <thead>
                                 <tr>
+                                  <th style={{width: '40px'}}>
+                                    <Form.Check
+                                      type="checkbox"
+                                      checked={selectedAliases.size > 0 && selectedAliases.size === parsedData.filter(item => item.wwpn !== undefined && !item.existsInDatabase).length}
+                                      onChange={(e) => handleSelectAll(e.target.checked)}
+                                      title="Select all new aliases"
+                                    />
+                                  </th>
                                   <th>Name</th>
                                   <th>WWPN</th>
                                   <th>Use</th>
@@ -1358,6 +1498,15 @@ const BulkZoningImportPage = () => {
                               <tbody>
                                 {parsedData.filter(item => item.wwpn !== undefined).map((alias, index) => (
                                   <tr key={index} className={alias.existsInDatabase ? "table-warning" : ""}>
+                                    <td>
+                                      <Form.Check
+                                        type="checkbox"
+                                        checked={selectedAliases.has(index)}
+                                        onChange={(e) => handleSelectAlias(index, e.target.checked)}
+                                        disabled={alias.existsInDatabase}
+                                        title={alias.existsInDatabase ? "Cannot select existing aliases" : "Select for import"}
+                                      />
+                                    </td>
                                     <td><code>{alias.name}</code></td>
                                     <td><code>{alias.wwpn}</code></td>
                                     <td>
@@ -1419,7 +1568,23 @@ const BulkZoningImportPage = () => {
                           </Alert>
                         )}
                         
-                        <div className="d-flex gap-2">
+                        <div className="d-flex gap-2 mb-3">
+                          <Button 
+                            variant="primary" 
+                            onClick={handleImportSelected} 
+                            disabled={importing || selectedAliases.size === 0}
+                          >
+                            {importing ? (
+                              <>
+                                <Spinner size="sm" className="me-1" />
+                                Importing...
+                              </>
+                            ) : selectedAliases.size === 0 ? (
+                              "No Aliases Selected"
+                            ) : (
+                              `Import Selected (${selectedAliases.size})`
+                            )}
+                          </Button>
                           <Button 
                             variant="success" 
                             onClick={handleImportAll} 
@@ -1433,7 +1598,7 @@ const BulkZoningImportPage = () => {
                             ) : stats.new === 0 ? (
                               "No New Aliases to Import"
                             ) : stats.duplicates > 0 ? (
-                              `Import ${stats.new} New Aliases (${stats.duplicates} duplicates will be skipped)`
+                              `Import All ${stats.new} New Aliases (${stats.duplicates} duplicates will be skipped)`
                             ) : (
                               `Import All ${stats.new} Aliases`
                             )}
