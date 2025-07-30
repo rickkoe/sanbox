@@ -124,7 +124,20 @@ const GenericTable = forwardRef(({
       const searchLower = quickSearch.toLowerCase();
       processedArray = processedArray.filter(row => {
         return columns.some((col) => {
-          const value = row[col.data];
+          // Handle nested object values (like fabric_details.name)
+          let value;
+          if (col.data.includes('.')) {
+            const keys = col.data.split('.');
+            let nestedValue = row;
+            for (const key of keys) {
+              nestedValue = nestedValue?.[key];
+              if (nestedValue === null || nestedValue === undefined) break;
+            }
+            value = nestedValue;
+          } else {
+            value = row[col.data];
+          }
+          
           if (value === null || value === undefined) return false;
           return String(value).toLowerCase().includes(searchLower);
         });
@@ -138,7 +151,20 @@ const GenericTable = forwardRef(({
           const column = columns[parseInt(colIndex)];
           if (!column) return true;
           
-          const value = row[column.data];
+          // Handle nested object values (like fabric_details.name)
+          let value;
+          if (column.data.includes('.')) {
+            const keys = column.data.split('.');
+            let nestedValue = row;
+            for (const key of keys) {
+              nestedValue = nestedValue?.[key];
+              if (nestedValue === null || nestedValue === undefined) break;
+            }
+            value = nestedValue;
+          } else {
+            value = row[column.data];
+          }
+          
           if (value === null || value === undefined) return false;
           
           const stringValue = String(value).toLowerCase();

@@ -38,7 +38,22 @@ const CustomTableFilter = ({
     if (!column) return [];
 
     const values = data
-      .map(row => row[column.data])
+      .map(row => {
+        // Handle nested object values (like fabric_details.name)
+        let value;
+        if (column.data.includes('.')) {
+          const keys = column.data.split('.');
+          let nestedValue = row;
+          for (const key of keys) {
+            nestedValue = nestedValue?.[key];
+            if (nestedValue === null || nestedValue === undefined) break;
+          }
+          value = nestedValue;
+        } else {
+          value = row[column.data];
+        }
+        return value;
+      })
       .filter(value => value !== null && value !== undefined && value !== '')
       .map(value => String(value).trim())
       .filter(value => value !== '');
