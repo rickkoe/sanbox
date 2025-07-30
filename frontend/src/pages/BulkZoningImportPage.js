@@ -342,8 +342,7 @@ const BulkZoningImportPage = () => {
     });
     
     // Resolve alias conflicts and deduplicate
-    aliases.forEach(item => {
-      const key = `${item.name}_${item.wwpn}`;
+    const filteredAliases = aliases.filter(item => {
       const wwpnEntries = wwpnConflicts.get(item.wwpn);
       
       // Check if there's a conflict (same WWPN, different cisco_alias types)
@@ -356,17 +355,26 @@ const BulkZoningImportPage = () => {
         // Apply conflict resolution strategy
         if (aliasDefaults.conflictResolution === "device-alias" && item.cisco_alias !== "device-alias") {
           console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring device-alias`);
-          return; // Skip non-device-alias entries
+          return false; // Skip non-device-alias entries
         } else if (aliasDefaults.conflictResolution === "fcalias" && item.cisco_alias !== "fcalias") {
           console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring fcalias`);
-          return; // Skip non-fcalias entries
+          return false; // Skip non-fcalias entries
         }
         // If "both" is selected, allow all entries through
       }
       
-      // Standard deduplication by name and WWPN
-      if (!aliasMap.has(key)) {
-        aliasMap.set(key, item);
+      return true; // Keep this item
+    });
+    
+    // Now deduplicate the filtered aliases by WWPN (since WWPN must be unique)
+    filteredAliases.forEach(item => {
+      const wwpnKey = item.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '');
+      if (!aliasMap.has(wwpnKey)) {
+        aliasMap.set(wwpnKey, item);
+        console.log(`✅ Adding alias: ${item.name} (${item.wwpn}) as ${item.cisco_alias}`);
+      } else {
+        const existing = aliasMap.get(wwpnKey);
+        console.log(`⚠️ WWPN ${item.wwpn} already processed - keeping ${existing.name} (${existing.cisco_alias}), skipping ${item.name} (${item.cisco_alias})`);
       }
     });
     
@@ -818,18 +826,21 @@ const BulkZoningImportPage = () => {
     console.log("🎛️ Available aliasOptions:", aliasOptions.length, "aliases");
     console.log("🎛️ Available batchAliases:", batchAliases.length, "aliases");
     
-    // Get fresh alias data from database if needed
+    // Always get fresh alias data from database for zone parsing to ensure we have latest data
     let currentAliasOptions = aliasOptions;
-    if (aliasOptions.length === 0 && activeProjectId && fabricId) {
-      console.log("🔄 aliasOptions is empty during zone parsing, loading fresh data...");
+    if (activeProjectId && fabricId) {
+      console.log("🔄 Loading fresh alias data for zone parsing...");
       try {
         const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
         const fabricAliases = res.data.filter(
           (alias) => alias.fabric_details?.id === parseInt(fabricId)
         );
         currentAliasOptions = fabricAliases;
-        setAliasOptions(fabricAliases);
+        if (aliasOptions.length === 0) {
+          setAliasOptions(fabricAliases);
+        }
         console.log(`✅ Loaded ${fabricAliases.length} existing aliases for zone parsing`);
+        console.log(`📋 Sample aliases:`, fabricAliases.slice(0, 3).map(a => `${a.name}:${a.wwpn}`));
       } catch (err) {
         console.error("Error loading aliases for zone parsing:", err);
       }
