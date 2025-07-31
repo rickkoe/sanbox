@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Config, Project, TableConfiguration
+from .models import Config, Project, TableConfiguration, AppSettings
 from customers.models import Customer
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -96,3 +96,45 @@ class TableConfigurationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("additional_settings must be a dictionary")
         
         return data
+
+
+class AppSettingsSerializer(serializers.ModelSerializer):
+    """Serializer for application settings"""
+    
+    class Meta:
+        model = AppSettings
+        fields = [
+            'id',
+            'user',
+            'theme',
+            'items_per_page',
+            'compact_mode',
+            'auto_refresh',
+            'auto_refresh_interval',
+            'notifications',
+            'show_advanced_features',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+    
+    def validate_theme(self, value):
+        """Validate theme choice"""
+        valid_themes = ['light', 'dark', 'auto']
+        if value not in valid_themes:
+            raise serializers.ValidationError(f"Theme must be one of: {', '.join(valid_themes)}")
+        return value
+    
+    def validate_items_per_page(self, value):
+        """Validate items per page is a valid choice"""
+        valid_choices = [10, 25, 50, 100]
+        if value not in valid_choices:
+            raise serializers.ValidationError(f"Items per page must be one of: {', '.join(map(str, valid_choices))}")
+        return value
+    
+    def validate_auto_refresh_interval(self, value):
+        """Validate auto refresh interval is a valid choice"""
+        valid_intervals = [15, 30, 60, 300]
+        if value not in valid_intervals:
+            raise serializers.ValidationError(f"Auto refresh interval must be one of: {', '.join(map(str, valid_intervals))}")
+        return value

@@ -189,3 +189,128 @@ class TableConfiguration(models.Model):
             defaults=config_data
         )
         return config
+
+
+class AppSettings(models.Model):
+    """
+    Stores application-wide settings for users. 
+    Each user can have their own personalized settings.
+    """
+    
+    # User identification - nullable for global defaults
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='app_settings',
+        null=True,
+        blank=True,
+        help_text="User these settings belong to (null for global defaults)"
+    )
+    
+    # Display Settings
+    theme = models.CharField(
+        max_length=10,
+        choices=[
+            ('light', 'Light'),
+            ('dark', 'Dark'),
+            ('auto', 'Auto (System)'),
+        ],
+        default='light',
+        help_text="UI theme preference"
+    )
+    
+    items_per_page = models.IntegerField(
+        default=25,
+        choices=[
+            (10, '10'),
+            (25, '25'),
+            (50, '50'),
+            (100, '100'),
+        ],
+        help_text="Default number of items per page in tables"
+    )
+    
+    compact_mode = models.BooleanField(
+        default=False,
+        help_text="Enable compact mode for tables and UI elements"
+    )
+    
+    # Data & Refresh Settings
+    auto_refresh = models.BooleanField(
+        default=True,
+        help_text="Enable automatic data refresh"
+    )
+    
+    auto_refresh_interval = models.IntegerField(
+        default=30,
+        choices=[
+            (15, '15 seconds'),
+            (30, '30 seconds'),
+            (60, '1 minute'),
+            (300, '5 minutes'),
+        ],
+        help_text="Auto-refresh interval in seconds"
+    )
+    
+    # Notifications & Features
+    notifications = models.BooleanField(
+        default=True,
+        help_text="Enable browser notifications"
+    )
+    
+    show_advanced_features = models.BooleanField(
+        default=False,
+        help_text="Show advanced features and debugging tools"
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "App Settings"
+        verbose_name_plural = "App Settings"
+        indexes = [
+            models.Index(fields=['user']),
+        ]
+    
+    def __str__(self):
+        if self.user:
+            return f"Settings for {self.user.username}"
+        return "Global Default Settings"
+    
+    @classmethod
+    def get_settings(cls, user=None):
+        """
+        Get settings for a user, falling back to global defaults.
+        """
+        if user:
+            settings = cls.objects.filter(user=user).first()
+            if settings:
+                return settings
+        
+        # Fall back to global defaults or create default settings
+        settings, created = cls.objects.get_or_create(
+            user=None,
+            defaults={
+                'theme': 'light',
+                'items_per_page': 25,
+                'compact_mode': False,
+                'auto_refresh': True,
+                'auto_refresh_interval': 30,
+                'notifications': True,
+                'show_advanced_features': False,
+            }
+        )
+        return settings
+    
+    @classmethod
+    def update_settings(cls, user=None, **settings_data):
+        """
+        Update or create settings for a user.
+        """
+        settings, created = cls.objects.update_or_create(
+            user=user,
+            defaults=settings_data
+        )
+        return settings

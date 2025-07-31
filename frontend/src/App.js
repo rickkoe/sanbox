@@ -42,6 +42,7 @@ const StorageTable = React.lazy(() => import("./components/tables/StorageTable")
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
 const ConfigForm = React.lazy(() => import("./components/forms/ConfigForm"));
+const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const WWPNFormatterTable = React.lazy(() => import("./components/tools/WWPNColonizer"));
 const AliasScriptsPage = React.lazy(() => import("./pages/AliasScriptsPage"));
 const DS8000ScriptsPage = React.lazy(() => import("./pages/DS8000ScriptsPage"));
@@ -80,6 +81,7 @@ function AppContent() {
     '/san',
     '/insights',
     '/config',
+    '/settings',
     '/tools',
     '/scripts',
     '/insights/importer'
@@ -129,6 +131,7 @@ function AppContent() {
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
                     <Route path="/config" element={<ConfigForm />} />
+                    <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/tools" element={<ToolsPage />} />
                     <Route path="/scripts" element={<ScriptsPage />} />
                     <Route path="/scripts/zoning" element={<ZoneScriptsPage />} />

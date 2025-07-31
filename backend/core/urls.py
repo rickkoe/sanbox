@@ -13,6 +13,7 @@ from .views import (
     table_configuration_list,
     table_configuration_detail,
     reset_table_configuration,
+    app_settings_view,
 )
 from .dashboard_views import dashboard_stats, clear_dashboard_cache
 
@@ -41,4 +42,7 @@ urlpatterns = [
     path("table-config/", table_configuration_list, name="table-config-list"),
     path("table-config/<int:pk>/", table_configuration_detail, name="table-config-detail"),
     path("table-config/reset/", reset_table_configuration, name="table-config-reset"),
+    
+    # App Settings endpoints
+    path("settings/", app_settings_view, name="app-settings"),
 ]

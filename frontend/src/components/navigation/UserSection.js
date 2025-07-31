@@ -1,20 +1,33 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Settings, HelpCircle, User } from "lucide-react";
+import { Settings, HelpCircle, User, Sliders } from "lucide-react";
 
 const UserSection = () => {
   return (
     <>
       <li className="nav-item">
-        <NavLink
-          className="nav-link"
-          to="/config"
-          title="Settings"
-        >
-          <Settings size={24} />
-          <span className="nav-label ms-1">Settings</span>
-        </NavLink>
+        <Dropdown align="end">
+          <Dropdown.Toggle 
+            as="span" 
+            className="nav-link" 
+            style={{ cursor: "pointer" }}
+            title="Settings & Configuration"
+          >
+            <Settings size={24} />
+            <span className="nav-label ms-1">Settings</span>
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            <Dropdown.Item as={NavLink} to="/config">
+              <Sliders size={16} className="me-2" />
+              Project Config
+            </Dropdown.Item>
+            <Dropdown.Item as={NavLink} to="/settings">
+              <Settings size={16} className="me-2" />
+              App Settings
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown>
       </li>
 
       <li className="nav-item">

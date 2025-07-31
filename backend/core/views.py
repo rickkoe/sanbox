@@ -3,9 +3,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
-from .models import Config, Project, TableConfiguration
+from .models import Config, Project, TableConfiguration, AppSettings
 from customers.models import Customer 
-from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer, TableConfigurationSerializer
+from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer, TableConfigurationSerializer, AppSettingsSerializer
 from customers.serializers import CustomerSerializer 
 
 
@@ -653,3 +653,60 @@ def reset_table_configuration(request):
     except Exception as e:
         print(f"❌ Error in reset_table_configuration: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ====================
+# APP SETTINGS API VIEWS
+# ====================
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT"])
+def app_settings_view(request):
+    """
+    Get or update application settings for the current user (or global defaults)
+    GET /api/core/settings/ - Get current settings
+    PUT /api/core/settings/ - Update settings
+    """
+    print(f"🔥 App Settings - Method: {request.method}")
+    
+    if request.method == "GET":
+        try:
+            # For now, we'll use global settings since there's no authentication
+            # In a real app, you'd get the current user from request.user
+            user = None  # request.user if request.user.is_authenticated else None
+            
+            settings = AppSettings.get_settings(user=user)
+            serializer = AppSettingsSerializer(settings)
+            
+            return JsonResponse(serializer.data)
+            
+        except Exception as e:
+            print(f"❌ Error in app_settings_view GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+            
+            # For now, we'll use global settings since there's no authentication
+            user = None  # request.user if request.user.is_authenticated else None
+            
+            # Get existing settings or create new ones
+            settings = AppSettings.get_settings(user=user)
+            
+            # Update settings using serializer
+            serializer = AppSettingsSerializer(settings, data=data, partial=True)
+            
+            if serializer.is_valid():
+                updated_settings = serializer.save()
+                print(f"✅ Settings updated successfully: {updated_settings}")
+                return JsonResponse(AppSettingsSerializer(updated_settings).data)
+            else:
+                print(f"❌ Settings validation errors: {serializer.errors}")
+                return JsonResponse(serializer.errors, status=400)
+                
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            print(f"❌ Error in app_settings_view PUT: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
