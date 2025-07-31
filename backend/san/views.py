@@ -494,10 +494,17 @@ def zone_save_view(request):
 
         for zone_data in zones_data:
             zone_id = zone_data.get("id")
+            zone_name = zone_data.get("name", "Unknown")
+            
+            print(f"🔍 Processing zone: {zone_name}")
+            print(f"📋 Zone data: {zone_data}")
 
             # Ensure projects is a list (since it's many-to-many)
             projects_list = zone_data.pop("projects", [project_id])  # Defaults to the current project
             members_list = zone_data.pop("members", [])  # Handle members
+            
+            print(f"👥 Members list for {zone_name}: {members_list}")
+            print(f"📊 Members count: {len(members_list)}")
 
             if zone_id:
                 zone = Zone.objects.filter(id=zone_id).first()

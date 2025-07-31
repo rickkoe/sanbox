@@ -75,7 +75,9 @@ const BulkZoningImportPage = () => {
   // Helper function to detect what types of data are in parsed data
   const detectDataTypes = (items) => {
     const hasAliases = items.some(item => item.wwpn !== undefined);
-    const hasZones = items.some(item => item.zone_type !== undefined || item.members !== undefined);
+    const hasZones = items.some(
+      (item) => item.zone_type !== undefined || item.members !== undefined
+    );
     return { aliases: hasAliases, zones: hasZones };
   };
 
@@ -456,7 +458,9 @@ const BulkZoningImportPage = () => {
       console.log("🔄 Refreshing alias options after import");
       try {
         const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
-        const fabricAliases = res.data.filter(
+        console.log("🔍 API response structure:", res.data);
+        const aliasData = res.data.results || res.data; // Handle both paginated and direct responses
+        const fabricAliases = aliasData.filter(
           (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
         );
         setAliasOptions(fabricAliases);
@@ -563,7 +567,9 @@ const BulkZoningImportPage = () => {
       console.log("🔄 aliasOptions is empty, loading fresh data from database...");
       try {
         const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
-        const fabricAliases = res.data.filter(
+        console.log("🔍 [Existence Check] API response structure:", res.data);
+        const aliasData = res.data.results || res.data; // Handle both paginated and direct responses
+        const fabricAliases = aliasData.filter(
           (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
         );
         currentAliasOptions = fabricAliases;
@@ -1008,7 +1014,9 @@ const BulkZoningImportPage = () => {
       console.log("🔄 Loading fresh alias data for zone parsing...");
       try {
         const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
-        const fabricAliases = res.data.filter(
+        console.log("🔍 [Zone Parsing] API response structure:", res.data);
+        const aliasData = res.data.results || res.data; // Handle both paginated and direct responses
+        const fabricAliases = aliasData.filter(
           (alias) => alias.fabric_details?.id === parseInt(fabricId)
         );
         currentAliasOptions = fabricAliases;
@@ -1597,6 +1605,10 @@ const BulkZoningImportPage = () => {
       if (zones.length > 0) {
         console.log("📋 Sample new zone:", resolvedZones[0]);
         console.log("📋 Sample zone members after pre-resolution:", resolvedZones[0]?.members);
+        console.log("📋 Zone members details:");
+        resolvedZones.forEach((zone, idx) => {
+          console.log(`  Zone ${idx}: ${zone.name} - Members: ${JSON.stringify(zone.members)}`);
+        });
         const zonePayload = {
           project_id: activeProjectId,
           zones: resolvedZones.map(zone => {
@@ -1607,17 +1619,21 @@ const BulkZoningImportPage = () => {
             delete cleanZone.updated;
             
             // Filter and convert alias IDs (batch aliases should already be resolved)
+            console.log(`🔍 Processing zone ${cleanZone.name} with members:`, cleanZone.members);
             const validMembers = (cleanZone.members || []).filter(aliasId => {
               // Only keep numeric alias IDs (batch aliases should be resolved by now)
               if (typeof aliasId === 'number' || !isNaN(parseInt(aliasId))) {
+                console.log(`✅ Valid member ID: ${aliasId}`);
                 return true;
               }
               // Log any remaining unresolved batch aliases
               if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
                 console.log(`⚠️ Unresolved batch alias found: ${aliasId}`);
               }
+              console.log(`❌ Invalid member ID: ${aliasId} (type: ${typeof aliasId})`);
               return false;
             }).map(aliasId => parseInt(aliasId));
+            console.log(`🎯 Final valid members for ${cleanZone.name}:`, validMembers);
             
             return {
               ...cleanZone,
@@ -1740,6 +1756,7 @@ const BulkZoningImportPage = () => {
           delete cleanZone.updated;
           
           // Filter out batch alias references and only keep numeric alias IDs
+          console.log(`🔍 [Selected] Processing zone ${cleanZone.name} with members:`, cleanZone.members);
           const validMembers = (cleanZone.members || []).filter(aliasId => {
             // Skip batch alias references (strings like "batch:aliasName")
             if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
@@ -1747,8 +1764,14 @@ const BulkZoningImportPage = () => {
               return false;
             }
             // Only keep numeric alias IDs
-            return typeof aliasId === 'number' || !isNaN(parseInt(aliasId));
+            if (typeof aliasId === 'number' || !isNaN(parseInt(aliasId))) {
+              console.log(`✅ [Selected] Valid member ID: ${aliasId}`);
+              return true;
+            }
+            console.log(`❌ [Selected] Invalid member ID: ${aliasId} (type: ${typeof aliasId})`);
+            return false;
           });
+          console.log(`🎯 [Selected] Final valid members for ${cleanZone.name}:`, validMembers);
           
           return {
             ...cleanZone,
