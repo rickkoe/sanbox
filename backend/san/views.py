@@ -505,6 +505,19 @@ def zone_save_view(request):
             
             print(f"👥 Members list for {zone_name}: {members_list}")
             print(f"📊 Members count: {len(members_list)}")
+            
+            # Debug member processing
+            if members_list:
+                print(f"🔍 Processing members for {zone_name}:")
+                for i, member in enumerate(members_list):
+                    print(f"  Member {i}: {member} (type: {type(member)})")
+                    if isinstance(member, dict) and 'alias' in member:
+                        print(f"    Alias ID: {member['alias']} (type: {type(member['alias'])})")
+            
+            # Extract member IDs
+            member_ids = [member.get('alias') for member in members_list if member.get('alias')]
+            print(f"🎯 Extracted member IDs for {zone_name}: {member_ids}")
+            print(f"🎯 Member IDs count: {len(member_ids)}")
 
             if zone_id:
                 zone = Zone.objects.filter(id=zone_id).first()
@@ -523,7 +536,9 @@ def zone_save_view(request):
                             zone.save(update_fields=["updated"])
                         zone.projects.add(*projects_list)  # Append projects instead of overwriting
                         member_ids = [member.get('alias') for member in members_list if member.get('alias')]
+                        print(f"🎯 [UPDATE] Setting members for {zone_name}: {member_ids}")
                         zone.members.set(member_ids)
+                        print(f"✅ [UPDATE] Members set for {zone_name}. Final count: {zone.members.count()}")
                         saved_zones.append(ZoneSerializer(zone).data)
                     else:
                         errors.append({"zone": zone_data["name"], "errors": serializer.errors})
@@ -535,7 +550,9 @@ def zone_save_view(request):
                     zone.save(update_fields=["updated"])
                     zone.projects.add(*projects_list)  # Append projects instead of overwriting
                     member_ids = [member.get('alias') for member in members_list if member.get('alias')]
+                    print(f"🎯 [CREATE] Setting members for {zone_name}: {member_ids}")
                     zone.members.set(member_ids)
+                    print(f"✅ [CREATE] Members set for {zone_name}. Final count: {zone.members.count()}")
                     saved_zones.append(ZoneSerializer(zone).data)
                 else:
                     errors.append({"zone": zone_data["name"], "errors": serializer.errors})

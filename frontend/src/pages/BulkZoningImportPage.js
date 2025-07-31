@@ -452,23 +452,71 @@ const BulkZoningImportPage = () => {
     });
   }, [saveZonePreferences]);
 
-  // Function to refresh alias options after import
-  const refreshAliasOptions = useCallback(async () => {
+  // Function to refresh alias options after import with retry logic for large datasets
+  const refreshAliasOptions = useCallback(async (retryForLargeImport = false, maxRetries = 5, expectedAliasNames = []) => {
     if (activeProjectId && selectedFabric) {
       console.log("🔄 Refreshing alias options after import");
-      try {
-        const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
-        console.log("🔍 API response structure:", res.data);
-        const aliasData = res.data.results || res.data; // Handle both paginated and direct responses
-        const fabricAliases = aliasData.filter(
-          (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
-        );
-        setAliasOptions(fabricAliases);
-        console.log(`✅ Refreshed aliasOptions: ${fabricAliases.length} aliases`);
-        return fabricAliases;
-      } catch (err) {
-        console.error("Error refreshing aliases:", err);
-        return [];
+      console.log(`🔍 Expected to find aliases: ${expectedAliasNames.slice(0, 5)}`); // Show first 5
+      
+      // For large imports, always add an initial delay to allow database transaction to complete
+      if (retryForLargeImport) {
+        console.log("⏳ Adding initial delay for large import...");
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Increased from 1s to 2s
+      }
+      
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          // Add delay between retries
+          if (attempt > 0) {
+            const delay = Math.min(500 * Math.pow(2, attempt - 1), 2000); // Exponential backoff, max 2s
+            console.log(`⏳ Waiting ${delay}ms before retry attempt ${attempt + 1}/${maxRetries}`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          
+          // Fetch ALL aliases by requesting a large page size
+          console.log(`🔍 Fetching all aliases for project ${activeProjectId}`);
+          const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/?page_size=1000`); // Request up to 1000 aliases
+          console.log(`🔍 API response - got ${res.data.results?.length || 0} aliases out of ${res.data.count} total`);
+          
+          const allAliases = res.data.results || res.data || [];
+          
+          // Verify we got all aliases
+          if (res.data.count && allAliases.length < res.data.count) {
+            console.log(`⚠️ Only got ${allAliases.length}/${res.data.count} aliases, may need larger page_size`);
+          }
+          
+          console.log(`🔍 Fetched ${allAliases.length} total aliases across all pages`);
+          const fabricAliases = allAliases.filter(
+            (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
+          );
+          
+          // Check if we have all expected aliases
+          if (expectedAliasNames.length > 0) {
+            const foundNames = fabricAliases.map(a => a.name);
+            const missingAliases = expectedAliasNames.filter(name => !foundNames.includes(name));
+            
+            if (missingAliases.length > 0 && attempt < maxRetries - 1) {
+              console.log(`⚠️ Missing ${missingAliases.length} expected aliases: ${missingAliases.slice(0, 3)}, retrying...`);
+              continue; // Retry
+            }
+            
+            console.log(`✅ Found ${expectedAliasNames.length - missingAliases.length}/${expectedAliasNames.length} expected aliases`);
+            if (missingAliases.length > 0) {
+              console.log(`⚠️ Still missing after all retries: ${missingAliases}`);
+            }
+          }
+          
+          setAliasOptions(fabricAliases);
+          console.log(`✅ Refreshed aliasOptions: ${fabricAliases.length} aliases (attempt ${attempt + 1})`);
+          console.log(`🔍 Sample refreshed aliases:`, fabricAliases.slice(0, 5).map(a => ({ name: a.name, id: a.id })));
+          return fabricAliases;
+        } catch (err) {
+          console.error(`Error refreshing aliases (attempt ${attempt + 1}):`, err);
+          if (attempt === maxRetries - 1) {
+            console.error("❌ Failed to refresh aliases after all retries");
+            return [];
+          }
+        }
       }
     }
     return [];
@@ -1577,22 +1625,34 @@ const BulkZoningImportPage = () => {
         results.push(aliasResult);
         
         // Refresh alias options after importing aliases so zones can reference them
-        const updatedAliases = await refreshAliasOptions();
+        // Use retry logic for large imports to ensure database consistency
+        const isLargeImport = aliases.length > 10; // Consider >10 aliases as large import
+        const expectedAliasNames = aliases.map(alias => alias.name); // Names of aliases we just imported
+        const updatedAliases = await refreshAliasOptions(isLargeImport, 5, expectedAliasNames);
         console.log(`🔄 Updated alias options: ${updatedAliases.length} aliases available for zone resolution`);
         
         // Update zones to use the fresh alias data for member resolution
+        console.log(`🔍 Starting batch alias resolution with ${updatedAliases.length} available aliases`);
+        console.log(`🔍 Available alias names:`, updatedAliases.map(a => a.name).slice(0, 10)); // Show first 10
+        
         resolvedZones = zones.map(zone => ({
           ...zone,
           members: (zone.members || []).map(aliasId => {
             // Resolve batch alias references using fresh alias data
             if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
               const aliasName = aliasId.replace('batch:', '');
+              console.log(`🔍 Looking for batch alias: ${aliasName}`);
               const foundAlias = updatedAliases.find(alias => alias.name === aliasName);
               if (foundAlias) {
                 console.log(`🔄 Pre-resolved batch alias: ${aliasName} -> ID ${foundAlias.id}`);
                 return foundAlias.id;
               } else {
                 console.log(`⚠️ Could not pre-resolve batch alias: ${aliasName}`);
+                console.log(`🔍 Searching in all aliases for: ${aliasName}`);
+                const exactMatch = updatedAliases.find(alias => alias.name === aliasName);
+                const partialMatches = updatedAliases.filter(alias => alias.name.includes(aliasName));
+                console.log(`🔍 Exact match: ${exactMatch ? exactMatch.name : 'NONE'}`);
+                console.log(`🔍 Partial matches: ${partialMatches.map(a => a.name)}`);
                 return aliasId; // Keep original for later processing
               }
             }
@@ -1607,7 +1667,12 @@ const BulkZoningImportPage = () => {
         console.log("📋 Sample zone members after pre-resolution:", resolvedZones[0]?.members);
         console.log("📋 Zone members details:");
         resolvedZones.forEach((zone, idx) => {
-          console.log(`  Zone ${idx}: ${zone.name} - Members: ${JSON.stringify(zone.members)}`);
+          console.log(`  Zone ${idx}: ${zone.name} - Members: ${JSON.stringify(zone.members)} (count: ${zone.members?.length || 0})`);
+          if (zone.members && zone.members.length > 0) {
+            zone.members.forEach((member, memberIdx) => {
+              console.log(`    Member ${memberIdx}: ${member} (type: ${typeof member})`);
+            });
+          }
         });
         const zonePayload = {
           project_id: activeProjectId,
@@ -1620,20 +1685,28 @@ const BulkZoningImportPage = () => {
             
             // Filter and convert alias IDs (batch aliases should already be resolved)
             console.log(`🔍 Processing zone ${cleanZone.name} with members:`, cleanZone.members);
+            console.log(`🔍 Members array length: ${cleanZone.members?.length || 0}`);
+            
             const validMembers = (cleanZone.members || []).filter(aliasId => {
-              // Only keep numeric alias IDs (batch aliases should be resolved by now)
+              console.log(`🔍 Checking member: ${aliasId} (type: ${typeof aliasId})`);
+              
+              // Only keep numeric alias IDs (batch aliases should already be resolved by now)
               if (typeof aliasId === 'number' || !isNaN(parseInt(aliasId))) {
-                console.log(`✅ Valid member ID: ${aliasId}`);
+                console.log(`✅ Valid member ID: ${aliasId} -> parsed as ${parseInt(aliasId)}`);
                 return true;
               }
+              
               // Log any remaining unresolved batch aliases
               if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
                 console.log(`⚠️ Unresolved batch alias found: ${aliasId}`);
+              } else {
+                console.log(`❌ Invalid member ID: ${aliasId} (type: ${typeof aliasId})`);
               }
-              console.log(`❌ Invalid member ID: ${aliasId} (type: ${typeof aliasId})`);
               return false;
             }).map(aliasId => parseInt(aliasId));
+            
             console.log(`🎯 Final valid members for ${cleanZone.name}:`, validMembers);
+            console.log(`🎯 Members count: ${cleanZone.members?.length || 0} -> ${validMembers.length}`);
             
             return {
               ...cleanZone,
@@ -1647,6 +1720,19 @@ const BulkZoningImportPage = () => {
         console.log("Sending zone payload:", zonePayload);
         console.log("📋 Sample zone with members:", resolvedZones[0]);
         console.log("📋 Sample zone members format:", resolvedZones[0]?.members);
+        
+        // Log detailed payload structure for first few zones
+        console.log("🔍 Final payload structure for first 3 zones:");
+        zonePayload.zones.slice(0, 3).forEach((zone, idx) => {
+          console.log(`  Zone ${idx}: ${zone.name}`);
+          console.log(`    Members: ${JSON.stringify(zone.members)}`);
+          console.log(`    Members count: ${zone.members?.length || 0}`);
+          if (zone.members && zone.members.length > 0) {
+            zone.members.forEach((member, memberIdx) => {
+              console.log(`      Member ${memberIdx}: ${JSON.stringify(member)}`);
+            });
+          }
+        });
         
         try {
           const response = await axios.post("/api/san/zones/save/", zonePayload);
