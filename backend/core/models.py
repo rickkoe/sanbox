@@ -186,7 +186,7 @@ class AppSettings(models.Model):
     )
     
     items_per_page = models.IntegerField(
-        default=25,
+        default=50,
         choices=[
             (25, '25'),
             (50, '50'),

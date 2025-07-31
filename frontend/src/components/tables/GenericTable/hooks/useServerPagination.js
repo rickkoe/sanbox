@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 
-export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKey = null, quickSearch = '', columnFilters = {}, columns = []) => {
+export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKey = null, quickSearch = '', columnFilters = {}, columns = [], onPageSizeChange = null) => {
   // State management
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,7 +209,12 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
     if (storageKey) {
       localStorage.setItem(`${storageKey}_pageSize`, newPageSize);
     }
-  }, [storageKey]);
+    
+    // Update global settings if callback provided
+    if (onPageSizeChange && typeof onPageSizeChange === 'function') {
+      onPageSizeChange(newPageSize);
+    }
+  }, [storageKey, onPageSizeChange]);
   
   // Reset to first page
   const resetPagination = useCallback(() => {

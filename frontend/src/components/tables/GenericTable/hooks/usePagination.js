@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 
-export const usePagination = (data, defaultPageSize = 100, storageKey = null) => {
+export const usePagination = (data, defaultPageSize = 100, storageKey = null, onPageSizeChange = null) => {
   // Initialize page size from localStorage if provided
   const getInitialPageSize = () => {
     if (storageKey) {
@@ -60,6 +60,11 @@ export const usePagination = (data, defaultPageSize = 100, storageKey = null) =>
     // Save to localStorage if storage key provided
     if (storageKey) {
       localStorage.setItem(`${storageKey}_pageSize`, newPageSize);
+    }
+    
+    // Update global settings if callback provided
+    if (onPageSizeChange && typeof onPageSizeChange === 'function') {
+      onPageSizeChange(newPageSize);
     }
   };
 

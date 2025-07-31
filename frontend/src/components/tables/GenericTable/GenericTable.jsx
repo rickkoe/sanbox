@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
+import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { HotTable } from '@handsontable/react';
 import { Modal } from "react-bootstrap";
 import axios from "axios";
@@ -58,7 +58,16 @@ const GenericTable = forwardRef(({
 }, ref) => {
   
   // Get settings for default page size
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
+  
+  // Callback to update global settings when table page size changes
+  const handleGlobalPageSizeChange = useCallback(async (newPageSize) => {
+    try {
+      await updateSettings({ ...settings, items_per_page: newPageSize });
+    } catch (error) {
+      console.error('Failed to update global page size setting:', error);
+    }
+  }, [settings, updateSettings]);
   
   // Core state
   const [loading, setLoading] = useState(false);
@@ -85,7 +94,8 @@ const GenericTable = forwardRef(({
     storageKey,
     quickSearch,
     columnFilters,
-    columns
+    columns,
+    handleGlobalPageSizeChange
   );
   
   // Simple data state for non-paginated tables
