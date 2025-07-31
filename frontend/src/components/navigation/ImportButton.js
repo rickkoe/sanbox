@@ -68,12 +68,6 @@ const ImportButton = ({
             Storage Insights Import
           </Dropdown.Item>
           <Dropdown.Divider />
-          <Dropdown.Item as={NavLink} to="/san/aliases/import">
-            Import Aliases
-          </Dropdown.Item>
-          <Dropdown.Item as={NavLink} to="/san/zones/import">
-            Import Zones
-          </Dropdown.Item>
           <Dropdown.Item as={NavLink} to="/san/bulk-import">
             <strong>Bulk Zoning Import</strong>
           </Dropdown.Item>

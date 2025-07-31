@@ -50,8 +50,6 @@ const ZoneScriptsPage = React.lazy(() => import("./pages/ZoneScriptsPage"));
 const ImportSwitchConfig = React.lazy(() => import("./components/forms/ImportSwitchConfig"));
 const StorageInsightsImporter = React.lazy(() => import("./pages/StorageInsightsImporter"));
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
-const AliasImportPage = React.lazy(() => import("./pages/AliasImportPage"));
-const ZoneImportPage = React.lazy(() => import("./pages/ZoneImportPage"));
 const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
 
 // Main app content with routing-aware CSS classes
@@ -137,8 +135,6 @@ function AppContent() {
                     <Route path="/scripts/ds8000" element={<DS8000ScriptsPage />} />
                     <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
                     <Route path="/test" element={<TestFilters />} />
-                    <Route path="/san/aliases/import" element={<AliasImportPage />} />
-                    <Route path="/san/zones/import" element={<ZoneImportPage />} />
                     <Route path="/san/bulk-import" element={<BulkZoningImportPage />} />
                   <Route
                     path="/insights/importer"
