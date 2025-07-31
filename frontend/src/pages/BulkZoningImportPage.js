@@ -33,8 +33,47 @@ const BulkZoningImportPage = () => {
   }, [selectedFabric]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  
+  // Debug importing state changes
+  useEffect(() => {
+    console.log("🔄 IMPORTING STATE CHANGED:", importing);
+  }, [importing]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // Auto-scroll to results when import finishes
+  const scrollToResults = () => {
+    console.log("🔄 scrollToResults called - starting scroll in 500ms");
+    setTimeout(() => {
+      // Try uploaded files section first
+      let targetSection = document.querySelector('[data-section="uploaded-files"]');
+      console.log("🎯 Looking for uploaded files section:", targetSection);
+      
+      // Fallback to preview section if no uploaded files
+      if (!targetSection) {
+        targetSection = document.querySelector('[data-section="preview"]');
+        console.log("🎯 Fallback: Looking for preview section:", targetSection);
+      }
+      
+      // Final fallback to any results area
+      if (!targetSection) {
+        targetSection = document.querySelector('.card:has([class*="preview"])') || 
+                      document.querySelector('.mb-3:has(button[variant="primary"])');
+        console.log("🎯 Final fallback: Looking for any results area:", targetSection);
+      }
+      
+      if (targetSection) {
+        console.log("✅ Found target section, scrolling now");
+        targetSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      } else {
+        console.log("❌ No scroll target found!");
+      }
+    }, 500);
+  };
   
   // File handling state
   const [dragActive, setDragActive] = useState(false);
@@ -46,6 +85,7 @@ const BulkZoningImportPage = () => {
   const [showPreview, setShowPreview] = useState({ aliases: false, zones: false });
   const [activeTab, setActiveTab] = useState("files");
   const [showPreviewSection, setShowPreviewSection] = useState(false);
+  const [currentPage, setCurrentPage] = useState("import"); // "import" or "results"
   const [preferencesStatus, setPreferencesStatus] = useState(""); // "", "saving", "saved"
   const [zonePreferencesStatus, setZonePreferencesStatus] = useState(""); // "", "saving", "saved"
   
@@ -1293,6 +1333,8 @@ const BulkZoningImportPage = () => {
 
   // Process uploaded files with cross-batch alias matching
   const processFiles = useCallback(async (files) => {
+    console.log("🔄 processFiles started - setParsing(true)");
+    setParsing(true);
     const results = [];
     const allBatchAliases = [];
     
@@ -1410,6 +1452,7 @@ const BulkZoningImportPage = () => {
       }
     }
     
+    console.log("✅ processFiles completed - parsing should end soon");
     return results;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFabric, aliasDefaults, zoneDefaults]);
@@ -1442,14 +1485,21 @@ const BulkZoningImportPage = () => {
       return;
     }
 
-    setLoading(true);
-    const results = await processFiles(files);
-    setUploadedFiles(prev => [...prev, ...results]);
-    const allItems = results.flatMap(r => r.items);
-    setParsedData(prev => [...prev, ...allItems]);
-    setLoading(false);
-    setShowPreview(detectDataTypes(allItems));
-    setShowPreviewSection(true);
+    try {
+      setLoading(true);
+      const results = await processFiles(files);
+      setUploadedFiles(prev => [...prev, ...results]);
+      const allItems = results.flatMap(r => r.items);
+      setParsedData(prev => [...prev, ...allItems]);
+      setShowPreview(detectDataTypes(allItems));
+      setShowPreviewSection(true);
+      setCurrentPage("results");
+    } catch (error) {
+      setError(`Error processing files: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setParsing(false);
+    }
   }, [selectedFabric, processFiles]);
 
   // File input handler
@@ -1462,14 +1512,21 @@ const BulkZoningImportPage = () => {
       return;
     }
 
-    setLoading(true);
-    const results = await processFiles(files);
-    setUploadedFiles(prev => [...prev, ...results]);
-    const allItems = results.flatMap(r => r.items);
-    setParsedData(prev => [...prev, ...allItems]);
-    setLoading(false);
-    setShowPreview(detectDataTypes(allItems));
-    setShowPreviewSection(true);
+    try {
+      setLoading(true);
+      const results = await processFiles(files);
+      setUploadedFiles(prev => [...prev, ...results]);
+      const allItems = results.flatMap(r => r.items);
+      setParsedData(prev => [...prev, ...allItems]);
+      setShowPreview(detectDataTypes(allItems));
+      setShowPreviewSection(true);
+      setCurrentPage("results");
+    } catch (error) {
+      setError(`Error processing files: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setParsing(false);
+    }
   };
 
   // Text paste handler
@@ -1484,8 +1541,10 @@ const BulkZoningImportPage = () => {
       return;
     }
 
-    setLoading(true);
-    const dataType = detectDataType(textInput);
+    try {
+      setLoading(true);
+      setParsing(true);
+      const dataType = detectDataType(textInput);
     console.log("🔍 Pasted text detected as type:", dataType);
     
     let parsedItems = [];
@@ -1550,12 +1609,18 @@ const BulkZoningImportPage = () => {
       rawText: textInput
     };
     
-    setUploadedFiles(prev => [...prev, result]);
-    setParsedData(prev => [...prev, ...enhancedItems]);
-    setLoading(false);
-    setShowPreview(detectDataTypes(parsedItems));
-    setShowPreviewSection(true);
-    setTextInput("");
+      setUploadedFiles(prev => [...prev, result]);
+      setParsedData(prev => [...prev, ...enhancedItems]);
+      setShowPreview(detectDataTypes(parsedItems));
+      setShowPreviewSection(true);
+      setCurrentPage("results");
+      setTextInput("");
+    } catch (error) {
+      setError(`Error processing text: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setParsing(false);
+    }
   };
 
   // Import all data
@@ -1570,7 +1635,7 @@ const BulkZoningImportPage = () => {
 
     setImporting(true);
     setError("");
-    console.log("✅ Import state set to true");
+    console.log("✅ Import state set to true - importing overlay should show now");
     
     try {
       // Separate aliases and zones
@@ -1599,6 +1664,7 @@ const BulkZoningImportPage = () => {
           setError("No new items found to import");
         }
         setImporting(false);
+        scrollToResults();
         return;
       }
       
@@ -1798,7 +1864,7 @@ const BulkZoningImportPage = () => {
       // Clear data after successful import
       setTimeout(() => {
         clearAll();
-        navigate("/san/zones"); // Navigate to zones page
+        navigate("/san"); // Navigate to SAN overview page
       }, 2000);
       
     } catch (error) {
@@ -1817,7 +1883,9 @@ const BulkZoningImportPage = () => {
       
       setError(errorMessage);
     } finally {
+      console.log("✅ Import finished, setting importing to false and scrolling");
       setImporting(false);
+      scrollToResults();
     }
   };
 
@@ -1853,6 +1921,7 @@ const BulkZoningImportPage = () => {
           setError("No valid selected zones found to import");
         }
         setImporting(false);
+        scrollToResults();
         return;
       }
       
@@ -1909,7 +1978,7 @@ const BulkZoningImportPage = () => {
       // Clear data after successful import
       setTimeout(() => {
         clearAll();
-        navigate("/san/zones"); // Navigate to zones page
+        navigate("/san"); // Navigate to SAN overview page
       }, 2000);
       
     } catch (error) {
@@ -1928,7 +1997,9 @@ const BulkZoningImportPage = () => {
       
       setError(errorMessage);
     } finally {
+      console.log("✅ Import finished, setting importing to false and scrolling");
       setImporting(false);
+      scrollToResults();
     }
   };
 
@@ -1964,6 +2035,7 @@ const BulkZoningImportPage = () => {
           setError("No valid selected aliases found to import");
         }
         setImporting(false);
+        scrollToResults();
         return;
       }
       
@@ -2005,7 +2077,7 @@ const BulkZoningImportPage = () => {
       // Clear data after successful import
       setTimeout(() => {
         clearAll();
-        navigate("/san/aliases"); // Navigate to aliases page or dashboard
+        navigate("/san"); // Navigate to SAN overview page
       }, 2000);
       
     } catch (error) {
@@ -2024,7 +2096,9 @@ const BulkZoningImportPage = () => {
       
       setError(errorMessage);
     } finally {
+      console.log("✅ Import finished, setting importing to false and scrolling");
       setImporting(false);
+      scrollToResults();
     }
   };
 
@@ -2035,6 +2109,14 @@ const BulkZoningImportPage = () => {
     setTextInput("");
     setShowPreview({ aliases: false, zones: false });
     setShowPreviewSection(false);
+    setCurrentPage("import");
+    setError("");
+    setSuccess("");
+  };
+
+  // Go back to import page
+  const goBackToImport = () => {
+    setCurrentPage("import");
     setError("");
     setSuccess("");
   };
@@ -2048,27 +2130,173 @@ const BulkZoningImportPage = () => {
   }
 
   return (
-    <div className="container-fluid mt-4" style={{ maxHeight: "calc(100vh - 120px)", overflowY: "auto", paddingBottom: "50px" }}>
+    <>
+      <style>{`
+        @keyframes importing-pulse {
+          0%, 80%, 100% {
+            transform: scale(0.5);
+            opacity: 0.5;
+          }
+          40% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
+      <div className="container-fluid mt-4" style={{ maxHeight: "calc(100vh - 120px)", overflowY: "auto", paddingBottom: "50px" }}>
+      {/* Full-screen parsing overlay */}
+      {parsing && (
+        <div className="importing-overlay" style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          background: 'rgba(0, 0, 0, 0.8)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          zIndex: 9999 
+        }}>
+          <div className="importing-content" style={{
+            textAlign: 'center',
+            background: 'white',
+            padding: '3rem 2rem',
+            borderRadius: '15px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <div className="importing-spinner">
+              <div className="spinner-border text-info" style={{ width: '4rem', height: '4rem' }} role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+            </div>
+            <h3 className="mt-3 text-info">Processing Files...</h3>
+            <p className="text-muted">Please wait while we parse your data</p>
+            <div className="importing-dots" style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '8px',
+              marginTop: '1rem'
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                background: '#17a2b8',
+                borderRadius: '50%',
+                animation: 'importing-pulse 1.5s infinite ease-in-out',
+                animationDelay: '-0.3s'
+              }}></span>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                background: '#17a2b8',
+                borderRadius: '50%',
+                animation: 'importing-pulse 1.5s infinite ease-in-out',
+                animationDelay: '-0.15s'
+              }}></span>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                background: '#17a2b8',
+                borderRadius: '50%',
+                animation: 'importing-pulse 1.5s infinite ease-in-out',
+                animationDelay: '0s'
+              }}></span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-screen importing overlay */}
+      {importing && (
+        <div className="importing-overlay" style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          background: 'rgba(0, 0, 0, 0.8)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          zIndex: 9999 
+        }}>
+          <div className="importing-content" style={{
+            textAlign: 'center',
+            background: 'white',
+            padding: '3rem 2rem',
+            borderRadius: '15px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <div className="importing-spinner">
+              <div className="spinner-border text-success" style={{ width: '4rem', height: '4rem' }} role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+            </div>
+            <h3 className="mt-3 text-success">Importing Data...</h3>
+            <p className="text-muted">Please wait while we save your data to the database</p>
+            <div className="importing-dots" style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '8px',
+              marginTop: '1rem'
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                background: '#28a745',
+                borderRadius: '50%',
+                animation: 'importing-pulse 1.5s infinite ease-in-out',
+                animationDelay: '-0.3s'
+              }}></span>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                background: '#28a745',
+                borderRadius: '50%',
+                animation: 'importing-pulse 1.5s infinite ease-in-out',
+                animationDelay: '-0.15s'
+              }}></span>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                background: '#28a745',
+                borderRadius: '50%',
+                animation: 'importing-pulse 1.5s infinite ease-in-out',
+                animationDelay: '0s'
+              }}></span>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="row justify-content-center">
         <div className="col-lg-10">
-          <Card>
-            <Card.Header>
-              <h4 className="mb-0">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14,2 14,8 20,8"/>
-                  <path d="M16 13H8"/>
-                  <path d="M16 17H8"/>
-                  <path d="M10 9H8"/>
-                </svg>
-                Bulk Alias & Zone Import
-              </h4>
-              <small className="text-muted">
-                Import multiple files containing alias and zone data automatically. Supports Cisco show tech-support files, device-alias, fcalias, and zone configurations.
-              </small>
-            </Card.Header>
+          {currentPage === "import" ? (
+            <Card>
+              <Card.Header>
+                <h4 className="mb-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <path d="M16 13H8"/>
+                    <path d="M16 17H8"/>
+                    <path d="M10 9H8"/>
+                  </svg>
+                  Bulk Alias & Zone Import
+                </h4>
+                <small className="text-muted">
+                  Import multiple files containing alias and zone data automatically. Supports Cisco show tech-support files, device-alias, fcalias, and zone configurations.
+                </small>
+              </Card.Header>
 
-            <Card.Body>
+              <Card.Body>
               {/* Fabric Selection */}
               <Form.Group className="mb-3">
                 <Form.Label><strong>Select Fabric</strong></Form.Label>
@@ -2310,6 +2538,60 @@ const BulkZoningImportPage = () => {
               )}
 
               {success && (
+                <Alert variant="success" className="mb-3 d-flex justify-content-between align-items-center">
+                  <span>{success}</span>
+                  <Button 
+                    variant="outline-success" 
+                    size="sm"
+                    onClick={() => {
+                      const uploadedFilesSection = document.querySelector('[data-section="uploaded-files"]');
+                      if (uploadedFilesSection) {
+                        uploadedFilesSection.scrollIntoView({ 
+                          behavior: 'smooth', 
+                          block: 'start' 
+                        });
+                      }
+                    }}
+                  >
+                    📋 Show Results
+                  </Button>
+                </Alert>
+              )}
+              </Card.Body>
+            </Card>
+          ) : (
+            // Results Page
+            <Card>
+              <Card.Header className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h4 className="mb-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
+                      <path d="M9 12l2 2 4-4"/>
+                      <circle cx="12" cy="12" r="10"/>
+                    </svg>
+                    Import Results
+                  </h4>
+                  <small className="text-muted">
+                    Review your parsed data and configure import settings
+                  </small>
+                </div>
+                <Button variant="outline-secondary" onClick={goBackToImport}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
+                    <polyline points="15,18 9,12 15,6"/>
+                  </svg>
+                  Back to Import
+                </Button>
+              </Card.Header>
+              
+              <Card.Body>
+              {/* Status Messages */}
+              {error && (
+                <Alert variant="danger" className="mb-3">
+                  {error}
+                </Alert>
+              )}
+
+              {success && (
                 <Alert variant="success" className="mb-3">
                   {success}
                 </Alert>
@@ -2317,7 +2599,7 @@ const BulkZoningImportPage = () => {
 
               {/* Uploaded Files Summary */}
               {uploadedFiles.length > 0 && (
-                <Card className="mb-3">
+                <Card className="mb-3" data-section="uploaded-files">
                   <Card.Header className="d-flex justify-content-between align-items-center">
                     <h6 className="mb-0">Uploaded Files ({uploadedFiles.length})</h6>
                     <Button variant="outline-danger" size="sm" onClick={clearAll}>
@@ -2355,7 +2637,7 @@ const BulkZoningImportPage = () => {
 
               {/* Preview Section */}
               {showPreviewSection && parsedData.length > 0 && (
-                <div className="mb-3">
+                <div className="mb-3" data-section="preview">
                   {/* Aliases Preview */}
                   {parsedData.filter(item => item.wwpn !== undefined).length > 0 && (
                     <Card className="mb-3">
@@ -2603,6 +2885,7 @@ const BulkZoningImportPage = () => {
                 </div>
               )}
 
+
               {/* Action Buttons */}
               {showPreviewSection && parsedData.length > 0 && (
                 <>
@@ -2682,11 +2965,13 @@ const BulkZoningImportPage = () => {
                   })()}
                 </>
               )}
-            </Card.Body>
-          </Card>
+              </Card.Body>
+            </Card>
+          )}
         </div>
       </div>
     </div>
+    </>
   );
 };
 
