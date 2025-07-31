@@ -8,23 +8,118 @@ const StatsContainer = ({
   isDirty,
   pagination = null 
 }) => {
-  const totalRows = unsavedData.filter(row => hasNonEmptyValues(row)).length;
-  const displayedRows = pagination ? pagination.paginatedData.filter(row => hasNonEmptyValues(row)).length : totalRows;
+  // Handle server pagination vs client-side data
+  const isServerPagination = pagination && typeof pagination.totalCount === 'number';
+  const totalRows = isServerPagination ? pagination.totalCount : unsavedData.filter(row => hasNonEmptyValues(row)).length;
+  const displayedRows = isServerPagination ? pagination.data.length : totalRows;
+  
 
   return (
     <div className="stats-container">
-      <div className="stat-item">
-        <span className="stat-label">Total</span>
-        <span className="stat-value">{totalRows}</span>
-      </div>
-      
-      {pagination && pagination.pageSize !== "All" && (
+      {isServerPagination ? (
         <>
+          {/* Server pagination stats */}
+          <div className="stat-item">
+            <span className="stat-label">Total</span>
+            <span className="stat-value">{totalRows}</span>
+          </div>
+          
+          <div className="stat-divider"></div>
+          <div className="stat-item">
+            <span className="stat-label">Page</span>
+            <span className="stat-value">{pagination.currentPage || 1} of {pagination.totalPages || 1}</span>
+          </div>
+          
           <div className="stat-divider"></div>
           <div className="stat-item">
             <span className="stat-label">Showing</span>
             <span className="stat-value">{displayedRows}</span>
           </div>
+          
+          {/* Pagination controls */}
+          <div className="stat-divider"></div>
+          <div className="pagination-controls">
+            <button 
+              className="pagination-btn"
+              onClick={() => pagination.handlePageChange(1)}
+              disabled={(pagination.currentPage || 1) === 1}
+              title="First page"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="11,17 6,12 11,7"/>
+                <polyline points="18,17 13,12 18,7"/>
+              </svg>
+            </button>
+            
+            <button 
+              className="pagination-btn"
+              onClick={() => pagination.handlePageChange((pagination.currentPage || 1) - 1)}
+              disabled={(pagination.currentPage || 1) === 1}
+              title="Previous page"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15,18 9,12 15,6"/>
+              </svg>
+            </button>
+            
+            <span className="page-info">
+              {pagination.currentPage || 1} / {pagination.totalPages || 1}
+            </span>
+            
+            <button 
+              className="pagination-btn"
+              onClick={() => pagination.handlePageChange((pagination.currentPage || 1) + 1)}
+              disabled={(pagination.currentPage || 1) === (pagination.totalPages || 1)}
+              title="Next page"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9,18 15,12 9,6"/>
+              </svg>
+            </button>
+            
+            <button 
+              className="pagination-btn"
+              onClick={() => pagination.handlePageChange(pagination.totalPages || 1)}
+              disabled={(pagination.currentPage || 1) === (pagination.totalPages || 1)}
+              title="Last page"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="13,17 18,12 13,7"/>
+                <polyline points="6,17 11,12 6,7"/>
+              </svg>
+            </button>
+            
+            {/* Page size selector */}
+            <select 
+              className="page-size-selector"
+              value={pagination.pageSize}
+              onChange={(e) => pagination.handlePageSizeChange(parseInt(e.target.value))}
+              title="Items per page"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={250}>250</option>
+            </select>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Regular stats */}
+          <div className="stat-item">
+            <span className="stat-label">Total</span>
+            <span className="stat-value">{totalRows}</span>
+          </div>
+          
+          {pagination && pagination.pageSize !== "All" && (
+            <>
+              <div className="stat-divider"></div>
+              <div className="stat-item">
+                <span className="stat-label">Showing</span>
+                <span className="stat-value">{displayedRows}</span>
+              </div>
+            </>
+          )}
         </>
       )}
       

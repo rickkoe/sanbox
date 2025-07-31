@@ -14,6 +14,7 @@ import NavigationModal from './components/NavigationModal';
 import ScrollButtons from './components/ScrollButtons';
 import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
+import { useServerPagination } from './hooks/useServerPagination';
 import { createContextMenu } from './utils/contextMenu';
 import CustomTableFilter from './components/CustomTableFilter';
 
@@ -50,6 +51,8 @@ const GenericTable = forwardRef(({
   getExportFilename,
   defaultVisibleColumns = [],
   tableName = 'generic_table',  // Add tableName prop
+  serverPagination = false,
+  defaultPageSize = 100,
   userId = null  // Add userId prop for user-specific settings
 }, ref) => {
   
@@ -71,7 +74,17 @@ const GenericTable = forwardRef(({
   const [isDirty, setIsDirty] = useState(false);
   const [modifiedRows, setModifiedRows] = useState({});
   
-  // Simple data state - no pagination complexity
+  // Conditional data handling - server pagination or simple fetching
+  const serverPaginationHook = useServerPagination(
+    serverPagination ? apiUrl : null,
+    defaultPageSize,
+    storageKey,
+    quickSearch,
+    columnFilters,
+    columns
+  );
+  
+  // Simple data state for non-paginated tables
   const [rawData, setRawData] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   
@@ -80,7 +93,7 @@ const GenericTable = forwardRef(({
 
   // Simple data fetching - no pagination
   const fetchData = async () => {
-    if (!apiUrl) return;
+    if (!apiUrl || serverPagination) return; // Skip if using server pagination
     
     setDataLoading(true);
     try {
@@ -101,24 +114,57 @@ const GenericTable = forwardRef(({
     }
   };
 
+  // Get data and loading state based on pagination mode
+  const currentData = serverPagination ? serverPaginationHook.data : rawData;
+  const currentLoading = serverPagination ? serverPaginationHook.loading : dataLoading;
+
   // Initial data load
   useEffect(() => {
     fetchData();
   }, [apiUrl, JSON.stringify(apiParams)]);
 
-  // Simple refresh function
+  // Smart refresh function - handles both pagination modes
   const refresh = async () => {
     console.log('🔄 Refreshing data...');
-    await fetchData();
+    if (serverPagination) {
+      await serverPaginationHook.refresh();
+    } else {
+      await fetchData();
+    }
   };
 
   // Process and filter data
   const data = React.useMemo(() => {
-    if (!rawData) return [];
+    if (!currentData) return [];
     
-    let processed = preprocessData ? preprocessData(rawData) : rawData;
+    let processed = preprocessData ? preprocessData(currentData) : currentData;
     let processedArray = processed || [];
     
+    // For server pagination, skip client-side filtering as it's handled server-side
+    if (serverPagination) {
+      // Only add blank row for new entries if we have a template and no filters/search
+      if (newRowTemplate && !quickSearch && Object.keys(columnFilters).length === 0) {
+        // Check if we need to add a blank row
+        const hasBlankRow = processedArray.length > 0 && 
+          processedArray[processedArray.length - 1] && 
+          !processedArray[processedArray.length - 1].id &&
+          processedArray[processedArray.length - 1]._isNew;
+        
+        if (!hasBlankRow) {
+          // Initialize the blank row with default values
+          const blankRow = { 
+            ...newRowTemplate, 
+            saved: false,
+            _isNew: true
+          };
+          processedArray.push(blankRow);
+          console.log('Added blank row to table. Total rows:', processedArray.length);
+        }
+      }
+      return processedArray;
+    }
+    
+    // Client-side filtering for non-server pagination tables
     // Apply quick search
     if (quickSearch) {
       const searchLower = quickSearch.toLowerCase();
@@ -214,7 +260,7 @@ const GenericTable = forwardRef(({
     }
     
     return processedArray;
-  }, [rawData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns]);
+  }, [currentData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns, serverPagination]);
 
   // Column management
   const {
@@ -840,7 +886,7 @@ const GenericTable = forwardRef(({
   return (
     <div className="modern-table-container">
       <TableHeader
-        loading={loading || dataLoading}
+        loading={loading || currentLoading}
         isDirty={isDirty}
         onSave={handleSaveModifiedRows}
         onExportCSV={handleExportCSV}
@@ -872,8 +918,8 @@ const GenericTable = forwardRef(({
             updateConfig('filters', {});
           }
         }}
-        pagination={null} // Remove the custom pagination since we fixed hasNonEmptyValues
-        data={preprocessData ? preprocessData(rawData) : rawData}
+        pagination={serverPagination ? serverPaginationHook : null}
+        data={preprocessData ? preprocessData(currentData) : currentData}
         onFilterChange={handleFilterChange}
       />
 
@@ -896,7 +942,7 @@ const GenericTable = forwardRef(({
         className="table-scroll-container"
         style={{ height, overflow: 'hidden' }}
       >
-        {dataLoading && (!data || data.length === 0) ? (
+        {currentLoading && (!data || data.length === 0) ? (
           <div className="loading-container">
             <div className="loading-content">
               <div className="spinner large"></div>

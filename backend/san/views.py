@@ -176,7 +176,7 @@ def zones_by_project_view(request, project_id):
         # Build queryset with optimizations
         zones = Zone.objects.select_related('fabric').prefetch_related('members', 'projects').filter(projects=project)
         
-        # Apply search if provided
+        # Apply general search if provided
         if search:
             zones = zones.filter(
                 Q(name__icontains=search) | 
@@ -186,15 +186,44 @@ def zones_by_project_view(request, project_id):
                 Q(members__name__icontains=search)
             ).distinct()  # distinct() because of the members join
         
+        # Apply field-specific filters
+        filter_params = {}
+        for param, value in request.GET.items():
+            if param.startswith(('name__', 'fabric__name__', 'zone_type__', 'notes__', 'create__', 'exists__')):
+                filter_params[param] = value
+        
+        # Apply the filters
+        if filter_params:
+            zones = zones.filter(**filter_params)
+        
         # Apply ordering
         if ordering:
             zones = zones.order_by(ordering)
         
-        # Serialize all results (no pagination)
-        serializer = ZoneSerializer(zones, many=True)
+        # Add pagination for performance with large datasets
+        from django.core.paginator import Paginator
         
-        # Return simple array (no pagination metadata)
-        return JsonResponse(serializer.data, safe=False)
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 50))  # Default 50 zones per page
+        
+        # Apply pagination
+        paginator = Paginator(zones, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # Serialize paginated results
+        serializer = ZoneSerializer(page_obj, many=True)
+        
+        # Return paginated response with metadata
+        return JsonResponse({
+            'results': serializer.data,
+            'count': paginator.count,
+            'num_pages': paginator.num_pages,
+            'current_page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
         
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found."}, status=404)
