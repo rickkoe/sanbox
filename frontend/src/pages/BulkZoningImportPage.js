@@ -1246,6 +1246,35 @@ const BulkZoningImportPage = () => {
           }
           continue;
         }
+        
+        // Format 4: device-alias ALIASNAME [pwwn XX:XX:XX:XX:XX:XX:XX:XX]
+        const standaloneDeviceAliasMatch = line.match(/device-alias\s+(\S+)\s+\[pwwn\s+([0-9a-fA-F:]+)\]/i);
+        if (standaloneDeviceAliasMatch) {
+          const aliasName = standaloneDeviceAliasMatch[1];
+          console.log(`  👥 Found member (standalone device-alias): ${aliasName}`);
+          
+          // Find the alias in existing aliases
+          let foundAlias = currentAliasOptions.find(alias => alias.name === aliasName);
+          
+          // If not found in database, check batch aliases
+          if (!foundAlias) {
+            foundAlias = batchAliases.find(alias => alias.name === aliasName);
+            if (foundAlias) {
+              console.log(`    ✅ Matched to batch alias: ${aliasName}`);
+              currentZone.members.push(`batch:${aliasName}`);
+            }
+          } else {
+            currentZone.members.push(foundAlias.id);
+            console.log(`    ✅ Matched to existing alias ID: ${foundAlias.id}`);
+          }
+          
+          if (!foundAlias) {
+            console.log(`    ⚠️ Alias not found in database or batch: ${aliasName}`);
+            if (!currentZone.unresolvedMembers) currentZone.unresolvedMembers = [];
+            currentZone.unresolvedMembers.push({ type: 'device-alias', name: aliasName });
+          }
+          continue;
+        }
       }
     }
     
@@ -2215,8 +2244,8 @@ const BulkZoningImportPage = () => {
                         <polyline points="17,8 12,3 7,8"/>
                         <line x1="12" y1="3" x2="12" y2="15"/>
                       </svg>
-                      <h5 className="text-muted">Drop alias files here</h5>
-                      <p className="text-muted mb-2">or click to select files containing alias configurations</p>
+                      <h5 className="text-muted">Drop alias and zone files here</h5>
+                      <p className="text-muted mb-2">or click to select files containing alias and zone configurations</p>
                       <input
                         type="file"
                         multiple
@@ -2244,7 +2273,7 @@ const BulkZoningImportPage = () => {
                       rows={12}
                       value={textInput}
                       onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Paste your alias configuration data here (device-alias, fcalias, or tech-support output)..."
+                      placeholder="Paste your alias and zone configuration data here (device-alias, fcalias, zones, or tech-support output)..."
                       style={{
                         fontFamily: 'Monaco, Consolas, "Courier New", monospace',
                         fontSize: "13px",
