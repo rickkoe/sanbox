@@ -1051,8 +1051,16 @@ const GenericTable = forwardRef(({
             );
             await Promise.all(deletePromises);
             
+            console.log("🗑️ Deletion successful, clearing cache and refreshing...");
             setSaveStatus("Items deleted successfully!");
-            await refresh(); // Simple refresh
+            
+            // Clear cache before refresh to ensure fresh data
+            if (serverPagination && serverPaginationHook) {
+              // Reset pagination cache to force fresh data load
+              serverPaginationHook.resetPagination();
+            }
+            
+            await refresh(); // Refresh with cleared cache
           } catch (error) {
             setSaveStatus(`Delete failed: ${error.response?.data?.message || error.message}`);
           } finally {
