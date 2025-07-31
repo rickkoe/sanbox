@@ -39,9 +39,11 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
         if (column && column.data) {
           let fieldName = column.data;
           
-          // Handle special field mappings for zones
+          // Handle special field mappings
           if (fieldName === 'fabric') {
             fieldName = 'fabric__name'; // Map to fabric.name for filtering
+          } else if (fieldName === 'fabric_details.name') {
+            fieldName = 'fabric__name'; // Map fabric_details.name to fabric.name for filtering
           }
           
           const filterValue = Array.isArray(filter.value) ? filter.value.join(',') : filter.value;

@@ -25,8 +25,9 @@ def alias_list_view(request, project_id):
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found."}, status=404)
     
-    # Get search parameter (keep search functionality)
+    # Get query parameters
     search = request.GET.get('search', '').strip()
+    ordering = request.GET.get('ordering', 'name')
     
     # Base queryset with optimizations and zoned_count annotation
     from django.db.models import Count, Q as Q_models
@@ -34,27 +35,59 @@ def alias_list_view(request, project_id):
         _zoned_count=Count('zone', filter=Q_models(zone__projects=project), distinct=True)
     ).filter(projects=project)
     
-    # Apply search if provided
+    # Apply general search if provided
     if search:
         aliases_queryset = aliases_queryset.filter(
             Q(name__icontains=search) |
             Q(wwpn__icontains=search) |
             Q(notes__icontains=search) |
-            Q(fabric__name__icontains=search)
+            Q(fabric__name__icontains=search) |
+            Q(use__icontains=search) |
+            Q(cisco_alias__icontains=search)
         )
     
-    # Order by name for consistency
-    aliases_queryset = aliases_queryset.order_by('name')
+    # Apply field-specific filters
+    filter_params = {}
+    for param, value in request.GET.items():
+        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__')):
+            filter_params[param] = value
     
-    # Serialize all results (no pagination)
+    # Apply the filters
+    if filter_params:
+        aliases_queryset = aliases_queryset.filter(**filter_params)
+    
+    # Apply ordering
+    if ordering:
+        aliases_queryset = aliases_queryset.order_by(ordering)
+    
+    # Add pagination for performance with large datasets
+    from django.core.paginator import Paginator
+    
+    # Get pagination parameters
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 50))  # Default 50 aliases per page
+    
+    # Apply pagination
+    paginator = Paginator(aliases_queryset, page_size)
+    page_obj = paginator.get_page(page)
+    
+    # Serialize paginated results
     serializer = AliasSerializer(
-        aliases_queryset,
+        page_obj,
         many=True,
         context={'project_id': project_id}
     )
     
-    # Return simple array (no pagination metadata)
-    return JsonResponse(serializer.data, safe=False)
+    # Return paginated response with metadata
+    return JsonResponse({
+        'results': serializer.data,
+        'count': paginator.count,
+        'num_pages': paginator.num_pages,
+        'current_page': page,
+        'page_size': page_size,
+        'has_next': page_obj.has_next(),
+        'has_previous': page_obj.has_previous()
+    })
 
 
 @csrf_exempt

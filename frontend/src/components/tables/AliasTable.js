@@ -420,6 +420,9 @@ const AliasTable = () => {
         deleteUrl={API_ENDPOINTS.aliasDelete}
         newRowTemplate={NEW_ALIAS_TEMPLATE}
         tableName="aliases"
+        serverPagination={true}
+        defaultPageSize={50}
+        storageKey={`alias-table-${activeProjectId}`}
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => {
           const column = { data: col.data };
