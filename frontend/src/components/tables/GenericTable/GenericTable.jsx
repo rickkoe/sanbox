@@ -1061,6 +1061,9 @@ const GenericTable = forwardRef(({
             }
             
             await refresh(); // Refresh with cleared cache
+            
+            // Mark table as clean after successful deletion
+            setIsDirty(false);
           } catch (error) {
             setSaveStatus(`Delete failed: ${error.response?.data?.message || error.message}`);
           } finally {

@@ -16,7 +16,7 @@ const DeleteModal = ({ show, onHide, rowsToDelete, onConfirm, onCancel }) => {
         </Modal.Title>
       </Modal.Header>
       <Modal.Body className="modern-modal-body">
-        <p>Are you sure you want to delete the following items? This action cannot be undone.</p>
+        <p>Are you sure you want to delete <strong>{rowsToDelete.length}</strong> {rowsToDelete.length === 1 ? 'item' : 'items'}? This action cannot be undone.</p>
         <div className="delete-items-list">
           {rowsToDelete.map(r => (
             <div key={r.id} className="delete-item">

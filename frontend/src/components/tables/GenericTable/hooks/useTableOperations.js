@@ -151,7 +151,7 @@ export const useTableOperations = ({
       
       const dataWithBlankRow = ensureBlankRow(updated);
       setUnsavedData(dataWithBlankRow);
-      setIsDirty(true);
+      // Don't mark as dirty when deleting unsaved rows - this is a clean operation
       
       if (rowsWithId.length === 0) {
         setSaveStatus("Rows deleted successfully!");
