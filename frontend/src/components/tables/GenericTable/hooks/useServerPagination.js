@@ -25,9 +25,7 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
   
   // Build API URL with parameters including filters
   const buildApiUrl = useCallback((page, size, search = '', filters = {}) => {
-    // Check if baseApiUrl already has query parameters
-    const separator = baseApiUrl.includes('?') ? '&' : '?';
-    let url = `${baseApiUrl}${separator}page=${page}&page_size=${size}`;
+    let url = `${baseApiUrl}?page=${page}&page_size=${size}`;
     
     // Add search parameter
     if (search.trim()) {
@@ -46,8 +44,6 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
             fieldName = 'fabric__name'; // Map to fabric.name for filtering
           } else if (fieldName === 'fabric_details.name') {
             fieldName = 'fabric__name'; // Map fabric_details.name to fabric.name for filtering
-          } else if (fieldName === 'storage' && !fieldName.includes('__')) {
-            fieldName = 'storage__name'; // Map storage to storage.name for filtering
           }
           
           const filterValue = Array.isArray(filter.value) ? filter.value.join(',') : filter.value;
@@ -109,6 +105,7 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
         setBackgroundLoading(true);
       }
       
+      console.log(`🌐 Fetching page ${page}, size ${size}, search: "${search}", filters:`, Object.keys(filters).length);
       const response = await axios.get(buildApiUrl(page, size, search, filters));
       
       

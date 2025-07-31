@@ -153,9 +153,6 @@ const VolumeTable = ({ storage }) => {
         saveUrl={`${API_URL}/api/storage/volumes/`}
         deleteUrl={`${API_URL}/api/storage/volumes/`}
         tableName="volumes"
-        serverPagination={true}
-        defaultPageSize={50}
-        storageKey={`volume-table-${storage?.storage_system_id || 'default'}`}
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => ({
           data: col.data,
@@ -166,6 +163,7 @@ const VolumeTable = ({ storage }) => {
         newRowTemplate={{}}
         columnSorting={true}
         filters={false}
+        storageKey="volumeTableWidths"
         defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${storage.name || 'Storage'}_Volumes.csv`}
         additionalButtons={
