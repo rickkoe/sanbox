@@ -120,6 +120,9 @@ const HostTable = ({ storage }) => {
         apiUrl={apiUrl}
         saveUrl={`${API_URL}/api/storage/hosts/`}
         deleteUrl={`${API_URL}/api/storage/hosts/`}
+        serverPagination={true}
+        defaultPageSize={50}
+        storageKey={`host-table-${storage?.storage_system_id || 'default'}`}
         tableName="hosts"
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => ({

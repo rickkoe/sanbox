@@ -1,4 +1,4 @@
-import React, { useRef, useContext, useState, useMemo } from "react";
+import React, { useRef, useContext, useState } from "react";
 import axios from "axios";
 import GenericTable from "./GenericTable";
 import { ConfigContext } from "../../context/ConfigContext";
@@ -25,6 +25,9 @@ const FabricTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
     const tableRef = useRef(null);
+    
+    // Get customer ID early so it can be used in URLs
+    const customerId = config?.customer?.id;
 
     // Column visibility state
     const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
@@ -54,7 +57,8 @@ const FabricTable = () => {
         notes: "" 
     };
 
-    const fabricsApiUrl = `${API_URL}/api/san/fabrics/`;
+    // API URL with customer filter for server pagination
+    const fabricsApiUrl = customerId ? `${API_URL}/api/san/fabrics/?customer_id=${customerId}` : `${API_URL}/api/san/fabrics/`;
     const fabricDeleteApiUrl = `${API_URL}/api/san/fabrics/delete/`;
 
     // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
@@ -155,16 +159,16 @@ const FabricTable = () => {
         }
     };
 
-    const customerId = config?.customer?.id;
-
     return (
         <div className="table-container">
             <GenericTable
                 ref={tableRef}
                 apiUrl={fabricsApiUrl}
-                apiParams={customerId ? { customer_id: customerId } : {}}
                 saveUrl={fabricsApiUrl}
                 deleteUrl={fabricDeleteApiUrl}
+                serverPagination={true}
+                defaultPageSize={50}
+                storageKey={`fabric-table-${customerId || 'default'}`}
                 tableName="fabrics"
                 newRowTemplate={NEW_FABRIC_TEMPLATE}
                 colHeaders={ALL_COLUMNS.map(col => col.title)}
@@ -193,7 +197,6 @@ const FabricTable = () => {
                 filters={false}
                 dropdownMenu={false}
                 columnSorting={true}
-                storageKey="fabricTableColumnWidths"
                 defaultVisibleColumns={visibleColumnIndices}
                 getExportFilename={() => `${config?.customer?.name || 'Customer'}_Fabric_Table.csv`}
                 additionalButtons={

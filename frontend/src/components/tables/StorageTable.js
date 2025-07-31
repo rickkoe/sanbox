@@ -358,8 +358,8 @@ const StorageTable = () => {
     return true;
   };
 
-  // Don't add query params here - let useServerPagination handle them
-  const apiUrl = API_ENDPOINTS.storage;
+  // API URL with customer filter for server pagination
+  const apiUrl = `${API_ENDPOINTS.storage}?customer=${customerId}`;
 
   if (!customerId) {
     return (
@@ -374,9 +374,11 @@ const StorageTable = () => {
       <GenericTable
         ref={tableRef}
         apiUrl={apiUrl}
-        apiParams={{ customer: customerId }}
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
+        serverPagination={true}
+        defaultPageSize={50}
+        storageKey={`storage-table-${customerId}`}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
         colHeaders={ALL_STORAGE_COLUMNS.map(col => col.title)}
         columns={ALL_STORAGE_COLUMNS.map(col => ({

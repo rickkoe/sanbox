@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.db.models import Q
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.core.paginator import Paginator
 from .models import Alias, Zone, Fabric, WwpnPrefix
 from customers.models import Customer
 from core.models import Config, Project
@@ -12,6 +13,211 @@ from collections import defaultdict
 from .san_utils import generate_alias_commands, generate_zone_commands
 from django.utils import timezone
 from core.dashboard_views import clear_dashboard_cache_for_customer
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST", "PUT", "PATCH", "DELETE"])
+def fabric_management(request, pk=None):
+    """Handle fabric CRUD operations with pagination and filtering."""
+    print(f"🔥 Fabric Management - Method: {request.method}, PK: {pk}")
+    
+    if request.method == "GET":
+        if pk:
+            # Get specific fabric
+            try:
+                fabric = Fabric.objects.get(pk=pk)
+                serializer = FabricSerializer(fabric)
+                return JsonResponse(serializer.data)
+            except Fabric.DoesNotExist:
+                return JsonResponse({"error": "Fabric not found"}, status=404)
+        else:
+            # List fabrics with pagination and filtering
+            try:
+                # Get query parameters
+                customer_id = request.GET.get('customer_id')
+                page_number = request.GET.get('page', 1)
+                page_size = request.GET.get('page_size', 50)
+                search = request.GET.get('search', '')
+                ordering = request.GET.get('ordering', 'name')
+                
+                # Convert to integers with defaults
+                try:
+                    page_number = int(page_number)
+                    page_size = int(page_size) if page_size != 'All' else None
+                except (ValueError, TypeError):
+                    page_number = 1
+                    page_size = 50
+                
+                # Build queryset with optimizations
+                fabrics = Fabric.objects.select_related('customer').all()
+                
+                # Filter by customer if provided
+                if customer_id:
+                    fabrics = fabrics.filter(customer=customer_id)
+                
+                # Apply search if provided
+                if search:
+                    fabrics = fabrics.filter(
+                        Q(name__icontains=search) |
+                        Q(zoneset_name__icontains=search) |
+                        Q(san_vendor__icontains=search) |
+                        Q(notes__icontains=search)
+                    )
+                
+                # Apply field-specific filters
+                filter_params = {}
+                for param, value in request.GET.items():
+                    if param.startswith((
+                        'name__', 'zoneset_name__', 'san_vendor__', 'vsan__',
+                        'exists__', 'notes__', 'customer__'
+                    )):
+                        filter_params[param] = value
+                
+                # Apply the filters
+                if filter_params:
+                    fabrics = fabrics.filter(**filter_params)
+                
+                # Apply ordering
+                if ordering:
+                    fabrics = fabrics.order_by(ordering)
+                
+                # Get total count before pagination
+                total_count = fabrics.count()
+                
+                # Handle "All" page size
+                if page_size is None:
+                    # Return all results without pagination
+                    serializer = FabricSerializer(fabrics, many=True)
+                    return JsonResponse({
+                        'count': total_count,
+                        'next': None,
+                        'previous': None,
+                        'results': serializer.data
+                    })
+                
+                # Create paginator
+                paginator = Paginator(fabrics, page_size)
+                
+                # Get the requested page
+                try:
+                    page_obj = paginator.get_page(page_number)
+                except:
+                    page_obj = paginator.get_page(1)
+                
+                # Serialize the page data
+                serializer = FabricSerializer(page_obj.object_list, many=True)
+                
+                return JsonResponse({
+                    'results': serializer.data,
+                    'count': total_count,
+                    'num_pages': paginator.num_pages,
+                    'current_page': page_number,
+                    'page_size': page_size,
+                    'has_next': page_obj.has_next(),
+                    'has_previous': page_obj.has_previous()
+                })
+                
+            except Exception as e:
+                return JsonResponse({"error": str(e)}, status=500)
+    
+    elif request.method == "POST":
+        # Create new fabric
+        try:
+            data = json.loads(request.body)
+            serializer = FabricSerializer(data=data)
+            if serializer.is_valid():
+                fabric = serializer.save()
+                fabric.imported = timezone.now()
+                fabric.save(update_fields=['imported'] if hasattr(fabric, 'imported') else [])
+                
+                # Clear dashboard cache when fabric is created
+                if fabric.customer_id:
+                    clear_dashboard_cache_for_customer(fabric.customer_id)
+                
+                return JsonResponse({
+                    'message': f'Fabric "{fabric.name}" created successfully',
+                    'fabric': FabricSerializer(fabric).data
+                }, status=201)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    elif request.method in ["PUT", "PATCH"]:
+        # Update existing fabric
+        if not pk:
+            return JsonResponse({"error": "Fabric ID required for update"}, status=400)
+        
+        try:
+            fabric = Fabric.objects.get(pk=pk)
+            data = json.loads(request.body)
+            serializer = FabricSerializer(fabric, data=data, partial=(request.method == "PATCH"))
+            if serializer.is_valid():
+                fabric = serializer.save()
+                if hasattr(fabric, 'updated'):
+                    fabric.updated = timezone.now()
+                    fabric.save(update_fields=['updated'])
+                
+                # Clear dashboard cache when fabric is updated
+                if fabric.customer_id:
+                    clear_dashboard_cache_for_customer(fabric.customer_id)
+                
+                return JsonResponse({
+                    'message': f'Fabric "{fabric.name}" updated successfully',
+                    'fabric': FabricSerializer(fabric).data
+                })
+            return JsonResponse(serializer.errors, status=400)
+        except Fabric.DoesNotExist:
+            return JsonResponse({"error": "Fabric not found"}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    elif request.method == "DELETE":
+        # Delete fabric
+        if not pk:
+            return JsonResponse({"error": "Fabric ID required for deletion"}, status=400)
+        
+        try:
+            fabric = Fabric.objects.get(pk=pk)
+            customer_id = fabric.customer_id
+            fabric_name = fabric.name
+            fabric.delete()
+            
+            # Clear dashboard cache when fabric is deleted
+            if customer_id:
+                clear_dashboard_cache_for_customer(customer_id)
+                
+            return JsonResponse({
+                "message": f'Fabric "{fabric_name}" deleted successfully'
+            }, status=200)
+        except Fabric.DoesNotExist:
+            return JsonResponse({"error": "Fabric not found"}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def fabric_delete_view(request, pk):
+    """Delete a specific fabric."""
+    print(f"🔥 Fabric Delete - PK: {pk}")
+    
+    try:
+        fabric = Fabric.objects.get(pk=pk)
+        customer_id = fabric.customer_id
+        fabric_name = fabric.name
+        fabric.delete()
+        
+        # Clear dashboard cache when fabric is deleted
+        if customer_id:
+            clear_dashboard_cache_for_customer(customer_id)
+            
+        return JsonResponse({
+            "message": f'Fabric "{fabric_name}" deleted successfully'
+        }, status=200)
+    except Fabric.DoesNotExist:
+        return JsonResponse({"error": "Fabric not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
@@ -392,7 +598,7 @@ def fabric_management(request, pk=None):
             except Fabric.DoesNotExist:
                 return JsonResponse({"error": "Fabric not found"}, status=404)
         
-        # List view (no pagination)
+        # List view with pagination
         customer_id = request.GET.get("customer_id")
         search = request.GET.get('search', '')
         ordering = request.GET.get('ordering', 'id')
@@ -409,18 +615,63 @@ def fabric_management(request, pk=None):
             qs = qs.filter(
                 Q(name__icontains=search) | 
                 Q(customer__name__icontains=search) |
+                Q(san_vendor__icontains=search) |
+                Q(zoneset_name__icontains=search) |
+                Q(vsan__icontains=search) |
                 Q(notes__icontains=search)
             )
+        
+        # Apply field-specific filters
+        filter_params = {}
+        for param, value in request.GET.items():
+            if param.startswith((
+                'name__', 'customer__name__', 'san_vendor__', 'zoneset_name__', 
+                'vsan__', 'exists__', 'notes__'
+            )):
+                filter_params[param] = value
+        
+        # Apply the filters
+        if filter_params:
+            qs = qs.filter(**filter_params)
         
         # Apply ordering
         if ordering:
             qs = qs.order_by(ordering)
         
-        # Serialize all results (no pagination)
-        data = FabricSerializer(qs, many=True).data
+        # Check if pagination is requested
+        page = request.GET.get('page')
+        page_size = request.GET.get('page_size')
         
-        # Return simple array (no pagination metadata)
-        return JsonResponse(data, safe=False)
+        if page is not None and page_size is not None:
+            # Paginated response
+            try:
+                page = int(page)
+                page_size = int(page_size)
+            except (ValueError, TypeError):
+                page = 1
+                page_size = 50
+            
+            # Apply pagination
+            paginator = Paginator(qs, page_size)
+            page_obj = paginator.get_page(page)
+            
+            # Serialize paginated results
+            serializer = FabricSerializer(page_obj, many=True)
+            
+            # Return paginated response with metadata
+            return JsonResponse({
+                'results': serializer.data,
+                'count': paginator.count,
+                'num_pages': paginator.num_pages,
+                'current_page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+        else:
+            # Non-paginated response (for backwards compatibility)
+            data = FabricSerializer(qs, many=True).data
+            return JsonResponse(data, safe=False)
     
     # POST method
     elif request.method == "POST":

@@ -66,6 +66,22 @@ def storage_list(request):
                     Q(primary_ip__icontains=search)
                 )
             
+            # Apply field-specific filters
+            filter_params = {}
+            for param, value in request.GET.items():
+                if param.startswith((
+                    'name__', 'storage_type__', 'location__', 'storage_system_id__', 'machine_type__',
+                    'model__', 'serial_number__', 'system_id__', 'wwnn__', 'firmware_level__',
+                    'primary_ip__', 'secondary_ip__', 'uuid__', 'probe_status__', 'condition__',
+                    'customer_number__', 'vendor__', 'time_zone__', 'data_collection__',
+                    'data_collection_type__', 'notes__', 'imported__', 'updated__'
+                )):
+                    filter_params[param] = value
+            
+            # Apply the filters
+            if filter_params:
+                storages = storages.filter(**filter_params)
+            
             # Apply ordering
             if ordering:
                 storages = storages.order_by(ordering)
@@ -120,10 +136,15 @@ def storage_list(request):
                 previous_url = f"{base_url}?{urlencode(query_params)}"
             
             return JsonResponse({
+                'results': serializer.data,
                 'count': total_count,
+                'num_pages': paginator.num_pages,
+                'current_page': page_number,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous(),
                 'next': next_url,
-                'previous': previous_url,
-                'results': serializer.data
+                'previous': previous_url
             })
             
         except Exception as e:
@@ -469,7 +490,7 @@ def storage_insights_host_connections(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def volume_list(request):
-    """Return volumes filtered by storage system ID."""
+    """Return volumes filtered by storage system ID with pagination and filtering."""
     print(f"🔥 Volume List - Method: {request.method}")
     
     try:
@@ -477,9 +498,72 @@ def volume_list(request):
         if not system_id:
             return JsonResponse({"error": "Missing storage_system_id"}, status=400)
 
-        volumes = Volume.objects.filter(storage__storage_system_id=system_id)
-        serializer = VolumeSerializer(volumes, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        # Get query parameters
+        search = request.GET.get('search', '').strip()
+        ordering = request.GET.get('ordering', 'name')
+        
+        # Base queryset with optimizations
+        volumes = Volume.objects.select_related('storage').filter(storage__storage_system_id=system_id)
+        
+        # Apply general search if provided
+        if search:
+            volumes = volumes.filter(
+                Q(name__icontains=search) |
+                Q(storage__name__icontains=search) |
+                Q(volume_id__icontains=search) |
+                Q(volser__icontains=search) |
+                Q(format__icontains=search) |
+                Q(natural_key__icontains=search) |
+                Q(pool_name__icontains=search) |
+                Q(unique_id__icontains=search) |
+                Q(status_label__icontains=search)
+            )
+        
+        # Apply field-specific filters
+        filter_params = {}
+        for param, value in request.GET.items():
+            if param.startswith((
+                'name__', 'storage__', 'volume_id__', 'volume_number__', 'volser__', 'format__',
+                'natural_key__', 'pool_name__', 'pool_id__', 'lss_lcu__', 'node__', 'block_size__',
+                'unique_id__', 'acknowledged__', 'status_label__', 'raid_level__', 'copy_id__',
+                'safeguarded__', 'io_group__', 'formatted__', 'virtual_disk_type__', 'fast_write_state__',
+                'vdisk_mirror_copies__', 'vdisk_mirror_role__', 'compressed__', 'thin_provisioned__',
+                'encryption__', 'flashcopy__', 'auto_expand__', 'easy_tier__', 'easy_tier_status__',
+                'deduplicated__'
+            )):
+                filter_params[param] = value
+        
+        # Apply the filters
+        if filter_params:
+            volumes = volumes.filter(**filter_params)
+        
+        # Apply ordering
+        if ordering:
+            volumes = volumes.order_by(ordering)
+        
+        # Add pagination for performance with large datasets
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 50))  # Default 50 volumes per page
+        
+        # Apply pagination
+        paginator = Paginator(volumes, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # Serialize paginated results
+        serializer = VolumeSerializer(page_obj, many=True)
+        
+        # Return paginated response with metadata
+        return JsonResponse({
+            'results': serializer.data,
+            'count': paginator.count,
+            'num_pages': paginator.num_pages,
+            'current_page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+        
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -487,7 +571,7 @@ def volume_list(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def host_list(request):
-    """Return hosts filtered by storage system ID."""
+    """Return hosts filtered by storage system ID with pagination and filtering."""
     print(f"🔥 Host List - Method: {request.method}")
     
     try:
@@ -495,8 +579,66 @@ def host_list(request):
         if not system_id:
             return JsonResponse({"error": "Missing storage_system_id"}, status=400)
 
-        hosts = Host.objects.filter(storage__storage_system_id=system_id)
-        serializer = HostSerializer(hosts, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        # Get query parameters
+        search = request.GET.get('search', '').strip()
+        ordering = request.GET.get('ordering', 'name')
+        
+        # Base queryset with optimizations
+        hosts = Host.objects.select_related('storage').filter(storage__storage_system_id=system_id)
+        
+        # Apply general search if provided
+        if search:
+            hosts = hosts.filter(
+                Q(name__icontains=search) |
+                Q(storage__name__icontains=search) |
+                Q(wwpns__icontains=search) |
+                Q(status__icontains=search) |
+                Q(associated_resource__icontains=search) |
+                Q(host_type__icontains=search) |
+                Q(volume_group__icontains=search) |
+                Q(natural_key__icontains=search)
+            )
+        
+        # Apply field-specific filters
+        filter_params = {}
+        for param, value in request.GET.items():
+            if param.startswith((
+                'name__', 'storage__', 'wwpns__', 'status__', 'acknowledged__', 
+                'associated_resource__', 'host_type__', 'vols_count__', 'fc_ports_count__',
+                'last_data_collection__', 'volume_group__', 'natural_key__'
+            )):
+                filter_params[param] = value
+        
+        # Apply the filters
+        if filter_params:
+            hosts = hosts.filter(**filter_params)
+        
+        # Apply ordering
+        if ordering:
+            hosts = hosts.order_by(ordering)
+        
+        # Add pagination for performance with large datasets
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 50))  # Default 50 hosts per page
+        
+        # Apply pagination
+        paginator = Paginator(hosts, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # Serialize paginated results
+        serializer = HostSerializer(page_obj, many=True)
+        
+        # Return paginated response with metadata
+        return JsonResponse({
+            'results': serializer.data,
+            'count': paginator.count,
+            'num_pages': paginator.num_pages,
+            'current_page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+        
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
