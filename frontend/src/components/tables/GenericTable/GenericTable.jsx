@@ -5,6 +5,7 @@ import axios from "axios";
 import Handsontable from 'handsontable';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
+import { useSettings } from '../../../context/SettingsContext';
 
 // Import sub-components
 import TableHeader from './components/TableHeader';
@@ -56,6 +57,9 @@ const GenericTable = forwardRef(({
   userId = null  // Add userId prop for user-specific settings
 }, ref) => {
   
+  // Get settings for default page size
+  const { settings } = useSettings();
+  
   // Core state
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
@@ -77,7 +81,7 @@ const GenericTable = forwardRef(({
   // Conditional data handling - server pagination or simple fetching
   const serverPaginationHook = useServerPagination(
     serverPagination ? apiUrl : null,
-    defaultPageSize,
+    settings?.items_per_page || defaultPageSize,
     storageKey,
     quickSearch,
     columnFilters,

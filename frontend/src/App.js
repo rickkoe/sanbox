@@ -26,6 +26,7 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
 import { ImportStatusProvider } from "./context/ImportStatusContext";
+import { SettingsProvider } from "./context/SettingsContext";
 
 // Lazy-loaded components for better performance
 const SanPage = React.lazy(() => import("./pages/SanPage"));
@@ -105,7 +106,8 @@ function AppContent() {
     <ConfigProvider>
       <SanVendorProvider>
         <ImportStatusProvider>
-          <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
+          <SettingsProvider>
+            <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
             <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
               <header className="navbar">
                 <Navbar />
@@ -165,7 +167,8 @@ function AppContent() {
                 </Suspense>
               </main>
             </div>
-          </BreadcrumbContext.Provider>
+            </BreadcrumbContext.Provider>
+          </SettingsProvider>
         </ImportStatusProvider>
       </SanVendorProvider>
     </ConfigProvider>

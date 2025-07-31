@@ -188,10 +188,10 @@ class AppSettings(models.Model):
     items_per_page = models.IntegerField(
         default=25,
         choices=[
-            (10, '10'),
             (25, '25'),
             (50, '50'),
             (100, '100'),
+            (250, '250'),
         ],
         help_text="Default number of items per page in tables"
     )

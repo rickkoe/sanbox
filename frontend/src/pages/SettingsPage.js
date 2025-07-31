@@ -1,77 +1,67 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useSettings } from "../context/SettingsContext";
 import "../styles/settings.css";
 
 const SettingsPage = () => {
-    const API_URL = process.env.REACT_APP_API_URL || '';
-    const settingsApiUrl = `${API_URL}/api/core/settings/`;
-
-    const [settings, setSettings] = useState({
-        theme: 'light',
-        itemsPerPage: 25,
-        autoRefresh: true,
-        autoRefreshInterval: 30,
-        notifications: true,
-        compactMode: false,
-        showAdvancedFeatures: false,
-        zone_ratio: 'one-to-one',
-        alias_max_zones: 1
-    });
-    const [loading, setLoading] = useState(true);
+    const { settings, loading, updateSettings } = useSettings();
     const [saveStatus, setSaveStatus] = useState("");
+    const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        fetchSettings();
-    }, []);
 
-    const fetchSettings = async () => {
-        setLoading(true);
+    const handleInputChange = async (e) => {
+        const { name, value, type, checked } = e.target;
+        const newValue = type === 'checkbox' ? checked : value;
+        
+        // Auto-save the change using context
+        await autoSave({ [name]: newValue });
+    };
+    
+    const autoSave = async (changedField) => {
+        setSaving(true);
+        setSaveStatus("");
+        
         try {
-            const response = await axios.get(settingsApiUrl);
-            if (response.data && Object.keys(response.data).length > 0) {
-                setSettings(prev => ({ ...prev, ...response.data }));
+            // Create updated settings object with the changed field
+            const updatedSettings = { ...settings, ...changedField };
+            const result = await updateSettings(updatedSettings);
+            
+            if (result.success) {
+                setSaveStatus("Saved ✅");
+                // Clear success message after 2 seconds
+                setTimeout(() => setSaveStatus(""), 2000);
+            } else {
+                setSaveStatus("Error saving ⚠️");
+                // Clear error message after 4 seconds
+                setTimeout(() => setSaveStatus(""), 4000);
             }
         } catch (error) {
-            console.error("Error fetching settings:", error);
+            console.error("Error auto-saving settings:", error);
+            setSaveStatus("Error saving ⚠️");
+            // Clear error message after 4 seconds
+            setTimeout(() => setSaveStatus(""), 4000);
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
-    const handleInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setSettings(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
-
-    const handleSave = async () => {
-        setSaveStatus("Saving...");
-        try {
-            await axios.put(settingsApiUrl, settings);
-            setSaveStatus("Settings saved successfully! ✅");
-            setTimeout(() => setSaveStatus(""), 3000);
-        } catch (error) {
-            console.error("Error saving settings:", error);
-            setSaveStatus("⚠️ Error saving settings!");
-            setTimeout(() => setSaveStatus(""), 5000);
-        }
-    };
-
-    const handleReset = () => {
-        setSettings({
+    const handleReset = async () => {
+        const defaultSettings = {
             theme: 'light',
-            itemsPerPage: 25,
-            autoRefresh: true,
-            autoRefreshInterval: 30,
+            items_per_page: 25,
+            auto_refresh: true,
+            auto_refresh_interval: 30,
             notifications: true,
-            compactMode: false,
-            showAdvancedFeatures: false,
+            compact_mode: false,
+            show_advanced_features: false,
             zone_ratio: 'one-to-one',
             alias_max_zones: 1
-        });
+        };
+        
+        // Auto-save the reset using context
+        await autoSave(defaultSettings);
     };
+
 
     if (loading) {
         return (
@@ -89,6 +79,12 @@ const SettingsPage = () => {
             <div className="settings-header">
                 <h1>Application Settings</h1>
                 <p>Configure your application preferences and behavior</p>
+                {saving && <div className="auto-save-indicator saving">Saving...</div>}
+                {saveStatus && (
+                    <div className={`auto-save-indicator ${saveStatus.includes('✅') ? 'success' : 'error'}`}>
+                        {saveStatus}
+                    </div>
+                )}
             </div>
 
             <div className="settings-form-card">
@@ -115,14 +111,14 @@ const SettingsPage = () => {
                                 <label className="form-label">Items per page</label>
                                 <select 
                                     className="form-select" 
-                                    name="itemsPerPage" 
-                                    value={settings.itemsPerPage} 
+                                    name="items_per_page" 
+                                    value={settings.items_per_page} 
                                     onChange={handleInputChange}
                                 >
-                                    <option value={10}>10</option>
                                     <option value={25}>25</option>
                                     <option value={50}>50</option>
                                     <option value={100}>100</option>
+                                    <option value={250}>250</option>
                                 </select>
                             </div>
 
@@ -130,8 +126,8 @@ const SettingsPage = () => {
                                 <label className="checkbox-label">
                                     <input
                                         type="checkbox"
-                                        name="compactMode"
-                                        checked={settings.compactMode}
+                                        name="compact_mode"
+                                        checked={settings.compact_mode}
                                         onChange={handleInputChange}
                                     />
                                     <span className="checkbox-text">Compact mode</span>
@@ -149,8 +145,8 @@ const SettingsPage = () => {
                                 <label className="checkbox-label">
                                     <input
                                         type="checkbox"
-                                        name="autoRefresh"
-                                        checked={settings.autoRefresh}
+                                        name="auto_refresh"
+                                        checked={settings.auto_refresh}
                                         onChange={handleInputChange}
                                     />
                                     <span className="checkbox-text">Auto-refresh data</span>
@@ -158,13 +154,13 @@ const SettingsPage = () => {
                                 <small className="form-help">Automatically refresh table data periodically</small>
                             </div>
 
-                            {settings.autoRefresh && (
+                            {settings.auto_refresh && (
                                 <div className="form-group">
                                     <label className="form-label">Refresh interval (seconds)</label>
                                     <select 
                                         className="form-select" 
-                                        name="autoRefreshInterval" 
-                                        value={settings.autoRefreshInterval} 
+                                        name="auto_refresh_interval" 
+                                        value={settings.auto_refresh_interval} 
                                         onChange={handleInputChange}
                                     >
                                         <option value={15}>15 seconds</option>
@@ -233,8 +229,8 @@ const SettingsPage = () => {
                                 <label className="checkbox-label">
                                     <input
                                         type="checkbox"
-                                        name="showAdvancedFeatures"
-                                        checked={settings.showAdvancedFeatures}
+                                        name="show_advanced_features"
+                                        checked={settings.show_advanced_features}
                                         onChange={handleInputChange}
                                     />
                                     <span className="checkbox-text">Show advanced features</span>
@@ -250,32 +246,15 @@ const SettingsPage = () => {
                             type="button" 
                             className="reset-btn"
                             onClick={handleReset}
+                            disabled={saving}
                         >
                             Reset to Defaults
                         </button>
                         
-                        <button 
-                            type="button" 
-                            className={`save-btn ${saveStatus === "Saving..." ? "saving" : ""}`}
-                            onClick={handleSave}
-                            disabled={saveStatus === "Saving..."}
-                        >
-                            {saveStatus === "Saving..." ? (
-                                <>
-                                    <div className="btn-spinner"></div>
-                                    Saving...
-                                </>
-                            ) : (
-                                "Save Settings"
-                            )}
-                        </button>
-                    </div>
-
-                    {saveStatus && !saveStatus.includes("Saving") && (
-                        <div className={`status-message ${saveStatus.includes("✅") ? "success" : "error"}`}>
-                            {saveStatus}
+                        <div className="auto-save-notice">
+                            💾 Changes are saved automatically
                         </div>
-                    )}
+                    </div>
                 </form>
             </div>
         </div>

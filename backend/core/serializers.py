@@ -121,7 +121,7 @@ class AppSettingsSerializer(serializers.ModelSerializer):
     
     def validate_items_per_page(self, value):
         """Validate items per page is a valid choice"""
-        valid_choices = [10, 25, 50, 100]
+        valid_choices = [25, 50, 100, 250]
         if value not in valid_choices:
             raise serializers.ValidationError(f"Items per page must be one of: {', '.join(map(str, valid_choices))}")
         return value
