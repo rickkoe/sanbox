@@ -1,4 +1,4 @@
-import React, { useRef, useContext, useState } from "react";
+import React, { useRef, useContext, useState, useMemo } from "react";
 import axios from "axios";
 import GenericTable from "./GenericTable";
 import { ConfigContext } from "../../context/ConfigContext";
@@ -23,7 +23,7 @@ const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5];
 
 const FabricTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
-    const { config } = useContext(ConfigContext);
+    const { config, loading: configLoading } = useContext(ConfigContext);
     const tableRef = useRef(null);
     
     // Get customer ID early so it can be used in URLs
@@ -57,8 +57,17 @@ const FabricTable = () => {
         notes: "" 
     };
 
-    // API URL with customer filter for server pagination
-    const fabricsApiUrl = customerId ? `${API_URL}/api/san/fabrics/?customer_id=${customerId}` : `${API_URL}/api/san/fabrics/`;
+    // API URL with customer filter for server pagination - reactive to customerId changes
+    const fabricsApiUrl = useMemo(() => {
+        if (customerId) {
+            console.log(`🔗 FabricTable: Building API URL with customer filter: ${customerId}`);
+            return `${API_URL}/api/san/fabrics/?customer_id=${customerId}`;
+        } else {
+            console.log(`🔗 FabricTable: Customer ID not available, using unfiltered URL`);
+            return `${API_URL}/api/san/fabrics/`;
+        }
+    }, [customerId, API_URL]);
+    
     const fabricDeleteApiUrl = `${API_URL}/api/san/fabrics/delete/`;
 
     // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
@@ -158,6 +167,20 @@ const FabricTable = () => {
             };
         }
     };
+
+    // Show loading while config is being fetched to prevent loading all fabrics
+    if (configLoading) {
+        return (
+            <div className="table-container">
+                <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading configuration...</span>
+                    </div>
+                    <span className="ms-2">Loading customer configuration...</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="table-container">
