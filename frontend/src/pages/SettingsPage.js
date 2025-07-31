@@ -13,7 +13,9 @@ const SettingsPage = () => {
         autoRefreshInterval: 30,
         notifications: true,
         compactMode: false,
-        showAdvancedFeatures: false
+        showAdvancedFeatures: false,
+        zone_ratio: 'one-to-one',
+        alias_max_zones: 1
     });
     const [loading, setLoading] = useState(true);
     const [saveStatus, setSaveStatus] = useState("");
@@ -65,7 +67,9 @@ const SettingsPage = () => {
             autoRefreshInterval: 30,
             notifications: true,
             compactMode: false,
-            showAdvancedFeatures: false
+            showAdvancedFeatures: false,
+            zone_ratio: 'one-to-one',
+            alias_max_zones: 1
         });
     };
 
@@ -170,6 +174,41 @@ const SettingsPage = () => {
                                     </select>
                                 </div>
                             )}
+                        </div>
+                    </div>
+
+                    {/* SAN Configuration */}
+                    <div className="settings-section">
+                        <h3>SAN Configuration</h3>
+                        <div className="settings-grid">
+                            <div className="form-group">
+                                <label className="form-label">Zone ratio</label>
+                                <select 
+                                    className="form-select" 
+                                    name="zone_ratio" 
+                                    value={settings.zone_ratio} 
+                                    onChange={handleInputChange}
+                                >
+                                    <option value="one-to-one">One-to-one</option>
+                                    <option value="one-to-many">One-to-many</option>
+                                    <option value="all-to-all">All-to-all</option>
+                                </select>
+                                <small className="form-help">Default zone ratio for SAN operations</small>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Max zones per alias</label>
+                                <input
+                                    type="number"
+                                    className="form-select"
+                                    name="alias_max_zones"
+                                    value={settings.alias_max_zones}
+                                    onChange={handleInputChange}
+                                    min="1"
+                                    max="100"
+                                />
+                                <small className="form-help">Maximum number of zones per alias</small>
+                            </div>
                         </div>
                     </div>
 

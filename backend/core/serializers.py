@@ -36,19 +36,11 @@ class ConfigSerializer(serializers.ModelSerializer):
         fields = "__all__"  # Includes all fields, including `is_active`
 
     def update(self, instance, validated_data):
-        """Ensure active_project and other fields update correctly"""
+        """Update config fields"""
 
         # Handle active_project updates
         if "active_project" in validated_data:
             instance.active_project = validated_data.get("active_project", instance.active_project)
-
-        # Update other fields
-        instance.san_vendor = validated_data.get("san_vendor", instance.san_vendor)
-        instance.cisco_alias = validated_data.get("cisco_alias", instance.cisco_alias)
-        instance.cisco_zoning_mode = validated_data.get("cisco_zoning_mode", instance.cisco_zoning_mode)
-        instance.zone_ratio = validated_data.get("zone_ratio", instance.zone_ratio)
-        instance.zoning_job_name = validated_data.get("zoning_job_name", instance.zoning_job_name)
-        instance.alias_max_zones = validated_data.get("alias_max_zones", instance.alias_max_zones)
         
         # Update is_active if provided
         instance.is_active = validated_data.get("is_active", instance.is_active)
@@ -113,6 +105,8 @@ class AppSettingsSerializer(serializers.ModelSerializer):
             'auto_refresh_interval',
             'notifications',
             'show_advanced_features',
+            'zone_ratio',
+            'alias_max_zones',
             'created_at',
             'updated_at'
         ]
@@ -137,4 +131,17 @@ class AppSettingsSerializer(serializers.ModelSerializer):
         valid_intervals = [15, 30, 60, 300]
         if value not in valid_intervals:
             raise serializers.ValidationError(f"Auto refresh interval must be one of: {', '.join(map(str, valid_intervals))}")
+        return value
+    
+    def validate_zone_ratio(self, value):
+        """Validate zone ratio choice"""
+        valid_ratios = ['one-to-one', 'one-to-many', 'all-to-all']
+        if value not in valid_ratios:
+            raise serializers.ValidationError(f"Zone ratio must be one of: {', '.join(valid_ratios)}")
+        return value
+    
+    def validate_alias_max_zones(self, value):
+        """Validate alias max zones is a positive integer"""
+        if value < 1:
+            raise serializers.ValidationError("Alias max zones must be at least 1")
         return value

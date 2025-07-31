@@ -22,41 +22,7 @@ class Config(models.Model):
         blank=True,
         help_text="The currently active project for this customer's config.",
     )
-
-    san_vendor = models.CharField(
-        max_length=7,
-        choices=[
-            ("BR", "Brocade"),
-            ("CI", "Cisco"),
-        ],
-        default="BR",
-    )
-    cisco_alias = models.CharField(
-        max_length=15,
-        choices=[
-            ("device-alias", "device-alias"),
-            ("fcalias", "fcalias"),
-            ("wwpn", "wwpn"),
-        ],
-        default="device-alias",
-    )
-    cisco_zoning_mode = models.CharField(
-        max_length=15,
-        choices=[("basic", "basic"), ("enhanced", "enhanced")],
-        default="enhanced",
-    )
-    zone_ratio = models.CharField(
-        max_length=20,
-        choices=[
-            ("one-to-one", "one-to-one"),
-            ("one-to-many", "one-to-many"),
-            ("all-to-all", "all-to-all"),
-        ],
-        default="one-to-one",
-    )
-    zoning_job_name = models.CharField(max_length=40, default="default_job")
-    alias_max_zones = models.IntegerField(default=1)
-    is_active = models.BooleanField(default=False)  # ✅ Track active config
+    is_active = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Config for {self.customer.name}"
@@ -263,6 +229,23 @@ class AppSettings(models.Model):
         help_text="Show advanced features and debugging tools"
     )
     
+    # SAN Configuration Settings (moved from Config model)
+    zone_ratio = models.CharField(
+        max_length=20,
+        choices=[
+            ("one-to-one", "one-to-one"),
+            ("one-to-many", "one-to-many"),
+            ("all-to-all", "all-to-all"),
+        ],
+        default="one-to-one",
+        help_text="Default zone ratio for SAN operations"
+    )
+    
+    alias_max_zones = models.IntegerField(
+        default=1,
+        help_text="Maximum number of zones per alias"
+    )
+    
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -300,6 +283,8 @@ class AppSettings(models.Model):
                 'auto_refresh_interval': 30,
                 'notifications': True,
                 'show_advanced_features': False,
+                'zone_ratio': 'one-to-one',
+                'alias_max_zones': 1,
             }
         )
         return settings
