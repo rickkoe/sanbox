@@ -14,6 +14,7 @@ from .views import (
     table_configuration_detail,
     reset_table_configuration,
     app_settings_view,
+    debug_log_view,
 )
 from .dashboard_views import dashboard_stats, clear_dashboard_cache
 
@@ -45,4 +46,7 @@ urlpatterns = [
     
     # App Settings endpoints
     path("settings/", app_settings_view, name="app-settings"),
+    
+    # Debug logging endpoint
+    path("debug-log/", debug_log_view, name="debug-log"),
 ]

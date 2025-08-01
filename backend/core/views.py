@@ -1,4 +1,6 @@
 import json
+import os
+from datetime import datetime
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -710,3 +712,29 @@ def app_settings_view(request):
         except Exception as e:
             print(f"❌ Error in app_settings_view PUT: {e}")
             return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def debug_log_view(request):
+    """Save debug log entries to filesystem for troubleshooting"""
+    try:
+        data = json.loads(request.body)
+        log_entry = data.get('log_entry', '')
+        session_id = data.get('session_id', 'unknown')
+        
+        # Create debug log directory if it doesn't exist
+        log_dir = '/tmp/sanbox_debug_logs'
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Create log file based on session
+        log_file = os.path.join(log_dir, f'{session_id}.log')
+        
+        # Append log entry to file
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(log_entry)
+        
+        return JsonResponse({'status': 'success'})
+    
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

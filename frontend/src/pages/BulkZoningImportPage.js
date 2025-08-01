@@ -1909,7 +1909,42 @@ const BulkZoningImportPage = () => {
   };
 
   // Import all data
+  // Debug logging function
+  const writeDebugLog = async (message) => {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${message}\n`;
+    
+    // Send log entry to backend
+    try {
+      await axios.post('/api/core/debug-log/', {
+        log_entry: logEntry,
+        session_id: `zone_import_${Date.now()}`
+      });
+    } catch (error) {
+      console.error('Failed to write debug log:', error);
+    }
+    
+    // Also log to console
+    console.log(message);
+  };
+
+  // Function to download debug log as file
+  const downloadDebugLog = () => {
+    const debugLogs = sessionStorage.getItem('zoneImportDebug') || 'No debug logs available';
+    const blob = new Blob([debugLogs], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zone-import-debug-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleImportAll = async () => {
+    // Start debug session
+    await writeDebugLog('=== ZONE IMPORT DEBUG SESSION STARTED ===');
     console.log("🚀 Starting import process");
     console.log("📊 Total parsedData items:", parsedData.length);
     
@@ -2054,47 +2089,87 @@ const BulkZoningImportPage = () => {
             });
           }
         });
+        // Process zones with async debugging
+        const processedZones = [];
+        for (const zone of resolvedZones) {
+          const cleanZone = { ...zone };
+          delete cleanZone.existsInDatabase;
+          delete cleanZone.unresolvedMembers;
+          delete cleanZone.imported;
+          delete cleanZone.updated;
+          
+          // Filter and convert alias IDs (batch aliases should already be resolved)
+          await writeDebugLog(`🔍 Processing zone ${cleanZone.name} with members: ${JSON.stringify(cleanZone.members)}`);
+          await writeDebugLog(`🔍 Members array length: ${cleanZone.members?.length || 0}`);
+          
+          const validMembers = [];
+          for (const aliasId of cleanZone.members || []) {
+            await writeDebugLog(`🔍 Checking member: ${aliasId} (type: ${typeof aliasId})`);
+            
+            // If already numeric, use it
+            if (typeof aliasId === 'number' || !isNaN(parseInt(aliasId))) {
+              await writeDebugLog(`✅ Valid member ID: ${aliasId} -> parsed as ${parseInt(aliasId)}`);
+              validMembers.push(parseInt(aliasId));
+              continue;
+            }
+            
+            // Final attempt to resolve batch aliases before giving up
+            if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
+              const aliasName = aliasId.replace('batch:', '');
+              await writeDebugLog(`🔄 Final attempt to resolve batch alias: ${aliasName}`);
+              
+              // First check in import batch
+              const allAliases = parsedData.filter(item => item.wwpn !== undefined);
+              let batchAlias = allAliases.find(alias => alias.name === aliasName);
+              
+              if (batchAlias && batchAlias.id) {
+                await writeDebugLog(`✅ Resolved batch alias from import batch: ${aliasName} -> ID ${batchAlias.id}`);
+                validMembers.push(batchAlias.id);
+                continue;
+              }
+              
+              // If not found in import batch, search database
+              try {
+                await writeDebugLog(`🔍 Searching database for batch alias: ${aliasName}`);
+                const response = await axios.get(`/api/san/aliases/project/${activeProjectId}/?search=${encodeURIComponent(aliasName)}`);
+                
+                if (response.data && response.data.results && response.data.results.length > 0) {
+                  // Find exact match by name (search is general, so filter for exact match)
+                  const exactMatch = response.data.results.find(alias => alias.name === aliasName);
+                  if (exactMatch) {
+                    await writeDebugLog(`✅ Resolved batch alias from database: ${aliasName} -> ID ${exactMatch.id}`);
+                    validMembers.push(exactMatch.id);
+                    continue;
+                  }
+                  await writeDebugLog(`⚠️ No exact match found for batch alias: ${aliasName} (found ${response.data.results.length} search results)`);
+                } else {
+                  await writeDebugLog(`⚠️ Batch alias not found in database: ${aliasName}`);
+                }
+              } catch (error) {
+                await writeDebugLog(`❌ Error searching database for batch alias ${aliasName}: ${error.message}`);
+              }
+              
+              await writeDebugLog(`⚠️ Could not resolve batch alias: ${aliasName} - member will be skipped`);
+              continue;
+            }
+            
+            await writeDebugLog(`❌ Invalid member ID: ${aliasId} (type: ${typeof aliasId})`);
+          }
+          
+          await writeDebugLog(`🎯 Final valid members for ${cleanZone.name}: [${validMembers.join(', ')}]`);
+          await writeDebugLog(`🎯 Members count: ${cleanZone.members?.length || 0} -> ${validMembers.length}`);
+          
+          processedZones.push({
+            ...cleanZone,
+            fabric: parseInt(cleanZone.fabric || selectedFabric),
+            projects: [activeProjectId],
+            members: validMembers.map(aliasId => ({ alias: parseInt(aliasId) }))
+          });
+        }
+
         const zonePayload = {
           project_id: activeProjectId,
-          zones: resolvedZones.map(zone => {
-            const cleanZone = { ...zone };
-            delete cleanZone.existsInDatabase;
-            delete cleanZone.unresolvedMembers;
-            delete cleanZone.imported;
-            delete cleanZone.updated;
-            
-            // Filter and convert alias IDs (batch aliases should already be resolved)
-            console.log(`🔍 Processing zone ${cleanZone.name} with members:`, cleanZone.members);
-            console.log(`🔍 Members array length: ${cleanZone.members?.length || 0}`);
-            
-            const validMembers = (cleanZone.members || []).filter(aliasId => {
-              console.log(`🔍 Checking member: ${aliasId} (type: ${typeof aliasId})`);
-              
-              // Only keep numeric alias IDs (batch aliases should already be resolved by now)
-              if (typeof aliasId === 'number' || !isNaN(parseInt(aliasId))) {
-                console.log(`✅ Valid member ID: ${aliasId} -> parsed as ${parseInt(aliasId)}`);
-                return true;
-              }
-              
-              // Log any remaining unresolved batch aliases
-              if (typeof aliasId === 'string' && aliasId.startsWith('batch:')) {
-                console.log(`⚠️ Unresolved batch alias found: ${aliasId}`);
-              } else {
-                console.log(`❌ Invalid member ID: ${aliasId} (type: ${typeof aliasId})`);
-              }
-              return false;
-            }).map(aliasId => parseInt(aliasId));
-            
-            console.log(`🎯 Final valid members for ${cleanZone.name}:`, validMembers);
-            console.log(`🎯 Members count: ${cleanZone.members?.length || 0} -> ${validMembers.length}`);
-            
-            return {
-              ...cleanZone,
-              fabric: parseInt(cleanZone.fabric || selectedFabric),
-              projects: [activeProjectId],
-              members: validMembers.map(aliasId => ({ alias: parseInt(aliasId) }))
-            };
-          })
+          zones: processedZones
         };
         
         console.log("Sending zone payload:", zonePayload);
@@ -2860,12 +2935,17 @@ const BulkZoningImportPage = () => {
                     Review your parsed data and configure import settings
                   </small>
                 </div>
-                <Button variant="outline-secondary" onClick={goBackToImport}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
-                    <polyline points="15,18 9,12 15,6"/>
-                  </svg>
-                  Back to Import
-                </Button>
+                <div className="d-flex gap-2">
+                  <Button variant="outline-secondary" onClick={goBackToImport}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
+                      <polyline points="15,18 9,12 15,6"/>
+                    </svg>
+                    Back to Import
+                  </Button>
+                  <Button variant="outline-info" onClick={downloadDebugLog} size="sm" title="Download debug log for troubleshooting">
+                    📋 Debug Log
+                  </Button>
+                </div>
               </Card.Header>
               
               <Card.Body>
