@@ -21,6 +21,7 @@ const API_ENDPOINTS = {
 const BASE_COLUMNS = [
   { data: "name", title: "Name" },
   { data: "fabric", title: "Fabric" },
+  { data: "member_count", title: "Members" },
   { data: "create", title: "Create" },
   { data: "exists", title: "Exists" },
   { data: "zone_type", title: "Zone Type" },
@@ -30,13 +31,14 @@ const BASE_COLUMNS = [
 ];
 
 // Default visible base column indices (show all base columns by default)
-const DEFAULT_BASE_VISIBLE_INDICES = [0, 1, 2, 3, 4];
+const DEFAULT_BASE_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5];
 
 // Template for new rows
 const NEW_ZONE_TEMPLATE = {
   id: null,
   name: "",
   fabric: "",
+  member_count: 0,
   create: false,
   exists: false,
   zone_type: "",
@@ -51,7 +53,7 @@ const ZoneTable = () => {
   const { settings } = useSettings();
   const [fabricOptions, setFabricOptions] = useState([]);
   const [memberOptions, setMemberOptions] = useState([]);
-  const [memberColumns, setMemberColumns] = useState(5);
+  const [memberColumns, setMemberColumns] = useState(5); // Minimum 5 columns
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const tableRef = useRef(null);
@@ -82,7 +84,7 @@ const ZoneTable = () => {
   // Calculate required member columns from data - moved to useEffect to avoid render issues
   useEffect(() => {
     if (rawData.length > 0) {
-      let maxMembers = memberColumns;
+      let maxMembers = Math.max(5, memberColumns); // Ensure minimum of 5
 
       rawData.forEach((zone) => {
         if (zone.members_details?.length) {
@@ -92,7 +94,7 @@ const ZoneTable = () => {
 
       if (maxMembers > memberColumns) {
         console.log(
-          `Increasing member columns from ${memberColumns} to ${maxMembers}`
+          `Increasing member columns from ${memberColumns} to ${maxMembers} (minimum 5)`
         );
         setMemberColumns(maxMembers);
       }
@@ -141,9 +143,11 @@ const ZoneTable = () => {
     console.log("Processing data with", memberColumns, "member columns");
 
     const processed = data.map((zone) => {
+      const memberCount = zone.members_details?.length || 0;
       const zoneData = {
         ...zone,
         fabric: zone.fabric_details?.name || zone.fabric,
+        member_count: memberCount,
         saved: true,
       };
 
@@ -226,6 +230,11 @@ const ZoneTable = () => {
         rowData && rowData.id !== null && value
           ? `<strong>${value}</strong>`
           : value || "";
+      return td;
+    },
+    member_count: (instance, td, row, col, prop, value) => {
+      td.style.textAlign = 'center';
+      td.innerText = value || "0";
       return td;
     },
     imported: (instance, td, row, col, prop, value) => {
@@ -318,7 +327,8 @@ const ZoneTable = () => {
           column.type = "checkbox";
         } else if (
           colConfig.data === "imported" ||
-          colConfig.data === "updated"
+          colConfig.data === "updated" ||
+          colConfig.data === "member_count"
         ) {
           column.readOnly = true;
         }

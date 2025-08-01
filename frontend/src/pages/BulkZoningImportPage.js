@@ -1424,9 +1424,15 @@ const BulkZoningImportPage = () => {
       // Skip empty lines and comments
       if (!line || line.startsWith("!")) continue;
       
-      // Extract VSAN from zoneset
+      // Extract VSAN from zoneset - this ends any current zone
       const zonesetMatch = line.match(/zoneset\s+name\s+(\S+)(\s+vsan\s+(\d+))?/i);
       if (zonesetMatch) {
+        // Save previous zone if exists before starting zoneset
+        if (currentZone) {
+          zones.push({ ...currentZone });
+          console.log(`  🔚 Zone ${currentZone.name} completed with ${currentZone.members.length} members (zoneset encountered)`);
+          currentZone = null;
+        }
         currentZoneset = zonesetMatch[1];
         if (zonesetMatch[3]) {
           vsan = parseInt(zonesetMatch[3]);
