@@ -2143,7 +2143,7 @@ const BulkZoningImportPage = () => {
           }
         }
       `}</style>
-      <div className="container-fluid mt-4" style={{ minHeight: "calc(100vh - 150px)", paddingBottom: "50px" }}>
+      <div className="container-fluid mt-4" style={{ maxHeight: "calc(100vh - 120px)", overflowY: "auto", paddingBottom: "20px" }}>
       {/* Full-screen parsing overlay */}
       {parsing && (
         <div className="importing-overlay" style={{ 
