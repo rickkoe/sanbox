@@ -864,9 +864,19 @@ const BulkZoningImportPage = () => {
             allZones = [...allZones, ...zonesArray];
             console.log(`Loaded ${zonesArray.length} zones from page ${page}, total so far: ${allZones.length}`);
             
-            // Check if there are more pages using pagination metadata
-            if (!responseData.next || responseData.current_page >= responseData.num_pages) {
-              console.log(`No more pages. Final total: ${allZones.length} zones`);
+            // Check if there are more pages using multiple methods
+            const hasNext = responseData.next;
+            const currentPage = responseData.current_page || page;
+            const totalPages = responseData.num_pages;
+            const totalCount = responseData.count;
+            
+            console.log(`🔍 [ZONE CHECK] Page ${currentPage}/${totalPages}, next: ${hasNext}, count: ${totalCount}, loaded so far: ${allZones.length}`);
+            
+            // More robust pagination termination logic
+            const shouldContinue = hasNext || (currentPage < totalPages) || (totalCount && allZones.length < totalCount);
+            
+            if (!shouldContinue) {
+              console.log(`🏁 Zone pagination complete. Final total: ${allZones.length} zones`);
               break;
             }
             page++;
@@ -3171,7 +3181,7 @@ const BulkZoningImportPage = () => {
                         {/* Duplicate Warning */}
                         {stats.duplicates > 0 && (
                           <Alert variant="warning" className="mb-3">
-                            <strong>⚠️ Duplicate Detection:</strong> {stats.duplicateAliases} aliases already exist in the database and will be skipped. 
+                            <strong>⚠️ Duplicate Detection:</strong> {stats.duplicateAliases} aliases and {stats.duplicateZones} zones already exist in the database and will be skipped. 
                             Only {stats.newAliases} new aliases and {stats.newZones} zones will be imported.
                           </Alert>
                         )}
