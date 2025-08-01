@@ -49,7 +49,7 @@ const GenericTable = forwardRef(({
   additionalButtons,
   headerButtons,
   storageKey,
-  height = "calc(100vh - 200px)",
+  height = "100%",
   getExportFilename,
   defaultVisibleColumns = [],
   tableName = 'generic_table',  // Add tableName prop

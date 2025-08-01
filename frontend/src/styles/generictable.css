@@ -2,8 +2,9 @@
 .modern-table-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 140px);
-  min-height: 650px;
+  height: 100%;
+  max-height: calc(100vh - 150px);
+  min-height: 500px;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 
@@ -443,9 +444,8 @@
   overflow: hidden;
   position: relative;
   background: white;
-  min-height: 450px;
-  padding-bottom: 20px;
-  margin-bottom: 10px;
+  min-height: 400px;
+  max-height: 100%;
 }
 
 /* When pagination is enabled, adjust the table container height */
