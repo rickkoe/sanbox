@@ -11,6 +11,7 @@ const API_URL = process.env.REACT_APP_API_URL || "";
 
 const API_ENDPOINTS = {
   zones: `${API_URL}/api/san/zones/project/`,
+  zoneMaxMembers: `${API_URL}/api/san/zones/project/`,
   fabrics: `${API_URL}/api/san/fabrics/`,
   aliases: `${API_URL}/api/san/aliases/project/`,
   zoneSave: `${API_URL}/api/san/zones/save/`,
@@ -81,22 +82,79 @@ const ZoneTable = () => {
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
-  // Calculate required member columns from data - moved to useEffect to avoid render issues
+  // Fetch maximum member count from database on component load
+  useEffect(() => {
+    const fetchMaxMembers = async () => {
+      if (activeProjectId) {
+        try {
+          console.log(`🔄 Fetching maximum member count from database for project ${activeProjectId}...`);
+          const apiUrl = `${API_ENDPOINTS.zoneMaxMembers}${activeProjectId}/max-members/`;
+          console.log(`🌐 API URL: ${apiUrl}`);
+          
+          const response = await axios.get(apiUrl);
+          const maxMembers = response.data.max_members;
+          const maxZoneName = response.data.max_zone_name;
+          const totalZones = response.data.total_zones;
+          
+          console.log(`📊 Database results - Max members: ${maxMembers}, Zone: ${maxZoneName}, Total zones: ${totalZones}`);
+          
+          // Ensure minimum of 5 columns
+          const initialColumns = Math.max(5, maxMembers);
+          console.log(`🔧 Current memberColumns: ${memberColumns}, Required: ${initialColumns}`);
+          if (initialColumns > memberColumns) {
+            console.log(`🔧 Setting initial member columns to ${initialColumns} based on database max`);
+            
+            // Clear any stored table configuration that might limit column visibility
+            const configKey = `table_config_zones_${activeProjectId}`;
+            console.log(`🗑️ Clearing stored table configuration: ${configKey}`);
+            localStorage.removeItem(configKey);
+            
+            setMemberColumns(initialColumns);
+            // Add a small delay to ensure state updates
+            setTimeout(() => {
+              console.log(`✅ Member columns after update: ${memberColumns} -> should be ${initialColumns}`);
+            }, 100);
+          } else {
+            console.log(`ℹ️ Current member columns (${memberColumns}) already >= required (${initialColumns})`);
+          }
+        } catch (error) {
+          console.error("Error fetching max member count:", error);
+          // Fall back to minimum of 5 if API call fails
+          if (memberColumns < 5) {
+            setMemberColumns(5);
+          }
+        }
+      } else {
+        console.log("⚠️ No active project ID, skipping max member fetch");
+      }
+    };
+
+    fetchMaxMembers();
+  }, [activeProjectId]); // Only run when project changes
+
+  // Calculate required member columns from current page data - but don't reduce from database max
   useEffect(() => {
     if (rawData.length > 0) {
-      let maxMembers = Math.max(5, memberColumns); // Ensure minimum of 5
+      let maxMembersOnPage = 0;
 
       rawData.forEach((zone) => {
         if (zone.members_details?.length) {
-          maxMembers = Math.max(maxMembers, zone.members_details.length);
+          maxMembersOnPage = Math.max(maxMembersOnPage, zone.members_details.length);
         }
       });
 
-      if (maxMembers > memberColumns) {
+      // Only increase member columns if current page has more than what we already have
+      // Don't decrease if database max was higher than current page
+      const requiredColumns = Math.max(5, maxMembersOnPage);
+      if (requiredColumns > memberColumns) {
         console.log(
-          `Increasing member columns from ${memberColumns} to ${maxMembers} (minimum 5)`
+          `Increasing member columns from ${memberColumns} to ${requiredColumns} based on current page data`
         );
-        setMemberColumns(maxMembers);
+        setMemberColumns(requiredColumns);
+      } else {
+        console.log(
+          `Current page max members: ${maxMembersOnPage}, keeping existing columns: ${memberColumns}`
+        );
       }
     }
   }, [rawData]); // Remove memberColumns to prevent infinite loop
@@ -358,12 +416,23 @@ const ZoneTable = () => {
       const displayedCols = [...visibleBaseColumns, ...memberColumns_array];
       const displayedHdrs = [...visibleBaseHeaders, ...memberHeaders];
 
-      // Default visible column indices - base visible indices + all member indices
+      // Default visible column indices - base visible indices + first 7 member columns
+      // Only first 7 member columns are required/default visible, rest are optional
+      const defaultMemberColumns = Math.min(memberColumns, 7);
       const memberIndices = Array.from(
-        { length: memberColumns },
+        { length: defaultMemberColumns },
         (_, i) => BASE_COLUMNS.length + i
       );
       const defaultVisible = [...visibleBaseIndices, ...memberIndices];
+
+      console.log(`🔧 Column indices debug:
+        - BASE_COLUMNS.length: ${BASE_COLUMNS.length}
+        - memberColumns: ${memberColumns}
+        - visibleBaseIndices: [${visibleBaseIndices.join(', ')}]
+        - memberIndices: [${memberIndices.join(', ')}]
+        - defaultVisible: [${defaultVisible.join(', ')}]
+        - allColumns.length: ${allCols.length}
+        - allHeaders.length: ${allHdrs.length}`);
 
       return {
         displayedColumns: displayedCols,
@@ -574,7 +643,7 @@ const ZoneTable = () => {
         customRenderers={customRenderers}
         serverPagination={true}
         defaultPageSize={50}
-        storageKey={`zone-table-${activeProjectId}`}
+        storageKey={`zone-table-${activeProjectId}-cols${memberColumns}`}
         preprocessData={preprocessData}
         onBuildPayload={buildPayload}
         onSave={handleSave}
@@ -582,6 +651,7 @@ const ZoneTable = () => {
         getCellsConfig={getCellsConfig}
         storageKey="zoneTableColumnWidths"
         defaultVisibleColumns={defaultVisibleColumns}
+        initialVisibleColumns={defaultVisibleColumns}
         getExportFilename={() =>
           `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`
         }

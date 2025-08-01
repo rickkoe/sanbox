@@ -471,6 +471,46 @@ def zones_by_project_view(request, project_id):
 
 
 @csrf_exempt
+@require_http_methods(["GET"])
+def zone_max_members_view(request, project_id):
+    """Get the maximum number of members across all zones in a project."""
+    print(f"🔥 Zone Max Members - Project ID: {project_id}")
+    
+    try:
+        # Verify project exists
+        project = Project.objects.get(id=project_id)
+        print(f"  ✅ Project found: {project.name}")
+        
+        # Get all zones for this project with their members
+        zones = Zone.objects.prefetch_related('members').filter(projects=project)
+        total_zones = zones.count()
+        print(f"  📊 Total zones in project: {total_zones}")
+        
+        max_members = 0
+        max_zone_name = None
+        
+        for zone in zones:
+            member_count = zone.members.count()
+            print(f"  🔍 Zone {zone.name} has {member_count} members")
+            if member_count > max_members:
+                max_members = member_count
+                max_zone_name = zone.name
+                print(f"    📊 New max: {member_count} members in zone {zone.name}")
+        
+        print(f"✅ Maximum members across all zones: {max_members} (zone: {max_zone_name})")
+        return JsonResponse({
+            "max_members": max_members, 
+            "max_zone_name": max_zone_name,
+            "total_zones": total_zones
+        })
+        
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found."}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def zone_save_view(request):
     """Save or update zones for multiple projects."""
