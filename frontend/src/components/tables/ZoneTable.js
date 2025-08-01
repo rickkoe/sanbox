@@ -97,7 +97,7 @@ const ZoneTable = () => {
         setMemberColumns(maxMembers);
       }
     }
-  }, [rawData, memberColumns]);
+  }, [rawData]); // Remove memberColumns to prevent infinite loop
 
   // Helper function to build payload
   const buildPayload = (row) => {
@@ -250,23 +250,7 @@ const ZoneTable = () => {
       const currentValue = rowData[prop];
 
       // Only log for the first member column to reduce spam
-      if (prop === "member_1") {
-        console.log(`Member dropdown for row ${row}:`);
-        console.log(`  Row fabric: "${rowFabric}"`);
-        console.log(`  alias_max_zones setting: ${settings?.alias_max_zones || 1}`);
-        console.log(
-          `  Available aliases for this fabric:`,
-          memberOptions.filter((a) => a.fabric === rowFabric)
-        );
-        console.log(
-          `  Aliases with include_in_zoning=true:`,
-          memberOptions.filter((a) => a.include_in_zoning === true)
-        );
-        console.log(
-          `  Aliases with zoned_count data:`,
-          memberOptions.filter((a) => a.fabric === rowFabric && a.include_in_zoning === true).map(a => ({ name: a.name, zoned_count: a.zoned_count }))
-        );
-      }
+      // Debug logging removed for performance
 
       // Find used aliases to exclude
       const usedAliases = new Set();
@@ -305,10 +289,7 @@ const ZoneTable = () => {
 
         const zoneCountCheck = hasRoomForMoreZones || isCurrentValue;
 
-        // Only log for the first member column to reduce spam
-        if (prop === "member_1" && fabricMatch && includeInZoning) {
-          console.log(`    Alias ${alias.name}: zoned_count=${alias.zoned_count}, max=${aliasMaxZones}, hasRoom=${hasRoomForMoreZones}, isCurrent=${isCurrentValue}, allowed=${zoneCountCheck}, notUsedElsewhere=${notUsedElsewhere}, finalResult=${fabricMatch && includeInZoning && notUsedElsewhere && zoneCountCheck}`);
-        }
+        // Removed excessive logging that was causing performance issues
 
         return fabricMatch && includeInZoning && notUsedElsewhere && zoneCountCheck;
       });
@@ -426,14 +407,14 @@ const ZoneTable = () => {
             console.log(`Fetching aliases page ${page}: ${url}`);
             
             const aliasesResponse = await axios.get(url);
-            console.log(`Aliases response page ${page}:`, aliasesResponse.data);
+            // Pagination response logged for debugging if needed
             
             const responseData = aliasesResponse.data;
             const aliasesArray = responseData.results || responseData;
             
             if (Array.isArray(aliasesArray)) {
               allAliases = [...allAliases, ...aliasesArray];
-              console.log(`Loaded ${aliasesArray.length} aliases from page ${page}, total so far: ${allAliases.length}`);
+              // Loaded aliases from page (logging reduced for performance)
               
               // Check if there are more pages
               if (aliasesArray.length === 0 || !responseData.next) {
@@ -517,7 +498,7 @@ const ZoneTable = () => {
     };
 
     loadData();
-  }, [activeCustomerId, activeProjectId, fabricOptions]);
+  }, [activeCustomerId, activeProjectId]); // Remove fabricOptions to prevent infinite loop
 
   // Separate effect to calculate zone counts when both zones and aliases are loaded
   useEffect(() => {
@@ -553,7 +534,7 @@ const ZoneTable = () => {
         setMemberOptions(updatedMemberOptions);
       }
     }
-  }, [rawData, memberOptions]);
+  }, [rawData]); // Remove memberOptions to prevent infinite loop
 
   if (!activeProjectId) {
     return (
