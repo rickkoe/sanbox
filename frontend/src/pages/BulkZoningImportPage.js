@@ -321,20 +321,63 @@ const BulkZoningImportPage = () => {
     }
   }, [activeCustomerId]);
 
-  // Load aliases when project or fabric changes
+  // Load aliases when project or fabric changes - FETCH ALL PAGES
   useEffect(() => {
     if (activeProjectId && selectedFabric) {
-      axios.get(`/api/san/aliases/project/${activeProjectId}/`)
-        .then((res) => {
+      const loadAllAliases = async () => {
+        try {
+          // Fetch all aliases by handling pagination
+          let allAliases = [];
+          let page = 1;
+          const baseUrl = `/api/san/aliases/project/${activeProjectId}/`;
+          const queryParams = 'page_size=100'; // Use larger page size for efficiency
+          
+          while (true) {
+            const url = `${baseUrl}?${queryParams}&page=${page}`;
+            console.log(`🔍 [Initial Load] Fetching aliases page ${page}: ${url}`);
+            
+            const res = await axios.get(url);
+            console.log(`🔍 [Initial Load] API response page ${page}:`, res.data);
+            
+            const responseData = res.data;
+            const aliasesArray = responseData.results || responseData;
+            
+            if (Array.isArray(aliasesArray)) {
+              allAliases = [...allAliases, ...aliasesArray];
+              console.log(`Loaded ${aliasesArray.length} aliases from page ${page}, total so far: ${allAliases.length}`);
+              
+              // Check if there are more pages using pagination metadata
+              if (!responseData.next || responseData.current_page >= responseData.num_pages) {
+                console.log(`No more pages. Final total: ${allAliases.length} aliases`);
+                break;
+              }
+              page++;
+            } else {
+              // Handle non-paginated response
+              allAliases = Array.isArray(responseData) ? responseData : [responseData];
+              console.log(`Non-paginated response, loaded ${allAliases.length} aliases`);
+              break;
+            }
+            
+            // Safety check to prevent infinite loops
+            if (page > 50) {
+              console.error(`🛑 Safety break: too many pages (${page}), stopping pagination`);
+              break;
+            }
+          }
+          
           // Filter aliases for the selected fabric
-          const fabricAliases = res.data.filter(
+          const fabricAliases = allAliases.filter(
             (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
           );
           setAliasOptions(fabricAliases);
-        })
-        .catch((err) => {
+          console.log(`✅ [Initial Load] Set ${fabricAliases.length} fabric aliases (from ${allAliases.length} total)`);
+        } catch (err) {
           console.error("Error fetching aliases:", err);
-        });
+        }
+      };
+      
+      loadAllAliases();
     }
   }, [activeProjectId, selectedFabric]);
 
@@ -513,16 +556,45 @@ const BulkZoningImportPage = () => {
             await new Promise(resolve => setTimeout(resolve, delay));
           }
           
-          // Fetch ALL aliases by requesting a large page size
-          console.log(`🔍 Fetching all aliases for project ${activeProjectId}`);
-          const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/?page_size=1000`); // Request up to 1000 aliases
-          console.log(`🔍 API response - got ${res.data.results?.length || 0} aliases out of ${res.data.count} total`);
+          // Fetch ALL aliases by handling pagination properly
+          console.log(`🔍 Fetching all aliases for project ${activeProjectId} with pagination`);
+          let allAliases = [];
+          let page = 1;
+          const baseUrl = `/api/san/aliases/project/${activeProjectId}/`;
+          const queryParams = 'page_size=100'; // Use smaller page size for better reliability
           
-          const allAliases = res.data.results || res.data || [];
-          
-          // Verify we got all aliases
-          if (res.data.count && allAliases.length < res.data.count) {
-            console.log(`⚠️ Only got ${allAliases.length}/${res.data.count} aliases, may need larger page_size`);
+          while (true) {
+            const url = `${baseUrl}?${queryParams}&page=${page}`;
+            console.log(`🔍 [Refresh] Fetching aliases page ${page}: ${url}`);
+            
+            const res = await axios.get(url);
+            console.log(`🔍 [Refresh] API response page ${page}:`, res.data);
+            
+            const responseData = res.data;
+            const aliasesArray = responseData.results || responseData;
+            
+            if (Array.isArray(aliasesArray)) {
+              allAliases = [...allAliases, ...aliasesArray];
+              console.log(`Loaded ${aliasesArray.length} aliases from page ${page}, total so far: ${allAliases.length}`);
+              
+              // Check if there are more pages using pagination metadata
+              if (!responseData.next || responseData.current_page >= responseData.num_pages) {
+                console.log(`🏁 Pagination complete. Final total: ${allAliases.length} aliases`);
+                break;
+              }
+              page++;
+            } else {
+              // Handle non-paginated response
+              allAliases = Array.isArray(responseData) ? responseData : [responseData];
+              console.log(`📄 Non-paginated response, loaded ${allAliases.length} aliases`);
+              break;
+            }
+            
+            // Safety check to prevent infinite loops
+            if (page > 50) {
+              console.error(`🛑 Safety break: too many pages (${page}), stopping pagination`);
+              break;
+            }
           }
           
           console.log(`🔍 Fetched ${allAliases.length} total aliases across all pages`);
@@ -649,36 +721,116 @@ const BulkZoningImportPage = () => {
     
     console.log(`🔍 Processing ${aliases.length} aliases and ${zones.length} zones for existence check`);
     
-    // Get fresh alias data from database if needed
-    let currentAliasOptions = aliasOptions;
-    if (aliasOptions.length === 0 && activeProjectId && selectedFabric) {
-      console.log("🔄 aliasOptions is empty, loading fresh data from database...");
+    // Get fresh alias data from database - ALWAYS FETCH ALL PAGES for existence check
+    let currentAliasOptions = [];
+    if (activeProjectId && selectedFabric) {
+      console.log("🔄 Loading complete alias dataset from database for existence check...");
       try {
-        const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
-        console.log("🔍 [Existence Check] API response structure:", res.data);
-        const aliasData = res.data.results || res.data; // Handle both paginated and direct responses
-        const fabricAliases = aliasData.filter(
+        // Fetch all aliases by handling pagination
+        let allAliases = [];
+        let page = 1;
+        const baseUrl = `/api/san/aliases/project/${activeProjectId}/`;
+        const queryParams = 'page_size=100'; // Use larger page size for efficiency
+        
+        while (true) {
+          const url = `${baseUrl}?${queryParams}&page=${page}`;
+          console.log(`🔍 [Existence Check] Fetching aliases page ${page}: ${url}`);
+          
+          const res = await axios.get(url);
+          console.log(`🔍 [Existence Check] API response page ${page}:`, {
+            count: res.data.count,
+            next: res.data.next,
+            previous: res.data.previous,
+            results_length: res.data.results?.length || 0,
+            total_pages: res.data.count ? Math.ceil(res.data.count / 100) : 'unknown'
+          });
+          
+          const responseData = res.data;
+          const aliasesArray = responseData.results || responseData;
+          
+          if (Array.isArray(aliasesArray)) {
+            allAliases = [...allAliases, ...aliasesArray];
+            console.log(`✅ Loaded ${aliasesArray.length} aliases from page ${page}, total so far: ${allAliases.length}/${responseData.count || 'unknown'}`);
+            
+            // Enhanced pagination debugging
+            console.log(`🔍 [EXISTENCE CHECK] Pagination metadata - next: ${responseData.next}, current_page: ${responseData.current_page}, num_pages: ${responseData.num_pages}, count: ${responseData.count}`);
+            
+            // Check if this page was empty (should stop pagination)
+            if (aliasesArray.length === 0) {
+              console.log(`📄 Empty page received, stopping pagination`);
+              break;
+            }
+            
+            // Check if there are more pages using multiple methods
+            const hasNext = responseData.next;
+            const currentPage = responseData.current_page || page;
+            const totalPages = responseData.num_pages;
+            const totalCount = responseData.count;
+            
+            console.log(`🔍 [EXISTENCE CHECK] Page ${currentPage}/${totalPages}, next: ${hasNext}, count: ${totalCount}, loaded so far: ${allAliases.length}`);
+            
+            // More robust pagination termination logic
+            const shouldContinue = hasNext || (currentPage < totalPages) || (totalCount && allAliases.length < totalCount);
+            
+            if (!shouldContinue) {
+              console.log(`🏁 Pagination complete. Final total: ${allAliases.length} aliases`);
+              break;
+            }
+            page++;
+          } else {
+            // Handle non-paginated response
+            allAliases = Array.isArray(responseData) ? responseData : [responseData];
+            console.log(`📄 Non-paginated response, loaded ${allAliases.length} aliases`);
+            break;
+          }
+          
+          // Safety check to prevent infinite loops
+          if (page > 50) {
+            console.error(`🛑 Safety break: too many pages (${page}), stopping pagination`);
+            break;
+          }
+        }
+        
+        const fabricAliases = allAliases.filter(
           (alias) => alias.fabric_details?.id === parseInt(selectedFabric)
         );
         currentAliasOptions = fabricAliases;
-        setAliasOptions(fabricAliases);
-        console.log(`✅ Loaded ${fabricAliases.length} existing aliases from database`);
+        // Update the cached aliasOptions only if it was empty or had fewer items
+        if (aliasOptions.length < fabricAliases.length) {
+          setAliasOptions(fabricAliases);
+        }
+        console.log(`✅ Loaded ${fabricAliases.length} existing aliases from database (from ${allAliases.length} total)`);
       } catch (err) {
         console.error("Error loading aliases:", err);
       }
     }
     
     console.log(`🔍 Checking ${aliases.length} aliases against ${currentAliasOptions.length} existing aliases in database`);
+    console.log(`🔍 Expected to find ~320 existing aliases, actually loaded: ${currentAliasOptions.length}`);
+    
+    // Debug: Show sample of existing aliases
+    if (currentAliasOptions.length > 0) {
+      console.log(`📋 Sample of existing aliases:`, currentAliasOptions.slice(0, 5).map(a => `${a.name}:${a.wwpn}`));
+      console.log(`📋 Last few existing aliases:`, currentAliasOptions.slice(-3).map(a => `${a.name}:${a.wwpn}`));
+    }
+    
+    // Debug: Show sample of aliases being checked
+    if (aliases.length > 0) {
+      console.log(`📋 Sample of aliases being checked:`, aliases.slice(0, 5).map(a => `${a.name}:${a.wwpn}`));
+    }
     
     // Check aliases for database existence
-    const enhancedAliases = aliases.map(alias => {
+    const enhancedAliases = aliases.map((alias, index) => {
       const existsInDb = currentAliasOptions.some(existing => 
         existing.name.toLowerCase() === alias.name.toLowerCase() ||
         existing.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '') === alias.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '')
       );
       
       if (existsInDb) {
-        console.log(`🎯 Found duplicate alias: ${alias.name} (${alias.wwpn})`);
+        console.log(`🎯 Found duplicate alias ${index + 1}/${aliases.length}: ${alias.name} (${alias.wwpn})`);
+      } else if (index < 10) {
+        // Show first 10 non-matches for debugging
+        console.log(`🆕 New alias ${index + 1}/${aliases.length}: ${alias.name} (${alias.wwpn})`);
       }
       
       return {
@@ -687,15 +839,100 @@ const BulkZoningImportPage = () => {
       };
     });
     
-    // For zones, we don't need database existence check (zones are created fresh)
-    // Just add existsInDatabase: false to maintain consistency
-    const enhancedZones = zones.map(zone => ({
-      ...zone,
-      existsInDatabase: false
-    }));
+    // Check zones for database existence - FETCH ALL PAGES
+    let currentZoneOptions = [];
+    if (activeProjectId && selectedFabric) {
+      console.log("🔄 Loading existing zones from database for duplicate check...");
+      try {
+        // Fetch all zones by handling pagination
+        let allZones = [];
+        let page = 1;
+        const baseUrl = `/api/san/zones/project/${activeProjectId}/`;
+        const queryParams = 'page_size=100'; // Use larger page size for efficiency
+        
+        while (true) {
+          const url = `${baseUrl}?${queryParams}&page=${page}`;
+          console.log(`🔍 [Zone Check] Fetching zones page ${page}: ${url}`);
+          
+          const res = await axios.get(url);
+          console.log(`🔍 [Zone Check] API response page ${page}:`, res.data);
+          
+          const responseData = res.data;
+          const zonesArray = responseData.results || responseData;
+          
+          if (Array.isArray(zonesArray)) {
+            allZones = [...allZones, ...zonesArray];
+            console.log(`Loaded ${zonesArray.length} zones from page ${page}, total so far: ${allZones.length}`);
+            
+            // Check if there are more pages using pagination metadata
+            if (!responseData.next || responseData.current_page >= responseData.num_pages) {
+              console.log(`No more pages. Final total: ${allZones.length} zones`);
+              break;
+            }
+            page++;
+          } else {
+            // Handle non-paginated response
+            allZones = Array.isArray(responseData) ? responseData : [responseData];
+            console.log(`Non-paginated response, loaded ${allZones.length} zones`);
+            break;
+          }
+          
+          // Safety check to prevent infinite loops
+          if (page > 50) {
+            console.error(`🛑 Safety break: too many pages (${page}), stopping zone pagination`);
+            break;
+          }
+        }
+        
+        const fabricZones = allZones.filter(
+          (zone) => zone.fabric_details?.id === parseInt(selectedFabric)
+        );
+        currentZoneOptions = fabricZones;
+        console.log(`✅ Loaded ${fabricZones.length} existing zones from database (from ${allZones.length} total)`);
+      } catch (err) {
+        console.error("Error loading zones for existence check:", err);
+      }
+    }
+    
+    console.log(`🔍 Checking ${zones.length} zones against ${currentZoneOptions.length} existing zones in database`);
+    
+    // Check zones for database existence
+    const enhancedZones = zones.map(zone => {
+      const existsInDb = currentZoneOptions.some(existing => 
+        existing.name.toLowerCase() === zone.name.toLowerCase() &&
+        existing.fabric_details?.id === parseInt(selectedFabric)
+      );
+      
+      if (existsInDb) {
+        console.log(`🎯 Found duplicate zone: ${zone.name}`);
+      }
+      
+      return {
+        ...zone,
+        existsInDatabase: existsInDb
+      };
+    });
+    
+    const duplicateAliasCount = enhancedAliases.filter(a => a.existsInDatabase).length;
+    const duplicateZoneCount = enhancedZones.filter(z => z.existsInDatabase).length;
     
     console.log(`✅ Enhanced ${enhancedAliases.length} aliases and ${enhancedZones.length} zones`);
-    console.log(`🔍 Found ${enhancedAliases.filter(a => a.existsInDatabase).length} aliases that exist in database`);
+    console.log(`🔍 Found ${duplicateAliasCount} aliases that exist in database`);
+    console.log(`🔍 Found ${duplicateZoneCount} zones that exist in database`);
+    console.log(`📊 DUPLICATE SUMMARY: ${duplicateAliasCount}/${aliases.length} aliases, ${duplicateZoneCount}/${zones.length} zones`);
+    console.log(`📊 Database had ${currentAliasOptions.length} total aliases to compare against`);
+    
+    if (duplicateAliasCount !== aliases.length && aliases.length === 320) {
+      console.error(`🚨 PROBLEM DETECTED: Expected 320 duplicates but only found ${duplicateAliasCount}!`);
+      console.error(`🚨 This suggests pagination is not working correctly or comparison logic is flawed`);
+      console.error(`🚨 Database comparison set size: ${currentAliasOptions.length} aliases`);
+    }
+    
+    // Debug: Show a few examples of missed duplicates
+    if (duplicateAliasCount < aliases.length) {
+      const missedDuplicates = enhancedAliases.filter(a => !a.existsInDatabase).slice(0, 3);
+      console.log(`🔍 Examples of aliases NOT detected as duplicates:`, missedDuplicates.map(a => `${a.name}:${a.wwpn}`));
+    }
     
     return [...enhancedAliases, ...enhancedZones];
   };
@@ -1096,22 +1333,60 @@ const BulkZoningImportPage = () => {
     console.log("🎛️ Available aliasOptions:", aliasOptions.length, "aliases");
     console.log("🎛️ Available batchAliases:", batchAliases.length, "aliases");
     
-    // Always get fresh alias data from database for zone parsing to ensure we have latest data
-    let currentAliasOptions = aliasOptions;
+    // Always get fresh alias data from database for zone parsing to ensure we have latest data - FETCH ALL PAGES
+    let currentAliasOptions = [];
     if (activeProjectId && fabricId) {
-      console.log("🔄 Loading fresh alias data for zone parsing...");
+      console.log("🔄 Loading complete alias dataset for zone parsing...");
       try {
-        const res = await axios.get(`/api/san/aliases/project/${activeProjectId}/`);
-        console.log("🔍 [Zone Parsing] API response structure:", res.data);
-        const aliasData = res.data.results || res.data; // Handle both paginated and direct responses
-        const fabricAliases = aliasData.filter(
+        // Fetch all aliases by handling pagination
+        let allAliases = [];
+        let page = 1;
+        const baseUrl = `/api/san/aliases/project/${activeProjectId}/`;
+        const queryParams = 'page_size=100'; // Use larger page size for efficiency
+        
+        while (true) {
+          const url = `${baseUrl}?${queryParams}&page=${page}`;
+          console.log(`🔍 [Zone Parsing] Fetching aliases page ${page}: ${url}`);
+          
+          const res = await axios.get(url);
+          console.log(`🔍 [Zone Parsing] API response page ${page}:`, res.data);
+          
+          const responseData = res.data;
+          const aliasesArray = responseData.results || responseData;
+          
+          if (Array.isArray(aliasesArray)) {
+            allAliases = [...allAliases, ...aliasesArray];
+            console.log(`Loaded ${aliasesArray.length} aliases from page ${page}, total so far: ${allAliases.length}`);
+            
+            // Check if there are more pages using pagination metadata
+            if (!responseData.next || responseData.current_page >= responseData.num_pages) {
+              console.log(`No more pages. Final total: ${allAliases.length} aliases`);
+              break;
+            }
+            page++;
+          } else {
+            // Handle non-paginated response
+            allAliases = Array.isArray(responseData) ? responseData : [responseData];
+            console.log(`Non-paginated response, loaded ${allAliases.length} aliases`);
+            break;
+          }
+          
+          // Safety check to prevent infinite loops
+          if (page > 50) {
+            console.error(`🛑 Safety break: too many pages (${page}), stopping alias pagination in parseZoneData`);
+            break;
+          }
+        }
+        
+        const fabricAliases = allAliases.filter(
           (alias) => alias.fabric_details?.id === parseInt(fabricId)
         );
         currentAliasOptions = fabricAliases;
-        if (aliasOptions.length === 0) {
+        // Update the cached aliasOptions only if it was empty or had fewer items
+        if (aliasOptions.length < fabricAliases.length) {
           setAliasOptions(fabricAliases);
         }
-        console.log(`✅ Loaded ${fabricAliases.length} existing aliases for zone parsing`);
+        console.log(`✅ Loaded ${fabricAliases.length} existing aliases for zone parsing (from ${allAliases.length} total)`);
         console.log(`📋 Sample aliases:`, fabricAliases.slice(0, 3).map(a => `${a.name}:${a.wwpn}`));
       } catch (err) {
         console.error("Error loading aliases for zone parsing:", err);

@@ -253,6 +253,7 @@ const ZoneTable = () => {
       if (prop === "member_1") {
         console.log(`Member dropdown for row ${row}:`);
         console.log(`  Row fabric: "${rowFabric}"`);
+        console.log(`  alias_max_zones setting: ${settings?.alias_max_zones || 1}`);
         console.log(
           `  Available aliases for this fabric:`,
           memberOptions.filter((a) => a.fabric === rowFabric)
@@ -260,6 +261,10 @@ const ZoneTable = () => {
         console.log(
           `  Aliases with include_in_zoning=true:`,
           memberOptions.filter((a) => a.include_in_zoning === true)
+        );
+        console.log(
+          `  Aliases with zoned_count data:`,
+          memberOptions.filter((a) => a.fabric === rowFabric && a.include_in_zoning === true).map(a => ({ name: a.name, zoned_count: a.zoned_count }))
         );
       }
 
@@ -302,7 +307,7 @@ const ZoneTable = () => {
 
         // Only log for the first member column to reduce spam
         if (prop === "member_1" && fabricMatch && includeInZoning) {
-          console.log(`    Alias ${alias.name}: zoned_count=${alias.zoned_count}, max=${aliasMaxZones}, hasRoom=${hasRoomForMoreZones}, isCurrent=${isCurrentValue}, allowed=${zoneCountCheck}`);
+          console.log(`    Alias ${alias.name}: zoned_count=${alias.zoned_count}, max=${aliasMaxZones}, hasRoom=${hasRoomForMoreZones}, isCurrent=${isCurrentValue}, allowed=${zoneCountCheck}, notUsedElsewhere=${notUsedElsewhere}, finalResult=${fabricMatch && includeInZoning && notUsedElsewhere && zoneCountCheck}`);
         }
 
         return fabricMatch && includeInZoning && notUsedElsewhere && zoneCountCheck;
@@ -408,13 +413,44 @@ const ZoneTable = () => {
 
         if (activeProjectId) {
           console.log("Loading aliases for project:", activeProjectId);
-          const aliasesResponse = await axios.get(
-            `${API_ENDPOINTS.aliases}${activeProjectId}/`
-          );
-          console.log("Aliases response:", aliasesResponse.data);
-
-          const aliasesArray =
-            aliasesResponse.data.results || aliasesResponse.data;
+          
+          // Fetch all aliases by handling pagination
+          // Add query parameter to ensure zoned_count is calculated
+          let allAliases = [];
+          let page = 1;
+          const baseUrl = `${API_ENDPOINTS.aliases}${activeProjectId}/`;
+          const queryParams = 'include_zone_count=true&page_size=100'; // Use larger page size for efficiency
+          
+          while (true) {
+            const url = `${baseUrl}?${queryParams}&page=${page}`;
+            console.log(`Fetching aliases page ${page}: ${url}`);
+            
+            const aliasesResponse = await axios.get(url);
+            console.log(`Aliases response page ${page}:`, aliasesResponse.data);
+            
+            const responseData = aliasesResponse.data;
+            const aliasesArray = responseData.results || responseData;
+            
+            if (Array.isArray(aliasesArray)) {
+              allAliases = [...allAliases, ...aliasesArray];
+              console.log(`Loaded ${aliasesArray.length} aliases from page ${page}, total so far: ${allAliases.length}`);
+              
+              // Check if there are more pages
+              if (aliasesArray.length === 0 || !responseData.next) {
+                console.log(`No more pages. Final total: ${allAliases.length} aliases`);
+                break;
+              }
+              page++;
+            } else {
+              // Handle non-paginated response
+              allAliases = Array.isArray(responseData) ? responseData : [responseData];
+              console.log(`Non-paginated response, loaded ${allAliases.length} aliases`);
+              break;
+            }
+          }
+          
+          console.log(`Total aliases loaded: ${allAliases.length}`);
+          const aliasesArray = allAliases;
           const processedAliases = aliasesArray.map((a) => {
             // Handle different fabric reference structures
             let fabricName = "";
@@ -435,10 +471,36 @@ const ZoneTable = () => {
             };
 
             console.log(
-              `Alias ${a.name}: fabric ID ${a.fabric} -> fabric name "${fabricName}", include_in_zoning: ${a.include_in_zoning}, zoned_count: ${a.zoned_count || 0}`
+              `Alias ${a.name}: fabric ID ${a.fabric} -> fabric name "${fabricName}", include_in_zoning: ${a.include_in_zoning}, zoned_count: ${a.zoned_count || 0}`,
+              a.zoned_count === undefined ? '(zoned_count field missing from API)' : ''
             );
             return processedAlias;
           });
+
+          // If zoned_count is not provided by API, calculate it from existing zones
+          if (processedAliases.length > 0 && processedAliases[0].zoned_count === undefined) {
+            console.log("⚠️ zoned_count not provided by API, calculating client-side...");
+            
+            // Calculate zone counts for each alias
+            const aliasZoneCounts = {};
+            rawData.forEach(zone => {
+              if (zone.members_details) {
+                zone.members_details.forEach(member => {
+                  if (member.name) {
+                    aliasZoneCounts[member.name] = (aliasZoneCounts[member.name] || 0) + 1;
+                  }
+                });
+              }
+            });
+            
+            // Update processedAliases with calculated zone counts
+            processedAliases.forEach(alias => {
+              alias.zoned_count = aliasZoneCounts[alias.name] || 0;
+              console.log(`Calculated zoned_count for ${alias.name}: ${alias.zoned_count}`);
+            });
+            
+            console.log("✅ Client-side zone count calculation complete");
+          }
 
           setMemberOptions(processedAliases);
           console.log(
@@ -455,7 +517,43 @@ const ZoneTable = () => {
     };
 
     loadData();
-  }, [activeCustomerId, activeProjectId]);
+  }, [activeCustomerId, activeProjectId, fabricOptions]);
+
+  // Separate effect to calculate zone counts when both zones and aliases are loaded
+  useEffect(() => {
+    if (rawData.length > 0 && memberOptions.length > 0) {
+      // Check if we need to calculate zone counts client-side
+      const needsCalculation = memberOptions.some(alias => alias.zoned_count === undefined || alias.zoned_count === 0);
+      
+      if (needsCalculation) {
+        console.log("🔄 Recalculating zone counts with latest zone data...");
+        
+        // Calculate zone counts for each alias
+        const aliasZoneCounts = {};
+        rawData.forEach(zone => {
+          if (zone.members_details) {
+            zone.members_details.forEach(member => {
+              if (member.name) {
+                aliasZoneCounts[member.name] = (aliasZoneCounts[member.name] || 0) + 1;
+              }
+            });
+          }
+        });
+        
+        // Update member options with calculated zone counts
+        const updatedMemberOptions = memberOptions.map(alias => ({
+          ...alias,
+          zoned_count: aliasZoneCounts[alias.name] || 0
+        }));
+        
+        console.log("Zone count updates:", 
+          updatedMemberOptions.filter(a => aliasZoneCounts[a.name] > 0).map(a => ({ name: a.name, count: a.zoned_count }))
+        );
+        
+        setMemberOptions(updatedMemberOptions);
+      }
+    }
+  }, [rawData, memberOptions]);
 
   if (!activeProjectId) {
     return (
