@@ -174,13 +174,7 @@ const ConfigForm = () => {
                 customer: String(customer),
                 project: String(project),
                 active_project_id: String(active_project_id || project),
-                is_active: true,
-                // Include only the required default values for backend compatibility
-                san_vendor: "BR",
-                cisco_alias: "device-alias",
-                cisco_zoning_mode: "enhanced",
-                zone_ratio: "one-to-one",
-                // Remove problematic fields entirely
+                is_active: true
             };
             
             console.log("📦 PAYLOAD:", payload);
