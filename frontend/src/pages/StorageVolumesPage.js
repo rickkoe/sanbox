@@ -36,7 +36,7 @@ const StorageVolumesPage = () => {
   }
 
   return (
-    <div>
+    <div className="main-content table-page" style={{ paddingBottom: "50px" }}>
       <h3>{storage.name} – Volumes</h3>
       <VolumeTable storage={storage} />
     </div>

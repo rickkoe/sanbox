@@ -127,14 +127,15 @@
   overflow: visible;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px); /* Account for navbar + topbar */
+  min-height: calc(100vh - 100px); /* Account for navbar + topbar */
+  padding-bottom: 50px;
 }
 
 /* Ensure page titles are visible on table pages */
 .main-content.table-page > div {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
 }
 
 .main-content.table-page h1,

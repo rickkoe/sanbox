@@ -146,7 +146,7 @@ const VolumeTable = ({ storage }) => {
 
 
   return (
-    <div className="table-container">
+    <div className="table-container" style={{ height: "100%", overflow: "hidden" }}>
       <GenericTable
         ref={tableRef}
         apiUrl={apiUrl}
@@ -156,6 +156,7 @@ const VolumeTable = ({ storage }) => {
         defaultPageSize={50}
         storageKey={`volume-table-${storage?.storage_system_id || 'default'}`}
         tableName="volumes"
+        height="calc(100vh - 180px)"
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => ({
           data: col.data,

@@ -25,6 +25,7 @@ const TableHeader = ({
   showCustomFilter,
   setShowCustomFilter,
   additionalButtons,
+  headerButtons,
   pagination = null,
   data = [],
   onFilterChange,
@@ -265,6 +266,13 @@ const TableHeader = ({
             data={data}
             initialFilters={columnFilters}
           />
+          
+          {/* Header Buttons */}
+          {headerButtons && (
+            <div className="additional-buttons">
+              {headerButtons}
+            </div>
+          )}
           
           <StatsContainer
             unsavedData={unsavedData}

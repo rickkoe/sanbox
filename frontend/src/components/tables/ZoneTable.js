@@ -340,7 +340,7 @@ const ZoneTable = () => {
       const allCols = [...allBaseColumns, ...memberColumns_array];
       const allHdrs = [...BASE_COLUMNS.map(col => col.title), ...memberHeaders];
 
-      // Currently displayed columns and headers
+      // Displayed columns/headers (base visible + member)
       const displayedCols = [...visibleBaseColumns, ...memberColumns_array];
       const displayedHdrs = [...visibleBaseHeaders, ...memberHeaders];
 
@@ -453,6 +453,7 @@ const ZoneTable = () => {
   return (
     <div className="table-container">
       <GenericTable
+        key={`zone-table-${memberColumns}`}
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}
         saveUrl={API_ENDPOINTS.zoneSave}
@@ -476,29 +477,36 @@ const ZoneTable = () => {
         getExportFilename={() =>
           `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`
         }
-        additionalButtons={[
-          {
-            text: "Add Member Column",
-            icon: (
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            ),
-            onClick: () => {
+        headerButtons={
+          <button
+            className="modern-btn modern-btn-secondary"
+            onClick={() => {
               console.log(`Adding 1 column. Current: ${memberColumns}`);
-              setIsAddingColumn(true);
-              setMemberColumns((prev) => prev + 1);
-              setTimeout(() => setIsAddingColumn(false), 1);
-            },
-          },
+              setMemberColumns(prev => prev + 1);
+            }}
+            title="Add Member Column"
+            style={{
+              minWidth: '32px',
+              padding: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        }
+        additionalButtons={[
           {
             text: "Generate Zoning Scripts",
             icon: (

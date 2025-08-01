@@ -115,7 +115,7 @@ const AliasScriptsPage = () => {
   }
 
   return (
-    <div className="table-container">
+    <div className="table-container" style={{ paddingBottom: "50px" }}>
       {/* Modern Header with Styled Buttons */}
       <div className="modern-table-header">
         <div className="header-left">

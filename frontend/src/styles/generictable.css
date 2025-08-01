@@ -2,7 +2,8 @@
 .modern-table-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: calc(100vh - 140px);
+  min-height: 650px;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 
@@ -11,6 +12,7 @@
     0 0 0 1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   transition: box-shadow 0.3s ease;
+  margin-bottom: 20px;
 }
 
 .modern-table-container:hover {
@@ -441,6 +443,9 @@
   overflow: hidden;
   position: relative;
   background: white;
+  min-height: 450px;
+  padding-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 /* When pagination is enabled, adjust the table container height */

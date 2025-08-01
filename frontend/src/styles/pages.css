@@ -131,12 +131,13 @@
 .code-block {
   background-color: #212529;
   color: #fff;
-  padding: 20px 40px 10px;
+  padding: 20px 40px 20px;
   font-family: "Courier New", Consolas, monospace;
   font-size: 1rem;
   line-height: 1.4;
   overflow: auto;
-  height: calc(100vh - 250px); /* your formula here */
+  max-height: calc(100vh - 200px);
+  min-height: 400px;
   border-radius: 4px;
   white-space: pre;
 }

@@ -114,7 +114,7 @@ const HostTable = ({ storage }) => {
     : `${API_URL}/api/storage/hosts/?storage_system_id=0`;
 
   return (
-    <div className="table-container">
+    <div className="table-container" style={{ height: "100%", overflow: "hidden" }}>
       <GenericTable
         ref={tableRef}
         apiUrl={apiUrl}
@@ -124,6 +124,7 @@ const HostTable = ({ storage }) => {
         defaultPageSize={50}
         storageKey={`host-table-${storage?.storage_system_id || 'default'}`}
         tableName="hosts"
+        height="calc(100vh - 180px)"
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => ({
           data: col.data,

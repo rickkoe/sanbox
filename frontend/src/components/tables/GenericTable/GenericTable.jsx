@@ -47,6 +47,7 @@ const GenericTable = forwardRef(({
   afterSave,
   afterChange,
   additionalButtons,
+  headerButtons,
   storageKey,
   height = "calc(100vh - 200px)",
   getExportFilename,
@@ -925,6 +926,7 @@ const GenericTable = forwardRef(({
         showCustomFilter={showCustomFilter}
         setShowCustomFilter={setShowCustomFilter}
         additionalButtons={additionalButtons}
+        headerButtons={headerButtons}
         columnFilters={columnFilters}
         onClearAllFilters={() => {
           setColumnFilters({});
@@ -989,6 +991,7 @@ const GenericTable = forwardRef(({
               fixedColumnsLeft={0}
               allowHtml={false}
               preventOverflow={false}
+              minSpareRows={serverPagination ? 5 : 3}
               afterChange={handleAfterChange}
               afterSelection={(r, c, r2, c2) => updateSelectedCount()}
               afterDeselect={() => setSelectedCount(0)}
