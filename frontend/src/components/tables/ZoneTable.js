@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useSettings } from "../../context/SettingsContext";
 import { Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import GenericTable from "./GenericTable"; // Fixed import
@@ -47,6 +48,7 @@ const NEW_ZONE_TEMPLATE = {
 
 const ZoneTable = () => {
   const { config } = useContext(ConfigContext);
+  const { settings } = useSettings();
   const [fabricOptions, setFabricOptions] = useState([]);
   const [memberOptions, setMemberOptions] = useState([]);
   const [memberColumns, setMemberColumns] = useState(5);
@@ -280,14 +282,30 @@ const ZoneTable = () => {
         }
       }
 
-      // Available aliases = matching fabric + include_in_zoning + not used elsewhere
+      // Get alias_max_zones setting, default to 1 if not available
+      const aliasMaxZones = settings?.alias_max_zones || 1;
+
+      // Available aliases = matching fabric + include_in_zoning + not used elsewhere + zone count check
       const availableAliases = memberOptions.filter((alias) => {
         const fabricMatch = alias.fabric === rowFabric;
         const includeInZoning = alias.include_in_zoning === true;
         const notUsedElsewhere =
           !usedAliases.has(alias.name) || alias.name === currentValue;
+        
+        // Check if alias has room for more zones (zone count < max allowed)
+        const hasRoomForMoreZones = (alias.zoned_count || 0) < aliasMaxZones;
 
-        return fabricMatch && includeInZoning && notUsedElsewhere;
+        // If this alias is already the current value, allow it regardless of zone count
+        const isCurrentValue = alias.name === currentValue;
+
+        const zoneCountCheck = hasRoomForMoreZones || isCurrentValue;
+
+        // Only log for the first member column to reduce spam
+        if (prop === "member_1" && fabricMatch && includeInZoning) {
+          console.log(`    Alias ${alias.name}: zoned_count=${alias.zoned_count}, max=${aliasMaxZones}, hasRoom=${hasRoomForMoreZones}, isCurrent=${isCurrentValue}, allowed=${zoneCountCheck}`);
+        }
+
+        return fabricMatch && includeInZoning && notUsedElsewhere && zoneCountCheck;
       });
 
       const sourceArray = availableAliases.map((alias) => alias.name);
@@ -413,10 +431,11 @@ const ZoneTable = () => {
               name: a.name,
               fabric: fabricName,
               include_in_zoning: a.include_in_zoning,
+              zoned_count: a.zoned_count || 0,
             };
 
             console.log(
-              `Alias ${a.name}: fabric ID ${a.fabric} -> fabric name "${fabricName}", include_in_zoning: ${a.include_in_zoning}`
+              `Alias ${a.name}: fabric ID ${a.fabric} -> fabric name "${fabricName}", include_in_zoning: ${a.include_in_zoning}, zoned_count: ${a.zoned_count || 0}`
             );
             return processedAlias;
           });
