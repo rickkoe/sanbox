@@ -96,6 +96,24 @@ const dropdownStyles = `
   html body .handsontable .htDropdownMenu .ht_master .wtHolder table tbody tr td:hover {
     background-color: #e3f2fd !important;
   }
+  
+  /* Context Menu Styling - Make container taller to show all options */
+  html body .htContextMenu {
+    min-width: 200px !important;
+    max-width: 300px !important;
+    z-index: 10000 !important;
+  }
+  
+  html body .htContextMenu .ht_master {
+    min-height: 280px !important;
+    max-height: 350px !important;
+  }
+  
+  html body .htContextMenu .ht_master .wtHolder {
+    min-height: 280px !important;
+    max-height: 350px !important;
+    overflow-y: visible !important;
+  }
 `;
 
 console.log("Handsontable version:", Handsontable.version);
@@ -246,6 +264,31 @@ const GenericTable = forwardRef(({
           });
         });
       });
+      
+      // Target context menus - focus on making container taller, not individual items
+      const contextMenus = document.querySelectorAll('.htContextMenu');
+      contextMenus.forEach(menu => {
+        // Force container to be taller and wider
+        menu.style.setProperty('min-width', '220px', 'important');
+        menu.style.setProperty('min-height', '400px', 'important');
+        menu.style.setProperty('max-height', '600px', 'important');
+        
+        // Force the master container to be taller
+        const master = menu.querySelector('.ht_master');
+        if (master) {
+          master.style.setProperty('min-height', '400px', 'important');
+          master.style.setProperty('max-height', '600px', 'important');
+        }
+        
+        // Force the holder to be taller and remove scroll
+        const holder = menu.querySelector('.ht_master .wtHolder');
+        if (holder) {
+          holder.style.setProperty('min-height', '400px', 'important');
+          holder.style.setProperty('max-height', '600px', 'important');
+          holder.style.setProperty('overflow-y', 'visible', 'important');
+          holder.style.setProperty('overflow', 'visible', 'important');
+        }
+      });
     };
     
     // Run immediately
@@ -260,13 +303,14 @@ const GenericTable = forwardRef(({
             if (node.classList && (
               node.classList.contains('handsontableEditor') || 
               node.classList.contains('htDropdownMenu') ||
-              node.classList.contains('autocompleteEditor')
+              node.classList.contains('autocompleteEditor') ||
+              node.classList.contains('htContextMenu')
             )) {
               foundDropdowns = true;
             }
             // Also check descendants
             if (node.querySelectorAll) {
-              const dropdowns = node.querySelectorAll('.handsontableEditor, .htDropdownMenu, .autocompleteEditor');
+              const dropdowns = node.querySelectorAll('.handsontableEditor, .htDropdownMenu, .autocompleteEditor, .htContextMenu');
               if (dropdowns.length > 0) {
                 foundDropdowns = true;
               }
