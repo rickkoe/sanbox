@@ -77,7 +77,27 @@ export const useTableConfiguration = ({
         };
         setTableConfig(defaultConfig);
       } else {
-        setTableConfig(config);
+        // Merge saved configuration with new default columns
+        // This ensures new columns (like additional member columns) are included
+        const defaultVisibleColumnNames = defaultVisibleColumns.map(index => colHeaders[index] || `column_${index}`);
+        const savedVisibleColumns = config.visible_columns || [];
+        
+        // Add any new default columns that aren't in the saved config
+        const mergedVisibleColumns = [...new Set([...savedVisibleColumns, ...defaultVisibleColumnNames])];
+        
+        const mergedConfig = {
+          ...config,
+          visible_columns: mergedVisibleColumns
+        };
+        
+        console.log(`🔄 Merged configuration for ${tableName}:`, {
+          saved: savedVisibleColumns.length,
+          defaults: defaultVisibleColumnNames.length,
+          merged: mergedVisibleColumns.length,
+          newColumns: defaultVisibleColumnNames.filter(col => !savedVisibleColumns.includes(col))
+        });
+        
+        setTableConfig(mergedConfig);
       }
       
       setConfigError(false);

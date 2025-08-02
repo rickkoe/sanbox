@@ -101,14 +101,30 @@ const ZoneTable = () => {
           // Ensure minimum of 5 columns
           const initialColumns = Math.max(5, maxMembers);
           console.log(`🔧 Current memberColumns: ${memberColumns}, Required: ${initialColumns}`);
+          
+          // Clear any stored table configuration to ensure all member columns are visible by default
+          const storageKeys = [
+            `table_config_zones_${activeProjectId}`,
+            `zone-table-${activeProjectId}-cols${memberColumns}`,
+            `zone-table-${activeProjectId}-cols${initialColumns}`,
+            'zoneTableColumns',
+            'zoneTableColumnWidths'
+          ];
+          storageKeys.forEach(key => {
+            console.log(`🗑️ Clearing stored configuration: ${key}`);
+            localStorage.removeItem(key);
+          });
+          
+          // Also clear any API-stored table configuration
+          try {
+            console.log(`🗑️ Clearing API table configuration for zones...`);
+            await axios.delete(`${API_URL}/api/core/table-config/zones/`);
+          } catch (error) {
+            console.log("Note: Could not clear API table config (might not exist):", error.message);
+          }
+          
           if (initialColumns > memberColumns) {
             console.log(`🔧 Setting initial member columns to ${initialColumns} based on database max`);
-            
-            // Clear any stored table configuration that might limit column visibility
-            const configKey = `table_config_zones_${activeProjectId}`;
-            console.log(`🗑️ Clearing stored table configuration: ${configKey}`);
-            localStorage.removeItem(configKey);
-            
             setMemberColumns(initialColumns);
             // Add a small delay to ensure state updates
             setTimeout(() => {
@@ -416,9 +432,9 @@ const ZoneTable = () => {
       const displayedCols = [...visibleBaseColumns, ...memberColumns_array];
       const displayedHdrs = [...visibleBaseHeaders, ...memberHeaders];
 
-      // Default visible column indices - base visible indices + first 7 member columns
-      // Only first 7 member columns are required/default visible, rest are optional
-      const defaultMemberColumns = Math.min(memberColumns, 7);
+      // Default visible column indices - base visible indices + ALL member columns
+      // All member columns are visible by default
+      const defaultMemberColumns = memberColumns;
       const memberIndices = Array.from(
         { length: defaultMemberColumns },
         (_, i) => BASE_COLUMNS.length + i
@@ -432,7 +448,9 @@ const ZoneTable = () => {
         - memberIndices: [${memberIndices.join(', ')}]
         - defaultVisible: [${defaultVisible.join(', ')}]
         - allColumns.length: ${allCols.length}
-        - allHeaders.length: ${allHdrs.length}`);
+        - allHeaders.length: ${allHdrs.length}
+        - memberHeaders: [${memberHeaders.join(', ')}]
+        - memberColumns_array length: ${memberColumns_array.length}`);
 
       return {
         displayedColumns: displayedCols,
@@ -630,7 +648,7 @@ const ZoneTable = () => {
   return (
     <div className="table-container">
       <GenericTable
-        key={`zone-table-${memberColumns}`}
+        key={`zone-table-${memberColumns}-${allColumns.length}-${allHeaders.length}`}
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}
         saveUrl={API_ENDPOINTS.zoneSave}
@@ -649,7 +667,6 @@ const ZoneTable = () => {
         onSave={handleSave}
         beforeSave={beforeSaveValidation}
         getCellsConfig={getCellsConfig}
-        storageKey="zoneTableColumnWidths"
         defaultVisibleColumns={defaultVisibleColumns}
         initialVisibleColumns={defaultVisibleColumns}
         getExportFilename={() =>
