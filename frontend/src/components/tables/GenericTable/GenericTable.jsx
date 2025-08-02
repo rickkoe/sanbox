@@ -268,23 +268,23 @@ const GenericTable = forwardRef(({
       // Target context menus - focus on making container taller, not individual items
       const contextMenus = document.querySelectorAll('.htContextMenu');
       contextMenus.forEach(menu => {
-        // Force container to be taller and wider
+        // Force container to be taller and wider - moderate height
         menu.style.setProperty('min-width', '220px', 'important');
-        menu.style.setProperty('min-height', '400px', 'important');
-        menu.style.setProperty('max-height', '600px', 'important');
+        menu.style.setProperty('min-height', '280px', 'important');
+        menu.style.setProperty('max-height', '350px', 'important');
         
         // Force the master container to be taller
         const master = menu.querySelector('.ht_master');
         if (master) {
-          master.style.setProperty('min-height', '400px', 'important');
-          master.style.setProperty('max-height', '600px', 'important');
+          master.style.setProperty('min-height', '280px', 'important');
+          master.style.setProperty('max-height', '350px', 'important');
         }
         
         // Force the holder to be taller and remove scroll
         const holder = menu.querySelector('.ht_master .wtHolder');
         if (holder) {
-          holder.style.setProperty('min-height', '400px', 'important');
-          holder.style.setProperty('max-height', '600px', 'important');
+          holder.style.setProperty('min-height', '280px', 'important');
+          holder.style.setProperty('max-height', '350px', 'important');
           holder.style.setProperty('overflow-y', 'visible', 'important');
           holder.style.setProperty('overflow', 'visible', 'important');
         }
