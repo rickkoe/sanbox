@@ -54,15 +54,21 @@ const ZoneTable = () => {
   const { settings } = useSettings();
   const [fabricOptions, setFabricOptions] = useState([]);
   const [memberOptions, setMemberOptions] = useState([]);
-  const [memberColumns, setMemberColumns] = useState(5); // Minimum 5 columns
+  // New structure: track different column types
+  const [memberColumnConfig, setMemberColumnConfig] = useState({
+    init: 2,    // Initiator columns
+    target: 2,  // Target columns  
+    both: 1     // Both (any use) columns
+  });
+  
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const tableRef = useRef(null);
   const navigate = useNavigate();
-  const [isAddingColumn, setIsAddingColumn] = useState(false);
+  const [showColumnTypeSelector, setShowColumnTypeSelector] = useState(false);
 
   // Column visibility state for base columns
-  const [visibleBaseIndices, setVisibleBaseIndices] = useState(() => {
+  const [visibleBaseIndices] = useState(() => {
     const saved = localStorage.getItem("zoneTableColumns");
     if (saved) {
       try {
@@ -95,9 +101,10 @@ const ZoneTable = () => {
           const initialColumns = Math.max(5, maxMembers);
           
           // Clear any stored table configuration to ensure all member columns are visible by default
+          const currentTotal = memberColumnConfig.init + memberColumnConfig.target + memberColumnConfig.both;
           const storageKeys = [
             `table_config_zones_${activeProjectId}`,
-            `zone-table-${activeProjectId}-cols${memberColumns}`,
+            `zone-table-${activeProjectId}-cols${currentTotal}`,
             `zone-table-${activeProjectId}-cols${initialColumns}`,
             'zoneTableColumns',
             'zoneTableColumnWidths'
@@ -113,21 +120,29 @@ const ZoneTable = () => {
             // Ignore error if config doesn't exist
           }
           
-          if (initialColumns > memberColumns) {
-            setMemberColumns(initialColumns);
+          if (initialColumns > currentTotal) {
+            // Add additional "both" columns to accommodate the max from database
+            setMemberColumnConfig(prev => ({
+              ...prev,
+              both: prev.both + (initialColumns - currentTotal)
+            }));
           }
         } catch (error) {
           console.error("Error fetching max member count:", error);
           // Fall back to minimum of 5 if API call fails
-          if (memberColumns < 5) {
-            setMemberColumns(5);
+          const fallbackTotal = memberColumnConfig.init + memberColumnConfig.target + memberColumnConfig.both;
+          if (fallbackTotal < 5) {
+            setMemberColumnConfig(prev => ({
+              ...prev,
+              both: prev.both + (5 - fallbackTotal)
+            }));
           }
         }
       }
     };
 
     fetchMaxMembers();
-  }, [activeProjectId]);
+  }, [activeProjectId, memberColumnConfig]);
 
   // Calculate required member columns from current page data - but don't reduce from database max
   useEffect(() => {
@@ -142,18 +157,76 @@ const ZoneTable = () => {
 
       // Only increase member columns if current page has more than what we already have
       // Don't decrease if database max was higher than current page
+      const currentTotal = memberColumnConfig.init + memberColumnConfig.target + memberColumnConfig.both;
       const requiredColumns = Math.max(5, maxMembersOnPage);
-      if (requiredColumns > memberColumns) {
-        setMemberColumns(requiredColumns);
+      if (requiredColumns > currentTotal) {
+        // Add additional "both" columns to accommodate the data
+        setMemberColumnConfig(prev => ({
+          ...prev,
+          both: prev.both + (requiredColumns - currentTotal)
+        }));
       }
     }
-  }, [rawData]); // Remove memberColumns to prevent infinite loop
+  }, [rawData, memberColumnConfig]); // Update when data or column config changes
+
+  // Calculate total member columns and create typed member column arrays
+  const memberColumnsInfo = useMemo(() => {
+    const { init, target, both } = memberColumnConfig;
+    const totalMemberColumns = init + target + both;
+    
+    // Create typed member columns with specific data attributes
+    const memberColumns_array = [];
+    const memberHeaders = [];
+    
+    let columnIndex = 1;
+    
+    // Add target columns FIRST
+    for (let i = 0; i < target; i++) {
+      memberColumns_array.push({ 
+        data: `member_${columnIndex}`,
+        memberType: 'target'
+      });
+      memberHeaders.push(`Target ${i + 1}`);
+      columnIndex++;
+    }
+    
+    // Add initiator columns SECOND
+    for (let i = 0; i < init; i++) {
+      memberColumns_array.push({ 
+        data: `member_${columnIndex}`,
+        memberType: 'init'
+      });
+      memberHeaders.push(`Initiator ${i + 1}`);
+      columnIndex++;
+    }
+    
+    // Add both/any columns LAST
+    for (let i = 0; i < both; i++) {
+      memberColumns_array.push({ 
+        data: `member_${columnIndex}`,
+        memberType: 'both'
+      });
+      memberHeaders.push(`Any ${i + 1}`);
+      columnIndex++;
+    }
+    
+    return {
+      totalMemberColumns,
+      memberColumns_array,
+      memberHeaders,
+      columnTypeMap: memberColumns_array.reduce((map, col) => {
+        map[col.data] = col.memberType;
+        return map;
+      }, {})
+    };
+  }, [memberColumnConfig]);
 
   // Helper function to build payload
   const buildPayload = (row) => {
     // Extract members
     const members = [];
-    for (let i = 1; i <= memberColumns; i++) {
+    const totalColumns = memberColumnsInfo.totalMemberColumns;
+    for (let i = 1; i <= totalColumns; i++) {
       const memberName = row[`member_${i}`];
       if (memberName) {
         const alias = memberOptions.find((a) => a.name === memberName);
@@ -175,7 +248,7 @@ const ZoneTable = () => {
 
     const payload = { ...row };
     // Remove member fields & saved flag
-    for (let i = 1; i <= memberColumns; i++) delete payload[`member_${i}`];
+    for (let i = 1; i <= totalColumns; i++) delete payload[`member_${i}`];
     delete payload.saved;
 
     return {
@@ -186,7 +259,7 @@ const ZoneTable = () => {
     };
   };
 
-  // Process data for display - optimized for performance
+  // Process data for display - intelligently place members in correct column types
   const preprocessData = useCallback((data) => {
     return data.map((zone) => {
       const memberCount = zone.members_details?.length || 0;
@@ -198,14 +271,57 @@ const ZoneTable = () => {
       };
 
       if (zone.members_details?.length) {
-        zone.members_details.forEach((member, idx) => {
-          zoneData[`member_${idx + 1}`] = member.name;
+        // Separate members by their use type
+        const initMembers = [];
+        const targetMembers = [];
+        const bothMembers = [];
+        
+        zone.members_details.forEach((member) => {
+          // Find the alias to get its use type
+          const alias = memberOptions.find(a => a.name === member.name);
+          const useType = alias?.use;
+          
+          if (useType === 'init') {
+            initMembers.push(member.name);
+          } else if (useType === 'target') {
+            targetMembers.push(member.name);
+          } else {
+            // null, undefined, or 'both' go to both columns
+            bothMembers.push(member.name);
+          }
         });
+        
+        // Place members in appropriate columns based on new order: Target → Initiator → Any
+        let columnIndex = 1;
+        
+        // Place target members in target columns FIRST
+        for (let i = 0; i < memberColumnConfig.target; i++) {
+          if (i < targetMembers.length) {
+            zoneData[`member_${columnIndex}`] = targetMembers[i];
+          }
+          columnIndex++;
+        }
+        
+        // Place init members in init columns SECOND
+        for (let i = 0; i < memberColumnConfig.init; i++) {
+          if (i < initMembers.length) {
+            zoneData[`member_${columnIndex}`] = initMembers[i];
+          }
+          columnIndex++;
+        }
+        
+        // Place both/other members in both columns LAST
+        for (let i = 0; i < memberColumnConfig.both; i++) {
+          if (i < bothMembers.length) {
+            zoneData[`member_${columnIndex}`] = bothMembers[i];
+          }
+          columnIndex++;
+        }
       }
 
       return zoneData;
     });
-  }, []);
+  }, [memberOptions, memberColumnConfig]);
 
   // Separate effect to update rawData when zones are loaded
   useEffect(() => {
@@ -288,15 +404,19 @@ const ZoneTable = () => {
     },
   };
 
-  // Memoized cell configuration for member dropdowns - optimized for performance
+  // Memoized cell configuration for member dropdowns - optimized for performance with use type filtering
   const getCellsConfig = useMemo(() => {
-    // Pre-calculate fabric-based alias groups for better performance
-    const fabricAliasMap = new Map();
+    // Pre-calculate fabric and use-type based alias groups for better performance
+    const fabricUseAliasMap = new Map();
     memberOptions.forEach(alias => {
-      if (!fabricAliasMap.has(alias.fabric)) {
-        fabricAliasMap.set(alias.fabric, []);
+      // Keep the original use value, don't default to 'both'
+      const useValue = alias.use === null || alias.use === undefined ? 'null' : alias.use;
+      const key = `${alias.fabric}-${useValue}`;
+      if (!fabricUseAliasMap.has(key)) {
+        fabricUseAliasMap.set(key, []);
       }
-      fabricAliasMap.get(alias.fabric).push(alias);
+      fabricUseAliasMap.get(key).push(alias);
+      
     });
 
     const aliasMaxZones = settings?.alias_max_zones || 1;
@@ -313,24 +433,51 @@ const ZoneTable = () => {
         const rowFabric = rowData.fabric_details?.name || rowData.fabric;
         const currentValue = rowData[prop];
         
-        // Create cache key based on fabric and current value
-        const cacheKey = `${rowFabric}-${currentValue || 'empty'}-${row}`;
+        // Determine the expected member type for this column
+        const columnType = memberColumnsInfo.columnTypeMap[prop];
+        if (!columnType) return {};
+        
+        
+        // Create cache key based on fabric, column type, and current value
+        const cacheKey = `${rowFabric}-${columnType}-${currentValue || 'empty'}-${row}`;
         
         if (dropdownCache.has(cacheKey)) {
           return dropdownCache.get(cacheKey);
         }
 
-        // Get aliases for this fabric (pre-filtered)
-        const fabricAliases = fabricAliasMap.get(rowFabric) || [];
+        // Get aliases for this fabric and use type combination - STRICT FILTERING
+        let relevantAliases = [];
+        
+        if (columnType === 'both') {
+          // For "both" columns, show aliases with use=both or null/undefined (any use)
+          relevantAliases = [
+            ...(fabricUseAliasMap.get(`${rowFabric}-both`) || []),
+            ...(fabricUseAliasMap.get(`${rowFabric}-null`) || [])
+          ];
+        } else if (columnType === 'init') {
+          // For initiator columns, show ONLY aliases with use=init
+          const lookupKey = `${rowFabric}-init`;
+          relevantAliases = [
+            ...(fabricUseAliasMap.get(lookupKey) || [])
+          ];
+        } else if (columnType === 'target') {
+          // For target columns, show ONLY aliases with use=target
+          const lookupKey = `${rowFabric}-target`;
+          relevantAliases = [
+            ...(fabricUseAliasMap.get(lookupKey) || [])
+          ];
+        }
+        
         
         // Build used aliases set more efficiently (only when cache miss)
         const usedAliases = new Set();
         const sourceData = hot.getSourceData();
+        const totalColumns = memberColumnsInfo.totalMemberColumns;
         
         for (let idx = 0; idx < sourceData.length; idx++) {
           if (idx !== row) {
             const data = sourceData[idx];
-            for (let i = 1; i <= memberColumns; i++) {
+            for (let i = 1; i <= totalColumns; i++) {
               const val = data[`member_${i}`];
               if (val) usedAliases.add(val);
             }
@@ -338,7 +485,7 @@ const ZoneTable = () => {
         }
 
         // Add used aliases from current row (except current cell)
-        for (let i = 1; i <= memberColumns; i++) {
+        for (let i = 1; i <= totalColumns; i++) {
           if (`member_${i}` !== prop) {
             const val = rowData[`member_${i}`];
             if (val) usedAliases.add(val);
@@ -346,7 +493,7 @@ const ZoneTable = () => {
         }
 
         // Filter available aliases with optimized logic
-        const availableAliases = fabricAliases.filter((alias) => {
+        const availableAliases = relevantAliases.filter((alias) => {
           const includeInZoning = alias.include_in_zoning === true;
           const notUsedElsewhere = !usedAliases.has(alias.name) || alias.name === currentValue;
           const hasRoomForMoreZones = (alias.zoned_count || 0) < aliasMaxZones;
@@ -371,7 +518,7 @@ const ZoneTable = () => {
       }
       return {};
     };
-  }, [memberOptions, visibleBaseIndices.length, memberColumns, settings?.alias_max_zones]);
+  }, [memberOptions, visibleBaseIndices.length, memberColumnsInfo.columnTypeMap, memberColumnsInfo.totalMemberColumns, settings?.alias_max_zones]);
 
   // Compute displayed columns and headers (base + member columns)
   const { allColumns, allHeaders, defaultVisibleColumns } =
@@ -396,36 +543,23 @@ const ZoneTable = () => {
         return column;
       });
 
-      // Add member columns (always show all member columns)
-      const memberColumns_array = Array.from(
-        { length: memberColumns },
-        (_, i) => ({ data: `member_${i + 1}` })
-      );
-      const memberHeaders = Array.from(
-        { length: memberColumns },
-        (_, i) => `Member ${i + 1}`
-      );
-
       // ALL columns and headers (for GenericTable to know about all options)
-      const allCols = [...allBaseColumns, ...memberColumns_array];
-      const allHdrs = [...BASE_COLUMNS.map(col => col.title), ...memberHeaders];
+      const allCols = [...allBaseColumns, ...memberColumnsInfo.memberColumns_array];
+      const allHdrs = [...BASE_COLUMNS.map(col => col.title), ...memberColumnsInfo.memberHeaders];
 
       // Default visible column indices - base visible indices + ALL member columns
-      // All member columns are visible by default
-      const defaultMemberColumns = memberColumns;
       const memberIndices = Array.from(
-        { length: defaultMemberColumns },
+        { length: memberColumnsInfo.totalMemberColumns },
         (_, i) => BASE_COLUMNS.length + i
       );
       const defaultVisible = [...visibleBaseIndices, ...memberIndices];
-
 
       return {
         allColumns: allCols,
         allHeaders: allHdrs,
         defaultVisibleColumns: defaultVisible,
       };
-    }, [visibleBaseIndices, memberColumns]);
+    }, [visibleBaseIndices, memberColumnsInfo]);
 
   const dropdownSources = useMemo(
     () => ({
@@ -435,9 +569,13 @@ const ZoneTable = () => {
     [fabricOptions]
   );
 
-  // Memoized handlers for better performance
-  const handleAddColumn = useCallback(() => {
-    setMemberColumns(prev => prev + 1);
+  // Memoized handlers for better performance  
+  const handleAddColumn = useCallback((columnType) => {
+    setMemberColumnConfig(prev => ({
+      ...prev,
+      [columnType]: prev[columnType] + 1
+    }));
+    setShowColumnTypeSelector(false);
   }, []);
 
   const additionalButtonsConfig = useMemo(() => [
@@ -513,30 +651,72 @@ const ZoneTable = () => {
 
         if (activeProjectId) {
           
-          // Fetch all aliases by handling pagination
+          // Fetch ALL aliases - use a large page size or no pagination for dropdown data
           let allAliases = [];
-          let page = 1;
-          const baseUrl = `${API_ENDPOINTS.aliases}${activeProjectId}/`;
-          const queryParams = 'include_zone_count=true&page_size=100';
           
-          while (true) {
-            const url = `${baseUrl}?${queryParams}&page=${page}`;
+          try {
+            // First, try to get all aliases with a very large page size
+            const url = `${API_ENDPOINTS.aliases}${activeProjectId}/?include_zone_count=true&page_size=10000`;
+            console.log(`🔄 Fetching all aliases with large page size: ${url}`);
             const aliasesResponse = await axios.get(url);
             const responseData = aliasesResponse.data;
-            const aliasesArray = responseData.results || responseData;
             
-            if (Array.isArray(aliasesArray)) {
-              allAliases = [...allAliases, ...aliasesArray];
+            if (responseData.results) {
+              // Paginated response
+              allAliases = responseData.results;
+              console.log(`📦 Got ${allAliases.length} aliases from large page request`);
               
-              // Check if there are more pages
-              if (aliasesArray.length === 0 || !responseData.next) {
+              // If there might be more, fall back to pagination
+              if (responseData.next) {
+                console.log(`⚠️ Still more pages available, falling back to pagination...`);
+                let page = 2;
+                while (responseData.next) {
+                  const nextUrl = `${API_ENDPOINTS.aliases}${activeProjectId}/?include_zone_count=true&page_size=10000&page=${page}`;
+                  const nextResponse = await axios.get(nextUrl);
+                  const nextData = nextResponse.data;
+                  allAliases = [...allAliases, ...(nextData.results || [])];
+                  console.log(`📦 Got ${nextData.results?.length || 0} more aliases from page ${page}. Total: ${allAliases.length}`);
+                  
+                  if (!nextData.next) break;
+                  page++;
+                }
+              }
+            } else {
+              // Non-paginated response
+              allAliases = Array.isArray(responseData) ? responseData : [responseData];
+              console.log(`📦 Got ${allAliases.length} aliases from non-paginated response`);
+            }
+          } catch (error) {
+            console.error('❌ Error fetching aliases with large page size, falling back to pagination:', error);
+            
+            // Fallback to original pagination approach
+            let page = 1;
+            const baseUrl = `${API_ENDPOINTS.aliases}${activeProjectId}/`;
+            const queryParams = 'include_zone_count=true&page_size=100';
+            
+            while (true) {
+              const url = `${baseUrl}?${queryParams}&page=${page}`;
+              console.log(`🔄 Fetching aliases page ${page}: ${url}`);
+              const aliasesResponse = await axios.get(url);
+              const responseData = aliasesResponse.data;
+              const aliasesArray = responseData.results || responseData;
+              
+              if (Array.isArray(aliasesArray)) {
+                allAliases = [...allAliases, ...aliasesArray];
+                console.log(`📦 Page ${page}: got ${aliasesArray.length} aliases. Total so far: ${allAliases.length}`);
+                
+                // Check if there are more pages
+                if (aliasesArray.length === 0 || !responseData.next) {
+                  console.log(`✅ No more pages. Final total: ${allAliases.length} aliases`);
+                  break;
+                }
+                page++;
+              } else {
+                // Handle non-paginated response
+                allAliases = Array.isArray(responseData) ? responseData : [responseData];
+                console.log(`📦 Non-paginated fallback: ${allAliases.length} aliases`);
                 break;
               }
-              page++;
-            } else {
-              // Handle non-paginated response
-              allAliases = Array.isArray(responseData) ? responseData : [responseData];
-              break;
             }
           }
           const aliasesArray = allAliases;
@@ -557,6 +737,7 @@ const ZoneTable = () => {
               fabric: fabricName,
               include_in_zoning: a.include_in_zoning,
               zoned_count: a.zoned_count || 0,
+              use: a.use, // CRITICAL: Include the use field!
             };
           });
 
@@ -581,6 +762,7 @@ const ZoneTable = () => {
           }
 
           setMemberOptions(processedAliases);
+          
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -622,6 +804,18 @@ const ZoneTable = () => {
     }
   }, [rawData]); // Remove memberOptions to prevent infinite loop
 
+  // Close column type selector when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showColumnTypeSelector && !event.target.closest('.position-relative')) {
+        setShowColumnTypeSelector(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColumnTypeSelector]);
+
   if (!activeProjectId) {
     return (
       <div className="alert alert-warning">No active project selected.</div>
@@ -637,7 +831,7 @@ const ZoneTable = () => {
   return (
     <div className="table-container">
       <GenericTable
-        key={`zone-table-${memberColumns}-${allColumns.length}-${allHeaders.length}`}
+        key={`zone-table-${memberColumnsInfo.totalMemberColumns}-${allColumns.length}-${allHeaders.length}`}
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}
         saveUrl={API_ENDPOINTS.zoneSave}
@@ -650,7 +844,7 @@ const ZoneTable = () => {
         customRenderers={customRenderers}
         serverPagination={true}
         defaultPageSize={50}
-        storageKey={`zone-table-${activeProjectId}-cols${memberColumns}`}
+        storageKey={`zone-table-${activeProjectId}-cols${memberColumnsInfo.totalMemberColumns}`}
         preprocessData={preprocessData}
         onBuildPayload={buildPayload}
         onSave={handleSave}
@@ -662,30 +856,105 @@ const ZoneTable = () => {
           `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`
         }
         headerButtons={
-          <button
-            className="modern-btn modern-btn-secondary"
-            onClick={handleAddColumn}
-            title="Add Member Column"
-            style={{
-              minWidth: '32px',
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+          <div className="position-relative">
+            <button
+              className="modern-btn modern-btn-secondary dropdown-toggle"
+              onClick={() => setShowColumnTypeSelector(!showColumnTypeSelector)}
+              title="Add Member Column"
+              style={{
+                minWidth: '120px',
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
             >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add Column {showColumnTypeSelector ? '▲' : '▼'}
+            </button>
+            {showColumnTypeSelector && (
+              <div 
+                style={{ 
+                  position: 'absolute',
+                  top: '100%', 
+                  left: '0', 
+                  zIndex: 10000,
+                  minWidth: '200px',
+                  backgroundColor: 'white',
+                  border: '2px solid #007bff',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                  marginTop: '2px',
+                  padding: '8px 0'
+                }}
+              >
+                <button
+                  onClick={() => handleAddColumn('init')}
+                  style={{ 
+                    padding: '12px 16px', 
+                    border: 'none', 
+                    backgroundColor: 'white',
+                    width: '100%', 
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid #eee'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                >
+                  <strong>Initiator</strong> Column
+                  <br />
+                  <small style={{color: '#666'}}>For host/server WWPNs</small>
+                </button>
+                <button
+                  onClick={() => handleAddColumn('target')}
+                  style={{ 
+                    padding: '12px 16px', 
+                    border: 'none', 
+                    backgroundColor: 'white',
+                    width: '100%', 
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid #eee'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                >
+                  <strong>Target</strong> Column
+                  <br />
+                  <small style={{color: '#666'}}>For storage/switch WWPNs</small>
+                </button>
+                <button
+                  onClick={() => handleAddColumn('both')}
+                  style={{ 
+                    padding: '12px 16px', 
+                    border: 'none', 
+                    backgroundColor: 'white',
+                    width: '100%', 
+                    textAlign: 'left',
+                    cursor: 'pointer'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                >
+                  <strong>Any Use</strong> Column
+                  <br />
+                  <small style={{color: '#666'}}>For any member type</small>
+                </button>
+              </div>
+            )}
+          </div>
         }
         additionalButtons={additionalButtonsConfig}
       />
