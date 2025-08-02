@@ -19,6 +19,85 @@ import { useServerPagination } from './hooks/useServerPagination';
 import { createContextMenu } from './utils/contextMenu';
 import CustomTableFilter from './components/CustomTableFilter';
 
+// Custom CSS for better dropdown styling - using very specific selectors and high specificity
+const dropdownStyles = `
+  /* Use very high specificity to override Handsontable defaults */
+  html body div.handsontableEditor.autocompleteEditor.htMacScroll.listbox.handsontable,
+  html body .handsontableEditor.autocompleteEditor,
+  html body .autocompleteEditor.handsontable {
+    min-width: 280px !important;
+    width: 280px !important;
+    max-width: 400px !important;
+  }
+  
+  /* Force row heights with extremely high specificity */
+  html body div.handsontableEditor.autocompleteEditor div.ht_master div.wtHolder div.wtHider table.htCore tbody tr,
+  html body .handsontableEditor.autocompleteEditor .ht_master .wtHolder table tbody tr,
+  html body .autocompleteEditor.handsontable .ht_master table tbody tr {
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+  }
+  
+  /* Force cell heights and styling with maximum specificity */
+  html body div.handsontableEditor.autocompleteEditor div.ht_master div.wtHolder div.wtHider table.htCore tbody tr td,
+  html body .handsontableEditor.autocompleteEditor .ht_master .wtHolder table tbody tr td,
+  html body .autocompleteEditor.handsontable .ht_master table tbody tr td {
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    padding: 14px 18px !important;
+    line-height: 16px !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    min-width: 240px !important;
+    width: 240px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  
+  /* Hover effects with high specificity */
+  html body div.handsontableEditor.autocompleteEditor div.ht_master div.wtHolder div.wtHider table.htCore tbody tr td:hover,
+  html body .handsontableEditor.autocompleteEditor .ht_master .wtHolder table tbody tr td:hover,
+  html body .autocompleteEditor.handsontable .ht_master table tbody tr td:hover {
+    background-color: #e3f2fd !important;
+  }
+  
+  /* For dropdown menus (member dropdowns) */
+  html body .handsontable .htDropdownMenu {
+    min-width: 280px !important;
+    max-width: 400px !important;
+    z-index: 9999 !important;
+  }
+  
+  html body .handsontable .htDropdownMenu .ht_master .wtHolder table tbody tr {
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+  }
+  
+  html body .handsontable .htDropdownMenu .ht_master .wtHolder table tbody tr td {
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    padding: 12px 16px !important;
+    line-height: 16px !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    min-width: 220px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  
+  html body .handsontable .htDropdownMenu .ht_master .wtHolder table tbody tr td:hover {
+    background-color: #e3f2fd !important;
+  }
+`;
+
 console.log("Handsontable version:", Handsontable.version);
 registerAllModules();
 
@@ -105,6 +184,122 @@ const GenericTable = forwardRef(({
   
   const tableRef = useRef(null);
   const containerRef = useRef(null);
+
+  // Inject custom dropdown styles and force height with JavaScript
+  useEffect(() => {
+    const styleId = 'handsontable-dropdown-styles';
+    
+    // Remove existing styles if any
+    const existingStyles = document.getElementById(styleId);
+    if (existingStyles) {
+      existingStyles.remove();
+    }
+    
+    // Add new styles
+    const styleElement = document.createElement('style');
+    styleElement.id = styleId;
+    styleElement.textContent = dropdownStyles;
+    document.head.appendChild(styleElement);
+    
+    // Force dropdown heights with direct DOM manipulation
+    const forceDropdownHeights = () => {
+      // Target autocomplete dropdowns
+      const autocompleteDropdowns = document.querySelectorAll('.handsontableEditor.autocompleteEditor');
+      autocompleteDropdowns.forEach(dropdown => {
+        // Force container height
+        dropdown.style.setProperty('min-height', '200px', 'important');
+        
+        // Force row and cell heights
+        const rows = dropdown.querySelectorAll('tr');
+        rows.forEach(row => {
+          row.style.setProperty('height', '48px', 'important');
+          row.style.setProperty('min-height', '48px', 'important');
+          
+          const cells = row.querySelectorAll('td');
+          cells.forEach(cell => {
+            cell.style.setProperty('height', '48px', 'important');
+            cell.style.setProperty('min-height', '48px', 'important');
+            cell.style.setProperty('padding', '16px 20px', 'important');
+            cell.style.setProperty('line-height', '16px', 'important');
+            cell.style.setProperty('vertical-align', 'middle', 'important');
+            cell.style.setProperty('box-sizing', 'border-box', 'important');
+          });
+        });
+      });
+      
+      // Target regular dropdown menus
+      const dropdownMenus = document.querySelectorAll('.htDropdownMenu');
+      dropdownMenus.forEach(dropdown => {
+        const rows = dropdown.querySelectorAll('tr');
+        rows.forEach(row => {
+          row.style.setProperty('height', '44px', 'important');
+          row.style.setProperty('min-height', '44px', 'important');
+          
+          const cells = row.querySelectorAll('td');
+          cells.forEach(cell => {
+            cell.style.setProperty('height', '44px', 'important');
+            cell.style.setProperty('min-height', '44px', 'important');
+            cell.style.setProperty('padding', '14px 18px', 'important');
+            cell.style.setProperty('line-height', '16px', 'important');
+            cell.style.setProperty('vertical-align', 'middle', 'important');
+            cell.style.setProperty('box-sizing', 'border-box', 'important');
+          });
+        });
+      });
+    };
+    
+    // Run immediately
+    forceDropdownHeights();
+    
+    // Set up mutation observer to catch dynamically created dropdowns
+    const observer = new MutationObserver((mutations) => {
+      let foundDropdowns = false;
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) {
+            if (node.classList && (
+              node.classList.contains('handsontableEditor') || 
+              node.classList.contains('htDropdownMenu') ||
+              node.classList.contains('autocompleteEditor')
+            )) {
+              foundDropdowns = true;
+            }
+            // Also check descendants
+            if (node.querySelectorAll) {
+              const dropdowns = node.querySelectorAll('.handsontableEditor, .htDropdownMenu, .autocompleteEditor');
+              if (dropdowns.length > 0) {
+                foundDropdowns = true;
+              }
+            }
+          }
+        });
+      });
+      
+      if (foundDropdowns) {
+        // Small delay to ensure DOM is ready
+        setTimeout(forceDropdownHeights, 10);
+      }
+    });
+    
+    // Start observing
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Also run periodically as a fallback
+    const interval = setInterval(forceDropdownHeights, 1000);
+    
+    // Cleanup on unmount
+    return () => {
+      observer.disconnect();
+      clearInterval(interval);
+      const styleToRemove = document.getElementById(styleId);
+      if (styleToRemove) {
+        styleToRemove.remove();
+      }
+    };
+  }, []);
 
   // Simple data fetching - no pagination
   const fetchData = async () => {
