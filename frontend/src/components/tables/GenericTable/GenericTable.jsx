@@ -449,6 +449,24 @@ const GenericTable = forwardRef(({
   // Enhanced context menu
   const enhancedContextMenu = createContextMenu(tableRef, setIsDirty, handleAfterContextMenu);
 
+  // Optimized scroll handler for better performance
+  const handleScrollVertically = useCallback(() => {
+    // Update scroll button states without forcing render
+    const hot = tableRef.current?.hotInstance;
+    if (hot && data?.length > 0) {
+      try {
+        const totalRows = data.length;
+        const firstRenderedRow = hot.view.wt.wtTable.getFirstRenderedRow();
+        const lastRenderedRow = hot.view.wt.wtTable.getLastRenderedRow();
+        
+        setIsAtTop(firstRenderedRow <= 0);
+        setIsAtBottom(lastRenderedRow >= totalRows - 1);
+      } catch (error) {
+        // Ignore scroll update errors
+      }
+    }
+  }, [data?.length]);
+
   // Refs and imperative handle
   useImperativeHandle(ref, () => ({
     hotInstance: tableRef.current?.hotInstance,
@@ -495,7 +513,6 @@ const GenericTable = forwardRef(({
         setIsAtTop(firstRenderedRow <= 0);
         setIsAtBottom(lastRenderedRow >= totalRows - 1);
         
-        console.log('Scroll position:', { firstRenderedRow, lastRenderedRow, totalRows, isAtTop: firstRenderedRow <= 0, isAtBottom: lastRenderedRow >= totalRows - 1 });
       } catch (error) {
         // Fallback in case of any issues
         setShowScrollButtons(data.length > 10);
@@ -998,50 +1015,18 @@ const GenericTable = forwardRef(({
               manualColumnResize={true}
               afterColumnResize={handleAfterColumnResize}
               afterColumnSort={handleAfterColumnSort}
-              afterScrollHorizontally={() => {
-                setTimeout(() => {
-                  if (tableRef.current?.hotInstance) {
-                    tableRef.current.hotInstance.render();
-                  }
-                }, 10);
-              }}
-              afterScrollVertically={() => {
-                setTimeout(() => {
-                  const hot = tableRef.current?.hotInstance;
-                  if (hot) {
-                    hot.render();
-                    
-                    // Update scroll button states
-                    try {
-                      const totalRows = data?.length || 0;
-                      const firstRenderedRow = hot.view.wt.wtTable.getFirstRenderedRow();
-                      const lastRenderedRow = hot.view.wt.wtTable.getLastRenderedRow();
-                      
-                      setIsAtTop(firstRenderedRow <= 0);
-                      setIsAtBottom(lastRenderedRow >= totalRows - 1);
-                      
-                      console.log('Scroll update:', { firstRenderedRow, lastRenderedRow, totalRows, isAtTop: firstRenderedRow <= 0, isAtBottom: lastRenderedRow >= totalRows - 1 });
-                    } catch (error) {
-                      console.log('Scroll update error:', error);
-                    }
-                  }
-                }, 10);
-              }}
+              afterScrollVertically={handleScrollVertically}
               stretchH="all"
               contextMenu={enhancedContextMenu}
               afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
               beforeRemoveRow={() => false}
               colWidths={dynamicColWidths}
               cells={getCellsConfig ? cellsFunc : undefined}
-              viewportRowRenderingOffset={10}
-              viewportColumnRenderingOffset={10}
+              viewportRowRenderingOffset={30}
+              viewportColumnRenderingOffset={5}
               renderAllRows={false}
               afterInit={() => {
-                if (tableRef.current?.hotInstance) {
-                  setTimeout(() => {
-                    tableRef.current.hotInstance.render();
-                  }, 0);
-                }
+                setIsTableReady(true);
               }}
             />
           </div>
