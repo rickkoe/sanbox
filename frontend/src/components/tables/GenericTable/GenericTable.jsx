@@ -1299,7 +1299,7 @@ const GenericTable = forwardRef(({
                   setTimeout(forceAlignment, 16);
                 }
               }}
-              stretchH="none"
+              stretchH="all"
               contextMenu={enhancedContextMenu}
               afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
               beforeRemoveRow={() => false}

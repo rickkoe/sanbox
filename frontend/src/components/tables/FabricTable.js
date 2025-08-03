@@ -171,7 +171,7 @@ const FabricTable = () => {
     // Show loading while config is being fetched to prevent loading all fabrics
     if (configLoading) {
         return (
-            <div className="table-container">
+            <div className="modern-table-container">
                 <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
                     <div className="spinner-border text-primary" role="status">
                         <span className="visually-hidden">Loading configuration...</span>
@@ -183,7 +183,7 @@ const FabricTable = () => {
     }
 
     return (
-        <div className="table-container">
+        <div className="modern-table-container">
             <GenericTable
                 ref={tableRef}
                 apiUrl={fabricsApiUrl}

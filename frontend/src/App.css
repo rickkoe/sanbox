@@ -128,7 +128,7 @@
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 100px); /* Account for navbar + topbar */
-  padding-bottom: 50px;
+  padding: 1rem 0 50px 0; /* Remove left/right padding, keep top/bottom */
 }
 
 /* Ensure page titles are visible on table pages */

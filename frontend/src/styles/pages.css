@@ -128,6 +128,12 @@
 
 /* Green Screen Style Inspired by Old Mainframe Terminals */
 
+/* Table container for fabric table and other tables */
+.table-container {
+  width: 100%;
+  max-width: 100%;
+}
+
 .code-block {
   background-color: #212529;
   color: #fff;
