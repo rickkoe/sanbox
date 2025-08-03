@@ -948,14 +948,14 @@ const ZoneTable = () => {
                   position: 'absolute',
                   top: '100%', 
                   left: '0', 
-                  zIndex: 10000,
+                  zIndex: 1000,
                   minWidth: '200px',
                   backgroundColor: 'white',
-                  border: '2px solid #007bff',
-                  borderRadius: '6px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '4px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                   marginTop: '2px',
-                  padding: '8px 0'
+                  padding: '4px 0'
                 }}
               >
                 <button
