@@ -88,86 +88,106 @@ const ZoneTable = () => {
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
-  // Fetch maximum member count from database on component load
+  // Clear table configuration cache on project change and when columns change
   useEffect(() => {
-    const fetchMaxMembers = async () => {
+    const clearTableConfig = async () => {
       if (activeProjectId) {
+        console.log(`🧹 Aggressively clearing ALL table configuration for project ${activeProjectId}`);
+        
+        // Clear ALL possible storage keys
+        const allKeys = Object.keys(localStorage);
+        const relevantKeys = allKeys.filter(key => 
+          key.includes('zone') || 
+          key.includes('table_config') ||
+          key.includes('zones') ||
+          key.includes(`${activeProjectId}`)
+        );
+        
+        console.log(`🗑️ Removing ${relevantKeys.length} localStorage keys:`, relevantKeys);
+        relevantKeys.forEach(key => {
+          localStorage.removeItem(key);
+        });
+        
+        // Also clear any API-stored table configuration  
         try {
-          const apiUrl = `${API_ENDPOINTS.zoneMaxMembers}${activeProjectId}/max-members/`;
-          const response = await axios.get(apiUrl);
-          const maxMembers = response.data.max_members;
-          
-          // Ensure minimum of 5 columns
-          const initialColumns = Math.max(5, maxMembers);
-          
-          // Clear any stored table configuration to ensure all member columns are visible by default
-          const currentTotal = memberColumnConfig.init + memberColumnConfig.target + memberColumnConfig.both;
-          const storageKeys = [
-            `table_config_zones_${activeProjectId}`,
-            `zone-table-${activeProjectId}-cols${currentTotal}`,
-            `zone-table-${activeProjectId}-cols${initialColumns}`,
-            'zoneTableColumns',
-            'zoneTableColumnWidths'
-          ];
-          storageKeys.forEach(key => {
-            localStorage.removeItem(key);
-          });
-          
-          // Also clear any API-stored table configuration
-          try {
-            await axios.delete(`${API_URL}/api/core/table-config/zones/`);
-          } catch (error) {
-            // Ignore error if config doesn't exist
-          }
-          
-          if (initialColumns > currentTotal) {
-            // Add additional "both" columns to accommodate the max from database
-            setMemberColumnConfig(prev => ({
-              ...prev,
-              both: prev.both + (initialColumns - currentTotal)
-            }));
-          }
+          const response = await axios.delete(`${API_URL}/api/core/table-config/zones/?customer_id=${activeCustomerId}`);
+          console.log(`🗑️ Deleted API table config:`, response.status);
         } catch (error) {
-          console.error("Error fetching max member count:", error);
-          // Fall back to minimum of 5 if API call fails
-          const fallbackTotal = memberColumnConfig.init + memberColumnConfig.target + memberColumnConfig.both;
-          if (fallbackTotal < 5) {
-            setMemberColumnConfig(prev => ({
-              ...prev,
-              both: prev.both + (5 - fallbackTotal)
-            }));
-          }
+          console.log(`🗑️ No API config to delete:`, error.response?.status);
         }
       }
     };
 
-    fetchMaxMembers();
-  }, [activeProjectId, memberColumnConfig]);
+    clearTableConfig();
+  }, [activeProjectId, memberColumnConfig.init, memberColumnConfig.target, memberColumnConfig.both]); // Clear when project OR columns change
 
-  // Calculate required member columns from current page data - but don't reduce from database max
+  // Calculate required member columns by type from current page data
   useEffect(() => {
-    if (rawData.length > 0) {
-      let maxMembersOnPage = 0;
+    if (rawData.length > 0 && memberOptions.length > 0) {
+      let maxInitMembers = 0;
+      let maxTargetMembers = 0;
+      let maxBothMembers = 0;
 
-      rawData.forEach((zone) => {
+      console.log(`🔍 Analyzing ${rawData.length} zones for column requirements...`);
+
+      rawData.forEach((zone, zoneIndex) => {
         if (zone.members_details?.length) {
-          maxMembersOnPage = Math.max(maxMembersOnPage, zone.members_details.length);
+          let initCount = 0;
+          let targetCount = 0;
+          let bothCount = 0;
+          
+          zone.members_details.forEach((member) => {
+            // Find the alias to get its use type
+            const alias = memberOptions.find(a => a.name === member.name);
+            const useType = alias?.use;
+            
+            console.log(`  Zone ${zoneIndex + 1} member "${member.name}": use="${useType}"`);
+            
+            if (useType === 'init') {
+              initCount++;
+            } else if (useType === 'target') {
+              targetCount++;
+            } else {
+              // null, undefined, or 'both' go to both columns
+              bothCount++;
+            }
+          });
+          
+          console.log(`  Zone ${zoneIndex + 1} counts: init=${initCount}, target=${targetCount}, both=${bothCount}`);
+          
+          maxInitMembers = Math.max(maxInitMembers, initCount);
+          maxTargetMembers = Math.max(maxTargetMembers, targetCount);
+          maxBothMembers = Math.max(maxBothMembers, bothCount);
         }
       });
 
-      // Only increase member columns if current page has more than what we already have
-      // Don't decrease if database max was higher than current page
-      const currentTotal = memberColumnConfig.init + memberColumnConfig.target + memberColumnConfig.both;
-      const requiredColumns = Math.max(5, maxMembersOnPage);
-      if (requiredColumns > currentTotal) {
-        // Add additional "both" columns to accommodate the data
-        setMemberColumnConfig(prev => ({
-          ...prev,
-          both: prev.both + (requiredColumns - currentTotal)
-        }));
+      console.log(`📊 Max members found: init=${maxInitMembers}, target=${maxTargetMembers}, both=${maxBothMembers}`);
+
+      // Ensure minimum columns and update if we need more of any type
+      const requiredInit = Math.max(2, maxInitMembers);
+      const requiredTarget = Math.max(2, maxTargetMembers);
+      const requiredBoth = Math.max(1, maxBothMembers);
+      
+      console.log(`📋 Required columns: init=${requiredInit}, target=${requiredTarget}, both=${requiredBoth}`);
+      console.log(`📋 Current columns: init=${memberColumnConfig.init}, target=${memberColumnConfig.target}, both=${memberColumnConfig.both}`);
+      
+      const needsUpdate = 
+        requiredInit !== memberColumnConfig.init ||
+        requiredTarget !== memberColumnConfig.target ||
+        requiredBoth !== memberColumnConfig.both;
+        
+      if (needsUpdate) {
+        console.log(`🔄 Updating columns: Target ${memberColumnConfig.target}→${requiredTarget}, Init ${memberColumnConfig.init}→${requiredInit}, Both ${memberColumnConfig.both}→${requiredBoth}`);
+        setMemberColumnConfig({
+          init: requiredInit,
+          target: requiredTarget,
+          both: requiredBoth
+        });
+      } else {
+        console.log(`✅ No column update needed`);
       }
     }
-  }, [rawData, memberColumnConfig]); // Update when data or column config changes
+  }, [rawData, memberOptions]); // Remove memberColumnConfig dependency to prevent infinite loop
 
   // Calculate total member columns and create typed member column arrays
   const memberColumnsInfo = useMemo(() => {
@@ -209,6 +229,9 @@ const ZoneTable = () => {
       memberHeaders.push(`Any ${i + 1}`);
       columnIndex++;
     }
+    
+    console.log(`🏷️ Generated column headers:`, memberHeaders);
+    console.log(`📋 Column breakdown: ${target} target, ${init} init, ${both} both = ${totalMemberColumns} total`);
     
     return {
       totalMemberColumns,
