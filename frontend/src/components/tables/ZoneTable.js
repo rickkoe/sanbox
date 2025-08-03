@@ -590,6 +590,7 @@ const ZoneTable = () => {
           column.type = "dropdown";
         } else if (colConfig.data === "create" || colConfig.data === "delete" || colConfig.data === "exists") {
           column.type = "checkbox";
+          column.className = "htCenter";
         } else if (
           colConfig.data === "imported" ||
           colConfig.data === "updated" ||
