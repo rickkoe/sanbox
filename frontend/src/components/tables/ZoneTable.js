@@ -24,6 +24,7 @@ const BASE_COLUMNS = [
   { data: "fabric", title: "Fabric" },
   { data: "member_count", title: "Members" },
   { data: "create", title: "Create" },
+  { data: "delete", title: "Delete" },
   { data: "exists", title: "Exists" },
   { data: "zone_type", title: "Zone Type" },
   { data: "imported", title: "Imported" },
@@ -32,7 +33,7 @@ const BASE_COLUMNS = [
 ];
 
 // Default visible base column indices (show all base columns by default)
-const DEFAULT_BASE_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5];
+const DEFAULT_BASE_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6];
 
 // Template for new rows
 const NEW_ZONE_TEMPLATE = {
@@ -41,6 +42,7 @@ const NEW_ZONE_TEMPLATE = {
   fabric: "",
   member_count: 0,
   create: false,
+  delete: false,
   exists: false,
   zone_type: "",
   notes: "",
@@ -586,7 +588,7 @@ const ZoneTable = () => {
         // Add specific column configurations
         if (colConfig.data === "fabric" || colConfig.data === "zone_type") {
           column.type = "dropdown";
-        } else if (colConfig.data === "create" || colConfig.data === "exists") {
+        } else if (colConfig.data === "create" || colConfig.data === "delete" || colConfig.data === "exists") {
           column.type = "checkbox";
         } else if (
           colConfig.data === "imported" ||

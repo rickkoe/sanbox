@@ -751,6 +751,29 @@ const GenericTable = forwardRef(({
       afterChange(changes, source);
     }
     
+    // Handle mutual exclusivity between create and delete checkboxes
+    const hotInstance = tableRef.current?.hotInstance;
+    if (hotInstance) {
+      changes.forEach(([row, prop, oldValue, newValue]) => {
+        // Only handle boolean changes for create/delete columns
+        if ((prop === 'create' || prop === 'delete') && newValue === true && oldValue !== newValue) {
+          const currentRowData = hotInstance.getSourceDataAtRow(row);
+          if (currentRowData) {
+            // If create is checked, uncheck delete
+            if (prop === 'create' && newValue === true && currentRowData.delete === true) {
+              hotInstance.setDataAtRowProp(row, 'delete', false);
+              console.log(`🔄 Auto-unchecked delete for row ${row} because create was checked`);
+            }
+            // If delete is checked, uncheck create
+            else if (prop === 'delete' && newValue === true && currentRowData.create === true) {
+              hotInstance.setDataAtRowProp(row, 'create', false);
+              console.log(`🔄 Auto-unchecked create for row ${row} because delete was checked`);
+            }
+          }
+        }
+      });
+    }
+    
     // Track changes for both existing and new rows
     const newModifiedRows = { ...modifiedRows };
     let hasChanges = false;

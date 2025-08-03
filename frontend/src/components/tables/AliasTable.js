@@ -22,6 +22,7 @@ const ALL_COLUMNS = [
   { data: "fabric_details.name", title: "Fabric" },
   { data: "cisco_alias", title: "Alias Type" },
   { data: "create", title: "Create" },
+  { data: "delete", title: "Delete" },
   { data: "include_in_zoning", title: "Include in Zoning" },
   { data: "zoned_count", title: "Zoned Count" },
   { data: "imported", title: "Imported" },
@@ -30,7 +31,7 @@ const ALL_COLUMNS = [
 ];
 
 // Default visible columns (show all by default for compatibility)
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7];
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
 // Template for new rows
 const NEW_ALIAS_TEMPLATE = {
@@ -42,6 +43,7 @@ const NEW_ALIAS_TEMPLATE = {
   fabric_details: { name: "" },
   cisco_alias: "",
   create: false,
+  delete: false,
   include_in_zoning: false,
   notes: "",
   imported: null,
@@ -444,7 +446,7 @@ const AliasTable = () => {
           } else if (col.data === "cisco_alias") {
             column.type = "dropdown";
             column.className = "htCenter";
-          } else if (col.data === "create" || col.data === "include_in_zoning") {
+          } else if (col.data === "create" || col.data === "delete" || col.data === "include_in_zoning") {
             column.type = "checkbox";
             column.className = "htCenter";
           } else if (col.data === "zoned_count" || col.data === "imported" || col.data === "updated") {
