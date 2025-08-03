@@ -1253,7 +1253,53 @@ const GenericTable = forwardRef(({
               afterColumnResize={handleAfterColumnResize}
               afterColumnSort={handleAfterColumnSort}
               afterScrollVertically={handleScrollVertically}
-              stretchH="all"
+              afterScrollHorizontally={() => {
+                // Aggressive alignment fix for scroll boundary issues
+                const hot = tableRef.current?.hotInstance;
+                if (hot) {
+                  const forceAlignment = () => {
+                    try {
+                      const container = hot.rootElement;
+                      const topClone = container.querySelector('.ht_clone_top');
+                      const master = container.querySelector('.ht_master');
+                      
+                      if (topClone && master) {
+                        const topTable = topClone.querySelector('.wtTable');
+                        const masterTable = master.querySelector('.wtTable');
+                        const masterHolder = master.querySelector('.wtHolder');
+                        
+                        if (topTable && masterTable && masterHolder) {
+                          // Get the exact scroll position
+                          const scrollLeft = masterHolder.scrollLeft;
+                          const maxScrollLeft = masterHolder.scrollWidth - masterHolder.clientWidth;
+                          
+                          // Force exact positioning using transform
+                          const translateX = -Math.min(scrollLeft, maxScrollLeft);
+                          topTable.style.transform = `translate3d(${translateX}px, 0, 0)`;
+                          
+                          // Also ensure the master table has no conflicting transforms
+                          masterTable.style.transform = 'translate3d(0, 0, 0)';
+                          
+                          // Force immediate render
+                          hot.render();
+                        }
+                      }
+                    } catch (e) {
+                      // Silently ignore
+                    }
+                  };
+                  
+                  // Immediate alignment
+                  forceAlignment();
+                  
+                  // Additional alignment after browser layout
+                  requestAnimationFrame(forceAlignment);
+                  
+                  // Final alignment with delay for any async operations
+                  setTimeout(forceAlignment, 16);
+                }
+              }}
+              stretchH="none"
               contextMenu={enhancedContextMenu}
               afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
               beforeRemoveRow={() => false}

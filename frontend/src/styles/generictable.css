@@ -1227,7 +1227,7 @@
   content: none !important;
 }
 
-/* Ensure all header clones are visible */
+/* Ensure all header clones are visible and properly aligned */
 .handsontable .ht_clone_top,
 .handsontable .ht_clone_top_left_corner,
 .handsontable .ht_clone_top_inline_start_corner {
@@ -1244,6 +1244,119 @@
 .handsontable .ht_clone_left .wtHolder,
 .handsontable .ht_clone_top_left_corner .wtHolder {
   overflow: hidden !important;
+}
+
+/* Critical fix for header alignment during horizontal scrolling */
+.handsontable .ht_clone_top {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+.handsontable .ht_clone_top .wtHolder {
+  overflow: hidden !important;
+  width: 100% !important;
+  transform: none !important;
+  position: relative !important;
+}
+
+.handsontable .ht_clone_top .wtTable {
+  width: auto !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  position: relative !important;
+  /* Transform will be set dynamically by JavaScript */
+}
+
+/* Ensure header columns maintain their width during scroll */
+.handsontable .ht_clone_top thead th {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
+
+/* Force header synchronization */
+.handsontable .ht_clone_top .wtHolder {
+  position: relative !important;
+  transform: translateZ(0) !important;
+}
+
+/* Prevent header transform issues */
+.handsontable .ht_clone_top tbody,
+.handsontable .ht_clone_top tbody tr,
+.handsontable .ht_clone_top tbody td {
+  display: none !important;
+}
+
+/* Fix for end-of-scroll alignment issues */
+.handsontable .ht_clone_top {
+  will-change: transform !important;
+}
+
+.handsontable .ht_clone_top .wtTable {
+  border-spacing: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Ensure last column alignment at end of scroll */
+.handsontable .ht_clone_top thead th:last-child {
+  border-right: 1px solid #d1d5db !important;
+  min-width: auto !important;
+}
+
+/* Force pixel-perfect alignment for headers */
+.handsontable .ht_clone_top thead th {
+  box-sizing: border-box !important;
+  border-collapse: separate !important;
+  vertical-align: top !important;
+}
+
+/* Prevent sub-pixel rendering issues */
+.handsontable .ht_clone_top,
+.handsontable .ht_clone_top .wtHolder,
+.handsontable .ht_clone_top .wtTable {
+  transform: translate3d(0, 0, 0) !important;
+  backface-visibility: hidden !important;
+}
+
+/* Critical fix: Force main table content to align with fixed headers */
+.handsontable .ht_master .wtHolder {
+  transform: translate3d(0, 0, 0) !important;
+  backface-visibility: hidden !important;
+}
+
+.handsontable .ht_master .wtTable {
+  transform: translate3d(0, 0, 0) !important;
+  backface-visibility: hidden !important;
+  table-layout: fixed !important;
+}
+
+/* Ensure exact column width matching between header and content */
+.handsontable .ht_master tbody td {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+}
+
+/* Force synchronization of scroll positions */
+.handsontable .ht_clone_top .wtHolder {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Eliminate any transform differences between header and content */
+.handsontable .ht_master {
+  position: relative !important;
+}
+
+.handsontable .ht_master .wtHolder {
+  position: relative !important;
+  overflow: auto !important;
 }
 
 /* Force fixed columns to maintain alignment */
