@@ -131,19 +131,39 @@
 .code-block {
   background-color: #212529;
   color: #fff;
-  padding: 20px 40px 20px;
+  padding: 20px 40px 20px 40px;
   font-family: "Courier New", Consolas, monospace;
   font-size: 1rem;
   line-height: 1.4;
   overflow: auto;
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 250px);
   min-height: 400px;
   border-radius: 4px;
   white-space: pre;
+  padding-bottom: 80px;
 }
 
 .code-block pre {
   margin: 0;
+}
+
+/* Mobile responsive adjustments for script pages */
+@media (max-width: 768px) {
+  .code-block {
+    max-height: calc(100vh - 200px);
+    padding: 15px 20px;
+    padding-bottom: 60px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .code-block {
+    max-height: calc(100vh - 150px);
+    padding: 10px 15px;
+    padding-bottom: 50px;
+    font-size: 0.8rem;
+  }
 }
 
 /* Tabs Styling */

@@ -823,11 +823,12 @@ def generate_alias_scripts(request, project_id):
         return JsonResponse({"error": "Configuration is missing."}, status=500)
     
     try:
-        aliases = Alias.objects.filter(create=True, projects=config.active_project)
+        create_aliases = Alias.objects.filter(create=True, projects=config.active_project)
+        delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
-    command_data = generate_alias_commands(aliases, config)
+    command_data = generate_alias_commands(create_aliases, delete_aliases, config)
     
     # Transform the new structure to maintain backward compatibility
     result = {}
@@ -838,6 +839,7 @@ def generate_alias_scripts(request, project_id):
         }
     
     return JsonResponse({"alias_scripts": result}, safe=False)
+
 
 
 @csrf_exempt

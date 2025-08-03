@@ -31,13 +31,46 @@ def build_fcalias_commands(alias, command_list):
     command_list.append(f'fcalias name {alias.name} vsan {alias.fabric.vsan} ; member pwwn {alias.wwpn} {alias.use}')
     return command_list
 
-def generate_alias_commands(aliases, config):
+def generate_alias_deletion_commands(aliases, config):
+    # Create dictionaries with default structure containing commands list and fabric_info for deletion
+    device_alias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    
+    for alias in aliases:
+        key = alias.fabric.name
+        # Store fabric info if not already stored
+        fabric_info = {
+            "name": alias.fabric.name,
+            "san_vendor": alias.fabric.san_vendor,
+            "vsan": alias.fabric.vsan
+        }
+        
+        # Set fabric info for device alias deletion dictionary
+        if device_alias_delete_dict[key]["fabric_info"] is None:
+            device_alias_delete_dict[key]["fabric_info"] = fabric_info
+            
+        if alias.fabric.san_vendor == 'CI':
+            if alias.cisco_alias == 'device-alias':
+                if not device_alias_delete_dict[key]["commands"]:
+                    device_alias_delete_dict[key]["commands"].append(f'### ALIAS DELETION COMMANDS FOR {key.upper()} ')
+                    device_alias_delete_dict[key]["commands"].append('device-alias database')
+                device_alias_delete_dict[key]["commands"].append(f'no device-alias name {alias.name}')
+    
+    # Add commit command for device aliases
+    for key in device_alias_delete_dict:
+        if device_alias_delete_dict[key]["commands"]:
+            device_alias_delete_dict[key]["commands"].append('device-alias commit')
+
+    # Sort by fabric names and return
+    return dict(sorted(device_alias_delete_dict.items()))
+
+def generate_alias_commands(create_aliases, delete_aliases, config):
     # Create dictionaries with default structure containing commands list and fabric_info
     device_alias_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     fcalias_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     brocade_alias_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     
-    for alias in aliases:
+    # Process create aliases
+    for alias in create_aliases:
         key = alias.fabric.name
         # Store fabric info if not already stored
         fabric_info = {
@@ -68,6 +101,27 @@ def generate_alias_commands(aliases, config):
             if not brocade_alias_command_dict[key]["commands"]:
                 brocade_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
             brocade_alias_command_dict[key]["commands"].append(f'alicreate "{alias.name}", "{wwpn_colonizer(alias.wwpn)}"')
+    
+    # Process delete aliases (only device-alias for now)
+    for alias in delete_aliases:
+        key = alias.fabric.name
+        # Store fabric info if not already stored
+        fabric_info = {
+            "name": alias.fabric.name,
+            "san_vendor": alias.fabric.san_vendor,
+            "vsan": alias.fabric.vsan
+        }
+        
+        # Set fabric info if not already set
+        if device_alias_command_dict[key]["fabric_info"] is None:
+            device_alias_command_dict[key]["fabric_info"] = fabric_info
+            
+        if alias.fabric.san_vendor == 'CI':
+            if alias.cisco_alias == 'device-alias':
+                if not device_alias_command_dict[key]["commands"]:
+                    device_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
+                    device_alias_command_dict[key]["commands"].append('device-alias database')
+                device_alias_command_dict[key]["commands"].append(f'no device-alias name {alias.name}')
     
     # Add commit command for device aliases with blank line after
     for key in device_alias_command_dict:
@@ -100,13 +154,14 @@ def generate_alias_commands(aliases, config):
     return dict(sorted(result.items()))
 
 def generate_zone_commands(zones, config):
-    all_aliases = Alias.objects.filter(create=True, projects=config.active_project)
+    create_aliases = Alias.objects.filter(create=True, projects=config.active_project)
+    delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
     alias_command_dict = defaultdict(list)
     zone_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     zoneset_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     
-    # Get alias commands in old format
-    alias_commands = generate_alias_commands(all_aliases, config)
+    # Get alias commands in new format
+    alias_commands = generate_alias_commands(create_aliases, delete_aliases, config)
     
     # Create Zone Commands
     all_zones = Zone.objects.select_related('fabric').prefetch_related('members').filter(create=True, projects=config.active_project).order_by('id')
