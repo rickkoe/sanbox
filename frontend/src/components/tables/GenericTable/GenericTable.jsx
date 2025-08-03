@@ -647,48 +647,8 @@ const GenericTable = forwardRef(({
 
   // Convert saved column widths to array format for Handsontable
   const getColumnWidths = () => {
-    // Add a flag to force auto-sizing (can be triggered by clearing config)
-    const forceAutoSize = window.localStorage.getItem('force_autosize_columns') === 'true';
-    
-    if (forceAutoSize) {
-      console.log('🎯 Force auto-sizing enabled - ignoring saved widths');
-      window.localStorage.removeItem('force_autosize_columns'); // Remove the flag
-      return undefined; // Force auto-sizing
-    }
-    
-    if (tableConfig?.column_widths && Object.keys(tableConfig.column_widths).length > 0) {
-      // Convert saved widths (header name -> width) to array format for visible columns
-      const widths = visibleColHeaders.map(header => {
-        const savedWidth = tableConfig.column_widths[header];
-        return savedWidth || undefined; // undefined lets Handsontable use auto width
-      });
-      console.log('Using saved column widths:', tableConfig.column_widths, 'converted to:', widths);
-      return widths;
-    }
-    
-    // Fallback to localStorage for backward compatibility
-    if (storageKey) {
-      try {
-        const savedWidths = localStorage.getItem(storageKey);
-        if (savedWidths) {
-          const parsedWidths = JSON.parse(savedWidths);
-          if (Array.isArray(parsedWidths) && parsedWidths.length === visibleColHeaders.length) {
-            return parsedWidths;
-          }
-        }
-      } catch (error) {
-        console.warn('Error parsing saved column widths from localStorage:', error);
-      }
-    }
-    
-    // If no saved widths exist, enable auto-sizing for first load
-    if (!tableConfig?.column_widths || Object.keys(tableConfig.column_widths).length === 0) {
-      console.log('🎯 No saved column widths found - enabling auto-size for first load');
-      return undefined; // This will trigger auto-sizing in Handsontable
-    }
-    
-    // Use provided colWidths prop as final fallback
-    return colWidths;
+    console.log('🎯 Always auto-sizing columns on table load');
+    return undefined; // Always force auto-sizing
   };
 
   const dynamicColWidths = getColumnWidths();
@@ -1282,37 +1242,24 @@ const GenericTable = forwardRef(({
               afterInit={(hot) => {
                 setIsTableReady(true);
                 
-                // Auto-size columns on first load if no saved column widths exist
-                if (!tableConfig?.column_widths || Object.keys(tableConfig.column_widths).length === 0) {
-                  setTimeout(() => {
-                    // Get the hot instance from the ref if the parameter is not available
-                    const hotInstance = hot || tableRef.current?.hotInstance;
+                // Always auto-size columns on table load using the same method as context menu
+                setTimeout(() => {
+                  // Get the hot instance from the ref if the parameter is not available
+                  const hotInstance = hot || tableRef.current?.hotInstance;
+                  
+                  if (hotInstance) {
+                    console.log('🎯 Auto-sizing columns on table load using updateSettings method...');
                     
-                    if (hotInstance && hotInstance.getPlugin) {
-                      try {
-                        const autoColumnSize = hotInstance.getPlugin('autoColumnSize');
-                        if (autoColumnSize) {
-                          console.log('🎯 Auto-sizing columns on first load...');
-                          // Calculate column widths for all visible columns
-                          const colCount = hotInstance.countCols();
-                          for (let col = 0; col < colCount; col++) {
-                            autoColumnSize.calculateColumnsWidth(col, col, true);
-                          }
-                          
-                          // Render the table to apply changes
-                          hotInstance.render();
-                          console.log('✨ Auto-sized all columns on first load');
-                        } else {
-                          console.log('⚠️ AutoColumnSize plugin not available, skipping auto-sizing');
-                        }
-                      } catch (error) {
-                        console.error('❌ Error during auto-sizing:', error);
-                      }
-                    } else {
-                      console.log('⚠️ Hot instance not available for auto-sizing');
-                    }
-                  }, 200); // Increased delay to ensure table is fully initialized
-                }
+                    // Use the same method as the context menu for consistent results
+                    hotInstance.updateSettings({
+                      colWidths: undefined // This triggers auto-sizing
+                    });
+                    
+                    console.log('✨ Auto-sizing triggered on table load');
+                  } else {
+                    console.log('⚠️ Hot instance not available for auto-sizing');
+                  }
+                }, 300); // Delay to ensure table is fully initialized
               }}
             />
           </div>
