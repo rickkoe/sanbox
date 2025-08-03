@@ -129,6 +129,26 @@ export const createContextMenu = (tableRef, setIsDirty, handleAfterContextMenu) 
         }
       },
       "hsep4": "---------",
+      "autosize_columns": {
+        name: "Auto-size all columns",
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot) {
+            console.log('📏 Auto-sizing columns - setting force flag and refreshing...');
+            
+            // Set the force auto-size flag
+            window.localStorage.setItem('force_autosize_columns', 'true');
+            
+            // Force a refresh of the table settings to trigger auto-sizing
+            hot.updateSettings({
+              colWidths: undefined // This will trigger getColumnWidths() again
+            });
+            
+            console.log('✨ Auto-sizing triggered via table refresh');
+          }
+        }
+      },
+      "hsep5": "---------",
       "remove_row": {
         name: "Delete selected rows",
         callback: (key, selection, clickEvent) => {

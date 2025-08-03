@@ -108,12 +108,45 @@ const ZoneTable = () => {
           localStorage.removeItem(key);
         });
         
+        // Set a flag to force auto-sizing on next table render
+        localStorage.setItem('force_autosize_columns', 'true');
+        console.log('🎯 Set force auto-size flag');
+        
         // Also clear any API-stored table configuration  
         try {
-          const response = await axios.delete(`${API_URL}/api/core/table-config/zones/?customer_id=${activeCustomerId}`);
-          console.log(`🗑️ Deleted API table config:`, response.status);
+          // Try multiple approaches to delete the config
+          const deleteUrls = [
+            `${API_URL}/api/core/table-config/zones/?customer_id=${activeCustomerId}`,
+            `${API_URL}/api/core/table-config/zones/`,
+            `${API_URL}/api/core/table-config/?table_name=zones&customer_id=${activeCustomerId}`,
+            `${API_URL}/api/core/table-config/?table_name=zones`
+          ];
+          
+          for (const url of deleteUrls) {
+            try {
+              const response = await axios.delete(url);
+              console.log(`🗑️ Successfully deleted API table config from: ${url}`, response.status);
+            } catch (error) {
+              console.log(`🗑️ No config found at: ${url}`, error.response?.status);
+            }
+          }
+          
+          // Also try to clear by setting empty configuration
+          try {
+            const clearResponse = await axios.post(`${API_URL}/api/core/table-config/`, {
+              table_name: 'zones',
+              customer: activeCustomerId,
+              visible_columns: [],
+              column_widths: {},
+              filters: {}
+            });
+            console.log(`🗑️ Reset table config:`, clearResponse.status);
+          } catch (error) {
+            console.log(`🗑️ Could not reset config:`, error.response?.status);
+          }
+          
         } catch (error) {
-          console.log(`🗑️ No API config to delete:`, error.response?.status);
+          console.log(`🗑️ Error during config cleanup:`, error.response?.status);
         }
       }
     };
