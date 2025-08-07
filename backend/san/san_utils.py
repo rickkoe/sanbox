@@ -64,91 +64,111 @@ def generate_alias_deletion_commands(aliases, config):
     return dict(sorted(device_alias_delete_dict.items()))
 
 def generate_alias_commands(create_aliases, delete_aliases, config):
-    # Create dictionaries with default structure containing commands list and fabric_info
-    device_alias_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
-    fcalias_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
-    brocade_alias_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    # Create separate dictionaries for creation and deletion commands
+    device_alias_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    fcalias_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    brocade_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    
+    device_alias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     
     # Process create aliases
     for alias in create_aliases:
         key = alias.fabric.name
-        # Store fabric info if not already stored
         fabric_info = {
             "name": alias.fabric.name,
             "san_vendor": alias.fabric.san_vendor,
             "vsan": alias.fabric.vsan
         }
         
-        # Set fabric info for all dictionaries to ensure it's available
-        if device_alias_command_dict[key]["fabric_info"] is None:
-            device_alias_command_dict[key]["fabric_info"] = fabric_info
-        if fcalias_command_dict[key]["fabric_info"] is None:
-            fcalias_command_dict[key]["fabric_info"] = fabric_info
-        if brocade_alias_command_dict[key]["fabric_info"] is None:
-            brocade_alias_command_dict[key]["fabric_info"] = fabric_info
+        # Set fabric info for creation dictionaries
+        if device_alias_create_dict[key]["fabric_info"] is None:
+            device_alias_create_dict[key]["fabric_info"] = fabric_info
+        if fcalias_create_dict[key]["fabric_info"] is None:
+            fcalias_create_dict[key]["fabric_info"] = fabric_info
+        if brocade_create_dict[key]["fabric_info"] is None:
+            brocade_create_dict[key]["fabric_info"] = fabric_info
             
         if alias.fabric.san_vendor == 'CI':
             if alias.cisco_alias == 'device-alias':
-                if not device_alias_command_dict[key]["commands"]:
-                    device_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
-                    device_alias_command_dict[key]["commands"].append('device-alias database')
-                device_alias_command_dict[key]["commands"].append(f'device-alias name {alias.name} pwwn {wwpn_colonizer(alias.wwpn)}')
+                if not device_alias_create_dict[key]["commands"]:
+                    device_alias_create_dict[key]["commands"].append(f'### ALIAS CREATION COMMANDS FOR {key.upper()} ')
+                    device_alias_create_dict[key]["commands"].append('device-alias database')
+                device_alias_create_dict[key]["commands"].append(f'device-alias name {alias.name} pwwn {wwpn_colonizer(alias.wwpn)}')
             elif alias.cisco_alias == 'fcalias':
-                if not device_alias_command_dict[key]["commands"]:
-                    device_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
-                fcalias_command_dict[key]["commands"].append(f'fcalias name {alias.name} vsan {alias.fabric.vsan} ; member pwwn {alias.wwpn} {alias.use}')
+                if not fcalias_create_dict[key]["commands"]:
+                    fcalias_create_dict[key]["commands"].append(f'### FCALIAS CREATION COMMANDS FOR {key.upper()} ')
+                fcalias_create_dict[key]["commands"].append(f'fcalias name {alias.name} vsan {alias.fabric.vsan} ; member pwwn {alias.wwpn} {alias.use}')
         elif alias.fabric.san_vendor == 'BR':
-            if not brocade_alias_command_dict[key]["commands"]:
-                brocade_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
-            brocade_alias_command_dict[key]["commands"].append(f'alicreate "{alias.name}", "{wwpn_colonizer(alias.wwpn)}"')
+            if not brocade_create_dict[key]["commands"]:
+                brocade_create_dict[key]["commands"].append(f'### ALIAS CREATION COMMANDS FOR {key.upper()} ')
+            brocade_create_dict[key]["commands"].append(f'alicreate "{alias.name}", "{wwpn_colonizer(alias.wwpn)}"')
+    
+    # Add commit commands for device alias creation
+    for key in device_alias_create_dict:
+        if device_alias_create_dict[key]["commands"]:
+            device_alias_create_dict[key]["commands"].append('device-alias commit')
     
     # Process delete aliases (only device-alias for now)
     for alias in delete_aliases:
         key = alias.fabric.name
-        # Store fabric info if not already stored
         fabric_info = {
             "name": alias.fabric.name,
             "san_vendor": alias.fabric.san_vendor,
             "vsan": alias.fabric.vsan
         }
         
-        # Set fabric info if not already set
-        if device_alias_command_dict[key]["fabric_info"] is None:
-            device_alias_command_dict[key]["fabric_info"] = fabric_info
+        # Set fabric info for deletion dictionary
+        if device_alias_delete_dict[key]["fabric_info"] is None:
+            device_alias_delete_dict[key]["fabric_info"] = fabric_info
             
         if alias.fabric.san_vendor == 'CI':
             if alias.cisco_alias == 'device-alias':
-                if not device_alias_command_dict[key]["commands"]:
-                    device_alias_command_dict[key]["commands"].append(f'### ALIAS COMMANDS FOR {key.upper()} ')
-                    device_alias_command_dict[key]["commands"].append('device-alias database')
-                device_alias_command_dict[key]["commands"].append(f'no device-alias name {alias.name}')
+                if not device_alias_delete_dict[key]["commands"]:
+                    device_alias_delete_dict[key]["commands"].append(f'### CLEANUP/DELETION COMMANDS FOR {key.upper()} ')
+                    device_alias_delete_dict[key]["commands"].append('device-alias database')
+                device_alias_delete_dict[key]["commands"].append(f'no device-alias name {alias.name}')
     
-    # Add commit command for device aliases with blank line after
-    for key in device_alias_command_dict:
-        if device_alias_command_dict[key]["commands"]:
-            device_alias_command_dict[key]["commands"].append('device-alias commit')
-
-    # Merge the dictionaries with new structure
+    # Add commit commands for device alias deletion
+    for key in device_alias_delete_dict:
+        if device_alias_delete_dict[key]["commands"]:
+            device_alias_delete_dict[key]["commands"].append('device-alias commit')
+    
+    # Merge creation and deletion commands with creation first, then deletion
     result = {}
-    for key in set(list(device_alias_command_dict.keys()) + list(fcalias_command_dict.keys()) + list(brocade_alias_command_dict.keys())):
+    all_keys = set(list(device_alias_create_dict.keys()) + list(fcalias_create_dict.keys()) + 
+                   list(brocade_create_dict.keys()) + list(device_alias_delete_dict.keys()))
+    
+    for key in all_keys:
         result[key] = {
             "commands": [],
             "fabric_info": None
         }
         
-        if key in device_alias_command_dict and device_alias_command_dict[key]["commands"]:
-            result[key]["commands"].extend(device_alias_command_dict[key]["commands"])
-            result[key]["fabric_info"] = device_alias_command_dict[key]["fabric_info"]
+        # Add creation commands first
+        if key in device_alias_create_dict and device_alias_create_dict[key]["commands"]:
+            result[key]["commands"].extend(device_alias_create_dict[key]["commands"])
+            result[key]["fabric_info"] = device_alias_create_dict[key]["fabric_info"]
             
-        if key in fcalias_command_dict and fcalias_command_dict[key]["commands"]:
-            result[key]["commands"].extend(fcalias_command_dict[key]["commands"])
+        if key in fcalias_create_dict and fcalias_create_dict[key]["commands"]:
+            result[key]["commands"].extend(fcalias_create_dict[key]["commands"])
             if not result[key]["fabric_info"]:
-                result[key]["fabric_info"] = fcalias_command_dict[key]["fabric_info"]
+                result[key]["fabric_info"] = fcalias_create_dict[key]["fabric_info"]
             
-        if key in brocade_alias_command_dict and brocade_alias_command_dict[key]["commands"]:
-            result[key]["commands"].extend(brocade_alias_command_dict[key]["commands"])
+        if key in brocade_create_dict and brocade_create_dict[key]["commands"]:
+            result[key]["commands"].extend(brocade_create_dict[key]["commands"])
             if not result[key]["fabric_info"]:
-                result[key]["fabric_info"] = brocade_alias_command_dict[key]["fabric_info"]
+                result[key]["fabric_info"] = brocade_create_dict[key]["fabric_info"]
+        
+        # Add a blank line separator if we have both creation and deletion commands
+        if (result[key]["commands"] and key in device_alias_delete_dict and 
+            device_alias_delete_dict[key]["commands"]):
+            result[key]["commands"].append('')
+        
+        # Add deletion commands at the bottom
+        if key in device_alias_delete_dict and device_alias_delete_dict[key]["commands"]:
+            result[key]["commands"].extend(device_alias_delete_dict[key]["commands"])
+            if not result[key]["fabric_info"]:
+                result[key]["fabric_info"] = device_alias_delete_dict[key]["fabric_info"]
     
     # Sort by fabric names
     return dict(sorted(result.items()))
