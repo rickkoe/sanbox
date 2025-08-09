@@ -24,6 +24,7 @@ const ALL_COLUMNS = [
   { data: "create", title: "Create" },
   { data: "delete", title: "Delete" },
   { data: "include_in_zoning", title: "Include in Zoning" },
+  { data: "logged_in", title: "Logged In" },
   { data: "zoned_count", title: "Zoned Count" },
   { data: "imported", title: "Imported" },
   { data: "updated", title: "Updated" },
@@ -45,6 +46,7 @@ const NEW_ALIAS_TEMPLATE = {
   create: false,
   delete: false,
   include_in_zoning: false,
+  logged_in: false,
   notes: "",
   imported: null,
   updated: null,
@@ -411,6 +413,7 @@ const AliasTable = () => {
     use: ["init", "target", "both"],
     "fabric_details.name": fabricOptions.map(f => f.name),
     cisco_alias: ["device-alias", "fcalias", "wwpn"],
+    logged_in: ["true", "false"],
   };
 
   return (
@@ -444,6 +447,9 @@ const AliasTable = () => {
           } else if (col.data === "fabric_details.name") {
             column.type = "dropdown";
           } else if (col.data === "cisco_alias") {
+            column.type = "dropdown";
+            column.className = "htCenter";
+          } else if (col.data === "logged_in") {
             column.type = "dropdown";
             column.className = "htCenter";
           } else if (col.data === "create" || col.data === "delete" || col.data === "include_in_zoning") {
