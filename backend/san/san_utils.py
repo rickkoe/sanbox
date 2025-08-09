@@ -63,6 +63,79 @@ def generate_alias_deletion_commands(aliases, config):
     # Sort by fabric names and return
     return dict(sorted(device_alias_delete_dict.items()))
 
+def generate_alias_deletion_only_commands(delete_aliases, config):
+    """Generate only alias deletion commands (separate from creation commands)"""
+    device_alias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    fcalias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    brocade_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    
+    # Process delete aliases
+    for alias in delete_aliases:
+        key = alias.fabric.name
+        fabric_info = {
+            "name": alias.fabric.name,
+            "san_vendor": alias.fabric.san_vendor,
+            "vsan": alias.fabric.vsan
+        }
+        
+        # Set fabric info for deletion dictionaries
+        if device_alias_delete_dict[key]["fabric_info"] is None:
+            device_alias_delete_dict[key]["fabric_info"] = fabric_info
+        if fcalias_delete_dict[key]["fabric_info"] is None:
+            fcalias_delete_dict[key]["fabric_info"] = fabric_info
+        if brocade_delete_dict[key]["fabric_info"] is None:
+            brocade_delete_dict[key]["fabric_info"] = fabric_info
+            
+        if alias.fabric.san_vendor == 'CI':
+            if alias.cisco_alias == 'device-alias':
+                if not device_alias_delete_dict[key]["commands"]:
+                    device_alias_delete_dict[key]["commands"].append(f'### ALIAS DELETION COMMANDS FOR {key.upper()} ')
+                    device_alias_delete_dict[key]["commands"].append('device-alias database')
+                device_alias_delete_dict[key]["commands"].append(f'no device-alias name {alias.name}')
+            elif alias.cisco_alias == 'fcalias':
+                if not fcalias_delete_dict[key]["commands"]:
+                    fcalias_delete_dict[key]["commands"].append(f'### FCALIAS DELETION COMMANDS FOR {key.upper()} ')
+                fcalias_delete_dict[key]["commands"].append(f'no fcalias name {alias.name} vsan {alias.fabric.vsan}')
+        elif alias.fabric.san_vendor == 'BR':
+            if not brocade_delete_dict[key]["commands"]:
+                brocade_delete_dict[key]["commands"].append(f'### ALIAS DELETION COMMANDS FOR {key.upper()} ')
+            brocade_delete_dict[key]["commands"].append(f'alidelete "{alias.name}"')
+    
+    # Add commit commands for device alias deletion
+    for key in device_alias_delete_dict:
+        if device_alias_delete_dict[key]["commands"]:
+            device_alias_delete_dict[key]["commands"].append('device-alias commit')
+    
+    # Merge deletion commands
+    result = {}
+    all_keys = set(list(device_alias_delete_dict.keys()) + list(fcalias_delete_dict.keys()) + list(brocade_delete_dict.keys()))
+    
+    for key in all_keys:
+        result[key] = {
+            "commands": [],
+            "fabric_info": None
+        }
+        
+        # Add device-alias deletion commands first
+        if key in device_alias_delete_dict and device_alias_delete_dict[key]["commands"]:
+            result[key]["commands"].extend(device_alias_delete_dict[key]["commands"])
+            result[key]["fabric_info"] = device_alias_delete_dict[key]["fabric_info"]
+        
+        # Add fcalias deletion commands
+        if key in fcalias_delete_dict and fcalias_delete_dict[key]["commands"]:
+            result[key]["commands"].extend(fcalias_delete_dict[key]["commands"])
+            if not result[key]["fabric_info"]:
+                result[key]["fabric_info"] = fcalias_delete_dict[key]["fabric_info"]
+        
+        # Add brocade deletion commands
+        if key in brocade_delete_dict and brocade_delete_dict[key]["commands"]:
+            result[key]["commands"].extend(brocade_delete_dict[key]["commands"])
+            if not result[key]["fabric_info"]:
+                result[key]["fabric_info"] = brocade_delete_dict[key]["fabric_info"]
+    
+    # Sort by fabric names
+    return dict(sorted(result.items()))
+
 def generate_alias_commands(create_aliases, delete_aliases, config):
     # Create separate dictionaries for creation and deletion commands
     device_alias_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
@@ -70,6 +143,8 @@ def generate_alias_commands(create_aliases, delete_aliases, config):
     brocade_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     
     device_alias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    fcalias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    brocade_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     
     # Process create aliases
     for alias in create_aliases:
@@ -108,7 +183,7 @@ def generate_alias_commands(create_aliases, delete_aliases, config):
         if device_alias_create_dict[key]["commands"]:
             device_alias_create_dict[key]["commands"].append('device-alias commit')
     
-    # Process delete aliases (only device-alias for now)
+    # Process delete aliases (device-alias and fcalias)
     for alias in delete_aliases:
         key = alias.fabric.name
         fabric_info = {
@@ -117,9 +192,13 @@ def generate_alias_commands(create_aliases, delete_aliases, config):
             "vsan": alias.fabric.vsan
         }
         
-        # Set fabric info for deletion dictionary
+        # Set fabric info for deletion dictionaries
         if device_alias_delete_dict[key]["fabric_info"] is None:
             device_alias_delete_dict[key]["fabric_info"] = fabric_info
+        if fcalias_delete_dict[key]["fabric_info"] is None:
+            fcalias_delete_dict[key]["fabric_info"] = fabric_info
+        if brocade_delete_dict[key]["fabric_info"] is None:
+            brocade_delete_dict[key]["fabric_info"] = fabric_info
             
         if alias.fabric.san_vendor == 'CI':
             if alias.cisco_alias == 'device-alias':
@@ -127,6 +206,14 @@ def generate_alias_commands(create_aliases, delete_aliases, config):
                     device_alias_delete_dict[key]["commands"].append(f'### CLEANUP/DELETION COMMANDS FOR {key.upper()} ')
                     device_alias_delete_dict[key]["commands"].append('device-alias database')
                 device_alias_delete_dict[key]["commands"].append(f'no device-alias name {alias.name}')
+            elif alias.cisco_alias == 'fcalias':
+                if not fcalias_delete_dict[key]["commands"]:
+                    fcalias_delete_dict[key]["commands"].append(f'### CLEANUP/DELETION COMMANDS FOR {key.upper()} ')
+                fcalias_delete_dict[key]["commands"].append(f'no fcalias name {alias.name} vsan {alias.fabric.vsan}')
+        elif alias.fabric.san_vendor == 'BR':
+            if not brocade_delete_dict[key]["commands"]:
+                brocade_delete_dict[key]["commands"].append(f'### CLEANUP/DELETION COMMANDS FOR {key.upper()} ')
+            brocade_delete_dict[key]["commands"].append(f'alidelete "{alias.name}"')
     
     # Add commit commands for device alias deletion
     for key in device_alias_delete_dict:
@@ -136,7 +223,8 @@ def generate_alias_commands(create_aliases, delete_aliases, config):
     # Merge creation and deletion commands with creation first, then deletion
     result = {}
     all_keys = set(list(device_alias_create_dict.keys()) + list(fcalias_create_dict.keys()) + 
-                   list(brocade_create_dict.keys()) + list(device_alias_delete_dict.keys()))
+                   list(brocade_create_dict.keys()) + list(device_alias_delete_dict.keys()) + 
+                   list(fcalias_delete_dict.keys()) + list(brocade_delete_dict.keys()))
     
     for key in all_keys:
         result[key] = {
@@ -160,8 +248,10 @@ def generate_alias_commands(create_aliases, delete_aliases, config):
                 result[key]["fabric_info"] = brocade_create_dict[key]["fabric_info"]
         
         # Add a blank line separator if we have both creation and deletion commands
-        if (result[key]["commands"] and key in device_alias_delete_dict and 
-            device_alias_delete_dict[key]["commands"]):
+        has_deletions = ((key in device_alias_delete_dict and device_alias_delete_dict[key]["commands"]) or
+                        (key in fcalias_delete_dict and fcalias_delete_dict[key]["commands"]) or
+                        (key in brocade_delete_dict and brocade_delete_dict[key]["commands"]))
+        if result[key]["commands"] and has_deletions:
             result[key]["commands"].append('')
         
         # Add deletion commands at the bottom
@@ -169,22 +259,35 @@ def generate_alias_commands(create_aliases, delete_aliases, config):
             result[key]["commands"].extend(device_alias_delete_dict[key]["commands"])
             if not result[key]["fabric_info"]:
                 result[key]["fabric_info"] = device_alias_delete_dict[key]["fabric_info"]
+        
+        # Add fcalias deletion commands after device-alias commit
+        if key in fcalias_delete_dict and fcalias_delete_dict[key]["commands"]:
+            result[key]["commands"].extend(fcalias_delete_dict[key]["commands"])
+            if not result[key]["fabric_info"]:
+                result[key]["fabric_info"] = fcalias_delete_dict[key]["fabric_info"]
+        
+        # Add brocade deletion commands
+        if key in brocade_delete_dict and brocade_delete_dict[key]["commands"]:
+            result[key]["commands"].extend(brocade_delete_dict[key]["commands"])
+            if not result[key]["fabric_info"]:
+                result[key]["fabric_info"] = brocade_delete_dict[key]["fabric_info"]
     
     # Sort by fabric names
     return dict(sorted(result.items()))
 
-def generate_zone_commands(zones, config):
+def generate_zone_commands(create_zones, delete_zones, config):
     create_aliases = Alias.objects.filter(create=True, projects=config.active_project)
     delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
     alias_command_dict = defaultdict(list)
     zone_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     zoneset_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
+    zone_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     
     # Get alias commands in new format
     alias_commands = generate_alias_commands(create_aliases, delete_aliases, config)
     
     # Create Zone Commands
-    all_zones = Zone.objects.select_related('fabric').prefetch_related('members').filter(create=True, projects=config.active_project).order_by('id')
+    all_zones = create_zones.select_related('fabric').prefetch_related('members').order_by('id')
     
     for zone in all_zones:
         zone_members = zone.members.filter(include_in_zoning=True)
@@ -262,6 +365,29 @@ def generate_zone_commands(zones, config):
                     pass
 
     
+    # Process Zone Deletions
+    for zone in delete_zones.select_related('fabric'):
+        key = zone.fabric.name
+        fabric_info = {
+            "name": zone.fabric.name,
+            "san_vendor": zone.fabric.san_vendor,
+            "zoneset_name": zone.fabric.zoneset_name,
+            "vsan": zone.fabric.vsan
+        }
+        
+        # Set fabric info for deletion dictionary
+        if zone_delete_dict[key]["fabric_info"] is None:
+            zone_delete_dict[key]["fabric_info"] = fabric_info
+        
+        if zone.fabric.san_vendor == 'CI':
+            if not zone_delete_dict[key]["commands"]:
+                zone_delete_dict[key]["commands"].append(f'### CLEANUP/DELETION COMMANDS FOR {key.upper()} ')
+            zone_delete_dict[key]["commands"].append(f'no zone name {zone.name} vsan {zone.fabric.vsan}')
+        elif zone.fabric.san_vendor == 'BR':
+            if not zone_delete_dict[key]["commands"]:
+                zone_delete_dict[key]["commands"].append(f'### CLEANUP/DELETION COMMANDS FOR {key.upper()} ')
+            zone_delete_dict[key]["commands"].append(f'zonedelete "{zone.name}"')
+    
     for key in zoneset_command_dict:
         if zoneset_command_dict[key]["commands"]:
             fabric_info = zoneset_command_dict[key]["fabric_info"]
@@ -287,7 +413,7 @@ def generate_zone_commands(zones, config):
 
     # Merge all command dictionaries
     result = {}
-    for key in set(list(alias_command_dict.keys()) + list(zone_command_dict.keys()) + list(zoneset_command_dict.keys())):
+    for key in set(list(alias_command_dict.keys()) + list(zone_command_dict.keys()) + list(zoneset_command_dict.keys()) + list(zone_delete_dict.keys())):
         result[key] = {
             "commands": [],
             "fabric_info": None
@@ -314,7 +440,352 @@ def generate_zone_commands(zones, config):
             result[key]["commands"].extend(zoneset_command_dict[key]["commands"])
             if not result[key]["fabric_info"]:
                 result[key]["fabric_info"] = zoneset_command_dict[key]["fabric_info"]
+        
+        # Add blank line separator if we have zone deletion commands
+        if result[key]["commands"] and key in zone_delete_dict and zone_delete_dict[key]["commands"]:
+            result[key]["commands"].append('')
+        
+        # Add zone deletion commands at the bottom
+        if key in zone_delete_dict and zone_delete_dict[key]["commands"]:
+            result[key]["commands"].extend(zone_delete_dict[key]["commands"])
+            if not result[key]["fabric_info"]:
+                result[key]["fabric_info"] = zone_delete_dict[key]["fabric_info"]
     
     # Sort by fabric names
     sorted_result = dict(sorted(result.items()))
     return sorted_result
+
+def generate_zone_deletion_commands(delete_zones, config):
+    """Generate comprehensive zone deletion scripts in reverse order: zoneset -> zones -> aliases -> activate"""
+    print(f"🔍 Starting generate_zone_deletion_commands with {delete_zones.count()} zones")
+    
+    try:
+        # Get aliases that should be deleted
+        delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
+        print(f"🔍 Found {delete_aliases.count()} aliases to delete")
+        
+        # Group everything by fabric
+        fabric_scripts = defaultdict(lambda: {"commands": [], "fabric_info": None})
+        
+        # Process delete zones to get all unique fabrics
+        all_zones = delete_zones.select_related('fabric').prefetch_related('members').order_by('id')
+        
+        for zone in all_zones:
+            key = zone.fabric.name
+            fabric_info = {
+                "name": zone.fabric.name,
+                "san_vendor": zone.fabric.san_vendor,
+                "zoneset_name": zone.fabric.zoneset_name,
+                "vsan": zone.fabric.vsan
+            }
+            
+            # Set fabric info if not already set
+            if fabric_scripts[key]["fabric_info"] is None:
+                fabric_scripts[key]["fabric_info"] = fabric_info
+        
+        print(f"🔍 Processing {len(fabric_scripts)} fabrics for deletion")
+        
+        # For each fabric, build the complete deletion script in reverse order
+        for fabric_key, fabric_data in fabric_scripts.items():
+            print(f"🔍 Processing fabric for deletion: {fabric_key}")
+            fabric_info = fabric_data["fabric_info"]
+            commands = []
+            
+            # Get aliases for this fabric
+            fabric_aliases = delete_aliases.filter(fabric__name=fabric_key)
+            print(f"🔍 Found {fabric_aliases.count()} aliases to delete for fabric {fabric_key}")
+            
+            if fabric_info["san_vendor"] == 'CI':
+                # CISCO DELETION FORMAT (in reverse order)
+                print(f"🔍 Processing Cisco fabric deletion {fabric_key}")
+                
+                # Start with config t
+                commands.append('config t')
+                
+                # 1. REMOVE ZONES FROM ZONESET
+                commands.append('')  # blank line before zoneset commands
+                commands.append(f'### ZONESET REMOVAL COMMANDS FOR {fabric_key.upper()}')
+                commands.append(f'zoneset name {fabric_info["zoneset_name"]} vsan {fabric_info["vsan"]}')
+                
+                fabric_zones = all_zones.filter(fabric__name=fabric_key)
+                for zone in fabric_zones:
+                    if zone.members.filter(include_in_zoning=True).count() > 0:
+                        commands.append(f'  no member {zone.name}')
+                
+                # 2. DELETE ZONES
+                commands.append('')  # blank line before zone commands
+                commands.append(f'### ZONE DELETION COMMANDS FOR {fabric_key.upper()}')
+                
+                for zone in fabric_zones:
+                    zone_members = zone.members.filter(include_in_zoning=True)
+                    if zone_members.count() > 0:
+                        commands.append(f'no zone name {zone.name} vsan {fabric_info["vsan"]}')
+                
+                # 3. DELETE ALIASES
+                commands.append('')  # blank line before alias commands
+                commands.append(f'### ALIAS DELETION COMMANDS FOR {fabric_key.upper()}')
+                
+                # Delete FCaliases first
+                fcaliases = fabric_aliases.filter(cisco_alias='fcalias')
+                for alias in fcaliases:
+                    commands.append(f'no fcalias name {alias.name} vsan {fabric_info["vsan"]}')
+                
+                # Then delete device-aliases
+                device_aliases = fabric_aliases.filter(cisco_alias='device-alias')
+                if device_aliases.exists():
+                    commands.append('device-alias database')
+                    for alias in device_aliases:
+                        commands.append(f'no device-alias name {alias.name}')
+                    commands.append('device-alias commit')
+                
+                # 4. ACTIVATE ZONESET
+                commands.append('')  # blank line before activation
+                commands.append(f'### ZONESET ACTIVATION COMMANDS FOR {fabric_key.upper()}')
+                commands.append(f'zoneset activate name {fabric_info["zoneset_name"]} vsan {fabric_info["vsan"]}')
+                commands.append(f'zone commit vsan {fabric_info["vsan"]}')
+                
+                # End with copy run start
+                commands.append('')  # blank line before copy run start
+                commands.append('copy run start')
+            
+            elif fabric_info["san_vendor"] == 'BR':
+                # BROCADE DELETION FORMAT (in reverse order)
+                print(f"🔍 Processing Brocade fabric deletion {fabric_key}")
+                
+                # 1. REMOVE ZONES FROM CONFIGURATION
+                commands.append('')  # blank line before zoneset commands
+                commands.append(f'### CONFIGURATION REMOVAL COMMANDS FOR {fabric_key.upper()}')
+                
+                fabric_zones = all_zones.filter(fabric__name=fabric_key)
+                for zone in fabric_zones:
+                    if zone.members.filter(include_in_zoning=True).count() > 0:
+                        commands.append(f'cfgremove "{fabric_info["zoneset_name"]}", "{zone.name}"')
+                
+                # 2. DELETE ZONES
+                commands.append('')  # blank line before zone commands
+                commands.append(f'### ZONE DELETION COMMANDS FOR {fabric_key.upper()}')
+                
+                for zone in fabric_zones:
+                    zone_members = zone.members.filter(include_in_zoning=True)
+                    if zone_members.count() > 0:
+                        commands.append(f'zonedelete "{zone.name}"')
+                
+                # 3. DELETE ALIASES
+                commands.append('')  # blank line before alias commands
+                commands.append(f'### ALIAS DELETION COMMANDS FOR {fabric_key.upper()}')
+                
+                brocade_aliases = fabric_aliases
+                for alias in brocade_aliases:
+                    commands.append(f'alidelete "{alias.name}"')
+                
+                # 4. ENABLE CONFIGURATION
+                commands.append('')  # blank line before activation
+                commands.append(f'### CONFIGURATION ACTIVATION COMMANDS FOR {fabric_key.upper()}')
+                commands.append(f'cfgenable "{fabric_info["zoneset_name"]}"')
+            
+            fabric_data["commands"] = commands
+            print(f"✅ Generated {len(commands)} deletion commands for fabric {fabric_key}")
+        
+        # Sort by fabric names
+        result = dict(sorted(fabric_scripts.items()))
+        print(f"✅ Successfully generated deletion scripts for {len(result)} fabrics")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error in generate_zone_deletion_commands: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+def generate_zone_creation_commands(create_zones, config):
+    """Generate zone creation scripts with aliases included in the specified format"""
+    print(f"🔍 Starting generate_zone_creation_commands with {create_zones.count()} zones")
+    
+    try:
+        # Get aliases that should be created
+        create_aliases = Alias.objects.filter(create=True, projects=config.active_project)
+        print(f"🔍 Found {create_aliases.count()} aliases to create")
+        
+        # Group everything by fabric
+        fabric_scripts = defaultdict(lambda: {"commands": [], "fabric_info": None})
+        
+        # Process create zones to get all unique fabrics
+        all_zones = create_zones.select_related('fabric').prefetch_related('members').order_by('id')
+        
+        for zone in all_zones:
+            key = zone.fabric.name
+            fabric_info = {
+                "name": zone.fabric.name,
+                "san_vendor": zone.fabric.san_vendor,
+                "zoneset_name": zone.fabric.zoneset_name,
+                "vsan": zone.fabric.vsan
+            }
+            
+            # Set fabric info if not already set
+            if fabric_scripts[key]["fabric_info"] is None:
+                fabric_scripts[key]["fabric_info"] = fabric_info
+        
+        print(f"🔍 Processing {len(fabric_scripts)} fabrics")
+        
+        # For each fabric, build the complete script
+        for fabric_key, fabric_data in fabric_scripts.items():
+            print(f"🔍 Processing fabric: {fabric_key}")
+            fabric_info = fabric_data["fabric_info"]
+            commands = []
+            
+            # Get aliases for this fabric
+            fabric_aliases = create_aliases.filter(fabric__name=fabric_key)
+            print(f"🔍 Found {fabric_aliases.count()} aliases for fabric {fabric_key}")
+            
+            if fabric_info["san_vendor"] == 'CI':
+                # CISCO FORMAT
+                print(f"🔍 Processing Cisco fabric {fabric_key}")
+                
+                # Start with config t
+                commands.append('config t')
+                commands.append('')  # blank line after config t
+                
+                # 1. ALIAS CREATION COMMANDS
+                commands.append(f'### {fabric_key.upper()} ALIAS CREATION COMMANDS')
+                
+                # Device-alias commands
+                device_aliases = fabric_aliases.filter(cisco_alias='device-alias')
+                if device_aliases.exists():
+                    commands.append('device-alias database')
+                    for alias in device_aliases:
+                        commands.append(f'device-alias name {alias.name} pwwn {wwpn_colonizer(alias.wwpn)}')
+                    commands.append('device-alias commit')
+                
+                # FCAlias commands  
+                fcaliases = fabric_aliases.filter(cisco_alias='fcalias')
+                for alias in fcaliases:
+                    commands.append(f'fcalias name {alias.name} vsan {fabric_info["vsan"]} ; member pwwn {wwpn_colonizer(alias.wwpn)} {alias.use}')
+                
+                # 2. ZONE COMMANDS
+                commands.append('')  # blank line before zone commands
+                commands.append(f'### ZONE COMMANDS FOR {fabric_key.upper()}')
+                
+                fabric_zones = all_zones.filter(fabric__name=fabric_key)
+                for zone in fabric_zones:
+                    zone_members = zone.members.filter(include_in_zoning=True)
+                    if zone_members.count() > 0:
+                        # Zone creation line with comment
+                        zone_comment = " #smart zone" if zone.zone_type == 'smart' else " #standard zone"
+                        commands.append(f'zone name {zone.name} vsan {fabric_info["vsan"]}{zone_comment}')
+                        
+                        # Add members
+                        for member in zone_members:
+                            if member.cisco_alias == 'fcalias':
+                                # fcalias doesn't get a use because it's defined in the alias
+                                commands.append(f'  member fcalias {member.name}')
+                            elif member.cisco_alias == 'device-alias':
+                                if zone.zone_type == 'smart':
+                                    commands.append(f'  member device-alias {member.name} {member.use}')
+                                else:  # standard zone
+                                    commands.append(f'  member device-alias {member.name}')
+                            elif member.cisco_alias == 'wwpn':
+                                if zone.zone_type == 'smart':
+                                    commands.append(f'  member pwwn {wwpn_colonizer(member.wwpn)} {member.use}')
+                                else:  # standard zone
+                                    commands.append(f'  member pwwn {wwpn_colonizer(member.wwpn)}')
+                
+                # 3. ZONESET COMMANDS
+                commands.append('')  # blank line before zoneset commands
+                commands.append(f'### ZONESET COMMANDS FOR {fabric_key.upper()}')
+                
+                if fabric_zones.exists():
+                    commands.append(f'zoneset name {fabric_info["zoneset_name"]} vsan {fabric_info["vsan"]}')
+                    
+                    # Add zone members to zoneset
+                    for zone in fabric_zones:
+                        if zone.members.filter(include_in_zoning=True).count() > 0 and not zone.exists:
+                            commands.append(f'  member {zone.name}')
+                    
+                    # Activate and commit
+                    commands.append(f'zoneset activate name {fabric_info["zoneset_name"]} vsan {fabric_info["vsan"]}')
+                    commands.append(f'zone commit vsan {fabric_info["vsan"]}')
+                
+                # End with copy run start
+                commands.append('')  # blank line before copy run start
+                commands.append('copy run start')
+            
+            elif fabric_info["san_vendor"] == 'BR':
+                # BROCADE FORMAT
+                print(f"🔍 Processing Brocade fabric {fabric_key}")
+                
+                # 1. ALIAS CREATION COMMANDS
+                commands.append(f'### {fabric_key.upper()} ALIAS CREATION COMMANDS')
+                
+                brocade_aliases = fabric_aliases
+                for alias in brocade_aliases:
+                    commands.append(f'alicreate "{alias.name}", "{wwpn_colonizer(alias.wwpn)}"')
+                
+                # 2. ZONE COMMANDS
+                commands.append('')  # blank line before zone commands
+                commands.append(f'### ZONE COMMANDS FOR {fabric_key.upper()}')
+                
+                fabric_zones = all_zones.filter(fabric__name=fabric_key)
+                for zone in fabric_zones:
+                    zone_members = zone.members.filter(include_in_zoning=True)
+                    if zone_members.count() > 0:
+                        if zone.zone_type == 'smart':
+                            # Separate initiators and targets
+                            initiators = [m.name for m in zone_members if m.use == 'init']
+                            targets = [m.name for m in zone_members if m.use == 'target']
+                            
+                            initiators_str = ';'.join(initiators) if initiators else ''
+                            targets_str = ';'.join(targets) if targets else ''
+                            
+                            if zone.exists:
+                                commands.append(f'zoneadd --peerzone "{zone.name}" -principal "{targets_str}" -members "{initiators_str}"  #smart zone')
+                            else:
+                                commands.append(f'zonecreate --peerzone "{zone.name}" -principal "{targets_str}" -members "{initiators_str}"  #smart zone')
+                        else:  # standard zone
+                            members = [m.name for m in zone_members]
+                            members_str = ';'.join(members)
+                            
+                            if zone.exists:
+                                commands.append(f'zoneadd "{zone.name}", "{members_str}"  #standard zone')
+                            else:
+                                commands.append(f'zonecreate "{zone.name}", "{members_str}"  #standard zone')
+                
+                # 3. ZONESET COMMANDS  
+                commands.append('')  # blank line before zoneset commands
+                commands.append(f'### ZONESET COMMANDS FOR {fabric_key.upper()}')
+                
+                if fabric_zones.exists():
+                    
+                    # Check if fabric exists to determine cfgcreate vs cfgadd
+                    fabric_exists = getattr(fabric_zones.first().fabric, 'exists', True)
+                    if not fabric_exists:
+                        # Use cfgcreate for first zone if fabric doesn't exist
+                        first_zone = fabric_zones.filter(members__include_in_zoning=True).first()
+                        if first_zone:
+                            commands.append(f'cfgcreate "{fabric_info["zoneset_name"]}", "{first_zone.name}"')
+                            # Add remaining zones with cfgadd
+                            for zone in fabric_zones.exclude(id=first_zone.id):
+                                if zone.members.filter(include_in_zoning=True).count() > 0 and not zone.exists:
+                                    commands.append(f'cfgadd "{fabric_info["zoneset_name"]}", "{zone.name}"')
+                    else:
+                        # Use cfgadd for all zones if fabric exists
+                        for zone in fabric_zones:
+                            if zone.members.filter(include_in_zoning=True).count() > 0 and not zone.exists:
+                                commands.append(f'cfgadd "{fabric_info["zoneset_name"]}", "{zone.name}"')
+                    
+                    # Enable configuration
+                    commands.append(f'cfgenable "{fabric_info["zoneset_name"]}"')
+            
+            fabric_data["commands"] = commands
+            print(f"✅ Generated {len(commands)} commands for fabric {fabric_key}")
+            print(f"🔍 First 10 commands: {commands[:10]}")
+        
+        # Sort by fabric names
+        result = dict(sorted(fabric_scripts.items()))
+        print(f"✅ Successfully generated scripts for {len(result)} fabrics")
+        return result
+        
+    except Exception as e:
+        print(f"❌ Error in generate_zone_creation_commands: {e}")
+        import traceback
+        traceback.print_exc()
+        raise

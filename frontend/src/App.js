@@ -45,10 +45,11 @@ const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
 const ConfigForm = React.lazy(() => import("./components/forms/ConfigForm"));
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const WWPNFormatterTable = React.lazy(() => import("./components/tools/WWPNColonizer"));
-const AliasScriptsPage = React.lazy(() => import("./pages/AliasScriptsPage"));
 const DS8000ScriptsPage = React.lazy(() => import("./pages/DS8000ScriptsPage"));
 const FlashsystemscriptsPage = React.lazy(() => import("./pages/FlashsystemScriptsPage"));
 const ZoneScriptsPage = React.lazy(() => import("./pages/ZoneScriptsPage"));
+const ZoneCreationScriptsPage = React.lazy(() => import("./pages/ZoneCreationScriptsPage"));
+const ZoneDeleteScriptsPage = React.lazy(() => import("./pages/ZoneDeleteScriptsPage"));
 const ImportSwitchConfig = React.lazy(() => import("./components/forms/ImportSwitchConfig"));
 const StorageInsightsImporter = React.lazy(() => import("./pages/StorageInsightsImporter"));
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
@@ -154,12 +155,16 @@ function AppContent() {
                     element={<StorageCalculatorPage />}
                   />
                   <Route
-                    path="/san/aliases/alias-scripts"
-                    element={<AliasScriptsPage />}
-                  />
-                  <Route
                     path="/san/zones/zone-scripts"
                     element={<ZoneScriptsPage />}
+                  />
+                  <Route
+                    path="/san/zones/zone-creation-scripts"
+                    element={<ZoneCreationScriptsPage />}
+                  />
+                  <Route
+                    path="/san/zones/zone-deletion-scripts"
+                    element={<ZoneDeleteScriptsPage />}
                   />
                     <Route path="/import-data" element={<ImportSwitchConfig />} />
                     <Route path="*" element={<NotFound />} />

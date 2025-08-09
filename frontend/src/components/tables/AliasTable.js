@@ -472,24 +472,6 @@ const AliasTable = () => {
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Alias_Table.csv`}
         additionalButtons={[
           {
-            text: "Generate Alias Scripts",
-            icon: (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="16 18 22 12 16 6"/>
-                <polyline points="8 6 2 12 8 18"/>
-              </svg>
-            ),
-            onClick: () => {
-              if (tableRef.current?.isDirty) {
-                if (window.confirm("You have unsaved changes. Save before generating scripts?")) {
-                  tableRef.current.refreshData().then(() => navigate("/san/aliases/alias-scripts"));
-                }
-              } else {
-                navigate("/san/aliases/alias-scripts");
-              }
-            }
-          },
-          {
             text: "Bulk Import",
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

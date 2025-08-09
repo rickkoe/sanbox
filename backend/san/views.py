@@ -10,7 +10,7 @@ from core.models import Config, Project
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer, WwpnPrefixSerializer
 from django.db import IntegrityError
 from collections import defaultdict
-from .san_utils import generate_alias_commands, generate_zone_commands
+from .san_utils import generate_alias_commands, generate_zone_commands, generate_alias_deletion_only_commands, generate_zone_deletion_commands, generate_zone_creation_commands
 from django.utils import timezone
 from core.dashboard_views import clear_dashboard_cache_for_customer
 
@@ -855,11 +855,65 @@ def generate_zone_scripts(request, project_id):
     if not config:
         return JsonResponse({"error": "Configuration is missing."}, status=500)
     try:
-        zones = Zone.objects.filter(create=True, projects=config.active_project)
+        create_zones = Zone.objects.filter(create=True, projects=config.active_project)
+        delete_zones = Zone.objects.filter(delete=True, projects=config.active_project)
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
-    command_data = generate_zone_commands(zones, config)
+    command_data = generate_zone_commands(create_zones, delete_zones, config)
+    return JsonResponse({"zone_scripts": command_data}, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def generate_alias_deletion_scripts(request, project_id):
+    """Generate alias deletion scripts for a project."""
+    print(f"🔥 Generate Alias Deletion Scripts - Project ID: {project_id}")
+    
+    if not project_id:
+        return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
+    
+    config = Config.get_active_config()
+    if not config:
+        return JsonResponse({"error": "Configuration is missing."}, status=500)
+    
+    try:
+        delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
+    except Exception as e:
+        return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
+
+    command_data = generate_alias_deletion_only_commands(delete_aliases, config)
+    
+    # Transform the new structure to maintain backward compatibility
+    result = {}
+    for fabric_name, fabric_data in command_data.items():
+        result[fabric_name] = {
+            "commands": fabric_data["commands"],
+            "fabric_info": fabric_data["fabric_info"]
+        }
+    
+    return JsonResponse({"alias_scripts": result}, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def generate_zone_deletion_scripts(request, project_id):
+    """Generate zone deletion scripts for a project."""
+    print(f"🔥 Generate Zone Deletion Scripts - Project ID: {project_id}")
+    
+    if not project_id:
+        return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
+    
+    config = Config.get_active_config()
+    if not config:
+        return JsonResponse({"error": "Configuration is missing."}, status=500)
+    
+    try:
+        delete_zones = Zone.objects.filter(delete=True, projects=config.active_project)
+    except Exception as e:
+        return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
+
+    command_data = generate_zone_deletion_commands(delete_zones, config)
     return JsonResponse({"zone_scripts": command_data}, safe=False)
 
 
@@ -1040,3 +1094,35 @@ def wwpn_detect_type_view(request):
         
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt 
+@require_http_methods(["GET"])
+def generate_zone_creation_scripts(request, project_id):
+    """Generate combined zone creation scripts with aliases in the specified format."""
+    print(f"🔥 Generate Zone Creation Scripts - Project ID: {project_id}")
+    
+    if not project_id:
+        return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
+    
+    config = Config.get_active_config()
+    if not config:
+        return JsonResponse({"error": "Configuration is missing."}, status=500)
+    
+    try:
+        create_zones = Zone.objects.filter(create=True, projects=config.active_project)
+        print(f"🔍 Found {create_zones.count()} zones to create")
+    except Exception as e:
+        print(f"❌ Error fetching zones: {e}")
+        return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
+    
+    try:
+        command_data = generate_zone_creation_commands(create_zones, config)
+        print(f"✅ Generated scripts for {len(command_data)} fabrics")
+    except Exception as e:
+        print(f"❌ Error generating scripts: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": "Error generating scripts.", "details": str(e)}, status=500)
+    
+    return JsonResponse({"zone_scripts": command_data}, safe=False)
