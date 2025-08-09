@@ -53,6 +53,7 @@ class Alias(models.Model):
     create = models.BooleanField(default=False, null=True, blank=True)
     delete = models.BooleanField(default=False, null=True, blank=True)
     include_in_zoning = models.BooleanField(default=False, null=True, blank=True)
+    logged_in = models.BooleanField(default=False, null=True, blank=True)
     host = models.ForeignKey(Host, on_delete=models.SET_NULL, related_name='alias_host', null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)

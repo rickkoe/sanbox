@@ -167,7 +167,7 @@ const VolumeTable = ({ storage }) => {
         newRowTemplate={{}}
         columnSorting={true}
         filters={false}
-        storageKey="volumeTableWidths"
+        columnWidthsStorageKey="volumeTableWidths"
         defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${storage.name || 'Storage'}_Volumes.csv`}
         additionalButtons={
