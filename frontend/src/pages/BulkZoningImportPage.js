@@ -953,7 +953,8 @@ const BulkZoningImportPage = () => {
     const extractedSections = {
       deviceAliases: [],
       fcAliases: [],
-      zones: []
+      zones: [],
+      flogiWwpns: []
     };
     
     let currentSection = null;
@@ -963,7 +964,28 @@ const BulkZoningImportPage = () => {
     let foundShowDeviceAlias = false;
     
     console.log("🔍 Parsing tech-support file with", lines.length, "lines");
-    console.log("🎯 Looking for 'show device-alias database' sections only");
+    console.log("🎯 Looking for 'show device-alias database' and 'show flogi database' sections");
+    
+    // Debug: Look specifically for "show flogi database" lines
+    console.log("🔍 Searching for 'show flogi database' line in file...");
+    const flogiDatabaseLines = lines.filter(line => {
+      const trimmed = line.trim().toLowerCase();
+      return trimmed === 'show flogi database' || 
+             trimmed === '`show flogi database`' ||
+             trimmed === 'show flogi database' ||
+             trimmed === '`show flogi database`';
+    }).slice(0, 5); // Show first 5 matches
+    
+    if (flogiDatabaseLines.length > 0) {
+      console.log(`📝 Found ${flogiDatabaseLines.length} exact 'show flogi database' lines:`);
+      flogiDatabaseLines.forEach((line, index) => {
+        console.log(`  ${index + 1}: "${line.trim()}"`);
+      });
+      // Add visible alert to show in UI
+    } else {
+      console.log("❌ No exact 'show flogi database' lines found in file");
+      // Add visible alert to show in UI
+    }
     
     // Also try a simpler approach - look for patterns anywhere in the file
     console.log("🔍 Simple pattern search:");
@@ -1013,12 +1035,26 @@ const BulkZoningImportPage = () => {
         continue;
       }
       
+      // Look for exact "show flogi database" section (not "show flogi database details")
+      if (trimmedLine.match(/^-+\s*show\s+flogi\s+database\s*-*$/i) ||
+          trimmedLine.match(/^`?show\s+flogi\s+database`?\s*$/i)) {
+        if (currentSection && sectionLines.length > 0) {
+          processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
+        }
+        currentSection = "flogi-show";
+        sectionLines = [];
+        inTargetSection = true;
+        console.log("📝 Found 'show flogi database' section at line", i + 1);
+        continue;
+      }
+      
       // Detect end of show command sections (next show command, major section break, or next Full Zone Database Section)
       if (inTargetSection && (
-          trimmedLine.match(/^-+\s*show\s+(?!(device-alias\s+database|zone|zoneset))/i) ||
-          trimmedLine.match(/^show\s+(?!(device-alias\s+database|zone|zoneset))/i) ||
-          (trimmedLine.startsWith("---") && trimmedLine.length > 10) ||
-          trimmedLine.match(/^!\w+.*Section/i) // End when hitting another section like "!Active Zone Database Section"
+          trimmedLine.match(/^-+\s*show\s+(?!(device-alias\s+database|zone|zoneset|flogi))/i) ||
+          trimmedLine.match(/^show\s+(?!(device-alias\s+database|zone|zoneset|flogi))/i) ||
+          (trimmedLine.startsWith("---") && trimmedLine.length > 10 && currentSection !== "flogi-show") ||
+          trimmedLine.match(/^!\w+.*Section/i) || // End when hitting another section like "!Active Zone Database Section"
+          (currentSection === "flogi-show" && trimmedLine.match(/^Total number of flogi/i)) // End flogi section at summary line
         )) {
         if (currentSection && sectionLines.length > 0) {
           processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
@@ -1033,17 +1069,26 @@ const BulkZoningImportPage = () => {
       // Collect lines for current section
       if (inTargetSection && currentSection) {
         sectionLines.push(line);
+        // Debug: show line collection for flogi sections
+        if (currentSection === "flogi-show" && sectionLines.length <= 5) {
+          console.log(`📝 Collecting flogi line ${sectionLines.length}: "${line.trim()}"`);
+        }
       }
     }
     
     // Process any remaining section
     if (currentSection && sectionLines.length > 0) {
+      if (currentSection === "flogi-show") {
+        alert(`DEBUG: Processing final flogi-show section with ${sectionLines.length} lines`);
+      }
       processTechSupportSection(currentSection, sectionLines, extractedSections, currentVsan);
     }
     
     console.log("🏆 Tech-support parsing complete. Found:", {
       deviceAliases: extractedSections.deviceAliases.length,
-      fcAliases: extractedSections.fcAliases.length
+      fcAliases: extractedSections.fcAliases.length,
+      zones: extractedSections.zones.length,
+      flogiWwpns: extractedSections.flogiWwpns.length
     });
     
     // If section-based parsing didn't find much, try direct pattern extraction as fallback
@@ -1109,6 +1154,7 @@ const BulkZoningImportPage = () => {
     console.log(`🔧 Processing ${sectionType} section with ${lines.length} lines`, currentVsan ? `(VSAN ${currentVsan})` : "");
     console.log(`🔍 Section text preview:`, sectionText.substring(0, 200) + "...");
     
+    
     if (sectionType === "device-alias-show") {
       // Process "show device-alias database" output
       // Look for lines like: device-alias P1-VC1-I01-p1 50:05:07:63:0a:03:17:e4
@@ -1158,6 +1204,39 @@ const BulkZoningImportPage = () => {
       }
       
       extractedSections.zones.push(processedZoneText);
+    } else if (sectionType === "flogi-show") {
+      // Process "show flogi database" output
+      console.log(`📝 Processing flogi database section with ${lines.length} lines`);
+      
+      // Parse WWPNs from flogi database output
+      // Format: fc1/1     75    0xa60381  c0:50:76:09:15:09:02:20 c0:50:76:09:15:09:02:20
+      const flogiWwpns = [];
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        // Match lines with WWPN format (skip header lines and separators)
+        // Updated regex to be more flexible with spacing and WWPN format
+        const match = trimmedLine.match(/^fc\d+\/\d+\s+\d+\s+0x[0-9a-fA-F]+\s+([0-9a-fA-F:]{23}|[0-9a-fA-F]{16})/i);
+        if (match) {
+          let wwpn = match[1].toLowerCase();
+          // Ensure WWPN is in colon format for consistency
+          if (wwpn.length === 16) {
+            wwpn = wwpn.match(/.{2}/g).join(':');
+          }
+          flogiWwpns.push(wwpn);
+          console.log(`🔍 Parsed flogi WWPN: ${wwpn} from line: ${trimmedLine.substring(0, 80)}`);
+        } else {
+          // Debug: show lines that don't match (but skip obvious header/separator lines)
+          if (trimmedLine.length > 10 && !trimmedLine.includes('INTERFACE') && !trimmedLine.includes('----')) {
+            console.log(`❌ Line didn't match flogi pattern: ${trimmedLine.substring(0, 80)}`);
+          }
+        }
+      }
+      
+      console.log(`📝 Found ${flogiWwpns.length} WWPNs in flogi database`);
+      console.log(`🔍 Sample flogi WWPNs:`, flogiWwpns.slice(0, 5));
+      
+      extractedSections.flogiWwpns.push(...flogiWwpns);
     } else {
       // Fallback for other section types
       console.log(`⚠️ Unknown section type: ${sectionType}`);
@@ -1628,6 +1707,7 @@ const BulkZoningImportPage = () => {
     setParsing(true);
     const results = [];
     const allBatchAliases = [];
+    let sessionFlogiWwpns = []; // Track flogi WWPNs for this session only
     
     // First pass: collect all aliases from all files
     for (const file of files) {
@@ -1655,6 +1735,12 @@ const BulkZoningImportPage = () => {
             const aliasItems = await parseAliasData(combinedFcAliasText, selectedFabric, aliasDefaults);
             console.log("✅ First pass - parsed fcalias items:", aliasItems.length);
             allBatchAliases.push(...aliasItems);
+          }
+          
+          // Collect flogi WWPNs for later processing
+          if (extractedSections.flogiWwpns.length > 0) {
+            console.log("🔄 Found flogi database - collecting WWPNs for session");
+            sessionFlogiWwpns.push(...extractedSections.flogiWwpns);
           }
         } else if (dataType === "alias") {
           const aliasItems = await parseAliasData(text, selectedFabric, aliasDefaults);
@@ -1701,6 +1787,8 @@ const BulkZoningImportPage = () => {
             parsedItems.push(...aliasItems);
           }
           
+          // Note: logged_in status already updated in first pass
+          
           // Parse zone sections
           if (extractedSections.zones.length > 0) {
             const combinedZoneText = extractedSections.zones.join("\n");
@@ -1743,6 +1831,39 @@ const BulkZoningImportPage = () => {
       }
     }
     
+    // Apply logged_in status to all items from session's flogi data
+    if (sessionFlogiWwpns.length > 0) {
+      console.log("🔄 Applying logged_in status to session items");
+      setSuccess(`Found ${sessionFlogiWwpns.length} logged-in WWPNs in flogi database. Updating alias status...`);
+      
+      // Create a Set for faster lookup
+      const loggedInWwpns = new Set(sessionFlogiWwpns.map(wwpn => 
+        wwpn.replace(/[:\-]/g, '').toLowerCase()
+      ));
+      
+      let totalAliases = 0;
+      let updatedCount = 0;
+      
+      // Update logged_in status for all items in all results
+      results.forEach(result => {
+        result.items.forEach(item => {
+          if (item.wwpn) {
+            totalAliases++;
+            const cleanWwpn = item.wwpn.replace(/[:\-]/g, '').toLowerCase();
+            if (loggedInWwpns.has(cleanWwpn)) {
+              item.logged_in = true;
+              updatedCount++;
+            } else {
+              item.logged_in = false;
+            }
+          }
+        });
+      });
+      
+      console.log(`📊 Updated logged_in status for ${updatedCount} out of ${totalAliases} aliases from current session`);
+      setSuccess(`Updated logged_in status: ${updatedCount} out of ${totalAliases} aliases marked as logged in.`);
+    }
+
     console.log("✅ processFiles completed - parsing should end soon");
     return results;
   // eslint-disable-next-line react-hooks/exhaustive-deps
