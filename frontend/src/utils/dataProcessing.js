@@ -42,17 +42,31 @@ export const getImportStats = (parsedData) => {
   };
 };
 
-// Deduplicate items by name
+// Deduplicate items by name for zones, by wwpn for aliases
 export const deduplicateItems = (items) => {
-  const seen = new Set();
+  const seenAliases = new Set(); // Track by WWPN for aliases
+  const seenZones = new Set();   // Track by name for zones
+  
   return items.filter(item => {
-    const key = item.name;
-    if (seen.has(key)) {
-      // console.log(`Removing duplicate: ${key}`);
-      return false;
+    if (item.wwpn !== undefined) {
+      // This is an alias - deduplicate by WWPN
+      const key = item.wwpn;
+      if (seenAliases.has(key)) {
+        console.log(`Removing duplicate alias by WWPN: ${item.name} (${key})`);
+        return false;
+      }
+      seenAliases.add(key);
+      return true;
+    } else {
+      // This is a zone - deduplicate by name
+      const key = item.name;
+      if (seenZones.has(key)) {
+        console.log(`Removing duplicate zone: ${key}`);
+        return false;
+      }
+      seenZones.add(key);
+      return true;
     }
-    seen.add(key);
-    return true;
   });
 };
 

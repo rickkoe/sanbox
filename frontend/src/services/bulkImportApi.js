@@ -68,7 +68,9 @@ export const enhanceWithExistenceCheck = async (items) => {
       console.log(`📊 Marked ${markedAsExisting} aliases as existing in database`);
     } catch (error) {
       console.error("Error checking alias existence:", error);
-      // Continue without existence check for aliases
+      console.error("API error details:", error.response?.data);
+      // Continue without existence check for aliases - mark all as new
+      console.log("⚠️ Falling back to marking all aliases as new due to API error");
     }
   }
   
@@ -184,6 +186,7 @@ export const fetchWwpnPrefixes = async () => {
 export const importAliases = async (aliases, projectId) => {
   try {
     console.log(`🔄 Importing ${aliases.length} aliases to project ${projectId}`);
+    console.log(`First few aliases:`, aliases.slice(0, 3).map(a => ({name: a.name, wwpn: a.wwpn, existsInDatabase: a.existsInDatabase})));
     
     // Format aliases for the API
     const aliasData = aliases.map(alias => {
