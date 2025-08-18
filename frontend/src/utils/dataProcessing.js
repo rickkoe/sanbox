@@ -80,6 +80,7 @@ export const resolveZoneMembers = (zones, aliases, existingAliases = []) => {
   // Add imported aliases
   aliases.forEach(alias => {
     allAliases.set(alias.name, {
+      id: alias.id, // Include alias ID
       name: alias.name,
       wwpn: alias.wwpn,
       source: 'importing'
@@ -90,6 +91,7 @@ export const resolveZoneMembers = (zones, aliases, existingAliases = []) => {
   existingAliases.forEach(alias => {
     if (!allAliases.has(alias.name)) {
       allAliases.set(alias.name, {
+        id: alias.id, // Include alias ID for existing aliases too
         name: alias.name,
         wwpn: alias.wwpn || alias.pwwn,
         source: 'database'
@@ -123,11 +125,15 @@ export const resolveZoneMembers = (zones, aliases, existingAliases = []) => {
       if (member.type === 'device-alias' || member.type === 'fcalias') {
         const aliasInfo = allAliases.get(member.name);
         if (aliasInfo) {
+          if (zoneIndex < 3) { // Debug first 3 zones
+            console.log(`  Found alias ${member.name}:`, {id: aliasInfo.id, wwpn: aliasInfo.wwpn, source: aliasInfo.source});
+          }
           resolvedMembers.push({
             ...member,
             resolved: true,
             wwpn: aliasInfo.wwpn,
-            source: aliasInfo.source
+            source: aliasInfo.source,
+            aliasId: aliasInfo.id // Add alias ID for import
           });
         } else {
           unresolvedMembers.push({
@@ -137,13 +143,33 @@ export const resolveZoneMembers = (zones, aliases, existingAliases = []) => {
           });
         }
       } else if (member.type === 'pwwn') {
-        // PWWN members are always considered resolved
-        resolvedMembers.push({
-          ...member,
-          resolved: true,
-          wwpn: member.name,
-          source: 'direct'
-        });
+        // For PWWN members, try to find a matching alias by WWPN
+        const matchingAlias = Array.from(allAliases.values()).find(alias => alias.wwpn === member.name);
+        if (matchingAlias) {
+          // Found an alias with this WWPN - resolve to the alias
+          if (zoneIndex < 3) { // Debug first 3 zones
+            console.log(`  Resolved PWWN ${member.name} to alias ${matchingAlias.name} (ID: ${matchingAlias.id})`);
+          }
+          resolvedMembers.push({
+            ...member,
+            resolved: true,
+            wwpn: member.name,
+            source: matchingAlias.source,
+            aliasId: matchingAlias.id,
+            aliasName: matchingAlias.name
+          });
+        } else {
+          // No alias found for this PWWN - keep as direct PWWN (not supported by current Zone model)
+          if (zoneIndex < 3) { // Debug first 3 zones
+            console.log(`  PWWN ${member.name} not found in aliases - keeping as direct PWWN`);
+          }
+          resolvedMembers.push({
+            ...member,
+            resolved: true,
+            wwpn: member.name,
+            source: 'direct'
+          });
+        }
       } else {
         unresolvedMembers.push({
           ...member,

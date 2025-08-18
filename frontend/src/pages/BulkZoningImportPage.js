@@ -18,7 +18,7 @@ import { getImportStats } from "../utils/dataProcessing";
 import { parseAliasData } from "../utils/aliasParser";
 import { parseZoneData } from "../utils/zoneParser";
 import { detectDataType } from "../utils/techSupportParser";
-import { importAliases, importZones } from "../services/bulkImportApi";
+import { importAliases, importZones, refreshAliasOptions } from "../services/bulkImportApi";
 
 const BulkZoningImportPage = () => {
   const { config } = useContext(ConfigContext);
@@ -408,7 +408,32 @@ const BulkZoningImportPage = () => {
       
       // Import zones if any
       if (newZones.length > 0) {
-        await importZones(newZones, activeProjectId);
+        // After importing aliases, we need to refresh alias options to get the new IDs
+        // and re-resolve zone members against the updated alias list
+        console.log('🔄 Refreshing aliases after import to resolve zone members');
+        const updatedAliasOptions = await refreshAliasOptions(selectedFabric);
+        console.log(`🔄 Got ${updatedAliasOptions.length} updated aliases from database`);
+        
+        // Show sample of what we got back
+        if (updatedAliasOptions.length > 0) {
+          console.log('Sample updated aliases:', updatedAliasOptions.slice(0, 3).map(a => ({id: a.id, name: a.name, wwpn: a.wwpn})));
+        }
+        
+        // Re-resolve zone members with the updated alias list (now with IDs)
+        const { resolveZoneMembers } = await import('../utils/dataProcessing');
+        const resolvedZones = resolveZoneMembers(newZones, [], updatedAliasOptions);
+        
+        console.log(`🔄 Re-resolved ${resolvedZones.length} zones`);
+        if (resolvedZones.length > 0) {
+          console.log('Sample resolved zone:', {
+            name: resolvedZones[0].name,
+            members: resolvedZones[0].members?.length || 0,
+            resolvedMembers: resolvedZones[0].resolvedMembers?.length || 0,
+            sampleResolvedMember: resolvedZones[0].resolvedMembers?.[0]
+          });
+        }
+        
+        await importZones(resolvedZones, activeProjectId);
         importedZones = newZones.length;
       }
       

@@ -233,13 +233,29 @@ export const importZones = async (zones, projectId) => {
     // Format zones for the API
     const zoneData = zones.map(zone => {
       console.log('Zone data:', zone.name, 'Members:', zone.members);
+      console.log('Member details:', zone.members?.map(m => ({type: m.type, name: m.name, aliasId: m.aliasId})));
       
       // Convert member objects to alias IDs if they exist
       let memberIds = [];
-      if (zone.members && Array.isArray(zone.members)) {
-        memberIds = zone.members
-          .filter(member => member && member.aliasId) // Only include members that have been resolved to alias IDs
-          .map(member => member.aliasId);
+      
+      // Use resolvedMembers if available (after re-resolution), otherwise fall back to members
+      const membersToCheck = zone.resolvedMembers || zone.members || [];
+      
+      if (membersToCheck && Array.isArray(membersToCheck)) {
+        // Only include members that have alias IDs (fcalias/device-alias types)
+        // Skip PWWN members since the Zone model only supports Alias objects
+        const aliasMembers = membersToCheck.filter(member => member && member.aliasId);
+        const pwwnMembers = membersToCheck.filter(member => member && member.type === 'pwwn');
+        
+        memberIds = aliasMembers.map(member => ({ alias: member.aliasId }));
+        
+        console.log(`Zone ${zone.name}: ${membersToCheck.length} total members (${aliasMembers.length} alias, ${pwwnMembers.length} pwwn), ${memberIds.length} alias IDs sent to API`);
+        if (memberIds.length === 0 && aliasMembers.length === 0 && pwwnMembers.length > 0) {
+          console.log('  Note: Zone has only PWWN members, which are not supported by current Zone model');
+        }
+        if (memberIds.length === 0 && aliasMembers.length > 0) {
+          console.log('  Sample alias member structure:', aliasMembers[0]);
+        }
       }
       
       return {
@@ -251,6 +267,21 @@ export const importZones = async (zones, projectId) => {
         exists: zone.exists,
         members: memberIds // Send array of alias IDs
       };
+    });
+    
+    console.log('Sending zone data to API:', {
+      project_id: projectId,
+      totalZones: zoneData.length,
+      sampleZones: zoneData.slice(0, 2).map(z => ({
+        name: z.name,
+        vsan: z.vsan,
+        zone_type: z.zone_type,
+        fabric: z.fabric,
+        create: z.create,
+        exists: z.exists,
+        members: z.members,
+        memberCount: z.members.length
+      }))
     });
     
     const response = await axios.post('/api/san/zones/save/', {

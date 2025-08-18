@@ -104,8 +104,8 @@ class ZoneSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_members_details(self, obj):
-        """Return a list of member alias names."""
-        return [{"id": alias.id, "name": alias.name} for alias in obj.members.all()]  # ✅ Returning list of alias objects
+        """Return a list of member alias details including use type."""
+        return [{"id": alias.id, "name": alias.name, "use": alias.use} for alias in obj.members.all()]  # ✅ Include use field for ZoneTable categorization
     
     def create(self, validated_data):
         """Create zone and properly handle many-to-many fields"""

@@ -172,9 +172,13 @@ const ZoneTable = () => {
           let bothCount = 0;
           
           zone.members_details.forEach((member) => {
-            // Find the alias to get its use type
-            const alias = memberOptions.find(a => a.name === member.name);
-            const useType = alias?.use;
+            // Try to get use type from member itself first, then fall back to alias lookup
+            let useType = member.use;
+            if (!useType) {
+              // Fallback: find the alias to get its use type
+              const alias = memberOptions.find(a => a.name === member.name);
+              useType = alias?.use;
+            }
             
             console.log(`  Zone ${zoneIndex + 1} member "${member.name}": use="${useType}"`);
             
@@ -319,7 +323,7 @@ const ZoneTable = () => {
 
   // Process data for display - intelligently place members in correct column types
   const preprocessData = useCallback((data) => {
-    return data.map((zone) => {
+    return data.map((zone, zoneIndex) => {
       const memberCount = zone.members_details?.length || 0;
       const zoneData = {
         ...zone,
@@ -335,9 +339,18 @@ const ZoneTable = () => {
         const bothMembers = [];
         
         zone.members_details.forEach((member) => {
-          // Find the alias to get its use type
-          const alias = memberOptions.find(a => a.name === member.name);
-          const useType = alias?.use;
+          // Debug member data structure
+          if (zoneIndex < 3) {
+            console.log(`🔍 Zone ${zone.name} member:`, member);
+          }
+          
+          // Try to get use type from member itself first, then fall back to alias lookup
+          let useType = member.use;
+          if (!useType) {
+            // Fallback: find the alias to get its use type
+            const alias = memberOptions.find(a => a.name === member.name);
+            useType = alias?.use;
+          }
           
           if (useType === 'init') {
             initMembers.push(member.name);
