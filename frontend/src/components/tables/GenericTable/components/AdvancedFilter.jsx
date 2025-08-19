@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Filter, X, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import axios from 'axios';
 
 const AdvancedFilter = ({
   columns,
@@ -10,13 +11,19 @@ const AdvancedFilter = ({
   setQuickSearch,
   onFilterChange,
   data = [],
-  initialFilters = {}
+  initialFilters = {},
+  apiUrl = null,  // Add apiUrl for server-side unique values
+  serverPagination = false  // Add serverPagination flag
 }) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [activeFilters, setActiveFilters] = useState({});
   const [filterDropdownPosition, setFilterDropdownPosition] = useState({ top: 0, left: 0 });
   const [activeColumn, setActiveColumn] = useState(null);
   const [columnSearch, setColumnSearch] = useState('');
+  
+  // Cache for server-side unique values
+  const [uniqueValuesCache, setUniqueValuesCache] = useState({});
+  const [loadingColumns, setLoadingColumns] = useState({});
 
   // Synchronize activeFilters with initialFilters (from persisted configuration)
   useEffect(() => {
@@ -81,8 +88,84 @@ const AdvancedFilter = ({
     }
   }, [showFilterDropdown]);
 
-  // Get unique values for a column
-  const getUniqueValues = (columnIndex) => {
+  // Fetch unique values from server for a specific column
+  const fetchUniqueValues = async (columnIndex) => {
+    const column = columns[columnIndex];
+    if (!column || !apiUrl) return [];
+    
+    // Use cache if available
+    const cacheKey = `${columnIndex}_${column.data}`;
+    if (uniqueValuesCache[cacheKey]) {
+      return uniqueValuesCache[cacheKey];
+    }
+    
+    try {
+      let fieldName = column.data;
+      
+      // Handle special field mappings (same as in useServerPagination)
+      if (fieldName === 'fabric') {
+        fieldName = 'fabric__name';
+      } else if (fieldName === 'fabric_details.name') {
+        fieldName = 'fabric__name';
+      } else if (fieldName === 'storage' && !fieldName.includes('__')) {
+        fieldName = 'storage__name';
+      }
+      
+      // Build unique values API URL
+      const separator = apiUrl.includes('?') ? '&' : '?';
+      const uniqueValuesUrl = `${apiUrl}${separator}unique_values=${encodeURIComponent(fieldName)}`;
+      
+      console.log(`🔍 AdvancedFilter fetching unique values for ${fieldName}:`, uniqueValuesUrl);
+      
+      const response = await axios.get(uniqueValuesUrl);
+      let uniqueValues = [];
+      
+      // Handle different response formats
+      if (response.data.unique_values) {
+        uniqueValues = response.data.unique_values;
+      } else if (Array.isArray(response.data)) {
+        uniqueValues = response.data;
+      }
+      
+      // Convert to strings and handle boolean values properly
+      const processedValues = uniqueValues
+        .filter(value => value !== null && value !== undefined)
+        .map(value => {
+          if (typeof value === 'boolean') {
+            return value ? 'True' : 'False';  // Convert booleans to string representation
+          }
+          return String(value).trim();
+        })
+        .filter(value => value !== '')
+        .sort((a, b) => {
+          // Put boolean values in a logical order
+          if (a === 'True' && b === 'False') return -1;
+          if (a === 'False' && b === 'True') return 1;
+          // For other values, use normal sorting
+          return a.localeCompare(b);
+        });
+      
+      const finalValues = [...new Set(processedValues)];
+      
+      // Cache the result
+      setUniqueValuesCache(prev => ({
+        ...prev,
+        [cacheKey]: finalValues
+      }));
+      
+      console.log(`✅ AdvancedFilter got ${finalValues.length} unique values for ${fieldName}:`, finalValues);
+      return finalValues;
+      
+    } catch (error) {
+      console.error(`❌ AdvancedFilter failed to fetch unique values for ${column.data}:`, error);
+      
+      // Fallback to local data
+      return getLocalUniqueValues(columnIndex);
+    }
+  };
+
+  // Get unique values from local data (original implementation)
+  const getLocalUniqueValues = (columnIndex) => {
     if (!data || !Array.isArray(data) || !columns[columnIndex]) return [];
     
     const column = columns[columnIndex];
@@ -123,6 +206,47 @@ const AdvancedFilter = ({
       // For other values, use normal sorting
       return a.localeCompare(b);
     });
+  };
+
+  // Get unique values - uses server fetch for server pagination, local data otherwise
+  const getUniqueValues = (columnIndex) => {
+    if (serverPagination && apiUrl) {
+      // For server pagination, return cached values if available, empty array otherwise
+      const column = columns[columnIndex];
+      if (!column) return [];
+      
+      const cacheKey = `${columnIndex}_${column.data}`;
+      return uniqueValuesCache[cacheKey] || [];
+    } else {
+      // For client-side data, use the local implementation
+      return getLocalUniqueValues(columnIndex);
+    }
+  };
+
+  // Trigger unique values fetch when column is expanded
+  const handleColumnToggle = async (columnIndex) => {
+    const newActiveColumn = activeColumn === columnIndex ? null : columnIndex;
+    setActiveColumn(newActiveColumn);
+    
+    // If opening a column and server pagination is enabled, fetch unique values
+    if (newActiveColumn !== null && serverPagination && apiUrl) {
+      const column = columns[columnIndex];
+      const cacheKey = `${columnIndex}_${column.data}`;
+      
+      // Only fetch if not already cached and not already loading
+      if (!uniqueValuesCache[cacheKey] && !loadingColumns[columnIndex]) {
+        console.log(`📡 AdvancedFilter loading unique values for column ${columnIndex}...`);
+        setLoadingColumns(prev => ({ ...prev, [columnIndex]: true }));
+        
+        try {
+          await fetchUniqueValues(columnIndex);
+        } catch (error) {
+          console.error(`Failed to load unique values for column ${columnIndex}:`, error);
+        } finally {
+          setLoadingColumns(prev => ({ ...prev, [columnIndex]: false }));
+        }
+      }
+    }
   };
 
   // Filter visible columns for dropdown
@@ -301,7 +425,7 @@ const AdvancedFilter = ({
                 return (
                   <div key={col.index} className="column-filter-item">
                     <button
-                      onClick={() => setActiveColumn(activeColumn === col.index ? null : col.index)}
+                      onClick={() => handleColumnToggle(col.index)}
                       className={`column-filter-toggle ${hasFilter ? 'has-filter' : ''}`}
                     >
                       <span className="column-name">{col.header}</span>
@@ -334,7 +458,15 @@ const AdvancedFilter = ({
                         </div>
                         
                         {/* Value Selection */}
-                        {uniqueValues.length > 0 && uniqueValues.length <= 50 && (
+                        {loadingColumns[col.index] ? (
+                          <div className="filter-section">
+                            <label className="filter-label">Loading values...</label>
+                            <div className="loading-indicator">
+                              <div className="spinner"></div>
+                              <span>Fetching filter options...</span>
+                            </div>
+                          </div>
+                        ) : uniqueValues.length > 0 && uniqueValues.length <= 50 ? (
                           <div className="filter-section">
                             <label className="filter-label">Select Values ({uniqueValues.length})</label>
                             <div className="values-list-checkboxes">
@@ -351,7 +483,7 @@ const AdvancedFilter = ({
                               ))}
                             </div>
                           </div>
-                        )}
+                        ) : null}
                         
                         {uniqueValues.length > 50 && (
                           <div className="filter-section">

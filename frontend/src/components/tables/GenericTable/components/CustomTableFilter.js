@@ -1,5 +1,6 @@
 // CustomTableFilter.js - Add this as a new component
 import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
 
 const CustomTableFilter = ({ 
   columns, 
@@ -7,13 +8,23 @@ const CustomTableFilter = ({
   data, 
   onFilterChange, 
   visibleColumns = {},
-  initialFilters = {}
+  initialFilters = {},
+  apiUrl = null,  // Add apiUrl prop for fetching unique values
+  serverPagination = false  // Add serverPagination prop to detect pagination mode
 }) => {
   const [filters, setFilters] = useState(() => initialFilters || {});
   const [activeFilterColumn, setActiveFilterColumn] = useState(null);
   const [filterDropdownPosition, setFilterDropdownPosition] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef(null);
   const buttonRefs = useRef({});
+  
+  // Cache for unique values fetched from server
+  const [uniqueValuesCache, setUniqueValuesCache] = useState({});
+
+  // Debug: Log when CustomTableFilter mounts/updates
+  useEffect(() => {
+    console.log(`🎨 CustomTableFilter mounted/updated: serverPagination=${serverPagination}, apiUrl=${apiUrl}, columns=${columns?.length}, data=${data?.length}`);
+  }, [serverPagination, apiUrl, columns, data]);
 
   // Update filters when initialFilters prop changes
   useEffect(() => {
@@ -32,8 +43,78 @@ const CustomTableFilter = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Get unique values for a column
-  const getUniqueValues = (columnIndex) => {
+  // Fetch unique values from server for a specific column
+  const fetchUniqueValues = async (columnIndex) => {
+    const column = columns[columnIndex];
+    if (!column || !apiUrl) return [];
+    
+    // Use cache if available
+    const cacheKey = `${columnIndex}_${column.data}`;
+    if (uniqueValuesCache[cacheKey]) {
+      return uniqueValuesCache[cacheKey];
+    }
+    
+    try {
+      let fieldName = column.data;
+      
+      // Handle special field mappings (same as in useServerPagination)
+      if (fieldName === 'fabric') {
+        fieldName = 'fabric__name';
+      } else if (fieldName === 'fabric_details.name') {
+        fieldName = 'fabric__name';
+      } else if (fieldName === 'storage' && !fieldName.includes('__')) {
+        fieldName = 'storage__name';
+      }
+      
+      // Build unique values API URL
+      const separator = apiUrl.includes('?') ? '&' : '?';
+      const uniqueValuesUrl = `${apiUrl}${separator}unique_values=${encodeURIComponent(fieldName)}`;
+      
+      console.log(`🔍 Fetching unique values for ${fieldName}:`, uniqueValuesUrl);
+      
+      const response = await axios.get(uniqueValuesUrl);
+      let uniqueValues = [];
+      
+      // Handle different response formats
+      if (response.data.unique_values) {
+        uniqueValues = response.data.unique_values;
+      } else if (Array.isArray(response.data)) {
+        uniqueValues = response.data;
+      }
+      
+      // Convert to strings and handle boolean values properly
+      const processedValues = uniqueValues
+        .filter(value => value !== null && value !== undefined)
+        .map(value => {
+          if (typeof value === 'boolean') {
+            return value ? 'True' : 'False';  // Convert booleans to string representation
+          }
+          return String(value).trim();
+        })
+        .filter(value => value !== '')
+        .sort();
+      
+      const finalValues = [...new Set(processedValues)];
+      
+      // Cache the result
+      setUniqueValuesCache(prev => ({
+        ...prev,
+        [cacheKey]: finalValues
+      }));
+      
+      console.log(`✅ Got ${finalValues.length} unique values for ${fieldName}:`, finalValues);
+      return finalValues;
+      
+    } catch (error) {
+      console.error(`Failed to fetch unique values for ${column.data}:`, error);
+      
+      // Fallback to local data
+      return getLocalUniqueValues(columnIndex);
+    }
+  };
+
+  // Get unique values from local data (original implementation)
+  const getLocalUniqueValues = (columnIndex) => {
     const column = columns[columnIndex];
     if (!column) return [];
 
@@ -55,10 +136,32 @@ const CustomTableFilter = ({
         return value;
       })
       .filter(value => value !== null && value !== undefined && value !== '')
-      .map(value => String(value).trim())
+      .map(value => {
+        // Handle boolean values consistently
+        if (typeof value === 'boolean') {
+          return value ? 'True' : 'False';
+        }
+        return String(value).trim();
+      })
       .filter(value => value !== '');
 
     return [...new Set(values)].sort();
+  };
+
+  // Main function to get unique values - uses server fetch for server pagination, local data otherwise
+  const getUniqueValues = (columnIndex) => {
+    if (serverPagination && apiUrl) {
+      // For server pagination, we'll fetch unique values asynchronously
+      // This function returns the cached values if available, empty array otherwise
+      const column = columns[columnIndex];
+      if (!column) return [];
+      
+      const cacheKey = `${columnIndex}_${column.data}`;
+      return uniqueValuesCache[cacheKey] || [];
+    } else {
+      // For client-side data, use the local implementation
+      return getLocalUniqueValues(columnIndex);
+    }
   };
 
   // Apply filters to data
@@ -92,6 +195,8 @@ const CustomTableFilter = ({
   const toggleFilterDropdown = (columnIndex, event) => {
     event.stopPropagation();
     
+    console.log(`🎯 toggleFilterDropdown called with columnIndex=${columnIndex}, serverPagination=${serverPagination}`);
+    
     if (activeFilterColumn === columnIndex) {
       setActiveFilterColumn(null);
       return;
@@ -104,6 +209,7 @@ const CustomTableFilter = ({
     });
     
     setActiveFilterColumn(columnIndex);
+    console.log(`📂 Filter dropdown opened for column ${columnIndex}`);
   };
 
   // Get visible columns only
@@ -172,6 +278,8 @@ const CustomTableFilter = ({
           position={filterDropdownPosition}
           onFilterUpdate={(filterData) => updateFilter(activeFilterColumn, filterData)}
           onClose={() => setActiveFilterColumn(null)}
+          fetchUniqueValues={serverPagination ? fetchUniqueValues : null}
+          serverPagination={serverPagination}
         />
       )}
     </div>
@@ -187,7 +295,9 @@ const FilterDropdown = React.forwardRef(({
   currentFilter,
   position,
   onFilterUpdate,
-  onClose
+  onClose,
+  fetchUniqueValues,
+  serverPagination
 }, ref) => {
   // Initialize state based on GenericTable filter format
   const initializeState = (filter) => {
@@ -225,9 +335,41 @@ const FilterDropdown = React.forwardRef(({
   const [textFilter, setTextFilter] = useState(initialState.textFilter);
   const [selectedValues, setSelectedValues] = useState(initialState.selectedValues);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loadingUniqueValues, setLoadingUniqueValues] = useState(false);
+  const [actualUniqueValues, setActualUniqueValues] = useState(uniqueValues);
+
+  // Fetch unique values when dropdown opens (for server pagination)
+  useEffect(() => {
+    console.log(`🔍 FilterDropdown useEffect: serverPagination=${serverPagination}, fetchUniqueValues=${!!fetchUniqueValues}, columnIndex=${columnIndex}, actualUniqueValues.length=${actualUniqueValues.length}`);
+    
+    if (serverPagination && fetchUniqueValues && actualUniqueValues.length === 0) {
+      console.log(`📡 Fetching unique values for column ${columnIndex}...`);
+      setLoadingUniqueValues(true);
+      fetchUniqueValues(columnIndex)
+        .then(values => {
+          console.log(`✅ Received unique values for column ${columnIndex}:`, values);
+          setActualUniqueValues(values);
+          setLoadingUniqueValues(false);
+          
+          // Update selectedValues to include all fetched values if no current filter
+          if (!currentFilter || (currentFilter.type === 'multi_select' && (!currentFilter.value || currentFilter.value.length === 0))) {
+            setSelectedValues(new Set(values));
+          }
+        })
+        .catch(error => {
+          console.error(`❌ Failed to fetch unique values for column ${columnIndex}:`, error);
+          setLoadingUniqueValues(false);
+        });
+    } else {
+      console.log(`📦 Using existing unique values: actualUniqueValues.length=${actualUniqueValues.length}, uniqueValues.length=${uniqueValues.length}`);
+      setActualUniqueValues(uniqueValues);
+    }
+  }, [serverPagination, fetchUniqueValues, columnIndex, uniqueValues, currentFilter]);
 
   // Update state when currentFilter changes (when dropdown reopens with different filter)
   useEffect(() => {
+    const valuesToUse = actualUniqueValues.length > 0 ? actualUniqueValues : uniqueValues;
+    
     if (currentFilter) {
       // Convert GenericTable format to CustomTableFilter format
       if (['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(currentFilter.type)) {
@@ -237,7 +379,7 @@ const FilterDropdown = React.forwardRef(({
           condition: currentFilter.type,
           value: currentFilter.value || ''
         });
-        setSelectedValues(new Set(uniqueValues));
+        setSelectedValues(new Set(valuesToUse));
       } else if (currentFilter.type === 'multi_select') {
         // Multi-select filter
         setFilterType('values');
@@ -248,16 +390,16 @@ const FilterDropdown = React.forwardRef(({
         // Fallback
         setFilterType('text');
         setTextFilter({ condition: 'contains', value: currentFilter.value || '' });
-        setSelectedValues(new Set(uniqueValues));
+        setSelectedValues(new Set(valuesToUse));
       }
     } else {
       // Reset to defaults when no current filter
       setFilterType('text');
       setTextFilter({ condition: 'contains', value: '' });
-      setSelectedValues(new Set(uniqueValues));
+      setSelectedValues(new Set(valuesToUse));
     }
     setSearchTerm(''); // Always reset search term
-  }, [currentFilter, uniqueValues]);
+  }, [currentFilter, actualUniqueValues, uniqueValues]);
 
   const textConditions = [
     { value: 'contains', label: 'Contains' },
@@ -267,7 +409,8 @@ const FilterDropdown = React.forwardRef(({
     { value: 'not_contains', label: 'Does not contain' }
   ];
 
-  const filteredValues = uniqueValues.filter(value =>
+  const valuesToUse = actualUniqueValues.length > 0 ? actualUniqueValues : uniqueValues;
+  const filteredValues = valuesToUse.filter(value =>
     value.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -283,7 +426,7 @@ const FilterDropdown = React.forwardRef(({
         onFilterUpdate(null);
       }
     } else if (filterType === 'values') {
-      if (selectedValues.size === uniqueValues.length || selectedValues.size === 0) {
+      if (selectedValues.size === valuesToUse.length || selectedValues.size === 0) {
         onFilterUpdate(null);
       } else {
         // Convert CustomTableFilter format to GenericTable format
@@ -380,31 +523,41 @@ const FilterDropdown = React.forwardRef(({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="filter-search-input"
+            disabled={loadingUniqueValues}
           />
           
-          <div className="select-all-container">
-            <label className="select-all-label">
-              <input
-                type="checkbox"
-                checked={selectedValues.size === filteredValues.length && filteredValues.length > 0}
-                onChange={toggleSelectAll}
-              />
-              Select All ({filteredValues.length})
-            </label>
-          </div>
-          
-          <div className="values-list">
-            {filteredValues.map(value => (
-              <label key={value} className="value-item">
-                <input
-                  type="checkbox"
-                  checked={selectedValues.has(value)}
-                  onChange={() => toggleValue(value)}
-                />
-                <span>{value}</span>
-              </label>
-            ))}
-          </div>
+          {loadingUniqueValues ? (
+            <div className="loading-unique-values">
+              <div className="spinner"></div>
+              <span>Loading filter options...</span>
+            </div>
+          ) : (
+            <>
+              <div className="select-all-container">
+                <label className="select-all-label">
+                  <input
+                    type="checkbox"
+                    checked={selectedValues.size === filteredValues.length && filteredValues.length > 0}
+                    onChange={toggleSelectAll}
+                  />
+                  Select All ({filteredValues.length})
+                </label>
+              </div>
+              
+              <div className="values-list">
+                {filteredValues.map(value => (
+                  <label key={value} className="value-item">
+                    <input
+                      type="checkbox"
+                      checked={selectedValues.has(value)}
+                      onChange={() => toggleValue(value)}
+                    />
+                    <span>{value}</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

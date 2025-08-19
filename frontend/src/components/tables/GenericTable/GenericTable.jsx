@@ -1191,6 +1191,8 @@ const GenericTable = forwardRef(({
         pagination={serverPagination ? serverPaginationHook : null}
         data={preprocessData ? preprocessData(currentData) : currentData}
         onFilterChange={handleFilterChange}
+        apiUrl={serverPagination ? apiUrl : null}
+        serverPagination={serverPagination}
       />
 
       <StatusMessage saveStatus={saveStatus} />
@@ -1203,6 +1205,8 @@ const GenericTable = forwardRef(({
           onFilterChange={handleFilterChange}
           visibleColumns={visibleColumns}
           initialFilters={columnFilters}
+          apiUrl={serverPagination ? apiUrl : null}
+          serverPagination={serverPagination}
         />
       )}
       

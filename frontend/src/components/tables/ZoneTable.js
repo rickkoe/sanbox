@@ -156,73 +156,159 @@ const ZoneTable = () => {
     clearTableConfig();
   }, [activeProjectId, memberColumnConfig.init, memberColumnConfig.target, memberColumnConfig.both]); // Clear when project OR columns change
 
-  // Calculate required member columns by type from current page data
+  // Calculate required member columns by type from ALL zones (not just current page)
   useEffect(() => {
-    if (rawData.length > 0 && memberOptions.length > 0) {
-      let maxInitMembers = 0;
-      let maxTargetMembers = 0;
-      let maxBothMembers = 0;
-
-      console.log(`🔍 Analyzing ${rawData.length} zones for column requirements...`);
-
-      rawData.forEach((zone, zoneIndex) => {
-        if (zone.members_details?.length) {
-          let initCount = 0;
-          let targetCount = 0;
-          let bothCount = 0;
+    const calculateColumnRequirements = async () => {
+      console.log(`🔧 calculateColumnRequirements called: activeProjectId=${activeProjectId}, memberOptions.length=${memberOptions.length}`);
+      
+      if (activeProjectId && memberOptions.length > 0) {
+        try {
+          // Fetch ALL zones to determine maximum column requirements
+          console.log('🔍 Fetching ALL zones to calculate column requirements...');
           
-          zone.members_details.forEach((member) => {
-            // Find the alias to get its use type
-            const alias = memberOptions.find(a => a.name === member.name);
-            const useType = alias?.use;
+          let allZones = [];
+          let page = 1;
+          
+          // Fetch all pages to get complete zone data
+          while (true) {
+            const response = await axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/?page=${page}&page_size=100`);
+            const responseData = response.data;
+            const zonesArray = responseData.results || responseData || [];
             
-            console.log(`  Zone ${zoneIndex + 1} member "${member.name}": use="${useType}"`);
+            console.log(`📦 Page ${page}: got ${zonesArray.length} zones. Total so far: ${allZones.length + zonesArray.length}`);
+            console.log(`📦 Page ${page} response data:`, {
+              hasNext: !!responseData.next,
+              hasResults: !!responseData.results,
+              resultsLength: responseData.results?.length,
+              totalCount: responseData.count,
+              numPages: responseData.num_pages
+            });
             
-            if (useType === 'init') {
-              initCount++;
-            } else if (useType === 'target') {
-              targetCount++;
+            if (Array.isArray(zonesArray) && zonesArray.length > 0) {
+              allZones = [...allZones, ...zonesArray];
+              
+              // Check if there are more pages - be more explicit about the conditions  
+              const hasMorePages = page < (responseData.num_pages || 1);
+              const stillGettingData = zonesArray.length > 0;
+              const notAtPageLimit = page < (responseData.num_pages || 1000); // safety limit
+              
+              console.log(`📦 Page ${page} pagination check:`, {
+                hasMorePages,
+                stillGettingData,
+                notAtPageLimit,
+                shouldContinue: hasMorePages && stillGettingData && notAtPageLimit
+              });
+              
+              if (hasMorePages && stillGettingData && notAtPageLimit) {
+                page++;
+                console.log(`➡️ Continuing to page ${page}...`);
+              } else {
+                console.log(`✅ Stopping pagination. Final total: ${allZones.length} zones`);
+                break;
+              }
             } else {
-              // null, undefined, or 'both' go to both columns
-              bothCount++;
+              // Handle non-paginated response or empty result
+              if (page === 1) {
+                allZones = Array.isArray(responseData) ? responseData : [];
+                console.log(`📦 Non-paginated response: ${allZones.length} zones`);
+              } else {
+                console.log(`📦 Empty page ${page}, stopping pagination. Final total: ${allZones.length} zones`);
+              }
+              break;
+            }
+          }
+
+          let maxInitMembers = 0;
+          let maxTargetMembers = 0;
+          let maxBothMembers = 0;
+
+          console.log(`🔍 Analyzing ${allZones.length} zones for column requirements...`);
+
+          allZones.forEach((zone, zoneIndex) => {
+            if (zone.members_details?.length) {
+              let initCount = 0;
+              let targetCount = 0;
+              let bothCount = 0;
+              
+              console.log(`  Zone "${zone.name}" has ${zone.members_details.length} members:`);
+              
+              zone.members_details.forEach((member, memberIndex) => {
+                // Find the alias to get its use type
+                const alias = memberOptions.find(a => a.name === member.name);
+                const useType = alias?.use;
+                
+                console.log(`    Member ${memberIndex + 1}: "${member.name}" → use="${useType}" (alias found: ${!!alias})`);
+                
+                if (useType === 'init') {
+                  initCount++;
+                } else if (useType === 'target') {
+                  targetCount++;
+                } else {
+                  // null, undefined, or 'both' go to both columns
+                  bothCount++;
+                }
+              });
+              
+              console.log(`  Zone "${zone.name}" counts: init=${initCount}, target=${targetCount}, both=${bothCount}`);
+              
+              maxInitMembers = Math.max(maxInitMembers, initCount);
+              maxTargetMembers = Math.max(maxTargetMembers, targetCount);
+              maxBothMembers = Math.max(maxBothMembers, bothCount);
+              
+              // Log when we find a new maximum
+              if (initCount > maxInitMembers - initCount || targetCount > maxTargetMembers - targetCount || bothCount > maxBothMembers - bothCount) {
+                console.log(`  🎯 New max found! Zone "${zone.name}": init=${initCount}, target=${targetCount}, both=${bothCount}`);
+              }
             }
           });
+
+          console.log(`📊 Max members found across ALL zones: init=${maxInitMembers}, target=${maxTargetMembers}, both=${maxBothMembers}`);
+
+          // Ensure minimum columns and add one extra blank column for each type
+          const requiredInit = Math.max(2, maxInitMembers + 1);  // +1 for blank column
+          const requiredTarget = Math.max(2, maxTargetMembers + 1);  // +1 for blank column
+          const requiredBoth = Math.max(1, maxBothMembers + 1);  // +1 for blank column
           
-          console.log(`  Zone ${zoneIndex + 1} counts: init=${initCount}, target=${targetCount}, both=${bothCount}`);
+          console.log(`📋 Required columns (including blank): init=${requiredInit}, target=${requiredTarget}, both=${requiredBoth}`);
+          console.log(`📋 Current columns: init=${memberColumnConfig.init}, target=${memberColumnConfig.target}, both=${memberColumnConfig.both}`);
           
-          maxInitMembers = Math.max(maxInitMembers, initCount);
-          maxTargetMembers = Math.max(maxTargetMembers, targetCount);
-          maxBothMembers = Math.max(maxBothMembers, bothCount);
+          const needsUpdate = 
+            requiredInit !== memberColumnConfig.init ||
+            requiredTarget !== memberColumnConfig.target ||
+            requiredBoth !== memberColumnConfig.both;
+            
+          if (needsUpdate) {
+            console.log(`🔄 Updating columns: Target ${memberColumnConfig.target}→${requiredTarget}, Init ${memberColumnConfig.init}→${requiredInit}, Both ${memberColumnConfig.both}→${requiredBoth}`);
+            setMemberColumnConfig({
+              init: requiredInit,
+              target: requiredTarget,
+              both: requiredBoth
+            });
+          } else {
+            console.log(`✅ No column update needed`);
+          }
+        } catch (error) {
+          console.error('❌ Error calculating column requirements:', error);
+          // Fall back to minimum columns if there's an error
+          const fallbackInit = Math.max(2, memberColumnConfig.init);
+          const fallbackTarget = Math.max(2, memberColumnConfig.target);
+          const fallbackBoth = Math.max(1, memberColumnConfig.both);
+          
+          setMemberColumnConfig({
+            init: fallbackInit,
+            target: fallbackTarget,
+            both: fallbackBoth
+          });
         }
-      });
-
-      console.log(`📊 Max members found: init=${maxInitMembers}, target=${maxTargetMembers}, both=${maxBothMembers}`);
-
-      // Ensure minimum columns and update if we need more of any type
-      const requiredInit = Math.max(2, maxInitMembers);
-      const requiredTarget = Math.max(2, maxTargetMembers);
-      const requiredBoth = Math.max(1, maxBothMembers);
-      
-      console.log(`📋 Required columns: init=${requiredInit}, target=${requiredTarget}, both=${requiredBoth}`);
-      console.log(`📋 Current columns: init=${memberColumnConfig.init}, target=${memberColumnConfig.target}, both=${memberColumnConfig.both}`);
-      
-      const needsUpdate = 
-        requiredInit !== memberColumnConfig.init ||
-        requiredTarget !== memberColumnConfig.target ||
-        requiredBoth !== memberColumnConfig.both;
-        
-      if (needsUpdate) {
-        console.log(`🔄 Updating columns: Target ${memberColumnConfig.target}→${requiredTarget}, Init ${memberColumnConfig.init}→${requiredInit}, Both ${memberColumnConfig.both}→${requiredBoth}`);
-        setMemberColumnConfig({
-          init: requiredInit,
-          target: requiredTarget,
-          both: requiredBoth
-        });
-      } else {
-        console.log(`✅ No column update needed`);
       }
-    }
-  }, [rawData, memberOptions]); // Remove memberColumnConfig dependency to prevent infinite loop
+    };
+
+    calculateColumnRequirements();
+    
+    // Add debug function to window for manual testing
+    window.debugZoneColumns = calculateColumnRequirements;
+    
+  }, [activeProjectId, memberOptions]); // Remove memberColumnConfig and rawData dependencies
 
   // Calculate total member columns and create typed member column arrays
   const memberColumnsInfo = useMemo(() => {

@@ -220,6 +220,61 @@ def fabric_delete_view(request, pk):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+def get_unique_values_for_aliases(request, project, field_name):
+    """Get unique values for a specific field from aliases in a project."""
+    print(f"🔍 Getting unique values for field: {field_name} in project {project.id}")
+    
+    try:
+        # Base queryset for aliases in the project
+        aliases_queryset = Alias.objects.select_related('fabric').filter(projects=project)
+        
+        # Map field names to actual model fields
+        field_mapping = {
+            'create': 'create',
+            'include_in_zoning': 'include_in_zoning', 
+            'fabric__name': 'fabric__name',
+            'use': 'use',
+            'cisco_alias': 'cisco_alias',
+            'notes': 'notes'
+        }
+        
+        # Get the actual field name
+        actual_field = field_mapping.get(field_name, field_name)
+        
+        # Get unique values for the field
+        unique_values = aliases_queryset.values_list(actual_field, flat=True).distinct().order_by(actual_field)
+        
+        # Convert to list and handle different field types
+        unique_values = list(unique_values)
+        
+        # Handle boolean fields specially
+        if actual_field in ['create', 'delete', 'include_in_zoning', 'logged_in']:
+            # For boolean fields, we need to handle True, False, and potentially None
+            boolean_values = set(unique_values)  # Get unique boolean values including None
+            # Convert to consistent string representation, including None values
+            processed_booleans = []
+            for value in boolean_values:
+                if value is True:
+                    processed_booleans.append('True')
+                elif value is False:
+                    processed_booleans.append('False')
+                # Skip None values for boolean fields as they're not meaningful for filtering
+            unique_values = sorted(processed_booleans)  # Sort to ensure consistent order
+        else:
+            # For non-boolean fields, filter out None/null values
+            unique_values = [value for value in unique_values if value is not None and str(value).strip() != '']
+        
+        print(f"✅ Found {len(unique_values)} unique values for {field_name}: {unique_values}")
+        
+        return JsonResponse({
+            'unique_values': unique_values
+        })
+        
+    except Exception as e:
+        print(f"❌ Error getting unique values for {field_name}: {str(e)}")
+        return JsonResponse({"error": f"Failed to get unique values: {str(e)}"}, status=500)
+
+
 @csrf_exempt
 @require_http_methods(["GET"])
 def alias_list_view(request, project_id):
@@ -230,6 +285,11 @@ def alias_list_view(request, project_id):
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found."}, status=404)
+    
+    # Check for unique values request
+    unique_values_field = request.GET.get('unique_values')
+    if unique_values_field:
+        return get_unique_values_for_aliases(request, project, unique_values_field)
     
     # Get query parameters
     search = request.GET.get('search', '').strip()
@@ -255,12 +315,34 @@ def alias_list_view(request, project_id):
     # Apply field-specific filters
     filter_params = {}
     for param, value in request.GET.items():
-        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__')):
-            filter_params[param] = value
+        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__', 'logged_in__', 'delete__')):
+            # Handle boolean field filtering - convert string representations back to actual booleans
+            if any(param.startswith(f'{bool_field}__') for bool_field in ['create', 'delete', 'include_in_zoning', 'logged_in']):
+                if param.endswith('__in'):
+                    # Handle multi-select boolean filters (e.g., create__in=True,False)
+                    boolean_values = []
+                    for str_val in value.split(','):
+                        str_val = str_val.strip()
+                        if str_val.lower() == 'true':
+                            boolean_values.append(True)
+                        elif str_val.lower() == 'false':
+                            boolean_values.append(False)
+                    filter_params[param] = boolean_values
+                else:
+                    # Handle single boolean filters (e.g., create__exact=True)
+                    if value.lower() == 'true':
+                        filter_params[param] = True
+                    elif value.lower() == 'false':
+                        filter_params[param] = False
+            else:
+                # Handle non-boolean fields normally
+                filter_params[param] = value
     
     # Apply the filters
     if filter_params:
+        print(f"🔍 Applying filters: {filter_params}")
         aliases_queryset = aliases_queryset.filter(**filter_params)
+        print(f"📊 Filter result count: {aliases_queryset.count()}")
     
     # Apply ordering
     if ordering:

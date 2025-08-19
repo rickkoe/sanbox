@@ -30,7 +30,9 @@ const TableHeader = ({
   data = [],
   onFilterChange,
   columnFilters = {},
-  onClearAllFilters
+  onClearAllFilters,
+  apiUrl = null,  // Add apiUrl prop
+  serverPagination = false  // Add serverPagination prop
 }) => {
   const [showDataDropdown, setShowDataDropdown] = useState(false);
   const [showViewDropdown, setShowViewDropdown] = useState(false);
@@ -265,6 +267,8 @@ const TableHeader = ({
             onFilterChange={onFilterChange}
             data={data}
             initialFilters={columnFilters}
+            apiUrl={apiUrl}
+            serverPagination={serverPagination}
           />
           
           {/* Header Buttons */}
