@@ -105,7 +105,9 @@ class ZoneSerializer(serializers.ModelSerializer):
 
     def get_members_details(self, obj):
         """Return a list of member alias names."""
-        return [{"id": alias.id, "name": alias.name} for alias in obj.members.all()]  # ✅ Returning list of alias objects
+        # Use prefetch_related data if available to avoid N+1 queries
+        members = obj.members.all() if hasattr(obj, '_prefetched_objects_cache') else obj.members.select_related()
+        return [{"id": alias.id, "name": alias.name} for alias in members]
     
     def create(self, validated_data):
         """Create zone and properly handle many-to-many fields"""

@@ -593,6 +593,41 @@ def zone_max_members_view(request, project_id):
 
 
 @csrf_exempt
+@require_http_methods(["GET"])
+def zone_column_requirements(request, project_id):
+    """Lightweight endpoint to get zone column requirements without fetching all zone data"""
+    try:
+        project = Project.objects.get(pk=project_id)
+        
+        # Get zones with member counts, using prefetch for efficiency
+        zones = Zone.objects.filter(
+            projects=project
+        ).prefetch_related('members')
+        
+        # Calculate maximum members across all zones
+        max_members = 0
+        total_zones = zones.count()
+        
+        for zone in zones:
+            member_count = zone.members.count()
+            max_members = max(max_members, member_count)
+        
+        # Add a few extra columns for buffer
+        recommended_columns = max(max_members + 2, 5)  # At least 5 columns, or max + 2
+        
+        return JsonResponse({
+            'max_members': max_members,
+            'recommended_columns': recommended_columns,
+            'total_zones': total_zones
+        })
+        
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found."}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def zone_save_view(request):
     """Save or update zones for multiple projects."""

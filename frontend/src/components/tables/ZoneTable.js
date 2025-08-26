@@ -56,18 +56,16 @@ const ZoneTable = () => {
   const { settings } = useSettings();
   const [fabricOptions, setFabricOptions] = useState([]);
   const [memberOptions, setMemberOptions] = useState([]);
-  // New structure: track different column types
-  const [memberColumnConfig, setMemberColumnConfig] = useState({
-    init: 2,    // Initiator columns
-    target: 2,  // Target columns  
-    both: 1     // Both (any use) columns
+  // Simplified structure: just track total member columns
+  const [memberColumnRequirements, setMemberColumnRequirements] = useState({
+    memberColumns: 5,
+    totalZones: 0
   });
   
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
   const tableRef = useRef(null);
   const navigate = useNavigate();
-  const [showColumnTypeSelector, setShowColumnTypeSelector] = useState(false);
 
   // Column visibility state for base columns
   const [visibleBaseIndices] = useState(() => {
@@ -154,7 +152,7 @@ const ZoneTable = () => {
     };
 
     clearTableConfig();
-  }, [activeProjectId, memberColumnConfig.init, memberColumnConfig.target, memberColumnConfig.both]); // Clear when project OR columns change
+  }, [activeProjectId, memberColumnRequirements.memberColumns]); // Clear when project OR columns change
 
   // Calculate required member columns by type from ALL zones (not just current page)
   useEffect(() => {
@@ -163,141 +161,28 @@ const ZoneTable = () => {
       
       if (activeProjectId && memberOptions.length > 0) {
         try {
-          // Fetch ALL zones to determine maximum column requirements
-          console.log('🔍 Fetching ALL zones to calculate column requirements...');
+          // Use new lightweight endpoint to get column requirements
+          console.log('🔍 Fetching column requirements from optimized endpoint...');
           
-          let allZones = [];
-          let page = 1;
+          const response = await axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/column-requirements/`);
+          const data = response.data;
           
-          // Fetch all pages to get complete zone data
-          while (true) {
-            const response = await axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/?page=${page}&page_size=100`);
-            const responseData = response.data;
-            const zonesArray = responseData.results || responseData || [];
-            
-            console.log(`📦 Page ${page}: got ${zonesArray.length} zones. Total so far: ${allZones.length + zonesArray.length}`);
-            console.log(`📦 Page ${page} response data:`, {
-              hasNext: !!responseData.next,
-              hasResults: !!responseData.results,
-              resultsLength: responseData.results?.length,
-              totalCount: responseData.count,
-              numPages: responseData.num_pages
-            });
-            
-            if (Array.isArray(zonesArray) && zonesArray.length > 0) {
-              allZones = [...allZones, ...zonesArray];
-              
-              // Check if there are more pages - be more explicit about the conditions  
-              const hasMorePages = page < (responseData.num_pages || 1);
-              const stillGettingData = zonesArray.length > 0;
-              const notAtPageLimit = page < (responseData.num_pages || 1000); // safety limit
-              
-              console.log(`📦 Page ${page} pagination check:`, {
-                hasMorePages,
-                stillGettingData,
-                notAtPageLimit,
-                shouldContinue: hasMorePages && stillGettingData && notAtPageLimit
-              });
-              
-              if (hasMorePages && stillGettingData && notAtPageLimit) {
-                page++;
-                console.log(`➡️ Continuing to page ${page}...`);
-              } else {
-                console.log(`✅ Stopping pagination. Final total: ${allZones.length} zones`);
-                break;
-              }
-            } else {
-              // Handle non-paginated response or empty result
-              if (page === 1) {
-                allZones = Array.isArray(responseData) ? responseData : [];
-                console.log(`📦 Non-paginated response: ${allZones.length} zones`);
-              } else {
-                console.log(`📦 Empty page ${page}, stopping pagination. Final total: ${allZones.length} zones`);
-              }
-              break;
-            }
-          }
-
-          let maxInitMembers = 0;
-          let maxTargetMembers = 0;
-          let maxBothMembers = 0;
-
-          console.log(`🔍 Analyzing ${allZones.length} zones for column requirements...`);
-
-          allZones.forEach((zone, zoneIndex) => {
-            if (zone.members_details?.length) {
-              let initCount = 0;
-              let targetCount = 0;
-              let bothCount = 0;
-              
-              console.log(`  Zone "${zone.name}" has ${zone.members_details.length} members:`);
-              
-              zone.members_details.forEach((member, memberIndex) => {
-                // Find the alias to get its use type
-                const alias = memberOptions.find(a => a.name === member.name);
-                const useType = alias?.use;
-                
-                console.log(`    Member ${memberIndex + 1}: "${member.name}" → use="${useType}" (alias found: ${!!alias})`);
-                
-                if (useType === 'init') {
-                  initCount++;
-                } else if (useType === 'target') {
-                  targetCount++;
-                } else {
-                  // null, undefined, or 'both' go to both columns
-                  bothCount++;
-                }
-              });
-              
-              console.log(`  Zone "${zone.name}" counts: init=${initCount}, target=${targetCount}, both=${bothCount}`);
-              
-              maxInitMembers = Math.max(maxInitMembers, initCount);
-              maxTargetMembers = Math.max(maxTargetMembers, targetCount);
-              maxBothMembers = Math.max(maxBothMembers, bothCount);
-              
-              // Log when we find a new maximum
-              if (initCount > maxInitMembers - initCount || targetCount > maxTargetMembers - targetCount || bothCount > maxBothMembers - bothCount) {
-                console.log(`  🎯 New max found! Zone "${zone.name}": init=${initCount}, target=${targetCount}, both=${bothCount}`);
-              }
-            }
-          });
-
-          console.log(`📊 Max members found across ALL zones: init=${maxInitMembers}, target=${maxTargetMembers}, both=${maxBothMembers}`);
-
-          // Ensure minimum columns and add one extra blank column for each type
-          const requiredInit = Math.max(2, maxInitMembers + 1);  // +1 for blank column
-          const requiredTarget = Math.max(2, maxTargetMembers + 1);  // +1 for blank column
-          const requiredBoth = Math.max(1, maxBothMembers + 1);  // +1 for blank column
+          console.log('📦 Column requirements response:', data);
           
-          console.log(`📋 Required columns (including blank): init=${requiredInit}, target=${requiredTarget}, both=${requiredBoth}`);
-          console.log(`📋 Current columns: init=${memberColumnConfig.init}, target=${memberColumnConfig.target}, both=${memberColumnConfig.both}`);
+          const newColumnInfo = {
+            memberColumns: Math.max(data.recommended_columns || 5, 5), // At least 5 columns
+            totalZones: data.total_zones || 0
+          };
           
-          const needsUpdate = 
-            requiredInit !== memberColumnConfig.init ||
-            requiredTarget !== memberColumnConfig.target ||
-            requiredBoth !== memberColumnConfig.both;
-            
-          if (needsUpdate) {
-            console.log(`🔄 Updating columns: Target ${memberColumnConfig.target}→${requiredTarget}, Init ${memberColumnConfig.init}→${requiredInit}, Both ${memberColumnConfig.both}→${requiredBoth}`);
-            setMemberColumnConfig({
-              init: requiredInit,
-              target: requiredTarget,
-              both: requiredBoth
-            });
-          } else {
-            console.log(`✅ No column update needed`);
-          }
+          console.log(`📊 Final column requirements:`, newColumnInfo);
+          
+          setMemberColumnRequirements(newColumnInfo);
         } catch (error) {
-          console.error('❌ Error calculating column requirements:', error);
-          // Fall back to minimum columns if there's an error
-          const fallbackInit = Math.max(2, memberColumnConfig.init);
-          const fallbackTarget = Math.max(2, memberColumnConfig.target);
-          const fallbackBoth = Math.max(1, memberColumnConfig.both);
-          
-          setMemberColumnConfig({
-            init: fallbackInit,
-            target: fallbackTarget,
-            both: fallbackBoth
+          console.error('Error calculating column requirements:', error);
+          // Fallback to reasonable defaults
+          setMemberColumnRequirements({
+            memberColumns: 6,
+            totalZones: 0
           });
         }
       }
@@ -310,60 +195,30 @@ const ZoneTable = () => {
     
   }, [activeProjectId, memberOptions]); // Remove memberColumnConfig and rawData dependencies
 
-  // Calculate total member columns and create typed member column arrays
+  // Calculate total member columns and create simple member column arrays
   const memberColumnsInfo = useMemo(() => {
-    const { init, target, both } = memberColumnConfig;
-    const totalMemberColumns = init + target + both;
+    const { memberColumns } = memberColumnRequirements;
     
-    // Create typed member columns with specific data attributes
+    // Create simple member columns
     const memberColumns_array = [];
     const memberHeaders = [];
     
-    let columnIndex = 1;
-    
-    // Add target columns FIRST
-    for (let i = 0; i < target; i++) {
+    for (let i = 1; i <= memberColumns; i++) {
       memberColumns_array.push({ 
-        data: `member_${columnIndex}`,
-        memberType: 'target'
+        data: `member_${i}`
       });
-      memberHeaders.push(`Target ${i + 1}`);
-      columnIndex++;
-    }
-    
-    // Add initiator columns SECOND
-    for (let i = 0; i < init; i++) {
-      memberColumns_array.push({ 
-        data: `member_${columnIndex}`,
-        memberType: 'init'
-      });
-      memberHeaders.push(`Initiator ${i + 1}`);
-      columnIndex++;
-    }
-    
-    // Add both/any columns LAST
-    for (let i = 0; i < both; i++) {
-      memberColumns_array.push({ 
-        data: `member_${columnIndex}`,
-        memberType: 'both'
-      });
-      memberHeaders.push(`Any ${i + 1}`);
-      columnIndex++;
+      memberHeaders.push(`Member ${i}`);
     }
     
     console.log(`🏷️ Generated column headers:`, memberHeaders);
-    console.log(`📋 Column breakdown: ${target} target, ${init} init, ${both} both = ${totalMemberColumns} total`);
+    console.log(`📋 Column breakdown: ${memberColumns} member columns total`);
     
     return {
-      totalMemberColumns,
+      totalMemberColumns: memberColumns,
       memberColumns_array,
-      memberHeaders,
-      columnTypeMap: memberColumns_array.reduce((map, col) => {
-        map[col.data] = col.memberType;
-        return map;
-      }, {})
+      memberHeaders
     };
-  }, [memberColumnConfig]);
+  }, [memberColumnRequirements]);
 
   // Helper function to build payload
   const buildPayload = (row) => {
@@ -415,57 +270,17 @@ const ZoneTable = () => {
       };
 
       if (zone.members_details?.length) {
-        // Separate members by their use type
-        const initMembers = [];
-        const targetMembers = [];
-        const bothMembers = [];
-        
-        zone.members_details.forEach((member) => {
-          // Find the alias to get its use type
-          const alias = memberOptions.find(a => a.name === member.name);
-          const useType = alias?.use;
-          
-          if (useType === 'init') {
-            initMembers.push(member.name);
-          } else if (useType === 'target') {
-            targetMembers.push(member.name);
-          } else {
-            // null, undefined, or 'both' go to both columns
-            bothMembers.push(member.name);
+        // Simply place all members sequentially in member columns
+        zone.members_details.forEach((member, index) => {
+          if (index < memberColumnRequirements.memberColumns) {
+            zoneData[`member_${index + 1}`] = member.name;
           }
         });
-        
-        // Place members in appropriate columns based on new order: Target → Initiator → Any
-        let columnIndex = 1;
-        
-        // Place target members in target columns FIRST
-        for (let i = 0; i < memberColumnConfig.target; i++) {
-          if (i < targetMembers.length) {
-            zoneData[`member_${columnIndex}`] = targetMembers[i];
-          }
-          columnIndex++;
-        }
-        
-        // Place init members in init columns SECOND
-        for (let i = 0; i < memberColumnConfig.init; i++) {
-          if (i < initMembers.length) {
-            zoneData[`member_${columnIndex}`] = initMembers[i];
-          }
-          columnIndex++;
-        }
-        
-        // Place both/other members in both columns LAST
-        for (let i = 0; i < memberColumnConfig.both; i++) {
-          if (i < bothMembers.length) {
-            zoneData[`member_${columnIndex}`] = bothMembers[i];
-          }
-          columnIndex++;
-        }
       }
 
       return zoneData;
     });
-  }, [memberOptions, memberColumnConfig]);
+  }, [memberOptions, memberColumnRequirements]);
 
   // Separate effect to update rawData when zones are loaded
   useEffect(() => {
@@ -548,25 +363,24 @@ const ZoneTable = () => {
     },
   };
 
-  // Memoized cell configuration for member dropdowns - optimized for performance with use type filtering
+  // Simplified cell configuration for member dropdowns
   const getCellsConfig = useMemo(() => {
-    // Pre-calculate fabric and use-type based alias groups for better performance
-    const fabricUseAliasMap = new Map();
+    // Group aliases by fabric only (no use type filtering)
+    const fabricAliasMap = new Map();
     memberOptions.forEach(alias => {
-      // Keep the original use value, don't default to 'both'
-      const useValue = alias.use === null || alias.use === undefined ? 'null' : alias.use;
-      const key = `${alias.fabric}-${useValue}`;
-      if (!fabricUseAliasMap.has(key)) {
-        fabricUseAliasMap.set(key, []);
+      const fabric = alias.fabric;
+      if (!fabricAliasMap.has(fabric)) {
+        fabricAliasMap.set(fabric, []);
       }
-      fabricUseAliasMap.get(key).push(alias);
-      
+      fabricAliasMap.get(fabric).push(alias);
     });
 
     const aliasMaxZones = settings?.alias_max_zones || 1;
     
-    // Cache dropdown sources to avoid recalculation
+    // Cache dropdown sources
     const dropdownCache = new Map();
+    let usedAliasesCache = null;
+    let lastDataLength = 0;
 
     return (hot, row, col, prop) => {
       const memberColumnStartIndex = visibleBaseIndices.length;
@@ -577,105 +391,78 @@ const ZoneTable = () => {
         const rowFabric = rowData.fabric_details?.name || rowData.fabric;
         const currentValue = rowData[prop];
         
-        // Determine the expected member type for this column
-        const columnType = memberColumnsInfo.columnTypeMap[prop];
-        if (!columnType) return {};
-        
-        
-        // Create cache key based on fabric, column type, and current value
-        const cacheKey = `${rowFabric}-${columnType}-${currentValue || 'empty'}-${row}`;
+        // Simple cache key based on fabric only
+        const cacheKey = rowFabric;
         
         if (dropdownCache.has(cacheKey)) {
-          return dropdownCache.get(cacheKey);
+          const cachedResult = dropdownCache.get(cacheKey);
+          // Add current value to cached options if not present
+          if (currentValue && !cachedResult.source.includes(currentValue)) {
+            cachedResult.source.push(currentValue);
+          }
+          return cachedResult;
         }
 
-        // Get aliases for this fabric and use type combination - STRICT FILTERING
-        let relevantAliases = [];
+        // Get all aliases for this fabric (no type filtering)
+        const fabricAliases = fabricAliasMap.get(rowFabric) || [];
         
-        if (columnType === 'both') {
-          // For "both" columns, show aliases with use=both or null/undefined (any use)
-          relevantAliases = [
-            ...(fabricUseAliasMap.get(`${rowFabric}-both`) || []),
-            ...(fabricUseAliasMap.get(`${rowFabric}-null`) || [])
-          ];
-        } else if (columnType === 'init') {
-          // For initiator columns, show ONLY aliases with use=init
-          const lookupKey = `${rowFabric}-init`;
-          relevantAliases = [
-            ...(fabricUseAliasMap.get(lookupKey) || [])
-          ];
-        } else if (columnType === 'target') {
-          // For target columns, show ONLY aliases with use=target
-          const lookupKey = `${rowFabric}-target`;
-          relevantAliases = [
-            ...(fabricUseAliasMap.get(lookupKey) || [])
-          ];
-        }
-        
-        
-        // Build used aliases set more efficiently (only when cache miss)
-        const usedAliases = new Set();
+        // Use cached used aliases calculation for better performance
         const sourceData = hot.getSourceData();
-        const totalColumns = memberColumnsInfo.totalMemberColumns;
+        const currentDataLength = sourceData.length;
         
-        for (let idx = 0; idx < sourceData.length; idx++) {
-          if (idx !== row) {
+        // Rebuild used aliases cache if data has changed
+        if (!usedAliasesCache || currentDataLength !== lastDataLength) {
+          usedAliasesCache = new Set();
+          const totalColumns = memberColumnsInfo.totalMemberColumns || 10;
+          
+          for (let idx = 0; idx < sourceData.length; idx++) {
             const data = sourceData[idx];
-            for (let i = 1; i <= totalColumns; i++) {
-              const val = data[`member_${i}`];
-              if (val) usedAliases.add(val);
+            if (data) {
+              for (let i = 1; i <= totalColumns; i++) {
+                const val = data[`member_${i}`];
+                if (val) usedAliasesCache.add(val);
+              }
             }
           }
+          lastDataLength = currentDataLength;
+        }
+        
+        // Create row-specific used aliases (exclude current cell value)
+        const usedAliases = new Set(usedAliasesCache);
+        if (currentValue) {
+          usedAliases.delete(currentValue); // Allow current value to be selected
         }
 
-        // Add used aliases from current row (except current cell)
-        for (let i = 1; i <= totalColumns; i++) {
-          if (`member_${i}` !== prop) {
-            const val = rowData[`member_${i}`];
-            if (val) usedAliases.add(val);
-          }
-        }
-
-        // Filter available aliases with optimized logic
-        const availableAliases = relevantAliases.filter((alias) => {
+        // Filter available aliases
+        const availableAliases = fabricAliases.filter((alias) => {
           const includeInZoning = alias.include_in_zoning === true;
           const notUsedElsewhere = !usedAliases.has(alias.name) || alias.name === currentValue;
           const hasRoomForMoreZones = (alias.zoned_count || 0) < aliasMaxZones;
           const isCurrentValue = alias.name === currentValue;
           const zoneCountCheck = hasRoomForMoreZones || isCurrentValue;
 
-          // Debug logging for dropdown filtering
-          console.log(`🔍 Dropdown filter debug for ${alias.name}:`, {
-            fabric: alias.fabric,
-            rowFabric: rowFabric,
-            includeInZoning: includeInZoning,
-            include_in_zoning_raw: alias.include_in_zoning,
-            notUsedElsewhere: notUsedElsewhere,
-            zoneCountCheck: zoneCountCheck,
-            use: alias.use,
-            columnType: columnType,
-            finalResult: includeInZoning && notUsedElsewhere && zoneCountCheck
-          });
-
           return includeInZoning && notUsedElsewhere && zoneCountCheck;
         });
 
-        const result = {
+        // Sort aliases by name for consistent ordering
+        availableAliases.sort((a, b) => a.name.localeCompare(b.name));
+        const dropdownOptions = availableAliases.map(alias => alias.name);
+
+        const cellConfig = {
           type: "dropdown",
-          source: availableAliases.map(alias => alias.name),
+          source: dropdownOptions,
+          allowInvalid: false,
+          strict: true
         };
-        
-        // Cache the result but limit cache size
-        if (dropdownCache.size > 100) {
-          dropdownCache.clear();
-        }
-        dropdownCache.set(cacheKey, result);
-        
-        return result;
+
+        // Cache the result
+        dropdownCache.set(cacheKey, cellConfig);
+        return cellConfig;
       }
+
       return {};
     };
-  }, [memberOptions, visibleBaseIndices.length, memberColumnsInfo.columnTypeMap, memberColumnsInfo.totalMemberColumns, settings?.alias_max_zones]);
+  }, [memberOptions, visibleBaseIndices.length, memberColumnsInfo.totalMemberColumns, settings?.alias_max_zones]);
 
   // Compute displayed columns and headers (base + member columns)
   const { allColumns, allHeaders, defaultVisibleColumns } =
@@ -727,13 +514,12 @@ const ZoneTable = () => {
     [fabricOptions]
   );
 
-  // Memoized handlers for better performance  
-  const handleAddColumn = useCallback((columnType) => {
-    setMemberColumnConfig(prev => ({
+  // Simplified handler for adding member columns
+  const handleAddColumn = useCallback(() => {
+    setMemberColumnRequirements(prev => ({
       ...prev,
-      [columnType]: prev[columnType] + 1
+      memberColumns: prev.memberColumns + 1
     }));
-    setShowColumnTypeSelector(false);
   }, []);
 
   const additionalButtonsConfig = useMemo(() => [
@@ -1004,18 +790,6 @@ const ZoneTable = () => {
     }
   }, [rawData]); // Remove memberOptions to prevent infinite loop
 
-  // Close column type selector when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showColumnTypeSelector && !event.target.closest('.position-relative')) {
-        setShowColumnTypeSelector(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showColumnTypeSelector]);
-
   if (!activeProjectId) {
     return (
       <div className="alert alert-warning">No active project selected.</div>
@@ -1056,105 +830,32 @@ const ZoneTable = () => {
           `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`
         }
         headerButtons={
-          <div className="position-relative">
-            <button
-              className="modern-btn modern-btn-secondary dropdown-toggle"
-              onClick={() => setShowColumnTypeSelector(!showColumnTypeSelector)}
-              title="Add Member Column"
-              style={{
-                minWidth: '120px',
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
-              }}
+          <button
+            className="modern-btn modern-btn-secondary"
+            onClick={handleAddColumn}
+            title="Add Member Column"
+            style={{
+              minWidth: '120px',
+              padding: '8px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Add Column
-            </button>
-            {showColumnTypeSelector && (
-              <div 
-                style={{ 
-                  position: 'absolute',
-                  top: '100%', 
-                  left: '0', 
-                  zIndex: 1000,
-                  minWidth: '200px',
-                  backgroundColor: 'white',
-                  border: '1px solid #dee2e6',
-                  borderRadius: '4px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                  marginTop: '2px',
-                  padding: '4px 0'
-                }}
-              >
-                <button
-                  onClick={() => handleAddColumn('init')}
-                  style={{ 
-                    padding: '12px 16px', 
-                    border: 'none', 
-                    backgroundColor: 'white',
-                    width: '100%', 
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    borderBottom: '1px solid #eee'
-                  }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                >
-                  <strong>Initiator</strong> Column
-                  <br />
-                  <small style={{color: '#666'}}>For host/server WWPNs</small>
-                </button>
-                <button
-                  onClick={() => handleAddColumn('target')}
-                  style={{ 
-                    padding: '12px 16px', 
-                    border: 'none', 
-                    backgroundColor: 'white',
-                    width: '100%', 
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    borderBottom: '1px solid #eee'
-                  }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                >
-                  <strong>Target</strong> Column
-                  <br />
-                  <small style={{color: '#666'}}>For storage/switch WWPNs</small>
-                </button>
-                <button
-                  onClick={() => handleAddColumn('both')}
-                  style={{ 
-                    padding: '12px 16px', 
-                    border: 'none', 
-                    backgroundColor: 'white',
-                    width: '100%', 
-                    textAlign: 'left',
-                    cursor: 'pointer'
-                  }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#f8f9fa'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
-                >
-                  <strong>Any Use</strong> Column
-                  <br />
-                  <small style={{color: '#666'}}>For any member type</small>
-                </button>
-              </div>
-            )}
-          </div>
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add Member Column
+          </button>
         }
         additionalButtons={additionalButtonsConfig}
       />
