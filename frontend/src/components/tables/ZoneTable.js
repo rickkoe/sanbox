@@ -381,7 +381,6 @@ const ZoneTable = () => {
     const dropdownCache = new Map();
     let usedAliasesCache = null;
     let lastDataLength = 0;
-    let lastDataHash = null;
 
     return (hot, row, col, prop) => {
       const memberColumnStartIndex = visibleBaseIndices.length;
@@ -398,7 +397,7 @@ const ZoneTable = () => {
         // Check cache but refresh every few calls to catch changes
         const now = Date.now();
         const cached = dropdownCache.get(cacheKey);
-        if (cached && (now - cached.timestamp < 10000)) { // 10 second cache
+        if (cached && (now - cached.timestamp < 1000)) { // 1 second cache
           return cached.data;
         }
 
@@ -424,6 +423,11 @@ const ZoneTable = () => {
         if (currentValue) {
           usedAliases.delete(currentValue);
         }
+        
+        // Debug logging to see what's happening
+        if (usedAliases.size > 0) {
+          console.log(`🔍 Cell ${prop}: usedAliases=${Array.from(usedAliases).slice(0,5).join(',')}, currentValue="${currentValue}"`);
+        }
 
         // Filter available aliases
         const availableAliases = fabricAliases.filter((alias) => {
@@ -446,12 +450,33 @@ const ZoneTable = () => {
         // Sort aliases by name for consistent ordering
         availableAliases.sort((a, b) => a.name.localeCompare(b.name));
         const dropdownOptions = availableAliases.map(alias => alias.name);
+        
+        // Ensure consistent maximum size to prevent layout shifts
+        if (dropdownOptions.length > 50) {
+          dropdownOptions.splice(50); // Limit to 50 options max
+        }
+        
+        // Add placeholder if no options available (but don't interfere with logic)
+        if (dropdownOptions.length === 0) {
+          dropdownOptions.push('(No available aliases)');
+        }
 
         const cellConfig = {
           type: "dropdown",
           source: dropdownOptions,
           allowInvalid: false,
-          strict: true
+          strict: true,
+          // Prevent table jumping by stabilizing dropdown behavior
+          visibleRows: 10,
+          trimDropdown: false,
+          // Prevent placeholder selection
+          validator: function(value, callback) {
+            if (value === '(No available aliases)') {
+              callback(false);
+            } else {
+              callback(true);
+            }
+          }
         };
 
         // Cache the result with timestamp
