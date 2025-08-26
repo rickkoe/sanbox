@@ -299,11 +299,47 @@ const FilterDropdown = React.forwardRef(({
   fetchUniqueValues,
   serverPagination
 }, ref) => {
+  // Detect appropriate filter type based on column configuration and data
+  const detectFilterType = (column, uniqueValues) => {
+    // Boolean columns (checkbox type) should use value filter
+    if (column.type === 'checkbox' || column.className === 'htCenter') {
+      return 'values';
+    }
+    
+    // Dropdown columns should use value filter  
+    if (column.type === 'dropdown') {
+      return 'values';
+    }
+    
+    // If unique values are limited (≤ 10) and no explicit type, prefer value filter
+    if (uniqueValues.length <= 10 && uniqueValues.length > 0) {
+      // Check if values look like booleans
+      const booleanLike = uniqueValues.every(val => 
+        val === 'True' || val === 'False' || val === 'true' || val === 'false' ||
+        val === '1' || val === '0' || val === 'Yes' || val === 'No'
+      );
+      if (booleanLike) {
+        return 'values';
+      }
+      
+      // If all values are short (≤ 20 chars), prefer value filter
+      const allShort = uniqueValues.every(val => String(val).length <= 20);
+      if (allShort) {
+        return 'values';
+      }
+    }
+    
+    // Default to text filter
+    return 'text';
+  };
+
   // Initialize state based on GenericTable filter format
   const initializeState = (filter) => {
+    const detectedType = detectFilterType(column, uniqueValues);
+    
     if (!filter) {
       return {
-        filterType: 'text',
+        filterType: detectedType,
         textFilter: { condition: 'contains', value: '' },
         selectedValues: new Set(uniqueValues)
       };
@@ -369,6 +405,7 @@ const FilterDropdown = React.forwardRef(({
   // Update state when currentFilter changes (when dropdown reopens with different filter)
   useEffect(() => {
     const valuesToUse = actualUniqueValues.length > 0 ? actualUniqueValues : uniqueValues;
+    const detectedType = detectFilterType(column, valuesToUse);
     
     if (currentFilter) {
       // Convert GenericTable format to CustomTableFilter format
@@ -388,13 +425,13 @@ const FilterDropdown = React.forwardRef(({
         setSelectedValues(new Set(selectedVals));
       } else {
         // Fallback
-        setFilterType('text');
+        setFilterType(detectedType);
         setTextFilter({ condition: 'contains', value: currentFilter.value || '' });
         setSelectedValues(new Set(valuesToUse));
       }
     } else {
-      // Reset to defaults when no current filter
-      setFilterType('text');
+      // Reset to smart defaults when no current filter
+      setFilterType(detectedType);
       setTextFilter({ condition: 'contains', value: '' });
       setSelectedValues(new Set(valuesToUse));
     }
