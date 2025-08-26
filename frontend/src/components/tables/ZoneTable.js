@@ -644,6 +644,19 @@ const ZoneTable = () => {
           const isCurrentValue = alias.name === currentValue;
           const zoneCountCheck = hasRoomForMoreZones || isCurrentValue;
 
+          // Debug logging for dropdown filtering
+          console.log(`🔍 Dropdown filter debug for ${alias.name}:`, {
+            fabric: alias.fabric,
+            rowFabric: rowFabric,
+            includeInZoning: includeInZoning,
+            include_in_zoning_raw: alias.include_in_zoning,
+            notUsedElsewhere: notUsedElsewhere,
+            zoneCountCheck: zoneCountCheck,
+            use: alias.use,
+            columnType: columnType,
+            finalResult: includeInZoning && notUsedElsewhere && zoneCountCheck
+          });
+
           return includeInZoning && notUsedElsewhere && zoneCountCheck;
         });
 
@@ -939,6 +952,14 @@ const ZoneTable = () => {
               alias.zoned_count = aliasZoneCounts[alias.name] || 0;
             });
           }
+
+          // Debug: log alias details
+          console.log(`🔍 Loaded ${processedAliases.length} aliases for dropdown:`, processedAliases.map(a => ({
+            name: a.name,
+            fabric: a.fabric,
+            include_in_zoning: a.include_in_zoning,
+            use: a.use
+          })));
 
           setMemberOptions(processedAliases);
           

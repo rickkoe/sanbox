@@ -670,8 +670,7 @@ def generate_zone_creation_commands(create_zones, config):
                     zone_members = zone.members.filter(include_in_zoning=True)
                     if zone_members.count() > 0:
                         # Zone creation line with comment
-                        zone_comment = " #smart zone" if zone.zone_type == 'smart' else " #standard zone"
-                        commands.append(f'zone name {zone.name} vsan {fabric_info["vsan"]}{zone_comment}')
+                        commands.append(f'zone name {zone.name} vsan {fabric_info["vsan"]}')
                         
                         # Add members
                         for member in zone_members:
