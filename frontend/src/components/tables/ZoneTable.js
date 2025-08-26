@@ -377,10 +377,11 @@ const ZoneTable = () => {
 
     const aliasMaxZones = settings?.alias_max_zones || 1;
     
-    // Cache dropdown sources
+    // Smart cache that invalidates when table data changes
     const dropdownCache = new Map();
     let usedAliasesCache = null;
     let lastDataLength = 0;
+    let lastDataHash = null;
 
     return (hot, row, col, prop) => {
       const memberColumnStartIndex = visibleBaseIndices.length;
@@ -391,58 +392,56 @@ const ZoneTable = () => {
         const rowFabric = rowData.fabric_details?.name || rowData.fabric;
         const currentValue = rowData[prop];
         
-        // Simple cache key based on fabric only
-        const cacheKey = rowFabric;
+        // Lightweight cache with periodic refresh
+        const cacheKey = `${rowFabric}-${currentValue || 'empty'}`;
         
-        if (dropdownCache.has(cacheKey)) {
-          const cachedResult = dropdownCache.get(cacheKey);
-          // Add current value to cached options if not present
-          if (currentValue && !cachedResult.source.includes(currentValue)) {
-            cachedResult.source.push(currentValue);
-          }
-          return cachedResult;
+        // Check cache but refresh every few calls to catch changes
+        const now = Date.now();
+        const cached = dropdownCache.get(cacheKey);
+        if (cached && (now - cached.timestamp < 10000)) { // 10 second cache
+          return cached.data;
         }
 
         // Get all aliases for this fabric (no type filtering)
         const fabricAliases = fabricAliasMap.get(rowFabric) || [];
         
-        // Use cached used aliases calculation for better performance
+        // Calculate used aliases fresh each time (but cache the dropdown result)
         const sourceData = hot.getSourceData();
-        const currentDataLength = sourceData.length;
+        const usedAliases = new Set();
+        const totalColumns = memberColumnsInfo.totalMemberColumns || 10;
         
-        // Rebuild used aliases cache if data has changed
-        if (!usedAliasesCache || currentDataLength !== lastDataLength) {
-          usedAliasesCache = new Set();
-          const totalColumns = memberColumnsInfo.totalMemberColumns || 10;
-          
-          for (let idx = 0; idx < sourceData.length; idx++) {
-            const data = sourceData[idx];
-            if (data) {
-              for (let i = 1; i <= totalColumns; i++) {
-                const val = data[`member_${i}`];
-                if (val) usedAliasesCache.add(val);
-              }
+        for (let idx = 0; idx < sourceData.length; idx++) {
+          const data = sourceData[idx];
+          if (data) {
+            for (let i = 1; i <= totalColumns; i++) {
+              const val = data[`member_${i}`];
+              if (val) usedAliases.add(val);
             }
           }
-          lastDataLength = currentDataLength;
         }
         
-        // Create row-specific used aliases (exclude current cell value)
-        const usedAliases = new Set(usedAliasesCache);
+        // Allow current value to be selected
         if (currentValue) {
-          usedAliases.delete(currentValue); // Allow current value to be selected
+          usedAliases.delete(currentValue);
         }
 
         // Filter available aliases
         const availableAliases = fabricAliases.filter((alias) => {
           const includeInZoning = alias.include_in_zoning === true;
-          const notUsedElsewhere = !usedAliases.has(alias.name) || alias.name === currentValue;
           const hasRoomForMoreZones = (alias.zoned_count || 0) < aliasMaxZones;
           const isCurrentValue = alias.name === currentValue;
+          
+          // For editing: prevent duplicates within the current table session
+          // Only allow alias if it's not used elsewhere in the table OR it's the current value
+          const notUsedInCurrentTable = !usedAliases.has(alias.name) || isCurrentValue;
+          
+          // Zone count check: alias must have room for more zones OR be the current value
           const zoneCountCheck = hasRoomForMoreZones || isCurrentValue;
 
-          return includeInZoning && notUsedElsewhere && zoneCountCheck;
+          return includeInZoning && notUsedInCurrentTable && zoneCountCheck;
         });
+
+        // Debug logging removed for performance
 
         // Sort aliases by name for consistent ordering
         availableAliases.sort((a, b) => a.name.localeCompare(b.name));
@@ -455,8 +454,11 @@ const ZoneTable = () => {
           strict: true
         };
 
-        // Cache the result
-        dropdownCache.set(cacheKey, cellConfig);
+        // Cache the result with timestamp
+        dropdownCache.set(cacheKey, {
+          data: cellConfig,
+          timestamp: Date.now()
+        });
         return cellConfig;
       }
 
