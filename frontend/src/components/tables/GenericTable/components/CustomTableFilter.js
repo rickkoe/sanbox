@@ -311,14 +311,28 @@ const FilterDropdown = React.forwardRef(({
       return 'values';
     }
     
-    // If unique values are limited (≤ 10) and no explicit type, prefer value filter
-    if (uniqueValues.length <= 10 && uniqueValues.length > 0) {
+    // Calculated numeric fields should use value filter
+    if (column.data === 'zoned_count' || column.data === 'member_count') {
+      return 'values';
+    }
+    
+    // If unique values are limited (≤ 15) and no explicit type, prefer value filter
+    if (uniqueValues.length <= 15 && uniqueValues.length > 0) {
       // Check if values look like booleans
       const booleanLike = uniqueValues.every(val => 
         val === 'True' || val === 'False' || val === 'true' || val === 'false' ||
         val === '1' || val === '0' || val === 'Yes' || val === 'No'
       );
       if (booleanLike) {
+        return 'values';
+      }
+      
+      // Check if all values are numeric (for count fields)
+      const allNumeric = uniqueValues.every(val => {
+        const num = Number(val);
+        return !isNaN(num) && isFinite(num);
+      });
+      if (allNumeric) {
         return 'values';
       }
       

@@ -1,6 +1,7 @@
 import json
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Count
+from django.db.models import Q as Q_models
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
@@ -225,30 +226,39 @@ def get_unique_values_for_zones(request, project, field_name):
     print(f"🔍 Getting unique values for zone field: {field_name} in project {project.id}")
     
     try:
-        # Base queryset for zones in the project
-        zones_queryset = Zone.objects.select_related('fabric').filter(projects=project)
-        
-        # Map field names to actual model fields
-        field_mapping = {
-            'create': 'create',
-            'delete': 'delete', 
-            'exists': 'exists',
-            'fabric__name': 'fabric__name',
-            'zone_type': 'zone_type',
-            'notes': 'notes'
-        }
-        
-        # Get the actual field name
-        actual_field = field_mapping.get(field_name, field_name)
-        
-        # Get unique values for the field
-        unique_values = zones_queryset.values_list(actual_field, flat=True).distinct().order_by(actual_field)
+        # Handle calculated field - member_count
+        if field_name == 'member_count':
+            # Calculate member_count for all zones and get unique values
+            zones_queryset = Zone.objects.select_related('fabric').filter(projects=project).annotate(
+                _member_count=Count('members', distinct=True)
+            )
+            unique_values = zones_queryset.values_list('_member_count', flat=True).distinct().order_by('_member_count')
+            actual_field = '_member_count'  # Set actual_field for consistency
+        else:
+            # Base queryset for zones in the project
+            zones_queryset = Zone.objects.select_related('fabric').filter(projects=project)
+            
+            # Map field names to actual model fields
+            field_mapping = {
+                'create': 'create',
+                'delete': 'delete', 
+                'exists': 'exists',
+                'fabric__name': 'fabric__name',
+                'zone_type': 'zone_type',
+                'notes': 'notes'
+            }
+            
+            # Get the actual field name
+            actual_field = field_mapping.get(field_name, field_name)
+            
+            # Get unique values for the field
+            unique_values = zones_queryset.values_list(actual_field, flat=True).distinct().order_by(actual_field)
         
         # Convert to list and handle different field types
         unique_values = list(unique_values)
         
-        # Handle boolean fields specially
-        if actual_field in ['create', 'delete', 'exists']:
+        # Handle boolean fields specially (only for non-calculated fields)
+        if field_name != 'member_count' and actual_field in ['create', 'delete', 'exists']:
             # For boolean fields, we need to handle True, False, and potentially None
             boolean_values = set(unique_values)  # Get unique boolean values including None
             # Convert to consistent string representation, including None values
@@ -280,24 +290,33 @@ def get_unique_values_for_aliases(request, project, field_name):
     print(f"🔍 Getting unique values for field: {field_name} in project {project.id}")
     
     try:
-        # Base queryset for aliases in the project
-        aliases_queryset = Alias.objects.select_related('fabric').filter(projects=project)
-        
-        # Map field names to actual model fields
-        field_mapping = {
-            'create': 'create',
-            'include_in_zoning': 'include_in_zoning', 
-            'fabric__name': 'fabric__name',
-            'use': 'use',
-            'cisco_alias': 'cisco_alias',
-            'notes': 'notes'
-        }
-        
-        # Get the actual field name
-        actual_field = field_mapping.get(field_name, field_name)
-        
-        # Get unique values for the field
-        unique_values = aliases_queryset.values_list(actual_field, flat=True).distinct().order_by(actual_field)
+        # Handle calculated field - zoned_count
+        if field_name == 'zoned_count':
+            # Calculate zoned_count for all aliases and get unique values
+            aliases_queryset = Alias.objects.select_related('fabric').filter(projects=project).annotate(
+                _zoned_count=Count('zone', filter=Q_models(zone__projects=project), distinct=True)
+            )
+            unique_values = aliases_queryset.values_list('_zoned_count', flat=True).distinct().order_by('_zoned_count')
+            actual_field = '_zoned_count'  # Set actual_field for consistency
+        else:
+            # Base queryset for aliases in the project
+            aliases_queryset = Alias.objects.select_related('fabric').filter(projects=project)
+            
+            # Map field names to actual model fields
+            field_mapping = {
+                'create': 'create',
+                'include_in_zoning': 'include_in_zoning', 
+                'fabric__name': 'fabric__name',
+                'use': 'use',
+                'cisco_alias': 'cisco_alias',
+                'notes': 'notes'
+            }
+            
+            # Get the actual field name
+            actual_field = field_mapping.get(field_name, field_name)
+            
+            # Get unique values for the field
+            unique_values = aliases_queryset.values_list(actual_field, flat=True).distinct().order_by(actual_field)
         
         # Convert to list and handle different field types
         unique_values = list(unique_values)
@@ -370,7 +389,7 @@ def alias_list_view(request, project_id):
     # Apply field-specific filters
     filter_params = {}
     for param, value in request.GET.items():
-        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__', 'logged_in__', 'delete__')):
+        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__', 'logged_in__', 'delete__', 'zoned_count__')):
             # Handle boolean field filtering - convert string representations back to actual booleans
             if any(param.startswith(f'{bool_field}__') for bool_field in ['create', 'delete', 'include_in_zoning', 'logged_in']):
                 if param.endswith('__in'):
@@ -390,8 +409,32 @@ def alias_list_view(request, project_id):
                     elif value.lower() == 'false':
                         filter_params[param] = False
             else:
-                # Handle non-boolean fields normally
-                filter_params[param] = value
+                # Handle calculated fields - map to annotated field names
+                if param.startswith('zoned_count__'):
+                    # Map zoned_count__ to _zoned_count__
+                    mapped_param = param.replace('zoned_count__', '_zoned_count__')
+                    # Handle multi-select values (comma-separated)
+                    if param.endswith('__in') and isinstance(value, str) and ',' in value:
+                        # Convert comma-separated string to list of integers
+                        try:
+                            filter_params[mapped_param] = [int(v.strip()) for v in value.split(',')]
+                        except ValueError:
+                            filter_params[mapped_param] = value.split(',')
+                    elif param.endswith('__in') and isinstance(value, str):
+                        # Handle single value in __in parameter
+                        try:
+                            filter_params[mapped_param] = [int(value.strip())]
+                        except ValueError:
+                            filter_params[mapped_param] = [value.strip()]
+                    else:
+                        # Handle single values - try to convert to int if possible
+                        try:
+                            filter_params[mapped_param] = int(value) if str(value).isdigit() else value
+                        except (ValueError, AttributeError):
+                            filter_params[mapped_param] = value
+                else:
+                    # Handle non-boolean fields normally
+                    filter_params[param] = value
     
     # Apply the filters
     if filter_params:
@@ -554,8 +597,10 @@ def zones_by_project_view(request, project_id):
         search = request.GET.get('search', '')
         ordering = request.GET.get('ordering', 'id')
         
-        # Build queryset with optimizations
-        zones = Zone.objects.select_related('fabric').prefetch_related('members', 'projects').filter(projects=project)
+        # Build queryset with optimizations and calculated fields
+        zones = Zone.objects.select_related('fabric').prefetch_related('members', 'projects').filter(projects=project).annotate(
+            _member_count=Count('members', distinct=True)
+        )
         
         # Apply general search if provided
         if search:
@@ -570,7 +615,7 @@ def zones_by_project_view(request, project_id):
         # Apply field-specific filters
         filter_params = {}
         for param, value in request.GET.items():
-            if param.startswith(('name__', 'fabric__name__', 'zone_type__', 'notes__', 'create__', 'exists__', 'delete__')):
+            if param.startswith(('name__', 'fabric__name__', 'zone_type__', 'notes__', 'create__', 'exists__', 'delete__', 'member_count__')):
                 # Handle boolean field filtering - convert string representations back to actual booleans
                 if any(param.startswith(f'{bool_field}__') for bool_field in ['create', 'delete', 'exists']):
                     if param.endswith('__in'):
@@ -590,8 +635,32 @@ def zones_by_project_view(request, project_id):
                         elif value.lower() == 'false':
                             filter_params[param] = False
                 else:
-                    # Handle non-boolean fields normally
-                    filter_params[param] = value
+                    # Handle calculated fields - map to annotated field names
+                    if param.startswith('member_count__'):
+                        # Map member_count__ to _member_count__
+                        mapped_param = param.replace('member_count__', '_member_count__')
+                        # Handle multi-select values (comma-separated)
+                        if param.endswith('__in') and isinstance(value, str) and ',' in value:
+                            # Convert comma-separated string to list of integers
+                            try:
+                                filter_params[mapped_param] = [int(v.strip()) for v in value.split(',')]
+                            except ValueError:
+                                filter_params[mapped_param] = value.split(',')
+                        elif param.endswith('__in') and isinstance(value, str):
+                            # Handle single value in __in parameter
+                            try:
+                                filter_params[mapped_param] = [int(value.strip())]
+                            except ValueError:
+                                filter_params[mapped_param] = [value.strip()]
+                        else:
+                            # Handle single values - try to convert to int if possible
+                            try:
+                                filter_params[mapped_param] = int(value) if str(value).isdigit() else value
+                            except (ValueError, AttributeError):
+                                filter_params[mapped_param] = value
+                    else:
+                        # Handle non-boolean fields normally
+                        filter_params[param] = value
         
         # Apply the filters
         if filter_params:
