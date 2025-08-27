@@ -134,17 +134,14 @@ export const createContextMenu = (tableRef, setIsDirty, handleAfterContextMenu) 
         callback: (key, selection) => {
           const hot = tableRef.current?.hotInstance;
           if (hot) {
-            console.log('📏 Auto-sizing columns - setting force flag and refreshing...');
+            console.log('📏 Auto-sizing ALL columns via context menu...');
             
-            // Set the force auto-size flag
-            window.localStorage.setItem('force_autosize_columns', 'true');
-            
-            // Force a refresh of the table settings to trigger auto-sizing
-            hot.updateSettings({
-              colWidths: undefined // This will trigger getColumnWidths() again
+            // Trigger the parent component's autosizing logic
+            // This will use cross-page autosizing if server pagination is enabled
+            const event = new CustomEvent('autosize-columns', {
+              detail: { hotInstance: hot }
             });
-            
-            console.log('✨ Auto-sizing triggered via table refresh');
+            window.dispatchEvent(event);
           }
         }
       },

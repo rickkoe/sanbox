@@ -815,8 +815,26 @@ const GenericTable = forwardRef(({
 
   // Convert saved column widths to array format for Handsontable
   const getColumnWidths = () => {
-    console.log('🎯 Always auto-sizing columns on table load');
-    return undefined; // Always force auto-sizing
+    // Check if we have saved cross-page calculated widths
+    if (isConfigLoaded && tableConfig?.column_widths && Object.keys(tableConfig.column_widths).length > 0) {
+      console.log('📏 Using saved column widths from cross-page calculation');
+      const widthsArray = [];
+      visibleColHeaders.forEach((header, index) => {
+        const savedWidth = tableConfig.column_widths[header];
+        if (savedWidth && savedWidth > 0) {
+          widthsArray[index] = savedWidth;
+        }
+      });
+      
+      // Only use saved widths if we have widths for most columns
+      if (widthsArray.filter(w => w > 0).length > visibleColHeaders.length * 0.5) {
+        console.log('📐 Applying saved widths:', widthsArray);
+        return widthsArray;
+      }
+    }
+    
+    console.log('🎯 No saved widths available - will trigger auto-sizing');
+    return undefined; // Will trigger auto-sizing
   };
 
   const dynamicColWidths = getColumnWidths();
@@ -1188,6 +1206,25 @@ const GenericTable = forwardRef(({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
 
+  // Event listener for context menu autosizing
+  useEffect(() => {
+    const handleAutoSizeEvent = async (event) => {
+      const hotInstance = event.detail?.hotInstance || tableRef.current?.hotInstance;
+      if (hotInstance) {
+        if (serverPagination && serverPaginationHook) {
+          await autoSizeColumnsAcrossAllPages(hotInstance);
+        } else {
+          autoSizeCurrentPageColumns(hotInstance);
+        }
+      }
+    };
+
+    window.addEventListener('autosize-columns', handleAutoSizeEvent);
+    return () => {
+      window.removeEventListener('autosize-columns', handleAutoSizeEvent);
+    };
+  }, [serverPagination, serverPaginationHook, apiUrl]);
+
   // Cleanup filter and sorting save timeouts on unmount
   useEffect(() => {
     return () => {
@@ -1226,6 +1263,188 @@ const GenericTable = forwardRef(({
     if (hot && data && data.length > 0) {
       const lastRowIndex = data.length - 1;
       hot.scrollViewportTo(lastRowIndex, 0);
+    }
+  };
+
+  // Auto-sizing helper functions
+  const autoSizeCurrentPageColumns = (hotInstance) => {
+    try {
+      const totalColumns = hotInstance.countCols();
+      console.log(`📏 Auto-sizing ${totalColumns} columns for current page`);
+      
+      const autoColumnSizePlugin = hotInstance.getPlugin('autoColumnSize');
+      
+      if (autoColumnSizePlugin) {
+        console.log('📐 Using AutoColumnSize plugin for current page');
+        autoColumnSizePlugin.recalculateAllColumnsWidth();
+        
+        const calculatedWidths = [];
+        for (let col = 0; col < totalColumns; col++) {
+          const width = autoColumnSizePlugin.getColumnWidth(col);
+          calculatedWidths.push(width);
+        }
+        
+        hotInstance.updateSettings({
+          colWidths: calculatedWidths
+        });
+        
+        hotInstance.render();
+        console.log('✨ Current page columns auto-sized:', calculatedWidths.length, 'widths');
+      }
+    } catch (error) {
+      console.warn('⚠️ Error during current page auto-sizing:', error);
+    }
+  };
+
+  // Add ref to prevent multiple simultaneous autosizing operations
+  const autosizingInProgressRef = useRef(false);
+
+  const autoSizeColumnsAcrossAllPages = async (hotInstance) => {
+    if (!serverPagination || !serverPaginationHook || !apiUrl) {
+      console.log('⚠️ Server pagination not available for cross-page autosizing - falling back to current page');
+      return autoSizeCurrentPageColumns(hotInstance);
+    }
+
+    // Prevent multiple simultaneous autosizing operations
+    if (autosizingInProgressRef.current) {
+      console.log('⚠️ Autosizing already in progress, skipping...');
+      return;
+    }
+
+    autosizingInProgressRef.current = true;
+
+    try {
+      console.log('🌐 Starting cross-page autosizing...');
+      console.log('Current pagination state:', {
+        pageSize: serverPaginationHook.pageSize,
+        currentPage: serverPaginationHook.currentPage,
+        totalCount: serverPaginationHook.totalCount,
+        totalPages: serverPaginationHook.totalPages
+      });
+      
+      // Get current pagination state
+      let actualPageSize = serverPaginationHook.pageSize === "All" ? 10000 : serverPaginationHook.pageSize;
+      const totalCount = serverPaginationHook.totalCount;
+      const totalPages = serverPaginationHook.totalPages || Math.ceil(totalCount / actualPageSize);
+      
+      console.log(`📊 Will fetch up to ${Math.min(totalPages, 5)} pages (${totalCount} total records, pageSize: ${actualPageSize})`);
+      
+      // Fetch data from multiple pages (limit to 5 for performance)
+      let allData = [];
+      const pagesToFetch = Math.min(totalPages, 5);
+      
+      for (let page = 1; page <= pagesToFetch; page++) {
+        try {
+          console.log(`📡 Fetching page ${page}/${pagesToFetch} for autosizing...`);
+          
+          // Build URL similar to how server pagination does it
+          const separator = apiUrl.includes('?') ? '&' : '?';
+          const pageUrl = `${apiUrl}${separator}page=${page}&page_size=${actualPageSize}`;
+          console.log(`🔗 Request URL: ${pageUrl}`);
+          
+          const response = await axios.get(pageUrl);
+          const pageData = response.data.results || response.data;
+          
+          console.log(`📄 Page ${page} returned ${pageData.length} records`);
+          allData = [...allData, ...pageData];
+        } catch (pageError) {
+          console.warn(`⚠️ Failed to fetch page ${page}:`, pageError);
+          // Continue with other pages
+        }
+      }
+      
+      console.log(`📦 Total fetched: ${allData.length} records from ${pagesToFetch} pages`);
+      
+      if (allData.length === 0) {
+        console.log('⚠️ No data fetched, falling back to current page autosizing');
+        return autoSizeCurrentPageColumns(hotInstance);
+      }
+      
+      // Apply preprocessing if needed
+      const processedData = preprocessData ? preprocessData(allData) : allData;
+      console.log(`🔄 After preprocessing: ${processedData.length} records`);
+      
+      // Store original data and load sample data
+      const originalData = hotInstance.getSourceData();
+      console.log(`💾 Stored original data: ${originalData.length} records`);
+      
+      // Use a reasonable sample size for width calculation
+      const sampleData = processedData.slice(0, Math.min(100, processedData.length));
+      console.log(`🎯 Using sample of ${sampleData.length} records for width calculation`);
+      
+      // Load sample data for width calculation
+      hotInstance.loadData(sampleData);
+      
+      // Force render to ensure AutoColumnSize has proper DOM
+      hotInstance.render();
+      
+      // Wait a moment for rendering
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Calculate optimal widths
+      const totalColumns = hotInstance.countCols();
+      const autoColumnSizePlugin = hotInstance.getPlugin('autoColumnSize');
+      
+      console.log(`📏 Table has ${totalColumns} columns`);
+      console.log(`🔌 AutoColumnSize plugin available:`, !!autoColumnSizePlugin);
+      
+      if (autoColumnSizePlugin) {
+        console.log('📐 Recalculating column widths based on all-pages sample data...');
+        
+        // Force recalculation
+        autoColumnSizePlugin.recalculateAllColumnsWidth();
+        
+        const calculatedWidths = [];
+        for (let col = 0; col < totalColumns; col++) {
+          const width = autoColumnSizePlugin.getColumnWidth(col);
+          const finalWidth = Math.max(width, 80); // Minimum width of 80px
+          calculatedWidths.push(finalWidth);
+          console.log(`Column ${col}: calculated width = ${width}px, final width = ${finalWidth}px`);
+        }
+        
+        console.log('📏 Final calculated widths:', calculatedWidths);
+        
+        // Restore original data
+        hotInstance.loadData(originalData);
+        hotInstance.render();
+        
+        // Apply the calculated widths with a delay to ensure proper application
+        setTimeout(() => {
+          console.log('🎨 Applying calculated widths...');
+          hotInstance.updateSettings({
+            colWidths: calculatedWidths
+          });
+          hotInstance.render();
+          
+          // Also save to configuration if available
+          if (updateConfig && !configError) {
+            const widthsObject = {};
+            calculatedWidths.forEach((width, index) => {
+              if (visibleColHeaders[index]) {
+                widthsObject[visibleColHeaders[index]] = width;
+              }
+            });
+            console.log('💾 Saving widths to config:', widthsObject);
+            updateConfig('column_widths', widthsObject);
+          }
+          
+          console.log('✅ Cross-page column autosizing completed successfully!');
+        }, 50);
+        
+      } else {
+        // Restore original data if plugin not available
+        hotInstance.loadData(originalData);
+        console.log('⚠️ AutoColumnSize plugin not available - falling back');
+        autoSizeCurrentPageColumns(hotInstance);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error during cross-page autosizing:', error);
+      // Fallback to current page autosizing
+      autoSizeCurrentPageColumns(hotInstance);
+    } finally {
+      // Always reset the flag when done
+      autosizingInProgressRef.current = false;
     }
   };
 
@@ -1505,6 +1724,7 @@ const GenericTable = forwardRef(({
               afterContextMenuAction={(key, selection) => handleAfterContextMenu(key, selection)}
               beforeRemoveRow={() => false}
               colWidths={dynamicColWidths}
+              autoColumnSize={true}
               cells={getCellsConfig ? cellsFunc : undefined}
               viewportRowRenderingOffset={30}
               viewportColumnRenderingOffset={5}
@@ -1512,22 +1732,24 @@ const GenericTable = forwardRef(({
               afterInit={(hot) => {
                 setIsTableReady(true);
                 
-                // Always auto-size columns on table load using the same method as context menu
-                setTimeout(() => {
-                  // Get the hot instance from the ref if the parameter is not available
+                // Auto-size columns based on ALL pages data
+                setTimeout(async () => {
                   const hotInstance = hot || tableRef.current?.hotInstance;
                   
-                  if (hotInstance) {
-                    console.log('🎯 Auto-sizing columns on table load using updateSettings method...');
+                  if (hotInstance && serverPagination && serverPaginationHook) {
+                    console.log('🎯 Auto-sizing ALL columns across ALL pages...');
                     
-                    // Use the same method as the context menu for consistent results
-                    hotInstance.updateSettings({
-                      colWidths: undefined // This triggers auto-sizing
-                    });
-                    
-                    console.log('✨ Auto-sizing triggered on table load');
-                  } else {
-                    console.log('⚠️ Hot instance not available for auto-sizing');
+                    try {
+                      await autoSizeColumnsAcrossAllPages(hotInstance);
+                    } catch (error) {
+                      console.warn('⚠️ Error during cross-page auto-sizing:', error);
+                      // Fallback to current page autosizing
+                      autoSizeCurrentPageColumns(hotInstance);
+                    }
+                  } else if (hotInstance) {
+                    // Non-server pagination - use current page autosizing
+                    console.log('🎯 Auto-sizing columns for current data...');
+                    autoSizeCurrentPageColumns(hotInstance);
                   }
                 }, 300); // Delay to ensure table is fully initialized
               }}
