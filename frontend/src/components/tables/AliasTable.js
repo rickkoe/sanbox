@@ -413,7 +413,6 @@ const AliasTable = () => {
     use: ["init", "target", "both"],
     "fabric_details.name": fabricOptions.map(f => f.name),
     cisco_alias: ["device-alias", "fcalias", "wwpn"],
-    logged_in: ["true", "false"],
   };
 
   return (
@@ -449,10 +448,7 @@ const AliasTable = () => {
           } else if (col.data === "cisco_alias") {
             column.type = "dropdown";
             column.className = "htCenter";
-          } else if (col.data === "logged_in") {
-            column.type = "dropdown";
-            column.className = "htCenter";
-          } else if (col.data === "create" || col.data === "delete" || col.data === "include_in_zoning") {
+          } else if (col.data === "create" || col.data === "delete" || col.data === "include_in_zoning" || col.data === "logged_in") {
             column.type = "checkbox";
             column.className = "htCenter";
           } else if (col.data === "zoned_count" || col.data === "imported" || col.data === "updated") {

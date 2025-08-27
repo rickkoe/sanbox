@@ -19,10 +19,9 @@ const BulkBooleanControls = ({
     return columns
       .map((col, index) => ({ ...col, index, header: colHeaders[index] }))
       .filter((col, index) => {
-        // Only include visible boolean columns (checkbox type)
+        // Only include visible boolean columns
         return visibleColumns[index] !== false && 
                (col.type === 'checkbox' || 
-                col.className === 'htCenter' ||
                 ['create', 'delete', 'exists', 'include_in_zoning', 'logged_in'].includes(col.data));
       });
   };
