@@ -179,12 +179,15 @@ const GenericTable = forwardRef(({
       
       // Refresh table data to show the updates
       if (serverPagination && serverPaginationHook) {
-        // Refresh data and force React re-render
+        console.log('🔄 Clearing pagination cache and refreshing data');
+        
+        // Clear cache and force complete data reload
+        serverPaginationHook.resetPagination();
         serverPaginationHook.refresh();
         
-        // Force React to re-render the table component after a short delay
+        // Force data reprocessing and table re-render
         setTimeout(() => {
-          console.log('🔄 Forcing table re-render after bulk update');
+          console.log('🔄 Forcing data reprocessing and table update');
           setForceRefreshKey(prev => prev + 1);
         }, 300);
       } else {
@@ -545,7 +548,7 @@ const GenericTable = forwardRef(({
     }
     
     return processedArray;
-  }, [currentData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns, serverPagination]);
+  }, [currentData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns, serverPagination, forceRefreshKey]);
 
   // Column management
   const {
