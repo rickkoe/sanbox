@@ -1305,9 +1305,15 @@ const GenericTable = forwardRef(({
           setIsDirty(false);
           setBulkModifiedData(null); // Clear bulk changes after successful save
           
-          // Simple refresh - no pagination complexity!
-          console.log('🔄 Refreshing after save');
-          await refresh();
+          // Force complete cache clear and refresh for server pagination
+          console.log('🔄 Refreshing after save with cache clear');
+          if (serverPagination && serverPaginationHook) {
+            // Clear all cached pages to ensure fresh data
+            serverPaginationHook.resetPagination();
+            await serverPaginationHook.refresh();
+          } else {
+            await refresh();
+          }
           console.log('✅ Refresh completed');
         } else {
           setSaveStatus(result.message);
