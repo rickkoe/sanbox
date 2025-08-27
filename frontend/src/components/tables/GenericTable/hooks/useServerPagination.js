@@ -27,7 +27,9 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
   const buildApiUrl = useCallback((page, size, search = '', filters = {}) => {
     // Check if baseApiUrl already has query parameters
     const separator = baseApiUrl.includes('?') ? '&' : '?';
-    let url = `${baseApiUrl}${separator}page=${page}&page_size=${size}`;
+    // Handle "All" page size by using a very large number that the backend can handle
+    const pageSize = size === "All" ? 10000 : size;
+    let url = `${baseApiUrl}${separator}page=${page}&page_size=${pageSize}`;
     
     // Add search parameter
     if (search.trim()) {

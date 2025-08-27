@@ -93,13 +93,17 @@ const StatsContainer = ({
             <select 
               className="page-size-selector"
               value={pagination.pageSize}
-              onChange={(e) => pagination.handlePageSizeChange(parseInt(e.target.value))}
+              onChange={(e) => {
+                const newSize = e.target.value === "All" ? "All" : parseInt(e.target.value);
+                pagination.handlePageSizeChange(newSize);
+              }}
               title="Items per page"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
               <option value={250}>250</option>
+              <option value="All">All</option>
             </select>
           </div>
         </>
