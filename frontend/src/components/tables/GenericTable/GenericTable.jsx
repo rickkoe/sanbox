@@ -171,38 +171,144 @@ const GenericTable = forwardRef(({
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
   const [forceRefreshKey, setForceRefreshKey] = useState(0); // Force table re-render
+  const [bulkModifiedData, setBulkModifiedData] = useState(null); // Store bulk changes across all pages
   
-  // Handle bulk boolean updates
+  // Handle bulk boolean updates (local only - no database save)
   const handleBulkUpdate = async (result) => {
     if (result.success) {
-      setSaveStatus(result.message);
+      const { field, value } = result;
       
-      // Refresh table data to show the updates
+      console.log(`🔄 Starting bulk local update: ${field} = ${value}`);
+      
       if (serverPagination && serverPaginationHook) {
-        console.log('🔄 Clearing pagination cache and refreshing data');
-        
-        // Clear cache and force complete data reload
-        serverPaginationHook.resetPagination();
-        serverPaginationHook.refresh();
-        
-        // Force data reprocessing and table re-render
-        setTimeout(() => {
-          console.log('🔄 Forcing data reprocessing and table update');
-          setForceRefreshKey(prev => prev + 1);
-        }, 300);
-      } else {
-        // For client-side tables, trigger a data reload
+        // For server pagination, we need to fetch all data across all pages
         setLoading(true);
-        if (apiUrl) {
-          fetchData();
+        let allData = [];
+        let totalUpdated = 0;
+        
+        try {
+          // Get total count and calculate pages needed
+          const currentPageSize = serverPaginationHook.pageSize;
+          const totalCount = serverPaginationHook.totalCount;
+          const totalPages = currentPageSize === "All" ? 1 : Math.ceil(totalCount / currentPageSize);
+          
+          console.log(`📊 Fetching ${totalPages} pages of data (${totalCount} total records)`);
+          
+          // If pageSize is "All", just get current data
+          if (currentPageSize === "All") {
+            allData = [...serverPaginationHook.data];
+          } else {
+            // Fetch all pages
+            for (let page = 1; page <= totalPages; page++) {
+              console.log(`📡 Fetching page ${page}/${totalPages}`);
+              const pageUrl = `${apiUrl}?page=${page}&page_size=${currentPageSize}`;
+              const response = await axios.get(pageUrl);
+              const pageData = response.data.results || response.data;
+              allData = [...allData, ...pageData];
+            }
+          }
+          
+          console.log(`📦 Fetched ${allData.length} total records`);
+          
+          // Apply preprocessing if needed
+          const processedData = preprocessData ? preprocessData(allData) : allData;
+          
+          // Apply the boolean change to all records
+          const updatedData = processedData.map(row => {
+            if (row && row.id && row[field] !== undefined) {
+              totalUpdated++;
+              return { 
+                ...row, 
+                [field]: value,
+                saved: false // Mark as unsaved
+              };
+            }
+            return row;
+          });
+          
+          // Store ALL the modified data for saving later
+          setBulkModifiedData(updatedData.filter(row => row && row.id && row[field] !== undefined));
+          
+          // Update the current page data in the server pagination hook
+          const currentPageStart = (serverPaginationHook.currentPage - 1) * (currentPageSize === "All" ? totalCount : currentPageSize);
+          const currentPageEnd = currentPageSize === "All" ? totalCount : currentPageStart + currentPageSize;
+          const currentPageData = updatedData.slice(currentPageStart, currentPageEnd);
+          
+          // Force the server pagination hook to use our updated data
+          serverPaginationHook.data.splice(0, serverPaginationHook.data.length, ...currentPageData);
+          
+          // Mark all current page rows as modified
+          const newModifiedRows = { ...modifiedRows };
+          currentPageData.forEach((row, index) => {
+            if (row && row.id && row[field] !== undefined) {
+              newModifiedRows[index] = true;
+            }
+          });
+          
+          setModifiedRows(newModifiedRows);
+          setIsDirty(true);
+          
+          // Force table re-render
+          setForceRefreshKey(prev => prev + 1);
+          
+          setSaveStatus(`✏️ Updated ${totalUpdated} rows across all pages. Click Save to persist changes.`);
+          console.log(`✅ Bulk local update complete: ${totalUpdated} rows updated across ${totalPages} pages`);
+          
+        } catch (error) {
+          console.error('❌ Error fetching all data for bulk update:', error);
+          setSaveStatus(`❌ Error loading all data: ${error.message}`);
+        } finally {
+          setLoading(false);
+        }
+        
+      } else {
+        // For client-side tables, update all current data
+        if (tableRef.current?.hotInstance) {
+          const hot = tableRef.current.hotInstance;
+          const sourceData = hot.getSourceData();
+          let updatedCount = 0;
+          
+          // Apply the boolean change to all rows
+          const updatedData = sourceData.map(row => {
+            if (row && row.id && row[field] !== undefined) {
+              updatedCount++;
+              return { 
+                ...row, 
+                [field]: value,
+                saved: false // Mark as unsaved
+              };
+            }
+            return row;
+          });
+          
+          // Update the modified rows tracker
+          const newModifiedRows = { ...modifiedRows };
+          sourceData.forEach((row, index) => {
+            if (row && row.id && row[field] !== undefined) {
+              newModifiedRows[index] = true;
+            }
+          });
+          
+          setModifiedRows(newModifiedRows);
+          setIsDirty(true);
+          
+          // Load the updated data into the table
+          hot.loadData(updatedData);
+          hot.render();
+          
+          setSaveStatus(`✏️ Updated ${updatedCount} rows locally. Click Save to persist changes.`);
+          console.log(`✅ Local bulk update complete: ${updatedCount} rows modified`);
+        } else {
+          setSaveStatus(`❌ Could not apply bulk update: table not ready`);
         }
       }
+      
     } else {
       setSaveStatus(result.message);
     }
     
-    // Clear status after 5 seconds
-    setTimeout(() => setSaveStatus(""), 5000);
+    // Clear status after 10 seconds (longer since this is important info)
+    setTimeout(() => setSaveStatus(""), 10000);
   };
   const [selectedCount, setSelectedCount] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -405,6 +511,30 @@ const GenericTable = forwardRef(({
   // Get data and loading state based on pagination mode
   const currentData = serverPagination ? serverPaginationHook.data : rawData;
   const currentLoading = serverPagination ? serverPaginationHook.loading : dataLoading;
+  
+  // Intercept server pagination data to inject bulk modified data
+  useEffect(() => {
+    if (serverPagination && bulkModifiedData && bulkModifiedData.length > 0 && serverPaginationHook.data) {
+      const currentPageStart = (serverPaginationHook.currentPage - 1) * (serverPaginationHook.pageSize === "All" ? serverPaginationHook.totalCount : serverPaginationHook.pageSize);
+      const currentPageEnd = serverPaginationHook.pageSize === "All" ? serverPaginationHook.totalCount : currentPageStart + serverPaginationHook.pageSize;
+      
+      // Filter bulk modified data to only include items for the current page
+      const currentPageBulkData = bulkModifiedData.slice(currentPageStart, currentPageEnd);
+      
+      if (currentPageBulkData.length > 0) {
+        // Replace current page data with modified versions
+        const updatedPageData = serverPaginationHook.data.map((row, index) => {
+          const bulkRow = currentPageBulkData.find(bulkItem => bulkItem.id === row.id);
+          return bulkRow || row;
+        });
+        
+        // Update the hook's data
+        serverPaginationHook.data.splice(0, serverPaginationHook.data.length, ...updatedPageData);
+        
+        console.log(`🔄 Injected ${currentPageBulkData.length} bulk modified rows into current page`);
+      }
+    }
+  }, [serverPaginationHook?.currentPage, bulkModifiedData, serverPaginationHook?.data]);
 
   // Initial data load
   useEffect(() => {
@@ -1114,6 +1244,13 @@ const GenericTable = forwardRef(({
       const newRows = [];
       const modifiedExistingRows = [];
       
+      // Handle bulk modified data first (if any)
+      if (bulkModifiedData && bulkModifiedData.length > 0) {
+        console.log(`📦 Adding ${bulkModifiedData.length} bulk modified rows to save payload`);
+        modifiedExistingRows.push(...bulkModifiedData);
+      }
+      
+      // Handle regular table modifications
       allData.forEach((row, index) => {
         const rowKey = row.id || `new_${index}`;
         
@@ -1128,9 +1265,13 @@ const GenericTable = forwardRef(({
             newRows.push(modifiedRows[rowKey]);
           }
         }
-        // Check if this is a modified existing row
+        // Check if this is a modified existing row (and not already in bulk data)
         else if (row.id && modifiedRows[row.id]) {
-          modifiedExistingRows.push(modifiedRows[row.id]);
+          // Only add if it's not already in bulk modified data
+          const alreadyInBulk = bulkModifiedData && bulkModifiedData.some(bulkRow => bulkRow.id === row.id);
+          if (!alreadyInBulk) {
+            modifiedExistingRows.push(modifiedRows[row.id]);
+          }
         }
       });
       
@@ -1158,6 +1299,7 @@ const GenericTable = forwardRef(({
           setSaveStatus(result.message);
           setModifiedRows({});
           setIsDirty(false);
+          setBulkModifiedData(null); // Clear bulk changes after successful save
           
           // Simple refresh - no pagination complexity!
           console.log('🔄 Refreshing after save');
@@ -1172,6 +1314,7 @@ const GenericTable = forwardRef(({
         setSaveStatus("Changes saved successfully!");
         setModifiedRows({});
         setIsDirty(false);
+        setBulkModifiedData(null); // Clear bulk changes after successful save
         await refresh();
       }
       

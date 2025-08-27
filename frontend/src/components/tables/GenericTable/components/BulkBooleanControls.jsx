@@ -29,61 +29,25 @@ const BulkBooleanControls = ({
 
   const booleanColumns = getBooleanColumns();
 
-  // Handle bulk boolean update
-  const handleBulkUpdate = async (field, value) => {
-    if (!apiUrl || !serverPagination) return;
+  // Handle bulk boolean update (local only)
+  const handleBulkUpdate = (field, value) => {
+    console.log(`🔥 Local bulk update: ${field} = ${value}`);
     
-    setLoading(true);
-    try {
-      // Build the bulk update URL
-      const bulkUpdateUrl = `${apiUrl}bulk-boolean/`;
-      
-      // Prepare filters - include quick search and column filters
-      const filters = { ...columnFilters };
-      if (quickSearch && quickSearch.trim()) {
-        filters.quick_search = quickSearch.trim();
-      }
-      
-      console.log(`🔥 Bulk updating ${field} to ${value} with filters:`, filters);
-      
-      const response = await axios.post(bulkUpdateUrl, {
+    // Notify parent component to apply local update
+    if (onBulkUpdate) {
+      onBulkUpdate({
+        success: true,
         field: field,
         value: value,
-        filters: filters
+        filteredCount: 0 // Will be calculated by GenericTable
       });
-      
-      console.log('✅ Bulk update response:', response.data);
-      
-      // Notify parent component to refresh data
-      if (onBulkUpdate) {
-        onBulkUpdate({
-          success: true,
-          message: response.data.message,
-          updatedCount: response.data.updated_count,
-          field: field,
-          value: value
-        });
-      }
-      
-      setShowBulkDropdown(false);
-      
-    } catch (error) {
-      console.error('❌ Bulk update error:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
-      
-      if (onBulkUpdate) {
-        onBulkUpdate({
-          success: false,
-          message: `Failed to bulk update ${field}: ${errorMessage}`
-        });
-      }
-    } finally {
-      setLoading(false);
     }
+    
+    setShowBulkDropdown(false);
   };
 
-  // Don't render if no boolean columns are visible or not server pagination
-  if (!serverPagination || booleanColumns.length === 0) {
+  // Don't render if no boolean columns are visible
+  if (booleanColumns.length === 0) {
     return null;
   }
 
@@ -153,7 +117,7 @@ const BulkBooleanControls = ({
               color: '#6b7280',
               lineHeight: '1.4'
             }}>
-              Apply to all records across all pages{quickSearch || Object.keys(columnFilters).length > 0 ? ' (with current filters)' : ''}
+              Apply to all records across all pages. Use Save to persist changes to database.
             </div>
           </div>
 
@@ -242,18 +206,16 @@ const BulkBooleanControls = ({
             </div>
           ))}
           
-          {(quickSearch || Object.keys(columnFilters).length > 0) && (
-            <div style={{ 
-              padding: '8px 16px',
-              borderTop: '1px solid #e5e7eb',
-              background: '#f9fafb',
-              fontSize: '11px',
-              color: '#6b7280',
-              lineHeight: '1.4'
-            }}>
-              <strong>Note:</strong> Updates will only apply to records matching your current search and filter criteria.
-            </div>
-          )}
+          <div style={{ 
+            padding: '8px 16px',
+            borderTop: '1px solid #e5e7eb',
+            background: '#f9fafb',
+            fontSize: '11px',
+            color: '#6b7280',
+            lineHeight: '1.4'
+          }}>
+            <strong>Note:</strong> Changes are applied locally and must be saved to persist to the database.
+          </div>
         </div>
       )}
 
