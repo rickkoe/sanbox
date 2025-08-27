@@ -512,29 +512,6 @@ const GenericTable = forwardRef(({
   const currentData = serverPagination ? serverPaginationHook.data : rawData;
   const currentLoading = serverPagination ? serverPaginationHook.loading : dataLoading;
   
-  // Intercept server pagination data to inject bulk modified data
-  useEffect(() => {
-    if (serverPagination && bulkModifiedData && bulkModifiedData.length > 0 && serverPaginationHook.data) {
-      const currentPageStart = (serverPaginationHook.currentPage - 1) * (serverPaginationHook.pageSize === "All" ? serverPaginationHook.totalCount : serverPaginationHook.pageSize);
-      const currentPageEnd = serverPaginationHook.pageSize === "All" ? serverPaginationHook.totalCount : currentPageStart + serverPaginationHook.pageSize;
-      
-      // Filter bulk modified data to only include items for the current page
-      const currentPageBulkData = bulkModifiedData.slice(currentPageStart, currentPageEnd);
-      
-      if (currentPageBulkData.length > 0) {
-        // Replace current page data with modified versions
-        const updatedPageData = serverPaginationHook.data.map((row, index) => {
-          const bulkRow = currentPageBulkData.find(bulkItem => bulkItem.id === row.id);
-          return bulkRow || row;
-        });
-        
-        // Update the hook's data
-        serverPaginationHook.data.splice(0, serverPaginationHook.data.length, ...updatedPageData);
-        
-        console.log(`🔄 Injected ${currentPageBulkData.length} bulk modified rows into current page`);
-      }
-    }
-  }, [serverPaginationHook?.currentPage, bulkModifiedData, serverPaginationHook?.data]);
 
   // Initial data load
   useEffect(() => {
@@ -557,6 +534,33 @@ const GenericTable = forwardRef(({
     
     let processed = preprocessData ? preprocessData(currentData) : currentData;
     let processedArray = processed || [];
+    
+    // Apply bulk modifications to the current page data if available
+    if (serverPagination && bulkModifiedData && bulkModifiedData.length > 0) {
+      console.log(`🔄 Applying bulk modifications to data processing for page ${serverPaginationHook?.currentPage}...`);
+      
+      const bulkDataMap = new Map();
+      bulkModifiedData.forEach(bulkRow => {
+        if (bulkRow.id) {
+          bulkDataMap.set(bulkRow.id, bulkRow);
+        }
+      });
+      
+      let appliedCount = 0;
+      processedArray = processedArray.map(row => {
+        if (row.id && bulkDataMap.has(row.id)) {
+          appliedCount++;
+          const modifiedRow = bulkDataMap.get(row.id);
+          console.log(`📝 Applying bulk modification to row ${row.id} in data processing`);
+          return { ...modifiedRow }; // Use the bulk modified version
+        }
+        return row;
+      });
+      
+      if (appliedCount > 0) {
+        console.log(`✅ Applied ${appliedCount} bulk modifications in data processing`);
+      }
+    }
     
     // For server pagination, skip client-side filtering as it's handled server-side
     if (serverPagination) {
@@ -678,7 +682,7 @@ const GenericTable = forwardRef(({
     }
     
     return processedArray;
-  }, [currentData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns, serverPagination, forceRefreshKey]);
+  }, [currentData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns, serverPagination, forceRefreshKey, bulkModifiedData, serverPaginationHook?.currentPage]);
 
   // Column management
   const {
