@@ -17,7 +17,9 @@ from .views import (
     alias_by_fabric_view,
     wwpn_prefix_list_view,
     wwpn_prefix_detail_view,
-    wwpn_detect_type_view
+    wwpn_detect_type_view,
+    bulk_update_alias_boolean,
+    bulk_update_zone_boolean
 )
 
 urlpatterns = [
@@ -43,4 +45,8 @@ urlpatterns = [
     path("wwpn-prefixes/", wwpn_prefix_list_view, name="wwpn-prefix-list"),
     path("wwpn-prefixes/<int:pk>/", wwpn_prefix_detail_view, name="wwpn-prefix-detail"),
     path("wwpn-prefixes/detect-type/", wwpn_detect_type_view, name="wwpn-detect-type"),
+    
+    # Bulk boolean update endpoints
+    path("aliases/project/<int:project_id>/bulk-boolean/", bulk_update_alias_boolean, name="bulk-update-alias-boolean"),
+    path("zones/project/<int:project_id>/bulk-boolean/", bulk_update_zone_boolean, name="bulk-update-zone-boolean"),
 ]

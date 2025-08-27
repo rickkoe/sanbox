@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import AdvancedFilter from './AdvancedFilter';
 import StatsContainer from './StatsContainer';
+import BulkBooleanControls from './BulkBooleanControls';
 
 const TableHeader = ({
   loading,
@@ -32,7 +33,8 @@ const TableHeader = ({
   columnFilters = {},
   onClearAllFilters,
   apiUrl = null,  // Add apiUrl prop
-  serverPagination = false  // Add serverPagination prop
+  serverPagination = false,  // Add serverPagination prop
+  onBulkUpdate = null  // Add onBulkUpdate prop
 }) => {
   const [showDataDropdown, setShowDataDropdown] = useState(false);
   const [showViewDropdown, setShowViewDropdown] = useState(false);
@@ -269,6 +271,18 @@ const TableHeader = ({
             initialFilters={columnFilters}
             apiUrl={apiUrl}
             serverPagination={serverPagination}
+          />
+          
+          {/* Bulk Boolean Controls */}
+          <BulkBooleanControls
+            columns={columns}
+            colHeaders={colHeaders}
+            visibleColumns={visibleColumns}
+            apiUrl={apiUrl}
+            quickSearch={quickSearch}
+            columnFilters={columnFilters}
+            serverPagination={serverPagination}
+            onBulkUpdate={onBulkUpdate}
           />
           
           {/* Header Buttons */}

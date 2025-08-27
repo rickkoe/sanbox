@@ -170,6 +170,37 @@ const GenericTable = forwardRef(({
   // Core state
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
+  const [forceRefreshKey, setForceRefreshKey] = useState(0); // Force table re-render
+  
+  // Handle bulk boolean updates
+  const handleBulkUpdate = async (result) => {
+    if (result.success) {
+      setSaveStatus(result.message);
+      
+      // Refresh table data to show the updates
+      if (serverPagination && serverPaginationHook) {
+        // Refresh data and force React re-render
+        serverPaginationHook.refresh();
+        
+        // Force React to re-render the table component after a short delay
+        setTimeout(() => {
+          console.log('🔄 Forcing table re-render after bulk update');
+          setForceRefreshKey(prev => prev + 1);
+        }, 300);
+      } else {
+        // For client-side tables, trigger a data reload
+        setLoading(true);
+        if (apiUrl) {
+          fetchData();
+        }
+      }
+    } else {
+      setSaveStatus(result.message);
+    }
+    
+    // Clear status after 5 seconds
+    setTimeout(() => setSaveStatus(""), 5000);
+  };
   const [selectedCount, setSelectedCount] = useState(0);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [rowsToDelete, setRowsToDelete] = useState([]);
@@ -1193,6 +1224,7 @@ const GenericTable = forwardRef(({
         onFilterChange={handleFilterChange}
         apiUrl={serverPagination ? apiUrl : null}
         serverPagination={serverPagination}
+        onBulkUpdate={handleBulkUpdate}
       />
 
       <StatusMessage saveStatus={saveStatus} />
@@ -1233,6 +1265,7 @@ const GenericTable = forwardRef(({
         ) : (
           <div className="table-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
             <HotTable
+              key={forceRefreshKey}
               ref={tableRef}
               data={data || []}
               colHeaders={visibleColHeaders}

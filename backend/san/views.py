@@ -1392,3 +1392,169 @@ def generate_zone_creation_scripts(request, project_id):
         return JsonResponse({"error": "Error generating scripts.", "details": str(e)}, status=500)
     
     return JsonResponse({"zone_scripts": command_data}, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def bulk_update_alias_boolean(request, project_id):
+    """Bulk update boolean fields for aliases in a project."""
+    print(f"🔥 Bulk Update Alias Boolean - Project ID: {project_id}")
+    
+    try:
+        data = json.loads(request.body)
+        field = data.get('field')
+        value = data.get('value')
+        filters = data.get('filters', {})
+        
+        print(f"📝 Bulk update request: field={field}, value={value}, filters={filters}")
+        
+        if not field or value is None:
+            return JsonResponse({"error": "Field and value are required"}, status=400)
+            
+        # Validate field is a boolean field
+        boolean_fields = ['create', 'delete', 'include_in_zoning', 'logged_in']
+        if field not in boolean_fields:
+            return JsonResponse({"error": f"Invalid boolean field: {field}"}, status=400)
+        
+        # Start with aliases in the project
+        queryset = Alias.objects.filter(projects__id=project_id)
+        
+        # Apply server-side filters if provided
+        if filters:
+            for filter_key, filter_value in filters.items():
+                if filter_key == 'quick_search' and filter_value:
+                    # Quick search across main fields
+                    queryset = queryset.filter(
+                        Q(name__icontains=filter_value) | 
+                        Q(wwpn__icontains=filter_value) | 
+                        Q(use__icontains=filter_value)
+                    )
+                elif '__' in filter_key:
+                    # Handle complex filters
+                    if filter_key.endswith('__in') and isinstance(filter_value, list):
+                        queryset = queryset.filter(**{filter_key: filter_value})
+                    elif filter_key.endswith('__in') and isinstance(filter_value, str):
+                        # Handle single value passed as __in
+                        values = [v.strip() for v in filter_value.split(',')]
+                        queryset = queryset.filter(**{filter_key: values})
+                    else:
+                        queryset = queryset.filter(**{filter_key: filter_value})
+                else:
+                    # Simple field filter
+                    queryset = queryset.filter(**{filter_key: filter_value})
+        
+        # Update the boolean field
+        updated_count = queryset.update(**{field: value, 'updated': timezone.now()})
+        
+        # Clear dashboard cache
+        try:
+            if queryset.first():
+                customer_id = queryset.first().fabric.customer_id
+                clear_dashboard_cache_for_customer(customer_id)
+        except:
+            pass
+        
+        print(f"✅ Updated {updated_count} aliases")
+        
+        return JsonResponse({
+            "message": f"Successfully updated {updated_count} aliases",
+            "updated_count": updated_count,
+            "field": field,
+            "value": value
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in bulk update: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def bulk_update_zone_boolean(request, project_id):
+    """Bulk update boolean fields for zones in a project."""
+    print(f"🔥 Bulk Update Zone Boolean - Project ID: {project_id}")
+    
+    try:
+        data = json.loads(request.body)
+        field = data.get('field')
+        value = data.get('value')
+        filters = data.get('filters', {})
+        
+        print(f"📝 Bulk update request: field={field}, value={value}, filters={filters}")
+        
+        if not field or value is None:
+            return JsonResponse({"error": "Field and value are required"}, status=400)
+            
+        # Validate field is a boolean field
+        boolean_fields = ['create', 'delete', 'exists']
+        if field not in boolean_fields:
+            return JsonResponse({"error": f"Invalid boolean field: {field}"}, status=400)
+        
+        # Start with zones in the project
+        queryset = Zone.objects.filter(projects__id=project_id)
+        
+        # Apply server-side filters if provided
+        if filters:
+            for filter_key, filter_value in filters.items():
+                if filter_key == 'quick_search' and filter_value:
+                    # Quick search across main fields
+                    queryset = queryset.filter(
+                        Q(name__icontains=filter_value) | 
+                        Q(zone_type__icontains=filter_value) | 
+                        Q(notes__icontains=filter_value)
+                    )
+                elif filter_key.startswith('member_count__'):
+                    # Handle member count filters
+                    mapped_key = filter_key.replace('member_count__', '_member_count__')
+                    if filter_key.endswith('__in') and isinstance(filter_value, list):
+                        queryset = queryset.annotate(_member_count=Count('members')).filter(**{mapped_key: filter_value})
+                    elif filter_key.endswith('__in') and isinstance(filter_value, str):
+                        # Handle single value or comma-separated values
+                        if ',' in filter_value:
+                            values = [int(v.strip()) for v in filter_value.split(',')]
+                        else:
+                            values = [int(filter_value.strip())]
+                        queryset = queryset.annotate(_member_count=Count('members')).filter(**{mapped_key: values})
+                    else:
+                        queryset = queryset.annotate(_member_count=Count('members')).filter(**{mapped_key: int(filter_value)})
+                elif '__' in filter_key:
+                    # Handle other complex filters
+                    if filter_key.endswith('__in') and isinstance(filter_value, list):
+                        queryset = queryset.filter(**{filter_key: filter_value})
+                    elif filter_key.endswith('__in') and isinstance(filter_value, str):
+                        # Handle single value passed as __in
+                        values = [v.strip() for v in filter_value.split(',')]
+                        queryset = queryset.filter(**{filter_key: values})
+                    else:
+                        queryset = queryset.filter(**{filter_key: filter_value})
+                else:
+                    # Simple field filter
+                    queryset = queryset.filter(**{filter_key: filter_value})
+        
+        # Update the boolean field
+        updated_count = queryset.update(**{field: value, 'updated': timezone.now()})
+        
+        # Clear dashboard cache
+        try:
+            if queryset.first():
+                customer_id = queryset.first().fabric.customer_id
+                clear_dashboard_cache_for_customer(customer_id)
+        except:
+            pass
+        
+        print(f"✅ Updated {updated_count} zones")
+        
+        return JsonResponse({
+            "message": f"Successfully updated {updated_count} zones",
+            "updated_count": updated_count,
+            "field": field,
+            "value": value
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in bulk update: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
