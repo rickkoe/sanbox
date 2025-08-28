@@ -4,9 +4,19 @@ set -e
 APP_DIR="/var/www/sanbox"
 BRANCH="main"
 
-echo "========================================="
-echo "Starting deployment at $(date)"
-echo "========================================="
+# Check if version tag is provided as argument
+VERSION_TAG=$1
+if [ ! -z "$VERSION_TAG" ]; then
+    echo "========================================="
+    echo "Deploying specific version: $VERSION_TAG"
+    echo "Starting deployment at $(date)"
+    echo "========================================="
+else
+    echo "========================================="
+    echo "Deploying latest from $BRANCH branch"
+    echo "Starting deployment at $(date)"
+    echo "========================================="
+fi
 
 cd $APP_DIR
 
@@ -45,8 +55,14 @@ else
     fi
 fi
 
-echo "📥 Pulling latest changes from GitHub..."
-git pull origin $BRANCH
+if [ ! -z "$VERSION_TAG" ]; then
+    echo "📥 Checking out version tag: $VERSION_TAG"
+    git fetch origin
+    git checkout $VERSION_TAG
+else
+    echo "📥 Pulling latest changes from GitHub..."
+    git pull origin $BRANCH
+fi
 
 echo "🔧 Updating backend..."
 cd backend
@@ -90,7 +106,11 @@ echo "   Installing Node dependencies..."
 npm install --legacy-peer-deps
 
 echo "   Setting up build environment variables from git..."
-export REACT_APP_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+if [ ! -z "$VERSION_TAG" ]; then
+    export REACT_APP_VERSION=$VERSION_TAG
+else
+    export REACT_APP_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+fi
 export REACT_APP_BUILD_DATE=$(date +%Y-%m-%d)
 export REACT_APP_COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 export REACT_APP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")

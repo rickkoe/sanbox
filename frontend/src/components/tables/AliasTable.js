@@ -469,7 +469,6 @@ const AliasTable = () => {
         afterChange={handleWWPNChange}
         columnSorting={true}
         filters={false}
-        storageKey="aliasTableColumnWidths"
         defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Alias_Table.csv`}
         additionalButtons={[
