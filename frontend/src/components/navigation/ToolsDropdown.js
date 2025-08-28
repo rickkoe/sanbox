@@ -1,9 +1,9 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Terminal } from "lucide-react";
+import { Terminal, Info } from "lucide-react";
 
-const ToolsDropdown = () => {
+const ToolsDropdown = ({ onAboutClick }) => {
   return (
     <li className="nav-item">
       <Dropdown align="end">
@@ -22,6 +22,11 @@ const ToolsDropdown = () => {
           </Dropdown.Item>
           <Dropdown.Item as={NavLink} to="/tools">
             Calculators
+          </Dropdown.Item>
+          <Dropdown.Divider />
+          <Dropdown.Item onClick={onAboutClick}>
+            <Info size={16} className="me-2" />
+            About
           </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown>

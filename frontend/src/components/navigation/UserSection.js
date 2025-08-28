@@ -1,9 +1,9 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Settings, HelpCircle, User, Sliders } from "lucide-react";
+import { Settings, HelpCircle, User, Sliders, Info } from "lucide-react";
 
-const UserSection = () => {
+const UserSection = ({ onAboutClick }) => {
   return (
     <>
       <li className="nav-item">
@@ -41,6 +41,11 @@ const UserSection = () => {
             <HelpCircle size={24} />
           </Dropdown.Toggle>
           <Dropdown.Menu>
+            <Dropdown.Item onClick={onAboutClick}>
+              <Info size={16} className="me-2" />
+              About
+            </Dropdown.Item>
+            <Dropdown.Divider />
             <Dropdown.Item
               as="a"
               href="http://127.0.0.1:8000/admin/"

@@ -89,7 +89,19 @@ cd ../frontend
 echo "   Installing Node dependencies..."
 npm install --legacy-peer-deps
 
-echo "   Building React app..."
+echo "   Setting up build environment variables from git..."
+export REACT_APP_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+export REACT_APP_BUILD_DATE=$(date +%Y-%m-%d)
+export REACT_APP_COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+export REACT_APP_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+
+echo "   Build variables:"
+echo "     Version: $REACT_APP_VERSION"
+echo "     Build Date: $REACT_APP_BUILD_DATE"
+echo "     Commit: $REACT_APP_COMMIT_HASH"
+echo "     Branch: $REACT_APP_BRANCH"
+
+echo "   Building React app with version info..."
 npm run build
 
 echo "🚀 Managing services..."
