@@ -516,6 +516,47 @@ def hosts_by_project_view(request, project_id):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def host_save_view(request):
+    """Save or create a single host."""
+    print(f"🔥 Host Save - Method: {request.method}")
+    
+    try:
+        data = json.loads(request.body)
+        project_id = data.get("project_id")
+        host_name = data.get("name", "").strip()
+        
+        if not project_id or not host_name:
+            return JsonResponse({"error": "Project ID and host name are required."}, status=400)
+        
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found."}, status=404)
+        
+        # Check if host already exists in this project
+        existing_host = Host.objects.filter(project=project, name=host_name).first()
+        if existing_host:
+            return JsonResponse({
+                "message": "Host already exists", 
+                "host": {"id": existing_host.id, "name": existing_host.name}
+            })
+        
+        # Create new host
+        new_host = Host.objects.create(project=project, name=host_name)
+        print(f"✅ Created new host: {host_name} (ID: {new_host.id})")
+        
+        return JsonResponse({
+            "message": "Host created successfully!", 
+            "host": {"id": new_host.id, "name": new_host.name}
+        })
+        
+    except Exception as e:
+        print(f"❌ Error saving host: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def alias_save_view(request):
     """Save or update aliases for multiple projects."""
     print(f"🔥 Alias Save - Method: {request.method}")

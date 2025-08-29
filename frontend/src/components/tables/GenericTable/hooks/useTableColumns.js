@@ -72,6 +72,11 @@ export const useTableColumns = (
           source: isDropdown ? dropdownSources[col.data] : undefined,
         };
         
+        // Preserve important dropdown properties like allowInvalid
+        if (isDropdown && col.allowInvalid !== undefined) {
+          columnConfig.allowInvalid = col.allowInvalid;
+        }
+        
         if (customRenderers[col.data]) {
           columnConfig.renderer = customRenderers[col.data];
         }
