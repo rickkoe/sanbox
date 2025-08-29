@@ -1,4 +1,4 @@
-import React, { useContext, useState, useRef } from "react";
+import React, { useContext, useState, useRef, useEffect, useMemo } from "react";
 import axios from "axios";
 import { Modal, Button } from "react-bootstrap";
 import { ConfigContext } from "../../context/ConfigContext";
@@ -10,7 +10,8 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 const API_ENDPOINTS = {
   hosts: `${API_URL}/api/san/hosts/project/`,
   hostSave: `${API_URL}/api/san/hosts/save/`,
-  hostDelete: `${API_URL}/api/san/hosts/delete/`
+  hostDelete: `${API_URL}/api/san/hosts/delete/`,
+  storage: `${API_URL}/api/storage/`
 };
 
 // All possible host columns for project hosts (simpler than storage hosts)
@@ -65,6 +66,10 @@ const AllHostsTable = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmationData, setConfirmationData] = useState(null);
 
+  // Storage systems state
+  const [storageOptions, setStorageOptions] = useState([]);
+  const [storageLoaded, setStorageLoaded] = useState(false);
+
   // Column visibility state
   const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
     const saved = localStorage.getItem("allHostsTableColumns");
@@ -84,6 +89,74 @@ const AllHostsTable = () => {
   });
 
   const activeProjectId = config?.active_project?.id;
+  const activeCustomerId = config?.customer?.id;
+
+  // Dynamic dropdown sources using the same pattern as AliasTable
+  const dropdownSources = useMemo(() => ({
+    storage_system: storageOptions.map(s => s.name),
+  }), [storageOptions]);
+
+  // Load storage options for the customer
+  useEffect(() => {
+    const loadStorageOptions = async () => {
+      console.log('🔥 useEffect triggered - Config:', config);
+      console.log('🔥 Customer ID:', activeCustomerId);
+      
+      if (!config) {
+        console.log('❌ Config is null, waiting for config to load');
+        return;
+      }
+      
+      // Try both config.customer.id and config.id for customer ID
+      const customerId = activeCustomerId || config?.id;
+      
+      if (!customerId) {
+        console.log('❌ No customer ID found in config, setting loaded anyway');
+        console.log('❌ Config customer object:', config?.customer);
+        console.log('❌ Config id:', config?.id);
+        setStorageLoaded(true);
+        return;
+      }
+      
+      try {
+        const url = `${API_ENDPOINTS.storage}?customer=${customerId}`;
+        console.log('🔥 Loading storage options from URL:', url);
+        console.log('🔥 Using customer ID:', customerId);
+        const response = await axios.get(url);
+        
+        console.log('🔥 Storage API Response:', response.data);
+        
+        if (response.data?.results) {
+          const options = response.data.results.map(storage => ({
+            id: storage.id,
+            name: storage.name,
+            display: storage.name
+          }));
+          
+          console.log('✅ Mapped storage options:', options);
+          setStorageOptions(options);
+        } else {
+          console.log('❌ No results in storage response');
+        }
+      } catch (error) {
+        console.error('❌ Error loading storage options:', error);
+        console.error('❌ Error details:', error.response?.data);
+      } finally {
+        setStorageLoaded(true);
+      }
+    };
+
+    loadStorageOptions();
+  }, [config, activeCustomerId]);
+
+  // Wait for config to load before showing any content
+  if (!config) {
+    return (
+      <div className="table-container">
+        <div className="alert alert-info">Loading configuration...</div>
+      </div>
+    );
+  }
 
   if (!activeProjectId) {
     return <div className="alert alert-warning">No active project selected.</div>;
@@ -215,6 +288,9 @@ const AllHostsTable = () => {
     console.log('✅ preprocessData processing', data.length, 'hosts');
     
     return data.map((host) => {
+      // The backend now returns storage_system as the name, which is what we want for display
+      // No conversion needed since backend returns the proper display name
+      
       return {
         ...host,
         saved: true
@@ -235,11 +311,25 @@ const AllHostsTable = () => {
           return shouldInclude;
         })
         .map(host => {
+          // Map storage system name back to ID for saving to the storage ForeignKey field
+          let storageId = null;
+          
+          if (host.storage_system && storageOptions.length > 0) {
+            const storageOption = storageOptions.find(opt => opt.name === host.storage_system);
+            if (storageOption) {
+              storageId = storageOption.id;
+              console.log('🔥 Mapped storage system name to ID:', host.storage_system, '->', storageId);
+            } else {
+              console.log('❌ Could not find storage option for:', host.storage_system);
+              console.log('❌ Available options:', storageOptions.map(opt => opt.name));
+            }
+          }
+          
           // Clean up the data
           return {
             id: host.id || null,
             name: (host.name || "").trim(),
-            storage_system: host.storage_system || "",
+            storage: storageId, // Use the storage ForeignKey field
             wwpns: host.wwpns || "",
             status: host.status || "",
             host_type: host.host_type || "",
@@ -349,9 +439,19 @@ const AllHostsTable = () => {
     }
   };
 
+  // Only render the table after storage options are loaded
+  if (!storageLoaded) {
+    return (
+      <div className="table-container">
+        <div className="alert alert-info">Loading storage systems...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="table-container">
       <GenericTable
+        key={`all-hosts-table-${storageOptions.length}`} // Force re-render when storage options change
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.hosts}${activeProjectId}/?format=table`}
         saveUrl={API_ENDPOINTS.hostSave}
@@ -372,8 +472,18 @@ const AllHostsTable = () => {
             column.readOnly = true;
           }
           
+          // Configure storage_system as dropdown (using dropdownSources)
+          if (col.data === "storage_system") {
+            console.log('🔥 Configuring storage_system as dropdown column');
+            console.log('🔥 Current dropdownSources:', dropdownSources);
+            column.type = "dropdown";
+            column.allowInvalid = false;
+            column.strict = true;
+          }
+          
           return column;
         })}
+        dropdownSources={dropdownSources}
         customRenderers={customRenderers}
         preprocessData={preprocessData}
         onSave={handleSave}

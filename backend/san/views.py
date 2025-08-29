@@ -551,10 +551,21 @@ def hosts_by_project_view(request, project_id):
             # Create comma-separated list of WWPNs (no spaces)
             wwpns_string = ','.join(alias_wwpns) if alias_wwpns else ""
             
+            # Get storage system information
+            storage_name = ""
+            storage_id = None
+            if host.storage:
+                storage_name = host.storage.name
+                storage_id = host.storage.id
+            elif host.storage_system:
+                # Fallback to storage_system CharField if no ForeignKey relation
+                storage_name = host.storage_system
+
             host_data = {
                 "id": host.id,
                 "name": host.name,
-                "storage_system": host.storage_system or "",
+                "storage_system": storage_name,
+                "storage_id": storage_id,  # Include storage ID for reference
                 "wwpns": wwpns_string,  # Use alias WWPNs instead of host.wwpns
                 "status": host.status or "",
                 "host_type": host.host_type or "",
@@ -666,6 +677,20 @@ def host_save_view(request):
                         host.acknowledged = host_data.get("acknowledged", host.acknowledged)
                         host.natural_key = host_data.get("natural_key", host.natural_key)
                         
+                        # Handle storage ForeignKey assignment
+                        storage_id = host_data.get("storage")
+                        if storage_id:
+                            try:
+                                from storage.models import Storage
+                                storage = Storage.objects.get(id=storage_id)
+                                host.storage = storage
+                                print(f"✅ Assigned storage {storage.name} to host {host.name}")
+                            except Storage.DoesNotExist:
+                                print(f"❌ Storage with ID {storage_id} not found")
+                                host.storage = None
+                        else:
+                            host.storage = None
+                        
                         from django.utils import timezone
                         host.updated = timezone.now()
                         host.save()
@@ -690,9 +715,21 @@ def host_save_view(request):
                         errors.append({"host": host_name, "error": "Host already exists"})
                         continue
                     
+                    # Handle storage ForeignKey assignment for new host
+                    storage_obj = None
+                    storage_id = host_data.get("storage")
+                    if storage_id:
+                        try:
+                            from storage.models import Storage
+                            storage_obj = Storage.objects.get(id=storage_id)
+                            print(f"✅ Found storage {storage_obj.name} for new host {host_name}")
+                        except Storage.DoesNotExist:
+                            print(f"❌ Storage with ID {storage_id} not found for new host")
+                    
                     new_host = Host.objects.create(
                         project=project,
                         name=host_name,
+                        storage=storage_obj,  # Set the ForeignKey
                         storage_system=host_data.get("storage_system", ""),
                         wwpns=host_data.get("wwpns", ""),
                         status=host_data.get("status", ""),

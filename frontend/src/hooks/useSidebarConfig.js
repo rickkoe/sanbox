@@ -1,9 +1,9 @@
 import { useMemo, useContext } from "react";
 import { useLocation } from "react-router-dom";
 import { BreadcrumbContext } from "../context/BreadcrumbContext";
-import { 
-  Network, 
-  HardDrive, 
+import {
+  Network,
+  HardDrive,
   Menu,
   GitBranch,
   Tags,
@@ -13,7 +13,7 @@ import {
   Monitor,
   Users,
   Settings,
-  Database
+  Database,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -22,9 +22,7 @@ const getSidebarLinks = (pathname) => {
       header: "Customer Management",
       icon: Users,
       showBackButton: false,
-      links: [
-        { path: "/customers", label: "Customers", icon: Users },
-      ],
+      links: [{ path: "/customers", label: "Customers", icon: Users }],
     };
   }
 
@@ -62,9 +60,21 @@ const getSidebarLinks = (pathname) => {
         backPath: "/storage",
         storageId: storageIdMatch[1],
         links: [
-          { path: `/storage/${storageIdMatch[1]}`, label: "Properties", icon: Server },
-          { path: `/storage/${storageIdMatch[1]}/volumes`, label: "Volumes", icon: Archive },
-          { path: `/storage/${storageIdMatch[1]}/hosts`, label: "Hosts", icon: Monitor },
+          {
+            path: `/storage/${storageIdMatch[1]}`,
+            label: "Properties",
+            icon: Server,
+          },
+          {
+            path: `/storage/${storageIdMatch[1]}/volumes`,
+            label: "Volumes",
+            icon: Archive,
+          },
+          {
+            path: `/storage/${storageIdMatch[1]}/hosts`,
+            label: "Hosts",
+            icon: Monitor,
+          },
         ],
       };
     }
@@ -75,6 +85,7 @@ const getSidebarLinks = (pathname) => {
       showBackButton: false,
       links: [
         { path: "/storage", label: "Systems", icon: Server },
+        { path: "/storage/hosts", label: "Hosts", icon: Server },
       ],
     };
   }
@@ -95,9 +106,12 @@ const getSidebarLinks = (pathname) => {
 export const useSidebarConfig = () => {
   const location = useLocation();
   const { breadcrumbMap } = useContext(BreadcrumbContext);
-  
-  const config = useMemo(() => getSidebarLinks(location.pathname), [location.pathname]);
-  
+
+  const config = useMemo(
+    () => getSidebarLinks(location.pathname),
+    [location.pathname]
+  );
+
   const dynamicHeader = useMemo(() => {
     if (config.storageId && breadcrumbMap[config.storageId]) {
       return breadcrumbMap[config.storageId];
