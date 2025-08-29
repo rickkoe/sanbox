@@ -519,6 +519,70 @@ const TableHeader = ({
               Toggle All Columns
             </button>
             
+            {/* Column Width Controls */}
+            <button
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%',
+                padding: '10px 16px',
+                background: 'none',
+                border: 'none',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontSize: '14px',
+                color: '#374151',
+                transition: 'background-color 0.15s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+              onClick={() => {
+                const event = new CustomEvent('autosize-columns', {
+                  detail: { options: { force: true, showLoading: true } }
+                });
+                window.dispatchEvent(event);
+                setShowViewDropdown(false);
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <path d="M9 3v18"/>
+                <path d="M15 3v18"/>
+              </svg>
+              Auto-size Columns
+            </button>
+
+            <button
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%',
+                padding: '10px 16px',
+                background: 'none',
+                border: 'none',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontSize: '14px',
+                color: '#374151',
+                transition: 'background-color 0.15s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+              onClick={() => {
+                const event = new CustomEvent('reset-column-widths', {});
+                window.dispatchEvent(event);
+                setShowViewDropdown(false);
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+              Reset Column Widths
+            </button>
+            
             {/* Divider */}
             <div style={{ height: '1px', background: '#e5e7eb', margin: '8px 0' }}></div>
             

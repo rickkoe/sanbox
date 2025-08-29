@@ -136,9 +136,42 @@ export const createContextMenu = (tableRef, setIsDirty, handleAfterContextMenu) 
           if (hot) {
             console.log('📏 Auto-sizing ALL columns via context menu...');
             
-            // Trigger the parent component's autosizing logic
-            // This will use cross-page autosizing if server pagination is enabled
+            // Trigger the enhanced autosizing with force flag
             const event = new CustomEvent('autosize-columns', {
+              detail: { 
+                hotInstance: hot,
+                options: { force: true, showLoading: true }
+              }
+            });
+            window.dispatchEvent(event);
+          }
+        }
+      },
+      "autosize_columns_smart": {
+        name: "Smart auto-size (respect saved widths)",
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot) {
+            console.log('🧠 Smart auto-sizing columns via context menu...');
+            
+            const event = new CustomEvent('autosize-columns', {
+              detail: { 
+                hotInstance: hot,
+                options: { force: false, showLoading: true }
+              }
+            });
+            window.dispatchEvent(event);
+          }
+        }
+      },
+      "reset_column_widths": {
+        name: "Reset column widths",
+        callback: (key, selection) => {
+          const hot = tableRef.current?.hotInstance;
+          if (hot) {
+            console.log('🔄 Resetting column widths via context menu...');
+            
+            const event = new CustomEvent('reset-column-widths', {
               detail: { hotInstance: hot }
             });
             window.dispatchEvent(event);

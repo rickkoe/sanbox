@@ -813,27 +813,50 @@ const GenericTable = forwardRef(({
   const enhancedColumns = createVisibleColumns();
   const visibleColHeaders = createVisibleHeaders();
 
-  // Convert saved column widths to array format for Handsontable
+  // Enhanced column width loading with intelligent fallbacks
   const getColumnWidths = () => {
-    // Check if we have saved cross-page calculated widths
+    // Check if we have saved column widths
     if (isConfigLoaded && tableConfig?.column_widths && Object.keys(tableConfig.column_widths).length > 0) {
-      console.log('📏 Using saved column widths from cross-page calculation');
+      console.log('📏 Processing saved column widths...');
+      
       const widthsArray = [];
+      let validWidthCount = 0;
+      
       visibleColHeaders.forEach((header, index) => {
         const savedWidth = tableConfig.column_widths[header];
         if (savedWidth && savedWidth > 0) {
-          widthsArray[index] = savedWidth;
+          // Ensure saved width is reasonable (between 50-800px)
+          const clampedWidth = Math.max(50, Math.min(800, savedWidth));
+          widthsArray[index] = clampedWidth;
+          validWidthCount++;
+        } else {
+          // No saved width for this column - will need recalculation
+          widthsArray[index] = undefined;
         }
       });
       
-      // Only use saved widths if we have widths for most columns
-      if (widthsArray.filter(w => w > 0).length > visibleColHeaders.length * 0.5) {
-        console.log('📐 Applying saved widths:', widthsArray);
+      // Use saved widths if we have them for at least 70% of columns
+      const coverageThreshold = Math.ceil(visibleColHeaders.length * 0.7);
+      if (validWidthCount >= coverageThreshold) {
+        console.log(`📐 Applying ${validWidthCount}/${visibleColHeaders.length} saved widths (${Math.round(validWidthCount/visibleColHeaders.length*100)}% coverage)`);
+        
+        // Fill in missing widths with reasonable defaults
+        for (let i = 0; i < widthsArray.length; i++) {
+          if (!widthsArray[i]) {
+            const headerName = visibleColHeaders[i];
+            const estimatedWidth = headerName ? Math.max(80, headerName.length * 8 + 40) : 120;
+            widthsArray[i] = estimatedWidth;
+            console.log(`📏 Estimated width for ${headerName}: ${estimatedWidth}px`);
+          }
+        }
+        
         return widthsArray;
+      } else {
+        console.log(`📊 Insufficient saved widths (${validWidthCount}/${visibleColHeaders.length}), will auto-size`);
       }
     }
     
-    console.log('🎯 No saved widths available - will trigger auto-sizing');
+    console.log('🎯 No valid saved widths - will trigger auto-sizing');
     return undefined; // Will trigger auto-sizing
   };
 
@@ -867,12 +890,66 @@ const GenericTable = forwardRef(({
     }
   }, [data?.length]);
 
+  // Enhanced autosizing API for external use
+  const triggerAutoSize = async (options = {}) => {
+    const hotInstance = tableRef.current?.hotInstance;
+    if (!hotInstance) {
+      console.warn('⚠️ Cannot auto-size: table not ready');
+      return false;
+    }
+    
+    const defaultOptions = {
+      showLoading: true,
+      minWidth: 80,
+      maxWidth: 500,
+      sampleSize: 200,
+      maxPages: 3,
+      intelligentSampling: true,
+      force: false // Whether to ignore saved widths
+    };
+    
+    const finalOptions = { ...defaultOptions, ...options };
+    
+    // Check if we should skip due to existing saved widths
+    if (!finalOptions.force) {
+      const hasSavedWidths = isConfigLoaded && 
+        tableConfig?.column_widths && 
+        Object.keys(tableConfig.column_widths).length > 0 &&
+        Object.values(tableConfig.column_widths).some(width => width > 0);
+      
+      if (hasSavedWidths) {
+        console.log('📐 Saved widths exist, use force:true to override');
+        return false;
+      }
+    }
+    
+    try {
+      if (serverPagination && serverPaginationHook) {
+        return await autoSizeColumnsAcrossAllPages(hotInstance, finalOptions);
+      } else {
+        return autoSizeCurrentPageColumns(hotInstance, finalOptions);
+      }
+    } catch (error) {
+      console.error('❌ Manual auto-sizing failed:', error);
+      return false;
+    }
+  };
+
   // Refs and imperative handle
   useImperativeHandle(ref, () => ({
     hotInstance: tableRef.current?.hotInstance,
     refreshData: refresh,
     isDirty,
-    setIsDirty
+    setIsDirty,
+    // Enhanced autosizing API
+    autoSizeColumns: triggerAutoSize,
+    resetColumnWidths: () => {
+      if (updateConfig && !configError) {
+        updateConfig('column_widths', {});
+        // Trigger auto-sizing after clearing widths
+        setTimeout(() => triggerAutoSize({ force: true }), 100);
+      }
+    }
   }));
 
   // Update selected count
@@ -1206,24 +1283,49 @@ const GenericTable = forwardRef(({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isDirty]);
 
-  // Event listener for context menu autosizing
+  // Enhanced event listeners for autosizing operations
   useEffect(() => {
     const handleAutoSizeEvent = async (event) => {
       const hotInstance = event.detail?.hotInstance || tableRef.current?.hotInstance;
+      const options = event.detail?.options || {};
+      
       if (hotInstance) {
-        if (serverPagination && serverPaginationHook) {
-          await autoSizeColumnsAcrossAllPages(hotInstance);
-        } else {
-          autoSizeCurrentPageColumns(hotInstance);
+        await triggerAutoSize(options);
+      }
+    };
+
+    const handleResetWidthsEvent = async (event) => {
+      const hotInstance = event.detail?.hotInstance || tableRef.current?.hotInstance;
+      
+      if (hotInstance && updateConfig && !configError) {
+        try {
+          setSaveStatus("🔄 Resetting column widths...");
+          
+          // Clear saved widths
+          await updateConfig('column_widths', {});
+          
+          // Force auto-sizing with fresh calculation
+          await triggerAutoSize({ force: true, showLoading: false });
+          
+          setSaveStatus("✅ Column widths reset and auto-sized");
+          setTimeout(() => setSaveStatus(""), 2000);
+          
+        } catch (error) {
+          console.error('❌ Error resetting column widths:', error);
+          setSaveStatus("⚠️ Failed to reset column widths");
+          setTimeout(() => setSaveStatus(""), 3000);
         }
       }
     };
 
     window.addEventListener('autosize-columns', handleAutoSizeEvent);
+    window.addEventListener('reset-column-widths', handleResetWidthsEvent);
+    
     return () => {
       window.removeEventListener('autosize-columns', handleAutoSizeEvent);
+      window.removeEventListener('reset-column-widths', handleResetWidthsEvent);
     };
-  }, [serverPagination, serverPaginationHook, apiUrl]);
+  }, [serverPagination, serverPaginationHook, apiUrl, isConfigLoaded, tableConfig, updateConfig, configError]);
 
   // Cleanup filter and sorting save timeouts on unmount
   useEffect(() => {
@@ -1266,9 +1368,13 @@ const GenericTable = forwardRef(({
     }
   };
 
-  // Auto-sizing helper functions
-  const autoSizeCurrentPageColumns = (hotInstance) => {
+  // Enhanced auto-sizing helper functions
+  const autoSizeCurrentPageColumns = (hotInstance, options = {}) => {
+    const { showLoading = true, minWidth = 80, maxWidth = 400 } = options;
+    
     try {
+      if (showLoading) setSaveStatus("Auto-sizing columns...");
+      
       const totalColumns = hotInstance.countCols();
       console.log(`📏 Auto-sizing ${totalColumns} columns for current page`);
       
@@ -1276,33 +1382,77 @@ const GenericTable = forwardRef(({
       
       if (autoColumnSizePlugin) {
         console.log('📐 Using AutoColumnSize plugin for current page');
+        
+        // Force a complete recalculation
+        autoColumnSizePlugin.clearCache();
         autoColumnSizePlugin.recalculateAllColumnsWidth();
         
         const calculatedWidths = [];
+        const headerWidths = {};
+        
         for (let col = 0; col < totalColumns; col++) {
-          const width = autoColumnSizePlugin.getColumnWidth(col);
+          let width = autoColumnSizePlugin.getColumnWidth(col);
+          
+          // Apply min/max constraints
+          width = Math.max(minWidth, Math.min(maxWidth, width));
+          
           calculatedWidths.push(width);
+          
+          // Map to header name for saving
+          const headerName = visibleColHeaders[col];
+          if (headerName) {
+            headerWidths[headerName] = width;
+          }
         }
         
+        // Apply widths immediately
         hotInstance.updateSettings({
           colWidths: calculatedWidths
         });
         
         hotInstance.render();
-        console.log('✨ Current page columns auto-sized:', calculatedWidths.length, 'widths');
+        
+        // Save to configuration
+        if (updateConfig && !configError) {
+          updateConfig('column_widths', headerWidths);
+        }
+        
+        if (showLoading) {
+          setSaveStatus(`✨ Auto-sized ${totalColumns} columns`);
+          setTimeout(() => setSaveStatus(""), 2000);
+        }
+        
+        console.log('✨ Current page columns auto-sized:', calculatedWidths);
+        return calculatedWidths;
+      } else {
+        throw new Error('AutoColumnSize plugin not available');
       }
     } catch (error) {
       console.warn('⚠️ Error during current page auto-sizing:', error);
+      if (showLoading) {
+        setSaveStatus(`⚠️ Auto-sizing failed: ${error.message}`);
+        setTimeout(() => setSaveStatus(""), 3000);
+      }
+      return null;
     }
   };
 
   // Add ref to prevent multiple simultaneous autosizing operations
   const autosizingInProgressRef = useRef(false);
 
-  const autoSizeColumnsAcrossAllPages = async (hotInstance) => {
+  const autoSizeColumnsAcrossAllPages = async (hotInstance, options = {}) => {
+    const { 
+      showLoading = true, 
+      minWidth = 80, 
+      maxWidth = 500, 
+      sampleSize = 200,
+      maxPages = 3,
+      intelligentSampling = true
+    } = options;
+
     if (!serverPagination || !serverPaginationHook || !apiUrl) {
       console.log('⚠️ Server pagination not available for cross-page autosizing - falling back to current page');
-      return autoSizeCurrentPageColumns(hotInstance);
+      return autoSizeCurrentPageColumns(hotInstance, { showLoading, minWidth, maxWidth });
     }
 
     // Prevent multiple simultaneous autosizing operations
@@ -1312,138 +1462,197 @@ const GenericTable = forwardRef(({
     }
 
     autosizingInProgressRef.current = true;
-
+    
     try {
-      console.log('🌐 Starting cross-page autosizing...');
-      console.log('Current pagination state:', {
-        pageSize: serverPaginationHook.pageSize,
-        currentPage: serverPaginationHook.currentPage,
-        totalCount: serverPaginationHook.totalCount,
-        totalPages: serverPaginationHook.totalPages
-      });
+      if (showLoading) setSaveStatus("🔄 Analyzing data across pages for optimal column sizing...");
+      
+      console.log('🌐 Starting enhanced cross-page autosizing...');
       
       // Get current pagination state
       let actualPageSize = serverPaginationHook.pageSize === "All" ? 10000 : serverPaginationHook.pageSize;
       const totalCount = serverPaginationHook.totalCount;
       const totalPages = serverPaginationHook.totalPages || Math.ceil(totalCount / actualPageSize);
       
-      console.log(`📊 Will fetch up to ${Math.min(totalPages, 5)} pages (${totalCount} total records, pageSize: ${actualPageSize})`);
+      console.log(`📊 Dataset: ${totalCount} records across ${totalPages} pages`);
       
-      // Fetch data from multiple pages (limit to 5 for performance)
+      // Smart page selection for sampling
+      let pagesToFetch = Math.min(totalPages, maxPages);
+      let pageIndices = [];
+      
+      if (intelligentSampling && totalPages > maxPages) {
+        // Intelligent sampling: first page, middle page(s), and last page
+        pageIndices.push(1); // First page
+        if (totalPages > 2) {
+          const middlePage = Math.ceil(totalPages / 2);
+          pageIndices.push(middlePage); // Middle page
+        }
+        if (totalPages > 1 && !pageIndices.includes(totalPages)) {
+          pageIndices.push(totalPages); // Last page
+        }
+        pagesToFetch = pageIndices.length;
+      } else {
+        // Sequential sampling
+        pageIndices = Array.from({ length: pagesToFetch }, (_, i) => i + 1);
+      }
+      
+      console.log(`📈 Intelligent sampling: fetching pages [${pageIndices.join(', ')}] of ${totalPages}`);
+      
+      // Fetch data from selected pages
       let allData = [];
-      const pagesToFetch = Math.min(totalPages, 5);
-      
-      for (let page = 1; page <= pagesToFetch; page++) {
+      for (const pageNum of pageIndices) {
         try {
-          console.log(`📡 Fetching page ${page}/${pagesToFetch} for autosizing...`);
+          console.log(`📡 Fetching page ${pageNum} for width analysis...`);
           
-          // Build URL similar to how server pagination does it
           const separator = apiUrl.includes('?') ? '&' : '?';
-          const pageUrl = `${apiUrl}${separator}page=${page}&page_size=${actualPageSize}`;
-          console.log(`🔗 Request URL: ${pageUrl}`);
+          const pageUrl = `${apiUrl}${separator}page=${pageNum}&page_size=${actualPageSize}`;
           
           const response = await axios.get(pageUrl);
           const pageData = response.data.results || response.data;
           
-          console.log(`📄 Page ${page} returned ${pageData.length} records`);
+          console.log(`📄 Page ${pageNum}: ${pageData.length} records`);
           allData = [...allData, ...pageData];
+          
+          // Early break if we have enough sample data
+          if (allData.length >= sampleSize * 2) {
+            console.log(`✋ Early termination: collected ${allData.length} records (target: ${sampleSize})`);
+            break;
+          }
         } catch (pageError) {
-          console.warn(`⚠️ Failed to fetch page ${page}:`, pageError);
-          // Continue with other pages
+          console.warn(`⚠️ Failed to fetch page ${pageNum}:`, pageError);
         }
       }
-      
-      console.log(`📦 Total fetched: ${allData.length} records from ${pagesToFetch} pages`);
       
       if (allData.length === 0) {
         console.log('⚠️ No data fetched, falling back to current page autosizing');
-        return autoSizeCurrentPageColumns(hotInstance);
+        return autoSizeCurrentPageColumns(hotInstance, { showLoading, minWidth, maxWidth });
       }
       
-      // Apply preprocessing if needed
+      console.log(`📦 Collected ${allData.length} records for analysis`);
+      
+      // Apply preprocessing
       const processedData = preprocessData ? preprocessData(allData) : allData;
-      console.log(`🔄 After preprocessing: ${processedData.length} records`);
       
-      // Store original data and load sample data
+      // Intelligent sampling: get diverse sample for width calculation
+      let sampleData;
+      if (processedData.length > sampleSize) {
+        sampleData = [];
+        const step = Math.floor(processedData.length / sampleSize);
+        
+        // Take every nth record to get a good distribution
+        for (let i = 0; i < processedData.length && sampleData.length < sampleSize; i += step) {
+          sampleData.push(processedData[i]);
+        }
+        
+        // Always include first and last records for edge cases
+        if (!sampleData.includes(processedData[0])) {
+          sampleData[0] = processedData[0];
+        }
+        if (!sampleData.includes(processedData[processedData.length - 1])) {
+          sampleData.push(processedData[processedData.length - 1]);
+        }
+      } else {
+        sampleData = processedData;
+      }
+      
+      console.log(`🎯 Using intelligent sample of ${sampleData.length} records`);
+      
+      // Store original data and set up for calculation
       const originalData = hotInstance.getSourceData();
-      console.log(`💾 Stored original data: ${originalData.length} records`);
       
-      // Use a reasonable sample size for width calculation
-      const sampleData = processedData.slice(0, Math.min(100, processedData.length));
-      console.log(`🎯 Using sample of ${sampleData.length} records for width calculation`);
+      if (showLoading) {
+        setSaveStatus("📐 Calculating optimal column widths...");
+      }
       
-      // Load sample data for width calculation
+      // Load sample data temporarily
       hotInstance.loadData(sampleData);
-      
-      // Force render to ensure AutoColumnSize has proper DOM
       hotInstance.render();
       
-      // Wait a moment for rendering
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for DOM to settle
+      await new Promise(resolve => setTimeout(resolve, 150));
       
-      // Calculate optimal widths
+      // Calculate optimal widths with enhanced logic
       const totalColumns = hotInstance.countCols();
       const autoColumnSizePlugin = hotInstance.getPlugin('autoColumnSize');
       
-      console.log(`📏 Table has ${totalColumns} columns`);
-      console.log(`🔌 AutoColumnSize plugin available:`, !!autoColumnSizePlugin);
-      
-      if (autoColumnSizePlugin) {
-        console.log('📐 Recalculating column widths based on all-pages sample data...');
-        
-        // Force recalculation
-        autoColumnSizePlugin.recalculateAllColumnsWidth();
-        
-        const calculatedWidths = [];
-        for (let col = 0; col < totalColumns; col++) {
-          const width = autoColumnSizePlugin.getColumnWidth(col);
-          const finalWidth = Math.max(width, 80); // Minimum width of 80px
-          calculatedWidths.push(finalWidth);
-          console.log(`Column ${col}: calculated width = ${width}px, final width = ${finalWidth}px`);
-        }
-        
-        console.log('📏 Final calculated widths:', calculatedWidths);
-        
-        // Restore original data
-        hotInstance.loadData(originalData);
-        hotInstance.render();
-        
-        // Apply the calculated widths with a delay to ensure proper application
-        setTimeout(() => {
-          console.log('🎨 Applying calculated widths...');
-          hotInstance.updateSettings({
-            colWidths: calculatedWidths
-          });
-          hotInstance.render();
-          
-          // Also save to configuration if available
-          if (updateConfig && !configError) {
-            const widthsObject = {};
-            calculatedWidths.forEach((width, index) => {
-              if (visibleColHeaders[index]) {
-                widthsObject[visibleColHeaders[index]] = width;
-              }
-            });
-            console.log('💾 Saving widths to config:', widthsObject);
-            updateConfig('column_widths', widthsObject);
-          }
-          
-          console.log('✅ Cross-page column autosizing completed successfully!');
-        }, 50);
-        
-      } else {
-        // Restore original data if plugin not available
-        hotInstance.loadData(originalData);
-        console.log('⚠️ AutoColumnSize plugin not available - falling back');
-        autoSizeCurrentPageColumns(hotInstance);
+      if (!autoColumnSizePlugin) {
+        throw new Error('AutoColumnSize plugin not available');
       }
       
+      // Clear cache and force full recalculation
+      autoColumnSizePlugin.clearCache();
+      autoColumnSizePlugin.recalculateAllColumnsWidth();
+      
+      const calculatedWidths = [];
+      const headerWidths = {};
+      
+      for (let col = 0; col < totalColumns; col++) {
+        let width = autoColumnSizePlugin.getColumnWidth(col);
+        
+        // Enhanced width calculation with header consideration
+        const headerName = visibleColHeaders[col];
+        if (headerName) {
+          // Ensure width accommodates header text with padding
+          const headerLength = headerName.length * 8 + 40; // Approximate char width + padding
+          width = Math.max(width, headerLength);
+        }
+        
+        // Apply constraints with better defaults
+        width = Math.max(minWidth, Math.min(maxWidth, width));
+        
+        calculatedWidths.push(width);
+        
+        if (headerName) {
+          headerWidths[headerName] = width;
+        }
+      }
+      
+      console.log('📏 Enhanced calculated widths:', calculatedWidths);
+      
+      // Restore original data
+      hotInstance.loadData(originalData);
+      hotInstance.render();
+      
+      // Apply widths with visual feedback
+      if (showLoading) {
+        setSaveStatus("✨ Applying optimized column widths...");
+      }
+      
+      // Apply calculated widths
+      hotInstance.updateSettings({
+        colWidths: calculatedWidths
+      });
+      
+      hotInstance.render();
+      
+      // Save configuration
+      if (updateConfig && !configError) {
+        try {
+          await updateConfig('column_widths', headerWidths);
+          console.log('💾 Saved optimized widths to configuration');
+        } catch (configError) {
+          console.warn('⚠️ Failed to save column widths:', configError);
+        }
+      }
+      
+      if (showLoading) {
+        setSaveStatus(`✅ Auto-sized ${totalColumns} columns using ${sampleData.length} samples`);
+        setTimeout(() => setSaveStatus(""), 3000);
+      }
+      
+      console.log('🎉 Enhanced cross-page autosizing completed successfully!');
+      return calculatedWidths;
+      
     } catch (error) {
-      console.error('❌ Error during cross-page autosizing:', error);
+      console.error('❌ Error during enhanced cross-page autosizing:', error);
+      
+      if (showLoading) {
+        setSaveStatus(`⚠️ Cross-page autosizing failed, using current page data...`);
+      }
+      
       // Fallback to current page autosizing
-      autoSizeCurrentPageColumns(hotInstance);
+      return autoSizeCurrentPageColumns(hotInstance, { showLoading, minWidth, maxWidth });
+      
     } finally {
-      // Always reset the flag when done
       autosizingInProgressRef.current = false;
     }
   };
@@ -1732,24 +1941,35 @@ const GenericTable = forwardRef(({
               afterInit={(hot) => {
                 setIsTableReady(true);
                 
-                // Auto-size columns based on ALL pages data
+                // Smart auto-sizing: only run if no saved column widths exist
                 setTimeout(async () => {
                   const hotInstance = hot || tableRef.current?.hotInstance;
+                  if (!hotInstance) return;
                   
-                  if (hotInstance && serverPagination && serverPaginationHook) {
-                    console.log('🎯 Auto-sizing ALL columns across ALL pages...');
-                    
+                  // Check if we have meaningful saved column widths
+                  const hasSavedWidths = isConfigLoaded && 
+                    tableConfig?.column_widths && 
+                    Object.keys(tableConfig.column_widths).length > 0 &&
+                    Object.values(tableConfig.column_widths).some(width => width > 0);
+                  
+                  if (hasSavedWidths) {
+                    console.log('📐 Using saved column widths, skipping auto-resize');
+                    return;
+                  }
+                  
+                  console.log('🎯 No saved widths found, auto-sizing columns...');
+                  
+                  if (serverPagination && serverPaginationHook) {
                     try {
-                      await autoSizeColumnsAcrossAllPages(hotInstance);
+                      await autoSizeColumnsAcrossAllPages(hotInstance, {
+                        showLoading: false // Don't show loading on init
+                      });
                     } catch (error) {
                       console.warn('⚠️ Error during cross-page auto-sizing:', error);
-                      // Fallback to current page autosizing
-                      autoSizeCurrentPageColumns(hotInstance);
+                      autoSizeCurrentPageColumns(hotInstance, { showLoading: false });
                     }
-                  } else if (hotInstance) {
-                    // Non-server pagination - use current page autosizing
-                    console.log('🎯 Auto-sizing columns for current data...');
-                    autoSizeCurrentPageColumns(hotInstance);
+                  } else {
+                    autoSizeCurrentPageColumns(hotInstance, { showLoading: false });
                   }
                 }, 300); // Delay to ensure table is fully initialized
               }}
