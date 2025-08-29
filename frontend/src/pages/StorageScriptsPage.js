@@ -188,7 +188,7 @@ const StorageScriptsPage = () => {
           <div className="action-group">
             <button 
               className="modern-btn modern-btn-secondary"
-              onClick={() => navigate("/storage")}
+              onClick={() => navigate("/storage/systems")}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="15,18 9,12 15,6"/>

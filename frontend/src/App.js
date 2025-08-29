@@ -69,7 +69,7 @@ function AppContent() {
     '/san/aliases', 
     '/san/zones',
     '/san/fabrics',
-    '/storage',
+    '/storage/systems',
     '/storage/hosts',
     '/tools/wwpn-colonizer',
     '/test'
@@ -131,7 +131,7 @@ function AppContent() {
                     <Route path="/insights" element={<InsightsPage />} />
                     <Route path="/san/aliases" element={<AliasTable />} />
                     <Route path="/san/zones" element={<ZoneTable />} />
-                    <Route path="/storage" element={<StorageTable />} />
+                    <Route path="/storage/systems" element={<StorageTable />} />
                     <Route path="/storage/hosts" element={<AllHostsTable />} />
                     <Route path="/storage/:id" element={<StoragePage />} />
                     <Route path="/storage/:id/volumes" element={<StorageVolumesPage />} />

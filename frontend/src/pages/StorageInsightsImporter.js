@@ -429,7 +429,7 @@ const StorageInsightsImporter = () => {
                         <div className="text-center mt-3">
                           <Button
                             variant="success"
-                            onClick={() => navigate('/storage')}
+                            onClick={() => navigate('/storage/systems')}
                           >
                             View Storage Systems
                           </Button>

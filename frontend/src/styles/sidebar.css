@@ -235,6 +235,127 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Expandable Sections */
+.sidebar-section-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar-section-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-section-header.expanded {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-section-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease;
+}
+
+.sidebar-section-header.expanded .sidebar-section-toggle {
+  transform: rotate(0deg);
+}
+
+/* Submenu Styles */
+.sidebar-submenu {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0 0;
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  margin-left: 1rem;
+}
+
+.sidebar-submenu-item {
+  margin-bottom: 0.125rem;
+}
+
+.sidebar-sublink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  color: #94a3b8;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-size: 0.8125rem;
+  margin-left: 0.75rem;
+  position: relative;
+}
+
+.sidebar-sublink:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  text-decoration: none;
+  transform: translateX(2px);
+}
+
+.sidebar-sublink.active {
+  background: rgba(13, 110, 253, 0.2);
+  color: #60a5fa;
+  border-left: 2px solid #0d6efd;
+  padding-left: calc(0.75rem - 2px);
+}
+
+.sidebar-sublink.active:hover {
+  background: rgba(13, 110, 253, 0.3);
+  transform: none;
+}
+
+.sidebar-sublink-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  opacity: 0.8;
+}
+
+.sidebar-sublink-text {
+  font-weight: 450;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Collapsed state for expandable sections */
+.modern-sidebar.collapsed .sidebar-section-header {
+  justify-content: center;
+  padding: 0.875rem;
+}
+
+.modern-sidebar.collapsed .sidebar-submenu {
+  display: none;
+}
+
+.modern-sidebar.collapsed .sidebar-section-toggle {
+  display: none;
+}
+
+/* Animation for submenu expansion */
+.sidebar-submenu {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Custom scrollbar for navigation */
 .sidebar-nav::-webkit-scrollbar {
   width: 4px;

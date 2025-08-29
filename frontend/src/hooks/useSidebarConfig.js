@@ -17,47 +17,15 @@ import {
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
-  if (pathname.startsWith("/customers")) {
-    return {
-      header: "Customer Management",
-      icon: Users,
-      showBackButton: false,
-      links: [{ path: "/customers", label: "Customers", icon: Users }],
-    };
-  }
-
-  if (pathname.startsWith("/insights")) {
-    return {
-      header: "Storage Insights",
-      icon: Database,
-      showBackButton: false,
-      links: [
-        { path: "/insights/importer", label: "Data Importer", icon: Database },
-      ],
-    };
-  }
-
-  if (pathname.startsWith("/san")) {
-    return {
-      header: "SAN Management",
-      icon: Network,
-      showBackButton: false,
-      links: [
-        { path: "/san/fabrics", label: "Fabrics", icon: GitBranch },
-        { path: "/san/aliases", label: "Aliases", icon: Tags },
-        { path: "/san/zones", label: "Zones", icon: Layers },
-      ],
-    };
-  }
-
-  if (pathname.startsWith("/storage")) {
+  // Only use layered navigation for individual storage system detail pages
+  if (pathname.startsWith("/storage/")) {
     const storageIdMatch = pathname.match(/^\/storage\/(\d+)/);
     if (storageIdMatch) {
       return {
         header: "Storage System",
         icon: Server,
         showBackButton: true,
-        backPath: "/storage",
+        backPath: "/storage/systems",
         storageId: storageIdMatch[1],
         links: [
           {
@@ -78,27 +46,42 @@ const getSidebarLinks = (pathname) => {
         ],
       };
     }
-
-    return {
-      header: "Storage Management",
-      icon: HardDrive,
-      showBackButton: false,
-      links: [
-        { path: "/storage", label: "Systems", icon: Server },
-        { path: "/storage/hosts", label: "Hosts", icon: Server },
-      ],
-    };
   }
 
+  // For all other pages, show the expandable main menu
   return {
     header: "Main Menu",
     icon: Menu,
     showBackButton: false,
     links: [
       { path: "/customers", label: "Customers", icon: Users },
-      { path: "/insights", label: "Storage Insights", icon: Database },
-      { path: "/san", label: "SAN", icon: Network },
-      { path: "/storage", label: "Storage", icon: HardDrive },
+      { 
+        label: "Storage Insights", 
+        icon: Database, 
+        expandable: true,
+        subLinks: [
+          { path: "/insights/importer", label: "Data Importer", icon: Database },
+        ]
+      },
+      { 
+        label: "SAN", 
+        icon: Network, 
+        expandable: true,
+        subLinks: [
+          { path: "/san/fabrics", label: "Fabrics", icon: GitBranch },
+          { path: "/san/aliases", label: "Aliases", icon: Tags },
+          { path: "/san/zones", label: "Zones", icon: Layers },
+        ]
+      },
+      { 
+        label: "Storage", 
+        icon: HardDrive, 
+        expandable: true,
+        subLinks: [
+          { path: "/storage/systems", label: "Systems", icon: Server },
+          { path: "/storage/hosts", label: "Hosts", icon: Monitor },
+        ]
+      },
     ],
   };
 };

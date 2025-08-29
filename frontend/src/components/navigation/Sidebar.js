@@ -23,7 +23,7 @@ const Sidebar = ({ onCollapseChange }) => {
     if (backPath) {
       navigate(backPath);
     } else if (location.pathname.startsWith("/storage")) {
-      navigate("/");
+      navigate("/storage/systems");
     } else {
       navigate("/");
     }

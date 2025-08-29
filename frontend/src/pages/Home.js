@@ -374,7 +374,7 @@ const Dashboard = () => {
             <h3>{stats.totalStorage}</h3>
             <p>Storage Systems</p>
           </div>
-          <Link to="/storage" className="metric-link">
+          <Link to="/storage/systems" className="metric-link">
             <FaArrowRight />
           </Link>
         </div>

@@ -7,11 +7,11 @@ export const useNavigation = () => {
   const getBackPath = () => {
     const path = location.pathname;
     
-    if (path === "/storage") {
+    if (path === "/storage/systems") {
       return "/";
     }
     if (path.match(/^\/storage\/\d+$/)) {
-      return "/storage";
+      return "/storage/systems";
     }
     if (path.match(/^\/storage\/(\d+)\/volumes$/)) {
       const storageId = path.match(/^\/storage\/(\d+)\/volumes$/)[1];
