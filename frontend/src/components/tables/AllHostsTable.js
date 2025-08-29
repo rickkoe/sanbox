@@ -1,6 +1,7 @@
 import React, { useContext, useState, useRef, useEffect, useMemo } from "react";
 import axios from "axios";
 import { Modal, Button } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import GenericTable from "./GenericTable";
 
@@ -60,6 +61,7 @@ const NEW_HOST_TEMPLATE = {
 
 const AllHostsTable = () => {
   const { config } = useContext(ConfigContext);
+  const navigate = useNavigate();
   const tableRef = useRef(null);
 
   // Confirmation modal state
@@ -492,6 +494,18 @@ const AllHostsTable = () => {
         filters={true}
         defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_All_Hosts.csv`}
+        additionalButtons={[
+          {
+            text: "Storage Scripts",
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12l2 2 4-4"/>
+                <path d="M21 12c0 1.66-.41 3.22-1.14 4.58-.73 1.36-1.85 2.42-3.29 3.1C14.93 20.36 13.5 20.5 12 20.5s-2.93-.14-4.57-.82c-1.44-.68-2.56-1.74-3.29-3.1C3.41 15.22 3 13.66 3 12s.41-3.22 1.14-4.58c.73-1.36 1.85-2.42 3.29-3.1C9.07 3.64 10.5 3.5 12 3.5s2.93.14 4.57.82c1.44.68 2.56 1.74 3.29 3.1C20.59 8.78 21 10.34 21 12z"/>
+              </svg>
+            ),
+            onClick: () => navigate('/scripts/storage')
+          }
+        ]}
       />
 
       {/* Confirmation Modal for Host Deletion */}

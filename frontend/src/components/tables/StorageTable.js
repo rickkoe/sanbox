@@ -404,6 +404,17 @@ const StorageTable = () => {
         additionalButtons={
           <>
             <button
+              className="btn btn-primary btn-sm me-2"
+              onClick={() => navigate('/scripts/storage')}
+              title="Generate mkhost scripts for storage systems"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-1">
+                <path d="M9 12l2 2 4-4"/>
+                <path d="M21 12c0 1.66-.41 3.22-1.14 4.58-.73 1.36-1.85 2.42-3.29 3.1C14.93 20.36 13.5 20.5 12 20.5s-2.93-.14-4.57-.82c-1.44-.68-2.56-1.74-3.29-3.1C3.41 15.22 3 13.66 3 12s.41-3.22 1.14-4.58c.73-1.36 1.85-2.42 3.29-3.1C9.07 3.64 10.5 3.5 12 3.5s2.93.14 4.57.82c1.44.68 2.56 1.74 3.29 3.1C20.59 8.78 21 10.34 21 12z"/>
+              </svg>
+              Storage Scripts
+            </button>
+            <button
               className="btn btn-outline-secondary btn-sm"
               onClick={handleResetConfiguration}
               disabled={resetingConfig}
