@@ -1,9 +1,9 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Calculator } from "lucide-react";
+import { Terminal } from "lucide-react";
 
-const ToolsDropdown = () => {
+const ScriptsDropdown = () => {
   return (
     <li className="nav-item">
       <Dropdown align="end">
@@ -11,14 +11,17 @@ const ToolsDropdown = () => {
           as="span" 
           className="nav-link" 
           style={{ cursor: "pointer" }}
-          title="Tools & Calculators"
+          title="Scripts"
         >
-          <Calculator size={24} />
-          <span className="nav-label ms-1">Tools</span>
+          <Terminal size={24} />
+          <span className="nav-label ms-1">Scripts</span>
         </Dropdown.Toggle>
         <Dropdown.Menu>
-          <Dropdown.Item as={NavLink} to="/tools">
-            Calculators
+          <Dropdown.Item as={NavLink} to="/scripts/zoning">
+            SAN Scripts
+          </Dropdown.Item>
+          <Dropdown.Item as={NavLink} to="/scripts/storage">
+            Storage Scripts
           </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown>
@@ -26,4 +29,4 @@ const ToolsDropdown = () => {
   );
 };
 
-export default ToolsDropdown;
+export default ScriptsDropdown;

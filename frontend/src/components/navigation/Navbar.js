@@ -7,6 +7,7 @@ import { useNavigation } from "../../hooks/useNavigation";
 import NavbarBrand from "./NavbarBrand";
 import NavbarContext from "./NavbarContext";
 import ImportButton from "./ImportButton";
+import ScriptsDropdown from "./ScriptsDropdown";
 import ToolsDropdown from "./ToolsDropdown";
 import UserSection from "./UserSection";
 import AboutModal from "../../pages/AboutPage";
@@ -47,7 +48,9 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
               onCancelImport={handleCancelImport}
             />
 
-            <ToolsDropdown onAboutClick={handleAboutClick} />
+            <ScriptsDropdown />
+            
+            <ToolsDropdown />
 
             <li className="nav-item nav-divider">
               <span className="divider-line"></span>
