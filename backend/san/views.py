@@ -491,9 +491,15 @@ def hosts_by_project_view(request, project_id):
     # Get query parameters
     search = request.GET.get('search', '').strip()
     ordering = request.GET.get('ordering', 'name')
+    page = request.GET.get('page', 1)
+    page_size = request.GET.get('page_size', 50)
+    format_type = request.GET.get('format', 'dropdown')
+    
+    print(f"🔍 Hosts API - Project: {project_id}, Search: '{search}', Page: {page}, PageSize: {page_size}, Format: {format_type}")
     
     # Base queryset
     hosts_queryset = Host.objects.filter(project=project)
+    print(f"🔍 Found {hosts_queryset.count()} hosts for project {project_id}")
     
     # Apply search if provided
     if search:
@@ -503,55 +509,277 @@ def hosts_by_project_view(request, project_id):
             Q(host_type__icontains=search) |
             Q(storage_system__icontains=search)
         )
+        print(f"🔍 After search filter: {hosts_queryset.count()} hosts")
     
     # Apply ordering
     if ordering:
         hosts_queryset = hosts_queryset.order_by(ordering)
     
-    # Return simple list for dropdown usage
-    hosts_data = [{"id": host.id, "name": host.name} for host in hosts_queryset]
+    # Get total count before pagination
+    total_count = hosts_queryset.count()
+    print(f"🔍 Total hosts after filters: {total_count}")
     
-    return JsonResponse(hosts_data, safe=False)
+    if format_type == 'table':
+        # Implement pagination for table format
+        try:
+            page = int(page)
+            page_size = int(page_size)
+        except (ValueError, TypeError):
+            page = 1
+            page_size = 50
+            
+        paginator = Paginator(hosts_queryset, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # Return full host data for table display with pagination
+        hosts_data = []
+        for host in page_obj:
+            # Get aliases that reference this host
+            from .models import Alias
+            aliases_for_host = Alias.objects.filter(host=host)
+            aliases_count = aliases_for_host.count()
+            
+            # Collect WWPNs from all aliases that reference this host
+            alias_wwpns = []
+            for alias in aliases_for_host:
+                if alias.wwpn:
+                    # Remove colons and any other formatting from WWPN
+                    clean_wwpn = alias.wwpn.replace(':', '').replace('-', '').strip()
+                    if clean_wwpn and clean_wwpn not in alias_wwpns:  # Avoid duplicates
+                        alias_wwpns.append(clean_wwpn)
+            
+            # Create comma-separated list of WWPNs (no spaces)
+            wwpns_string = ','.join(alias_wwpns) if alias_wwpns else ""
+            
+            host_data = {
+                "id": host.id,
+                "name": host.name,
+                "storage_system": host.storage_system or "",
+                "wwpns": wwpns_string,  # Use alias WWPNs instead of host.wwpns
+                "status": host.status or "",
+                "host_type": host.host_type or "",
+                "aliases_count": aliases_count,
+                "vols_count": host.vols_count or 0,
+                "fc_ports_count": host.fc_ports_count or 0,
+                "associated_resource": host.associated_resource or "",
+                "volume_group": host.volume_group or "",
+                "acknowledged": host.acknowledged or "",
+                "last_data_collection": host.last_data_collection,
+                "natural_key": host.natural_key or "",
+                "imported": host.imported.isoformat() if host.imported else None,
+                "updated": host.updated.isoformat() if host.updated else None,
+            }
+            hosts_data.append(host_data)
+            
+            # Debug logging
+            if alias_wwpns:
+                print(f"🔍 Host '{host.name}' has {len(alias_wwpns)} WWPNs from aliases: {wwpns_string[:50]}{'...' if len(wwpns_string) > 50 else ''}")
+        
+        print(f"🔍 Returning {len(hosts_data)} hosts for page {page}")
+        
+        # Return paginated response in the format GenericTable expects
+        response_data = {
+            "results": hosts_data,
+            "count": total_count,
+            "next": f"?page={page + 1}" if page_obj.has_next() else None,
+            "previous": f"?page={page - 1}" if page_obj.has_previous() else None
+        }
+        
+        return JsonResponse(response_data, safe=False)
+    else:
+        # Return simple list for dropdown usage
+        hosts_data = [{"id": host.id, "name": host.name} for host in hosts_queryset]
+        
+        return JsonResponse(hosts_data, safe=False)
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def host_save_view(request):
-    """Save or create a single host."""
+    """Save or update multiple hosts."""
     print(f"🔥 Host Save - Method: {request.method}")
     
     try:
         data = json.loads(request.body)
-        project_id = data.get("project_id")
-        host_name = data.get("name", "").strip()
         
-        if not project_id or not host_name:
-            return JsonResponse({"error": "Project ID and host name are required."}, status=400)
+        # Handle single host creation (for AliasTable compatibility)
+        if "name" in data and "project_id" in data:
+            project_id = data.get("project_id")
+            host_name = data.get("name", "").strip()
+            
+            if not project_id or not host_name:
+                return JsonResponse({"error": "Project ID and host name are required."}, status=400)
+            
+            try:
+                project = Project.objects.get(id=project_id)
+            except Project.DoesNotExist:
+                return JsonResponse({"error": "Project not found."}, status=404)
+            
+            # Check if host already exists in this project
+            existing_host = Host.objects.filter(project=project, name=host_name).first()
+            if existing_host:
+                return JsonResponse({
+                    "message": "Host already exists", 
+                    "host": {"id": existing_host.id, "name": existing_host.name}
+                })
+            
+            # Create new host
+            new_host = Host.objects.create(project=project, name=host_name)
+            print(f"✅ Created new host: {host_name} (ID: {new_host.id})")
+            
+            return JsonResponse({
+                "message": "Host created successfully!", 
+                "host": {"id": new_host.id, "name": new_host.name}
+            })
+        
+        # Handle bulk host operations (for AllHostsTable)
+        project_id = data.get("project_id")
+        hosts_data = data.get("hosts", [])
+        
+        if not project_id or not hosts_data:
+            return JsonResponse({"error": "Project ID and hosts data are required."}, status=400)
         
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
             return JsonResponse({"error": "Project not found."}, status=404)
         
-        # Check if host already exists in this project
-        existing_host = Host.objects.filter(project=project, name=host_name).first()
-        if existing_host:
-            return JsonResponse({
-                "message": "Host already exists", 
-                "host": {"id": existing_host.id, "name": existing_host.name}
-            })
+        saved_hosts = []
+        errors = []
         
-        # Create new host
-        new_host = Host.objects.create(project=project, name=host_name)
-        print(f"✅ Created new host: {host_name} (ID: {new_host.id})")
+        for host_data in hosts_data:
+            host_id = host_data.get("id")
+            
+            if host_id:
+                # Update existing host
+                try:
+                    host = Host.objects.filter(id=host_id, project=project).first()
+                    if host:
+                        # Update host fields
+                        host.name = host_data.get("name", host.name)
+                        host.storage_system = host_data.get("storage_system", host.storage_system)
+                        host.wwpns = host_data.get("wwpns", host.wwpns)
+                        host.status = host_data.get("status", host.status)
+                        host.host_type = host_data.get("host_type", host.host_type)
+                        host.associated_resource = host_data.get("associated_resource", host.associated_resource)
+                        host.volume_group = host_data.get("volume_group", host.volume_group)
+                        host.acknowledged = host_data.get("acknowledged", host.acknowledged)
+                        host.natural_key = host_data.get("natural_key", host.natural_key)
+                        
+                        from django.utils import timezone
+                        host.updated = timezone.now()
+                        host.save()
+                        
+                        saved_hosts.append({"id": host.id, "name": host.name})
+                        print(f"✅ Updated host: {host.name} (ID: {host.id})")
+                    else:
+                        errors.append({"host": host_data.get("name", "Unknown"), "error": "Host not found"})
+                except Exception as e:
+                    errors.append({"host": host_data.get("name", "Unknown"), "error": str(e)})
+            else:
+                # Create new host
+                try:
+                    host_name = host_data.get("name", "").strip()
+                    if not host_name:
+                        errors.append({"host": "Unknown", "error": "Host name is required"})
+                        continue
+                    
+                    # Check if host already exists
+                    existing_host = Host.objects.filter(project=project, name=host_name).first()
+                    if existing_host:
+                        errors.append({"host": host_name, "error": "Host already exists"})
+                        continue
+                    
+                    new_host = Host.objects.create(
+                        project=project,
+                        name=host_name,
+                        storage_system=host_data.get("storage_system", ""),
+                        wwpns=host_data.get("wwpns", ""),
+                        status=host_data.get("status", ""),
+                        host_type=host_data.get("host_type", ""),
+                        associated_resource=host_data.get("associated_resource", ""),
+                        volume_group=host_data.get("volume_group", ""),
+                        acknowledged=host_data.get("acknowledged", ""),
+                        natural_key=host_data.get("natural_key", "")
+                    )
+                    
+                    from django.utils import timezone
+                    new_host.updated = timezone.now()
+                    new_host.save()
+                    
+                    saved_hosts.append({"id": new_host.id, "name": new_host.name})
+                    print(f"✅ Created new host: {host_name} (ID: {new_host.id})")
+                    
+                except Exception as e:
+                    errors.append({"host": host_data.get("name", "Unknown"), "error": str(e)})
         
-        return JsonResponse({
-            "message": "Host created successfully!", 
-            "host": {"id": new_host.id, "name": new_host.name}
-        })
+        if errors:
+            return JsonResponse({"error": "Some hosts could not be saved.", "details": errors}, status=400)
+        
+        return JsonResponse({"message": "Hosts saved successfully!", "hosts": saved_hosts})
         
     except Exception as e:
-        print(f"❌ Error saving host: {e}")
+        print(f"❌ Error saving hosts: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def host_delete_view(request, pk):
+    """Delete a host."""
+    print(f"🔥 Host Delete - PK: {pk}, Method: {request.method}")
+    print(f"🔍 Request path: {request.path}")
+    print(f"🔍 Request headers: {dict(request.headers)}")
+    
+    # Check for force parameter
+    force_delete = request.GET.get('force', 'false').lower() == 'true'
+    print(f"🔍 Force delete: {force_delete}")
+    
+    try:
+        host = Host.objects.get(pk=pk)
+        host_name = host.name
+        project_id = host.project.id
+        
+        print(f"🔍 Found host: {host_name} (ID: {pk}) in project: {project_id}")
+        
+        # Check if host is being used by any aliases
+        from .models import Alias
+        aliases_using_host = Alias.objects.filter(host=host)
+        
+        if aliases_using_host.exists():
+            alias_list = [{"id": alias.id, "name": alias.name} for alias in aliases_using_host]
+            print(f"🔍 Host {host_name} is being used by {aliases_using_host.count()} aliases: {[a['name'] for a in alias_list]}")
+            
+            if not force_delete:
+                # Return list of aliases for confirmation modal
+                return JsonResponse({
+                    "requires_confirmation": True,
+                    "host_name": host_name,
+                    "aliases": alias_list,
+                    "message": f"Host '{host_name}' is being used by {len(alias_list)} aliases. Deleting will remove host references from these aliases."
+                }, status=409)  # 409 Conflict - requires user decision
+            else:
+                # Force delete - remove host references from aliases first
+                print(f"🔄 Removing host references from {aliases_using_host.count()} aliases")
+                aliases_using_host.update(host=None)
+                print(f"✅ Cleared host references from aliases: {[a['name'] for a in alias_list]}")
+        
+        # Delete the host
+        host.delete()
+        print(f"✅ Successfully deleted host: {host_name} (ID: {pk})")
+        
+        return JsonResponse({
+            "message": f"Host '{host_name}' deleted successfully!",
+            "cleared_aliases": alias_list if aliases_using_host.exists() else []
+        })
+        
+    except Host.DoesNotExist:
+        print(f"❌ Host with ID {pk} not found")
+        return JsonResponse({"error": "Host not found."}, status=404)
+    except Exception as e:
+        print(f"❌ Unexpected error deleting host {pk}: {e}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
 
 
