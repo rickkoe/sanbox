@@ -242,7 +242,12 @@ const AliasTable = () => {
                 
                 // Before updating hostOptions, store current cell values to restore them
                 const sourceData = hot.getSourceData();
-                const currentHostValues = sourceData.map(rowData => {
+                const currentHostValues = sourceData.map((rowData, rowIndex) => {
+                  // For the row that just changed, use the new value (trimmedName)
+                  // For all other rows, use their existing value
+                  if (rowIndex === row) {
+                    return trimmedName; // Use the new hostname that was just typed
+                  }
                   return rowData?.host_details?.name || '';
                 });
                 
