@@ -1,118 +1,149 @@
-#!/usr/bin/env python3
 """
-generate_dscli_consolidated.py
-
-Generate IBM DSCLI chhost map commands by splitting each LSS range into
-N contiguous hex blocks (one per host) and outputting a single command
-per host per LSS, with volume ranges.
+Storage utility functions for generating mkhost scripts and other storage-related operations.
 """
 
-from typing import List
 
-# --- USER CONFIGURATION ---
-
-# 1) Your LSS volume ranges, in the form BASE_STARTHEX-ENDHEX
-PRD01A_sys_volume_ranges = [
-    "PRD01A_sys_1000-1070",
-    "PRD01A_sys_1100-1170",
-]
-
-PRD01A_iasp_volume_ranges = [
-    "PRD01A_iasp_5000-506A",
-    "PRD01A_iasp_5100-516A",
-    "PRD01A_iasp_5200-52FF",
-    "PRD01A_iasp_5300-53FF",
-    "PRD01A_iasp_5400-54FF",
-    "PRD01A_iasp_5500-55FF",
-    "PRD01A_iasp_5600-56FF",
-    "PRD01A_iasp_5700-57FF",
-    "PRD01A_iasp_7000-702D",
-    "PRD01A_iasp_7100-712D",
-]
-
-PRD01ABK_sys_volume_ranges = [
-    "PRD01ABK_sys_1800-181F",
-    "PRD01ABK_sys_1900-191F"
-]
-
-volume_ranges = [
-    "PRD01ABK_iasp_6000-606A",
-    "PRD01ABK_iasp_6100-616A",
-    "PRD01ABK_iasp_6200-62FF",
-    "PRD01ABK_iasp_6300-63FF",
-    "PRD01ABK_iasp_6400-64FF",
-    "PRD01ABK_iasp_6500-65FF",
-    "PRD01ABK_iasp_6600-66FF",
-    "PRD01ABK_iasp_6700-67FF",
-    "PRD01ABK_iasp_9000-902D",
-    "PRD01ABK_iasp_9100-912D",
-]
-
-# 2a) Either specify how many hosts you have, and let the script generate names:
-num_hosts = 16
-hosts = [f"PRD01ABK_iasp_{i:02d}" for i in range(1, num_hosts + 1)]
-
-# 2b) Or explicitly list them:
-# hosts = ["PRD01A_sys_01", "PRD01A_sys_02"]
-
-# 3) The full DSCLI device prefix
-device = "IBM.2107-78NRC91"
-
-# 4) Where to write the output
-output_file = "Chaska_Green_DS8A50_chhost_PRD01ABK_iasp.txt"
-# --- END USER CONFIGURATION ---
-
-
-def split_range(start_hex: str, end_hex: str, parts: int) -> List[str]:
+def generate_mkhost_scripts(storage_systems):
     """
-    Split the inclusive hex range [start_hex..end_hex] into `parts` contiguous
-    sub-ranges of as-even-as-possible size. Returns strings like
-    "1000-1038" or (if a single value) "1000".
+    Generate mkhost scripts for all storage systems.
+    
+    Args:
+        storage_systems: QuerySet of Storage objects
+        
+    Returns:
+        dict: Storage scripts organized by storage system name
     """
-    start = int(start_hex, 16)
-    end = int(end_hex, 16)
-    total = end - start + 1
-    base_size, remainder = divmod(total, parts)
+    storage_scripts = {}
+    
+    for storage in storage_systems:
+        # Get all hosts assigned to this storage system
+        from san.models import Host
+        hosts = Host.objects.filter(storage=storage).order_by('name')
+        
+        if not hosts.exists():
+            storage_scripts[storage.name] = {
+                "commands": [],
+                "storage_type": storage.storage_type,
+                "host_count": 0
+            }
+            continue
+        
+        commands = []
+        
+        for host in hosts:
+            # Get WWPNs from aliases referencing this host
+            from san.models import Alias
+            aliases_for_host = Alias.objects.filter(host=host)
+            
+            # Collect WWPNs from all aliases that reference this host
+            wwpn_list = []
+            for alias in aliases_for_host:
+                if alias.wwpn:
+                    # Remove colons and any other formatting from WWPN
+                    clean_wwpn = alias.wwpn.replace(':', '').replace('-', '').strip()
+                    if clean_wwpn and clean_wwpn not in wwpn_list:  # Avoid duplicates
+                        wwpn_list.append(clean_wwpn)
+            
+            # Skip hosts without WWPNs
+            if not wwpn_list:
+                print(f"⚠️ Skipping host {host.name} - no WWPNs found")
+                continue
+            
+            # Generate command based on storage type
+            command = generate_mkhost_command(storage, host, wwpn_list)
+            if command:
+                commands.append(command)
+                print(f"✅ Generated command for host {host.name}: {command}")
+        
+        storage_scripts[storage.name] = {
+            "commands": commands,
+            "storage_type": storage.storage_type,
+            "host_count": len(commands)
+        }
+        
+        print(f"✅ Generated {len(commands)} commands for storage {storage.name}")
+    
+    return storage_scripts
 
-    ranges = []
-    cur = start
-    for i in range(parts):
-        size = base_size + (1 if i < remainder else 0)
-        chunk_start = cur
-        chunk_end = cur + size - 1
-        if chunk_start == chunk_end:
-            ranges.append(f"{chunk_start:04X}")
+
+def generate_mkhost_command(storage, host, wwpn_list):
+    """
+    Generate a single mkhost command based on storage type.
+    
+    Args:
+        storage: Storage object
+        host: Host object  
+        wwpn_list: List of WWPNs for the host
+        
+    Returns:
+        str: The mkhost command or None if unsupported storage type
+    """
+    if storage.storage_type == "FlashSystem":
+        return generate_flashsystem_mkhost(storage, host, wwpn_list)
+    elif storage.storage_type == "DS8000":
+        return generate_ds8000_mkhost(storage, host, wwpn_list)
+    else:
+        print(f"⚠️ Skipping host {host.name} - unknown storage type: {storage.storage_type}")
+        return None
+
+
+def generate_flashsystem_mkhost(storage, host, wwpn_list):
+    """
+    Generate FlashSystem mkhost command.
+    
+    FlashSystem syntax: mkhost -name {name} -protocol fcscsi -fcwwpn {wwpn_list} -force -type {host_type}
+    """
+    # Join WWPNs with commas (no spaces) for FlashSystem
+    wwpn_string = ':'.join(wwpn_list)
+    host_type = host.host_type or "generic"
+    
+    command = f"mkhost -name {host.name} -protocol fcscsi -fcwwpn {wwpn_string} -force -type {host_type}"
+    return command
+
+
+def generate_ds8000_mkhost(storage, host, wwpn_list):
+    """
+    Generate DS8000 mkhost command.
+    
+    DS8000 syntax: mkhost -dev {device-id} -type "{host_type}" -hostport {wwpn_list} {name}
+    """
+    # Join WWPNs with commas (no spaces) for DS8000
+    wwpn_string = ','.join(wwpn_list)
+    host_type = host.host_type or "generic"
+    
+    # Build device-id from serial number: drop 0 from end, add 1 to end
+    device_id = generate_ds8000_device_id(storage)
+    
+    # Put host_type in quotes for DS8000
+    command = f'mkhost -dev {device_id} -type "{host_type}" -hostport {wwpn_string} {host.name}'
+    return command
+
+
+def generate_ds8000_device_id(storage):
+    """
+    Generate DS8000 device ID from storage serial number.
+    
+    Logic: Drop trailing 0 from serial number and add 1 to the end.
+    
+    Args:
+        storage: Storage object
+        
+    Returns:
+        str: Generated device ID or fallback value
+    """
+    device_id = "NO-DEVICE-ID-DEFINED"  # Default fallback
+    
+    if storage.serial_number:
+        serial = storage.serial_number.strip()
+        if serial.endswith('0'):
+            # Drop the 0 from the end and add 1
+            device_id = f"IBM.2107-{serial[:-1] + '1'}"
+            print(f"✅ DS8000 device ID generated: {storage.serial_number} -> {device_id}")
         else:
-            ranges.append(f"{chunk_start:04X}-{chunk_end:04X}")
-        cur = chunk_end + 1
-
-    return ranges
-
-
-def main():
-    commands = []
-
-    for entry in volume_ranges:
-        # e.g. entry = "PRD01A_sys_1000-1070"
-        base, hex_range = entry.rsplit("_", 1)
-        start_hex, end_hex = hex_range.split("-")
-
-        # split into N contiguous chunks, where N = len(hosts)
-        subranges = split_range(start_hex, end_hex, len(hosts))
-
-        for host, vrange in zip(hosts, subranges):
-            commands.append(
-                f"chhost -dev {device} "
-                f"-action map "
-                f"-volume {vrange} "
-                f"{host}"
-            )
-
-    with open(output_file, "w") as f:
-        f.write("\n".join(commands) + "\n")
-
-    print(f"Generated {len(commands)} commands → {output_file}")
-
-
-if __name__ == "__main__":
-    main()
+            # If doesn't end in 0, just add 1
+            device_id = "INVALID-DEVICE-ID"
+            print(f"✅ DS8000 device ID generated: {storage.serial_number} -> {device_id}")
+    else:
+        print(f"⚠️ No serial number found for DS8000 {storage.name}, using default device_id")
+    
+    return device_id

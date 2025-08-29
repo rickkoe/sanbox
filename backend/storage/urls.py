@@ -7,7 +7,8 @@ from .views import (
     storage_insights_auth, 
     storage_insights_systems, 
     storage_insights_volumes,
-    storage_insights_host_connections
+    storage_insights_host_connections,
+    mkhost_scripts_view
 )
 
 urlpatterns = [
@@ -19,4 +20,5 @@ urlpatterns = [
     path("insights/host-connections/", storage_insights_host_connections, name="storage-insights-host-connections"),
     path("volumes/", volume_list, name="volume_list"),
     path("hosts/", host_list, name="host_list"),
+    path("mkhost-scripts/<int:customer_id>/", mkhost_scripts_view, name="mkhost-scripts"),
 ]

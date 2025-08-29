@@ -642,3 +642,40 @@ def host_list(request):
         
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def mkhost_scripts_view(request, customer_id):
+    """Generate mkhost scripts for all storage systems for a customer."""
+    print(f"🔥 MkHost Scripts - Method: {request.method}, Customer ID: {customer_id}")
+    
+    try:
+        from customers.models import Customer
+        from .storage_utils import generate_mkhost_scripts
+        
+        # Get customer
+        try:
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
+            return JsonResponse({"error": "Customer not found"}, status=404)
+        
+        # Get all storage systems for this customer
+        storage_systems = Storage.objects.filter(customer=customer).order_by('name')
+        
+        if not storage_systems.exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "No storage systems found for this customer"
+            })
+        
+        # Generate scripts using utility function
+        storage_scripts = generate_mkhost_scripts(storage_systems)
+        
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error generating mkhost scripts: {e}")
+        return JsonResponse({"error": str(e)}, status=500)

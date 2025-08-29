@@ -48,6 +48,7 @@ const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const WWPNFormatterTable = React.lazy(() => import("./components/tools/WWPNColonizer"));
 const DS8000ScriptsPage = React.lazy(() => import("./pages/DS8000ScriptsPage"));
 const FlashsystemscriptsPage = React.lazy(() => import("./pages/FlashsystemScriptsPage"));
+const StorageScriptsPage = React.lazy(() => import("./pages/StorageScriptsPage"));
 const ZoneScriptsPage = React.lazy(() => import("./pages/ZoneScriptsPage"));
 const ZoneCreationScriptsPage = React.lazy(() => import("./pages/ZoneCreationScriptsPage"));
 const ZoneDeleteScriptsPage = React.lazy(() => import("./pages/ZoneDeleteScriptsPage"));
@@ -141,6 +142,7 @@ function AppContent() {
                     <Route path="/tools" element={<ToolsPage />} />
                     <Route path="/scripts" element={<ScriptsPage />} />
                     <Route path="/scripts/zoning" element={<ZoneScriptsPage />} />
+                    <Route path="/scripts/storage" element={<StorageScriptsPage />} />
                     <Route path="/scripts/ds8000" element={<DS8000ScriptsPage />} />
                     <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
                     <Route path="/test" element={<TestFilters />} />
