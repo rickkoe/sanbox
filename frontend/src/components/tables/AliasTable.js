@@ -10,6 +10,7 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 const API_ENDPOINTS = {
   aliases: `${API_URL}/api/san/aliases/project/`,
   fabrics: `${API_URL}/api/san/fabrics/`,
+  hosts: `${API_URL}/api/san/hosts/project/`,
   aliasSave: `${API_URL}/api/san/aliases/save/`,
   aliasDelete: `${API_URL}/api/san/aliases/delete/`
 };
@@ -20,6 +21,7 @@ const ALL_COLUMNS = [
   { data: "wwpn", title: "WWPN" },
   { data: "use", title: "Use" },
   { data: "fabric_details.name", title: "Fabric" },
+  { data: "host_details.name", title: "Host" },
   { data: "cisco_alias", title: "Alias Type" },
   { data: "create", title: "Create" },
   { data: "delete", title: "Delete" },
@@ -32,7 +34,7 @@ const ALL_COLUMNS = [
 ];
 
 // Default visible columns (show all by default for compatibility)
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 // Template for new rows
 const NEW_ALIAS_TEMPLATE = {
@@ -42,6 +44,8 @@ const NEW_ALIAS_TEMPLATE = {
   use: "",
   fabric: "",
   fabric_details: { name: "" },
+  host: "",
+  host_details: { name: "" },
   cisco_alias: "",
   create: false,
   delete: false,
@@ -78,6 +82,7 @@ const isValidWWPNFormat = (value) => {
 const AliasTable = () => {
   const { config } = useContext(ConfigContext);
   const [fabricOptions, setFabricOptions] = useState([]);
+  const [hostOptions, setHostOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
   const tableRef = useRef(null);
@@ -104,21 +109,38 @@ const AliasTable = () => {
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
 
-  // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
+  // Dynamic dropdown sources that include typed host names
+  const dropdownSources = useMemo(() => ({
+    use: ["init", "target", "both"],
+    "fabric_details.name": fabricOptions.map(f => f.name),
+    "host_details.name": hostOptions.map(h => h.name),
+    cisco_alias: ["device-alias", "fcalias", "wwpn"],
+  }), [fabricOptions, hostOptions]);
 
-  // Load fabrics
+  // Load fabrics and hosts
   useEffect(() => {
-    const loadFabrics = async () => {
-      if (activeCustomerId) {
+    const loadData = async () => {
+      if (activeCustomerId && activeProjectId) {
         try {
           console.log('Loading fabrics for customer:', activeCustomerId);
-          const response = await axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`);
-          console.log('Fabrics loaded:', response.data);
-          // Handle paginated response structure
-          const fabricsArray = response.data.results || response.data;
+          console.log('Loading hosts for project:', activeProjectId);
+          
+          const [fabricResponse, hostResponse] = await Promise.all([
+            axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
+            axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`)
+          ]);
+          
+          console.log('Fabrics loaded:', fabricResponse.data);
+          console.log('Hosts loaded:', hostResponse.data);
+          
+          // Handle paginated response structure for fabrics
+          const fabricsArray = fabricResponse.data.results || fabricResponse.data;
           setFabricOptions(fabricsArray.map(f => ({ id: f.id, name: f.name })));
+          
+          // Hosts should be a simple array
+          setHostOptions(hostResponse.data.map(h => ({ id: h.id, name: h.name })));
         } catch (error) {
-          console.error("Error fetching fabrics:", error);
+          console.error("Error fetching data:", error);
         } finally {
           setLoading(false);
         }
@@ -127,16 +149,16 @@ const AliasTable = () => {
       }
     };
 
-    loadFabrics();
-  }, [activeCustomerId]);
+    loadData();
+  }, [activeCustomerId, activeProjectId]);
 
-  // Trigger table refresh when fabrics are loaded
+  // Trigger table refresh when fabrics and hosts are loaded
   useEffect(() => {
     if (fabricOptions.length > 0 && tableRef.current && dataLoaded) {
-      console.log('Refreshing table with fabric options:', fabricOptions);
+      console.log('Refreshing table with options:', { fabricOptions, hostOptions });
       tableRef.current.refreshData();
     }
-  }, [fabricOptions, dataLoaded]);
+  }, [fabricOptions, hostOptions, dataLoaded]);
 
   // Set dataLoaded when data is processed, but outside of render
   useEffect(() => {
@@ -153,8 +175,8 @@ const AliasTable = () => {
     return <div className="alert alert-info">Loading fabrics...</div>;
   }
 
-  // Custom WWPN change handler
-  const handleWWPNChange = (changes, source) => {
+  // Custom change handler for WWPN formatting and host option updates
+  const handleCellChange = (changes, source) => {
     if (source === "loadData" || !changes) return;
     
     const hot = tableRef.current?.hotInstance;
@@ -170,6 +192,24 @@ const AliasTable = () => {
           }, 0);
         }
       }
+      
+      // Handle host name changes - add new host names to dropdown options immediately
+      if (prop === 'host_details.name' && newVal !== oldVal && newVal && newVal.trim() !== '') {
+        const trimmedName = newVal.trim();
+        const existingHost = hostOptions.find(h => h.name === trimmedName);
+        
+        if (!existingHost) {
+          console.log('🔥 Adding new host to dropdown options:', trimmedName);
+          // Add the new host name to options immediately
+          setHostOptions(prev => {
+            // Check if already exists to avoid duplicates
+            if (prev.some(h => h.name === trimmedName)) {
+              return prev;
+            }
+            return [...prev, { id: `temp_${trimmedName}_${Date.now()}`, name: trimmedName }];
+          });
+        }
+      }
     });
   };
 
@@ -178,6 +218,7 @@ const AliasTable = () => {
     console.log('🔧 buildPayload called with row:', row);
     
     let fabricId;
+    let hostId = null;
 
     if (row.fabric_details?.name) {
       console.log('🔍 Looking for fabric by fabric_details.name:', row.fabric_details.name);
@@ -196,6 +237,30 @@ const AliasTable = () => {
       }
     }
 
+    // Handle host assignment
+    if (row.host_details?.name) {
+      console.log('🔍 Looking for host by host_details.name:', row.host_details.name);
+      const host = hostOptions.find(h => h.name === row.host_details.name);
+      if (host && !host.id.toString().startsWith('temp_')) {
+        // Real host ID
+        hostId = host.id;
+        console.log('🎯 Found existing host by name:', host);
+      } else {
+        // Either no host found or temporary host - send for auto-creation
+        console.log('🎯 Will create new host:', row.host_details.name);
+      }
+    } else if (row.host) {
+      console.log('🔍 Looking for host by row.host:', row.host, typeof row.host);
+      if (typeof row.host === "number") {
+        hostId = row.host;
+        console.log('🎯 Using numeric host ID directly:', hostId);
+      } else {
+        const host = hostOptions.find(h => h.name === row.host || h.id.toString() === row.host);
+        hostId = host ? host.id : parseInt(row.host);
+        console.log('🎯 Found host by string lookup:', host, 'hostId:', hostId);
+      }
+    }
+
     console.log('🏁 Final fabricId:', fabricId, 'isNaN:', isNaN(fabricId));
 
     if (!fabricId || isNaN(fabricId)) {
@@ -206,6 +271,7 @@ const AliasTable = () => {
     const payload = { ...row };
     delete payload.saved;
     delete payload.fabric_details;
+    delete payload.host_details;
     delete payload.zoned_count;
 
     if (payload.wwpn) {
@@ -217,6 +283,25 @@ const AliasTable = () => {
       projects: [activeProjectId],
       fabric: parseInt(fabricId),
     };
+
+    // Handle host assignment
+    if (row.host_details?.name && row.host_details.name.trim() !== '') {
+      const hostName = row.host_details.name.trim();
+      const host = hostOptions.find(h => h.name === hostName);
+      
+      if (host && !host.id.toString().startsWith('temp_')) {
+        // Real existing host
+        result.host = parseInt(host.id);
+        console.log('🎯 Using existing host ID:', host.id);
+      } else {
+        // New host name (typed or temporary) - send for auto-creation
+        result.host_name = hostName;
+        console.log('🎯 Sending host_name for creation:', hostName);
+      }
+    } else if (hostId && !isNaN(hostId) && !hostId.toString().startsWith('temp_')) {
+      // Fallback for direct host ID assignment
+      result.host = parseInt(hostId);
+    }
 
     console.log('✅ buildPayload result:', result);
     return result;
@@ -262,6 +347,23 @@ const AliasTable = () => {
         project_id: activeProjectId,
         aliases: payload,
       });
+
+      // Refresh host options after successful save to get newly created hosts with real IDs
+      try {
+        const hostResponse = await axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`);
+        const refreshedHosts = hostResponse.data.map(h => ({ id: h.id, name: h.name }));
+        setHostOptions(refreshedHosts);
+        console.log('🔄 Refreshed host options after save:', refreshedHosts);
+        
+        // Force table to refresh its data to show updated host associations
+        if (tableRef.current?.refreshData) {
+          setTimeout(() => {
+            tableRef.current.refreshData();
+          }, 100);
+        }
+      } catch (error) {
+        console.error("Warning: Could not refresh host options:", error);
+      }
 
       return { success: true, message: "Aliases saved successfully! ✅" };
     } catch (error) {
@@ -316,6 +418,7 @@ const AliasTable = () => {
   const preprocessData = (data) => {
     console.log('preprocessData called with:', data.length, 'aliases');
     console.log('Current fabricOptions:', fabricOptions);
+    console.log('Current hostOptions:', hostOptions);
     
     const processedData = data.map((alias) => {
       // Find fabric name for this alias
@@ -326,13 +429,23 @@ const AliasTable = () => {
         console.log(`Alias ${alias.name}: fabric ID ${alias.fabric} -> ${fabricName}`);
       }
 
+      // Handle host details - use the host_details from the API response if available
+      let hostDetails = { name: '' };
+      if (alias.host_details) {
+        hostDetails = alias.host_details;
+      } else if (alias.host) {
+        const host = hostOptions.find(h => h.id === alias.host);
+        hostDetails = host ? { id: host.id, name: host.name } : { name: `Unknown Host (ID: ${alias.host})` };
+      }
+
       return {
         ...alias,
         saved: true,
         wwpn: formatWWPN(alias.wwpn),
         fabric_details: {
           name: fabricName
-        }
+        },
+        host_details: hostDetails
       };
     });
     
@@ -409,12 +522,6 @@ const AliasTable = () => {
     },
   };
 
-  const dropdownSources = {
-    use: ["init", "target", "both"],
-    "fabric_details.name": fabricOptions.map(f => f.name),
-    cisco_alias: ["device-alias", "fcalias", "wwpn"],
-  };
-
   return (
     <div className="table-container">
       <GenericTable
@@ -445,6 +552,9 @@ const AliasTable = () => {
             column.className = "htCenter";
           } else if (col.data === "fabric_details.name") {
             column.type = "dropdown";
+          } else if (col.data === "host_details.name") {
+            column.type = "dropdown";
+            column.allowInvalid = true;  // Allow typing new host names
           } else if (col.data === "cisco_alias") {
             column.type = "dropdown";
             column.className = "htCenter";
@@ -466,7 +576,7 @@ const AliasTable = () => {
         onBuildPayload={buildPayload}
         onSave={handleSave}
         beforeSave={beforeSaveValidation}
-        afterChange={handleWWPNChange}
+        afterChange={handleCellChange}
         columnSorting={true}
         filters={false}
         defaultVisibleColumns={visibleColumnIndices}

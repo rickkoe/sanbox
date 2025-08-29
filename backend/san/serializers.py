@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Alias, Zone, Fabric, WwpnPrefix
 from core.models import Project
+from storage.models import Host
 
 
 
@@ -19,7 +20,12 @@ class AliasSerializer(serializers.ModelSerializer):
         queryset=Fabric.objects.all(), required=True  # ✅ Allow writing fabric (ID) in request
     )
 
+    host = serializers.PrimaryKeyRelatedField(
+        queryset=Host.objects.all(), required=False, allow_null=True
+    )  # ✅ Allow writing host (ID) in request
+
     fabric_details = FabricSerializer(source="fabric", read_only=True)  # ✅ Return full fabric details
+    host_details = serializers.SerializerMethodField()  # ✅ Return host name for display
     
     # ADD THIS: Zoned count field
     zoned_count = serializers.SerializerMethodField()
@@ -27,6 +33,12 @@ class AliasSerializer(serializers.ModelSerializer):
     class Meta:
         model = Alias
         fields = "__all__"  # ✅ Includes both `fabric` (ID) and `fabric_details` (full object)
+
+    def get_host_details(self, obj):
+        """Return host name for display"""
+        if obj.host:
+            return {"id": obj.host.id, "name": obj.host.name}
+        return None
 
     def get_zoned_count(self, obj):
         """Count how many zones in the current project contain this alias"""

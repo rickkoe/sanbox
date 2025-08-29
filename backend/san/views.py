@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from .models import Alias, Zone, Fabric, WwpnPrefix
 from customers.models import Customer
 from core.models import Config, Project
+from storage.models import Host
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer, WwpnPrefixSerializer
 from django.db import IntegrityError
 from collections import defaultdict
@@ -477,6 +478,43 @@ def alias_list_view(request, project_id):
 
 
 @csrf_exempt
+@require_http_methods(["GET"])
+def hosts_by_project_view(request, project_id):
+    """Fetch hosts belonging to a specific project."""
+    print(f"🔥 Hosts by Project - Project ID: {project_id}")
+    
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found."}, status=404)
+    
+    # Get query parameters
+    search = request.GET.get('search', '').strip()
+    ordering = request.GET.get('ordering', 'name')
+    
+    # Base queryset
+    hosts_queryset = Host.objects.filter(project=project)
+    
+    # Apply search if provided
+    if search:
+        hosts_queryset = hosts_queryset.filter(
+            Q(name__icontains=search) |
+            Q(status__icontains=search) |
+            Q(host_type__icontains=search) |
+            Q(storage_system__icontains=search)
+        )
+    
+    # Apply ordering
+    if ordering:
+        hosts_queryset = hosts_queryset.order_by(ordering)
+    
+    # Return simple list for dropdown usage
+    hosts_data = [{"id": host.id, "name": host.name} for host in hosts_queryset]
+    
+    return JsonResponse(hosts_data, safe=False)
+
+
+@csrf_exempt
 @require_http_methods(["POST"])
 def alias_save_view(request):
     """Save or update aliases for multiple projects."""
@@ -503,6 +541,22 @@ def alias_save_view(request):
 
             # Ensure projects is a list (since it's many-to-many)
             projects_list = alias_data.pop("projects", [project_id])  # Defaults to the current project
+
+            # Handle host assignment - check if it's a new hostname that needs to be created
+            host_name = alias_data.get("host_name")
+            if host_name and isinstance(host_name, str):
+                # Try to find existing host by name in the project
+                existing_host = Host.objects.filter(project=project, name=host_name).first()
+                if existing_host:
+                    alias_data["host"] = existing_host.id
+                else:
+                    # Create new host with the given name
+                    new_host = Host.objects.create(project=project, name=host_name)
+                    alias_data["host"] = new_host.id
+                    print(f"✅ Created new host: {host_name} (ID: {new_host.id})")
+                
+                # Remove host_name from alias_data as it's not a model field
+                alias_data.pop("host_name", None)
 
             if alias_id:
                 alias = Alias.objects.filter(id=alias_id).first()
