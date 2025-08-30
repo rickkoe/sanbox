@@ -395,7 +395,7 @@ const StorageTable = () => {
         beforeSave={beforeSaveValidation}
         fixedColumnsLeft={1}
         columnSorting={true}
-        filters={false}       
+        filters={true}       
         dropdownMenu={false}
         storageKey="storageTableColumnWidths"
         defaultVisibleColumns={visibleColumnIndices}

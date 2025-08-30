@@ -17,7 +17,6 @@ import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
 import { useServerPagination } from './hooks/useServerPagination';
 import { createContextMenu } from './utils/contextMenu';
-import CustomTableFilter from './components/CustomTableFilter';
 
 // Custom CSS for better dropdown styling - using very specific selectors and high specificity
 const dropdownStyles = `
@@ -318,7 +317,6 @@ const GenericTable = forwardRef(({
   const [showScrollButtons, setShowScrollButtons] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(false);
-  const [showCustomFilter, setShowCustomFilter] = useState(false);
   const [quickSearch, setQuickSearch] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
   const [isTableReady, setIsTableReady] = useState(false);
@@ -651,6 +649,7 @@ const GenericTable = forwardRef(({
               return !stringValue.includes(filterValue);
             case 'multi_select':
               if (!Array.isArray(filter.value)) return true;
+              if (filter.value.length === 0) return false; // Empty array means show no results
               // Handle boolean values
               const actualValue = typeof value === 'boolean' ? (value ? 'True' : 'False') : stringValue;
               return filter.value.map(v => v.toLowerCase()).includes(actualValue.toLowerCase());
@@ -1800,8 +1799,6 @@ const GenericTable = forwardRef(({
           return row && row.id;
         }}
         selectedCount={selectedCount}
-        showCustomFilter={showCustomFilter}
-        setShowCustomFilter={setShowCustomFilter}
         additionalButtons={additionalButtons}
         headerButtons={headerButtons}
         columnFilters={columnFilters}
@@ -1821,18 +1818,6 @@ const GenericTable = forwardRef(({
 
       <StatusMessage saveStatus={saveStatus} />
 
-      {showCustomFilter && (
-        <CustomTableFilter
-          columns={columns}
-          colHeaders={colHeaders}
-          data={data}
-          onFilterChange={handleFilterChange}
-          visibleColumns={visibleColumns}
-          initialFilters={columnFilters}
-          apiUrl={serverPagination ? apiUrl : null}
-          serverPagination={serverPagination}
-        />
-      )}
       
 
       <div 

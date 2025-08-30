@@ -299,21 +299,22 @@ const AdvancedFilter = ({
       const valueIndex = currentValues.indexOf(value);
       
       if (valueIndex === -1) {
-        // Add value
+        // Add value (cumulative OR)
         currentFilter.value = [...currentValues, value];
       } else {
         // Remove value
         currentFilter.value = currentValues.filter(v => v !== value);
       }
       
-      // Remove filter if no values selected
+      // Remove filter entirely if no values selected (show all data)
       if (currentFilter.value.length === 0) {
         delete newFilters[columnIndex];
       }
     } else {
-      // Create new multi-select filter
+      // No existing filter - create new filter with just this value
       newFilters[columnIndex] = { type: 'multi_select', value: [value] };
     }
+    
     
     setActiveFilters(newFilters);
     onFilterChange?.(newFilters);
@@ -322,7 +323,11 @@ const AdvancedFilter = ({
   // Check if value is selected in multi-select filter
   const isValueSelected = (columnIndex, value) => {
     const filter = activeFilters[columnIndex];
-    return filter && filter.type === 'multi_select' && filter.value && filter.value.includes(value);
+    if (!filter || filter.type !== 'multi_select') {
+      // No filter means no values are selected (no filtering applied)
+      return false;
+    }
+    return filter.value && filter.value.includes(value);
   };
 
   // Clear all filters

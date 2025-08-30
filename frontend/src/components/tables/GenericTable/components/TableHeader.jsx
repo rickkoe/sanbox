@@ -23,8 +23,6 @@ const TableHeader = ({
   unsavedData,
   hasNonEmptyValues,
   selectedCount,
-  showCustomFilter,
-  setShowCustomFilter,
   additionalButtons,
   headerButtons,
   pagination = null,

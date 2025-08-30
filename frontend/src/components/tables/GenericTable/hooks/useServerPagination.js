@@ -22,6 +22,7 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
   // Cache for storing loaded pages
   const [pageCache, setPageCache] = useState({});
   const [backgroundLoading, setBackgroundLoading] = useState(false);
+  const [cacheInvalidated, setCacheInvalidated] = useState(false);
   
   // Build API URL with parameters including filters
   const buildApiUrl = useCallback((page, size, search = '', filters = {}) => {
@@ -50,35 +51,45 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
             fieldName = 'fabric__name'; // Map fabric_details.name to fabric.name for filtering
           } else if (fieldName === 'storage' && !fieldName.includes('__')) {
             fieldName = 'storage__name'; // Map storage to storage.name for filtering
+          } else if (fieldName === 'storage_system') {
+            fieldName = 'storage_system__name'; // Map storage_system to storage_system.name
+          } else if (fieldName === 'host_details.name') {
+            fieldName = 'host__name'; // Map host_details.name to host.name for filtering
           }
-          
-          const filterValue = Array.isArray(filter.value) ? filter.value.join(',') : filter.value;
           
           // Build filter parameter based on filter type
           switch (filter.type) {
             case 'contains':
-              url += `&${fieldName}__icontains=${encodeURIComponent(filterValue)}`;
+              url += `&${fieldName}__icontains=${encodeURIComponent(filter.value)}`;
               break;
             case 'equals':
-              url += `&${fieldName}__iexact=${encodeURIComponent(filterValue)}`;
+              url += `&${fieldName}__iexact=${encodeURIComponent(filter.value)}`;
               break;
             case 'starts_with':
-              url += `&${fieldName}__istartswith=${encodeURIComponent(filterValue)}`;
+              url += `&${fieldName}__istartswith=${encodeURIComponent(filter.value)}`;
               break;
             case 'ends_with':
-              url += `&${fieldName}__iendswith=${encodeURIComponent(filterValue)}`;
+              url += `&${fieldName}__iendswith=${encodeURIComponent(filter.value)}`;
               break;
             case 'not_contains':
-              url += `&${fieldName}__not_icontains=${encodeURIComponent(filterValue)}`;
+              url += `&${fieldName}__not_icontains=${encodeURIComponent(filter.value)}`;
               break;
             case 'multi_select':
-              if (Array.isArray(filter.value) && filter.value.length > 0) {
-                url += `&${fieldName}__in=${encodeURIComponent(filter.value.join(','))}`;
+              if (Array.isArray(filter.value)) {
+                if (filter.value.length > 0) {
+                  // Use multiple parameters with same name - backend supports this as OR logic
+                  filter.value.forEach(value => {
+                    url += `&${fieldName}=${encodeURIComponent(value)}`;
+                  });
+                } else {
+                  // Empty array means show no results
+                  url += `&${fieldName}=__IMPOSSIBLE_MATCH_VALUE_123__`;
+                }
               }
               break;
             default:
               // Default to contains search
-              url += `&${fieldName}__icontains=${encodeURIComponent(filterValue)}`;
+              url += `&${fieldName}__icontains=${encodeURIComponent(filter.value)}`;
           }
         }
       }
@@ -97,9 +108,8 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
   const fetchPage = useCallback(async (page, size, search = '', filters = {}, isBackground = false) => {
     const cacheKey = getCacheKey(page, size, search, filters);
     
-    // Check cache first
-    if (pageCache[cacheKey] && !isBackground) {
-      console.log(`📦 Using cached data for page ${page}`);
+    // Check cache first - but skip cache if filters changed or cache was invalidated
+    if (pageCache[cacheKey] && !isBackground && !cacheInvalidated) {
       return pageCache[cacheKey];
     }
     
@@ -111,8 +121,8 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
         setBackgroundLoading(true);
       }
       
-      console.log(`🌐 Fetching page ${page}, size ${size}, search: "${search}", filters:`, Object.keys(filters).length);
-      const response = await axios.get(buildApiUrl(page, size, search, filters));
+      const apiUrl = buildApiUrl(page, size, search, filters);
+      const response = await axios.get(apiUrl);
       
       
       const result = {
@@ -125,11 +135,12 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
         hasPrevious: response.data.has_previous
       };
       
-      // Cache the result
+      // Cache the result and clear invalidation flag
       setPageCache(prev => ({
         ...prev,
         [cacheKey]: result
       }));
+      setCacheInvalidated(false);
       
       return result;
       
@@ -146,7 +157,7 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
         setBackgroundLoading(false);
       }
     }
-  }, [buildApiUrl, getCacheKey, pageCache]);
+  }, [buildApiUrl, getCacheKey, pageCache, cacheInvalidated]);
   
   // Background prefetch for next pages
   const prefetchNextPages = useCallback(async (currentPage, pageSize, searchTerm, filters) => {
@@ -194,6 +205,7 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
   useEffect(() => {
     setCurrentPage(1); // Reset to first page
     setPageCache({}); // Clear cache when search/filters change
+    setCacheInvalidated(true); // Mark cache as invalidated to force fresh fetch
   }, [quickSearch, columnFilters]);
   
   // Handle page changes

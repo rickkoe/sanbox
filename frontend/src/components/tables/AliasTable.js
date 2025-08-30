@@ -499,9 +499,6 @@ const AliasTable = () => {
 
   // Process data for display
   const preprocessData = (data) => {
-    console.log('preprocessData called with:', data.length, 'aliases');
-    console.log('Current fabricOptions:', fabricOptions);
-    console.log('Current hostOptions:', hostOptions);
     
     const processedData = data.map((alias) => {
       // Find fabric name for this alias
@@ -509,7 +506,6 @@ const AliasTable = () => {
       if (alias.fabric) {
         const fabric = fabricOptions.find(f => f.id === alias.fabric);
         fabricName = fabric ? fabric.name : `Unknown Fabric (ID: ${alias.fabric})`;
-        console.log(`Alias ${alias.name}: fabric ID ${alias.fabric} -> ${fabricName}`);
       }
 
       // Handle host details - use the host_details from the API response if available
@@ -665,7 +661,7 @@ const AliasTable = () => {
         beforeSave={beforeSaveValidation}
         afterChange={handleCellChange}
         columnSorting={true}
-        filters={false}
+        filters={true}
         defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Alias_Table.csv`}
         additionalButtons={[

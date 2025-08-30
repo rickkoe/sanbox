@@ -130,7 +130,7 @@ const CustomerTable = () => {
                 onSave={handleSave}
                 fixedColumnsLeft={2}
                 columnSorting={true}
-                filters={false}
+                filters={true}
                 dropdownMenu={false}
                 storageKey="customerTableColumnWidths"
                 defaultVisibleColumns={visibleColumnIndices}

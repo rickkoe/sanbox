@@ -885,6 +885,7 @@ const ZoneTable = () => {
           </button>
         }
         additionalButtons={additionalButtonsConfig}
+        filters={true}
       />
     </div>
   );

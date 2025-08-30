@@ -217,7 +217,7 @@ const FabricTable = () => {
                 saveTransform={saveTransform}
                 onSave={handleSave}
                 dropdownSources={dropdownSources}
-                filters={false}
+                filters={true}
                 dropdownMenu={false}
                 columnSorting={true}
                 defaultVisibleColumns={visibleColumnIndices}

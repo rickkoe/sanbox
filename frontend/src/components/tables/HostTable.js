@@ -134,7 +134,7 @@ const HostTable = ({ storage }) => {
         preprocessData={preprocessData}
         newRowTemplate={{}}
         columnSorting={true}
-        filters={false}
+        filters={true}
         defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${storage.name || 'Storage'}_Hosts.csv`}
         additionalButtons={
