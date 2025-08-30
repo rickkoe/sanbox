@@ -1253,7 +1253,7 @@
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  pointer-events: none !important;
+  pointer-events: auto !important; /* Changed from none to auto to enable resize handles */
   overflow: hidden !important;
 }
 
@@ -1717,14 +1717,81 @@
   background: #f1f5f9;
 }
 
-/* Column Header Resize Handle */
+/* Column Header Resize Handle - Enhanced visibility */
 .handsontable .manualColumnResizer {
   background: #6b7280 !important;
-  width: 3px !important;
+  width: 4px !important;
+  opacity: 1 !important;
+  z-index: 1000 !important;
+  cursor: col-resize !important;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .handsontable .manualColumnResizer:hover {
-  background: #374151 !important;
+  background: #3b82f6 !important;
+  width: 5px !important;
+}
+
+/* Ensure resize handles are visible on headers */
+.handsontable thead th {
+  position: relative !important;
+}
+
+/* Force resize cursor on column borders */
+.handsontable thead th:not(:last-child) {
+  border-right: 1px solid #d1d5db !important;
+  position: relative !important;
+}
+
+.handsontable thead th:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -2px;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize !important;
+  z-index: 100;
+  background: transparent;
+}
+
+.handsontable thead th:not(:last-child):hover::after {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* Additional resize handle enhancements */
+.handsontable .ht_clone_top thead th {
+  pointer-events: auto !important;
+}
+
+/* Ensure manual column resize works on header clones */
+.handsontable .ht_clone_top .manualColumnResizer {
+  background: #6b7280 !important;
+  width: 4px !important;
+  opacity: 1 !important;
+  z-index: 1001 !important;
+  cursor: col-resize !important;
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+.handsontable .ht_clone_top .manualColumnResizer:hover {
+  background: #3b82f6 !important;
+  width: 5px !important;
+}
+
+/* Force resize cursor to show on column boundaries */
+.handsontable thead th,
+.handsontable .ht_clone_top thead th {
+  border-right: 1px solid #d1d5db !important;
+}
+
+/* Override any pointer-events that might block resize */
+.handsontable .manualColumnResizer,
+.handsontable .ht_clone_top .manualColumnResizer {
+  pointer-events: auto !important;
 }
 
 /* Row Header Enhancement */

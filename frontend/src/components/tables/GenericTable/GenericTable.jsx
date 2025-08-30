@@ -1926,6 +1926,18 @@ const GenericTable = forwardRef(({
               afterInit={(hot) => {
                 setIsTableReady(true);
                 
+                // Ensure manual column resize plugin is properly enabled
+                if (hot) {
+                  const manualColumnResizePlugin = hot.getPlugin('manualColumnResize');
+                  if (manualColumnResizePlugin && !manualColumnResizePlugin.isEnabled()) {
+                    console.log('🔧 Enabling manual column resize plugin...');
+                    manualColumnResizePlugin.enablePlugin();
+                  }
+                  
+                  // Force a render to ensure resize handles are visible
+                  hot.render();
+                }
+                
                 // Smart auto-sizing: only run if no saved column widths exist
                 setTimeout(async () => {
                   const hotInstance = hot || tableRef.current?.hotInstance;
