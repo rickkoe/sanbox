@@ -200,52 +200,13 @@ const AliasTable = () => {
         }
       }
       
-      // Handle host validation - provide immediate feedback and ensure data consistency
+      // Handle host validation - provide immediate feedback
       if (prop === 'host_details.name' && newVal !== oldVal) {
-        console.log(`🔄 Host changed from "${oldVal}" to "${newVal}" for row ${row}`);
-        
         // Update the underlying data source to ensure consistency
         const sourceData = hot.getSourceData();
         const rowData = sourceData[row];
         if (rowData && rowData.host_details) {
-          rowData.host_details.name = newVal; // Update the actual data
-          console.log(`🔄 Updated source data for row ${row}:`, rowData.host_details.name);
-        }
-        
-        // Force the cell to accept the new value immediately
-        setTimeout(() => {
-          const colIndex = hot.propToCol(prop);
-          if (colIndex >= 0) {
-            // Use setDataAtCell to force the update
-            hot.setDataAtCell(row, colIndex, newVal, 'hostValidation');
-            console.log(`🔄 Forced cell update to "${newVal}"`);
-          }
-        }, 10);
-        
-        const hostName = newVal?.trim();
-        
-        if (hostName && !isValidHost(hostName)) {
-          // Invalid host - add visual feedback
-          setTimeout(() => {
-            const cell = hot.getCell(row, hot.propToCol(prop));
-            if (cell) {
-              cell.style.backgroundColor = '#fee2e2';
-              cell.style.color = '#dc2626';
-              cell.style.border = '2px solid #dc2626';
-              cell.title = `⚠️ Host "${hostName}" does not exist. Please create it in the Host Table first or select an existing host.`;
-            }
-          }, 20);
-        } else {
-          // Valid host or empty - clear any error styling
-          setTimeout(() => {
-            const cell = hot.getCell(row, hot.propToCol(prop));
-            if (cell) {
-              cell.style.backgroundColor = '';
-              cell.style.color = '';
-              cell.style.border = '';
-              cell.title = '';
-            }
-          }, 20);
+          rowData.host_details.name = newVal;
         }
       }
     });
@@ -414,67 +375,29 @@ const AliasTable = () => {
 
   // Before save validation
   const beforeSaveValidation = (data) => {
-    console.log('🔍 beforeSaveValidation called with data:', data);
-    console.log('🔍 Current hostOptions:', hostOptions.map(h => h.name));
-    
+    // Check for missing fabrics
     const invalidAlias = data.find(alias => {
-      // Skip validation for rows without a name
-      if (!alias.name || alias.name.trim() === "") {
-        return false;
-      }
+      if (!alias.name || alias.name.trim() === "") return false;
       
-      // Check if fabric is selected in any of the possible formats
       const hasFabric = (alias.fabric_details?.name && alias.fabric_details.name.trim() !== "") || 
                        (alias.fabric && alias.fabric.toString().trim() !== "") || 
                        (typeof alias.fabric === 'number' && alias.fabric > 0);
-      
-      console.log(`Validating alias "${alias.name}":`, {
-        fabric_details_name: alias.fabric_details?.name,
-        fabric: alias.fabric,
-        hasFabric
-      });
       
       return !hasFabric;
     });
 
     if (invalidAlias) {
-      console.log('Invalid alias found:', invalidAlias);
       return `Alias "${invalidAlias.name}" must have a fabric selected`;
     }
 
-    // Check for invalid hosts with enhanced debugging
+    // Check for invalid hosts
     const invalidHostAlias = data.find(alias => {
-      // Skip validation for rows without a name
-      if (!alias.name || alias.name.trim() === "") {
-        return false;
-      }
+      if (!alias.name || alias.name.trim() === "") return false;
       
-      // Check if host is specified but invalid
       const hostName = alias.host_details?.name;
-      console.log(`🔍 Checking host for alias "${alias.name}": raw value:`, hostName, `type: ${typeof hostName}`);
+      if (!hostName || hostName.trim() === '') return false; // Empty is valid
       
-      // Handle various empty states more carefully
-      if (hostName === null || hostName === undefined || hostName === '') {
-        console.log(`🔍 Host is empty/null for alias "${alias.name}" - this is valid`);
-        return false; // Empty/null hosts are valid
-      }
-      
-      const trimmedHostName = hostName.trim();
-      if (trimmedHostName === '') {
-        console.log(`🔍 Host is empty after trim for alias "${alias.name}" - this is valid`);
-        return false; // Empty after trimming is also valid
-      }
-      
-      const isValid = isValidHost(trimmedHostName);
-      console.log(`🔍 Host "${trimmedHostName}" validation result: ${isValid}`);
-      
-      if (!isValid) {
-        console.log(`❌ Invalid host found for alias "${alias.name}": "${trimmedHostName}"`);
-        console.log(`🔍 Available hosts: [${hostOptions.map(h => `"${h.name}"`).join(', ')}]`);
-        return true;
-      }
-      
-      return false;
+      return !isValidHost(hostName.trim());
     });
 
     if (invalidHostAlias) {
@@ -482,7 +405,6 @@ const AliasTable = () => {
       return `Alias "${invalidHostAlias.name}" has invalid host "${hostName}". Please create the host in Host Table first or select an existing host.`;
     }
 
-    console.log('✅ All validation passed');
     return true;
   };
 
@@ -538,19 +460,12 @@ const AliasTable = () => {
       return td;
     },
     'host_details.name': (instance, td, row, col, prop, value) => {
-      // Get the actual current value from the source data to ensure consistency
-      const sourceData = instance.getSourceData();
-      const rowData = sourceData[row];
-      const actualValue = rowData?.host_details?.name;
+      td.innerText = value || "";
       
-      // Use the actual value from source data, not the potentially stale rendered value
-      const displayValue = actualValue !== undefined ? actualValue : value;
-      td.innerText = displayValue || "";
-      
-      // Check if host is valid
-      if (displayValue && displayValue.trim() !== '') {
-        const hostName = displayValue.trim();
-        const isValid = isValidHost(hostName);
+      // Check if host is valid - use simple validation for performance
+      if (value && value.trim() !== '') {
+        const hostName = value.trim();
+        const isValid = hostOptions.some(h => h.name === hostName);
         
         if (!isValid) {
           // Invalid host - apply error styling
