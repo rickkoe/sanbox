@@ -12,8 +12,7 @@ const API_ENDPOINTS = {
   fabrics: `${API_URL}/api/san/fabrics/`,
   hosts: `${API_URL}/api/san/hosts/project/`,
   aliasSave: `${API_URL}/api/san/aliases/save/`,
-  aliasDelete: `${API_URL}/api/san/aliases/delete/`,
-  hostSave: `${API_URL}/api/san/hosts/save/`
+  aliasDelete: `${API_URL}/api/san/aliases/delete/`
 };
 
 // All possible alias columns
@@ -176,32 +175,16 @@ const AliasTable = () => {
     return <div className="alert alert-info">Loading fabrics...</div>;
   }
 
-  // Function to save new host to database
-  const saveHostToDatabase = async (hostName) => {
-    try {
-      const response = await axios.post(API_ENDPOINTS.hostSave, {
-        project_id: activeProjectId,
-        name: hostName
-      });
-      
-      console.log('✅ Host saved to database:', response.data.host);
-      return response.data.host;
-    } catch (error) {
-      console.error('❌ Error saving host to database:', error);
-      
-      // If host already exists, that's fine - just return null
-      if (error.response?.data?.message === "Host already exists") {
-        console.log('ℹ️ Host already exists in database');
-        return error.response.data.host;
-      }
-      
-      throw error;
-    }
+
+  // Helper function to validate if host exists
+  const isValidHost = (hostName) => {
+    if (!hostName || hostName.trim() === '') return true; // Empty is valid (no host assigned)
+    return hostOptions.some(h => h.name === hostName.trim());
   };
 
-  // Custom change handler for WWPN formatting and host option updates
+  // Custom change handler for WWPN formatting and host validation
   const handleCellChange = (changes, source) => {
-    if (source === "loadData" || !changes) return;
+    if (source === "loadData" || source === "hostValidation" || !changes) return;
     
     const hot = tableRef.current?.hotInstance;
     if (!hot) return;
@@ -217,72 +200,52 @@ const AliasTable = () => {
         }
       }
       
-      // Handle host name changes - save new hosts to database immediately
+      // Handle host validation - provide immediate feedback and ensure data consistency
       if (prop === 'host_details.name' && newVal !== oldVal) {
-        // Handle deletion case - when newVal is empty, null, or undefined
-        if (!newVal || newVal.trim() === '') {
-          console.log('🗑️ Host name cleared/deleted');
-          return;
+        console.log(`🔄 Host changed from "${oldVal}" to "${newVal}" for row ${row}`);
+        
+        // Update the underlying data source to ensure consistency
+        const sourceData = hot.getSourceData();
+        const rowData = sourceData[row];
+        if (rowData && rowData.host_details) {
+          rowData.host_details.name = newVal; // Update the actual data
+          console.log(`🔄 Updated source data for row ${row}:`, rowData.host_details.name);
         }
         
-        const trimmedName = newVal.trim();
-        const existingHost = hostOptions.find(h => h.name === trimmedName);
+        // Force the cell to accept the new value immediately
+        setTimeout(() => {
+          const colIndex = hot.propToCol(prop);
+          if (colIndex >= 0) {
+            // Use setDataAtCell to force the update
+            hot.setDataAtCell(row, colIndex, newVal, 'hostValidation');
+            console.log(`🔄 Forced cell update to "${newVal}"`);
+          }
+        }, 10);
         
-        if (!existingHost) {
-          console.log('🔥 New host name detected, saving to database:', trimmedName);
-          
-          // Save new host to database immediately
-          saveHostToDatabase(trimmedName).then(savedHost => {
-            if (savedHost) {
-              console.log('✅ Host saved, refreshing host options');
-              
-              // Refresh host options from server to get the real host with ID
-              axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`).then(response => {
-                const refreshedHosts = response.data.map(h => ({ id: h.id, name: h.name }));
-                
-                // Before updating hostOptions, store current cell values to restore them
-                const sourceData = hot.getSourceData();
-                const currentHostValues = sourceData.map((rowData, rowIndex) => {
-                  // For the row that just changed, use the new value (trimmedName)
-                  // For all other rows, use their existing value
-                  if (rowIndex === row) {
-                    return trimmedName; // Use the new hostname that was just typed
-                  }
-                  return rowData?.host_details?.name || '';
-                });
-                
-                setHostOptions(refreshedHosts);
-                console.log('🔄 Host options refreshed with:', refreshedHosts.length, 'hosts');
-                
-                // Restore cell values after a short delay to let the dropdown re-render
-                setTimeout(() => {
-                  const hotInstance = tableRef.current?.hotInstance;
-                  if (hotInstance) {
-                    sourceData.forEach((rowData, rowIndex) => {
-                      const hostName = currentHostValues[rowIndex];
-                      if (hostName && rowData?.host_details) {
-                        // Ensure the host_details.name value is preserved
-                        rowData.host_details.name = hostName;
-                        // Force the cell to redisplay its value
-                        const colIndex = hotInstance.propToCol('host_details.name');
-                        if (colIndex >= 0) {
-                          hotInstance.setDataAtCell(rowIndex, colIndex, hostName, 'programmatic');
-                        }
-                      }
-                    });
-                    console.log('🔄 Restored host cell values after options refresh');
-                  }
-                }, 150);
-                
-              }).catch(error => {
-                console.error('❌ Error refreshing host options:', error);
-              });
+        const hostName = newVal?.trim();
+        
+        if (hostName && !isValidHost(hostName)) {
+          // Invalid host - add visual feedback
+          setTimeout(() => {
+            const cell = hot.getCell(row, hot.propToCol(prop));
+            if (cell) {
+              cell.style.backgroundColor = '#fee2e2';
+              cell.style.color = '#dc2626';
+              cell.style.border = '2px solid #dc2626';
+              cell.title = `⚠️ Host "${hostName}" does not exist. Please create it in the Host Table first or select an existing host.`;
             }
-          }).catch(error => {
-            console.error('❌ Failed to save host:', error);
-            // Show error to user but don't break the interface
-            alert(`Failed to save host "${trimmedName}": ${error.response?.data?.error || error.message}`);
-          });
+          }, 20);
+        } else {
+          // Valid host or empty - clear any error styling
+          setTimeout(() => {
+            const cell = hot.getCell(row, hot.propToCol(prop));
+            if (cell) {
+              cell.style.backgroundColor = '';
+              cell.style.color = '';
+              cell.style.border = '';
+              cell.title = '';
+            }
+          }, 20);
         }
       }
     });
@@ -317,17 +280,15 @@ const AliasTable = () => {
       }
     }
 
-    // Handle host assignment
+    // Handle host assignment - only allow existing hosts
     if (row.host_details?.name) {
       console.log('🔍 Looking for host by host_details.name:', row.host_details.name);
       const host = hostOptions.find(h => h.name === row.host_details.name);
-      if (host && !host.id.toString().startsWith('temp_')) {
-        // Real host ID
+      if (host) {
         hostId = host.id;
         console.log('🎯 Found existing host by name:', host);
       } else {
-        // Either no host found or temporary host - send for auto-creation
-        console.log('🎯 Will create new host:', row.host_details.name);
+        console.log('⚠️ Host not found in existing hosts:', row.host_details.name);
       }
     } else if (row.host) {
       console.log('🔍 Looking for host by row.host:', row.host, typeof row.host);
@@ -364,7 +325,7 @@ const AliasTable = () => {
       fabric: parseInt(fabricId),
     };
 
-    // Handle host assignment - All hosts should be real by now since we save them immediately
+    // Handle host assignment - only use existing hosts
     const hasHostName = row.host_details?.name && row.host_details.name.trim() !== '';
     
     if (hasHostName) {
@@ -372,11 +333,11 @@ const AliasTable = () => {
       const host = hostOptions.find(h => h.name === hostName);
       
       if (host) {
-        // Use the real host ID
+        // Use the existing host ID
         result.host = parseInt(host.id);
         console.log('🎯 Using host ID:', host.id, 'for host:', hostName);
       } else {
-        // This shouldn't happen since we save hosts immediately, but handle gracefully
+        // Host not found in existing options - set to null
         console.warn('⚠️ Host not found in options:', hostName, 'Available hosts:', hostOptions.map(h => h.name));
         result.host = null;
       }
@@ -431,22 +392,6 @@ const AliasTable = () => {
         aliases: payload,
       });
 
-      // Refresh host options after successful save to get newly created hosts with real IDs
-      try {
-        const hostResponse = await axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`);
-        const refreshedHosts = hostResponse.data.map(h => ({ id: h.id, name: h.name }));
-        setHostOptions(refreshedHosts);
-        console.log('🔄 Refreshed host options after save:', refreshedHosts);
-        
-        // Force table to refresh its data to show updated host associations
-        if (tableRef.current?.refreshData) {
-          setTimeout(() => {
-            tableRef.current.refreshData();
-          }, 100);
-        }
-      } catch (error) {
-        console.error("Warning: Could not refresh host options:", error);
-      }
 
       return { success: true, message: "Aliases saved successfully! ✅" };
     } catch (error) {
@@ -469,6 +414,9 @@ const AliasTable = () => {
 
   // Before save validation
   const beforeSaveValidation = (data) => {
+    console.log('🔍 beforeSaveValidation called with data:', data);
+    console.log('🔍 Current hostOptions:', hostOptions.map(h => h.name));
+    
     const invalidAlias = data.find(alias => {
       // Skip validation for rows without a name
       if (!alias.name || alias.name.trim() === "") {
@@ -494,6 +442,47 @@ const AliasTable = () => {
       return `Alias "${invalidAlias.name}" must have a fabric selected`;
     }
 
+    // Check for invalid hosts with enhanced debugging
+    const invalidHostAlias = data.find(alias => {
+      // Skip validation for rows without a name
+      if (!alias.name || alias.name.trim() === "") {
+        return false;
+      }
+      
+      // Check if host is specified but invalid
+      const hostName = alias.host_details?.name;
+      console.log(`🔍 Checking host for alias "${alias.name}": raw value:`, hostName, `type: ${typeof hostName}`);
+      
+      // Handle various empty states more carefully
+      if (hostName === null || hostName === undefined || hostName === '') {
+        console.log(`🔍 Host is empty/null for alias "${alias.name}" - this is valid`);
+        return false; // Empty/null hosts are valid
+      }
+      
+      const trimmedHostName = hostName.trim();
+      if (trimmedHostName === '') {
+        console.log(`🔍 Host is empty after trim for alias "${alias.name}" - this is valid`);
+        return false; // Empty after trimming is also valid
+      }
+      
+      const isValid = isValidHost(trimmedHostName);
+      console.log(`🔍 Host "${trimmedHostName}" validation result: ${isValid}`);
+      
+      if (!isValid) {
+        console.log(`❌ Invalid host found for alias "${alias.name}": "${trimmedHostName}"`);
+        console.log(`🔍 Available hosts: [${hostOptions.map(h => `"${h.name}"`).join(', ')}]`);
+        return true;
+      }
+      
+      return false;
+    });
+
+    if (invalidHostAlias) {
+      const hostName = invalidHostAlias.host_details?.name?.trim();
+      return `Alias "${invalidHostAlias.name}" has invalid host "${hostName}". Please create the host in Host Table first or select an existing host.`;
+    }
+
+    console.log('✅ All validation passed');
     return true;
   };
 
@@ -546,6 +535,47 @@ const AliasTable = () => {
       } else {
         td.innerHTML = value || "";
       }
+      return td;
+    },
+    'host_details.name': (instance, td, row, col, prop, value) => {
+      // Get the actual current value from the source data to ensure consistency
+      const sourceData = instance.getSourceData();
+      const rowData = sourceData[row];
+      const actualValue = rowData?.host_details?.name;
+      
+      // Use the actual value from source data, not the potentially stale rendered value
+      const displayValue = actualValue !== undefined ? actualValue : value;
+      td.innerText = displayValue || "";
+      
+      // Check if host is valid
+      if (displayValue && displayValue.trim() !== '') {
+        const hostName = displayValue.trim();
+        const isValid = isValidHost(hostName);
+        
+        if (!isValid) {
+          // Invalid host - apply error styling
+          td.style.backgroundColor = '#fee2e2';
+          td.style.color = '#dc2626';
+          td.style.border = '2px solid #dc2626';
+          td.style.fontWeight = '600';
+          td.title = `⚠️ Host "${hostName}" does not exist. Please create it in the Host Table first or select an existing host.`;
+        } else {
+          // Valid host - clear any error styling
+          td.style.backgroundColor = '';
+          td.style.color = '';
+          td.style.border = '';
+          td.style.fontWeight = '';
+          td.title = `✓ Valid host: ${hostName}`;
+        }
+      } else {
+        // Empty value - clear styling
+        td.style.backgroundColor = '';
+        td.style.color = '';
+        td.style.border = '';
+        td.style.fontWeight = '';
+        td.title = 'No host assigned (optional)';
+      }
+      
       return td;
     },
     wwpn: (instance, td, row, col, prop, value) => {
@@ -637,7 +667,9 @@ const AliasTable = () => {
             column.type = "dropdown";
           } else if (col.data === "host_details.name") {
             column.type = "dropdown";
-            column.allowInvalid = true;  // Allow typing new host names
+            // Remove strict validation to allow users to delete/clear values
+            column.allowInvalid = true;
+            column.allowEmpty = true;
           } else if (col.data === "cisco_alias") {
             column.type = "dropdown";
             column.className = "htCenter";
