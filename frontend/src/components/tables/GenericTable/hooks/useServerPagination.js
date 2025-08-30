@@ -44,6 +44,8 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
         if (column && column.data) {
           let fieldName = column.data;
           
+          console.log(`🔍 Processing filter for column ${colIndex}: ${column.data} -> type: ${filter.type}, value:`, filter.value);
+          
           // Handle special field mappings
           if (fieldName === 'fabric') {
             fieldName = 'fabric__name'; // Map to fabric.name for filtering
@@ -56,6 +58,8 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
           } else if (fieldName === 'host_details.name') {
             fieldName = 'host__name'; // Map host_details.name to host.name for filtering
           }
+          
+          console.log(`🔄 Mapped field name: ${column.data} -> ${fieldName}`);
           
           // Build filter parameter based on filter type
           switch (filter.type) {
@@ -77,10 +81,11 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
             case 'multi_select':
               if (Array.isArray(filter.value)) {
                 if (filter.value.length > 0) {
-                  // Use multiple parameters with same name - backend supports this as OR logic
-                  filter.value.forEach(value => {
-                    url += `&${fieldName}=${encodeURIComponent(value)}`;
-                  });
+                  // Workaround: Use regex to match any of the selected values exactly
+                  // Create a regex pattern like ^(value1|value2|value3)$
+                  const escapedValues = filter.value.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+                  const regexPattern = `^(${escapedValues.join('|')})$`;
+                  url += `&${fieldName}__regex=${encodeURIComponent(regexPattern)}`;
                 } else {
                   // Empty array means show no results
                   url += `&${fieldName}=__IMPOSSIBLE_MATCH_VALUE_123__`;
@@ -95,6 +100,7 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
       }
     });
     
+    console.log(`🌐 Final API URL: ${url}`);
     return url;
   }, [baseApiUrl, columns]);
   
