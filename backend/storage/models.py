@@ -164,6 +164,7 @@ class Host(models.Model):
     volume_group = models.CharField(max_length=100, blank=True, null=True)
     natural_key = models.CharField(max_length=64, blank=True, null=True)
     volumes = models.ManyToManyField('Volume', related_name='hosts', blank=True)
+    create = models.BooleanField(default=False)
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
 

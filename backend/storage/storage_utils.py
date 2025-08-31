@@ -16,9 +16,10 @@ def generate_mkhost_scripts(storage_systems):
     storage_scripts = {}
     
     for storage in storage_systems:
-        # Get all hosts assigned to this storage system
-        from san.models import Host
-        hosts = Host.objects.filter(storage=storage).order_by('name')
+        # Get all hosts assigned to this storage system with create=True
+        from storage.models import Host
+        hosts = Host.objects.filter(storage=storage, create=True).order_by('name')
+        
         
         if not hosts.exists():
             storage_scripts[storage.name] = {

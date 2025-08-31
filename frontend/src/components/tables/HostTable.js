@@ -17,12 +17,13 @@ const ALL_COLUMNS = [
   { data: "last_data_collection", title: "Last Data Collection" },
   { data: "volume_group", title: "Volume Group" },
   { data: "natural_key", title: "Natural Key" },
+  { data: "create", title: "Create" },
   { data: "imported", title: "Imported" },
   { data: "updated", title: "Updated" },
 ];
 
 // Default column indices - showing most relevant host information
-const DEFAULT_VISIBLE_INDICES = [0, 2, 3, 6, 7, 8, 12, 13]; // name, wwpns, status, host_type, vols_count, fc_ports_count, imported, updated
+const DEFAULT_VISIBLE_INDICES = [0, 2, 3, 6, 7, 8, 12, 13, 14]; // name, wwpns, status, host_type, vols_count, fc_ports_count, create, imported, updated
 
 const HostTable = ({ storage }) => {
   const tableRef = useRef(null);
@@ -96,7 +97,8 @@ const HostTable = ({ storage }) => {
   const preprocessData = (data) => {
     return data.map(host => ({
       ...host,
-      saved: true
+      saved: true,
+      create: host.create || false // Ensure create field has a boolean value
     }));
   };
 
@@ -126,13 +128,22 @@ const HostTable = ({ storage }) => {
         tableName="hosts"
         height="calc(100vh - 180px)"
         colHeaders={ALL_COLUMNS.map(col => col.title)}
-        columns={ALL_COLUMNS.map(col => ({
-          data: col.data,
-          readOnly: col.data === "imported" || col.data === "updated"
-        }))}
+        columns={ALL_COLUMNS.map(col => {
+          const column = { data: col.data };
+          
+          // Configure specific columns
+          if (col.data === "create") {
+            column.type = "checkbox";
+            column.className = "htCenter";
+          } else if (col.data === "imported" || col.data === "updated") {
+            column.readOnly = true;
+          }
+          
+          return column;
+        })}
         customRenderers={customRenderers}
         preprocessData={preprocessData}
-        newRowTemplate={{}}
+        newRowTemplate={{ create: false }}
         columnSorting={true}
         filters={true}
         defaultVisibleColumns={visibleColumnIndices}

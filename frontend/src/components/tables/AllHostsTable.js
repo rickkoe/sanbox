@@ -30,12 +30,13 @@ const ALL_COLUMNS = [
   { data: "acknowledged", title: "Acknowledged" },
   { data: "last_data_collection", title: "Last Data Collection" },
   { data: "natural_key", title: "Natural Key" },
+  { data: "create", title: "Create" },
   { data: "imported", title: "Imported" },
   { data: "updated", title: "Updated" }
 ];
 
 // Default visible columns - showing most relevant host information
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14]; // name, storage_system, wwpns, status, host_type, aliases_count, vols_count, fc_ports_count, imported, updated
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 15]; // name, storage_system, wwpns, status, host_type, aliases_count, vols_count, fc_ports_count, create, imported, updated
 
 // Template for new rows
 const NEW_HOST_TEMPLATE = {
@@ -53,6 +54,7 @@ const NEW_HOST_TEMPLATE = {
   acknowledged: "",
   last_data_collection: null,
   natural_key: "",
+  create: false,
   imported: null,
   updated: null,
   saved: false,
@@ -295,7 +297,8 @@ const AllHostsTable = () => {
       
       return {
         ...host,
-        saved: true
+        saved: true,
+        create: host.create || false // Ensure create field has a boolean value
       };
     });
   };
@@ -328,7 +331,7 @@ const AllHostsTable = () => {
           }
           
           // Clean up the data
-          return {
+          const cleanHost = {
             id: host.id || null,
             name: (host.name || "").trim(),
             storage: storageId, // Use the storage ForeignKey field
@@ -338,8 +341,10 @@ const AllHostsTable = () => {
             associated_resource: host.associated_resource || "",
             volume_group: host.volume_group || "",
             acknowledged: host.acknowledged || "",
-            natural_key: host.natural_key || ""
+            natural_key: host.natural_key || "",
+            create: Boolean(host.create) // Include the create field
           };
+          return cleanHost;
         });
 
       console.log('🚀 Final payload being sent:', payload);
@@ -481,6 +486,9 @@ const AllHostsTable = () => {
             column.type = "dropdown";
             column.allowInvalid = false;
             column.strict = true;
+          } else if (col.data === "create") {
+            column.type = "checkbox";
+            column.className = "htCenter";
           }
           
           return column;

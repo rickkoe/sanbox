@@ -577,6 +577,7 @@ def hosts_by_project_view(request, project_id):
                 "acknowledged": host.acknowledged or "",
                 "last_data_collection": host.last_data_collection,
                 "natural_key": host.natural_key or "",
+                "create": host.create or False,  # Include the create field
                 "imported": host.imported.isoformat() if host.imported else None,
                 "updated": host.updated.isoformat() if host.updated else None,
             }
@@ -647,6 +648,7 @@ def host_save_view(request):
         project_id = data.get("project_id")
         hosts_data = data.get("hosts", [])
         
+        
         if not project_id or not hosts_data:
             return JsonResponse({"error": "Project ID and hosts data are required."}, status=400)
         
@@ -676,6 +678,7 @@ def host_save_view(request):
                         host.volume_group = host_data.get("volume_group", host.volume_group)
                         host.acknowledged = host_data.get("acknowledged", host.acknowledged)
                         host.natural_key = host_data.get("natural_key", host.natural_key)
+                        host.create = host_data.get("create", host.create)
                         
                         # Handle storage ForeignKey assignment
                         storage_id = host_data.get("storage")
@@ -737,7 +740,8 @@ def host_save_view(request):
                         associated_resource=host_data.get("associated_resource", ""),
                         volume_group=host_data.get("volume_group", ""),
                         acknowledged=host_data.get("acknowledged", ""),
-                        natural_key=host_data.get("natural_key", "")
+                        natural_key=host_data.get("natural_key", ""),
+                        create=host_data.get("create", False)
                     )
                     
                     from django.utils import timezone
