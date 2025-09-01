@@ -100,3 +100,161 @@ If backend modifications are possible, consider:
 - **AdvancedFilter.jsx**: Handles the UI for selecting multiple values
 - **useServerPagination.js**: Converts frontend filters to backend API calls
 - **GenericTable.jsx**: Orchestrates filtering between components
+
+---
+
+# COMPREHENSIVE FILTER TROUBLESHOOTING GUIDE
+
+## Common Filter Issues and Solutions (September 2025)
+
+### Issue Pattern 1: Multi-Select Dropdown Filtering
+
+**Symptoms**: Selecting multiple values shows no results or only results from one value.
+
+**Root Cause**: Django `request.GET.items()` only processes the last value for duplicate parameter names.
+
+**Frontend Fix** (`columnFilterUtils.js`):
+```javascript
+// Add problematic fields to regex handling:
+} else if (serverFieldName === 'fabric__name' || serverFieldName === 'host__name' || serverFieldName === 'use') {
+  if (filterValue.length === 1) {
+    serverFilters[serverFieldName] = filterValue[0];  // Single = equals
+  } else {
+    const regexPattern = `^(${filterValue.join('|')})$`;  // Multi = regex
+    serverFilters[`${serverFieldName}__regex`] = regexPattern;
+  }
+}
+```
+
+**Test**: Multi-select should return combined results from all selected values.
+
+### Issue Pattern 2: Direct Field Equals Filtering
+
+**Symptoms**: `field=value` returns all results instead of filtered results.
+
+**Root Cause**: Backend only accepts parameters with `__` suffixes, not direct field names.
+
+**Backend Fix** (in Django view functions):
+```python
+# Change this:
+if param.startswith(('name__', 'fabric__name__', ...)):
+
+# To this:
+if param.startswith(('name__', 'fabric__name__', ...)) or param in ['fabric__name', 'use', 'create', ...]:
+```
+
+**Affected Tables**: AliasTable, ZoneTable, HostTable
+
+### Issue Pattern 3: Calculated Field Equals Filtering
+
+**Symptoms**: `zoned_count=1` returns all results instead of filtered results.
+
+**Root Cause**: No direct handling for calculated field equals filters.
+
+**Backend Fix**:
+```python
+elif param == 'zoned_count':
+    try:
+        filter_params['_zoned_count'] = int(value)
+    except ValueError:
+        filter_params['_zoned_count'] = value
+```
+
+**Test**: Should return specific count, not total count.
+
+### Issue Pattern 4: Database Relationship Errors
+
+**Symptoms**: 500 Internal Server Error when using count filters.
+
+**Root Cause**: Wrong `related_name` in Count() annotations.
+
+**Backend Fix**: Check model ForeignKey `related_name`:
+```python
+# Check the model:
+host = models.ForeignKey(Host, related_name='alias_host', ...)
+
+# Use correct name in annotation:
+Count('alias_host', distinct=True)  # Not 'alias'
+```
+
+### Issue Pattern 5: Field Mapping Mismatches
+
+**Symptoms**: Filters don't work due to frontend/backend field name mismatches.
+
+**Root Cause**: Frontend display names don't match Django database field names.
+
+**Frontend Fix** (`columnFilterUtils.js`):
+```javascript
+if (fieldName === 'fabric_details.name') {
+  serverFieldName = 'fabric__name';
+} else if (fieldName === 'fabric') {  // ZoneTable case
+  serverFieldName = 'fabric__name';
+}
+```
+
+## Systematic Debugging Steps
+
+When a filter isn't working:
+
+### Step 1: Test Backend API Directly
+```bash
+# Test if backend filtering works:
+curl "http://127.0.0.1:8000/api/san/ENDPOINT/project/25/?field=value"
+
+# Test multi-select with regex:
+curl "http://127.0.0.1:8000/api/san/ENDPOINT/project/25/?field__regex=^(val1|val2)$"
+```
+
+### Step 2: Check Browser Network Tab
+- Look at the actual parameters being sent
+- Compare with working curl commands
+- Check for encoding issues
+
+### Step 3: Common Fixes Needed
+
+**For Multi-Select Issues**:
+1. Add field to regex handling in `columnFilterUtils.js`
+2. Ensure backend accepts `field__regex` parameters
+
+**For Direct Filter Issues**:
+1. Add field to backend allowed parameter list
+2. Add field mapping in frontend if needed
+
+**For Calculated Field Issues**:
+1. Add direct field handling in backend view
+2. Map to correct annotated field name (e.g., `_zoned_count`)
+
+**For 500 Errors**:
+1. Check Django model relationships
+2. Fix Count() annotation field names
+3. Check for typos in ForeignKey `related_name`
+
+### Step 4: Field Mapping Quick Reference
+
+```javascript
+// Frontend Column -> Backend Database Field
+'fabric_details.name' -> 'fabric__name'  // AliasTable
+'fabric'             -> 'fabric__name'   // ZoneTable
+'host_details.name'  -> 'host__name'
+'storage'            -> 'storage__name'
+'zoned_count'        -> '_zoned_count'   // Calculated
+'member_count'       -> '_member_count'  // Calculated
+'aliases_count'      -> '_aliases_count' // Calculated (using alias_host relation)
+```
+
+## Testing Checklist
+
+For each problematic filter:
+
+- [ ] **Single value selection**: Should return subset of results
+- [ ] **Multi-value selection**: Should return combined results  
+- [ ] **Text search**: Should return partial matches
+- [ ] **No 500 errors**: Check browser console and Django logs
+- [ ] **Correct field mapping**: Frontend field maps to correct backend field
+
+## Key Files for Fixes
+
+1. **Frontend Filtering**: `columnFilterUtils.js` - Field mapping and multi-select logic
+2. **Backend Views**: `san/views.py` - Parameter acceptance and calculated field handling  
+3. **Models**: Check ForeignKey `related_name` for relationships
+4. **Table Components**: Verify column `data` field names

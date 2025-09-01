@@ -1054,7 +1054,7 @@ def zones_by_project_view(request, project_id):
         # Apply field-specific filters
         filter_params = {}
         for param, value in request.GET.items():
-            if param.startswith(('name__', 'fabric__name__', 'zone_type__', 'notes__', 'create__', 'exists__', 'delete__', 'member_count__')):
+            if param.startswith(('name__', 'fabric__name__', 'zone_type__', 'notes__', 'create__', 'exists__', 'delete__', 'member_count__')) or param in ['fabric__name', 'zone_type', 'create', 'exists', 'delete', 'member_count']:
                 # Handle boolean field filtering - convert string representations back to actual booleans
                 if any(param.startswith(f'{bool_field}__') for bool_field in ['create', 'delete', 'exists']):
                     if param.endswith('__in'):
@@ -1097,6 +1097,12 @@ def zones_by_project_view(request, project_id):
                                 filter_params[mapped_param] = int(value) if str(value).isdigit() else value
                             except (ValueError, AttributeError):
                                 filter_params[mapped_param] = value
+                    elif param == 'member_count':
+                        # Handle direct member_count equals filter
+                        try:
+                            filter_params['_member_count'] = int(value)
+                        except ValueError:
+                            filter_params['_member_count'] = value
                     else:
                         # Handle non-boolean fields normally
                         filter_params[param] = value

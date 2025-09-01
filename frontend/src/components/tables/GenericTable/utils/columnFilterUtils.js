@@ -457,6 +457,8 @@ export const generateServerFilters = (filters, columnMetadata) => {
     let serverFieldName = fieldName;
     if (fieldName === 'fabric_details.name') {
       serverFieldName = 'fabric__name';
+    } else if (fieldName === 'fabric') {
+      serverFieldName = 'fabric__name';
     } else if (fieldName === 'host_details.name') {
       serverFieldName = 'host__name';
     } else if (fieldName === 'storage' && !fieldName.includes('__')) {
