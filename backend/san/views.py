@@ -485,6 +485,94 @@ def alias_list_view(request, project_id):
 
 @csrf_exempt
 @require_http_methods(["GET"])
+def get_unique_values_for_hosts(request, project, field_name):
+    """Get unique values for a specific field from hosts in a project."""
+    print(f"🔍 Getting unique values for host field: {field_name} in project {project.id}")
+    
+    from django.db.models import Q
+    
+    try:
+        # Handle calculated fields
+        if field_name == 'aliases_count':
+            # Calculate aliases_count for all hosts and get unique values
+            hosts_queryset = Host.objects.filter(project=project).annotate(
+                _aliases_count=Count('alias_host', distinct=True)
+            )
+            unique_values = hosts_queryset.values_list('_aliases_count', flat=True).distinct().order_by('_aliases_count')
+        elif field_name == 'storage_system':
+            # For storage_system, we need to get values from both storage ForeignKey and storage_system CharField
+            hosts_queryset = Host.objects.filter(project=project)
+            
+            # Get storage names from ForeignKey relationship
+            storage_values = hosts_queryset.select_related('storage').exclude(storage=None).values_list('storage__name', flat=True).distinct()
+            # Get storage_system values from CharField
+            storage_system_values = hosts_queryset.exclude(storage_system__isnull=True).exclude(storage_system='').values_list('storage_system', flat=True).distinct()
+            
+            # Combine and deduplicate
+            all_values = set(list(storage_values) + list(storage_system_values))
+            unique_values = sorted([value for value in all_values if value])
+            
+            # Check if there are any hosts with no storage assigned
+            hosts_without_storage = hosts_queryset.filter(
+                Q(storage__isnull=True) | Q(storage__name__isnull=True) | Q(storage__name='')
+            ).filter(
+                Q(storage_system__isnull=True) | Q(storage_system='')
+            ).exists()
+            
+            if hosts_without_storage:
+                unique_values.append('Blank')
+        else:
+            # Base queryset for hosts in the project
+            hosts_queryset = Host.objects.filter(project=project)
+            
+            # Map field names to actual model fields
+            field_mapping = {
+                'create': 'create',
+                'name': 'name',
+                'status': 'status',
+                'host_type': 'host_type',
+                'associated_resource': 'associated_resource',
+                'volume_group': 'volume_group',
+                'acknowledged': 'acknowledged',
+                'natural_key': 'natural_key'
+            }
+            
+            # Get the actual field name
+            actual_field = field_mapping.get(field_name, field_name)
+            
+            # Get unique values for the field
+            unique_values = hosts_queryset.values_list(actual_field, flat=True).distinct().order_by(actual_field)
+        
+        # Convert to list and handle different field types
+        if field_name not in ['storage_system']:  # storage_system is already handled above
+            unique_values = list(unique_values)
+        
+        # Handle boolean fields specially
+        if field_name in ['create']:
+            # For boolean fields, convert to consistent string representation
+            boolean_values = set(unique_values)
+            processed_booleans = []
+            for value in boolean_values:
+                if value is True:
+                    processed_booleans.append('True')
+                elif value is False:
+                    processed_booleans.append('False')
+            unique_values = sorted(processed_booleans)
+        else:
+            # For non-boolean fields, filter out None/null values
+            unique_values = [value for value in unique_values if value is not None and str(value).strip() != '']
+        
+        print(f"✅ Found {len(unique_values)} unique values for host {field_name}: {unique_values}")
+        
+        return JsonResponse({
+            'unique_values': unique_values
+        })
+        
+    except Exception as e:
+        print(f"❌ Error getting unique values for host {field_name}: {str(e)}")
+        return JsonResponse({"error": f"Failed to get unique values: {str(e)}"}, status=500)
+
+
 def hosts_by_project_view(request, project_id):
     """Fetch hosts belonging to a specific project."""
     print(f"🔥 Hosts by Project - Project ID: {project_id}")
@@ -502,6 +590,11 @@ def hosts_by_project_view(request, project_id):
     format_type = request.GET.get('format', 'dropdown')
     
     print(f"🔍 Hosts API - Project: {project_id}, Search: '{search}', Page: {page}, PageSize: {page_size}, Format: {format_type}")
+    
+    # Check for unique values request
+    unique_values_field = request.GET.get('unique_values')
+    if unique_values_field:
+        return get_unique_values_for_hosts(request, project, unique_values_field)
     
     # Base queryset
     hosts_queryset = Host.objects.filter(project=project)
@@ -585,6 +678,85 @@ def hosts_by_project_view(request, project_id):
             hosts_queryset = hosts_queryset.filter(fc_ports_count__gt=int(fc_ports_count__gt))
         if fc_ports_count__lt is not None:
             hosts_queryset = hosts_queryset.filter(fc_ports_count__lt=int(fc_ports_count__lt))
+    
+    # Apply field-specific filters (similar to AliasTable and ZoneTable)
+    from django.db.models import Q
+    filter_params = {}
+    for param, value in request.GET.items():
+        if param.startswith(('name__', 'storage_system__', 'storage__name__', 'wwpns__', 'status__', 'host_type__', 'associated_resource__', 'volume_group__', 'acknowledged__', 'natural_key__', 'create__')) or param in ['name', 'storage_system', 'storage__name', 'wwpns', 'status', 'host_type', 'associated_resource', 'volume_group', 'acknowledged', 'natural_key', 'create']:
+            # Handle boolean field filtering
+            if any(param.startswith(f'{bool_field}__') for bool_field in ['create']):
+                if param.endswith('__in'):
+                    # Handle multi-select boolean filters
+                    boolean_values = []
+                    for str_val in value.split(','):
+                        str_val = str_val.strip()
+                        if str_val.lower() == 'true':
+                            boolean_values.append(True)
+                        elif str_val.lower() == 'false':
+                            boolean_values.append(False)
+                    filter_params[param] = boolean_values
+                else:
+                    # Handle single boolean filters
+                    if value.lower() == 'true':
+                        filter_params[param] = True
+                    elif value.lower() == 'false':
+                        filter_params[param] = False
+            else:
+                # Handle special field mappings
+                if param == 'storage_system':
+                    if value == 'Blank':
+                        # Filter for hosts with no storage assigned (both ForeignKey and CharField are null/empty)
+                        hosts_queryset = hosts_queryset.filter(
+                            (Q(storage__isnull=True) | Q(storage__name__isnull=True) | Q(storage__name='')) &
+                            (Q(storage_system__isnull=True) | Q(storage_system=''))
+                        )
+                        # Don't add to filter_params since we already applied the filter
+                        continue
+                    else:
+                        # storage_system in the API comes from storage.name, so filter on the ForeignKey
+                        filter_params['storage__name'] = value
+                elif param.startswith('storage_system__'):
+                    if param == 'storage_system__regex' and 'Blank' in value:
+                        # Handle multi-select that includes "Blank" - need special logic
+                        # Extract non-Blank values for regex, handle Blank separately
+                        import re
+                        # Parse the regex pattern to extract values
+                        match = re.match(r'^\^?\(([^)]+)\)\$?$', value)
+                        if match:
+                            values = match.group(1).split('|')
+                            non_blank_values = [v for v in values if v != 'Blank']
+                            has_blank = 'Blank' in values
+                            
+                            if non_blank_values and has_blank:
+                                # Include both non-blank storage systems AND blank ones
+                                blank_filter = (Q(storage__isnull=True) | Q(storage__name__isnull=True) | Q(storage__name='')) & (Q(storage_system__isnull=True) | Q(storage_system=''))
+                                if len(non_blank_values) == 1:
+                                    non_blank_filter = Q(storage__name=non_blank_values[0])
+                                else:
+                                    non_blank_filter = Q(storage__name__regex=f"^({'|'.join(non_blank_values)})$")
+                                hosts_queryset = hosts_queryset.filter(blank_filter | non_blank_filter)
+                                continue
+                            elif has_blank and not non_blank_values:
+                                # Only "Blank" is selected
+                                hosts_queryset = hosts_queryset.filter(
+                                    (Q(storage__isnull=True) | Q(storage__name__isnull=True) | Q(storage__name='')) &
+                                    (Q(storage_system__isnull=True) | Q(storage_system=''))
+                                )
+                                continue
+                    
+                    # Map storage_system__ lookups to storage__name__ lookups
+                    mapped_param = param.replace('storage_system__', 'storage__name__')
+                    filter_params[mapped_param] = value
+                else:
+                    # Handle non-boolean fields normally
+                    filter_params[param] = value
+    
+    # Apply the filters
+    if filter_params:
+        print(f"🔍 Applying host filters: {filter_params}")
+        hosts_queryset = hosts_queryset.filter(**filter_params)
+        print(f"📊 Host filter result count: {hosts_queryset.count()}")
     
     # Apply ordering
     if ordering:

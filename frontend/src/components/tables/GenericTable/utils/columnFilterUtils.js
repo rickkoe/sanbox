@@ -463,6 +463,8 @@ export const generateServerFilters = (filters, columnMetadata) => {
       serverFieldName = 'host__name';
     } else if (fieldName === 'storage' && !fieldName.includes('__')) {
       serverFieldName = 'storage__name';
+    } else if (fieldName === 'storage_system') {
+      serverFieldName = 'storage_system';
     }
     
     // Generate appropriate server-side filter parameters
@@ -489,13 +491,15 @@ export const generateServerFilters = (filters, columnMetadata) => {
           if (columnType === 'boolean') {
             const boolValues = filterValue.map(v => v === 'True');
             serverFilters[`${serverFieldName}__in`] = boolValues;
-          } else if (serverFieldName === 'fabric__name' || serverFieldName === 'host__name' || serverFieldName === 'use') {
+          } else if (serverFieldName === 'fabric__name' || serverFieldName === 'host__name' || serverFieldName === 'use' || serverFieldName === 'storage_system') {
             // For fabric, host, and use fields, use regex for multi-select (backend expects this format)
             if (filterValue.length === 1) {
               // For single values, use equals (more efficient than regex)
+              // Special handling for "Blank" - backend has custom logic for this
               serverFilters[serverFieldName] = filterValue[0];
             } else {
               // For multiple values, use regex
+              // Include "Blank" as-is in the regex pattern - backend will handle it specially
               const regexPattern = `^(${filterValue.join('|')})$`;
               serverFilters[`${serverFieldName}__regex`] = regexPattern;
             }

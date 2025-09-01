@@ -192,6 +192,30 @@ if (fieldName === 'fabric_details.name') {
 }
 ```
 
+### Issue Pattern 6: Special Value Filtering (Blank/Empty Values)
+
+**Symptoms**: Need to filter for records with no value assigned (e.g., "Blank" storage systems).
+
+**Root Cause**: Empty/null values require special Django queries with `isnull` and empty string checks.
+
+**Backend Fix** (HostTable storage_system example):
+```python
+if value == 'Blank':
+    hosts_queryset = hosts_queryset.filter(
+        (Q(storage__isnull=True) | Q(storage__name__isnull=True) | Q(storage__name='')) &
+        (Q(storage_system__isnull=True) | Q(storage_system=''))
+    )
+```
+
+**Unique Values Fix**: Add "Blank" to dropdown options when empty records exist:
+```python
+hosts_without_storage = hosts_queryset.filter(
+    Q(storage__isnull=True) | Q(storage__name__isnull=True) | Q(storage__name='')
+).exists()
+if hosts_without_storage:
+    unique_values.append('Blank')
+```
+
 ## Systematic Debugging Steps
 
 When a filter isn't working:
@@ -237,6 +261,7 @@ curl "http://127.0.0.1:8000/api/san/ENDPOINT/project/25/?field__regex=^(val1|val
 'fabric'             -> 'fabric__name'   // ZoneTable
 'host_details.name'  -> 'host__name'
 'storage'            -> 'storage__name'
+'storage_system'     -> 'storage__name'  // HostTable: API shows storage.name, filter on ForeignKey
 'zoned_count'        -> '_zoned_count'   // Calculated
 'member_count'       -> '_member_count'  // Calculated
 'aliases_count'      -> '_aliases_count' // Calculated (using alias_host relation)

@@ -73,6 +73,26 @@ const HostTable = () => {
   // Storage systems state
   const [storageOptions, setStorageOptions] = useState([]);
   const [storageLoaded, setStorageLoaded] = useState(false);
+  
+  // Host type options based on storage type
+  const getHostTypeOptions = (storageType) => {
+    if (storageType === 'FlashSystem') {
+      return ['hpux', 'tpgs', 'generic', 'openvms', 'adminlun', 'hide_secondary'];
+    } else if (storageType === 'DS8000') {
+      return ['AIX', 'AIX with PowerSwap', 'HP OpenVMS', 'HP-UX', 'IBM i AS/400', 'iLinux', 'Linux RHEL', 'Linux SUSE', 'N series Gateway', 'Novell', 'pLinux', 'SAN Volume Controller', 'Solaris', 'VMware', 'Windows 2003', 'Windows 2008', 'Windows 2012', 'zLinux'];
+    }
+    return [];
+  };
+  
+  // Get default host type based on storage type
+  const getDefaultHostType = (storageType) => {
+    if (storageType === 'FlashSystem') {
+      return 'generic';
+    } else if (storageType === 'DS8000') {
+      return 'IBM i AS/400';
+    }
+    return '';
+  };
 
   // Column visibility state
   const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
@@ -99,6 +119,27 @@ const HostTable = () => {
   const dropdownSources = useMemo(() => ({
     storage_system: storageOptions.map(s => s.name),
   }), [storageOptions]);
+  
+  // Cells configuration for dynamic dropdown sources
+  const getCellsConfig = useMemo(() => {
+    return (hot, row, col, prop) => {
+      if (prop === 'host_type') {
+        // Get the current row's data to determine storage system
+        const rowData = hot.getSourceDataAtRow(row);
+        const storageSystemValue = rowData?.storage_system;
+        
+        // Find the storage type based on the storage system name
+        const storageOption = storageOptions.find(opt => opt.name === storageSystemValue);
+        const storageType = storageOption?.storage_type;
+        
+        // Return column configuration with dynamic source
+        return {
+          source: getHostTypeOptions(storageType)
+        };
+      }
+      return {};
+    };
+  }, [storageOptions]);
 
   // Load storage options for the customer
   useEffect(() => {
@@ -134,7 +175,8 @@ const HostTable = () => {
           const options = response.data.results.map(storage => ({
             id: storage.id,
             name: storage.name,
-            display: storage.name
+            display: storage.name,
+            storage_type: storage.storage_type
           }));
           
           console.log('✅ Mapped storage options:', options);
@@ -295,11 +337,25 @@ const HostTable = () => {
       // The backend now returns storage_system as the name, which is what we want for display
       // No conversion needed since backend returns the proper display name
       
-      return {
+      // Set default host_type if empty and storage system has a type
+      let processedHost = {
         ...host,
         saved: true,
         create: host.create || false // Ensure create field has a boolean value
       };
+      
+      // If host_type is empty and we have a storage_system, set the default
+      if (!processedHost.host_type && processedHost.storage_system) {
+        const storageOption = storageOptions.find(opt => opt.name === processedHost.storage_system);
+        if (storageOption?.storage_type) {
+          const defaultHostType = getDefaultHostType(storageOption.storage_type);
+          if (defaultHostType) {
+            processedHost.host_type = defaultHostType;
+          }
+        }
+      }
+      
+      return processedHost;
     });
   };
 
@@ -486,6 +542,11 @@ const HostTable = () => {
             column.type = "dropdown";
             column.allowInvalid = false;
             column.strict = true;
+          } else if (col.data === "host_type") {
+            console.log('🔥 Configuring host_type as dropdown column');
+            column.type = "dropdown";
+            column.allowInvalid = false;
+            column.strict = true;
           } else if (col.data === "create") {
             column.type = "checkbox";
             column.className = "htCenter";
@@ -498,6 +559,7 @@ const HostTable = () => {
         preprocessData={preprocessData}
         onSave={handleSave}
         onDelete={handleDelete}
+        getCellsConfig={getCellsConfig}
         columnSorting={true}
         filters={true}
         defaultVisibleColumns={visibleColumnIndices}
@@ -514,6 +576,34 @@ const HostTable = () => {
             onClick: () => navigate('/scripts/storage')
           }
         ]}
+        afterChange={(changes, source) => {
+          if (source === 'edit' && changes) {
+            changes.forEach(([row, prop, oldValue, newValue]) => {
+              if (prop === 'storage_system' && newValue !== oldValue) {
+                // When storage system changes, update host_type default
+                const storageOption = storageOptions.find(opt => opt.name === newValue);
+                if (storageOption?.storage_type) {
+                  const defaultHostType = getDefaultHostType(storageOption.storage_type);
+                  if (defaultHostType && tableRef.current?.hotInstance) {
+                    const hostTypeColIndex = ALL_COLUMNS.findIndex(col => col.data === 'host_type');
+                    if (hostTypeColIndex !== -1) {
+                      const visibleHostTypeIndex = visibleColumnIndices.indexOf(hostTypeColIndex);
+                      if (visibleHostTypeIndex !== -1) {
+                        tableRef.current.hotInstance.setDataAtCell(row, visibleHostTypeIndex, defaultHostType);
+                      } else {
+                        // Column not visible, but set the source data anyway
+                        const sourceData = tableRef.current.hotInstance.getSourceDataAtRow(row);
+                        if (sourceData) {
+                          sourceData.host_type = defaultHostType;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          }
+        }}
       />
 
       {/* Confirmation Modal for Host Deletion */}
