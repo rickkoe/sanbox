@@ -506,32 +506,69 @@ const HostTable = () => {
       return;
     }
 
-    // Update each host with the appropriate default based on storage system
+    // Check if host_type column is visible
+    const visibleHostTypeIndex = visibleColumnIndices.indexOf(hostTypeColIndex);
+
+    // Collect all changes to apply them in batch
+    const changes = [];
+
+    // Find all rows that need updating
     sourceData.forEach((row, rowIndex) => {
       if (row && row.storage_system) {
         // Find the storage type based on the storage system name
         const storageOption = storageOptions.find(opt => opt.name === row.storage_system);
         if (storageOption?.storage_type) {
           const defaultHostType = getDefaultHostType(storageOption.storage_type);
-          if (defaultHostType) {
-            // Check if host_type column is visible
-            const visibleHostTypeIndex = visibleColumnIndices.indexOf(hostTypeColIndex);
-            if (visibleHostTypeIndex !== -1) {
-              // Column is visible, use setDataAtCell
-              hot.setDataAtCell(rowIndex, visibleHostTypeIndex, defaultHostType);
-            } else {
-              // Column not visible, update source data directly
-              row.host_type = defaultHostType;
-            }
+          if (defaultHostType && row.host_type !== defaultHostType) {
+            changes.push({
+              row: rowIndex,
+              oldValue: row.host_type,
+              newValue: defaultHostType
+            });
             updatedCount++;
           }
         }
       }
     });
 
-    if (updatedCount > 0) {
-      // Refresh the table to show changes
+    if (changes.length > 0) {
+      console.log(`🔄 Processing ${changes.length} changes for bulk host type update`);
+      
+      // Apply all changes to source data first
+      changes.forEach(({ row, newValue }) => {
+        const rowData = hot.getSourceDataAtRow(row);
+        if (rowData) {
+          rowData.host_type = newValue;
+        }
+      });
+
+      if (visibleHostTypeIndex !== -1) {
+        // Column is visible - update the visible cells as well
+        changes.forEach(({ row, newValue }) => {
+          hot.setDataAtCell(row, visibleHostTypeIndex, newValue, 'loadData');
+        });
+      }
+
+      // Create a single comprehensive afterChange event to trigger all change tracking at once
+      const afterChangeData = changes.map(({ row, oldValue, newValue }) => 
+        [row, 'host_type', oldValue, newValue]
+      );
+      
+      console.log(`🔄 Triggering afterChange for ${afterChangeData.length} changes`);
+      
+      // Trigger the afterChange hook manually with 'edit' source to ensure proper change tracking
+      if (hot.runHooks) {
+        hot.runHooks('afterChange', afterChangeData, 'edit');
+      }
+      
+      // Manually mark as dirty
+      if (tableRef.current?.setIsDirty) {
+        tableRef.current.setIsDirty(true);
+      }
+
+      // Force a render to show all changes
       hot.render();
+      
       alert(`✅ Updated ${updatedCount} host(s) with default host types`);
     } else {
       alert('⚠️ No hosts were updated. Make sure hosts have storage systems assigned.');
