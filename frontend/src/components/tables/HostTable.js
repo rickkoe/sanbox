@@ -69,6 +69,11 @@ const HostTable = () => {
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmationData, setConfirmationData] = useState(null);
+  
+  // Host type default modal state
+  const [showHostTypeModal, setShowHostTypeModal] = useState(false);
+  const [hostTypeModalData, setHostTypeModalData] = useState(null);
+  const [customDefaults, setCustomDefaults] = useState({});
 
   // Storage systems state
   const [storageOptions, setStorageOptions] = useState([]);
@@ -497,7 +502,6 @@ const HostTable = () => {
 
     const hot = tableRef.current.hotInstance;
     const sourceData = hot.getSourceData();
-    let updatedCount = 0;
 
     // Find the host_type column index
     const hostTypeColIndex = ALL_COLUMNS.findIndex(col => col.data === 'host_type');
@@ -509,30 +513,110 @@ const HostTable = () => {
     // Check if host_type column is visible
     const visibleHostTypeIndex = visibleColumnIndices.indexOf(hostTypeColIndex);
 
-    // Collect all changes to apply them in batch
-    const changes = [];
+    // Count potential updates for both scenarios and collect unique storage types
+    let emptyHostTypeCount = 0;
+    let allHostTypeCount = 0;
+    const storageTypesInUse = new Set();
 
-    // Find all rows that need updating
-    sourceData.forEach((row, rowIndex) => {
+    sourceData.forEach((row) => {
       if (row && row.storage_system) {
-        // Find the storage type based on the storage system name
         const storageOption = storageOptions.find(opt => opt.name === row.storage_system);
         if (storageOption?.storage_type) {
+          storageTypesInUse.add(storageOption.storage_type);
           const defaultHostType = getDefaultHostType(storageOption.storage_type);
-          if (defaultHostType && row.host_type !== defaultHostType) {
-            changes.push({
-              row: rowIndex,
-              oldValue: row.host_type,
-              newValue: defaultHostType
-            });
-            updatedCount++;
+          if (defaultHostType) {
+            // Count hosts with empty host_type that would be updated
+            if (!row.host_type || row.host_type.trim() === '') {
+              emptyHostTypeCount++;
+            }
+            // Count all hosts that would be updated (different from default)
+            if (row.host_type !== defaultHostType) {
+              allHostTypeCount++;
+            }
+          }
+        }
+      }
+    });
+
+    if (emptyHostTypeCount === 0 && allHostTypeCount === 0) {
+      alert('⚠️ No hosts need updating. All hosts already have their appropriate default host types.');
+      return;
+    }
+
+    // Initialize custom defaults with the standard defaults
+    const initialCustomDefaults = {};
+    Array.from(storageTypesInUse).forEach(storageType => {
+      initialCustomDefaults[storageType] = getDefaultHostType(storageType);
+    });
+
+    // Show modal with options
+    setHostTypeModalData({
+      emptyHostTypeCount,
+      allHostTypeCount,
+      sourceData,
+      visibleHostTypeIndex,
+      hostTypeColIndex,
+      storageTypesInUse: Array.from(storageTypesInUse)
+    });
+    setCustomDefaults(initialCustomDefaults);
+    setShowHostTypeModal(true);
+  };
+
+  // Handle the actual host type update after modal choice
+  const applyHostTypeDefaults = (updateOnlyEmpty) => {
+    const { sourceData, visibleHostTypeIndex, storageTypesInUse } = hostTypeModalData;
+    const hot = tableRef.current?.hotInstance;
+    
+    if (!hot) {
+      console.error('❌ No table instance available');
+      return;
+    }
+
+    // Validate that all storage types have host types selected
+    const missingDefaults = storageTypesInUse.filter(storageType => 
+      !customDefaults[storageType] || customDefaults[storageType].trim() === ''
+    );
+    
+    if (missingDefaults.length > 0) {
+      alert(`⚠️ Please select host types for: ${missingDefaults.join(', ')}`);
+      return;
+    }
+
+    // Collect changes based on user choice
+    const changes = [];
+    let updatedCount = 0;
+
+    sourceData.forEach((row, rowIndex) => {
+      if (row && row.storage_system) {
+        const storageOption = storageOptions.find(opt => opt.name === row.storage_system);
+        if (storageOption?.storage_type) {
+          const customDefaultHostType = customDefaults[storageOption.storage_type];
+          if (customDefaultHostType) {
+            let shouldUpdate = false;
+            
+            if (updateOnlyEmpty) {
+              // Only update if host_type is empty or null
+              shouldUpdate = !row.host_type || row.host_type.trim() === '';
+            } else {
+              // Update if different from custom default
+              shouldUpdate = row.host_type !== customDefaultHostType;
+            }
+            
+            if (shouldUpdate) {
+              changes.push({
+                row: rowIndex,
+                oldValue: row.host_type,
+                newValue: customDefaultHostType
+              });
+              updatedCount++;
+            }
           }
         }
       }
     });
 
     if (changes.length > 0) {
-      console.log(`🔄 Processing ${changes.length} changes for bulk host type update`);
+      console.log(`🔄 Processing ${changes.length} changes for bulk host type update (${updateOnlyEmpty ? 'empty only' : 'override all'})`);
       
       // Apply all changes to source data first
       changes.forEach(({ row, newValue }) => {
@@ -569,10 +653,16 @@ const HostTable = () => {
       // Force a render to show all changes
       hot.render();
       
-      alert(`✅ Updated ${updatedCount} host(s) with default host types`);
+      const updateType = updateOnlyEmpty ? 'empty host types' : 'host types';
+      alert(`✅ Updated ${updatedCount} ${updateType} with defaults`);
     } else {
-      alert('⚠️ No hosts were updated. Make sure hosts have storage systems assigned.');
+      const updateType = updateOnlyEmpty ? 'empty host types' : 'host types';
+      alert(`⚠️ No ${updateType} were updated.`);
     }
+
+    // Close the modal
+    setShowHostTypeModal(false);
+    setHostTypeModalData(null);
   };
 
   // Only render the table after storage options are loaded
@@ -703,6 +793,90 @@ const HostTable = () => {
           <Button variant="danger" onClick={handleConfirmedDelete}>
             Delete Host & Remove References
           </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Host Type Default Modal */}
+      <Modal show={showHostTypeModal} onHide={() => setShowHostTypeModal(false)} size="md">
+        <Modal.Header closeButton>
+          <Modal.Title>Set Default Host Types</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {hostTypeModalData && (
+            <div>
+              <div className="alert alert-info">
+                <h5>📝 How would you like to apply default host types?</h5>
+                <p className="mb-0">Choose how to update host types based on their storage systems.</p>
+              </div>
+              
+              <div className="mb-4">
+                {hostTypeModalData.emptyHostTypeCount > 0 && (
+                  <div className="mb-3 p-3 border rounded">
+                    <h6 className="mb-2">
+                      <span className="badge bg-success me-2">{hostTypeModalData.emptyHostTypeCount}</span>
+                      Update Only Empty Host Types
+                    </h6>
+                    <p className="mb-0 text-muted">
+                      This will only set host types for hosts that currently have no host type assigned. 
+                      Existing host type selections will be preserved.
+                    </p>
+                  </div>
+                )}
+                
+                {hostTypeModalData.allHostTypeCount > hostTypeModalData.emptyHostTypeCount && (
+                  <div className="mb-3 p-3 border rounded">
+                    <h6 className="mb-2">
+                      <span className="badge bg-warning me-2">{hostTypeModalData.allHostTypeCount}</span>
+                      Override All Host Types
+                    </h6>
+                    <p className="mb-0 text-muted">
+                      This will set ALL host types to their defaults based on storage system type, 
+                      overwriting any existing selections.
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="alert alert-light">
+                <h6>Choose Host Types to Apply:</h6>
+                {hostTypeModalData.storageTypesInUse.map(storageType => (
+                  <div key={storageType} className="mb-3">
+                    <label className="form-label">
+                      <strong>{storageType}:</strong>
+                    </label>
+                    <select 
+                      className="form-select form-select-sm"
+                      value={customDefaults[storageType] || ''}
+                      onChange={(e) => setCustomDefaults(prev => ({
+                        ...prev,
+                        [storageType]: e.target.value
+                      }))}
+                    >
+                      <option value="">-- Select Host Type --</option>
+                      {getHostTypeOptions(storageType).map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowHostTypeModal(false)}>
+            Cancel
+          </Button>
+          {hostTypeModalData?.emptyHostTypeCount > 0 && (
+            <Button variant="success" onClick={() => applyHostTypeDefaults(true)}>
+              Update Empty Only ({hostTypeModalData.emptyHostTypeCount})
+            </Button>
+          )}
+          {hostTypeModalData?.allHostTypeCount > hostTypeModalData?.emptyHostTypeCount && (
+            <Button variant="warning" onClick={() => applyHostTypeDefaults(false)}>
+              Override All ({hostTypeModalData.allHostTypeCount})
+            </Button>
+          )}
         </Modal.Footer>
       </Modal>
     </div>
