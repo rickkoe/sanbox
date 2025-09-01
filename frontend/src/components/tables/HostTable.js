@@ -337,25 +337,11 @@ const HostTable = () => {
       // The backend now returns storage_system as the name, which is what we want for display
       // No conversion needed since backend returns the proper display name
       
-      // Set default host_type if empty and storage system has a type
-      let processedHost = {
+      return {
         ...host,
         saved: true,
         create: host.create || false // Ensure create field has a boolean value
       };
-      
-      // If host_type is empty and we have a storage_system, set the default
-      if (!processedHost.host_type && processedHost.storage_system) {
-        const storageOption = storageOptions.find(opt => opt.name === processedHost.storage_system);
-        if (storageOption?.storage_type) {
-          const defaultHostType = getDefaultHostType(storageOption.storage_type);
-          if (defaultHostType) {
-            processedHost.host_type = defaultHostType;
-          }
-        }
-      }
-      
-      return processedHost;
     });
   };
 
@@ -502,6 +488,56 @@ const HostTable = () => {
     }
   };
 
+  // Handle setting all hosts to default host type
+  const handleSetDefaultHostTypes = () => {
+    if (!tableRef.current?.hotInstance) {
+      console.error('❌ No table instance available');
+      return;
+    }
+
+    const hot = tableRef.current.hotInstance;
+    const sourceData = hot.getSourceData();
+    let updatedCount = 0;
+
+    // Find the host_type column index
+    const hostTypeColIndex = ALL_COLUMNS.findIndex(col => col.data === 'host_type');
+    if (hostTypeColIndex === -1) {
+      console.error('❌ host_type column not found');
+      return;
+    }
+
+    // Update each host with the appropriate default based on storage system
+    sourceData.forEach((row, rowIndex) => {
+      if (row && row.storage_system) {
+        // Find the storage type based on the storage system name
+        const storageOption = storageOptions.find(opt => opt.name === row.storage_system);
+        if (storageOption?.storage_type) {
+          const defaultHostType = getDefaultHostType(storageOption.storage_type);
+          if (defaultHostType) {
+            // Check if host_type column is visible
+            const visibleHostTypeIndex = visibleColumnIndices.indexOf(hostTypeColIndex);
+            if (visibleHostTypeIndex !== -1) {
+              // Column is visible, use setDataAtCell
+              hot.setDataAtCell(rowIndex, visibleHostTypeIndex, defaultHostType);
+            } else {
+              // Column not visible, update source data directly
+              row.host_type = defaultHostType;
+            }
+            updatedCount++;
+          }
+        }
+      }
+    });
+
+    if (updatedCount > 0) {
+      // Refresh the table to show changes
+      hot.render();
+      alert(`✅ Updated ${updatedCount} host(s) with default host types`);
+    } else {
+      alert('⚠️ No hosts were updated. Make sure hosts have storage systems assigned.');
+    }
+  };
+
   // Only render the table after storage options are loaded
   if (!storageLoaded) {
     return (
@@ -566,44 +602,25 @@ const HostTable = () => {
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_All_Hosts.csv`}
         additionalButtons={[
           {
+            text: "Set Default Host Types",
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+            ),
+            onClick: handleSetDefaultHostTypes
+          },
+          {
             text: "Storage Scripts",
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 12l2 2 4-4"/>
-                <path d="M21 12c0 1.66-.41 3.22-1.14 4.58-.73 1.36-1.85 2.42-3.29 3.1C14.93 20.36 13.5 20.5 12 20.5s-2.93-.14-4.57-.82c-1.44-.68-2.56-1.74-3.29-3.1C3.41 15.22 3 13.66 3 12s.41-3.22 1.14-4.58c.73-1.36 1.85-2.42 3.29-3.1C9.07 3.64 10.5 3.5 12 3.5s2.93.14 4.57.82c1.44.68 2.56 1.74 3.29 3.1C20.59 8.78 21 10.34 21 12z"/>
+                <path d="M21 12c0 1.66-.41 3.22-1.14 4.58-.73 1.36-1.85 2.42-3.29 3.1C14.93 20.36 13.5 20.5 12 20.5s-2.93-.14-4.57-.82c-1.44-.68-2.56-1.74-3.29-3.1C3.41 15.22 3 13.66 3 12s.41-3.22 1.14-4.58c.73-1.36 1.85-2.42 3.29-3.1C9.07 3.64 10.5 3.5 12 3.5s2.93.14 4.57.82c1.44.68 2.56 1.74 3.29 3.10C20.59 8.78 21 10.34 21 12z"/>
               </svg>
             ),
             onClick: () => navigate('/scripts/storage')
           }
         ]}
-        afterChange={(changes, source) => {
-          if (source === 'edit' && changes) {
-            changes.forEach(([row, prop, oldValue, newValue]) => {
-              if (prop === 'storage_system' && newValue !== oldValue) {
-                // When storage system changes, update host_type default
-                const storageOption = storageOptions.find(opt => opt.name === newValue);
-                if (storageOption?.storage_type) {
-                  const defaultHostType = getDefaultHostType(storageOption.storage_type);
-                  if (defaultHostType && tableRef.current?.hotInstance) {
-                    const hostTypeColIndex = ALL_COLUMNS.findIndex(col => col.data === 'host_type');
-                    if (hostTypeColIndex !== -1) {
-                      const visibleHostTypeIndex = visibleColumnIndices.indexOf(hostTypeColIndex);
-                      if (visibleHostTypeIndex !== -1) {
-                        tableRef.current.hotInstance.setDataAtCell(row, visibleHostTypeIndex, defaultHostType);
-                      } else {
-                        // Column not visible, but set the source data anyway
-                        const sourceData = tableRef.current.hotInstance.getSourceDataAtRow(row);
-                        if (sourceData) {
-                          sourceData.host_type = defaultHostType;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            });
-          }
-        }}
       />
 
       {/* Confirmation Modal for Host Deletion */}
