@@ -652,12 +652,6 @@ const HostTable = () => {
 
       // Force a render to show all changes
       hot.render();
-      
-      const updateType = updateOnlyEmpty ? 'empty host types' : 'host types';
-      alert(`✅ Updated ${updatedCount} ${updateType} with defaults`);
-    } else {
-      const updateType = updateOnlyEmpty ? 'empty host types' : 'host types';
-      alert(`⚠️ No ${updateType} were updated.`);
     }
 
     // Close the modal
