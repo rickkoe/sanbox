@@ -17,6 +17,11 @@ import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
 import { useServerPagination } from './hooks/useServerPagination';
 import { createContextMenu } from './utils/contextMenu';
+import { 
+  createColumnMetadata, 
+  applyAllFilters, 
+  generateServerFilters 
+} from './utils/columnFilterUtils';
 
 // Custom CSS for better dropdown styling - using very specific selectors and high specificity
 const dropdownStyles = `
@@ -331,7 +336,10 @@ const GenericTable = forwardRef(({
     quickSearch,
     columnFilters,
     columns,
-    handleGlobalPageSizeChange
+    handleGlobalPageSizeChange,
+    colHeaders,
+    dropdownSources,
+    {} // Pass empty object for visibleColumns - will be handled properly by createColumnMetadata
   );
   
   // Simple data state for non-paginated tables
@@ -526,7 +534,7 @@ const GenericTable = forwardRef(({
     }
   };
 
-  // Process and filter data
+  // Process and filter data with enhanced utilities
   const data = React.useMemo(() => {
     if (!currentData) return [];
     
@@ -584,8 +592,8 @@ const GenericTable = forwardRef(({
       return processedArray;
     }
     
-    // Client-side filtering for non-server pagination tables
-    // Apply quick search
+    // Client-side filtering for non-server pagination tables using enhanced utilities
+    // Apply quick search first
     if (quickSearch) {
       const searchLower = quickSearch.toLowerCase();
       processedArray = processedArray.filter(row => {
@@ -610,54 +618,67 @@ const GenericTable = forwardRef(({
       });
     }
     
-    // Apply column filters
+    // Apply column filters - use enhanced filtering if available, otherwise basic filtering
     if (Object.keys(columnFilters).length > 0) {
-      processedArray = processedArray.filter(row => {
-        return Object.entries(columnFilters).every(([colIndex, filter]) => {
-          const column = columns[parseInt(colIndex)];
-          if (!column) return true;
-          
-          // Handle nested object values (like fabric_details.name)
-          let value;
-          if (column.data.includes('.')) {
-            const keys = column.data.split('.');
-            let nestedValue = row;
-            for (const key of keys) {
-              nestedValue = nestedValue?.[key];
-              if (nestedValue === null || nestedValue === undefined) break;
-            }
-            value = nestedValue;
-          } else {
-            value = row[column.data];
-          }
-          
-          if (value === null || value === undefined) return false;
-          
-          const stringValue = String(value).toLowerCase();
-          const filterValue = String(filter.value).toLowerCase();
-          
-          switch (filter.type) {
-            case 'contains':
-              return stringValue.includes(filterValue);
-            case 'equals':
-              return stringValue === filterValue;
-            case 'starts_with':
-              return stringValue.startsWith(filterValue);
-            case 'ends_with':
-              return stringValue.endsWith(filterValue);
-            case 'not_contains':
-              return !stringValue.includes(filterValue);
-            case 'multi_select':
-              if (!Array.isArray(filter.value)) return true;
-              if (filter.value.length === 0) return false; // Empty array means show no results
-              // Handle boolean values
-              const actualValue = typeof value === 'boolean' ? (value ? 'True' : 'False') : stringValue;
-              return filter.value.map(v => v.toLowerCase()).includes(actualValue.toLowerCase());
-            default:
-              return true;
-          }
+      if (columns && colHeaders && columns.length > 0) {
+        // Create column metadata inline to avoid circular dependency (don't use visibleColumns to avoid initialization issues)
+        const inlineColumnMetadata = createColumnMetadata(columns, colHeaders, [], dropdownSources, {});
+        console.log('🔍 Applying enhanced filters:', { 
+          filterCount: Object.keys(columnFilters).length, 
+          metadataCount: inlineColumnMetadata.length,
+          rowsBeforeFilter: processedArray.length
         });
-      });
+        processedArray = applyAllFilters(processedArray, columnFilters, inlineColumnMetadata);
+        console.log('✅ Enhanced filtering complete:', { rowsAfterFilter: processedArray.length });
+      } else {
+        // Use basic filtering as fallback
+        processedArray = processedArray.filter(row => {
+          return Object.entries(columnFilters).every(([colIndex, filter]) => {
+            const column = columns[parseInt(colIndex)];
+            if (!column) return true;
+            
+            // Handle nested object values (like fabric_details.name)
+            let value;
+            if (column.data.includes('.')) {
+              const keys = column.data.split('.');
+              let nestedValue = row;
+              for (const key of keys) {
+                nestedValue = nestedValue?.[key];
+                if (nestedValue === null || nestedValue === undefined) break;
+              }
+              value = nestedValue;
+            } else {
+              value = row[column.data];
+            }
+            
+            if (value === null || value === undefined) return false;
+            
+            const stringValue = String(value).toLowerCase();
+            const filterValue = String(filter.value).toLowerCase();
+            
+            switch (filter.type) {
+              case 'contains':
+                return stringValue.includes(filterValue);
+              case 'equals':
+                return stringValue === filterValue;
+              case 'starts_with':
+                return stringValue.startsWith(filterValue);
+              case 'ends_with':
+                return stringValue.endsWith(filterValue);
+              case 'not_contains':
+                return !stringValue.includes(filterValue);
+              case 'multi_select':
+                if (!Array.isArray(filter.value)) return true;
+                if (filter.value.length === 0) return false; // Empty array means show no results
+                // Handle boolean values
+                const actualValue = typeof value === 'boolean' ? (value ? 'True' : 'False') : stringValue;
+                return filter.value.map(v => v.toLowerCase()).includes(actualValue.toLowerCase());
+              default:
+                return true;
+            }
+          });
+        });
+      }
     }
     
     // ALWAYS add blank row for new entries if we have a template (but only when not filtering)
@@ -700,6 +721,15 @@ const GenericTable = forwardRef(({
     updateConfig,
     resetConfiguration
   } = useTableColumns(columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources, tableName, userId);
+
+  // Enhanced column metadata for filtering - must come after useTableColumns
+  const columnMetadata = React.useMemo(() => {
+    // Always create metadata for client-side filtering, only skip for server-side when no filters
+    if (Object.keys(columnFilters).length > 0 || !serverPagination) {
+      return createColumnMetadata(columns, colHeaders, [], dropdownSources, visibleColumns);
+    }
+    return [];
+  }, [columns, colHeaders, dropdownSources, visibleColumns, columnFilters, serverPagination]);
 
   // Load saved filters when configuration is loaded
   useEffect(() => {
@@ -1056,11 +1086,8 @@ const GenericTable = forwardRef(({
           }
           newModifiedRows[rowKey][prop] = newValue;
           
-          // Update the source data directly AND the data array
+          // Update the source data directly
           rowData[prop] = newValue;
-          if (data[row]) {
-            data[row][prop] = newValue;
-          }
           
           hasChanges = true;
           
@@ -1814,6 +1841,7 @@ const GenericTable = forwardRef(({
         apiUrl={serverPagination ? apiUrl : null}
         serverPagination={serverPagination}
         onBulkUpdate={handleBulkUpdate}
+        dropdownSources={dropdownSources}
       />
 
       <StatusMessage saveStatus={saveStatus} />

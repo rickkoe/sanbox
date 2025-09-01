@@ -1,7 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Filter, X, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Filter, X, Search, ChevronDown, ChevronUp, Calendar, Hash, Type, Check } from 'lucide-react';
 import axios from 'axios';
+import { 
+  createColumnMetadata, 
+  getColumnUniqueValues, 
+  generateServerFilters 
+} from '../utils/columnFilterUtils';
+import './AdvancedFilter.css';
 
 const AdvancedFilter = ({
   columns,
@@ -13,7 +19,8 @@ const AdvancedFilter = ({
   data = [],
   initialFilters = {},
   apiUrl = null,  // Add apiUrl for server-side unique values
-  serverPagination = false  // Add serverPagination flag
+  serverPagination = false,  // Add serverPagination flag
+  dropdownSources = {}  // Add dropdown sources for better type detection
 }) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [activeFilters, setActiveFilters] = useState({});
@@ -24,6 +31,11 @@ const AdvancedFilter = ({
   // Cache for server-side unique values
   const [uniqueValuesCache, setUniqueValuesCache] = useState({});
   const [loadingColumns, setLoadingColumns] = useState({});
+  
+  // Create comprehensive column metadata for filtering
+  const columnMetadata = useMemo(() => {
+    return createColumnMetadata(columns, colHeaders, data, dropdownSources, visibleColumns);
+  }, [columns, colHeaders, data, dropdownSources, visibleColumns]);
 
   // Synchronize activeFilters with initialFilters (from persisted configuration)
   useEffect(() => {
@@ -164,48 +176,12 @@ const AdvancedFilter = ({
     }
   };
 
-  // Get unique values from local data (original implementation)
+  // Get unique values from local data using enhanced utilities
   const getLocalUniqueValues = (columnIndex) => {
-    if (!data || !Array.isArray(data) || !columns[columnIndex]) return [];
+    const columnMeta = columnMetadata.find(col => col.index === columnIndex);
+    if (!columnMeta || !data || !Array.isArray(data)) return [];
     
-    const column = columns[columnIndex];
-    const values = data
-      .map(row => {
-        // Handle nested object values (like fabric_details.name)
-        let value;
-        if (column.data.includes('.')) {
-          const keys = column.data.split('.');
-          let nestedValue = row;
-          for (const key of keys) {
-            nestedValue = nestedValue?.[key];
-            if (nestedValue === null || nestedValue === undefined) break;
-          }
-          value = nestedValue;
-        } else {
-          value = row[column.data];
-        }
-        return value;
-      })
-      .filter(value => value !== null && value !== undefined && value !== '')
-      .map(value => {
-        // Handle boolean values specially
-        if (typeof value === 'boolean') {
-          return value ? 'True' : 'False';
-        }
-        return String(value).trim();
-      })
-      .filter(value => value.length > 0);
-    
-    const uniqueValues = [...new Set(values)];
-    
-    // Sort with special handling for boolean-like values
-    return uniqueValues.sort((a, b) => {
-      // Put boolean values in a logical order
-      if (a === 'True' && b === 'False') return -1;
-      if (a === 'False' && b === 'True') return 1;
-      // For other values, use normal sorting
-      return a.localeCompare(b);
-    });
+    return getColumnUniqueValues(data, columnMeta, 100);
   };
 
   // Get unique values - uses server fetch for server pagination, local data otherwise
@@ -249,29 +225,37 @@ const AdvancedFilter = ({
     }
   };
 
-  // Filter visible columns for dropdown
+  // Filter columns for dropdown using enhanced metadata - allow all columns, not just visible ones
   const getFilterableColumns = () => {
-    // Handle both array and object formats for visibleColumns
-    const isVisible = (index) => {
-      if (Array.isArray(visibleColumns)) {
-        return visibleColumns.includes(index);
-      } else if (visibleColumns && typeof visibleColumns === 'object') {
-        return visibleColumns[index] === true;
-      }
-      return true; // Default to visible if format is unclear
-    };
-
-    return columns
-      .map((col, index) => ({
-        index,
-        header: colHeaders[index] || `Column ${index + 1}`,
-        visible: isVisible(index)
-      }))
-      .filter(col => col.visible)
+    return columnMetadata
+      .filter(col => {
+        // Allow read-only columns if they are numeric (like count fields) or specific useful read-only fields
+        if (col.readOnly) {
+          // Allow count columns, status fields, and other useful read-only fields for filtering
+          const isFilterableReadOnly = col.type === 'number' || 
+                                     col.data.includes('count') || 
+                                     col.data.includes('status') ||
+                                     col.data.includes('type') ||
+                                     col.data === 'imported' ||
+                                     col.data === 'updated';
+          return isFilterableReadOnly;
+        }
+        return true; // Allow all non-read-only columns
+      })
       .filter(col => {
         if (!columnSearch) return true;
         return col.header.toLowerCase().includes(columnSearch.toLowerCase());
       });
+  };
+  
+  // Get icon for column type
+  const getColumnTypeIcon = (columnType) => {
+    switch (columnType) {
+      case 'boolean': return <Check size={12} />;
+      case 'number': return <Hash size={12} />;
+      case 'datetime': return <Calendar size={12} />;
+      default: return <Type size={12} />;
+    }
   };
 
   // Handle column filter
@@ -433,11 +417,15 @@ const AdvancedFilter = ({
                       onClick={() => handleColumnToggle(col.index)}
                       className={`column-filter-toggle ${hasFilter ? 'has-filter' : ''}`}
                     >
-                      <span className="column-name">{col.header}</span>
+                      <div className="column-info">
+                        {getColumnTypeIcon(col.type)}
+                        <span className="column-name">{col.header}</span>
+                        <span className="column-type-badge">{col.type}</span>
+                      </div>
                       {hasFilter && (
                         <span className="filter-indicator">
                           {activeFilters[col.index].type === 'multi_select' 
-                            ? `${activeFilters[col.index].value.length} selected`
+                            ? `${activeFilters[col.index].value?.length || 0} selected`
                             : `${activeFilters[col.index].type}: ${activeFilters[col.index].value}`
                           }
                         </span>
@@ -450,52 +438,114 @@ const AdvancedFilter = ({
                     
                     {activeColumn === col.index && (
                       <div className="column-filter-panel">
-                        {/* Text Filter */}
-                        <div className="filter-section">
-                          <label className="filter-label">Text Filter</label>
-                          <input
-                            type="text"
-                            placeholder="Enter filter value..."
-                            value={hasFilter && activeFilters[col.index].type === 'contains' ? activeFilters[col.index].value : ''}
-                            onChange={(e) => handleColumnFilter(col.index, 'contains', e.target.value)}
-                            className="filter-input"
-                          />
-                        </div>
+                        {/* Text Filter - Available for most types */}
+                        {col.supportsTextFilter && (
+                          <div className="filter-section">
+                            <label className="filter-label">Text Filter</label>
+                            <div className="text-filter-options">
+                              <select
+                                value={hasFilter && ['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(activeFilters[col.index].type) 
+                                  ? activeFilters[col.index].type : (col.type === 'number' ? 'equals' : 'contains')}
+                                onChange={(e) => {
+                                  const currentValue = hasFilter && ['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(activeFilters[col.index].type) 
+                                    ? activeFilters[col.index].value : '';
+                                  handleColumnFilter(col.index, e.target.value, currentValue);
+                                }}
+                                className="filter-type-select"
+                              >
+                                {col.filterTypes
+                                  .filter(type => ['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(type))
+                                  .map(type => (
+                                    <option key={type} value={type}>
+                                      {type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </option>
+                                  ))
+                                }
+                              </select>
+                              <input
+                                type="text"
+                                placeholder="Enter filter value..."
+                                value={hasFilter && ['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(activeFilters[col.index].type) 
+                                  ? activeFilters[col.index].value : ''}
+                                onChange={(e) => {
+                                  const filterType = hasFilter && ['contains', 'equals', 'starts_with', 'ends_with', 'not_contains'].includes(activeFilters[col.index].type) 
+                                    ? activeFilters[col.index].type : (col.type === 'number' ? 'equals' : 'contains');
+                                  handleColumnFilter(col.index, filterType, e.target.value);
+                                }}
+                                className="filter-input"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Number Range Filter */}
+                        {col.type === 'number' && col.filterTypes.includes('range') && (
+                          <div className="filter-section">
+                            <label className="filter-label">Range Filter</label>
+                            <div className="range-filter-inputs">
+                              <input
+                                type="number"
+                                placeholder="Min"
+                                value={hasFilter && activeFilters[col.index].type === 'range' && Array.isArray(activeFilters[col.index].value) 
+                                  ? activeFilters[col.index].value[0] : ''}
+                                onChange={(e) => {
+                                  const currentRange = hasFilter && activeFilters[col.index].type === 'range' && Array.isArray(activeFilters[col.index].value)
+                                    ? activeFilters[col.index].value : ['', ''];
+                                  handleColumnFilter(col.index, 'range', [e.target.value, currentRange[1]]);
+                                }}
+                                className="range-input"
+                              />
+                              <span>to</span>
+                              <input
+                                type="number"
+                                placeholder="Max"
+                                value={hasFilter && activeFilters[col.index].type === 'range' && Array.isArray(activeFilters[col.index].value)
+                                  ? activeFilters[col.index].value[1] : ''}
+                                onChange={(e) => {
+                                  const currentRange = hasFilter && activeFilters[col.index].type === 'range' && Array.isArray(activeFilters[col.index].value)
+                                    ? activeFilters[col.index].value : ['', ''];
+                                  handleColumnFilter(col.index, 'range', [currentRange[0], e.target.value]);
+                                }}
+                                className="range-input"
+                              />
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Value Selection */}
-                        {loadingColumns[col.index] ? (
-                          <div className="filter-section">
-                            <label className="filter-label">Loading values...</label>
-                            <div className="loading-indicator">
-                              <div className="spinner"></div>
-                              <span>Fetching filter options...</span>
+                        {col.supportsValueFilter && (
+                          loadingColumns[col.index] ? (
+                            <div className="filter-section">
+                              <label className="filter-label">Loading values...</label>
+                              <div className="loading-indicator">
+                                <div className="spinner"></div>
+                                <span>Fetching filter options...</span>
+                              </div>
                             </div>
-                          </div>
-                        ) : uniqueValues.length > 0 && uniqueValues.length <= 50 ? (
-                          <div className="filter-section">
-                            <label className="filter-label">Select Values ({uniqueValues.length})</label>
-                            <div className="values-list-checkboxes">
-                              {uniqueValues.map((value, idx) => (
-                                <label key={idx} className="value-checkbox-item">
-                                  <input
-                                    type="checkbox"
-                                    checked={isValueSelected(col.index, value)}
-                                    onChange={() => handleValueToggle(col.index, value)}
-                                    className="value-checkbox"
-                                  />
-                                  <span className="value-checkbox-label">{value}</span>
-                                </label>
-                              ))}
+                          ) : uniqueValues.length > 0 && uniqueValues.length <= 50 ? (
+                            <div className="filter-section">
+                              <label className="filter-label">Select Values ({uniqueValues.length})</label>
+                              <div className="values-list-checkboxes">
+                                {uniqueValues.map((value, idx) => (
+                                  <label key={idx} className="value-checkbox-item">
+                                    <input
+                                      type="checkbox"
+                                      checked={isValueSelected(col.index, value)}
+                                      onChange={() => handleValueToggle(col.index, value)}
+                                      className="value-checkbox"
+                                    />
+                                    <span className="value-checkbox-label">{value}</span>
+                                  </label>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        ) : null}
-                        
-                        {uniqueValues.length > 50 && (
-                          <div className="filter-section">
-                            <div className="too-many-values">
-                              Too many unique values ({uniqueValues.length}). Use text filter instead.
+                          ) : uniqueValues.length > 50 ? (
+                            <div className="filter-section">
+                              <div className="too-many-values">
+                                Too many unique values ({uniqueValues.length}). Use text filter instead.
+                              </div>
                             </div>
-                          </div>
+                          ) : null
                         )}
                         
                         {/* Clear Column Filter */}

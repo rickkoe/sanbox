@@ -42,7 +42,7 @@ const ZoneTable = React.lazy(() => import("./components/tables/ZoneTable"));
 const StorageTable = React.lazy(() => import("./components/tables/StorageTable"));
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
-const AllHostsTable = React.lazy(() => import("./components/tables/AllHostsTable"));
+const HostTable = React.lazy(() => import("./components/tables/HostTable"));
 const ConfigForm = React.lazy(() => import("./components/forms/ConfigForm"));
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const WWPNFormatterTable = React.lazy(() => import("./components/tools/WWPNColonizer"));
@@ -132,7 +132,7 @@ function AppContent() {
                     <Route path="/san/aliases" element={<AliasTable />} />
                     <Route path="/san/zones" element={<ZoneTable />} />
                     <Route path="/storage/systems" element={<StorageTable />} />
-                    <Route path="/storage/hosts" element={<AllHostsTable />} />
+                    <Route path="/storage/hosts" element={<HostTable />} />
                     <Route path="/storage/:id" element={<StoragePage />} />
                     <Route path="/storage/:id/volumes" element={<StorageVolumesPage />} />
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />

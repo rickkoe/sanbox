@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { generateServerFilters, createColumnMetadata } from '../utils/columnFilterUtils';
 
-export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKey = null, quickSearch = '', columnFilters = {}, columns = [], onPageSizeChange = null) => {
+export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKey = null, quickSearch = '', columnFilters = {}, columns = [], onPageSizeChange = null, colHeaders = [], dropdownSources = {}, visibleColumns = {}) => {
   // State management
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,72 +38,32 @@ export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKe
       url += `&search=${encodeURIComponent(search.trim())}`;
     }
     
-    // Add column-specific filters
-    Object.entries(filters).forEach(([colIndex, filter]) => {
-      if (filter && filter.value !== undefined && filter.value !== '') {
-        const column = columns[parseInt(colIndex)];
-        if (column && column.data) {
-          let fieldName = column.data;
-          
-          console.log(`🔍 Processing filter for column ${colIndex}: ${column.data} -> type: ${filter.type}, value:`, filter.value);
-          
-          // Handle special field mappings
-          if (fieldName === 'fabric') {
-            fieldName = 'fabric__name'; // Map to fabric.name for filtering
-          } else if (fieldName === 'fabric_details.name') {
-            fieldName = 'fabric__name'; // Map fabric_details.name to fabric.name for filtering
-          } else if (fieldName === 'storage' && !fieldName.includes('__')) {
-            fieldName = 'storage__name'; // Map storage to storage.name for filtering
-          } else if (fieldName === 'storage_system') {
-            fieldName = 'storage_system__name'; // Map storage_system to storage_system.name
-          } else if (fieldName === 'host_details.name') {
-            fieldName = 'host__name'; // Map host_details.name to host.name for filtering
-          }
-          
-          console.log(`🔄 Mapped field name: ${column.data} -> ${fieldName}`);
-          
-          // Build filter parameter based on filter type
-          switch (filter.type) {
-            case 'contains':
-              url += `&${fieldName}__icontains=${encodeURIComponent(filter.value)}`;
-              break;
-            case 'equals':
-              url += `&${fieldName}__iexact=${encodeURIComponent(filter.value)}`;
-              break;
-            case 'starts_with':
-              url += `&${fieldName}__istartswith=${encodeURIComponent(filter.value)}`;
-              break;
-            case 'ends_with':
-              url += `&${fieldName}__iendswith=${encodeURIComponent(filter.value)}`;
-              break;
-            case 'not_contains':
-              url += `&${fieldName}__not_icontains=${encodeURIComponent(filter.value)}`;
-              break;
-            case 'multi_select':
-              if (Array.isArray(filter.value)) {
-                if (filter.value.length > 0) {
-                  // Workaround: Use regex to match any of the selected values exactly
-                  // Create a regex pattern like ^(value1|value2|value3)$
-                  const escapedValues = filter.value.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-                  const regexPattern = `^(${escapedValues.join('|')})$`;
-                  url += `&${fieldName}__regex=${encodeURIComponent(regexPattern)}`;
-                } else {
-                  // Empty array means show no results
-                  url += `&${fieldName}=__IMPOSSIBLE_MATCH_VALUE_123__`;
-                }
-              }
-              break;
-            default:
-              // Default to contains search
-              url += `&${fieldName}__icontains=${encodeURIComponent(filter.value)}`;
+    // Generate server-side filters using enhanced utilities
+    if (Object.keys(filters).length > 0) {
+      // Create column metadata for filter generation
+      const columnMetadata = createColumnMetadata(columns, colHeaders, [], dropdownSources, visibleColumns);
+      const serverFilters = generateServerFilters(filters, columnMetadata);
+      
+      // Add server filters to URL
+      Object.entries(serverFilters).forEach(([param, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          if (Array.isArray(value)) {
+            // Handle array values (like __in filters)
+            if (value.length > 0) {
+              url += `&${param}=${value.map(v => encodeURIComponent(v)).join(',')}`;
+            }
+          } else {
+            url += `&${param}=${encodeURIComponent(value)}`;
           }
         }
-      }
-    });
+      });
+      
+      console.log('🔗 Generated server filters:', serverFilters);
+    }
     
     console.log(`🌐 Final API URL: ${url}`);
     return url;
-  }, [baseApiUrl, columns]);
+  }, [baseApiUrl, columns, colHeaders, dropdownSources, visibleColumns]);
   
   // Create cache key including filters
   const getCacheKey = useCallback((page, size, search = '', filters = {}) => {

@@ -390,7 +390,7 @@ def alias_list_view(request, project_id):
     # Apply field-specific filters
     filter_params = {}
     for param, value in request.GET.items():
-        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__', 'logged_in__', 'delete__', 'zoned_count__')):
+        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'host__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__', 'logged_in__', 'delete__', 'zoned_count__')) or param in ['zoned_count', 'fabric__name', 'host__name', 'use', 'cisco_alias', 'create', 'include_in_zoning', 'logged_in', 'delete']:
             # Handle boolean field filtering - convert string representations back to actual booleans
             if any(param.startswith(f'{bool_field}__') for bool_field in ['create', 'delete', 'include_in_zoning', 'logged_in']):
                 if param.endswith('__in'):
@@ -433,6 +433,12 @@ def alias_list_view(request, project_id):
                             filter_params[mapped_param] = int(value) if str(value).isdigit() else value
                         except (ValueError, AttributeError):
                             filter_params[mapped_param] = value
+                elif param == 'zoned_count':
+                    # Handle direct zoned_count equals filter
+                    try:
+                        filter_params['_zoned_count'] = int(value)
+                    except ValueError:
+                        filter_params['_zoned_count'] = value
                 else:
                     # Handle non-boolean fields normally
                     filter_params[param] = value
@@ -510,6 +516,75 @@ def hosts_by_project_view(request, project_id):
             Q(storage_system__icontains=search)
         )
         print(f"🔍 After search filter: {hosts_queryset.count()} hosts")
+    
+    # Apply count field filtering for table format
+    if format_type == 'table':
+        # Get count filter parameters
+        aliases_count = request.GET.get('aliases_count')
+        aliases_count__gte = request.GET.get('aliases_count__gte')
+        aliases_count__lte = request.GET.get('aliases_count__lte')
+        aliases_count__gt = request.GET.get('aliases_count__gt')
+        aliases_count__lt = request.GET.get('aliases_count__lt')
+        
+        vols_count = request.GET.get('vols_count')
+        vols_count__gte = request.GET.get('vols_count__gte')
+        vols_count__lte = request.GET.get('vols_count__lte')
+        vols_count__gt = request.GET.get('vols_count__gt')
+        vols_count__lt = request.GET.get('vols_count__lt')
+        
+        fc_ports_count = request.GET.get('fc_ports_count')
+        fc_ports_count__gte = request.GET.get('fc_ports_count__gte')
+        fc_ports_count__lte = request.GET.get('fc_ports_count__lte')
+        fc_ports_count__gt = request.GET.get('fc_ports_count__gt')
+        fc_ports_count__lt = request.GET.get('fc_ports_count__lt')
+        
+        # Apply aliases_count filtering (using annotation since it's calculated)
+        if any([aliases_count, aliases_count__gte, aliases_count__lte, aliases_count__gt, aliases_count__lt]):
+            hosts_queryset = hosts_queryset.annotate(
+                computed_aliases_count=Count('alias_host', distinct=True)
+            )
+            
+            if aliases_count is not None:
+                hosts_queryset = hosts_queryset.filter(computed_aliases_count=int(aliases_count))
+                print(f"🔍 After aliases_count={aliases_count} filter: {hosts_queryset.count()} hosts")
+            if aliases_count__gte is not None:
+                hosts_queryset = hosts_queryset.filter(computed_aliases_count__gte=int(aliases_count__gte))
+                print(f"🔍 After aliases_count__gte={aliases_count__gte} filter: {hosts_queryset.count()} hosts")
+            if aliases_count__lte is not None:
+                hosts_queryset = hosts_queryset.filter(computed_aliases_count__lte=int(aliases_count__lte))
+                print(f"🔍 After aliases_count__lte={aliases_count__lte} filter: {hosts_queryset.count()} hosts")
+            if aliases_count__gt is not None:
+                hosts_queryset = hosts_queryset.filter(computed_aliases_count__gt=int(aliases_count__gt))
+                print(f"🔍 After aliases_count__gt={aliases_count__gt} filter: {hosts_queryset.count()} hosts")
+            if aliases_count__lt is not None:
+                hosts_queryset = hosts_queryset.filter(computed_aliases_count__lt=int(aliases_count__lt))
+                print(f"🔍 After aliases_count__lt={aliases_count__lt} filter: {hosts_queryset.count()} hosts")
+        
+        # Apply vols_count filtering (direct field filtering)
+        if vols_count is not None:
+            hosts_queryset = hosts_queryset.filter(vols_count=int(vols_count))
+            print(f"🔍 After vols_count={vols_count} filter: {hosts_queryset.count()} hosts")
+        if vols_count__gte is not None:
+            hosts_queryset = hosts_queryset.filter(vols_count__gte=int(vols_count__gte))
+        if vols_count__lte is not None:
+            hosts_queryset = hosts_queryset.filter(vols_count__lte=int(vols_count__lte))
+        if vols_count__gt is not None:
+            hosts_queryset = hosts_queryset.filter(vols_count__gt=int(vols_count__gt))
+        if vols_count__lt is not None:
+            hosts_queryset = hosts_queryset.filter(vols_count__lt=int(vols_count__lt))
+        
+        # Apply fc_ports_count filtering (direct field filtering)
+        if fc_ports_count is not None:
+            hosts_queryset = hosts_queryset.filter(fc_ports_count=int(fc_ports_count))
+            print(f"🔍 After fc_ports_count={fc_ports_count} filter: {hosts_queryset.count()} hosts")
+        if fc_ports_count__gte is not None:
+            hosts_queryset = hosts_queryset.filter(fc_ports_count__gte=int(fc_ports_count__gte))
+        if fc_ports_count__lte is not None:
+            hosts_queryset = hosts_queryset.filter(fc_ports_count__lte=int(fc_ports_count__lte))
+        if fc_ports_count__gt is not None:
+            hosts_queryset = hosts_queryset.filter(fc_ports_count__gt=int(fc_ports_count__gt))
+        if fc_ports_count__lt is not None:
+            hosts_queryset = hosts_queryset.filter(fc_ports_count__lt=int(fc_ports_count__lt))
     
     # Apply ordering
     if ordering:

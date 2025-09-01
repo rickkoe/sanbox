@@ -32,7 +32,8 @@ const TableHeader = ({
   onClearAllFilters,
   apiUrl = null,  // Add apiUrl prop
   serverPagination = false,  // Add serverPagination prop
-  onBulkUpdate = null  // Add onBulkUpdate prop
+  onBulkUpdate = null,  // Add onBulkUpdate prop
+  dropdownSources = {}  // Add dropdownSources prop
 }) => {
   const [showDataDropdown, setShowDataDropdown] = useState(false);
   const [showViewDropdown, setShowViewDropdown] = useState(false);
@@ -269,6 +270,7 @@ const TableHeader = ({
             initialFilters={columnFilters}
             apiUrl={apiUrl}
             serverPagination={serverPagination}
+            dropdownSources={dropdownSources}
           />
           
           {/* Bulk Boolean Controls */}
