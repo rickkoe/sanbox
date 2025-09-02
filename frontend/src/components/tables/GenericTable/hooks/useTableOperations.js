@@ -12,6 +12,7 @@ export const useTableOperations = ({
   data,
   beforeSave,
   onSave,
+  onDelete,
   saveTransform,
   onBuildPayload,
   saveUrl,

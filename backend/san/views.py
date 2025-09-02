@@ -1176,7 +1176,7 @@ def alias_delete_view(request, pk):
             if customer:
                 customer_id = customer.id
         print(f'Deleting Alias: {alias.name}')
-        alias.delete()
+        Alias.objects.filter(pk=alias.pk).delete()
         
         # Clear dashboard cache when alias is deleted
         if customer_id:
@@ -1511,7 +1511,7 @@ def zone_delete_view(request, pk):
             if customer:
                 customer_id = customer.id
         print(f'Deleting Zone: {zone.name}')
-        zone.delete()
+        Zone.objects.filter(pk=zone.pk).delete()
         
         # Clear dashboard cache when zone is deleted
         if customer_id:

@@ -135,6 +135,7 @@ const GenericTable = forwardRef(({
   dropdownSources = {},
   onBuildPayload,
   onSave,
+  onDelete,
   navigationRedirectPath,
   customRenderers = {},
   preprocessData,
@@ -813,6 +814,7 @@ const GenericTable = forwardRef(({
     data,
     beforeSave,
     onSave,
+    onDelete,
     saveTransform,
     onBuildPayload,
     saveUrl,
@@ -2018,10 +2020,21 @@ const GenericTable = forwardRef(({
         onConfirm={async () => {
           setLoading(true);
           try {
-            const deletePromises = rowsToDelete.map(row => 
-              axios.delete(`${deleteUrl}${row.id}/`)
-            );
-            await Promise.all(deletePromises);
+            if (onDelete && typeof onDelete === 'function') {
+              // Use custom delete handler
+              for (const row of rowsToDelete) {
+                const result = await onDelete(row.id);
+                if (!result.success) {
+                  throw new Error(result.message);
+                }
+              }
+            } else {
+              // Use default delete handler
+              const deletePromises = rowsToDelete.map(row => 
+                axios.delete(`${deleteUrl}${row.id}/`)
+              );
+              await Promise.all(deletePromises);
+            }
             
             console.log("🗑️ Deletion successful, clearing cache and refreshing...");
             setSaveStatus("Items deleted successfully!");

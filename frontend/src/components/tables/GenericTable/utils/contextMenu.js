@@ -129,24 +129,6 @@ export const createContextMenu = (tableRef, setIsDirty, handleAfterContextMenu) 
         }
       },
       "hsep4": "---------",
-      "autosize_columns": {
-        name: "Auto-size all columns",
-        callback: (key, selection) => {
-          const hot = tableRef.current?.hotInstance;
-          if (hot) {
-            console.log('📏 Auto-sizing ALL columns via context menu...');
-            
-            // Trigger the enhanced autosizing with force flag
-            const event = new CustomEvent('autosize-columns', {
-              detail: { 
-                hotInstance: hot,
-                options: { force: true, showLoading: true }
-              }
-            });
-            window.dispatchEvent(event);
-          }
-        }
-      },
       "autosize_columns_smart": {
         name: "Smart auto-size (respect saved widths)",
         callback: (key, selection) => {
