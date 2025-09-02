@@ -480,8 +480,7 @@ const HostTable = () => {
         tableRef.current.refreshData();
       }
       
-      // Show success message
-      alert(response.data.message || "Host deleted successfully!");
+      // Success - no popup needed, table refresh shows the change
       
     } catch (error) {
       console.error("❌ Error in confirmed delete:", error);
