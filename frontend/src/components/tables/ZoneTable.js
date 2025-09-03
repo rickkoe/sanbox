@@ -5,71 +5,6 @@ import { useSettings } from "../../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 import GenericTable from "./GenericTable"; // Fixed import
 
-// CSS styles for fabric validation with maximum specificity to override Handsontable
-const validationStyles = `
-  /* Ultra-high specificity selectors to override ALL Handsontable styles */
-  html body div.handsontable div.ht_master div.wtHolder div.wtHider div.wtSpreader table.htCore tbody tr td.fabric-validation-invalid,
-  html body .handsontable .ht_master .wtHolder .wtHider .wtSpreader table.htCore tbody tr td.fabric-validation-invalid,
-  html body div.handsontable table.htCore tbody tr td.fabric-validation-invalid,
-  html body .handsontable tbody tr td.fabric-validation-invalid,
-  .handsontable td.fabric-validation-invalid {
-    color: red !important;
-    font-weight: bold !important;
-    background-color: #ffebee !important;
-    border: 2px solid red !important;
-    box-shadow: inset 0 0 0 2px red !important;
-  }
-  
-  /* Override all possible Handsontable states */
-  html body div.handsontable div.ht_master div.wtHolder div.wtHider div.wtSpreader table.htCore tbody tr td.fabric-validation-invalid.current,
-  html body div.handsontable div.ht_master div.wtHolder div.wtHider div.wtSpreader table.htCore tbody tr td.fabric-validation-invalid.area,
-  html body div.handsontable div.ht_master div.wtHolder div.wtHider div.wtSpreader table.htCore tbody tr td.fabric-validation-invalid.htInvalid,
-  html body div.handsontable div.ht_master div.wtHolder div.wtHider div.wtSpreader table.htCore tbody tr td.fabric-validation-invalid:hover,
-  html body .handsontable .ht_master .wtHolder table tbody tr td.fabric-validation-invalid:not(.current):not(.area) {
-    color: red !important;
-    font-weight: bold !important;
-    background-color: #ffebee !important;
-    border: 2px solid red !important;
-    box-shadow: inset 0 0 0 2px red !important;
-  }
-  
-  /* Brute force override for all combinations */
-  td.fabric-validation-invalid,
-  .fabric-validation-invalid,
-  td[data-fabric-invalid="true"],
-  [data-fabric-invalid="true"] {
-    color: red !important;
-    font-weight: bold !important;
-    background-color: #ffebee !important;
-    border: 2px solid red !important;
-    box-shadow: inset 0 0 0 2px red !important;
-  }
-  
-  /* Ultimate nuclear option - target everything */
-  * {
-    --fabric-invalid-color: red;
-    --fabric-invalid-bg: #ffebee;
-    --fabric-invalid-border: 2px solid red;
-  }
-  
-  td[data-fabric-invalid="true"] * {
-    color: var(--fabric-invalid-color) !important;
-    font-weight: bold !important;
-    background-color: var(--fabric-invalid-bg) !important;
-    border: var(--fabric-invalid-border) !important;
-  }
-`;
-
-// Inject the CSS styles
-if (!document.getElementById('fabric-validation-styles')) {
-  const styleSheet = document.createElement('style');
-  styleSheet.id = 'fabric-validation-styles';
-  styleSheet.textContent = validationStyles;
-  document.head.appendChild(styleSheet);
-  console.log('🎨 INJECTED FABRIC VALIDATION CSS:', validationStyles.substring(0, 200) + '...');
-} else {
-  console.log('🎨 FABRIC VALIDATION CSS ALREADY EXISTS');
-}
 
 // API endpoints
 const API_URL = process.env.REACT_APP_API_URL || "";
@@ -85,6 +20,7 @@ const API_ENDPOINTS = {
 
 // Base zone columns (excluding dynamic member columns)
 const BASE_COLUMNS = [
+  { data: "zone_status", title: "Status" },
   { data: "name", title: "Name" },
   { data: "fabric", title: "Fabric" },
   { data: "member_count", title: "Members" },
@@ -98,11 +34,12 @@ const BASE_COLUMNS = [
 ];
 
 // Default visible base column indices (show all base columns by default)
-const DEFAULT_BASE_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6];
+const DEFAULT_BASE_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7];
 
 // Template for new rows
 const NEW_ZONE_TEMPLATE = {
   id: null,
+  zone_status: "valid", // Default to valid for new zones
   name: "",
   fabric: "",
   member_count: 0,
@@ -129,6 +66,8 @@ const ZoneTable = () => {
   
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationModalData, setValidationModalData] = useState(null);
   const tableRef = useRef(null);
   const navigate = useNavigate();
 
@@ -323,12 +262,34 @@ const ZoneTable = () => {
     };
   };
 
+  // Function to validate zone fabric consistency
+  const validateZoneFabricStatus = (zone) => {
+    if (!zone.fabric || !zone.members_details?.length) {
+      return "valid"; // Empty zones or zones without fabric are considered valid
+    }
+
+    const zoneFabric = zone.fabric_details?.name || zone.fabric;
+    
+    // Check if all members belong to the same fabric as the zone
+    const invalidMembers = zone.members_details.filter(member => {
+      const alias = memberOptions.find(alias => alias.name === member.name);
+      return alias && alias.fabric !== zoneFabric;
+    });
+
+    return invalidMembers.length > 0 ? "invalid" : "valid";
+  };
+
   // Process data for display - intelligently place members in correct column types
   const preprocessData = useCallback((data) => {
     return data.map((zone) => {
       const memberCount = zone.members_details?.length || 0;
+      
+      // Validate zone fabric status
+      const zoneStatus = validateZoneFabricStatus(zone);
+      
       const zoneData = {
         ...zone,
+        zone_status: zoneStatus,
         fabric: zone.fabric_details?.name || zone.fabric,
         member_count: memberCount,
         saved: true,
@@ -391,6 +352,88 @@ const ZoneTable = () => {
     }
   };
 
+  // BULLETPROOF fabric validation highlighter - finds cells by content and forces styling
+  const highlightInvalidMembers = (invalidMembers) => {
+    console.log(`🎯 BULLETPROOF: Highlighting ${invalidMembers.length} invalid members`);
+    
+    // Find ALL table cells in the document
+    const allCells = document.querySelectorAll('td');
+    let highlightedCount = 0;
+    
+    allCells.forEach((cell) => {
+      const cellText = cell.textContent?.trim() || '';
+      
+      // Check if this cell contains any of our invalid member names
+      invalidMembers.forEach(invalid => {
+        const memberName = invalid.member;
+        
+        // Check various text patterns the cell might contain
+        if (cellText === memberName || 
+            cellText === `▼${memberName}` || 
+            cellText.includes(memberName)) {
+          
+          console.log(`🎯 FOUND INVALID MEMBER CELL: "${cellText}" -> highlighting`);
+          
+          // BRUTE FORCE STYLING - every possible way to make it red
+          cell.className = (cell.className || '') + ' fabric-validation-invalid';
+          cell.setAttribute('data-fabric-invalid', 'true');
+          
+          // Set cssText directly (highest priority)
+          cell.style.cssText = 'color: red !important; background-color: #ffebee !important; font-weight: bold !important; border: 2px solid red !important;';
+          
+          // Also set individual properties as backup
+          cell.style.setProperty('color', 'red', 'important');
+          cell.style.setProperty('background-color', '#ffebee', 'important'); 
+          cell.style.setProperty('font-weight', 'bold', 'important');
+          cell.style.setProperty('border', '2px solid red', 'important');
+          
+          cell.title = `Invalid: ${memberName} does not belong to the zone's fabric`;
+          highlightedCount++;
+        }
+      });
+    });
+    
+    console.log(`🎯 BULLETPROOF: Highlighted ${highlightedCount} cells total`);
+    
+    // AGGRESSIVE: Keep re-applying styling continuously during scroll
+    if (highlightedCount > 0) {
+      // Set up continuous highlighting intervals
+      const intervals = [
+        setInterval(() => highlightInvalidMembers(invalidMembers), 200),  // Every 200ms
+        setInterval(() => highlightInvalidMembers(invalidMembers), 500),  // Every 500ms
+        setInterval(() => highlightInvalidMembers(invalidMembers), 1000)  // Every 1s
+      ];
+      
+      // Also watch for scroll events and re-highlight immediately
+      const handsontable = document.querySelector('.handsontable');
+      if (handsontable) {
+        const scrollHandler = () => {
+          setTimeout(() => highlightInvalidMembers(invalidMembers), 10);
+          setTimeout(() => highlightInvalidMembers(invalidMembers), 50);
+          setTimeout(() => highlightInvalidMembers(invalidMembers), 100);
+        };
+        handsontable.addEventListener('scroll', scrollHandler);
+        
+        // Store cleanup
+        window.fabricValidationCleanup = () => {
+          intervals.forEach(interval => clearInterval(interval));
+          handsontable.removeEventListener('scroll', scrollHandler);
+          console.log('🧹 Cleaned up continuous highlighting');
+        };
+      }
+      
+      // Clean up after 30 seconds to prevent memory leaks
+      setTimeout(() => {
+        if (window.fabricValidationCleanup) {
+          window.fabricValidationCleanup();
+          window.fabricValidationCleanup = null;
+        }
+      }, 30000);
+    }
+    
+    return highlightedCount > 0;
+  };
+
   // Pre-save validation
   const beforeSaveValidation = (data) => {
     // Check for zones without fabric
@@ -427,84 +470,23 @@ const ZoneTable = () => {
     });
 
     if (fabricMismatchZone) {
-      // HIGHLIGHT INVALID MEMBERS during save validation
-      setTimeout(() => {
-        console.log(`🎯 SAVE VALIDATION: Highlighting ${invalidMembers.length} invalid members`);
-        
-        // Create persistent highlighting function
-        const highlightInvalidMembers = () => {
-          const dropdownCells = document.querySelectorAll('td.htAutocomplete');
-          let highlightedCount = 0;
-          dropdownCells.forEach(cell => {
-            const text = cell.textContent?.trim();
-            if (text && text.startsWith('▼')) {
-              const memberValue = text.substring(1); // Remove ▼ prefix
-              
-              // Check if this member is in our invalid list
-              const isInvalid = invalidMembers.some(invalid => invalid.member === memberValue);
-              
-              if (isInvalid) {
-                const invalidInfo = invalidMembers.find(invalid => invalid.member === memberValue);
-                cell.classList.add('invalid-fabric-member');
-                cell.style.setProperty('color', '#dc2626', 'important');
-                cell.style.setProperty('background-color', '#fef2f2', 'important');
-                cell.style.setProperty('font-weight', 'bold', 'important');
-                cell.style.setProperty('border', '2px solid #dc2626', 'important');
-                cell.title = `Invalid: ${memberValue} does not belong to fabric ${invalidInfo.fabric}`;
-                highlightedCount++;
-              }
-            }
-          });
-          console.log(`🎯 Highlighted ${highlightedCount} cells`);
-        };
-        
-        // Apply highlighting immediately
-        highlightInvalidMembers();
-        
-        // Make highlighting persistent during scrolling
-        const handsontableElement = document.querySelector('.handsontable');
-        if (handsontableElement) {
-          // Create persistent observer for scrolling
-          const persistentObserver = new MutationObserver(() => {
-            highlightInvalidMembers();
-          });
-          
-          persistentObserver.observe(handsontableElement, {
-            childList: true,
-            subtree: true
-          });
-          
-          // Also re-highlight on scroll events
-          const scrollHandler = () => highlightInvalidMembers();
-          handsontableElement.addEventListener('scroll', scrollHandler);
-          
-          // Store cleanup for this validation session
-          window.currentValidationCleanup = () => {
-            persistentObserver.disconnect();
-            handsontableElement.removeEventListener('scroll', scrollHandler);
-            // Clear all highlighting
-            document.querySelectorAll('.invalid-fabric-member').forEach(cell => {
-              cell.classList.remove('invalid-fabric-member');
-              cell.style.removeProperty('color');
-              cell.style.removeProperty('background-color');
-              cell.style.removeProperty('font-weight');
-              cell.style.removeProperty('border');
-              cell.title = '';
-            });
-            console.log(`🧹 Cleaned up validation highlighting`);
-          };
-        }
-        
-      }, 100);
+      // Use the bulletproof highlighter
+      setTimeout(() => highlightInvalidMembers(invalidMembers), 100);
       
       return `Zone "${fabricMismatchZone.name}" contains members that don't belong to fabric "${fabricMismatchZone.fabric}". Please fix the highlighted members before saving.`;
     }
 
     // Clear any previous validation highlighting if save is successful
-    if (window.currentValidationCleanup) {
-      window.currentValidationCleanup();
-      window.currentValidationCleanup = null;
+    if (window.fabricValidationCleanup) {
+      window.fabricValidationCleanup();
+      window.fabricValidationCleanup = null;
     }
+    document.querySelectorAll('.fabric-validation-invalid').forEach(cell => {
+      cell.classList.remove('fabric-validation-invalid');
+      cell.removeAttribute('data-fabric-invalid');
+      cell.style.cssText = '';
+      cell.title = '';
+    });
 
     return true;
   };
@@ -522,6 +504,82 @@ const ZoneTable = () => {
   // Create member column renderers dynamically based on actual member columns
   const customRenderers = useMemo(() => {
     const renderers = {
+      zone_status: (instance, td, row, _col, _prop, value) => {
+        td.style.textAlign = 'center';
+        td.style.fontSize = '16px';
+        
+        // Get the full row data to access zone details
+        const rowData = instance.getSourceDataAtRow(row);
+        const zoneFabric = rowData?.fabric || '';
+        
+        if (value === 'invalid') {
+          // Red X for invalid zones - make it clickable
+          td.innerHTML = '<span style="color: #dc2626; font-weight: bold; font-size: 18px; cursor: pointer;">✗</span>';
+          td.style.backgroundColor = '#fef2f2';
+          td.style.cursor = 'pointer';
+          
+          // Find which members are invalid
+          const invalidMembers = [];
+          const validMembers = [];
+          const totalMemberColumns = memberColumnsInfo.totalMemberColumns || 10;
+          
+          for (let i = 1; i <= totalMemberColumns; i++) {
+            const memberName = rowData[`member_${i}`];
+            if (memberName) {
+              const alias = memberOptions.find(alias => alias.name === memberName);
+              if (alias && alias.fabric !== zoneFabric) {
+                invalidMembers.push({
+                  name: memberName,
+                  actualFabric: alias.fabric,
+                  expectedFabric: zoneFabric
+                });
+              } else if (alias) {
+                validMembers.push(memberName);
+              }
+            }
+          }
+          
+          // Add click handler for modal
+          td.onclick = (e) => {
+            e.stopPropagation();
+            setValidationModalData({
+              zoneName: rowData.name,
+              zoneFabric: zoneFabric,
+              invalidMembers: invalidMembers,
+              validMembers: validMembers
+            });
+            setShowValidationModal(true);
+          };
+          
+          if (invalidMembers.length > 0) {
+            td.title = `Click for details - Invalid: These members do not belong to fabric "${zoneFabric}":\n• ${invalidMembers.map(m => `${m.name} (fabric: ${m.actualFabric})`).join('\n• ')}`;
+          } else {
+            td.title = 'Click for details - Invalid: Zone contains members that do not belong to the zone\'s fabric';
+          }
+        } else {
+          // Green checkmark for valid zones
+          td.innerHTML = '<span style="color: #059669; font-weight: bold; font-size: 18px;">✓</span>';
+          td.style.backgroundColor = '#f0fdf4';
+          
+          // Show count of valid members
+          const validMembers = [];
+          const totalMemberColumns = memberColumnsInfo.totalMemberColumns || 10;
+          
+          for (let i = 1; i <= totalMemberColumns; i++) {
+            const memberName = rowData[`member_${i}`];
+            if (memberName) {
+              validMembers.push(memberName);
+            }
+          }
+          
+          if (validMembers.length > 0) {
+            td.title = `Valid: All ${validMembers.length} members belong to fabric "${zoneFabric}":\n• ${validMembers.join('\n• ')}`;
+          } else {
+            td.title = 'Valid: Zone has no members or no fabric conflicts';
+          }
+        }
+        return td;
+      },
       name: (instance, td, row, _col, _prop, value) => {
         const rowData = instance.getSourceDataAtRow(row);
         td.innerHTML =
@@ -545,105 +603,12 @@ const ZoneTable = () => {
       },
     };
 
-    // Create fabric validation renderers for each member column
+    // Simple member column renderers (no complex styling)
     const totalMemberColumns = memberColumnsInfo.totalMemberColumns || 10;
     for (let i = 1; i <= totalMemberColumns; i++) {
       const columnKey = `member_${i}`;
       renderers[columnKey] = (instance, td, row, _col, _prop, value) => {
-        const rowData = instance.getSourceDataAtRow(row);
-        const zoneFabric = rowData?.fabric_details?.name || rowData?.fabric;
-        
-        console.log(`🎨 RENDERER CALLED for ${columnKey}: value="${value}", zoneFabric="${zoneFabric}"`);
-        
         td.innerText = value || '';
-        
-        if (value && zoneFabric) {
-          const isValid = validateMemberFabric(value, zoneFabric);
-          console.log(`🔍 Validation result: ${value} in fabric ${zoneFabric} = ${isValid}`);
-          
-          if (!isValid) {
-            console.log(`🔴 APPLYING FABRIC VALIDATION CLASS to ${value}`);
-            // Add CSS class
-            td.className = (td.className || '').replace(' invalid-fabric-member', '') + ' invalid-fabric-member';
-            td.title = `Invalid: ${value} does not belong to fabric ${zoneFabric}`;
-            console.log(`🎯 TD className:`, td.className);
-            
-            // EFFICIENT PERSISTENT STYLING - minimal performance impact
-            const applyPersistentStyling = () => {
-              const dropdownCells = document.querySelectorAll('td.htAutocomplete');
-              dropdownCells.forEach(cell => {
-                const text = cell.textContent?.trim();
-                if (text && (text === `▼${value}` || text.includes(value))) {
-                  // Only apply if not already styled to avoid redundant operations
-                  if (!cell.classList.contains('invalid-fabric-member')) {
-                    cell.classList.add('invalid-fabric-member');
-                    cell.style.setProperty('color', '#dc2626', 'important');
-                    cell.style.setProperty('background-color', '#fef2f2', 'important');
-                    cell.style.setProperty('font-weight', 'bold', 'important');
-                    cell.style.setProperty('border', '2px solid #dc2626', 'important');
-                    cell.title = `Invalid: ${value} does not belong to fabric ${zoneFabric}`;
-                  }
-                }
-              });
-            };
-            
-            // Lightweight observer - only triggers on actual table changes
-            const startEfficientMonitoring = () => {
-              const handsontableElement = document.querySelector('.handsontable');
-              if (!handsontableElement) return;
-              
-              // Debounced styling application to prevent excessive calls
-              let styleTimeout;
-              const debouncedApplyStyles = () => {
-                clearTimeout(styleTimeout);
-                styleTimeout = setTimeout(applyPersistentStyling, 100);
-              };
-              
-              // Lightweight observer - only watch for new dropdown cells
-              const observer = new MutationObserver((mutations) => {
-                let hasRelevantChange = false;
-                mutations.forEach(mutation => {
-                  if (mutation.type === 'childList') {
-                    mutation.addedNodes.forEach(node => {
-                      if (node.nodeType === 1 && node.classList?.contains('htAutocomplete')) {
-                        hasRelevantChange = true;
-                      }
-                    });
-                  }
-                });
-                
-                if (hasRelevantChange) {
-                  debouncedApplyStyles();
-                }
-              });
-              
-              observer.observe(handsontableElement, {
-                childList: true,
-                subtree: true
-              });
-              
-              // Store cleanup
-              window.fabricValidationCleanup = window.fabricValidationCleanup || [];
-              window.fabricValidationCleanup.push(() => observer.disconnect());
-            };
-            
-            // Apply once and start efficient monitoring
-            setTimeout(() => {
-              applyPersistentStyling();
-              startEfficientMonitoring();
-            }, 100);
-          } else {
-            console.log(`✅ CLEARING STYLING for valid ${value}`);
-            // Clear CSS class for valid members
-            td.className = (td.className || '').replace(' invalid-fabric-member', '');
-            td.title = "";
-          }
-        } else {
-          // Clear styling for empty cells
-          td.className = (td.className || '').replace(' invalid-fabric-member', '');
-          td.title = "";
-        }
-        
         return td;
       };
     }
@@ -795,9 +760,14 @@ const ZoneTable = () => {
         } else if (
           colConfig.data === "imported" ||
           colConfig.data === "updated" ||
-          colConfig.data === "member_count"
+          colConfig.data === "member_count" ||
+          colConfig.data === "zone_status"
         ) {
           column.readOnly = true;
+          // Center align status column
+          if (colConfig.data === "zone_status") {
+            column.className = "htCenter";
+          }
         }
 
         return column;
@@ -1175,6 +1145,106 @@ const ZoneTable = () => {
         additionalButtons={additionalButtonsConfig}
         filters={true}
       />
+      
+      {/* Fabric Validation Modal */}
+      {showValidationModal && validationModalData && (
+        <div 
+          className="modal fade show d-block" 
+          style={{backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999}}
+          onClick={() => setShowValidationModal(false)}
+        >
+          <div 
+            className="modal-dialog modal-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-content">
+              <div className="modal-header bg-danger text-white">
+                <h5 className="modal-title">
+                  <span className="me-2">⚠️</span>
+                  Zone Fabric Validation Issues
+                </h5>
+                <button 
+                  type="button" 
+                  className="btn-close btn-close-white" 
+                  onClick={() => setShowValidationModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <h6 className="text-primary">Zone Details</h6>
+                  <div className="bg-light p-3 rounded">
+                    <strong>Zone Name:</strong> {validationModalData.zoneName}<br/>
+                    <strong>Expected Fabric:</strong> <span className="badge bg-primary">{validationModalData.zoneFabric}</span>
+                  </div>
+                </div>
+                
+                {validationModalData.invalidMembers.length > 0 && (
+                  <div className="mb-3">
+                    <h6 className="text-danger">
+                      <span className="me-2">❌</span>
+                      Invalid Members ({validationModalData.invalidMembers.length})
+                    </h6>
+                    <div className="alert alert-danger">
+                      <p className="mb-2">
+                        <strong>These members belong to different fabrics and need to be fixed:</strong>
+                      </p>
+                      <ul className="mb-0">
+                        {validationModalData.invalidMembers.map((member, index) => (
+                          <li key={index} className="mb-1">
+                            <code className="bg-white text-danger p-1 rounded">{member.name}</code>
+                            <span className="ms-2">→ belongs to fabric</span>
+                            <span className="badge bg-warning text-dark ms-1">{member.actualFabric}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+                
+                {validationModalData.validMembers.length > 0 && (
+                  <div className="mb-3">
+                    <h6 className="text-success">
+                      <span className="me-2">✅</span>
+                      Valid Members ({validationModalData.validMembers.length})
+                    </h6>
+                    <div className="alert alert-success">
+                      <p className="mb-2">
+                        <strong>These members correctly belong to fabric "{validationModalData.zoneFabric}":</strong>
+                      </p>
+                      <div className="d-flex flex-wrap gap-1">
+                        {validationModalData.validMembers.map((member, index) => (
+                          <span key={index} className="badge bg-success">{member}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="alert alert-info">
+                  <h6 className="text-info mb-2">
+                    <span className="me-2">💡</span>
+                    How to Fix
+                  </h6>
+                  <ul className="mb-0">
+                    <li>Change the zone's fabric to match the members' fabric, OR</li>
+                    <li>Remove invalid members and replace with aliases from the correct fabric, OR</li>
+                    <li>Move the invalid aliases to the correct fabric in the Alias Table</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  onClick={() => setShowValidationModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
