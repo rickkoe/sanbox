@@ -118,6 +118,18 @@ const dropdownStyles = `
     max-height: 350px !important;
     overflow-y: visible !important;
   }
+  
+  /* FABRIC VALIDATION STYLING - Target htAutocomplete dropdown cells */
+  html body div.handsontable div.ht_master div.wtHolder div.wtHider table.htCore tbody tr td.htAutocomplete.invalid-fabric-member,
+  html body .handsontable .ht_master .wtHolder table tbody tr td.htAutocomplete.invalid-fabric-member,
+  html body .handsontable table tbody tr td.htAutocomplete.invalid-fabric-member,
+  .handsontable td.htAutocomplete.invalid-fabric-member {
+    color: #dc2626 !important;
+    background-color: #fef2f2 !important;
+    font-weight: bold !important;
+    border: 2px solid #dc2626 !important;
+    box-shadow: inset 0 0 0 1px #dc2626 !important;
+  }
 `;
 
 console.log("Handsontable version:", Handsontable.version);
