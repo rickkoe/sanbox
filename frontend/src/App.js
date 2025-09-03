@@ -63,6 +63,10 @@ function AppContent() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
 
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => !prev);
+  };
+
   // Define routes that use tables (need fixed headers)
   const tableRoutes = [
     '/customers',
@@ -115,10 +119,16 @@ function AppContent() {
             <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
             <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
               <header className="navbar">
-                <Navbar />
+                <Navbar 
+                  toggleSidebar={toggleSidebar}
+                  isSidebarOpen={!isSidebarCollapsed}
+                />
               </header>
               <aside className="sidebar">
-                <Sidebar onCollapseChange={setIsSidebarCollapsed} />
+                <Sidebar 
+                  isCollapsed={isSidebarCollapsed}
+                  onCollapseChange={setIsSidebarCollapsed} 
+                />
               </aside>
               <div className="topbar">
                 <Breadcrumbs />

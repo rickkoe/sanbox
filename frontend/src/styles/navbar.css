@@ -4,6 +4,34 @@
   align-items: center;
 }
 
+.navbar-left-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Navbar Sidebar Toggle */
+.navbar-sidebar-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #f8f9fa;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  transition: all 0.2s ease;
+}
+
+.navbar-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
 /* Back Button */
 .nav-back-button {
   background: rgba(255, 255, 255, 0.1);

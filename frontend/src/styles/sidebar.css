@@ -15,30 +15,6 @@
   width: 70px;
 }
 
-/* Toggle Button */
-.sidebar-toggle {
-  position: absolute;
-  top: 1rem;
-  right: -12px;
-  background: #0d6efd;
-  border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  cursor: pointer;
-  z-index: 100;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
-}
-
-.sidebar-toggle:hover {
-  background: #0056b3;
-  transform: scale(1.1);
-}
 
 /* Header */
 .sidebar-header {

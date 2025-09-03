@@ -10,6 +10,7 @@ import ImportButton from "./ImportButton";
 import ScriptsDropdown from "./ScriptsDropdown";
 import ToolsButton from "./ToolsButton";
 import UserSection from "./UserSection";
+import SidebarToggle from "./SidebarToggle";
 import AboutModal from "../../pages/AboutPage";
 
 const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
@@ -29,10 +30,17 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark">
       <div className="container-fluid">
-        <NavbarBrand 
-          showBackButton={showBackButton} 
-          backPath={backPath} 
-        />
+        <div className="navbar-left-section">
+          <SidebarToggle 
+            isCollapsed={!isSidebarOpen} 
+            onToggle={toggleSidebar}
+          />
+          
+          <NavbarBrand 
+            showBackButton={showBackButton} 
+            backPath={backPath} 
+          />
+        </div>
 
         <NavbarContext 
           config={config} 

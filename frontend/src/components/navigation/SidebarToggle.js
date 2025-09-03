@@ -1,15 +1,15 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Menu } from "lucide-react";
 
 const SidebarToggle = ({ isCollapsed, onToggle }) => {
   return (
     <button 
-      className="sidebar-toggle"
+      className="navbar-sidebar-toggle"
       onClick={onToggle}
-      title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+      title={isCollapsed ? "Show sidebar" : "Hide sidebar"}
     >
-      {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+      <Menu size={20} />
     </button>
   );
 };
