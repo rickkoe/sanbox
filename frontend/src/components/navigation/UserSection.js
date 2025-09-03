@@ -1,16 +1,19 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
 import { Settings, HelpCircle, User, Sliders, Info } from "lucide-react";
 
 const UserSection = ({ onAboutClick }) => {
+  const location = useLocation();
+  const isSettingsActive = location.pathname.startsWith('/settings');
+  
   return (
     <>
       <li className="nav-item">
         <Dropdown align="end">
           <Dropdown.Toggle 
             as="span" 
-            className="nav-link" 
+            className={`nav-link ${isSettingsActive ? 'active' : ''}`}
             style={{ cursor: "pointer" }}
             title="Settings & Configuration"
           >
@@ -18,11 +21,11 @@ const UserSection = ({ onAboutClick }) => {
             <span className="nav-label ms-1">Settings</span>
           </Dropdown.Toggle>
           <Dropdown.Menu>
-            <Dropdown.Item as={NavLink} to="/config">
+            <Dropdown.Item as={NavLink} to="/settings/project-config">
               <Sliders size={16} className="me-2" />
               Project Config
             </Dropdown.Item>
-            <Dropdown.Item as={NavLink} to="/settings">
+            <Dropdown.Item as={NavLink} to="/settings/app-settings">
               <Settings size={16} className="me-2" />
               App Settings
             </Dropdown.Item>

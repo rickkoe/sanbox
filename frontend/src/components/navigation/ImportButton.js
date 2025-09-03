@@ -1,6 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
 import { Download } from "lucide-react";
 
@@ -10,13 +10,16 @@ const ImportButton = ({
   currentImport, 
   onCancelImport 
 }) => {
+  const location = useLocation();
+  const isImportActive = location.pathname.startsWith('/import');
+  
   if (isImportRunning) {
     return (
       <li className="nav-item">
         <Dropdown align="end">
           <Dropdown.Toggle 
             as="span" 
-            className="nav-link" 
+            className={`nav-link ${isImportActive ? 'active' : ''}`}
             style={{ cursor: "pointer" }}
             title={importProgress?.status || 'Import Running'}
           >
@@ -31,7 +34,7 @@ const ImportButton = ({
             <span className="nav-label ms-1">Import</span>
           </Dropdown.Toggle>
           <Dropdown.Menu>
-            <Dropdown.Item as={NavLink} to="/insights/importer">
+            <Dropdown.Item as={NavLink} to="/import/ibm-storage-insights">
               View Import Details
             </Dropdown.Item>
             <Dropdown.Divider />
@@ -56,7 +59,7 @@ const ImportButton = ({
       <Dropdown align="end">
         <Dropdown.Toggle 
           as="span" 
-          className="nav-link" 
+          className={`nav-link ${isImportActive ? 'active' : ''}`}
           style={{ cursor: "pointer" }}
           title="Data Import"
         >
@@ -64,12 +67,11 @@ const ImportButton = ({
           <span className="nav-label ms-1">Import</span>
         </Dropdown.Toggle>
         <Dropdown.Menu>
-          <Dropdown.Item as={NavLink} to="/insights/importer">
+          <Dropdown.Item as={NavLink} to="/import/ibm-storage-insights">
             Storage Insights Import
           </Dropdown.Item>
-          <Dropdown.Divider />
-          <Dropdown.Item as={NavLink} to="/san/bulk-import">
-            <strong>Bulk Zoning Import</strong>
+          <Dropdown.Item as={NavLink} to="/import/zoning">
+            Bulk Zoning Import
           </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown>

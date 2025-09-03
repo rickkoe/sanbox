@@ -212,7 +212,7 @@ const Dashboard = () => {
           </div>
           
           <div className="welcome-actions">
-            <Link to="/config" className="action-btn primary">
+            <Link to="/settings/project-config" className="action-btn primary">
               <FaCog className="action-icon" />
               <div className="action-content">
                 <h3>Get Started</h3>
@@ -301,7 +301,7 @@ const Dashboard = () => {
             Refresh
           </button>
           
-          <Link to="/config" className="header-action">
+          <Link to="/settings/project-config" className="header-action">
             <FaCog />
             Settings
           </Link>
@@ -397,7 +397,7 @@ const Dashboard = () => {
             <p>Manage customers and Storage Insights</p>
           </Link>
 
-          <Link to="/insights/importer" className="action-card">
+          <Link to="/import/ibm-storage-insights" className="action-card">
             <FaCloud className="action-icon" />
             <h3>Import Data</h3>
             <p>Import from Storage Insights</p>

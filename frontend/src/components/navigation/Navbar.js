@@ -8,7 +8,7 @@ import NavbarBrand from "./NavbarBrand";
 import NavbarContext from "./NavbarContext";
 import ImportButton from "./ImportButton";
 import ScriptsDropdown from "./ScriptsDropdown";
-import ToolsDropdown from "./ToolsDropdown";
+import ToolsButton from "./ToolsButton";
 import UserSection from "./UserSection";
 import AboutModal from "../../pages/AboutPage";
 
@@ -41,16 +41,16 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto align-items-center d-flex">
+            <ScriptsDropdown />
+
             <ImportButton 
               isImportRunning={isImportRunning}
               importProgress={importProgress}
               currentImport={currentImport}
               onCancelImport={handleCancelImport}
             />
-
-            <ScriptsDropdown />
             
-            <ToolsDropdown />
+            <ToolsButton />
 
             <li className="nav-item nav-divider">
               <span className="divider-line"></span>

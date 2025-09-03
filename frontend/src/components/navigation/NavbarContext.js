@@ -18,7 +18,7 @@ const NavbarContext = ({ config, loading }) => {
   if (!config || !config.customer) {
     return (
       <div className="navbar-context">
-        <Link to="/config" className="context-empty">
+        <Link to="/settings/project-config" className="context-empty">
           <Building2 size={16} className="me-2" />
           <span>Setup Required</span>
         </Link>
@@ -64,7 +64,7 @@ const NavbarContext = ({ config, loading }) => {
             </div>
           </Dropdown.Item>
           <Dropdown.Divider />
-          <Dropdown.Item as={Link} to="/config">
+          <Dropdown.Item as={Link} to="/settings/project-config">
             <Settings size={14} className="me-2" />
             Change Context
           </Dropdown.Item>

@@ -36,7 +36,7 @@ export const useNavigation = () => {
     if (path.startsWith("/insights/") && path !== "/insights") {
       return "/insights";
     }
-    if (["/config", "/tools", "/scripts"].some(p => path.startsWith(p))) {
+    if (["/settings", "/tools", "/scripts"].some(p => path.startsWith(p))) {
       return "/";
     }
     if (path.includes("/import")) {

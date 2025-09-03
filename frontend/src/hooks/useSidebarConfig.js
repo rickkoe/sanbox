@@ -60,7 +60,7 @@ const getSidebarLinks = (pathname) => {
         icon: Database, 
         expandable: true,
         subLinks: [
-          { path: "/insights/importer", label: "Data Importer", icon: Database },
+          { path: "/import/ibm-storage-insights", label: "Data Importer", icon: Database },
         ]
       },
       { 

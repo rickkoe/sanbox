@@ -1,15 +1,18 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
 import { Terminal } from "lucide-react";
 
 const ScriptsDropdown = () => {
+  const location = useLocation();
+  const isScriptsActive = location.pathname.startsWith('/scripts');
+  
   return (
     <li className="nav-item">
       <Dropdown align="end">
         <Dropdown.Toggle 
           as="span" 
-          className="nav-link" 
+          className={`nav-link ${isScriptsActive ? 'active' : ''}`}
           style={{ cursor: "pointer" }}
           title="Scripts"
         >
