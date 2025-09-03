@@ -560,7 +560,7 @@ const AliasTable = () => {
         newRowTemplate={NEW_ALIAS_TEMPLATE}
         tableName="aliases"
         serverPagination={true}
-        defaultPageSize={50}
+        defaultPageSize={'All'}
         storageKey={`alias-table-${activeProjectId}`}
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => {

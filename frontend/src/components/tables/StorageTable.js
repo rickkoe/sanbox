@@ -377,7 +377,7 @@ const StorageTable = () => {
         saveUrl={API_ENDPOINTS.storage}
         deleteUrl={API_ENDPOINTS.storage}
         serverPagination={true}
-        defaultPageSize={50}
+        defaultPageSize={'All'}
         storageKey={`storage-table-${customerId}`}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
         colHeaders={ALL_STORAGE_COLUMNS.map(col => col.title)}

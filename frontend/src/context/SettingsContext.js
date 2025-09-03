@@ -6,7 +6,7 @@ export const SettingsContext = createContext();
 export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState({
     theme: 'light',
-    items_per_page: 25,
+    items_per_page: 'All',
     auto_refresh: true,
     auto_refresh_interval: 30,
     notifications: true,

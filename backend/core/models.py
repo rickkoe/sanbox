@@ -185,13 +185,15 @@ class AppSettings(models.Model):
         help_text="UI theme preference"
     )
     
-    items_per_page = models.IntegerField(
-        default=50,
+    items_per_page = models.CharField(
+        max_length=10,
+        default='All',
         choices=[
-            (25, '25'),
-            (50, '50'),
-            (100, '100'),
-            (250, '250'),
+            ('25', '25'),
+            ('50', '50'),
+            ('100', '100'),
+            ('250', '250'),
+            ('All', 'All'),
         ],
         help_text="Default number of items per page in tables"
     )

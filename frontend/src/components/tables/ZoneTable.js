@@ -1102,7 +1102,7 @@ const ZoneTable = () => {
         dropdownSources={dropdownSources}
         customRenderers={customRenderers}
         serverPagination={true}
-        defaultPageSize={50}
+        defaultPageSize={'All'}
         storageKey={`zone-table-${activeProjectId}-cols${memberColumnsInfo.totalMemberColumns}`}
         preprocessData={preprocessData}
         onBuildPayload={buildPayload}

@@ -153,7 +153,7 @@ const VolumeTable = ({ storage }) => {
         saveUrl={`${API_URL}/api/storage/volumes/`}
         deleteUrl={`${API_URL}/api/storage/volumes/`}
         serverPagination={true}
-        defaultPageSize={50}
+        defaultPageSize={'All'}
         storageKey={`volume-table-${storage?.storage_system_id || 'default'}`}
         tableName="volumes"
         height="calc(100vh - 180px)"

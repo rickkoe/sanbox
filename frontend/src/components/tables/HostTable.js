@@ -676,7 +676,7 @@ const HostTable = () => {
         newRowTemplate={NEW_HOST_TEMPLATE}
         tableName="allHosts"
         serverPagination={true}
-        defaultPageSize={50}
+        defaultPageSize={'All'}
         storageKey={`all-hosts-table-${activeProjectId}`}
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => {

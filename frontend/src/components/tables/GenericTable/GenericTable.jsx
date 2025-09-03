@@ -168,7 +168,7 @@ const GenericTable = forwardRef(({
   defaultVisibleColumns = [],
   tableName = 'generic_table',  // Add tableName prop
   serverPagination = false,
-  defaultPageSize = 100,
+  defaultPageSize = 'All',
   userId = null  // Add userId prop for user-specific settings
 }, ref) => {
   

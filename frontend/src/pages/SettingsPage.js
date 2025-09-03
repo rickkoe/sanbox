@@ -47,12 +47,8 @@ const SettingsPage = () => {
 
     const handleReset = async () => {
         const defaultSettings = {
-            theme: 'light',
-            items_per_page: 25,
-            auto_refresh: true,
-            auto_refresh_interval: 30,
+            items_per_page: 'All',
             notifications: true,
-            compact_mode: false,
             show_advanced_features: false,
             zone_ratio: 'one-to-one',
             alias_max_zones: 1
@@ -93,19 +89,6 @@ const SettingsPage = () => {
                     <div className="settings-section">
                         <h3>Display Settings</h3>
                         <div className="settings-grid">
-                            <div className="form-group">
-                                <label className="form-label">Theme</label>
-                                <select 
-                                    className="form-select" 
-                                    name="theme" 
-                                    value={settings.theme} 
-                                    onChange={handleInputChange}
-                                >
-                                    <option value="light">Light</option>
-                                    <option value="dark">Dark</option>
-                                    <option value="auto">Auto (System)</option>
-                                </select>
-                            </div>
 
                             <div className="form-group">
                                 <label className="form-label">Items per page</label>
@@ -119,59 +102,13 @@ const SettingsPage = () => {
                                     <option value={50}>50</option>
                                     <option value={100}>100</option>
                                     <option value={250}>250</option>
+                                    <option value="All">All</option>
                                 </select>
                             </div>
 
-                            <div className="form-group checkbox-group">
-                                <label className="checkbox-label">
-                                    <input
-                                        type="checkbox"
-                                        name="compact_mode"
-                                        checked={settings.compact_mode}
-                                        onChange={handleInputChange}
-                                    />
-                                    <span className="checkbox-text">Compact mode</span>
-                                </label>
-                                <small className="form-help">Reduce spacing and padding for more data on screen</small>
-                            </div>
                         </div>
                     </div>
 
-                    {/* Data & Refresh Settings */}
-                    <div className="settings-section">
-                        <h3>Data & Refresh Settings</h3>
-                        <div className="settings-grid">
-                            <div className="form-group checkbox-group">
-                                <label className="checkbox-label">
-                                    <input
-                                        type="checkbox"
-                                        name="auto_refresh"
-                                        checked={settings.auto_refresh}
-                                        onChange={handleInputChange}
-                                    />
-                                    <span className="checkbox-text">Auto-refresh data</span>
-                                </label>
-                                <small className="form-help">Automatically refresh table data periodically</small>
-                            </div>
-
-                            {settings.auto_refresh && (
-                                <div className="form-group">
-                                    <label className="form-label">Refresh interval (seconds)</label>
-                                    <select 
-                                        className="form-select" 
-                                        name="auto_refresh_interval" 
-                                        value={settings.auto_refresh_interval} 
-                                        onChange={handleInputChange}
-                                    >
-                                        <option value={15}>15 seconds</option>
-                                        <option value={30}>30 seconds</option>
-                                        <option value={60}>1 minute</option>
-                                        <option value={300}>5 minutes</option>
-                                    </select>
-                                </div>
-                            )}
-                        </div>
-                    </div>
 
                     {/* SAN Configuration */}
                     <div className="settings-section">

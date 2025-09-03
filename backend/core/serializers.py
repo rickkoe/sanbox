@@ -121,9 +121,9 @@ class AppSettingsSerializer(serializers.ModelSerializer):
     
     def validate_items_per_page(self, value):
         """Validate items per page is a valid choice"""
-        valid_choices = [25, 50, 100, 250]
+        valid_choices = ['25', '50', '100', '250', 'All']
         if value not in valid_choices:
-            raise serializers.ValidationError(f"Items per page must be one of: {', '.join(map(str, valid_choices))}")
+            raise serializers.ValidationError(f"Items per page must be one of: {', '.join(valid_choices)}")
         return value
     
     def validate_auto_refresh_interval(self, value):

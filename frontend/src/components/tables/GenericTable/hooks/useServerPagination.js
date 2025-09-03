@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { generateServerFilters, createColumnMetadata } from '../utils/columnFilterUtils';
 
-export const useServerPagination = (baseApiUrl, defaultPageSize = 100, storageKey = null, quickSearch = '', columnFilters = {}, columns = [], onPageSizeChange = null, colHeaders = [], dropdownSources = {}, visibleColumns = {}) => {
+export const useServerPagination = (baseApiUrl, defaultPageSize = 'All', storageKey = null, quickSearch = '', columnFilters = {}, columns = [], onPageSizeChange = null, colHeaders = [], dropdownSources = {}, visibleColumns = {}) => {
   // State management
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);

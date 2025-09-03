@@ -190,7 +190,7 @@ const FabricTable = () => {
                 saveUrl={fabricsApiUrl}
                 deleteUrl={fabricDeleteApiUrl}
                 serverPagination={true}
-                defaultPageSize={50}
+                defaultPageSize={'All'}
                 storageKey={`fabric-table-${customerId || 'default'}`}
                 tableName="fabrics"
                 newRowTemplate={NEW_FABRIC_TEMPLATE}
