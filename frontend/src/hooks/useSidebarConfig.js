@@ -4,7 +4,6 @@ import { BreadcrumbContext } from "../context/BreadcrumbContext";
 import {
   Network,
   HardDrive,
-  Menu,
   GitBranch,
   Tags,
   Layers,
@@ -12,7 +11,6 @@ import {
   Archive,
   Monitor,
   Users,
-  Settings,
   Database,
 } from "lucide-react";
 
@@ -51,7 +49,7 @@ const getSidebarLinks = (pathname) => {
   // For all other pages, show the expandable main menu
   return {
     header: "Main Menu",
-    icon: Menu,
+    icon: null,
     showBackButton: false,
     links: [
       { path: "/customers", label: "Customers", icon: Users },

@@ -181,6 +181,82 @@
   color: #ffffff !important;
 }
 
+/* Collapsed Sidebar Popover */
+.sidebar-section {
+  position: relative;
+}
+
+.sidebar-popover {
+  position: fixed;
+  left: 70px;
+  top: auto;
+  background: #2d3748;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  min-width: 200px;
+  animation: fadeInLeft 0.2s ease;
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.sidebar-popover-header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+  color: #f8f9fa;
+  font-size: 0.875rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px 8px 0 0;
+}
+
+.sidebar-popover-menu {
+  list-style: none;
+  padding: 0.5rem 0;
+  margin: 0;
+}
+
+.sidebar-popover-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  color: #f8f9fa;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.sidebar-popover-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.sidebar-popover-link.active {
+  background: rgba(13, 110, 253, 0.2);
+  color: #ffffff;
+  border-left: 3px solid #0d6efd;
+  padding-left: calc(1rem - 3px);
+}
+
+.sidebar-popover-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
 /* Responsive Design */
 @media (max-width: 1200px) {
   .modern-sidebar {

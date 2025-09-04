@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { NavLink, useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 const SidebarNavigation = ({ links, isCollapsed }) => {
   const location = useLocation();
+  const popoverRef = useRef(null);
+  
   const [expandedSections, setExpandedSections] = useState(() => {
     // Auto-expand sections based on current path
     const initialExpanded = {};
@@ -20,8 +22,40 @@ const SidebarNavigation = ({ links, isCollapsed }) => {
     return initialExpanded;
   });
 
-  const toggleSection = (index) => {
-    if (isCollapsed) return; // Don't toggle when collapsed
+  const [hoveredSection, setHoveredSection] = useState(null);
+  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 70 });
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+        setHoveredSection(null);
+      }
+    };
+
+    if (hoveredSection !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [hoveredSection]);
+
+  const toggleSection = (index, event) => {
+    if (isCollapsed) {
+      // When collapsed, show popover instead of expanding
+      if (hoveredSection === index) {
+        setHoveredSection(null);
+        return;
+      }
+      
+      // Calculate position of the clicked element
+      const rect = event.currentTarget.getBoundingClientRect();
+      setPopoverPosition({
+        top: rect.top,
+        left: 70
+      });
+      setHoveredSection(index);
+      return;
+    }
     
     setExpandedSections(prev => ({
       ...prev,
@@ -60,14 +94,15 @@ const SidebarNavigation = ({ links, isCollapsed }) => {
   const renderExpandableSection = (section, index) => {
     const SectionIcon = section.icon;
     const isExpanded = expandedSections[index];
+    const isPopoverVisible = isCollapsed && hoveredSection === index;
     
     return (
-      <li key={`section-${index}`} className="sidebar-menu-item">
+      <li key={`section-${index}`} className="sidebar-menu-item sidebar-section">
         <div
           className={`sidebar-link sidebar-section-header ${isExpanded ? 'expanded' : ''}`}
-          onClick={() => toggleSection(index)}
+          onClick={(e) => toggleSection(index, e)}
           title={isCollapsed ? section.label : ""}
-          style={{ cursor: isCollapsed ? 'default' : 'pointer' }}
+          style={{ cursor: 'pointer' }}
         >
           {SectionIcon && (
             <div className="sidebar-link-icon">
@@ -88,6 +123,7 @@ const SidebarNavigation = ({ links, isCollapsed }) => {
           )}
         </div>
         
+        {/* Regular submenu for expanded sidebar */}
         {!isCollapsed && isExpanded && (
           <ul className="sidebar-submenu">
             {section.subLinks.map((subLink) => (
@@ -108,6 +144,40 @@ const SidebarNavigation = ({ links, isCollapsed }) => {
               </li>
             ))}
           </ul>
+        )}
+        
+        {/* Popover menu for collapsed sidebar */}
+        {isCollapsed && isPopoverVisible && (
+          <div 
+            className="sidebar-popover" 
+            ref={popoverRef}
+            style={{
+              top: `${popoverPosition.top}px`,
+              left: `${popoverPosition.left}px`
+            }}
+          >
+            <div className="sidebar-popover-header">{section.label}</div>
+            <ul className="sidebar-popover-menu">
+              {section.subLinks.map((subLink) => (
+                <li key={subLink.path}>
+                  <NavLink
+                    to={subLink.path}
+                    className={({ isActive }) =>
+                      `sidebar-popover-link ${isActive ? "active" : ""}`
+                    }
+                    onClick={() => setHoveredSection(null)}
+                  >
+                    {subLink.icon && (
+                      <div className="sidebar-popover-icon">
+                        <subLink.icon size={16} />
+                      </div>
+                    )}
+                    <span>{subLink.label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </li>
     );
