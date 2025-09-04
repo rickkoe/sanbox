@@ -4,6 +4,7 @@ import { BreadcrumbContext } from "../context/BreadcrumbContext";
 import {
   Network,
   HardDrive,
+  Menu,
   GitBranch,
   Tags,
   Layers,
@@ -12,6 +13,8 @@ import {
   Monitor,
   Users,
   Database,
+  Building2,
+  FolderOpen,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -49,10 +52,18 @@ const getSidebarLinks = (pathname) => {
   // For all other pages, show the expandable main menu
   return {
     header: "Main Menu",
-    icon: null,
+    icon: Menu,
     showBackButton: false,
     links: [
-      { path: "/customers", label: "Customers", icon: Users },
+      { 
+        label: "Organization", 
+        icon: Building2, 
+        expandable: true,
+        subLinks: [
+          { path: "/customers", label: "Customers", icon: Users },
+          { path: "/projects", label: "Projects", icon: FolderOpen },
+        ]
+      },
       { 
         label: "Storage Insights", 
         icon: Database, 

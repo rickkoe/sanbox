@@ -10,10 +10,9 @@ import ImportButton from "./ImportButton";
 import ScriptsDropdown from "./ScriptsDropdown";
 import ToolsButton from "./ToolsButton";
 import UserSection from "./UserSection";
-import SidebarToggle from "./SidebarToggle";
 import AboutModal from "../../pages/AboutPage";
 
-const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
+const Navbar = () => {
   const { config, loading } = useContext(ConfigContext);
   const { isImportRunning, importProgress, currentImport, cancelImport } = useImportStatus();
   const { backPath, showBackButton } = useNavigation();
@@ -30,17 +29,10 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark">
       <div className="container-fluid">
-        <div className="navbar-left-section">
-          <SidebarToggle 
-            isCollapsed={!isSidebarOpen} 
-            onToggle={toggleSidebar}
-          />
-          
-          <NavbarBrand 
-            showBackButton={showBackButton} 
-            backPath={backPath} 
-          />
-        </div>
+        <NavbarBrand 
+          showBackButton={showBackButton} 
+          backPath={backPath} 
+        />
 
         <NavbarContext 
           config={config} 
@@ -76,9 +68,5 @@ const Navbar = ({ toggleSidebar, isSidebarOpen }) => {
   );
 };
 
-Navbar.propTypes = {
-  toggleSidebar: PropTypes.func,
-  isSidebarOpen: PropTypes.bool,
-};
 
 export default Navbar;

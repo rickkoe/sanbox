@@ -26,6 +26,24 @@
   margin-bottom: 1rem;
 }
 
+.sidebar-toggle-icon {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #f8f9fa;
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle-icon:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
 .sidebar-header-icon {
   display: flex;
   align-items: center;
