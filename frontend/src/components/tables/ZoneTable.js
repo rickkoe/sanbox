@@ -254,6 +254,17 @@ const ZoneTable = () => {
     for (let i = 1; i <= totalColumns; i++) delete payload[`member_${i}`];
     delete payload.saved;
 
+    // Handle boolean fields - convert "unknown" values to default False
+    const booleanFields = ['create', 'delete', 'exists'];
+    booleanFields.forEach(field => {
+      if (payload[field] === 'unknown' || payload[field] === undefined || payload[field] === null || payload[field] === '') {
+        payload[field] = false; // Set to default False
+      } else if (typeof payload[field] === 'string') {
+        // Convert string representations to boolean
+        payload[field] = payload[field].toLowerCase() === 'true';
+      }
+    });
+
     return {
       ...payload,
       projects: [activeProjectId],
@@ -1143,6 +1154,7 @@ const ZoneTable = () => {
           </button>
         }
         additionalButtons={additionalButtonsConfig}
+        columnSorting={true}
         filters={true}
       />
       

@@ -36,6 +36,7 @@ const StorageCalculatorPage = React.lazy(() => import("./pages/StorageCalculator
 const StoragePage = React.lazy(() => import("./pages/StoragePage"));
 const ScriptsPage = React.lazy(() => import("./pages/ScriptsPage"));
 const CustomerTable = React.lazy(() => import("./components/tables/CustomerTable"));
+const ProjectTable = React.lazy(() => import("./components/tables/ProjectTable"));
 const FabricTable = React.lazy(() => import("./components/tables/FabricTable"));
 const AliasTable = React.lazy(() => import("./components/tables/AliasTable"));
 const ZoneTable = React.lazy(() => import("./components/tables/ZoneTable"));
@@ -66,6 +67,7 @@ function AppContent() {
   // Define routes that use tables (need fixed headers)
   const tableRoutes = [
     '/customers',
+    '/projects',
     '/san/aliases', 
     '/san/zones',
     '/san/fabrics',
@@ -131,7 +133,7 @@ function AppContent() {
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/customers" element={<CustomerTable />} />
-                    <Route path="/projects" element={<div style={{padding: '2rem'}}><h2>Projects</h2><p>Projects management page - coming soon!</p></div>} />
+                    <Route path="/projects" element={<ProjectTable />} />
                     <Route path="/san" element={<SanPage />} />
                     <Route path="/insights" element={<InsightsPage />} />
                     <Route path="/san/aliases" element={<AliasTable />} />
