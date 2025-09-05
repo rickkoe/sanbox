@@ -280,6 +280,17 @@ const AliasTable = () => {
       payload.wwpn = formatWWPN(payload.wwpn);
     }
 
+    // Handle boolean fields - convert "unknown" values to default False
+    const booleanFields = ['create', 'delete', 'include_in_zoning', 'logged_in'];
+    booleanFields.forEach(field => {
+      if (payload[field] === 'unknown' || payload[field] === undefined || payload[field] === null || payload[field] === '') {
+        payload[field] = false; // Set to default False
+      } else if (typeof payload[field] === 'string') {
+        // Convert string representations to boolean
+        payload[field] = payload[field].toLowerCase() === 'true';
+      }
+    });
+
     const result = {
       ...payload,
       projects: [activeProjectId],
