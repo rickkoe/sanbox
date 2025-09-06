@@ -8,7 +8,8 @@ export const useTableColumns = (
   customRenderers, 
   dropdownSources,
   tableName,
-  userId = null
+  userId = null,
+  requiredColumns = []
 ) => {
   const [visibleColumns, setVisibleColumns] = useState({});
   const [columnFilter, setColumnFilter] = useState('');
@@ -57,7 +58,7 @@ export const useTableColumns = (
   }, [isConfigLoaded, columns.length, tableName]); // Add tableName to dependencies
 
   const isRequiredColumn = (columnIndex) => {
-    return defaultVisibleColumns.includes(columnIndex);
+    return requiredColumns.includes(columnIndex);
   };
 
   const createVisibleColumns = () => {

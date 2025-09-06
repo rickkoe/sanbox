@@ -246,8 +246,11 @@ def create_project_for_customer(request):
     print(f"🔥 Projects API - Method: {request.method}")
     
     if request.method == "GET":
-        # Return all projects with customer information
+        # Return all projects with customer information and counts
         try:
+            from san.models import Fabric, Alias, Zone
+            from storage.models import Storage, Host
+            
             all_projects = []
             
             # Get all customers and their projects
@@ -255,11 +258,23 @@ def create_project_for_customer(request):
             
             for customer in customers:
                 for project in customer.projects.all():
+                    # Calculate counts for each project
+                    fabric_count = Fabric.objects.filter(customer__projects=project).count()
+                    alias_count = project.alias_projects.count()  # Direct ManyToMany
+                    zone_count = project.zone_projects.count()    # Direct ManyToMany  
+                    storage_system_count = Storage.objects.filter(customer__projects=project).count()
+                    host_count = Host.objects.filter(project=project).count()  # Direct ForeignKey
+                    
                     all_projects.append({
                         'id': project.id,
                         'name': project.name,
                         'notes': project.notes or '',
-                        'customer': customer.name
+                        'customer': customer.name,
+                        'fabric_count': fabric_count,
+                        'alias_count': alias_count,
+                        'zone_count': zone_count,
+                        'storage_system_count': storage_system_count,
+                        'host_count': host_count
                     })
             
             return JsonResponse(all_projects, safe=False)

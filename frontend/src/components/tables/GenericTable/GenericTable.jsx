@@ -166,6 +166,7 @@ const GenericTable = forwardRef(({
   height = "100%",
   getExportFilename,
   defaultVisibleColumns = [],
+  requiredColumns = [],  // Column indices that cannot be hidden
   tableName = 'generic_table',  // Add tableName prop
   serverPagination = false,
   defaultPageSize = 'All',
@@ -735,7 +736,7 @@ const GenericTable = forwardRef(({
     configError,
     updateConfig,
     resetConfiguration
-  } = useTableColumns(columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources, tableName, userId);
+  } = useTableColumns(columns, colHeaders, defaultVisibleColumns, customRenderers, dropdownSources, tableName, userId, requiredColumns);
 
   // Enhanced column metadata for filtering - must come after useTableColumns
   const columnMetadata = React.useMemo(() => {

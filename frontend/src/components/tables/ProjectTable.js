@@ -5,13 +5,18 @@ import { ConfigContext } from "../../context/ConfigContext";
 
 // All possible project columns
 const ALL_COLUMNS = [
-  { data: "name", title: "Project Name" },
-  { data: "customer", title: "Customer" },
-  { data: "notes", title: "Notes" }
+  { data: "name", title: "Project Name", required: true },
+  { data: "customer", title: "Customer", required: true },
+  { data: "fabric_count", title: "Fabrics", type: "numeric", readOnly: true },
+  { data: "alias_count", title: "Aliases", type: "numeric", readOnly: true },
+  { data: "zone_count", title: "Zones", type: "numeric", readOnly: true },
+  { data: "storage_system_count", title: "Storage Systems", type: "numeric", readOnly: true },
+  { data: "host_count", title: "Hosts", type: "numeric", readOnly: true },
+  { data: "notes", title: "Notes" }  // Moved to far right and hidden by default
 ];
 
-// Default visible columns (show all by default)
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2];
+// Default visible columns (show quantity columns by default, hide notes)
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6];
 
 const ProjectTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
@@ -43,7 +48,12 @@ const ProjectTable = () => {
         id: null, 
         name: "", 
         customer: "", 
-        notes: "" 
+        notes: "",
+        fabric_count: 0,
+        alias_count: 0,
+        zone_count: 0,
+        storage_system_count: 0,
+        host_count: 0
     };
 
     // Load customer options for dropdown
@@ -208,6 +218,7 @@ const ProjectTable = () => {
                 onDelete={handleDelete}
                 newRowTemplate={NEW_PROJECT_TEMPLATE}
                 tableName="projects"
+                requiredColumns={[0, 1]}  // Project Name and Customer are required
                 colHeaders={ALL_COLUMNS.map(col => col.title)}
                 columns={ALL_COLUMNS.map(col => {
                     const column = { data: col.data };
