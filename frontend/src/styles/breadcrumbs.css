@@ -9,6 +9,36 @@
     padding: 0.75rem 1rem;
 }
 
+.breadcrumb-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.breadcrumb-right-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Table controls in breadcrumb area */
+.breadcrumb-right-content .table-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: nowrap;
+}
+
+/* Make controls slightly more compact in breadcrumb */
+.breadcrumb-right-content .table-controls .search-input {
+    min-width: 200px;
+}
+
+.breadcrumb-right-content .table-controls .stats-container {
+    font-size: 0.875rem;
+}
+
 .modern-breadcrumb {
     display: flex;
     align-items: center;

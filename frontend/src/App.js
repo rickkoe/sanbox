@@ -27,6 +27,7 @@ import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
 import { ImportStatusProvider } from "./context/ImportStatusContext";
 import { SettingsProvider } from "./context/SettingsContext";
+import { TableControlsProvider } from "./context/TableControlsContext";
 
 // Lazy-loaded components for better performance
 const SanPage = React.lazy(() => import("./pages/SanPage"));
@@ -114,20 +115,21 @@ function AppContent() {
       <SanVendorProvider>
         <ImportStatusProvider>
           <SettingsProvider>
-            <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
-            <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-              <header className="navbar">
-                <Navbar />
-              </header>
-              <aside className="sidebar">
-                <Sidebar 
-                  isCollapsed={isSidebarCollapsed}
-                  onCollapseChange={setIsSidebarCollapsed} 
-                />
-              </aside>
-              <div className="topbar">
-                <Breadcrumbs />
-              </div>
+            <TableControlsProvider>
+              <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
+              <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+                <header className="navbar">
+                  <Navbar />
+                </header>
+                <aside className="sidebar">
+                  <Sidebar 
+                    isCollapsed={isSidebarCollapsed}
+                    onCollapseChange={setIsSidebarCollapsed} 
+                  />
+                </aside>
+                <div className="topbar">
+                  <Breadcrumbs />
+                </div>
               <main className={getMainContentClass()}>
                 <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                   <Routes>
@@ -187,6 +189,7 @@ function AppContent() {
               </main>
             </div>
             </BreadcrumbContext.Provider>
+            </TableControlsProvider>
           </SettingsProvider>
         </ImportStatusProvider>
       </SanVendorProvider>

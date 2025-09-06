@@ -1,11 +1,12 @@
-import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
+import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle, useCallback, useMemo } from "react";
 import { HotTable } from '@handsontable/react';
-import { Modal } from "react-bootstrap";
 import axios from "axios";
 import Handsontable from 'handsontable';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
 import { useSettings } from '../../../context/SettingsContext';
+import { useTableControls } from '../../../context/TableControlsContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Import sub-components
 import TableHeader from './components/TableHeader';
@@ -13,6 +14,7 @@ import StatusMessage from './components/StatusMessage';
 import DeleteModal from './components/DeleteModal';
 import NavigationModal from './components/NavigationModal';
 import ScrollButtons from './components/ScrollButtons';
+import TableControls from './components/TableControls';
 import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
 import { useServerPagination } from './hooks/useServerPagination';
@@ -175,6 +177,9 @@ const GenericTable = forwardRef(({
   
   // Get settings for default page size
   const { settings, updateSettings } = useSettings();
+  
+  // Get table controls context
+  const { setTableControlsProps } = useTableControls();
   
   // Callback to update global settings when table page size changes
   const handleGlobalPageSizeChange = useCallback(async (newPageSize) => {
@@ -1382,19 +1387,84 @@ const GenericTable = forwardRef(({
     };
   }, []);
 
+  // Set table controls props in context (lightweight approach)
   useEffect(() => {
-    if (!isDirty) return;
-    const handleClick = (e) => {
-      const link = e.target.closest('a');
-      if (link && link.href && !link.href.includes('#')) {
-        e.preventDefault();
-        setNextPath(link.href);
-        setShowNavModal(true);
-      }
+    const props = {
+      columns,
+      colHeaders,
+      visibleColumns,
+      quickSearch,
+      setQuickSearch,
+      unsavedData: data,
+      hasNonEmptyValues: (row) => row && row.id,
+      selectedCount,
+      pagination: serverPagination ? serverPaginationHook : null,
+      data: preprocessData ? preprocessData(currentData) : currentData,
+      onFilterChange: handleFilterChange,
+      columnFilters,
+      apiUrl: serverPagination ? apiUrl : null,
+      serverPagination,
+      dropdownSources,
+      isDirty
     };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [isDirty]);
+    
+    setTableControlsProps(props);
+    
+    // Clean up when component unmounts
+    return () => {
+      setTableControlsProps(null);
+    };
+  }, [
+    // Only include stable values, not functions that change frequently
+    JSON.stringify(columns),
+    JSON.stringify(colHeaders), 
+    JSON.stringify(visibleColumns),
+    quickSearch,
+    selectedCount,
+    JSON.stringify(columnFilters),
+    isDirty,
+    serverPagination,
+    apiUrl
+    // Deliberately exclude: setQuickSearch, handleFilterChange, onBulkUpdate, data objects
+  ]);
+
+  // Navigation protection using beforeunload and click interception
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Navigation protection effect - TEMPORARILY COMPLETELY DISABLED FOR TESTING
+  useEffect(() => {
+    // Log the isDirty state for debugging
+    console.log('🔍 GenericTable isDirty =', isDirty);
+    
+    // NAVIGATION PROTECTION COMPLETELY DISABLED FOR TESTING
+    // if (!isDirty) return;
+    // 
+    // const handleClick = (e) => {
+    //   // Only handle navigation links in sidebar and navbar
+    //   const link = e.target.closest('a[href]');
+    //   if (!link) return;
+    //   
+    //   const href = link.getAttribute('href');
+    //   if (!href || href.startsWith('#') || href.startsWith('http') || href.includes('mailto:')) return;
+    //   
+    //   // Check if it's a navigation link (in sidebar or navbar)
+    //   const isNavLink = link.closest('.sidebar') || link.closest('.navbar') || link.closest('.breadcrumb');
+    //   if (!isNavLink) return;
+    //   
+    //   // Only prevent if it's going to a different route
+    //   const currentPath = location.pathname;
+    //   if (href === currentPath) return;
+    //   
+    //   console.log('🚫 Navigation blocked due to unsaved changes. Target:', href);
+    //   e.preventDefault();
+    //   setNextPath(href);
+    //   setShowNavModal(true);
+    // };
+
+    // document.addEventListener('click', handleClick, true); // Use capture phase
+    // return () => document.removeEventListener('click', handleClick, true);
+  }, [isDirty, location.pathname]);
 
   const scrollToTop = () => {
     const hot = tableRef.current?.hotInstance;
@@ -1834,31 +1904,9 @@ const GenericTable = forwardRef(({
         toggleColumnVisibility={toggleColumnVisibility}
         toggleAllColumns={toggleAllColumns}
         isRequiredColumn={isRequiredColumn}
-        quickSearch={quickSearch}
-        setQuickSearch={setQuickSearch}
-        unsavedData={data}
-        hasNonEmptyValues={(row) => {
-          // Only count rows that have an ID (real data from server)
-          // This excludes blank template rows which have id: null
-          return row && row.id;
-        }}
-        selectedCount={selectedCount}
         additionalButtons={additionalButtons}
         headerButtons={headerButtons}
-        columnFilters={columnFilters}
-        onClearAllFilters={() => {
-          setColumnFilters({});
-          if (updateConfig && !configError) {
-            updateConfig('filters', {});
-          }
-        }}
-        pagination={serverPagination ? serverPaginationHook : null}
-        data={preprocessData ? preprocessData(currentData) : currentData}
-        onFilterChange={handleFilterChange}
-        apiUrl={serverPagination ? apiUrl : null}
-        serverPagination={serverPagination}
         onBulkUpdate={handleBulkUpdate}
-        dropdownSources={dropdownSources}
       />
 
       <StatusMessage saveStatus={saveStatus} />
@@ -2083,7 +2131,10 @@ const GenericTable = forwardRef(({
         onHide={() => setShowNavModal(false)}
         onLeave={() => {
           setIsDirty(false);
-          window.location.href = nextPath;
+          setShowNavModal(false);
+          if (nextPath) {
+            navigate(nextPath);
+          }
         }}
       />
     </div>

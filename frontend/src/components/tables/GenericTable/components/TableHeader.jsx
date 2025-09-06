@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import AdvancedFilter from './AdvancedFilter';
-import StatsContainer from './StatsContainer';
-import BulkBooleanControls from './BulkBooleanControls';
+import BulkBooleanModal from './BulkBooleanModal';
 
 const TableHeader = ({
   loading,
@@ -18,25 +16,13 @@ const TableHeader = ({
   toggleColumnVisibility,
   toggleAllColumns,
   isRequiredColumn,
-  quickSearch,
-  setQuickSearch,
-  unsavedData,
-  hasNonEmptyValues,
-  selectedCount,
   additionalButtons,
   headerButtons,
-  pagination = null,
-  data = [],
-  onFilterChange,
-  columnFilters = {},
-  onClearAllFilters,
-  apiUrl = null,  // Add apiUrl prop
-  serverPagination = false,  // Add serverPagination prop
-  onBulkUpdate = null,  // Add onBulkUpdate prop
-  dropdownSources = {}  // Add dropdownSources prop
+  onBulkUpdate
 }) => {
   const [showDataDropdown, setShowDataDropdown] = useState(false);
   const [showViewDropdown, setShowViewDropdown] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [dataDropdownPosition, setDataDropdownPosition] = useState({ top: 0, left: 0 });
   const [viewDropdownPosition, setViewDropdownPosition] = useState({ top: 0, left: 0 });
   const dataDropdownRef = useRef(null);
@@ -180,6 +166,20 @@ const TableHeader = ({
 
   const processedActions = processAdditionalButtons();
 
+  // Check if there are boolean columns for bulk operations
+  const getBooleanColumns = () => {
+    if (!columns || !colHeaders || !visibleColumns) return [];
+    return columns
+      .map((col, index) => ({ ...col, index, header: colHeaders[index] }))
+      .filter((col, index) => {
+        return visibleColumns[index] !== false && 
+               (col.type === 'checkbox' || 
+                ['create', 'delete', 'exists', 'include_in_zoning', 'logged_in'].includes(col.data));
+      });
+  };
+
+  const hasBooleanColumns = getBooleanColumns().length > 0;
+
   return (
     <>
       <div className="modern-table-header">
@@ -259,47 +259,12 @@ const TableHeader = ({
         </div>
 
         <div className="header-right">
-          <AdvancedFilter
-            columns={columns}
-            colHeaders={colHeaders}
-            visibleColumns={visibleColumns}
-            quickSearch={quickSearch}
-            setQuickSearch={setQuickSearch}
-            onFilterChange={onFilterChange}
-            data={data}
-            initialFilters={columnFilters}
-            apiUrl={apiUrl}
-            serverPagination={serverPagination}
-            dropdownSources={dropdownSources}
-          />
-          
-          {/* Bulk Boolean Controls */}
-          <BulkBooleanControls
-            columns={columns}
-            colHeaders={colHeaders}
-            visibleColumns={visibleColumns}
-            apiUrl={apiUrl}
-            quickSearch={quickSearch}
-            columnFilters={columnFilters}
-            serverPagination={serverPagination}
-            onBulkUpdate={onBulkUpdate}
-          />
-          
           {/* Header Buttons */}
           {headerButtons && (
             <div className="additional-buttons">
               {headerButtons}
             </div>
           )}
-          
-          <StatsContainer
-            unsavedData={unsavedData}
-            hasNonEmptyValues={hasNonEmptyValues}
-            selectedCount={selectedCount}
-            quickSearch={quickSearch}
-            isDirty={isDirty}
-            pagination={pagination}
-          />
         </div>
       </div>
 
@@ -390,6 +355,50 @@ const TableHeader = ({
               Export as Excel
             </button>
           </div>
+
+          {/* Bulk Boolean Controls */}
+          {hasBooleanColumns && (
+            <div style={{ borderTop: '1px solid #e5e7eb', padding: '8px 0' }}>
+              <div style={{ 
+                fontSize: '12px', 
+                fontWeight: '600', 
+                color: '#6b7280', 
+                padding: '8px 16px 4px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>
+                Bulk Operations
+              </div>
+              <button 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  width: '100%',
+                  padding: '10px 16px',
+                  background: 'none',
+                  border: 'none',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: '#374151',
+                  transition: 'background-color 0.15s'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                onClick={() => {
+                  setShowBulkModal(true);
+                  setShowDataDropdown(false);
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9,11 12,14 22,4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                Bulk Check
+              </button>
+            </div>
+          )}
           
           {/* Actions Section */}
           {processedActions.length > 0 && (
@@ -649,6 +658,16 @@ const TableHeader = ({
         </div>,
         document.body
       )}
+
+      {/* Bulk Boolean Modal */}
+      <BulkBooleanModal
+        show={showBulkModal}
+        onHide={() => setShowBulkModal(false)}
+        columns={columns}
+        colHeaders={colHeaders}
+        visibleColumns={visibleColumns}
+        onBulkUpdate={onBulkUpdate}
+      />
     </>
   );
 };
