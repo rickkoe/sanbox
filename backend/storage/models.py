@@ -132,6 +132,13 @@ class Storage(models.Model):
         Returns the count of Host records related to this Storage in the database.
         """
         return self.owning_storage.count()
+    
+    @property
+    def db_aliases_count(self):
+        """
+        Returns the count of Alias records related to this Storage in the database.
+        """
+        return self.aliases.count()
 
 
     def storage_image(self):

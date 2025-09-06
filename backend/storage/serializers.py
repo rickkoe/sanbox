@@ -6,6 +6,7 @@ class StorageSerializer(serializers.ModelSerializer):
     # expose the calculated counts
     db_volumes_count = serializers.IntegerField(read_only=True)
     db_hosts_count = serializers.IntegerField(read_only=True)
+    db_aliases_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Storage

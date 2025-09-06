@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Alias, Zone, Fabric, WwpnPrefix
 from core.models import Project
-from storage.models import Host
+from storage.models import Host, Storage
 
 
 
@@ -24,8 +24,13 @@ class AliasSerializer(serializers.ModelSerializer):
         queryset=Host.objects.all(), required=False, allow_null=True
     )  # ✅ Allow writing host (ID) in request
 
+    storage = serializers.PrimaryKeyRelatedField(
+        queryset=Storage.objects.all(), required=False, allow_null=True
+    )  # ✅ Allow writing storage (ID) in request
+
     fabric_details = FabricSerializer(source="fabric", read_only=True)  # ✅ Return full fabric details
     host_details = serializers.SerializerMethodField()  # ✅ Return host name for display
+    storage_details = serializers.SerializerMethodField()  # ✅ Return storage name for display
     
     # ADD THIS: Zoned count field
     zoned_count = serializers.SerializerMethodField()
@@ -38,6 +43,12 @@ class AliasSerializer(serializers.ModelSerializer):
         """Return host name for display"""
         if obj.host:
             return {"id": obj.host.id, "name": obj.host.name}
+        return None
+
+    def get_storage_details(self, obj):
+        """Return storage name for display"""
+        if obj.storage:
+            return {"id": obj.storage.id, "name": obj.storage.name}
         return None
 
     def get_zoned_count(self, obj):

@@ -11,6 +11,7 @@ const API_ENDPOINTS = {
   aliases: `${API_URL}/api/san/aliases/project/`,
   fabrics: `${API_URL}/api/san/fabrics/`,
   hosts: `${API_URL}/api/san/hosts/project/`,
+  storages: `${API_URL}/api/storage/`,
   aliasSave: `${API_URL}/api/san/aliases/save/`,
   aliasDelete: `${API_URL}/api/san/aliases/delete/`
 };
@@ -22,6 +23,7 @@ const ALL_COLUMNS = [
   { data: "use", title: "Use" },
   { data: "fabric_details.name", title: "Fabric" },
   { data: "host_details.name", title: "Host" },
+  { data: "storage_details.name", title: "Storage System" },
   { data: "cisco_alias", title: "Alias Type" },
   { data: "create", title: "Create" },
   { data: "delete", title: "Delete" },
@@ -34,7 +36,7 @@ const ALL_COLUMNS = [
 ];
 
 // Default visible columns (show all by default for compatibility)
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 // Template for new rows
 const NEW_ALIAS_TEMPLATE = {
@@ -46,6 +48,8 @@ const NEW_ALIAS_TEMPLATE = {
   fabric_details: { name: "" },
   host: "",
   host_details: { name: "" },
+  storage: "",
+  storage_details: { name: "" },
   cisco_alias: "",
   create: false,
   delete: false,
@@ -83,6 +87,7 @@ const AliasTable = () => {
   const { config } = useContext(ConfigContext);
   const [fabricOptions, setFabricOptions] = useState([]);
   const [hostOptions, setHostOptions] = useState([]);
+  const [storageOptions, setStorageOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
   const tableRef = useRef(null);
@@ -114,24 +119,28 @@ const AliasTable = () => {
     use: ["init", "target", "both"],
     "fabric_details.name": fabricOptions.map(f => f.name),
     "host_details.name": hostOptions.map(h => h.name),
+    "storage_details.name": storageOptions.map(s => s.name),
     cisco_alias: ["device-alias", "fcalias", "wwpn"],
-  }), [fabricOptions, hostOptions]);
+  }), [fabricOptions, hostOptions, storageOptions]);
 
-  // Load fabrics and hosts
+  // Load fabrics, hosts, and storage systems
   useEffect(() => {
     const loadData = async () => {
       if (activeCustomerId && activeProjectId) {
         try {
           console.log('Loading fabrics for customer:', activeCustomerId);
           console.log('Loading hosts for project:', activeProjectId);
+          console.log('Loading storage systems for customer:', activeCustomerId);
           
-          const [fabricResponse, hostResponse] = await Promise.all([
+          const [fabricResponse, hostResponse, storageResponse] = await Promise.all([
             axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
-            axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`)
+            axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`),
+            axios.get(`${API_ENDPOINTS.storages}?customer=${activeCustomerId}`)
           ]);
           
           console.log('Fabrics loaded:', fabricResponse.data);
           console.log('Hosts loaded:', hostResponse.data);
+          console.log('Storage systems loaded:', storageResponse.data);
           
           // Handle paginated response structure for fabrics
           const fabricsArray = fabricResponse.data.results || fabricResponse.data;
@@ -139,6 +148,10 @@ const AliasTable = () => {
           
           // Hosts should be a simple array
           setHostOptions(hostResponse.data.map(h => ({ id: h.id, name: h.name })));
+          
+          // Handle paginated response structure for storage systems
+          const storageArray = storageResponse.data.results || storageResponse.data;
+          setStorageOptions(storageArray.map(s => ({ id: s.id, name: s.name })));
         } catch (error) {
           console.error("Error fetching data:", error);
         } finally {
@@ -152,13 +165,13 @@ const AliasTable = () => {
     loadData();
   }, [activeCustomerId, activeProjectId]);
 
-  // Trigger table refresh when fabrics and hosts are loaded
+  // Trigger table refresh when fabrics, hosts, and storage systems are loaded
   useEffect(() => {
     if (fabricOptions.length > 0 && tableRef.current && dataLoaded) {
-      console.log('Refreshing table with options:', { fabricOptions, hostOptions });
+      console.log('Refreshing table with options:', { fabricOptions, hostOptions, storageOptions });
       tableRef.current.refreshData();
     }
-  }, [fabricOptions, hostOptions, dataLoaded]);
+  }, [fabricOptions, hostOptions, storageOptions, dataLoaded]);
 
   // Set dataLoaded when data is processed, but outside of render
   useEffect(() => {
@@ -172,7 +185,7 @@ const AliasTable = () => {
   }
 
   if (loading) {
-    return <div className="alert alert-info">Loading fabrics...</div>;
+    return <div className="alert alert-info">Loading fabrics, hosts, and storage systems...</div>;
   }
 
 
@@ -180,6 +193,12 @@ const AliasTable = () => {
   const isValidHost = (hostName) => {
     if (!hostName || hostName.trim() === '') return true; // Empty is valid (no host assigned)
     return hostOptions.some(h => h.name === hostName.trim());
+  };
+
+  // Helper function to validate if storage system exists
+  const isValidStorage = (storageName) => {
+    if (!storageName || storageName.trim() === '') return true; // Empty is valid (no storage assigned)
+    return storageOptions.some(s => s.name === storageName.trim());
   };
 
   // Custom change handler for WWPN formatting and host validation
@@ -263,6 +282,29 @@ const AliasTable = () => {
       }
     }
 
+    // Handle storage assignment - only allow existing storage systems
+    let storageId = null;
+    if (row.storage_details?.name) {
+      console.log('🔍 Looking for storage by storage_details.name:', row.storage_details.name);
+      const storage = storageOptions.find(s => s.name === row.storage_details.name);
+      if (storage) {
+        storageId = storage.id;
+        console.log('🎯 Found existing storage by name:', storage);
+      } else {
+        console.log('⚠️ Storage not found in existing storage systems:', row.storage_details.name);
+      }
+    } else if (row.storage) {
+      console.log('🔍 Looking for storage by row.storage:', row.storage, typeof row.storage);
+      if (typeof row.storage === "number") {
+        storageId = row.storage;
+        console.log('🎯 Using numeric storage ID directly:', storageId);
+      } else {
+        const storage = storageOptions.find(s => s.name === row.storage || s.id.toString() === row.storage);
+        storageId = storage ? storage.id : parseInt(row.storage);
+        console.log('🎯 Found storage by string lookup:', storage, 'storageId:', storageId);
+      }
+    }
+
     console.log('🏁 Final fabricId:', fabricId, 'isNaN:', isNaN(fabricId));
 
     if (!fabricId || isNaN(fabricId)) {
@@ -274,6 +316,7 @@ const AliasTable = () => {
     delete payload.saved;
     delete payload.fabric_details;
     delete payload.host_details;
+    delete payload.storage_details;
     delete payload.zoned_count;
 
     if (payload.wwpn) {
@@ -317,6 +360,28 @@ const AliasTable = () => {
       // No host name provided - explicitly clear host assignment
       result.host = null;
       console.log('🎯 Clearing host assignment (set to null)');
+    }
+
+    // Handle storage assignment - only use existing storage systems
+    const hasStorageName = row.storage_details?.name && row.storage_details.name.trim() !== '';
+    
+    if (hasStorageName) {
+      const storageName = row.storage_details.name.trim();
+      const storage = storageOptions.find(s => s.name === storageName);
+      
+      if (storage) {
+        // Use the existing storage ID
+        result.storage = parseInt(storage.id);
+        console.log('🎯 Using storage ID:', storage.id, 'for storage:', storageName);
+      } else {
+        // Storage not found in existing options - set to null
+        console.warn('⚠️ Storage not found in options:', storageName, 'Available storage:', storageOptions.map(s => s.name));
+        result.storage = null;
+      }
+    } else {
+      // No storage name provided - explicitly clear storage assignment
+      result.storage = null;
+      console.log('🎯 Clearing storage assignment (set to null)');
     }
 
     console.log('✅ buildPayload result:', result);
@@ -416,6 +481,21 @@ const AliasTable = () => {
       return `Alias "${invalidHostAlias.name}" has invalid host "${hostName}". Please create the host in Host Table first or select an existing host.`;
     }
 
+    // Check for invalid storage systems
+    const invalidStorageAlias = data.find(alias => {
+      if (!alias.name || alias.name.trim() === "") return false;
+      
+      const storageName = alias.storage_details?.name;
+      if (!storageName || storageName.trim() === '') return false; // Empty is valid
+      
+      return !isValidStorage(storageName.trim());
+    });
+
+    if (invalidStorageAlias) {
+      const storageName = invalidStorageAlias.storage_details?.name?.trim();
+      return `Alias "${invalidStorageAlias.name}" has invalid storage system "${storageName}". Please select an existing storage system.`;
+    }
+
     return true;
   };
 
@@ -423,11 +503,13 @@ const AliasTable = () => {
   const preprocessData = (data) => {
     
     const processedData = data.map((alias) => {
-      // Find fabric name for this alias
-      let fabricName = '';
-      if (alias.fabric) {
+      // Handle fabric details - use the fabric_details from the API response if available
+      let fabricDetails = { name: '' };
+      if (alias.fabric_details) {
+        fabricDetails = alias.fabric_details;
+      } else if (alias.fabric) {
         const fabric = fabricOptions.find(f => f.id === alias.fabric);
-        fabricName = fabric ? fabric.name : `Unknown Fabric (ID: ${alias.fabric})`;
+        fabricDetails = fabric ? { id: fabric.id, name: fabric.name } : { name: `Unknown Fabric (ID: ${alias.fabric})` };
       }
 
       // Handle host details - use the host_details from the API response if available
@@ -443,14 +525,26 @@ const AliasTable = () => {
         hostDetails = { name: '' };
       }
 
+      // Handle storage details - use the storage_details from the API response if available
+      let storageDetails = { name: '' };
+      if (alias.storage_details) {
+        storageDetails = alias.storage_details;
+      } else if (alias.storage) {
+        const storage = storageOptions.find(s => s.id === alias.storage);
+        storageDetails = storage ? { id: storage.id, name: storage.name } : { name: `Unknown Storage (ID: ${alias.storage})` };
+      }
+      // If no storage assigned, ensure empty name
+      if (!alias.storage && !alias.storage_details) {
+        storageDetails = { name: '' };
+      }
+
       return {
         ...alias,
         saved: true,
         wwpn: formatWWPN(alias.wwpn),
-        fabric_details: {
-          name: fabricName
-        },
-        host_details: hostDetails
+        fabric_details: fabricDetails,
+        host_details: hostDetails,
+        storage_details: storageDetails
       };
     });
     
@@ -474,7 +568,8 @@ const AliasTable = () => {
       td.innerText = value || "";
       
       // Check if host is valid - use simple validation for performance
-      if (value && value.trim() !== '') {
+      // Skip validation if hostOptions aren't loaded yet
+      if (value && value.trim() !== '' && hostOptions.length > 0) {
         const hostName = value.trim();
         const isValid = hostOptions.some(h => h.name === hostName);
         
@@ -494,12 +589,47 @@ const AliasTable = () => {
           td.title = `✓ Valid host: ${hostName}`;
         }
       } else {
-        // Empty value - clear styling
+        // Empty value or options not loaded - clear styling
         td.style.backgroundColor = '';
         td.style.color = '';
         td.style.border = '';
         td.style.fontWeight = '';
-        td.title = 'No host assigned (optional)';
+        td.title = value && value.trim() !== '' ? 'Loading host validation...' : 'No host assigned (optional)';
+      }
+      
+      return td;
+    },
+    'storage_details.name': (instance, td, row, col, prop, value) => {
+      td.innerText = value || "";
+      
+      // Check if storage is valid - use simple validation for performance
+      // Skip validation if storageOptions aren't loaded yet
+      if (value && value.trim() !== '' && storageOptions.length > 0) {
+        const storageName = value.trim();
+        const isValid = storageOptions.some(s => s.name === storageName);
+        
+        if (!isValid) {
+          // Invalid storage - apply error styling
+          td.style.backgroundColor = '#fee2e2';
+          td.style.color = '#dc2626';
+          td.style.border = '2px solid #dc2626';
+          td.style.fontWeight = '600';
+          td.title = `⚠️ Storage system "${storageName}" does not exist. Please select an existing storage system.`;
+        } else {
+          // Valid storage - clear any error styling
+          td.style.backgroundColor = '';
+          td.style.color = '';
+          td.style.border = '';
+          td.style.fontWeight = '';
+          td.title = `✓ Valid storage system: ${storageName}`;
+        }
+      } else {
+        // Empty value or options not loaded - clear styling
+        td.style.backgroundColor = '';
+        td.style.color = '';
+        td.style.border = '';
+        td.style.fontWeight = '';
+        td.title = value && value.trim() !== '' ? 'Loading storage validation...' : 'No storage system assigned (optional)';
       }
       
       return td;
@@ -592,6 +722,11 @@ const AliasTable = () => {
           } else if (col.data === "fabric_details.name") {
             column.type = "dropdown";
           } else if (col.data === "host_details.name") {
+            column.type = "dropdown";
+            // Remove strict validation to allow users to delete/clear values
+            column.allowInvalid = true;
+            column.allowEmpty = true;
+          } else if (col.data === "storage_details.name") {
             column.type = "dropdown";
             // Remove strict validation to allow users to delete/clear values
             column.allowInvalid = true;

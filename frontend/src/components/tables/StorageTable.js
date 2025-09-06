@@ -39,6 +39,7 @@ const ALL_STORAGE_COLUMNS = [
   { data: "serial_number", title: "Serial Number" },
   { data: "db_volumes_count", title: "DB Volumes" },
   { data: "db_hosts_count", title: "DB Hosts" },
+  { data: "db_aliases_count", title: "DB Aliases" },
   { data: "system_id", title: "System ID" },
   { data: "wwnn", title: "WWNN" },
   { data: "firmware_level", title: "Firmware Level" },
@@ -137,8 +138,8 @@ const ALL_STORAGE_COLUMNS = [
   { data: "updated", title: "Updated" },
 ];
 
-// Default visible columns indices - includes ID, Name, Type, Location, Storage System ID, Machine Type, Model, Serial Number, DB Volumes, DB Hosts, System ID, WWNN, Firmware Level, Primary IP
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]; // includes the new db_hosts_count column
+// Default visible columns indices - includes ID, Name, Type, Location, Storage System ID, Machine Type, Model, Serial Number, DB Volumes, DB Hosts, DB Aliases, System ID, WWNN, Firmware Level, Primary IP
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]; // includes the new db_aliases_count column
 
 const StorageTable = () => {
   const { config } = useContext(ConfigContext);
@@ -151,7 +152,10 @@ const StorageTable = () => {
   const customerId = config?.customer?.id;
 
   // Use the default visible columns defined in the constant
-  const visibleColumnIndices = DEFAULT_VISIBLE_INDICES;
+  // Force include DB Aliases column (index 10) in case user has old saved preferences
+  const visibleColumnIndices = DEFAULT_VISIBLE_INDICES.includes(10) 
+    ? DEFAULT_VISIBLE_INDICES 
+    : [...DEFAULT_VISIBLE_INDICES, 10].sort((a, b) => a - b);
 
   const dropdownSources = {
     "storage_type": ["FlashSystem", "DS8000", "Switch", "Data Domain"]
@@ -378,14 +382,14 @@ const StorageTable = () => {
         deleteUrl={API_ENDPOINTS.storage}
         serverPagination={true}
         defaultPageSize={'All'}
-        storageKey={`storage-table-${customerId}`}
+        storageKey={`storage-table-v2-${customerId}`}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
         colHeaders={ALL_STORAGE_COLUMNS.map(col => col.title)}
         columns={ALL_STORAGE_COLUMNS.map(col => ({
           data: col.data,
           type: col.data === "storage_type" ? "dropdown" : undefined,
           className: col.data === "id" ? "htCenter" : undefined,
-          readOnly: col.data === "imported" || col.data === "updated" || col.data === "db_volumes_count" || col.data === "db_hosts_count"
+          readOnly: col.data === "imported" || col.data === "updated" || col.data === "db_volumes_count" || col.data === "db_hosts_count" || col.data === "db_aliases_count"
         }))}
         dropdownSources={dropdownSources}
         customRenderers={customRenderers}
