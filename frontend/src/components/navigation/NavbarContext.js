@@ -15,7 +15,7 @@ const NavbarContext = ({ config, loading }) => {
     );
   }
 
-  if (!config || !config.customer) {
+  if (!config || !config.customer || !config.active_project) {
     return (
       <div className="navbar-context">
         <Link to="/settings/project-config" className="context-empty">

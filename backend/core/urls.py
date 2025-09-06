@@ -6,6 +6,8 @@ from .views import (
     active_config_view, 
     config_for_customer, 
     create_project_for_customer, 
+    update_project,
+    delete_project,
     update_config_view,
     customer_list,
     dashboard_overview,
@@ -25,6 +27,8 @@ urlpatterns = [
     path("config/customer/<int:customer_id>/", config_for_customer, name="config-for-customer"),
     path("config/update/<int:customer_id>/", update_config_view, name="update-config"),
     path('projects/', create_project_for_customer, name='create_project_for_customer'),
+    path('projects/update/<int:project_id>/', update_project, name='update_project'),
+    path('projects/delete/<int:project_id>/', delete_project, name='delete_project'),
     path("customers/", customer_list, name="customer-list"),  # Added customer list endpoint
     
     # Config CRUD endpoints (replacing the DRF router)

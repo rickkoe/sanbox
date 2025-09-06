@@ -238,34 +238,188 @@ def update_config_view(request, customer_id):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_http_methods(["GET", "POST", "PUT"])
 def create_project_for_customer(request):
     """
-    Create a new project and assign it to a customer's projects (ManyToMany).
+    Handle projects endpoint - GET for listing all projects, POST for creating new project.
     """
-    print(f"🔥 Create Project for Customer - Method: {request.method}")
+    print(f"🔥 Projects API - Method: {request.method}")
+    
+    if request.method == "GET":
+        # Return all projects with customer information
+        try:
+            all_projects = []
+            
+            # Get all customers and their projects
+            customers = Customer.objects.prefetch_related('projects').all()
+            
+            for customer in customers:
+                for project in customer.projects.all():
+                    all_projects.append({
+                        'id': project.id,
+                        'name': project.name,
+                        'notes': project.notes or '',
+                        'customer': customer.name
+                    })
+            
+            return JsonResponse(all_projects, safe=False)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    elif request.method == "POST":
+        # Create new project (existing logic)
+        try:
+            print(f"📝 Parsing request body...")
+            data = json.loads(request.body)
+            print(f"📝 Request data: {data}")
+            
+            name = data.get('name')
+            customer_id = data.get('customer')
+            print(f"📝 Project name: {name}, Customer ID: {customer_id}")
+
+            if not name or not customer_id:
+                print(f"❌ Missing required fields: name={name}, customer_id={customer_id}")
+                return JsonResponse({"error": "Both 'name' and 'customer' fields are required."}, status=400)
+
+            print(f"📝 Looking up customer with ID: {customer_id}")
+            try:
+                customer = Customer.objects.get(id=customer_id)
+                print(f"📝 Found customer: {customer.name}")
+            except Customer.DoesNotExist:
+                print(f"❌ Customer not found: {customer_id}")
+                return JsonResponse({"error": "Customer not found."}, status=404)
+
+            print(f"📝 Creating project with name: {name}")
+            # Create the project without referencing customer
+            project = Project.objects.create(name=name, notes=data.get('notes', ''))
+            print(f"📝 Project created with ID: {project.id}")
+
+            print(f"📝 Adding project to customer's ManyToMany field...")
+            # Add it to the customer's ManyToMany field
+            customer.projects.add(project)
+            print(f"📝 Project added to customer successfully")
+
+            print(f"📝 Serializing project...")
+            serializer = ProjectSerializer(project)
+            print(f"📝 Serialized data: {serializer.data}")
+            
+            return JsonResponse(serializer.data, status=201)
+        
+        except Exception as e:
+            print(f"❌ Exception in project creation: {type(e).__name__}: {str(e)}")
+            import traceback
+            print(f"❌ Full traceback: {traceback.format_exc()}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt  
+@require_http_methods(["PUT"])
+def update_project(request, project_id):
+    """
+    Update a project by ID.
+    PUT /api/core/projects/<id>/
+    """
+    print(f"🔥 Update Project - Method: {request.method}, Project ID: {project_id}")
     
     try:
-        data = json.loads(request.body)
-        name = data.get('name')
-        customer_id = data.get('customer')
-
-        if not name or not customer_id:
-            return JsonResponse({"error": "Both 'name' and 'customer' fields are required."}, status=400)
-
         try:
-            customer = Customer.objects.get(id=customer_id)
-        except Customer.DoesNotExist:
-            return JsonResponse({"error": "Customer not found."}, status=404)
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found."}, status=404)
 
-        # Create the project without referencing customer
-        project = Project.objects.create(name=name)
-
-        # Add it to the customer's ManyToMany field
-        customer.projects.add(project)
+        print(f"📝 Parsing request body...")
+        data = json.loads(request.body)
+        print(f"📝 Update data: {data}")
+        
+        # Update project fields
+        if 'name' in data:
+            project.name = data['name'].strip()
+            print(f"📝 Updated name to: {project.name}")
+            
+        if 'notes' in data:
+            project.notes = data['notes'] or ''
+            print(f"📝 Updated notes to: {project.notes}")
+        
+        project.save()
+        print(f"📝 Project saved successfully")
+        
+        # Handle customer relationship update if provided
+        if 'customer' in data:
+            customer_id = data['customer']
+            print(f"📝 Updating customer relationship to: {customer_id}")
+            
+            try:
+                new_customer = Customer.objects.get(id=customer_id)
+                
+                # Remove project from all current customers
+                current_customers = project.customers.all()
+                for customer in current_customers:
+                    customer.projects.remove(project)
+                    print(f"📝 Removed project from customer: {customer.name}")
+                
+                # Add project to new customer
+                new_customer.projects.add(project)
+                print(f"📝 Added project to customer: {new_customer.name}")
+                
+            except Customer.DoesNotExist:
+                return JsonResponse({"error": "Customer not found."}, status=404)
 
         serializer = ProjectSerializer(project)
-        return JsonResponse(serializer.data, status=201)
+        print(f"📝 Serialized updated project: {serializer.data}")
+        
+        return JsonResponse(serializer.data, status=200)
+    
+    except Exception as e:
+        print(f"❌ Exception in project update: {type(e).__name__}: {str(e)}")
+        import traceback
+        print(f"❌ Full traceback: {traceback.format_exc()}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_project(request, project_id):
+    """
+    Delete a project by ID.
+    DELETE /api/core/projects/<id>/
+    """
+    print(f"🔥 Delete Project - Method: {request.method}, Project ID: {project_id}")
+    
+    try:
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found."}, status=404)
+
+        project_name = project.name
+        
+        # Check if this project is currently active in any config
+        configs_to_update = []
+        
+        # Get all configs that reference this project
+        configs = Config.objects.all()
+        for config in configs:
+            if config.active_project and str(project.id) in str(config.active_project):
+                configs_to_update.append(config)
+                print(f"🔄 Config {config.id} currently has deleted project {project.id} as active")
+        
+        # Delete the project
+        project.delete()
+        
+        # Update configs that referenced the deleted project
+        for config in configs_to_update:
+            # Clear the active project from the config
+            # This will depend on how active_project is stored
+            if hasattr(config, 'active_project'):
+                # If active_project is a field, clear it
+                config.active_project = None
+                config.save()
+                print(f"✅ Cleared active project from config {config.id}")
+        
+        return JsonResponse({
+            "message": f"Project '{project_name}' deleted successfully.",
+            "configs_updated": len(configs_to_update)
+        }, status=200)
     
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

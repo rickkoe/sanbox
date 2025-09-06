@@ -565,7 +565,7 @@ const AliasTable = () => {
     <div className="table-container">
       <GenericTable
         ref={tableRef}
-        apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}
+        apiUrl={activeProjectId ? `${API_ENDPOINTS.aliases}${activeProjectId}/` : null}
         saveUrl={API_ENDPOINTS.aliasSave}
         deleteUrl={API_ENDPOINTS.aliasDelete}
         newRowTemplate={NEW_ALIAS_TEMPLATE}

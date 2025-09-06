@@ -1,6 +1,7 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useContext } from "react";
 import GenericTable from "./GenericTable";
 import axios from "axios";
+import { ConfigContext } from "../../context/ConfigContext";
 
 // All possible project columns
 const ALL_COLUMNS = [
@@ -14,11 +15,11 @@ const DEFAULT_VISIBLE_INDICES = [0, 1, 2];
 
 const ProjectTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
+    const { config, refreshConfig } = useContext(ConfigContext);
     
     const tableRef = useRef(null);
     const [customerOptions, setCustomerOptions] = useState([]);
     const [customersById, setCustomersById] = useState({});
-    const [projectData, setProjectData] = useState([]);
 
     // Column visibility state
     const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
@@ -66,17 +67,6 @@ const ProjectTable = () => {
         loadCustomers();
     }, [API_URL]);
 
-    // Load project data
-    useEffect(() => {
-        const loadProjects = async () => {
-            const projects = await loadProjectsWithCustomers();
-            setProjectData(projects);
-        };
-        
-        if (customerOptions.length > 0) {
-            loadProjects();
-        }
-    }, [customerOptions]); // Load projects after customers are loaded
 
     // Dynamic dropdown sources
     const dropdownSources = {
@@ -112,10 +102,28 @@ const ProjectTable = () => {
 
                 try {
                     if (project.id) {
-                        // Update existing project - this endpoint may not exist yet
+                        // Update existing project
                         console.log('🔄 Updating existing project:', project.id);
-                        // For now, skip updates since the backend endpoint doesn't exist
-                        errors.push(`${project.name}: Update endpoint not implemented yet`);
+                        
+                        // Find customer ID from name
+                        const customerResponse = await axios.get(`${API_URL}/api/customers/`);
+                        const customers = customerResponse.data.results || customerResponse.data || [];
+                        const customer = customers.find(c => c.name === project.customer);
+                        
+                        if (!customer) {
+                            throw new Error(`Customer '${project.customer}' not found`);
+                        }
+                        
+                        // Update project
+                        const updatePayload = {
+                            name: project.name.trim(),
+                            notes: project.notes || '',
+                            customer: customer.id
+                        };
+                        
+                        console.log('📤 Updating project with payload:', updatePayload);
+                        await axios.put(`${API_URL}/api/core/projects/update/${project.id}/`, updatePayload);
+                        successes.push(`Updated ${project.name}`);
                     } else {
                         // Create new project
                         console.log('➕ Creating new project:', project.name);
@@ -146,14 +154,6 @@ const ProjectTable = () => {
                 }
             }
             
-            // Refresh data if we had any operations
-            if (successes.length > 0) {
-                console.log('🔄 Refreshing project data...');
-                setTimeout(async () => {
-                    const refreshedProjects = await loadProjectsWithCustomers();
-                    setProjectData(refreshedProjects);
-                }, 500); // Small delay to ensure backend is updated
-            }
             
             const message = [
                 ...successes,
@@ -177,42 +177,25 @@ const ProjectTable = () => {
         }
     };
 
-    // Custom function to load all projects with customer names
-    const loadProjectsWithCustomers = async () => {
+    // Custom delete handler to refresh config after project deletion
+    const handleDelete = async (projectId) => {
         try {
-            console.log('🔄 Loading projects...');
-            // First get all customers
-            const customerResponse = await axios.get(`${API_URL}/api/customers/`);
-            const customers = customerResponse.data.results || customerResponse.data || [];
-            console.log('👥 Found customers:', customers.length);
+            // Delete the project
+            await axios.delete(`${API_URL}/api/core/projects/delete/${projectId}/`);
             
-            let allProjects = [];
+            // Check if the deleted project was the active project
+            const activeProjectId = config?.active_project?.id;
             
-            // Get projects for each customer
-            for (const customer of customers) {
-                try {
-                    console.log(`🔍 Loading projects for customer: ${customer.name} (ID: ${customer.id})`);
-                    const projectResponse = await axios.get(`${API_URL}/api/core/projects/${customer.id}/`);
-                    const customerProjects = projectResponse.data || [];
-                    console.log(`📦 Found ${customerProjects.length} projects for ${customer.name}:`, customerProjects);
-                    
-                    // Add customer name to each project
-                    const projectsWithCustomer = customerProjects.map(project => ({
-                        ...project,
-                        customer: customer.name
-                    }));
-                    
-                    allProjects = allProjects.concat(projectsWithCustomer);
-                } catch (error) {
-                    console.error(`❌ Error loading projects for customer ${customer.name}:`, error);
-                }
+            if (projectId === activeProjectId) {
+                console.log('🔄 Active project was deleted, refreshing config...');
+                // Refresh the config context to clear the deleted project reference
+                await refreshConfig();
             }
             
-            console.log('✅ Total projects loaded:', allProjects.length, allProjects);
-            return allProjects;
+            return { success: true, message: `Deleted project successfully` };
         } catch (error) {
-            console.error('❌ Error loading projects:', error);
-            return [];
+            console.error('❌ Error deleting project:', error);
+            throw error;
         }
     };
 
@@ -221,6 +204,8 @@ const ProjectTable = () => {
             <GenericTable
                 ref={tableRef}
                 apiUrl={`${API_URL}/api/core/projects/`}
+                deleteUrl={`${API_URL}/api/core/projects/delete/`}
+                onDelete={handleDelete}
                 newRowTemplate={NEW_PROJECT_TEMPLATE}
                 tableName="projects"
                 colHeaders={ALL_COLUMNS.map(col => col.title)}
@@ -235,7 +220,6 @@ const ProjectTable = () => {
                     return column;
                 })}
                 dropdownSources={dropdownSources}
-                preprocessData={() => projectData}
                 onSave={handleSave}
                 columnSorting={true}
                 filters={true}

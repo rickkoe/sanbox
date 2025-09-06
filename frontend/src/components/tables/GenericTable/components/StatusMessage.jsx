@@ -5,14 +5,14 @@ const StatusMessage = ({ saveStatus }) => {
 
   const getSaveStatusIcon = () => {
     if (saveStatus.includes("Error") || saveStatus.includes("failed")) return "❌";
-    if (saveStatus.includes("successful") || saveStatus.includes("Save successful")) return "✅";
+    if (saveStatus.includes("successful") || saveStatus.includes("Save successful") || saveStatus.includes("Created") || saveStatus.includes("Updated")) return "✅";
     if (saveStatus.includes("No changes")) return "ℹ️";
     return "⚠️";
   };
 
   const getSaveStatusVariant = () => {
     if (saveStatus.includes("Error") || saveStatus.includes("failed")) return "error";
-    if (saveStatus.includes("successful") || saveStatus.includes("Save successful")) return "success";
+    if (saveStatus.includes("successful") || saveStatus.includes("Save successful") || saveStatus.includes("Created") || saveStatus.includes("Updated")) return "success";
     if (saveStatus.includes("No changes")) return "info";
     return "warning";
   };

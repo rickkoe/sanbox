@@ -545,6 +545,8 @@ const GenericTable = forwardRef(({
     } else {
       await fetchData();
     }
+    // Force table re-render to ensure visual update
+    setForceRefreshKey(prev => prev + 1);
   };
 
   // Process and filter data with enhanced utilities

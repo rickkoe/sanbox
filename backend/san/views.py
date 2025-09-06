@@ -359,7 +359,14 @@ def alias_list_view(request, project_id):
     try:
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
-        return JsonResponse({"error": "Project not found."}, status=404)
+        print(f"❌ Project {project_id} not found - likely deleted. Request from {request.META.get('HTTP_REFERER', 'unknown')}")
+        print(f"🔄 Suggesting config refresh to prevent repeated requests...")
+        return JsonResponse({
+            "error": f"Project {project_id} not found. This project may have been deleted.",
+            "project_id": project_id,
+            "deleted": True,
+            "suggestion": "Please refresh the page or clear browser storage to update active project"
+        }, status=404)
     
     # Check for unique values request
     unique_values_field = request.GET.get('unique_values')

@@ -8,8 +8,8 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = "__all__" 
 
 class ProjectSerializer(serializers.ModelSerializer):
-    customer = CustomerSerializer(read_only=True)
-
+    customers = CustomerSerializer(many=True, read_only=True)  # Show all customers this project belongs to
+    
     class Meta:
         model = Project
         fields = "__all__" 
