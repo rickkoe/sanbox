@@ -340,48 +340,56 @@ const AliasTable = () => {
       fabric: parseInt(fabricId),
     };
 
-    // Handle host assignment - only use existing hosts
+    // Handle host assignment - only use existing hosts and only for initiators (use=init)
     const hasHostName = row.host_details?.name && row.host_details.name.trim() !== '';
     
-    if (hasHostName) {
+    if (hasHostName && row.use === 'init') {
       const hostName = row.host_details.name.trim();
       const host = hostOptions.find(h => h.name === hostName);
       
       if (host) {
         // Use the existing host ID
         result.host = parseInt(host.id);
-        console.log('🎯 Using host ID:', host.id, 'for host:', hostName);
+        console.log('🎯 Using host ID:', host.id, 'for initiator:', hostName);
       } else {
         // Host not found in existing options - set to null
         console.warn('⚠️ Host not found in options:', hostName, 'Available hosts:', hostOptions.map(h => h.name));
         result.host = null;
       }
     } else {
-      // No host name provided - explicitly clear host assignment
+      // No host name provided or not an initiator - explicitly clear host assignment
       result.host = null;
-      console.log('🎯 Clearing host assignment (set to null)');
+      if (hasHostName && row.use !== 'init') {
+        console.log('🎯 Clearing host assignment - not an initiator (use=' + row.use + ')');
+      } else {
+        console.log('🎯 Clearing host assignment (set to null)');
+      }
     }
 
-    // Handle storage assignment - only use existing storage systems
+    // Handle storage assignment - only use existing storage systems and only for targets (use=target)
     const hasStorageName = row.storage_details?.name && row.storage_details.name.trim() !== '';
     
-    if (hasStorageName) {
+    if (hasStorageName && row.use === 'target') {
       const storageName = row.storage_details.name.trim();
       const storage = storageOptions.find(s => s.name === storageName);
       
       if (storage) {
         // Use the existing storage ID
         result.storage = parseInt(storage.id);
-        console.log('🎯 Using storage ID:', storage.id, 'for storage:', storageName);
+        console.log('🎯 Using storage ID:', storage.id, 'for target:', storageName);
       } else {
         // Storage not found in existing options - set to null
         console.warn('⚠️ Storage not found in options:', storageName, 'Available storage:', storageOptions.map(s => s.name));
         result.storage = null;
       }
     } else {
-      // No storage name provided - explicitly clear storage assignment
+      // No storage name provided or not a target - explicitly clear storage assignment
       result.storage = null;
-      console.log('🎯 Clearing storage assignment (set to null)');
+      if (hasStorageName && row.use !== 'target') {
+        console.log('🎯 Clearing storage assignment - not a target (use=' + row.use + ')');
+      } else {
+        console.log('🎯 Clearing storage assignment (set to null)');
+      }
     }
 
     console.log('✅ buildPayload result:', result);
@@ -496,6 +504,35 @@ const AliasTable = () => {
       return `Alias "${invalidStorageAlias.name}" has invalid storage system "${storageName}". Please select an existing storage system.`;
     }
 
+    // Check for invalid host/storage assignments based on use field
+    const wrongHostAssignment = data.find(alias => {
+      if (!alias.name || alias.name.trim() === "") return false;
+      
+      const hostName = alias.host_details?.name;
+      if (!hostName || hostName.trim() === '') return false; // Empty is valid
+      
+      // Host should only be assigned to initiators (use=init)
+      return alias.use !== 'init';
+    });
+
+    if (wrongHostAssignment) {
+      return `Alias "${wrongHostAssignment.name}" has a host assigned but use is "${wrongHostAssignment.use}". Hosts can only be assigned to initiators (use=init).`;
+    }
+
+    const wrongStorageAssignment = data.find(alias => {
+      if (!alias.name || alias.name.trim() === "") return false;
+      
+      const storageName = alias.storage_details?.name;
+      if (!storageName || storageName.trim() === '') return false; // Empty is valid
+      
+      // Storage should only be assigned to targets (use=target)
+      return alias.use !== 'target';
+    });
+
+    if (wrongStorageAssignment) {
+      return `Alias "${wrongStorageAssignment.name}" has a storage system assigned but use is "${wrongStorageAssignment.use}". Storage systems can only be assigned to targets (use=target).`;
+    }
+
     return true;
   };
 
@@ -566,12 +603,14 @@ const AliasTable = () => {
     },
     'host_details.name': (instance, td, row, col, prop, value) => {
       td.innerText = value || "";
+      const rowData = instance.getSourceDataAtRow(row);
       
-      // Check if host is valid - use simple validation for performance
+      // Check if host is valid and use is appropriate
       // Skip validation if hostOptions aren't loaded yet
       if (value && value.trim() !== '' && hostOptions.length > 0) {
         const hostName = value.trim();
         const isValid = hostOptions.some(h => h.name === hostName);
+        const isInitiator = rowData?.use === 'init';
         
         if (!isValid) {
           // Invalid host - apply error styling
@@ -580,13 +619,20 @@ const AliasTable = () => {
           td.style.border = '2px solid #dc2626';
           td.style.fontWeight = '600';
           td.title = `⚠️ Host "${hostName}" does not exist. Please create it in the Host Table first or select an existing host.`;
+        } else if (!isInitiator) {
+          // Valid host but wrong use type - apply warning styling
+          td.style.backgroundColor = '#fef3c7';
+          td.style.color = '#d97706';
+          td.style.border = '2px solid #d97706';
+          td.style.fontWeight = '600';
+          td.title = `⚠️ Hosts can only be assigned to initiators (use=init). Current use: ${rowData?.use || 'undefined'}`;
         } else {
-          // Valid host - clear any error styling
+          // Valid host and correct use - clear any error styling
           td.style.backgroundColor = '';
           td.style.color = '';
           td.style.border = '';
           td.style.fontWeight = '';
-          td.title = `✓ Valid host: ${hostName}`;
+          td.title = `✓ Valid host for initiator: ${hostName}`;
         }
       } else {
         // Empty value or options not loaded - clear styling
@@ -594,19 +640,21 @@ const AliasTable = () => {
         td.style.color = '';
         td.style.border = '';
         td.style.fontWeight = '';
-        td.title = value && value.trim() !== '' ? 'Loading host validation...' : 'No host assigned (optional)';
+        td.title = value && value.trim() !== '' ? 'Loading host validation...' : 'Hosts only for initiators (use=init)';
       }
       
       return td;
     },
     'storage_details.name': (instance, td, row, col, prop, value) => {
       td.innerText = value || "";
+      const rowData = instance.getSourceDataAtRow(row);
       
-      // Check if storage is valid - use simple validation for performance
+      // Check if storage is valid and use is appropriate
       // Skip validation if storageOptions aren't loaded yet
       if (value && value.trim() !== '' && storageOptions.length > 0) {
         const storageName = value.trim();
         const isValid = storageOptions.some(s => s.name === storageName);
+        const isTarget = rowData?.use === 'target';
         
         if (!isValid) {
           // Invalid storage - apply error styling
@@ -615,13 +663,20 @@ const AliasTable = () => {
           td.style.border = '2px solid #dc2626';
           td.style.fontWeight = '600';
           td.title = `⚠️ Storage system "${storageName}" does not exist. Please select an existing storage system.`;
+        } else if (!isTarget) {
+          // Valid storage but wrong use type - apply warning styling
+          td.style.backgroundColor = '#fef3c7';
+          td.style.color = '#d97706';
+          td.style.border = '2px solid #d97706';
+          td.style.fontWeight = '600';
+          td.title = `⚠️ Storage systems can only be assigned to targets (use=target). Current use: ${rowData?.use || 'undefined'}`;
         } else {
-          // Valid storage - clear any error styling
+          // Valid storage and correct use - clear any error styling
           td.style.backgroundColor = '';
           td.style.color = '';
           td.style.border = '';
           td.style.fontWeight = '';
-          td.title = `✓ Valid storage system: ${storageName}`;
+          td.title = `✓ Valid storage system for target: ${storageName}`;
         }
       } else {
         // Empty value or options not loaded - clear styling
@@ -629,7 +684,7 @@ const AliasTable = () => {
         td.style.color = '';
         td.style.border = '';
         td.style.fontWeight = '';
-        td.title = value && value.trim() !== '' ? 'Loading storage validation...' : 'No storage system assigned (optional)';
+        td.title = value && value.trim() !== '' ? 'Loading storage validation...' : 'Storage systems only for targets (use=target)';
       }
       
       return td;
@@ -726,11 +781,47 @@ const AliasTable = () => {
             // Remove strict validation to allow users to delete/clear values
             column.allowInvalid = true;
             column.allowEmpty = true;
+            // Conditional dropdown: only show hosts for initiators (use=init)
+            column.source = function(query, process) {
+              const instance = this;
+              const row = instance.getSelected()?.[0]?.[0];
+              if (row !== undefined) {
+                const rowData = instance.getSourceDataAtRow(row);
+                if (rowData?.use === 'init') {
+                  // Show host options for initiators
+                  const hostNames = hostOptions.map(h => h.name);
+                  process(hostNames);
+                } else {
+                  // No hosts for targets or undefined use
+                  process([]);
+                }
+              } else {
+                process([]);
+              }
+            };
           } else if (col.data === "storage_details.name") {
             column.type = "dropdown";
             // Remove strict validation to allow users to delete/clear values
             column.allowInvalid = true;
             column.allowEmpty = true;
+            // Conditional dropdown: only show storage for targets (use=target)
+            column.source = function(query, process) {
+              const instance = this;
+              const row = instance.getSelected()?.[0]?.[0];
+              if (row !== undefined) {
+                const rowData = instance.getSourceDataAtRow(row);
+                if (rowData?.use === 'target') {
+                  // Show storage options for targets
+                  const storageNames = storageOptions.map(s => s.name);
+                  process(storageNames);
+                } else {
+                  // No storage for initiators or undefined use
+                  process([]);
+                }
+              } else {
+                process([]);
+              }
+            };
           } else if (col.data === "cisco_alias") {
             column.type = "dropdown";
             column.className = "htCenter";
