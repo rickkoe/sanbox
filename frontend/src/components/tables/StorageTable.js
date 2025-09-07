@@ -29,7 +29,7 @@ const NEW_STORAGE_TEMPLATE = {
 
 // All possible Storage fields for column picker
 const ALL_STORAGE_COLUMNS = [
-  { data: "id", title: "ID" },
+  { data: "id", title: "Details Page" },
   { data: "name", title: "Name" },
   { data: "storage_type", title: "Type" },
   { data: "location", title: "Location" },
@@ -401,7 +401,6 @@ const StorageTable = () => {
         columnSorting={true}
         filters={true}       
         dropdownMenu={false}
-        storageKey="storageTableColumnWidths"
         defaultVisibleColumns={visibleColumnIndices}
         tableName="storage"
         getExportFilename={() => `${config?.customer?.name}_Storage_Table.csv`}

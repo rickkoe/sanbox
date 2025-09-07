@@ -37,7 +37,6 @@ const StorageHostsPage = () => {
 
   return (
     <div className="main-content table-page" style={{ paddingBottom: "50px" }}>
-      <h3>{storage.name} – Hosts</h3>
       <HostTable storage={storage} />
     </div>
   );
