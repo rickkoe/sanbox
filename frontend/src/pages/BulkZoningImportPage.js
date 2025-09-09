@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from "react";
-import { Button, Form, Alert, Card, Spinner, Badge, Tab, Tabs } from "react-bootstrap";
+import { Button, Form, Alert, Card, Spinner, Badge, Tab, Tabs, Modal, Table } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
@@ -16,6 +16,106 @@ const detectWwpnType = async (wwpn) => {
     console.warn(`Failed to detect WWPN type for ${wwpn}:`, error);
     return null;
   }
+};
+
+// Duplicate Conflict Resolver Component
+const DuplicateConflictResolver = ({ conflicts, onResolve, onCancel }) => {
+  const [resolutions, setResolutions] = useState(new Map());
+
+  const handleChoice = (wwpnKey, chosenItemId) => {
+    const newResolutions = new Map(resolutions);
+    newResolutions.set(wwpnKey, chosenItemId);
+    setResolutions(newResolutions);
+  };
+
+  const handleResolveAll = () => {
+    // Check if all conflicts have been resolved
+    const unresolvedConflicts = conflicts.filter(conflict => !resolutions.has(conflict.wwpnKey));
+    
+    if (unresolvedConflicts.length > 0) {
+      alert(`Please resolve all conflicts. ${unresolvedConflicts.length} conflicts still need resolution.`);
+      return;
+    }
+    
+    onResolve(resolutions);
+  };
+
+  return (
+    <Modal show={true} size="xl" onHide={onCancel}>
+      <Modal.Header closeButton>
+        <Modal.Title>Resolve WWPN Conflicts</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Alert variant="info">
+          <strong>{conflicts.length}</strong> WWPNs appear in multiple aliases with different names or types. 
+          Please choose which alias to keep for each WWPN.
+        </Alert>
+        
+        <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+          {conflicts.map((conflict, index) => (
+            <Card key={conflict.wwpnKey} className="mb-3">
+              <Card.Header>
+                <h6 className="mb-0">
+                  Conflict #{index + 1}: WWPN <code>{conflict.wwpn}</code>
+                  <Badge variant="secondary" className="ml-2">
+                    {conflict.conflictType === 'name' ? 'Different Names' : 'Different Types'}
+                  </Badge>
+                </h6>
+              </Card.Header>
+              <Card.Body>
+                <Table striped bordered hover size="sm">
+                  <thead>
+                    <tr>
+                      <th width="50">Choose</th>
+                      <th>Alias Name</th>
+                      <th>Type</th>
+                      <th>VSAN</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {conflict.items.map((item, itemIndex) => {
+                      const itemId = item.name + '|' + item.cisco_alias;
+                      const isSelected = resolutions.get(conflict.wwpnKey) === itemId;
+                      
+                      return (
+                        <tr key={itemIndex} className={isSelected ? 'table-success' : ''}>
+                          <td>
+                            <Form.Check
+                              type="radio"
+                              name={`conflict-${conflict.wwpnKey}`}
+                              checked={isSelected}
+                              onChange={() => handleChoice(conflict.wwpnKey, itemId)}
+                            />
+                          </td>
+                          <td><code>{item.name}</code></td>
+                          <td>
+                            <Badge variant={item.cisco_alias === 'device-alias' ? 'primary' : 'secondary'}>
+                              {item.cisco_alias}
+                            </Badge>
+                          </td>
+                          <td>{item.vsan || 'N/A'}</td>
+                          <td><small>{item.notes || ''}</small></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              </Card.Body>
+            </Card>
+          ))}
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel Import
+        </Button>
+        <Button variant="primary" onClick={handleResolveAll}>
+          Continue with Selected Choices ({resolutions.size}/{conflicts.length} resolved)
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
 };
 
 const BulkZoningImportPage = () => {
@@ -88,6 +188,11 @@ const BulkZoningImportPage = () => {
   const [currentPage, setCurrentPage] = useState("import"); // "import" or "results"
   const [preferencesStatus, setPreferencesStatus] = useState(""); // "", "saving", "saved"
   const [zonePreferencesStatus, setZonePreferencesStatus] = useState(""); // "", "saving", "saved"
+  
+  // Duplicate conflict resolution state
+  const [duplicateConflicts, setDuplicateConflicts] = useState([]);
+  const [conflictResolutions, setConflictResolutions] = useState(new Map());
+  const [showConflictResolution, setShowConflictResolution] = useState(false);
   
   // Import defaults
   const [aliasDefaults, setAliasDefaults] = useState({
@@ -634,61 +739,77 @@ const BulkZoningImportPage = () => {
     return [];
   }, [activeProjectId, selectedFabric]);
 
-  // Deduplicate aliases and zones, handle conflicts
-  const deduplicateItems = (items) => {
-    const aliasMap = new Map();
-    const zoneMap = new Map();
-    const wwpnConflicts = new Map(); // Track WWPNs that appear in multiple alias types
+  // Detect conflicts and present them to user for resolution
+  const detectConflicts = (items) => {
+    const wwpnConflicts = new Map();
+    const aliases = items.filter(item => item.wwpn !== undefined);
     
-    // Separate aliases and zones
+    // Group aliases by WWPN
+    aliases.forEach(item => {
+      const wwpnKey = item.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '');
+      if (!wwpnConflicts.has(wwpnKey)) {
+        wwpnConflicts.set(wwpnKey, []);
+      }
+      wwpnConflicts.get(wwpnKey).push(item);
+    });
+    
+    // Find conflicts and deduplicate by unique alias name + type combinations
+    const conflicts = [];
+    wwpnConflicts.forEach((items, wwpnKey) => {
+      if (items.length > 1) {
+        // Group by unique name + cisco_alias combination
+        const uniqueOptions = new Map();
+        items.forEach(item => {
+          const optionKey = `${item.name}|${item.cisco_alias}`;
+          if (!uniqueOptions.has(optionKey)) {
+            uniqueOptions.set(optionKey, item);
+          }
+        });
+        
+        const uniqueItems = Array.from(uniqueOptions.values());
+        
+        // Check if there's a real conflict after deduplication
+        const names = new Set(uniqueItems.map(i => i.name));
+        const aliasTypes = new Set(uniqueItems.map(i => i.cisco_alias));
+        
+        if (names.size > 1 || aliasTypes.size > 1) {
+          console.log(`🔍 Conflict detected for WWPN ${items[0].wwpn}: ${items.length} raw entries reduced to ${uniqueItems.length} unique options`);
+          conflicts.push({
+            wwpn: items[0].wwpn,
+            wwpnKey: wwpnKey,
+            items: uniqueItems, // Use deduplicated items
+            conflictType: names.size > 1 ? 'name' : 'type'
+          });
+        }
+      }
+    });
+    
+    return conflicts;
+  };
+
+  // Apply user conflict resolutions and deduplicate
+  const deduplicateItemsWithResolutions = (items, resolutions = new Map()) => {
     const aliases = items.filter(item => item.wwpn !== undefined);
     const zones = items.filter(item => item.zone_type !== undefined || item.members !== undefined);
     
-    console.log(`🔄 Deduplication input: ${items.length} total items (${aliases.length} aliases, ${zones.length} zones)`);
+    const aliasMap = new Map();
+    const zoneMap = new Map();
     
-    // Process aliases with conflict detection
+    // Process aliases with user resolutions
     aliases.forEach(item => {
-      const wwpn = item.wwpn;
-      if (!wwpnConflicts.has(wwpn)) {
-        wwpnConflicts.set(wwpn, []);
-      }
-      wwpnConflicts.get(wwpn).push(item);
-    });
-    
-    // Resolve alias conflicts and deduplicate
-    const filteredAliases = aliases.filter(item => {
-      const wwpnEntries = wwpnConflicts.get(item.wwpn);
-      
-      // Check if there's a conflict (same WWPN, different cisco_alias types)
-      const hasConflict = wwpnEntries.length > 1 && 
-        new Set(wwpnEntries.map(e => e.cisco_alias)).size > 1;
-      
-      if (hasConflict) {
-        console.log(`⚠️ WWPN conflict detected: ${item.wwpn} exists as both ${wwpnEntries.map(e => e.cisco_alias).join(' and ')}`);
-        
-        // Apply conflict resolution strategy
-        if (aliasDefaults.conflictResolution === "device-alias" && item.cisco_alias !== "device-alias") {
-          console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring device-alias`);
-          return false; // Skip non-device-alias entries
-        } else if (aliasDefaults.conflictResolution === "fcalias" && item.cisco_alias !== "fcalias") {
-          console.log(`🔄 Skipping ${item.cisco_alias} entry for ${item.name}, preferring fcalias`);
-          return false; // Skip non-fcalias entries
-        }
-        // If "both" is selected, allow all entries through
-      }
-      
-      return true; // Keep this item
-    });
-    
-    // Now deduplicate the filtered aliases by WWPN (since WWPN must be unique)
-    filteredAliases.forEach(item => {
       const wwpnKey = item.wwpn.toLowerCase().replace(/[^0-9a-f]/g, '');
-      if (!aliasMap.has(wwpnKey)) {
+      
+      // Check if user has made a resolution for this WWPN
+      if (resolutions.has(wwpnKey)) {
+        const chosenItemId = resolutions.get(wwpnKey);
+        if (item.name + '|' + item.cisco_alias === chosenItemId) {
+          aliasMap.set(wwpnKey, item);
+          console.log(`✅ User choice: Adding ${item.name} (${item.cisco_alias}) for WWPN ${item.wwpn}`);
+        }
+      } else if (!aliasMap.has(wwpnKey)) {
+        // No conflict resolution needed or no conflict - add first occurrence
         aliasMap.set(wwpnKey, item);
-        console.log(`✅ Adding alias: ${item.name} (${item.wwpn}) as ${item.cisco_alias}`);
-      } else {
-        const existing = aliasMap.get(wwpnKey);
-        console.log(`⚠️ WWPN ${item.wwpn} already processed - keeping ${existing.name} (${existing.cisco_alias}), skipping ${item.name} (${item.cisco_alias})`);
+        console.log(`✅ No conflict: Adding ${item.name} (${item.cisco_alias}) for WWPN ${item.wwpn}`);
       }
     });
     
@@ -702,16 +823,43 @@ const BulkZoningImportPage = () => {
     
     const dedupedAliases = [...aliasMap.values()];
     const dedupedZones = [...zoneMap.values()];
-    const totalDeduped = dedupedAliases.length + dedupedZones.length;
-    const conflictCount = items.length - totalDeduped;
     
-    console.log(`🔄 Deduplication result: ${items.length} -> ${totalDeduped} items (${dedupedAliases.length} aliases, ${dedupedZones.length} zones, removed ${conflictCount} duplicates/conflicts)`);
-    
-    if (conflictCount > 0) {
-      console.log(`⚙️ Conflict resolution: ${aliasDefaults.conflictResolution}`);
-    }
+    console.log(`🔄 Deduplication result: ${items.length} -> ${dedupedAliases.length + dedupedZones.length} items (${dedupedAliases.length} aliases, ${dedupedZones.length} zones)`);
     
     return [...dedupedAliases, ...dedupedZones];
+  };
+
+  // Handle conflict resolution completion
+  const handleConflictResolution = (resolutions) => {
+    setConflictResolutions(resolutions);
+    setShowConflictResolution(false);
+    
+    // Re-process the original data with user resolutions
+    const allParsedItems = uploadedFiles.flatMap(file => file.rawItems || []);
+    const dedupedItems = deduplicateItemsWithResolutions(allParsedItems, resolutions);
+    
+    // Continue with the normal flow
+    enhanceWithExistenceCheck(dedupedItems).then(enhancedItems => {
+      setParsedData(enhancedItems);
+      setShowPreviewSection(true);
+      scrollToResults();
+    });
+  };
+
+  // Legacy function for backward compatibility - now detects conflicts and asks user
+  const deduplicateItems = (items) => {
+    // Detect conflicts first
+    const conflicts = detectConflicts(items);
+    
+    if (conflicts.length > 0) {
+      console.log(`⚠️ Found ${conflicts.length} WWPN conflicts that need user resolution`);
+      setDuplicateConflicts(conflicts);
+      setShowConflictResolution(true);
+      return null; // Return null to indicate conflicts need resolution
+    }
+    
+    // No conflicts, proceed with normal deduplication
+    return deduplicateItemsWithResolutions(items, conflictResolutions);
   };
 
   // Check for existing aliases and zones in database
@@ -1102,8 +1250,8 @@ const BulkZoningImportPage = () => {
       extractedSections.deviceAliases = deviceAliasMatches;
       console.log(`📝 Direct extraction found ${deviceAliasMatches.length} device-alias entries`);
       
-      // Extract fcalias patterns with their members - more robust approach
-      const fcAliasPattern = /fcalias\s+name\s+\S+\s+vsan\s+\d+(?:\r?\n\s+member\s+pwwn\s+[0-9a-fA-F:]+)*/gim;
+      // Extract fcalias patterns with their members - more robust approach (supports both member pwwn and direct pwwn)
+      const fcAliasPattern = /fcalias\s+name\s+\S+\s+vsan\s+\d+(?:\r?\n\s+(?:member\s+)?pwwn\s+[0-9a-fA-F:]+)*/gim;
       let fcAliasMatches = text.match(fcAliasPattern) || [];
       
       // If the complex pattern doesn't work, try simpler extraction
@@ -1122,8 +1270,8 @@ const BulkZoningImportPage = () => {
               fcAliasBlocks.push(currentBlock);
             }
             currentBlock = line;
-          } else if (currentBlock && line.match(/^\s+member\s+pwwn\s+[0-9a-fA-F:]+/)) {
-            // Member line for current fcalias
+          } else if (currentBlock && line.match(/^\s+(?:member\s+)?pwwn\s+[0-9a-fA-F:]+/)) {
+            // Member line for current fcalias (supports both member pwwn and direct pwwn)
             currentBlock += '\n' + line;
           } else if (currentBlock && line.trim() && !line.match(/^\s/)) {
             // End of current block (non-indented, non-empty line)
@@ -1377,8 +1525,8 @@ const BulkZoningImportPage = () => {
         };
       }
       
-      // FCAlias member - look for member pwwn with more flexible whitespace handling
-      const memberRegex = /member\s+pwwn\s+([0-9a-fA-F:]+)/i;
+      // FCAlias member - look for member pwwn or direct pwwn with more flexible whitespace handling
+      const memberRegex = /(?:member\s+)?pwwn\s+([0-9a-fA-F:]+)/i;
       const memberMatch = line.match(memberRegex); // Use original line, not trimmed, to handle indentation
       if (memberMatch && currentFcAlias) {
         const [, wwpn] = memberMatch;
@@ -1811,20 +1959,31 @@ const BulkZoningImportPage = () => {
           parsedItems = await parseAliasData(text, selectedFabric, aliasDefaults);
         }
         
-        // Deduplicate items
-        const dedupedItems = deduplicateItems(parsedItems);
-        
-        // Enhance with existence check and cross-referencing
-        const enhancedItems = await enhanceWithExistenceCheck(dedupedItems);
-        
-        results.push({
+        // Store raw items for potential conflict resolution
+        const fileResult = {
           fileName: file.name,
           fileSize: file.size,
           dataType: dataType,
-          itemCount: enhancedItems.length,
-          items: enhancedItems,
+          rawItems: parsedItems,
           rawText: text
-        });
+        };
+        
+        // Deduplicate items
+        const dedupedItems = deduplicateItems(parsedItems);
+        
+        if (dedupedItems !== null) {
+          // No conflicts, continue with normal processing
+          const enhancedItems = await enhanceWithExistenceCheck(dedupedItems);
+          fileResult.itemCount = enhancedItems.length;
+          fileResult.items = enhancedItems;
+        } else {
+          // Conflicts detected, will be resolved later
+          fileResult.itemCount = parsedItems.length;
+          fileResult.items = [];
+          fileResult.hasConflicts = true;
+        }
+        
+        results.push(fileResult);
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error);
         setError(`Error processing file ${file.name}: ${error.message}`);
@@ -2009,21 +2168,32 @@ const BulkZoningImportPage = () => {
     // Deduplicate items
     const dedupedItems = deduplicateItems(parsedItems);
     
-    // Enhance with existence check and cross-referencing
-    const enhancedItems = await enhanceWithExistenceCheck(dedupedItems);
-    
     const result = {
       fileName: "Pasted Text",
       fileSize: textInput.length,
       dataType: dataType,
-      itemCount: enhancedItems.length,
-      items: enhancedItems,
+      rawItems: parsedItems,
       rawText: textInput
     };
     
+    if (dedupedItems !== null) {
+      // No conflicts, continue with normal processing
+      const enhancedItems = await enhanceWithExistenceCheck(dedupedItems);
+      result.itemCount = enhancedItems.length;
+      result.items = enhancedItems;
+    } else {
+      // Conflicts detected, will be resolved later
+      result.itemCount = parsedItems.length;
+      result.items = [];
+      result.hasConflicts = true;
+    }
+    
       setUploadedFiles(prev => [...prev, result]);
-      setParsedData(prev => [...prev, ...enhancedItems]);
-      setShowPreview(detectDataTypes(parsedItems));
+      if (!result.hasConflicts) {
+        setParsedData(prev => [...prev, ...result.items]);
+        setShowPreview(detectDataTypes(parsedItems));
+      }
+      // If conflicts exist, UI will be shown for resolution
       setShowPreviewSection(true);
       setCurrentPage("results");
       setTextInput("");
@@ -3463,6 +3633,15 @@ const BulkZoningImportPage = () => {
         </div>
       </div>
     </div>
+
+    {/* Duplicate Conflict Resolution Modal */}
+    {showConflictResolution && (
+      <DuplicateConflictResolver
+        conflicts={duplicateConflicts}
+        onResolve={handleConflictResolution}
+        onCancel={() => setShowConflictResolution(false)}
+      />
+    )}
     </>
   );
 };
