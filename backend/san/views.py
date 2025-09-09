@@ -607,6 +607,16 @@ def hosts_by_project_view(request, project_id):
     hosts_queryset = Host.objects.filter(project=project)
     print(f"🔍 Found {hosts_queryset.count()} hosts for project {project_id}")
     
+    # Apply storage filtering if provided
+    storage_id = request.GET.get('storage')
+    if storage_id:
+        try:
+            hosts_queryset = hosts_queryset.filter(storage_id=int(storage_id))
+            print(f"🔍 After storage ID filter (storage={storage_id}): {hosts_queryset.count()} hosts")
+        except ValueError:
+            # Invalid storage ID format, skip filtering
+            print(f"❌ Invalid storage ID format: {storage_id}")
+    
     # Apply search if provided
     if search:
         hosts_queryset = hosts_queryset.filter(

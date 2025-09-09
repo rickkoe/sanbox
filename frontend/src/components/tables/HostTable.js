@@ -61,7 +61,7 @@ const NEW_HOST_TEMPLATE = {
   _isNew: true
 };
 
-const HostTable = () => {
+const HostTable = ({ storage }) => {
   const { config } = useContext(ConfigContext);
   const navigate = useNavigate();
   const tableRef = useRef(null);
@@ -119,6 +119,19 @@ const HostTable = () => {
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
+
+  // Build API URL with optional storage filtering
+  const getApiUrl = () => {
+    let url = `${API_ENDPOINTS.hosts}${activeProjectId}/?format=table`;
+    if (storage) {
+      url += `&storage=${storage.id}`;
+      console.log(`🔥 HostTable filtering by storage system: ${storage.name} (ID: ${storage.id})`);
+    } else {
+      console.log(`🔥 HostTable showing all hosts (no storage filter)`);
+    }
+    console.log(`🔥 HostTable API URL: ${url}`);
+    return url;
+  };
 
   // Dynamic dropdown sources using the same pattern as AliasTable
   const dropdownSources = useMemo(() => ({
@@ -668,16 +681,16 @@ const HostTable = () => {
   return (
     <div className="table-container">
       <GenericTable
-        key={`all-hosts-table-${storageOptions.length}`} // Force re-render when storage options change
+        key={`all-hosts-table-${storageOptions.length}-${storage?.id || 'all'}`} // Force re-render when storage options or storage filter changes
         ref={tableRef}
-        apiUrl={`${API_ENDPOINTS.hosts}${activeProjectId}/?format=table`}
+        apiUrl={getApiUrl()}
         saveUrl={API_ENDPOINTS.hostSave}
         // deleteUrl={`${API_URL}/api/san/hosts/delete/`}  // Remove to force custom handler
         newRowTemplate={NEW_HOST_TEMPLATE}
         tableName="allHosts"
         serverPagination={true}
         defaultPageSize={'All'}
-        storageKey={`all-hosts-table-${activeProjectId}`}
+        storageKey={`all-hosts-table-${activeProjectId}-${storage?.id || 'all'}`}
         colHeaders={ALL_COLUMNS.map(col => col.title)}
         columns={ALL_COLUMNS.map(col => {
           const column = { data: col.data };
@@ -717,7 +730,11 @@ const HostTable = () => {
         columnSorting={true}
         filters={true}
         defaultVisibleColumns={visibleColumnIndices}
-        getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_All_Hosts.csv`}
+        getExportFilename={() => {
+          const base = `${config?.customer?.name}_${config?.active_project?.name}`;
+          const suffix = storage ? `_${storage.name}_Hosts.csv` : '_All_Hosts.csv';
+          return base + suffix;
+        }}
         additionalButtons={[
           {
             text: "Set Host Types",
