@@ -502,31 +502,46 @@ const CustomNamingPage = () => {
                             {/* Pattern Builder */}
                             <div className="mb-4">
                                 <label className="form-label">Naming Pattern</label>
-                                <div className="border p-3 rounded mb-3" style={{minHeight: '60px'}}>
-                                    {currentRule.pattern.length === 0 ? (
-                                        <span className="text-muted">Pattern will appear here as you add components</span>
-                                    ) : (
-                                        <div className="d-flex flex-wrap gap-1">
-                                            {currentRule.pattern.map((item, index) => (
-                                                <span
-                                                    key={index}
-                                                    className={`badge ${
-                                                        item.type === 'text' ? 'bg-secondary' :
-                                                        item.type === 'column' ? 'bg-primary' : 'bg-success'
-                                                    } position-relative`}
-                                                    style={{fontSize: '0.9em', padding: '6px 12px'}}
-                                                >
-                                                    {item.label || item.value}
-                                                    <button
-                                                        type="button"
-                                                        className="btn-close btn-close-white position-absolute top-0 start-100 translate-middle"
-                                                        style={{fontSize: '0.6em'}}
-                                                        onClick={() => removePatternItem(index)}
-                                                    ></button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className="border p-2 rounded mb-3" style={{minHeight: '60px'}}>
+                                    <div className="d-flex flex-wrap gap-1 align-items-center">
+                                        {currentRule.pattern.map((item, index) => (
+                                            <span
+                                                key={index}
+                                                className={`badge ${
+                                                    item.type === 'text' ? 'bg-secondary' :
+                                                    item.type === 'column' ? 'bg-primary' : 'bg-success'
+                                                } position-relative`}
+                                                style={{fontSize: '0.9em', padding: '6px 12px'}}
+                                            >
+                                                {item.label || item.value}
+                                                <button
+                                                    type="button"
+                                                    className="btn-close btn-close-white position-absolute top-0 start-100 translate-middle"
+                                                    style={{fontSize: '0.6em'}}
+                                                    onClick={() => removePatternItem(index)}
+                                                ></button>
+                                            </span>
+                                        ))}
+                                        <input
+                                            type="text"
+                                            className="form-control border-0 flex-grow-1"
+                                            placeholder={currentRule.pattern.length === 0 ? "Type text here or add columns/variables below..." : "Type more text..."}
+                                            style={{minWidth: '200px', outline: 'none', boxShadow: 'none'}}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && e.target.value.trim()) {
+                                                    addPatternItem('text', e.target.value.trim());
+                                                    e.target.value = '';
+                                                    e.preventDefault();
+                                                }
+                                            }}
+                                            onBlur={(e) => {
+                                                if (e.target.value.trim()) {
+                                                    addPatternItem('text', e.target.value.trim());
+                                                    e.target.value = '';
+                                                }
+                                            }}
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Preview */}
@@ -538,32 +553,8 @@ const CustomNamingPage = () => {
 
                                 {/* Add Pattern Items */}
                                 <div className="row">
-                                    <div className="col-md-4">
-                                        <h6>Add Text</h6>
-                                        <div className="input-group mb-2">
-                                            <input
-                                                type="text"
-                                                className="form-control"
-                                                placeholder="Enter text"
-                                                id="textInput"
-                                            />
-                                            <button
-                                                className="btn btn-outline-secondary"
-                                                onClick={() => {
-                                                    const input = document.getElementById('textInput');
-                                                    if (input.value.trim()) {
-                                                        addPatternItem('text', input.value.trim());
-                                                        input.value = '';
-                                                    }
-                                                }}
-                                            >
-                                                Add
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="col-md-4">
-                                        <h6>Add Column</h6>
+                                    <div className="col-md-6">
+                                        <h6>Insert Column</h6>
                                         <select
                                             className="form-select mb-2"
                                             onChange={(e) => {
@@ -574,7 +565,7 @@ const CustomNamingPage = () => {
                                                 }
                                             }}
                                         >
-                                            <option value="">Select column...</option>
+                                            <option value="">Select column to insert...</option>
                                             {tableColumns.map(column => (
                                                 <option key={column.name} value={column.name}>
                                                     {column.verbose_name || column.name}
@@ -583,8 +574,8 @@ const CustomNamingPage = () => {
                                         </select>
                                     </div>
 
-                                    <div className="col-md-4">
-                                        <h6>Add Variable</h6>
+                                    <div className="col-md-6">
+                                        <h6>Insert Variable</h6>
                                         <select
                                             className="form-select mb-2"
                                             onChange={(e) => {
@@ -595,7 +586,7 @@ const CustomNamingPage = () => {
                                                 }
                                             }}
                                         >
-                                            <option value="">Select variable...</option>
+                                            <option value="">Select variable to insert...</option>
                                             {customVariables.map(variable => (
                                                 <option key={variable.id} value={variable.name}>
                                                     {variable.name} ({variable.value})
@@ -603,6 +594,13 @@ const CustomNamingPage = () => {
                                             ))}
                                         </select>
                                     </div>
+                                </div>
+                                
+                                <div className="alert alert-light">
+                                    <small className="text-muted">
+                                        <strong>Tip:</strong> Type text directly in the pattern field above. Press Enter or click away to add it. 
+                                        Use the dropdowns to insert column values and variables.
+                                    </small>
                                 </div>
                             </div>
 
