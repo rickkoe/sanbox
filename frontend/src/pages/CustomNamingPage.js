@@ -1,6 +1,147 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
+// Editable Pattern Item Component
+const PatternItem = ({ item, index, onEdit, onRemove, onMove, totalItems, tableColumns, customVariables }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(item.value);
+
+    const handleEdit = () => {
+        if (item.type === 'text') {
+            setIsEditing(true);
+        }
+    };
+
+    const handleSave = () => {
+        if (editValue.trim() && editValue !== item.value) {
+            onEdit(index, editValue.trim());
+        }
+        setIsEditing(false);
+    };
+
+    const handleCancel = () => {
+        setEditValue(item.value);
+        setIsEditing(false);
+    };
+
+    const handleColumnChange = (newValue) => {
+        if (newValue) {
+            const column = tableColumns.find(c => c.name === newValue);
+            onEdit(index, newValue);
+        }
+    };
+
+    const handleVariableChange = (newValue) => {
+        if (newValue) {
+            onEdit(index, newValue);
+        }
+    };
+
+    const bgClass = item.type === 'text' ? 'bg-secondary' : 
+                   item.type === 'column' ? 'bg-primary' : 'bg-success';
+
+    if (isEditing && item.type === 'text') {
+        return (
+            <div className="d-inline-flex align-items-center gap-1">
+                <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    style={{width: '100px'}}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            handleSave();
+                        } else if (e.key === 'Escape') {
+                            handleCancel();
+                        }
+                    }}
+                    onBlur={handleSave}
+                    autoFocus
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className={`badge ${bgClass} position-relative d-inline-flex align-items-center gap-1`}
+             style={{fontSize: '0.9em', padding: '6px 8px', cursor: item.type === 'text' ? 'pointer' : 'default'}}>
+            
+            {/* Move buttons */}
+            {index > 0 && (
+                <button
+                    type="button"
+                    className="btn btn-link p-0 text-white"
+                    style={{fontSize: '0.7em', lineHeight: 1}}
+                    onClick={() => onMove(index, index - 1)}
+                    title="Move left"
+                >
+                    ◀
+                </button>
+            )}
+
+            {/* Content based on type */}
+            {item.type === 'text' ? (
+                <span onClick={handleEdit} title="Click to edit">
+                    {item.label || item.value}
+                </span>
+            ) : item.type === 'column' ? (
+                <select
+                    className="form-select form-select-sm bg-transparent border-0 text-white"
+                    style={{fontSize: '0.8em', padding: '0 1em 0 0'}}
+                    value={item.value}
+                    onChange={(e) => handleColumnChange(e.target.value)}
+                    title="Change column"
+                >
+                    {tableColumns.map(column => (
+                        <option key={column.name} value={column.name} className="text-dark">
+                            {column.verbose_name || column.name}
+                        </option>
+                    ))}
+                </select>
+            ) : (
+                <select
+                    className="form-select form-select-sm bg-transparent border-0 text-white"
+                    style={{fontSize: '0.8em', padding: '0 1em 0 0'}}
+                    value={item.value}
+                    onChange={(e) => handleVariableChange(e.target.value)}
+                    title="Change variable"
+                >
+                    {customVariables.map(variable => (
+                        <option key={variable.id} value={variable.name} className="text-dark">
+                            {variable.name} ({variable.value})
+                        </option>
+                    ))}
+                </select>
+            )}
+
+            {/* Move right button */}
+            {index < totalItems - 1 && (
+                <button
+                    type="button"
+                    className="btn btn-link p-0 text-white"
+                    style={{fontSize: '0.7em', lineHeight: 1}}
+                    onClick={() => onMove(index, index + 1)}
+                    title="Move right"
+                >
+                    ▶
+                </button>
+            )}
+
+            {/* Remove button */}
+            <button
+                type="button"
+                className="btn btn-link p-0 text-white"
+                style={{fontSize: '0.8em', lineHeight: 1}}
+                onClick={() => onRemove(index)}
+                title="Remove"
+            >
+                ×
+            </button>
+        </div>
+    );
+};
+
 const CustomNamingPage = () => {
     const [selectedTable, setSelectedTable] = useState("");
     const [tableColumns, setTableColumns] = useState([]);
@@ -148,6 +289,27 @@ const CustomNamingPage = () => {
             ...prev,
             pattern: prev.pattern.filter((_, i) => i !== index)
         }));
+    };
+
+    const editPatternItem = (index, newValue) => {
+        setCurrentRule(prev => ({
+            ...prev,
+            pattern: prev.pattern.map((item, i) => 
+                i === index ? { ...item, value: newValue, label: newValue } : item
+            )
+        }));
+    };
+
+    const movePatternItem = (fromIndex, toIndex) => {
+        setCurrentRule(prev => {
+            const newPattern = [...prev.pattern];
+            const [movedItem] = newPattern.splice(fromIndex, 1);
+            newPattern.splice(toIndex, 0, movedItem);
+            return {
+                ...prev,
+                pattern: newPattern
+            };
+        });
     };
 
     const saveNamingRule = async () => {
@@ -505,22 +667,17 @@ const CustomNamingPage = () => {
                                 <div className="border p-2 rounded mb-3" style={{minHeight: '60px'}}>
                                     <div className="d-flex flex-wrap gap-1 align-items-center">
                                         {currentRule.pattern.map((item, index) => (
-                                            <span
+                                            <PatternItem
                                                 key={index}
-                                                className={`badge ${
-                                                    item.type === 'text' ? 'bg-secondary' :
-                                                    item.type === 'column' ? 'bg-primary' : 'bg-success'
-                                                } position-relative`}
-                                                style={{fontSize: '0.9em', padding: '6px 12px'}}
-                                            >
-                                                {item.label || item.value}
-                                                <button
-                                                    type="button"
-                                                    className="btn-close btn-close-white position-absolute top-0 start-100 translate-middle"
-                                                    style={{fontSize: '0.6em'}}
-                                                    onClick={() => removePatternItem(index)}
-                                                ></button>
-                                            </span>
+                                                item={item}
+                                                index={index}
+                                                onEdit={editPatternItem}
+                                                onRemove={removePatternItem}
+                                                onMove={movePatternItem}
+                                                totalItems={currentRule.pattern.length}
+                                                tableColumns={tableColumns}
+                                                customVariables={customVariables}
+                                            />
                                         ))}
                                         <input
                                             type="text"
@@ -598,8 +755,13 @@ const CustomNamingPage = () => {
                                 
                                 <div className="alert alert-light">
                                     <small className="text-muted">
-                                        <strong>Tip:</strong> Type text directly in the pattern field above. Press Enter or click away to add it. 
-                                        Use the dropdowns to insert column values and variables.
+                                        <strong>💡 How to use:</strong><br/>
+                                        • Type text directly and press Enter to add it<br/>
+                                        • Click on gray text badges to edit them inline<br/>
+                                        • Use dropdowns in blue/green badges to change columns/variables<br/>
+                                        • Use ◀▶ arrows to reorder items<br/>
+                                        • Click × to remove any item<br/>
+                                        • Use dropdowns below to quickly insert columns and variables
                                     </small>
                                 </div>
                             </div>
