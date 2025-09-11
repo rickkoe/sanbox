@@ -156,8 +156,8 @@ const CustomNamingPage = () => {
             return;
         }
         
-        if (!currentRule.name || !currentRule.table_name || currentRule.pattern.length === 0) {
-            setError('Please provide a name, select a table, and add at least one pattern item');
+        if (!currentRule.table_name || currentRule.pattern.length === 0) {
+            setError('Please select a table and add at least one pattern item');
             return;
         }
 
@@ -165,6 +165,7 @@ const CustomNamingPage = () => {
             setLoading(true);
             const ruleData = {
                 ...currentRule,
+                name: generateRuleName(), // Use auto-generated name
                 customer: selectedCustomer,
                 user: null  // Explicitly set to null for global rules
             };
@@ -181,7 +182,7 @@ const CustomNamingPage = () => {
 
             // Reset form and reload rules
             setCurrentRule({
-                name: "",
+                name: "", // This will be auto-generated
                 table_name: selectedTable,
                 pattern: [],
                 is_active: true
@@ -300,6 +301,14 @@ const CustomNamingPage = () => {
             }
             return '';
         }).join('');
+    };
+
+    // Auto-generate rule name based on pattern
+    const generateRuleName = () => {
+        if (currentRule.pattern.length === 0) {
+            return "";
+        }
+        return generatePreview();
     };
 
     return (
@@ -461,14 +470,17 @@ const CustomNamingPage = () => {
                         <div className="card-body">
                             <div className="row mb-3">
                                 <div className="col-md-6">
-                                    <label className="form-label">Rule Name</label>
+                                    <label className="form-label">Rule Name (Auto-generated)</label>
                                     <input
                                         type="text"
-                                        className="form-control"
-                                        value={currentRule.name}
-                                        onChange={(e) => setCurrentRule({...currentRule, name: e.target.value})}
-                                        placeholder="e.g., Zone Standard Naming"
+                                        className="form-control bg-light"
+                                        value={generateRuleName()}
+                                        readOnly
+                                        placeholder="Add pattern items below to generate rule name"
                                     />
+                                    <small className="text-muted">
+                                        The rule name is automatically generated from your pattern
+                                    </small>
                                 </div>
                                 <div className="col-md-6">
                                     <label className="form-label">Table</label>
@@ -622,7 +634,7 @@ const CustomNamingPage = () => {
                                         className="btn btn-secondary"
                                         onClick={() => {
                                             setCurrentRule({
-                                                name: "",
+                                                name: "", // This will be auto-generated
                                                 table_name: selectedTable,
                                                 pattern: [],
                                                 is_active: true
