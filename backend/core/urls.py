@@ -17,6 +17,11 @@ from .views import (
     reset_table_configuration,
     app_settings_view,
     debug_log_view,
+    custom_naming_rules_list,
+    custom_naming_rule_detail,
+    custom_variables_list,
+    custom_variable_detail,
+    table_columns_list,
 )
 from .dashboard_views import dashboard_stats, clear_dashboard_cache
 
@@ -53,4 +58,11 @@ urlpatterns = [
     
     # Debug logging endpoint
     path("debug-log/", debug_log_view, name="debug-log"),
+    
+    # Custom Naming endpoints
+    path("custom-naming-rules/", custom_naming_rules_list, name="custom-naming-rules-list"),
+    path("custom-naming-rules/<int:pk>/", custom_naming_rule_detail, name="custom-naming-rule-detail"),
+    path("custom-variables/", custom_variables_list, name="custom-variables-list"),
+    path("custom-variables/<int:pk>/", custom_variable_detail, name="custom-variable-detail"),
+    path("table-columns/", table_columns_list, name="table-columns-list"),
 ]

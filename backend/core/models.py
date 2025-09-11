@@ -301,3 +301,148 @@ class AppSettings(models.Model):
             defaults=settings_data
         )
         return settings
+
+
+class CustomNamingRule(models.Model):
+    """
+    Stores custom naming rules for tables with variables and text patterns.
+    Allows users to define naming patterns like "zs_" + Member1 + "_" + Member2.
+    """
+    
+    # Identification fields
+    customer = models.ForeignKey(
+        Customer, 
+        on_delete=models.CASCADE, 
+        related_name='custom_naming_rules',
+        help_text="Customer this naming rule belongs to"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='custom_naming_rules',
+        null=True,
+        blank=True,
+        help_text="User this naming rule belongs to (optional for global rules)"
+    )
+    
+    # Rule definition
+    name = models.CharField(
+        max_length=100,
+        help_text="Descriptive name for this naming rule"
+    )
+    table_name = models.CharField(
+        max_length=100,
+        help_text="Target table name (e.g., 'zones', 'aliases', 'storage')"
+    )
+    pattern = models.JSONField(
+        help_text="Naming pattern as array of objects with type and value"
+    )
+    
+    # Metadata
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this rule is currently active"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['customer', 'user', 'name', 'table_name']
+        indexes = [
+            models.Index(fields=['customer', 'table_name']),
+            models.Index(fields=['user', 'table_name']),
+        ]
+        verbose_name = "Custom Naming Rule"
+        verbose_name_plural = "Custom Naming Rules"
+    
+    def __str__(self):
+        user_part = f" (User: {self.user.username})" if self.user else " (Global)"
+        return f"{self.customer.name} - {self.name} ({self.table_name}){user_part}"
+    
+    @classmethod
+    def get_rules_for_table(cls, customer, table_name, user=None):
+        """
+        Get all active naming rules for a customer/table/user combination.
+        """
+        rules = cls.objects.filter(
+            customer=customer,
+            table_name=table_name,
+            is_active=True
+        )
+        
+        if user:
+            rules = rules.filter(user=user)
+        else:
+            rules = rules.filter(user__isnull=True)
+            
+        return rules.order_by('-updated_at')
+
+
+class CustomVariable(models.Model):
+    """
+    Stores custom variables that can be used in naming patterns.
+    These are user-defined variables independent of table columns.
+    """
+    
+    # Identification fields
+    customer = models.ForeignKey(
+        Customer, 
+        on_delete=models.CASCADE, 
+        related_name='custom_variables',
+        help_text="Customer this variable belongs to"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='custom_variables',
+        null=True,
+        blank=True,
+        help_text="User this variable belongs to (optional for global variables)"
+    )
+    
+    # Variable definition
+    name = models.CharField(
+        max_length=100,
+        help_text="Variable name (e.g., 'environment', 'datacenter')"
+    )
+    value = models.CharField(
+        max_length=200,
+        help_text="Variable value (e.g., 'prod', 'dc1')"
+    )
+    description = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Optional description of what this variable represents"
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['customer', 'user', 'name']
+        indexes = [
+            models.Index(fields=['customer', 'name']),
+            models.Index(fields=['user', 'name']),
+        ]
+        verbose_name = "Custom Variable"
+        verbose_name_plural = "Custom Variables"
+    
+    def __str__(self):
+        user_part = f" (User: {self.user.username})" if self.user else " (Global)"
+        return f"{self.customer.name} - {self.name}: {self.value}{user_part}"
+    
+    @classmethod
+    def get_variables_for_customer(cls, customer, user=None):
+        """
+        Get all custom variables for a customer/user combination.
+        """
+        variables = cls.objects.filter(customer=customer)
+        
+        if user:
+            variables = variables.filter(user=user)
+        else:
+            variables = variables.filter(user__isnull=True)
+            
+        return variables.order_by('name')

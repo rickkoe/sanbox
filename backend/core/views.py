@@ -5,9 +5,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
-from .models import Config, Project, TableConfiguration, AppSettings
+from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable
 from customers.models import Customer 
-from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer, TableConfigurationSerializer, AppSettingsSerializer
+from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer, TableConfigurationSerializer, AppSettingsSerializer, CustomNamingRuleSerializer, CustomVariableSerializer
 from customers.serializers import CustomerSerializer 
 
 
@@ -907,3 +907,312 @@ def debug_log_view(request):
     
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+# ====================
+# CUSTOM NAMING API VIEWS
+# ====================
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def custom_naming_rules_list(request):
+    """
+    Get or create custom naming rules
+    GET /api/core/custom-naming-rules/?customer=<id>&table_name=<name>&user=<id>
+    POST /api/core/custom-naming-rules/ (create new rule)
+    """
+    print(f"🔥 Custom Naming Rules List - Method: {request.method}")
+    
+    if request.method == "GET":
+        try:
+            customer_id = request.GET.get('customer')
+            table_name = request.GET.get('table_name')
+            user_id = request.GET.get('user')
+            
+            if not customer_id:
+                return JsonResponse({
+                    'error': 'customer parameter is required'
+                }, status=400)
+            
+            customer = get_object_or_404(Customer, id=customer_id)
+            
+            # Build query
+            rules = CustomNamingRule.objects.filter(customer=customer)
+            
+            if table_name:
+                rules = rules.filter(table_name=table_name)
+            
+            if user_id:
+                from django.contrib.auth.models import User
+                user = get_object_or_404(User, id=user_id)
+                rules = rules.filter(user=user)
+            else:
+                rules = rules.filter(user__isnull=True)
+            
+            rules = rules.order_by('-updated_at')
+            serializer = CustomNamingRuleSerializer(rules, many=True)
+            return JsonResponse(serializer.data, safe=False)
+                
+        except Exception as e:
+            print(f"❌ Error in custom_naming_rules_list GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            
+            # Validate required fields
+            if not data.get('customer') or not data.get('table_name') or not data.get('name'):
+                return JsonResponse({
+                    'error': 'customer, table_name, and name are required'
+                }, status=400)
+            
+            serializer = CustomNamingRuleSerializer(data=data)
+            
+            if serializer.is_valid():
+                rule = serializer.save()
+                return JsonResponse(CustomNamingRuleSerializer(rule).data, status=201)
+            else:
+                return JsonResponse(serializer.errors, status=400)
+            
+        except Exception as e:
+            print(f"❌ Error in custom_naming_rules_list POST: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def custom_naming_rule_detail(request, pk):
+    """
+    Get, update, or delete a specific custom naming rule
+    GET /api/core/custom-naming-rules/<id>/
+    PUT /api/core/custom-naming-rules/<id>/
+    DELETE /api/core/custom-naming-rules/<id>/
+    """
+    print(f"🔥 Custom Naming Rule Detail - Method: {request.method}, PK: {pk}")
+    
+    try:
+        rule = get_object_or_404(CustomNamingRule, pk=pk)
+    except CustomNamingRule.DoesNotExist:
+        return JsonResponse({'error': 'Custom naming rule not found'}, status=404)
+    
+    if request.method == "GET":
+        try:
+            serializer = CustomNamingRuleSerializer(rule)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            print(f"❌ Error in custom_naming_rule_detail GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+            serializer = CustomNamingRuleSerializer(rule, data=data, partial=True)
+            
+            if serializer.is_valid():
+                updated_rule = serializer.save()
+                return JsonResponse(CustomNamingRuleSerializer(updated_rule).data)
+            else:
+                return JsonResponse(serializer.errors, status=400)
+                
+        except Exception as e:
+            print(f"❌ Error in custom_naming_rule_detail PUT: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "DELETE":
+        try:
+            rule.delete()
+            return JsonResponse({'message': 'Custom naming rule deleted successfully'}, status=204)
+        except Exception as e:
+            print(f"❌ Error in custom_naming_rule_detail DELETE: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def custom_variables_list(request):
+    """
+    Get or create custom variables
+    GET /api/core/custom-variables/?customer=<id>&user=<id>
+    POST /api/core/custom-variables/ (create new variable)
+    """
+    print(f"🔥 Custom Variables List - Method: {request.method}")
+    
+    if request.method == "GET":
+        try:
+            customer_id = request.GET.get('customer')
+            user_id = request.GET.get('user')
+            
+            if not customer_id:
+                return JsonResponse({
+                    'error': 'customer parameter is required'
+                }, status=400)
+            
+            customer = get_object_or_404(Customer, id=customer_id)
+            
+            # Build query
+            variables = CustomVariable.objects.filter(customer=customer)
+            
+            if user_id:
+                from django.contrib.auth.models import User
+                user = get_object_or_404(User, id=user_id)
+                variables = variables.filter(user=user)
+            else:
+                variables = variables.filter(user__isnull=True)
+            
+            variables = variables.order_by('name')
+            serializer = CustomVariableSerializer(variables, many=True)
+            return JsonResponse(serializer.data, safe=False)
+                
+        except Exception as e:
+            print(f"❌ Error in custom_variables_list GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            
+            # Validate required fields
+            if not data.get('customer') or not data.get('name') or not data.get('value'):
+                return JsonResponse({
+                    'error': 'customer, name, and value are required'
+                }, status=400)
+            
+            serializer = CustomVariableSerializer(data=data)
+            
+            if serializer.is_valid():
+                variable = serializer.save()
+                return JsonResponse(CustomVariableSerializer(variable).data, status=201)
+            else:
+                return JsonResponse(serializer.errors, status=400)
+            
+        except Exception as e:
+            print(f"❌ Error in custom_variables_list POST: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def custom_variable_detail(request, pk):
+    """
+    Get, update, or delete a specific custom variable
+    GET /api/core/custom-variables/<id>/
+    PUT /api/core/custom-variables/<id>/
+    DELETE /api/core/custom-variables/<id>/
+    """
+    print(f"🔥 Custom Variable Detail - Method: {request.method}, PK: {pk}")
+    
+    try:
+        variable = get_object_or_404(CustomVariable, pk=pk)
+    except CustomVariable.DoesNotExist:
+        return JsonResponse({'error': 'Custom variable not found'}, status=404)
+    
+    if request.method == "GET":
+        try:
+            serializer = CustomVariableSerializer(variable)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            print(f"❌ Error in custom_variable_detail GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+            serializer = CustomVariableSerializer(variable, data=data, partial=True)
+            
+            if serializer.is_valid():
+                updated_variable = serializer.save()
+                return JsonResponse(CustomVariableSerializer(updated_variable).data)
+            else:
+                return JsonResponse(serializer.errors, status=400)
+                
+        except Exception as e:
+            print(f"❌ Error in custom_variable_detail PUT: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "DELETE":
+        try:
+            variable.delete()
+            return JsonResponse({'message': 'Custom variable deleted successfully'}, status=204)
+        except Exception as e:
+            print(f"❌ Error in custom_variable_detail DELETE: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def table_columns_list(request):
+    """
+    Get available columns for a specific table
+    GET /api/core/table-columns/?table_name=<name>
+    """
+    print(f"🔥 Table Columns List - Method: {request.method}")
+    
+    try:
+        table_name = request.GET.get('table_name')
+        
+        if not table_name:
+            return JsonResponse({
+                'error': 'table_name parameter is required'
+            }, status=400)
+        
+        # Map table names to their models and get field information
+        table_models = {
+            'zones': 'san.models.Zone',
+            'aliases': 'san.models.Alias', 
+            'fabrics': 'san.models.Fabric',
+            'storage': 'storage.models.Storage',
+            'hosts': 'storage.models.Host',
+            'volumes': 'storage.models.Volume',
+            'customers': 'customers.models.Customer',
+            'projects': 'core.models.Project'
+        }
+        
+        if table_name not in table_models:
+            return JsonResponse({
+                'error': f'Unknown table: {table_name}. Available tables: {", ".join(table_models.keys())}'
+            }, status=400)
+        
+        # Dynamically import and inspect the model
+        model_path = table_models[table_name]
+        module_name, model_name = model_path.rsplit('.', 1)
+        
+        try:
+            module = __import__(module_name, fromlist=[model_name])
+            model = getattr(module, model_name)
+        except (ImportError, AttributeError) as e:
+            return JsonResponse({
+                'error': f'Could not load model {model_path}: {str(e)}'
+            }, status=500)
+        
+        # Get field information
+        columns = []
+        for field in model._meta.get_fields():
+            if hasattr(field, 'name') and not field.many_to_many:  # Skip many-to-many fields
+                field_info = {
+                    'name': field.name,
+                    'verbose_name': getattr(field, 'verbose_name', field.name),
+                    'type': field.__class__.__name__,
+                    'required': not getattr(field, 'null', True) and not getattr(field, 'blank', True)
+                }
+                columns.append(field_info)
+        
+        # Add virtual columns for specific tables
+        if table_name == 'zones':
+            # Add Member1, Member2, etc. columns that exist in the frontend ZoneTable
+            for i in range(1, 11):  # Add Member1 through Member10
+                columns.append({
+                    'name': f'Member{i}',
+                    'verbose_name': f'Member {i}',
+                    'type': 'VirtualColumn',
+                    'required': False
+                })
+        
+        return JsonResponse({
+            'table_name': table_name,
+            'columns': columns
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in table_columns_list: {e}")
+        return JsonResponse({'error': str(e)}, status=500)

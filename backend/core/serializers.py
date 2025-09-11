@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Config, Project, TableConfiguration, AppSettings
+from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable
 from customers.models import Customer
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -144,4 +144,65 @@ class AppSettingsSerializer(serializers.ModelSerializer):
         """Validate alias max zones is a positive integer"""
         if value < 1:
             raise serializers.ValidationError("Alias max zones must be at least 1")
+        return value
+
+
+class CustomNamingRuleSerializer(serializers.ModelSerializer):
+    """Serializer for custom naming rules"""
+    
+    class Meta:
+        model = CustomNamingRule
+        fields = [
+            'id',
+            'customer',
+            'user',
+            'name',
+            'table_name',
+            'pattern',
+            'is_active',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate_pattern(self, value):
+        """Validate that pattern is a list of objects with type and value"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Pattern must be a list")
+        
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError("Each pattern item must be an object")
+            
+            if 'type' not in item or 'value' not in item:
+                raise serializers.ValidationError("Each pattern item must have 'type' and 'value' fields")
+            
+            valid_types = ['text', 'column', 'variable']
+            if item['type'] not in valid_types:
+                raise serializers.ValidationError(f"Pattern type must be one of: {', '.join(valid_types)}")
+        
+        return value
+
+
+class CustomVariableSerializer(serializers.ModelSerializer):
+    """Serializer for custom variables"""
+    
+    class Meta:
+        model = CustomVariable
+        fields = [
+            'id',
+            'customer',
+            'user',
+            'name',
+            'value',
+            'description',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate_name(self, value):
+        """Ensure variable name is valid identifier"""
+        if not value.isidentifier():
+            raise serializers.ValidationError("Variable name must be a valid identifier (letters, numbers, underscore, no spaces)")
         return value

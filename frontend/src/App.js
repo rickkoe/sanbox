@@ -58,6 +58,7 @@ const ImportSwitchConfig = React.lazy(() => import("./components/forms/ImportSwi
 const StorageInsightsImporter = React.lazy(() => import("./pages/StorageInsightsImporter"));
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
 const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
+const CustomNamingPage = React.lazy(() => import("./pages/CustomNamingPage"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -92,7 +93,8 @@ function AppContent() {
     '/settings',
     '/tools',
     '/scripts',
-    '/import'
+    '/import',
+    '/custom-naming'
   ];
 
   // Check for scrollable routes including dynamic routes
@@ -183,6 +185,7 @@ function AppContent() {
                     element={<ZoneDeleteScriptsPage />}
                   />
                     <Route path="/import-data" element={<ImportSwitchConfig />} />
+                    <Route path="/custom-naming" element={<CustomNamingPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

@@ -15,6 +15,8 @@ import {
   Database,
   Building2,
   FolderOpen,
+  Wrench,
+  Type,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -89,6 +91,14 @@ const getSidebarLinks = (pathname) => {
         subLinks: [
           { path: "/storage/systems", label: "Systems", icon: Server },
           { path: "/storage/hosts", label: "Hosts", icon: Monitor },
+        ]
+      },
+      { 
+        label: "Tools", 
+        icon: Wrench, 
+        expandable: true,
+        subLinks: [
+          { path: "/custom-naming", label: "Custom Naming", icon: Type },
         ]
       },
     ],

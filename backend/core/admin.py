@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, Config, TableConfiguration, AppSettings
+from .models import Project, Config, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
@@ -86,3 +86,57 @@ class AppSettingsAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Optimize queries with select_related"""
         return super().get_queryset(request).select_related('user')
+
+
+@admin.register(CustomNamingRule)
+class CustomNamingRuleAdmin(admin.ModelAdmin):
+    list_display = ("name", "table_name", "customer", "user", "is_active", "created_at")
+    list_filter = ("table_name", "is_active", "customer", "created_at")
+    search_fields = ("name", "customer__name", "table_name", "user__username")
+    readonly_fields = ("created_at", "updated_at")
+    
+    fieldsets = (
+        ("Rule Information", {
+            "fields": ("name", "table_name", "is_active")
+        }),
+        ("Owner", {
+            "fields": ("customer", "user")
+        }),
+        ("Pattern Configuration", {
+            "fields": ("pattern",),
+            "description": "JSON array defining the naming pattern with type and value objects"
+        }),
+        ("Metadata", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        })
+    )
+    
+    def get_queryset(self, request):
+        """Optimize queries with select_related"""
+        return super().get_queryset(request).select_related('customer', 'user')
+
+
+@admin.register(CustomVariable)
+class CustomVariableAdmin(admin.ModelAdmin):
+    list_display = ("name", "value", "customer", "user", "description", "created_at")
+    list_filter = ("customer", "created_at")
+    search_fields = ("name", "value", "description", "customer__name", "user__username")
+    readonly_fields = ("created_at", "updated_at")
+    
+    fieldsets = (
+        ("Variable Information", {
+            "fields": ("name", "value", "description")
+        }),
+        ("Owner", {
+            "fields": ("customer", "user")
+        }),
+        ("Metadata", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        })
+    )
+    
+    def get_queryset(self, request):
+        """Optimize queries with select_related"""
+        return super().get_queryset(request).select_related('customer', 'user')
