@@ -5,6 +5,7 @@ import { useSettings } from "../../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 import GenericTable from "./GenericTable"; // Fixed import
 import CustomNamingApplier from "../naming/CustomNamingApplier";
+import { getTextColumns } from "../../utils/tableNamingUtils";
 
 
 // API endpoints
@@ -771,6 +772,20 @@ const ZoneTable = () => {
     };
   }, [memberOptions, visibleBaseIndices.length, memberColumnsInfo.totalMemberColumns, settings?.alias_max_zones]);
 
+  // Get available text columns for naming (include both base and member columns)
+  const availableTextColumns = useMemo(() => {
+    const baseTextColumns = getTextColumns(BASE_COLUMNS);
+    // Add member columns as they can also accept text
+    const memberTextColumns = [];
+    for (let i = 1; i <= memberColumnsInfo.totalMemberColumns; i++) {
+      memberTextColumns.push({
+        key: `member_${i}`,
+        label: `Member ${i}`
+      });
+    }
+    return [...baseTextColumns, ...memberTextColumns];
+  }, [memberColumnsInfo.totalMemberColumns]);
+
   // Compute displayed columns and headers (base + member columns)
   const { allColumns, allHeaders, defaultVisibleColumns } =
     useMemo(() => {
@@ -934,16 +949,55 @@ const ZoneTable = () => {
     // Apply the updated names to the table
     updatedRows.forEach(updatedRow => {
       const rowIndex = updatedRow._rowIndex;
-      const nameColumnIndex = allColumns.findIndex(col => col.data === 'name');
       
-      console.log(`🎯 Applying to row ${rowIndex}: nameColumnIndex=${nameColumnIndex}, newName="${updatedRow.name}"`);
+      console.log(`🎯 Processing updatedRow for row ${rowIndex}:`, updatedRow);
       
-      if (rowIndex !== undefined && nameColumnIndex !== -1) {
-        console.log(`📝 Calling setDataAtCell(${rowIndex}, ${nameColumnIndex}, "${updatedRow.name}")`);
-        hot.setDataAtCell(rowIndex, nameColumnIndex, updatedRow.name);
-        console.log('✅ setDataAtCell completed');
+      // Find which column was updated by looking for the target column that was used
+      // The CustomNamingApplier sets the value on the selectedTargetColumn key
+      let targetColumnKey = null;
+      let newValue = null;
+      
+      // First, try to find the column that actually changed by comparing with original
+      const originalRow = selectedRows.find(r => r._rowIndex === rowIndex);
+      if (originalRow) {
+        for (const key in updatedRow) {
+          if (key !== '_rowIndex' && updatedRow[key] !== originalRow[key]) {
+            targetColumnKey = key;
+            newValue = updatedRow[key];
+            console.log(`🔍 Found changed column: ${targetColumnKey} = "${newValue}" (was "${originalRow[key]}")`);
+            break;
+          }
+        }
+      }
+      
+      // If no change detected, fall back to looking for string values
+      if (!targetColumnKey) {
+        for (const key in updatedRow) {
+          if (key !== '_rowIndex' && updatedRow[key] && typeof updatedRow[key] === 'string') {
+            targetColumnKey = key;
+            newValue = updatedRow[key];
+            console.log(`🔍 Fallback target column: ${targetColumnKey} = "${newValue}"`);
+            break;
+          }
+        }
+      }
+      
+      if (targetColumnKey && newValue !== undefined) {
+        const columnIndex = allColumns.findIndex(col => col.data === targetColumnKey);
+        
+        console.log(`🎯 Applying to row ${rowIndex}: column=${targetColumnKey}, columnIndex=${columnIndex}, newValue="${newValue}"`);
+        console.log(`📊 Available columns:`, allColumns.map(col => col.data));
+        
+        if (rowIndex !== undefined && columnIndex !== -1) {
+          console.log(`📝 Calling setDataAtCell(${rowIndex}, ${columnIndex}, "${newValue}")`);
+          hot.setDataAtCell(rowIndex, columnIndex, newValue);
+          console.log('✅ setDataAtCell completed');
+        } else {
+          console.error(`❌ Cannot update: rowIndex=${rowIndex}, columnIndex=${columnIndex}`);
+          console.error(`❌ Debug info: targetColumnKey="${targetColumnKey}", available columns:`, allColumns.map(col => col.data));
+        }
       } else {
-        console.error(`❌ Cannot update: rowIndex=${rowIndex}, nameColumnIndex=${nameColumnIndex}`);
+        console.error(`❌ No target column or value found in updatedRow:`, updatedRow);
       }
     });
 
@@ -1285,6 +1339,8 @@ const ZoneTable = () => {
               onApplyNaming={handleApplyNaming}
               customerId={activeCustomerId}
               disabled={loading}
+              targetColumn={availableTextColumns.length === 1 ? availableTextColumns[0].key : null}
+              availableColumns={availableTextColumns}
             />
             <button
               className="modern-btn modern-btn-secondary"

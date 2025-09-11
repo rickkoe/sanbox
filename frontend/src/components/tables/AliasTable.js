@@ -3,6 +3,8 @@ import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useNavigate } from "react-router-dom";
 import GenericTable from "./GenericTable";
+import CustomNamingApplier from "../naming/CustomNamingApplier";
+import { getTextColumns, createNamingHandler, createSelectionHandler } from "../../utils/tableNamingUtils";
 
 // API endpoints
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -90,6 +92,7 @@ const AliasTable = () => {
   const [storageOptions, setStorageOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [selectedRows, setSelectedRows] = useState([]);
   const tableRef = useRef(null);
   const navigate = useNavigate();
 
@@ -113,6 +116,20 @@ const AliasTable = () => {
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
+
+  // Get available text columns for naming
+  const availableTextColumns = useMemo(() => getTextColumns(ALL_COLUMNS), []);
+  
+  // Create naming and selection handlers
+  const handleApplyNaming = useMemo(() => 
+    createNamingHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
+    [tableRef]
+  );
+  
+  const handleSelectionChange = useMemo(() => 
+    createSelectionHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
+    [tableRef]
+  );
 
   // Dynamic dropdown sources that include typed host names
   const dropdownSources = useMemo(() => ({
@@ -848,6 +865,20 @@ const AliasTable = () => {
         filters={true}
         defaultVisibleColumns={visibleColumnIndices}
         getExportFilename={() => `${config?.customer?.name}_${config?.active_project?.name}_Alias_Table.csv`}
+        afterSelection={handleSelectionChange}
+        headerButtons={
+          <div className="d-flex gap-2 align-items-center">
+            <CustomNamingApplier
+              tableName="aliases"
+              selectedRows={selectedRows}
+              onApplyNaming={handleApplyNaming}
+              customerId={activeCustomerId}
+              disabled={loading}
+              targetColumn={availableTextColumns.length === 1 ? availableTextColumns[0].key : null}
+              availableColumns={availableTextColumns}
+            />
+          </div>
+        }
         additionalButtons={[
           {
             text: "Bulk Import",

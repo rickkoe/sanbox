@@ -6,20 +6,23 @@ const CustomNamingApplier = ({
     selectedRows = [], 
     onApplyNaming,
     customerId,
-    disabled = false 
+    disabled = false,
+    targetColumn = null,
+    availableColumns = []
 }) => {
     const [namingRules, setNamingRules] = useState([]);
     const [selectedRule, setSelectedRule] = useState('');
+    const [selectedTargetColumn, setSelectedTargetColumn] = useState(targetColumn || '');
     const [customVariables, setCustomVariables] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Load naming rules and variables when component mounts or customer changes
+    // Load naming rules and variables when component mounts or table changes
     useEffect(() => {
-        if (customerId && tableName) {
+        if (tableName) {
             loadNamingData();
         }
-    }, [customerId, tableName]);
+    }, [tableName]);
 
     const loadNamingData = async () => {
         try {
@@ -45,11 +48,12 @@ const CustomNamingApplier = ({
         console.log('🎯 applyNamingRule called with:', {
             selectedRule,
             selectedRowsLength: selectedRows.length,
+            selectedTargetColumn,
             selectedRows: selectedRows
         });
         
-        if (!selectedRule || selectedRows.length === 0) {
-            console.log('❌ Cannot apply: no rule or no selected rows');
+        if (!selectedRule || selectedRows.length === 0 || !selectedTargetColumn) {
+            console.log('❌ Cannot apply: no rule, no selected rows, or no target column');
             return;
         }
 
@@ -68,7 +72,7 @@ const CustomNamingApplier = ({
                 const generatedName = generateNameFromPattern(rule.pattern, row);
                 return {
                     ...row,
-                    name: generatedName
+                    [selectedTargetColumn]: generatedName
                 };
             });
 
@@ -162,11 +166,28 @@ const CustomNamingApplier = ({
         namingRulesCount: namingRules.length
     });
 
-    const isButtonDisabled = disabled || !selectedRule || selectedRows.length === 0 || loading;
+    const isButtonDisabled = disabled || !selectedRule || selectedRows.length === 0 || !selectedTargetColumn || loading;
     console.log('🔘 Button disabled state:', isButtonDisabled);
 
     return (
         <div className="custom-naming-applier d-flex align-items-center gap-2">
+            {availableColumns.length > 1 && (
+                <select
+                    className="form-select form-select-sm"
+                    value={selectedTargetColumn}
+                    onChange={(e) => setSelectedTargetColumn(e.target.value)}
+                    disabled={disabled}
+                    style={{ minWidth: '120px' }}
+                >
+                    <option value="">Target column...</option>
+                    {availableColumns.map(column => (
+                        <option key={column.key} value={column.key}>
+                            {column.label}
+                        </option>
+                    ))}
+                </select>
+            )}
+            
             <select
                 className="form-select form-select-sm"
                 value={selectedRule}
