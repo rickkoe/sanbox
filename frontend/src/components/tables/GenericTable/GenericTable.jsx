@@ -167,6 +167,7 @@ const GenericTable = forwardRef(({
   storageKey,
   height = "100%",
   getExportFilename,
+  afterSelection,
   defaultVisibleColumns = [],
   requiredColumns = [],  // Column indices that cannot be hidden
   tableName = 'generic_table',  // Add tableName prop
@@ -1954,8 +1955,23 @@ const GenericTable = forwardRef(({
               preventOverflow={false}
               minSpareRows={serverPagination ? 5 : 3}
               afterChange={handleAfterChange}
-              afterSelection={(r, c, r2, c2) => updateSelectedCount()}
-              afterDeselect={() => setSelectedCount(0)}
+              afterSelection={(r, c, r2, c2) => {
+                updateSelectedCount();
+                if (afterSelection) {
+                  // Get the current selection from the handsontable instance
+                  const hot = tableRef.current?.hotInstance;
+                  if (hot) {
+                    const selection = hot.getSelected();
+                    afterSelection(selection);
+                  }
+                }
+              }}
+              afterDeselect={() => {
+                setSelectedCount(0);
+                if (afterSelection) {
+                  afterSelection([]);
+                }
+              }}
               manualColumnResize={true}
               afterColumnResize={handleAfterColumnResize}
               afterColumnSort={handleAfterColumnSort}

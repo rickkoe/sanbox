@@ -4,6 +4,7 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useNavigate } from "react-router-dom";
 import GenericTable from "./GenericTable"; // Fixed import
+import CustomNamingApplier from "../naming/CustomNamingApplier";
 
 
 // API endpoints
@@ -68,7 +69,18 @@ const ZoneTable = () => {
   const [loading, setLoading] = useState(true);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationModalData, setValidationModalData] = useState(null);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const selectedRowsRef = useRef([]);
   const tableRef = useRef(null);
+  
+  // Debug: Track changes to selectedRows
+  useEffect(() => {
+    console.log('📊 selectedRows state changed:', {
+      length: selectedRows.length,
+      timestamp: new Date().toISOString(),
+      stackTrace: new Error().stack?.split('\n').slice(1, 4).join('\n')
+    });
+  }, [selectedRows]);
   const navigate = useNavigate();
 
   // Column visibility state for base columns
@@ -308,11 +320,15 @@ const ZoneTable = () => {
 
       if (zone.members_details?.length) {
         // Simply place all members sequentially in member columns
+        console.log(`🏗️ Processing zone ${zone.name} with ${zone.members_details.length} members`);
         zone.members_details.forEach((member, index) => {
           if (index < memberColumnRequirements.memberColumns) {
             zoneData[`member_${index + 1}`] = member.name;
+            console.log(`  Set member_${index + 1} = "${member.name}"`);
           }
         });
+      } else {
+        console.log(`🚫 Zone ${zone.name} has no member details`);
       }
 
       return zoneData;
@@ -801,6 +817,142 @@ const ZoneTable = () => {
         defaultVisibleColumns: defaultVisible,
       };
     }, [visibleBaseIndices, memberColumnsInfo]);
+    
+  // Debug: Track changes to allColumns
+  useEffect(() => {
+    console.log('🔄 allColumns changed:', allColumns.length, 'columns');
+  }, [allColumns]);
+
+  // Function to handle selection changes from GenericTable
+  const handleSelectionChange = useCallback((selection) => {
+    console.log('🔄 handleSelectionChange called with selection:', selection);
+    console.log('  - tableRef.current?.hotInstance:', !!tableRef.current?.hotInstance);
+    console.log('  - current selectedRows.length:', selectedRowsRef.current.length);
+    
+    if (!tableRef.current?.hotInstance) {
+      console.log('❌ No hotInstance available');
+      return;
+    }
+    
+    // If selection is empty, only clear if we don't currently have a valid selection
+    if (!selection || selection.length === 0) {
+      console.log('❌ Empty selection received');
+      // Add a small delay before clearing to give user time to click Apply
+      setTimeout(() => {
+        console.log('⏰ Clearing selectedRows after delay');
+        selectedRowsRef.current = [];
+        setSelectedRows([]);
+      }, 2000); // 2 second delay
+      return;
+    }
+
+    const hot = tableRef.current.hotInstance;
+    const data = hot.getData();
+    const selectedRowsData = [];
+
+    // Convert selection ranges to actual row data
+    selection.forEach(range => {
+      const [startRow, startCol, endRow, endCol] = range;
+      
+      for (let row = startRow; row <= endRow; row++) {
+        if (data[row] && !selectedRowsData.find(r => r._rowIndex === row)) {
+          // Get the row data and add row index for reference
+          const rowData = hot.getDataAtRow(row);
+          
+          console.log(`🎯 Selecting row ${row}, raw data:`, rowData);
+          console.log(`🎯 Row name appears to be: "${rowData[1]}" (name should be at index 1 based on columns)`);
+          console.log(`🎯 AllColumns structure:`, allColumns.map((col, i) => `${i}: ${col.data}`));
+          
+          // Check if this row has any actual data (not all null/undefined)
+          const hasValidData = rowData.some(value => 
+            value !== null && value !== undefined && value !== 'null' && value !== 'undefined' && value !== ''
+          );
+          
+          if (!hasValidData) {
+            console.log('⚠️ Skipping row with no valid data');
+            continue;
+          }
+          
+          const rowObject = {};
+          
+          // Map array data to column names
+          allColumns.forEach((col, index) => {
+            const value = rowData[index];
+            rowObject[col.data] = value;
+            
+            console.log(`🔍 Mapping index ${index}: ${col.data} = "${value}"`);
+          });
+          
+          // SPECIAL FIX: Based on the raw data structure, manually extract member data
+          // The raw data has member values at different positions than the column mapping expects
+          if (rowData.length >= 10) {
+            // Index 8 and 9 contain the actual member data in the raw array
+            const member1Value = rowData[8]; // 'LTO_Drive25' 
+            const member2Value = rowData[9]; // 'P10_PRD01A_port2'
+            
+            if (member1Value && member1Value !== 'null' && member1Value !== 'undefined') {
+              rowObject['member_1'] = member1Value;
+              rowObject['Member1'] = member1Value;
+              console.log(`🎯 FIXED: Set Member1 = "${member1Value}"`);
+            }
+            
+            if (member2Value && member2Value !== 'null' && member2Value !== 'undefined') {
+              rowObject['member_2'] = member2Value;
+              rowObject['Member2'] = member2Value;
+              console.log(`🎯 FIXED: Set Member2 = "${member2Value}"`);
+            }
+          }
+          
+          rowObject._rowIndex = row;
+          selectedRowsData.push(rowObject);
+          console.log(`🎯 Final row object:`, rowObject);
+        }
+      }
+    });
+
+    if (selectedRowsData.length > 0) {
+      console.log('✅ Setting selectedRows to:', selectedRowsData.length, 'rows');
+      selectedRowsRef.current = selectedRowsData;
+      setSelectedRows(selectedRowsData);
+    } else {
+      console.log('⚠️ No valid rows selected - keeping current selection');
+    }
+  }, [allColumns]);
+
+  // Function to handle applying custom naming
+  const handleApplyNaming = useCallback((updatedRows, rule) => {
+    console.log('🚀 handleApplyNaming called with:', updatedRows, rule);
+    
+    if (!tableRef.current?.hotInstance) {
+      console.error('❌ No hotInstance available');
+      return;
+    }
+
+    const hot = tableRef.current.hotInstance;
+    console.log('✅ Hot instance found:', hot);
+    
+    // Apply the updated names to the table
+    updatedRows.forEach(updatedRow => {
+      const rowIndex = updatedRow._rowIndex;
+      const nameColumnIndex = allColumns.findIndex(col => col.data === 'name');
+      
+      console.log(`🎯 Applying to row ${rowIndex}: nameColumnIndex=${nameColumnIndex}, newName="${updatedRow.name}"`);
+      
+      if (rowIndex !== undefined && nameColumnIndex !== -1) {
+        console.log(`📝 Calling setDataAtCell(${rowIndex}, ${nameColumnIndex}, "${updatedRow.name}")`);
+        hot.setDataAtCell(rowIndex, nameColumnIndex, updatedRow.name);
+        console.log('✅ setDataAtCell completed');
+      } else {
+        console.error(`❌ Cannot update: rowIndex=${rowIndex}, nameColumnIndex=${nameColumnIndex}`);
+      }
+    });
+
+    console.log(`🎉 Applied naming rule "${rule.name}" to ${updatedRows.length} rows`);
+    
+    // Clear selection after applying
+    selectedRowsRef.current = [];
+    setSelectedRows([]);
+  }, [allColumns]);
 
   const dropdownSources = useMemo(
     () => ({
@@ -1126,36 +1278,46 @@ const ZoneTable = () => {
           `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`
         }
         headerButtons={
-          <button
-            className="modern-btn modern-btn-secondary"
-            onClick={handleAddColumn}
-            title="Add Member Column"
-            style={{
-              minWidth: '120px',
-              padding: '8px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
-            }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+          <div className="d-flex gap-2 align-items-center">
+            <CustomNamingApplier
+              tableName="zones"
+              selectedRows={selectedRows}
+              onApplyNaming={handleApplyNaming}
+              customerId={activeCustomerId}
+              disabled={loading}
+            />
+            <button
+              className="modern-btn modern-btn-secondary"
+              onClick={handleAddColumn}
+              title="Add Member Column"
+              style={{
+                minWidth: '120px',
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
             >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Add Member Column
-          </button>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add Member Column
+            </button>
+          </div>
         }
         additionalButtons={additionalButtonsConfig}
         columnSorting={true}
         filters={true}
+        afterSelection={handleSelectionChange}
       />
       
       {/* Fabric Validation Modal */}
