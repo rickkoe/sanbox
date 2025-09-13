@@ -35,6 +35,7 @@ const InsightsPage = React.lazy(() => import("./pages/InsightsPage"));
 const ToolsPage = React.lazy(() => import("./pages/ToolsPage"));
 const StorageCalculatorPage = React.lazy(() => import("./pages/StorageCalculatorPage"));
 const StoragePage = React.lazy(() => import("./pages/StoragePage"));
+const StorageLandingPage = React.lazy(() => import("./pages/StorageLandingPage"));
 const ScriptsPage = React.lazy(() => import("./pages/ScriptsPage"));
 const CustomerTable = React.lazy(() => import("./components/tables/CustomerTable"));
 const ProjectTable = React.lazy(() => import("./components/tables/ProjectTable"));
@@ -92,6 +93,7 @@ function AppContent() {
     '/config',
     '/settings',
     '/tools',
+    '/storage',
     '/scripts',
     '/import',
     '/tools/custom-naming'
@@ -142,6 +144,7 @@ function AppContent() {
                     <Route path="/insights" element={<InsightsPage />} />
                     <Route path="/san/aliases" element={<AliasTable />} />
                     <Route path="/san/zones" element={<ZoneTable />} />
+                    <Route path="/storage" element={<StorageLandingPage />} />
                     <Route path="/storage/systems" element={<StorageTable />} />
                     <Route path="/storage/hosts" element={<HostTable />} />
                     <Route path="/storage/:id" element={<StoragePage />} />
