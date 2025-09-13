@@ -4,8 +4,6 @@ import { Modal, Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import GenericTable from "./GenericTable";
-import CustomNamingApplier from "../naming/CustomNamingApplier";
-import { getTextColumns, createNamingHandler, createSelectionHandler } from "../../utils/tableNamingUtils";
 
 // API endpoints
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -67,7 +65,6 @@ const HostTable = ({ storage }) => {
   const { config } = useContext(ConfigContext);
   const navigate = useNavigate();
   const tableRef = useRef(null);
-  const [selectedRows, setSelectedRows] = useState([]);
 
   // Confirmation modal state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -82,19 +79,6 @@ const HostTable = ({ storage }) => {
   const [storageOptions, setStorageOptions] = useState([]);
   const [storageLoaded, setStorageLoaded] = useState(false);
 
-  // Get available text columns for naming
-  const availableTextColumns = useMemo(() => getTextColumns(ALL_COLUMNS), []);
-  
-  // Create naming and selection handlers
-  const handleApplyNaming = useMemo(() => 
-    createNamingHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
-    [tableRef]
-  );
-  
-  const handleSelectionChange = useMemo(() => 
-    createSelectionHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
-    [tableRef]
-  );
   
   // Host type options based on storage type
   const getHostTypeOptions = (storageType) => {
@@ -747,20 +731,7 @@ const HostTable = ({ storage }) => {
         columnSorting={true}
         filters={true}
         defaultVisibleColumns={visibleColumnIndices}
-        afterSelection={handleSelectionChange}
-        headerButtons={
-          <div className="d-flex gap-2 align-items-center">
-            <CustomNamingApplier
-              tableName="hosts"
-              selectedRows={selectedRows}
-              onApplyNaming={handleApplyNaming}
-              customerId={config?.customer?.id || 1}
-              disabled={false}
-              targetColumn={availableTextColumns.length === 1 ? availableTextColumns[0].key : null}
-              availableColumns={availableTextColumns}
-            />
-          </div>
-        }
+        headerButtons={null}
         getExportFilename={() => {
           const base = `${config?.customer?.name}_${config?.active_project?.name}`;
           const suffix = storage ? `_${storage.name}_Hosts.csv` : '_All_Hosts.csv';

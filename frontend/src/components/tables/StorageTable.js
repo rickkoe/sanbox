@@ -3,8 +3,6 @@ import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import GenericTable from "./GenericTable";
 import { useNavigate } from "react-router-dom";
-import CustomNamingApplier from "../naming/CustomNamingApplier";
-import { getTextColumns, createNamingHandler, createSelectionHandler } from "../../utils/tableNamingUtils";
 
 // API endpoints
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -149,24 +147,22 @@ const StorageTable = () => {
   const navigate = useNavigate();
   const [debug, setDebug] = useState(null);
   const [resetingConfig, setResetingConfig] = useState(false);
-  const [selectedRows, setSelectedRows] = useState([]);
   
   // Get the customer ID from the config context
   const customerId = config?.customer?.id;
   
-  // Get available text columns for naming
-  const availableTextColumns = useMemo(() => getTextColumns(ALL_STORAGE_COLUMNS), []);
   
-  // Create naming and selection handlers
-  const handleApplyNaming = useMemo(() => 
-    createNamingHandler(tableRef, ALL_STORAGE_COLUMNS, setSelectedRows), 
-    [tableRef]
+  // Create column structures for consistency
+  const columnsForGenericTable = useMemo(() => 
+    ALL_STORAGE_COLUMNS.map(col => ({
+      data: col.data,
+      type: col.data === "storage_type" ? "dropdown" : undefined,
+      className: col.data === "id" ? "htCenter" : undefined,
+      readOnly: col.data === "imported" || col.data === "updated" || col.data === "db_volumes_count" || col.data === "db_hosts_count" || col.data === "db_aliases_count"
+    })), 
+    []
   );
-  
-  const handleSelectionChange = useMemo(() => 
-    createSelectionHandler(tableRef, ALL_STORAGE_COLUMNS, setSelectedRows), 
-    [tableRef]
-  );
+
 
   // Use the default visible columns defined in the constant
   // Force include DB Aliases column (index 10) in case user has old saved preferences
@@ -402,12 +398,7 @@ const StorageTable = () => {
         storageKey={`storage-table-v2-${customerId}`}
         newRowTemplate={NEW_STORAGE_TEMPLATE}
         colHeaders={ALL_STORAGE_COLUMNS.map(col => col.title)}
-        columns={ALL_STORAGE_COLUMNS.map(col => ({
-          data: col.data,
-          type: col.data === "storage_type" ? "dropdown" : undefined,
-          className: col.data === "id" ? "htCenter" : undefined,
-          readOnly: col.data === "imported" || col.data === "updated" || col.data === "db_volumes_count" || col.data === "db_hosts_count" || col.data === "db_aliases_count"
-        }))}
+        columns={columnsForGenericTable}
         dropdownSources={dropdownSources}
         customRenderers={customRenderers}
         preprocessData={preprocessData}
@@ -421,20 +412,7 @@ const StorageTable = () => {
         defaultVisibleColumns={visibleColumnIndices}
         tableName="storage"
         getExportFilename={() => `${config?.customer?.name}_Storage_Table.csv`}
-        afterSelection={handleSelectionChange}
-        headerButtons={
-          <div className="d-flex gap-2 align-items-center">
-            <CustomNamingApplier
-              tableName="storage"
-              selectedRows={selectedRows}
-              onApplyNaming={handleApplyNaming}
-              customerId={customerId}
-              disabled={false}
-              targetColumn={availableTextColumns.length === 1 ? availableTextColumns[0].key : null}
-              availableColumns={availableTextColumns}
-            />
-          </div>
-        }
+        headerButtons={null}
         additionalButtons={
           <>
             <button

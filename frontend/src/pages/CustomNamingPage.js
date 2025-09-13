@@ -164,16 +164,9 @@ const CustomNamingPage = () => {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
-    // Available tables for selection
+    // Available tables for selection - restricted to zones only
     const availableTables = [
-        { value: "zones", label: "Zones" },
-        { value: "aliases", label: "Aliases" },
-        { value: "fabrics", label: "Fabrics" },
-        { value: "storage", label: "Storage" },
-        { value: "hosts", label: "Hosts" },
-        { value: "volumes", label: "Volumes" },
-        { value: "customers", label: "Customers" },
-        { value: "projects", label: "Projects" }
+        { value: "zones", label: "Zones" }
     ];
 
     // Load data on component mount
@@ -265,10 +258,16 @@ const CustomNamingPage = () => {
         if (!selectedCustomer) return;
         
         try {
+            console.log('Loading naming rules for customer:', selectedCustomer);
             const response = await axios.get(`/api/core/custom-naming-rules/?customer=${selectedCustomer}`);
-            setNamingRules(response.data || []);
+            console.log('Naming rules loaded:', response.data);
+            const rules = response.data || [];
+            setNamingRules(rules);
+            return rules; // Return the rules so we can use them immediately
         } catch (err) {
+            console.error('Error loading naming rules:', err);
             setError('Failed to load naming rules: ' + err.message);
+            return [];
         }
     };
 
@@ -381,11 +380,35 @@ const CustomNamingPage = () => {
 
         try {
             setLoading(true);
+            setError(''); // Clear any previous errors
+            setSuccess(''); // Clear any previous success messages
+            
             await axios.delete(`/api/core/custom-naming-rules/${ruleId}/`);
+            console.log('Naming rule deleted successfully, reloading rules...');
+            
+            // Reload the naming rules list
+            await loadNamingRules();
+            
             setSuccess('Naming rule deleted successfully');
-            loadNamingRules();
         } catch (err) {
-            setError('Failed to delete naming rule: ' + err.message);
+            console.error('Error deleting naming rule:', err);
+            console.error('Error status:', err.response?.status);
+            console.error('Error data:', err.response?.data);
+            
+            // Always try to reload the rules in case the deletion actually succeeded
+            // but the server returned an error code (which seems to be happening)
+            console.log('Attempting to reload rules despite error...');
+            const updatedRules = await loadNamingRules();
+            
+            // Check if the rule was actually deleted by seeing if it's still in the list
+            const ruleStillExists = updatedRules.some(rule => rule.id === ruleId);
+            
+            if (!ruleStillExists) {
+                console.log('Rule was actually deleted despite error response');
+                setSuccess('Naming rule deleted successfully');
+            } else {
+                setError('Failed to delete naming rule: ' + err.message);
+            }
         } finally {
             setLoading(false);
         }

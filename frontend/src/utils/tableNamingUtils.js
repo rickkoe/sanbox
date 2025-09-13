@@ -26,10 +26,10 @@ export const getTextColumns = (allColumns) => {
     }));
 };
 
-// Create a naming handler for tables
+// Create a naming handler for tables - RESTORED ZoneTable approach
 export const createNamingHandler = (tableRef, allColumns, setSelectedRows) => {
     return (updatedRows, rule) => {
-        console.log('🚀 Generic handleApplyNaming called with:', updatedRows, rule);
+        console.log('🚀 handleApplyNaming called with:', updatedRows, rule);
         
         if (!tableRef.current?.hotInstance) {
             console.error('❌ No hotInstance available');
@@ -39,23 +39,24 @@ export const createNamingHandler = (tableRef, allColumns, setSelectedRows) => {
         const hot = tableRef.current.hotInstance;
         console.log('✅ Hot instance found:', hot);
         
-        // Apply the updated values to the table
+        // Apply the updated names to the table
         updatedRows.forEach(updatedRow => {
             const rowIndex = updatedRow._rowIndex;
             
-            // Find which column was updated
+            console.log(`🎯 Processing updatedRow for row ${rowIndex}:`, updatedRow);
+            
+            // Find which column was updated by looking for the target column that was used
+            // The CustomNamingApplier sets the value on the selectedTargetColumn key
             let targetColumnKey = null;
             let newValue = null;
             
+            // Look for the column that has a new value
             for (const key in updatedRow) {
-                if (key !== '_rowIndex' && updatedRow[key]) {
-                    // Check if this is a newly generated value
-                    const originalValue = updatedRow[key];
-                    if (originalValue && typeof originalValue === 'string') {
-                        targetColumnKey = key;
-                        newValue = originalValue;
-                        break;
-                    }
+                if (key !== '_rowIndex' && updatedRow[key] && typeof updatedRow[key] === 'string') {
+                    targetColumnKey = key;
+                    newValue = updatedRow[key];
+                    console.log(`🔍 Found target column: ${targetColumnKey} = "${newValue}"`);
+                    break;
                 }
             }
             
@@ -63,6 +64,7 @@ export const createNamingHandler = (tableRef, allColumns, setSelectedRows) => {
                 const columnIndex = allColumns.findIndex(col => col.data === targetColumnKey);
                 
                 console.log(`🎯 Applying to row ${rowIndex}: column=${targetColumnKey}, columnIndex=${columnIndex}, newValue="${newValue}"`);
+                console.log(`📊 Available columns:`, allColumns.map(col => col.data));
                 
                 if (rowIndex !== undefined && columnIndex !== -1) {
                     console.log(`📝 Calling setDataAtCell(${rowIndex}, ${columnIndex}, "${newValue}")`);
@@ -70,7 +72,10 @@ export const createNamingHandler = (tableRef, allColumns, setSelectedRows) => {
                     console.log('✅ setDataAtCell completed');
                 } else {
                     console.error(`❌ Cannot update: rowIndex=${rowIndex}, columnIndex=${columnIndex}`);
+                    console.error(`❌ Debug info: targetColumnKey="${targetColumnKey}", available columns:`, allColumns.map(col => col.data));
                 }
+            } else {
+                console.error(`❌ No target column or value found in updatedRow:`, updatedRow);
             }
         });
 
@@ -126,10 +131,23 @@ export const createSelectionHandler = (tableRef, allColumns, setSelectedRows) =>
                     
                     const rowObject = {};
                     
-                    // Map array data to column names
-                    allColumns.forEach((col, index) => {
-                        const value = rowData[index];
-                        rowObject[col.data] = value;
+                    // Map array data to column names using visible column mapping
+                    // Since rowData comes from visible columns only, we need to map correctly
+                    const columnHeaders = hot.getColHeader();
+                    
+                    rowData.forEach((value, visibleIndex) => {
+                        const headerName = columnHeaders[visibleIndex];
+                        // Find the column definition that matches this header
+                        const columnDef = allColumns.find(col => col.title === headerName);
+                        
+                        if (columnDef) {
+                            rowObject[columnDef.data] = value;
+                            
+                            // Debug column mapping for critical fields
+                            if (['serial_number', 'model', 'name'].includes(columnDef.data)) {
+                                console.log(`🔍 Column mapping: ${columnDef.data} (visible index ${visibleIndex}) = "${value}"`);
+                            }
+                        }
                     });
                     
                     rowObject._rowIndex = row;

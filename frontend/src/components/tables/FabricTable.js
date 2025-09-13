@@ -2,8 +2,6 @@ import React, { useRef, useContext, useState, useMemo } from "react";
 import axios from "axios";
 import GenericTable from "./GenericTable";
 import { ConfigContext } from "../../context/ConfigContext";
-import CustomNamingApplier from "../naming/CustomNamingApplier";
-import { getTextColumns, createNamingHandler, createSelectionHandler } from "../../utils/tableNamingUtils";
 
 const vendorOptions = [
   { code: 'CI', name: 'Cisco' },
@@ -27,7 +25,6 @@ const FabricTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config, loading: configLoading } = useContext(ConfigContext);
     const tableRef = useRef(null);
-    const [selectedRows, setSelectedRows] = useState([]);
     
     // Get customer ID early so it can be used in URLs
     const customerId = config?.customer?.id;
@@ -50,19 +47,6 @@ const FabricTable = () => {
         return DEFAULT_VISIBLE_INDICES;
     });
 
-    // Get available text columns for naming
-    const availableTextColumns = useMemo(() => getTextColumns(ALL_COLUMNS), []);
-    
-    // Create naming and selection handlers
-    const handleApplyNaming = useMemo(() => 
-        createNamingHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
-        [tableRef]
-    );
-    
-    const handleSelectionChange = useMemo(() => 
-        createSelectionHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
-        [tableRef]
-    );
 
     const NEW_FABRIC_TEMPLATE = { 
         id: null, 
@@ -239,20 +223,7 @@ const FabricTable = () => {
                 columnSorting={true}
                 defaultVisibleColumns={visibleColumnIndices}
                 getExportFilename={() => `${config?.customer?.name || 'Customer'}_Fabric_Table.csv`}
-                afterSelection={handleSelectionChange}
-                headerButtons={
-                    <div className="d-flex gap-2 align-items-center">
-                        <CustomNamingApplier
-                            tableName="fabrics"
-                            selectedRows={selectedRows}
-                            onApplyNaming={handleApplyNaming}
-                            customerId={customerId}
-                            disabled={false}
-                            targetColumn={availableTextColumns.length === 1 ? availableTextColumns[0].key : null}
-                            availableColumns={availableTextColumns}
-                        />
-                    </div>
-                }
+                headerButtons={null}
                 additionalButtons={
                     <>
                         {/* Add any additional buttons here if needed */}

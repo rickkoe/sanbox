@@ -970,14 +970,22 @@ const ZoneTable = () => {
         }
       }
       
-      // If no change detected, fall back to looking for string values
+      // If no change detected, prioritize 'name' column for zones
       if (!targetColumnKey) {
-        for (const key in updatedRow) {
-          if (key !== '_rowIndex' && updatedRow[key] && typeof updatedRow[key] === 'string') {
-            targetColumnKey = key;
-            newValue = updatedRow[key];
-            console.log(`🔍 Fallback target column: ${targetColumnKey} = "${newValue}"`);
-            break;
+        // First check if 'name' column has a value
+        if (updatedRow.name && typeof updatedRow.name === 'string') {
+          targetColumnKey = 'name';
+          newValue = updatedRow.name;
+          console.log(`🔍 Using priority target column: ${targetColumnKey} = "${newValue}"`);
+        } else {
+          // Fall back to looking for any string values
+          for (const key in updatedRow) {
+            if (key !== '_rowIndex' && updatedRow[key] && typeof updatedRow[key] === 'string') {
+              targetColumnKey = key;
+              newValue = updatedRow[key];
+              console.log(`🔍 Fallback target column: ${targetColumnKey} = "${newValue}"`);
+              break;
+            }
           }
         }
       }

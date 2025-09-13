@@ -1,8 +1,6 @@
 import React, { useRef, useState, useMemo } from "react";
 import GenericTable from "./GenericTable";
 import axios from "axios";
-import CustomNamingApplier from "../naming/CustomNamingApplier";
-import { getTextColumns, createNamingHandler, createSelectionHandler } from "../../utils/tableNamingUtils";
 
 // All possible customer columns
 const ALL_COLUMNS = [
@@ -19,7 +17,6 @@ const CustomerTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
 
     const tableRef = useRef(null);
-    const [selectedRows, setSelectedRows] = useState([]);
 
     // Column visibility state
     const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
@@ -39,19 +36,6 @@ const CustomerTable = () => {
         return DEFAULT_VISIBLE_INDICES;
     });
 
-    // Get available text columns for naming
-    const availableTextColumns = useMemo(() => getTextColumns(ALL_COLUMNS), []);
-    
-    // Create naming and selection handlers
-    const handleApplyNaming = useMemo(() => 
-        createNamingHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
-        [tableRef]
-    );
-    
-    const handleSelectionChange = useMemo(() => 
-        createSelectionHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
-        [tableRef]
-    );
 
     const NEW_CUSTOMER_TEMPLATE = { 
         id: null, 
@@ -152,20 +136,7 @@ const CustomerTable = () => {
                 storageKey="customerTableColumnWidths"
                 defaultVisibleColumns={visibleColumnIndices}
                 getExportFilename={() => "Customer_Table.csv"}
-                afterSelection={handleSelectionChange}
-                headerButtons={
-                    <div className="d-flex gap-2 align-items-center">
-                        <CustomNamingApplier
-                            tableName="customers"
-                            selectedRows={selectedRows}
-                            onApplyNaming={handleApplyNaming}
-                            customerId={1}
-                            disabled={false}
-                            targetColumn={availableTextColumns.length === 1 ? availableTextColumns[0].key : null}
-                            availableColumns={availableTextColumns}
-                        />
-                    </div>
-                }
+                headerButtons={null}
             />
         </div>
     );

@@ -1,7 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
 import GenericTable from "./GenericTable";
-import CustomNamingApplier from "../naming/CustomNamingApplier";
-import { getTextColumns, createNamingHandler, createSelectionHandler } from "../../utils/tableNamingUtils";
 
 // All possible columns in the Volume model
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -75,7 +73,6 @@ const DEFAULT_VISIBLE_INDICES = [1, 44, 7, 8, 39, 33, 59, 60]; // name, unique_i
 
 const VolumeTable = ({ storage }) => {
   const tableRef = useRef(null);
-  const [selectedRows, setSelectedRows] = useState([]);
   
   // Column visibility state - using indices for GenericTable compatibility
   const [visibleColumnIndices, setVisibleColumnIndices] = useState(() => {
@@ -107,19 +104,6 @@ const VolumeTable = ({ storage }) => {
     localStorage.setItem("volumeTableColumns", JSON.stringify(columnNames));
   };
 
-  // Get available text columns for naming
-  const availableTextColumns = useMemo(() => getTextColumns(ALL_COLUMNS), []);
-  
-  // Create naming and selection handlers
-  const handleApplyNaming = useMemo(() => 
-    createNamingHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
-    [tableRef]
-  );
-  
-  const handleSelectionChange = useMemo(() => 
-    createSelectionHandler(tableRef, ALL_COLUMNS, setSelectedRows), 
-    [tableRef]
-  );
 
   // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
 
@@ -186,20 +170,7 @@ const VolumeTable = ({ storage }) => {
         filters={true}
         columnWidthsStorageKey="volumeTableWidths"
         defaultVisibleColumns={visibleColumnIndices}
-        afterSelection={handleSelectionChange}
-        headerButtons={
-          <div className="d-flex gap-2 align-items-center">
-            <CustomNamingApplier
-              tableName="volumes"
-              selectedRows={selectedRows}
-              onApplyNaming={handleApplyNaming}
-              customerId={1}
-              disabled={false}
-              targetColumn={availableTextColumns.length === 1 ? availableTextColumns[0].key : null}
-              availableColumns={availableTextColumns}
-            />
-          </div>
-        }
+        headerButtons={null}
         getExportFilename={() => `${storage.name || 'Storage'}_Volumes.csv`}
         additionalButtons={
           <>
