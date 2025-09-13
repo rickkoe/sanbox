@@ -94,7 +94,7 @@ function AppContent() {
     '/tools',
     '/scripts',
     '/import',
-    '/custom-naming'
+    '/tools/custom-naming'
   ];
 
   // Check for scrollable routes including dynamic routes
@@ -185,7 +185,7 @@ function AppContent() {
                     element={<ZoneDeleteScriptsPage />}
                   />
                     <Route path="/import-data" element={<ImportSwitchConfig />} />
-                    <Route path="/custom-naming" element={<CustomNamingPage />} />
+                    <Route path="/tools/custom-naming" element={<CustomNamingPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

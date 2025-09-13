@@ -8,7 +8,6 @@ import NavbarBrand from "./NavbarBrand";
 import NavbarContext from "./NavbarContext";
 import ImportButton from "./ImportButton";
 import ScriptsDropdown from "./ScriptsDropdown";
-import ToolsButton from "./ToolsButton";
 import UserSection from "./UserSection";
 import AboutModal from "../../pages/AboutPage";
 
@@ -50,7 +49,6 @@ const Navbar = () => {
               onCancelImport={handleCancelImport}
             />
             
-            <ToolsButton />
 
             <li className="nav-item nav-divider">
               <span className="divider-line"></span>

@@ -17,6 +17,8 @@ import {
   FolderOpen,
   Wrench,
   Type,
+  Calculator,
+  Cable,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -98,7 +100,9 @@ const getSidebarLinks = (pathname) => {
         icon: Wrench, 
         expandable: true,
         subLinks: [
-          { path: "/custom-naming", label: "Custom Naming", icon: Type },
+          { path: "/tools/custom-naming", label: "Custom Naming", icon: Type },
+          { path: "/tools/wwpn-colonizer", label: "WWPN Colonizer", icon: Cable },
+          { path: "/tools/ibm-storage-calculator", label: "Storage Calculators", icon: Calculator },
         ]
       },
     ],
