@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils import timezone
-from .models import Storage, Volume, Host
+from .models import Storage, Volume, Host, HostWwpn
 from .serializers import StorageSerializer, VolumeSerializer, HostSerializer
 import logging
 from django.core.paginator import Paginator
@@ -679,3 +679,186 @@ def mkhost_scripts_view(request, customer_id):
     except Exception as e:
         print(f"❌ Error generating mkhost scripts: {e}")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def host_wwpns_view(request, host_id):
+    """Get or manage WWPNs for a specific host."""
+    try:
+        host = Host.objects.get(id=host_id)
+    except Host.DoesNotExist:
+        return JsonResponse({"error": "Host not found."}, status=404)
+    
+    if request.method == "GET":
+        # Return all WWPNs for this host with source information
+        wwpn_details = host.get_all_wwpns()
+        return JsonResponse({
+            "host_id": host.id,
+            "host_name": host.name,
+            "wwpns": wwpn_details
+        })
+    
+    elif request.method == "POST":
+        # Add or remove manual WWPNs
+        try:
+            data = json.loads(request.body)
+            action = data.get('action')  # 'add' or 'remove'
+            wwpn = data.get('wwpn', '').strip()
+            
+            if not wwpn:
+                return JsonResponse({"error": "WWPN is required."}, status=400)
+            
+            # Format WWPN to ensure consistent format
+            def format_wwpn(value):
+                if not value:
+                    return ""
+                clean_value = ''.join(c for c in value.upper() if c in '0123456789ABCDEF')
+                if len(clean_value) != 16:
+                    return None  # Invalid length
+                return ':'.join([clean_value[i:i+2] for i in range(0, 16, 2)])
+            
+            formatted_wwpn = format_wwpn(wwpn)
+            if not formatted_wwpn:
+                return JsonResponse({"error": "Invalid WWPN format. Must be 16 hex characters."}, status=400)
+            
+            if action == 'add':
+                # Add a manual WWPN
+                host_wwpn, created = HostWwpn.objects.get_or_create(
+                    host=host,
+                    wwpn=formatted_wwpn,
+                    defaults={'source_type': 'manual'}
+                )
+                if not created:
+                    if host_wwpn.source_type == 'alias':
+                        return JsonResponse({
+                            "error": f"WWPN {formatted_wwpn} is already assigned from alias '{host_wwpn.source_alias.name}'."
+                        }, status=400)
+                    else:
+                        return JsonResponse({
+                            "error": f"WWPN {formatted_wwpn} is already manually assigned to this host."
+                        }, status=400)
+                
+                return JsonResponse({
+                    "success": True,
+                    "message": f"WWPN {formatted_wwpn} added to host {host.name}.",
+                    "wwpn": {
+                        "wwpn": formatted_wwpn,
+                        "source_type": "manual",
+                        "source_alias": None,
+                        "aligned": False
+                    }
+                })
+            
+            elif action == 'remove':
+                # Remove a manual WWPN (cannot remove alias-sourced WWPNs)
+                try:
+                    host_wwpn = HostWwpn.objects.get(
+                        host=host,
+                        wwpn=formatted_wwpn,
+                        source_type='manual'
+                    )
+                    host_wwpn.delete()
+                    return JsonResponse({
+                        "success": True,
+                        "message": f"Manual WWPN {formatted_wwpn} removed from host {host.name}."
+                    })
+                except HostWwpn.DoesNotExist:
+                    return JsonResponse({
+                        "error": f"Manual WWPN {formatted_wwpn} not found for this host."
+                    }, status=404)
+            
+            else:
+                return JsonResponse({"error": "Invalid action. Use 'add' or 'remove'."}, status=400)
+                
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": f"Error managing WWPN: {str(e)}"}, status=500)
+
+
+@csrf_exempt 
+@require_http_methods(["POST"])
+def check_wwpn_conflicts_view(request):
+    """Check for conflicts between manual WWPNs and existing aliases."""
+    try:
+        data = json.loads(request.body)
+        wwpn = data.get('wwpn', '').strip()
+        host_id = data.get('host_id')
+        
+        if not wwpn:
+            return JsonResponse({"error": "WWPN is required."}, status=400)
+        
+        # Format WWPN using same logic as above
+        def format_wwpn(value):
+            if not value:
+                return ""
+            clean_value = ''.join(c for c in value.upper() if c in '0123456789ABCDEF')
+            if len(clean_value) != 16:
+                return None
+            return ':'.join([clean_value[i:i+2] for i in range(0, 16, 2)])
+        
+        formatted_wwpn = format_wwpn(wwpn)
+        if not formatted_wwpn:
+            return JsonResponse({"error": "Invalid WWPN format. Must be 16 hex characters."}, status=400)
+        
+        conflicts = []
+        
+        # Check if this WWPN exists in any aliases
+        from san.models import Alias
+        aliases_with_wwpn = Alias.objects.filter(wwpn=formatted_wwpn)
+        
+        for alias in aliases_with_wwpn:
+            conflict_info = {
+                "type": "alias",
+                "alias_name": alias.name,
+                "alias_id": alias.id,
+                "fabric_name": alias.fabric.name,
+                "host_name": alias.host.name if alias.host else None,
+                "host_id": alias.host.id if alias.host else None,
+                "use": alias.use
+            }
+            
+            if alias.host and str(alias.host.id) == str(host_id):
+                conflict_info["alignment"] = "matched"
+                conflict_info["message"] = f"This WWPN matches alias '{alias.name}' already assigned to this host."
+            elif alias.host:
+                conflict_info["alignment"] = "conflict"
+                conflict_info["message"] = f"This WWPN matches alias '{alias.name}' assigned to different host '{alias.host.name}'."
+            else:
+                conflict_info["alignment"] = "available"
+                conflict_info["message"] = f"This WWPN matches unassigned alias '{alias.name}'. You can assign this alias to the host instead."
+            
+            conflicts.append(conflict_info)
+        
+        # Check if this WWPN is already manually assigned to other hosts
+        if host_id:
+            manual_assignments = HostWwpn.objects.filter(
+                wwpn=formatted_wwpn,
+                source_type='manual'
+            ).exclude(host_id=host_id)
+        else:
+            manual_assignments = HostWwpn.objects.filter(
+                wwpn=formatted_wwpn,
+                source_type='manual'
+            )
+        
+        for assignment in manual_assignments:
+            conflicts.append({
+                "type": "manual",
+                "host_name": assignment.host.name,
+                "host_id": assignment.host.id,
+                "alignment": "conflict",
+                "message": f"This WWPN is already manually assigned to host '{assignment.host.name}'."
+            })
+        
+        return JsonResponse({
+            "wwpn": formatted_wwpn,
+            "conflicts": conflicts,
+            "has_conflicts": len(conflicts) > 0
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON data."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": f"Error checking conflicts: {str(e)}"}, status=500)

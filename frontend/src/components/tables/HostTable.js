@@ -74,6 +74,13 @@ const HostTable = ({ storage }) => {
   const [showHostTypeModal, setShowHostTypeModal] = useState(false);
   const [hostTypeModalData, setHostTypeModalData] = useState(null);
   const [customHostTypes, setCustomHostTypes] = useState({});
+  
+  // WWPN management modal state
+  const [showWwpnModal, setShowWwpnModal] = useState(false);
+  const [wwpnModalData, setWwpnModalData] = useState(null);
+  const [newWwpn, setNewWwpn] = useState("");
+  const [wwpnConflicts, setWwpnConflicts] = useState([]);
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
 
   // Storage systems state
   const [storageOptions, setStorageOptions] = useState([]);
@@ -214,6 +221,135 @@ const HostTable = ({ storage }) => {
     loadStorageOptions();
   }, [config, activeCustomerId]);
 
+  // WWPN management functions
+  const handleManageWwpns = (hostId, hostName) => {
+    setWwpnModalData({ hostId, hostName, wwpns: [] });
+    setNewWwpn("");
+    setWwpnConflicts([]);
+    setShowWwpnModal(true);
+    
+    // Load current WWPNs for this host
+    loadHostWwpns(hostId);
+  };
+  
+  // Make the function globally available for the click handlers
+  React.useEffect(() => {
+    window.openWwpnManagement = handleManageWwpns;
+    return () => {
+      window.openWwpnManagement = null;
+    };
+  }, []);
+  
+  const loadHostWwpns = async (hostId) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/storage/hosts/${hostId}/wwpns/`);
+      setWwpnModalData(prev => ({
+        ...prev,
+        wwpns: response.data.wwpns || []
+      }));
+    } catch (error) {
+      console.error("Error loading WWPNs:", error);
+    }
+  };
+  
+  const checkWwpnConflicts = async (wwpn, hostId) => {
+    if (!wwpn || wwpn.trim() === "") {
+      setWwpnConflicts([]);
+      return;
+    }
+    
+    setCheckingConflicts(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/storage/check-wwpn-conflicts/`, {
+        wwpn: wwpn.trim(),
+        host_id: hostId
+      });
+      setWwpnConflicts(response.data.conflicts || []);
+    } catch (error) {
+      console.error("Error checking WWPN conflicts:", error);
+      setWwpnConflicts([]);
+    } finally {
+      setCheckingConflicts(false);
+    }
+  };
+  
+  const addWwpn = async () => {
+    if (!newWwpn.trim()) return;
+    
+    try {
+      const response = await axios.post(`${API_URL}/api/storage/hosts/${wwpnModalData.hostId}/wwpns/`, {
+        action: 'add',
+        wwpn: newWwpn.trim()
+      });
+      
+      if (response.data.success) {
+        // Reload WWPNs
+        loadHostWwpns(wwpnModalData.hostId);
+        setNewWwpn("");
+        setWwpnConflicts([]);
+        
+        // Refresh the main table to show the new WWPN
+        if (tableRef.current?.refreshData) {
+          tableRef.current.refreshData();
+        }
+      }
+    } catch (error) {
+      console.error("Error adding WWPN:", error);
+      alert(`Error: ${error.response?.data?.error || error.message}`);
+    }
+  };
+  
+  const removeWwpn = async (wwpn) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/storage/hosts/${wwpnModalData.hostId}/wwpns/`, {
+        action: 'remove',
+        wwpn: wwpn
+      });
+      
+      if (response.data.success) {
+        // Reload WWPNs
+        loadHostWwpns(wwpnModalData.hostId);
+        
+        // Refresh the main table to show the updated WWPNs
+        if (tableRef.current?.refreshData) {
+          tableRef.current.refreshData();
+        }
+      }
+    } catch (error) {
+      console.error("Error removing WWPN:", error);
+      alert(`Error: ${error.response?.data?.error || error.message}`);
+    }
+  };
+  
+  const assignHostToAlias = async (aliasId, hostId) => {
+    try {
+      const response = await axios.post(`${API_URL}/api/san/assign-host-to-alias/`, {
+        alias_id: aliasId,
+        host_id: hostId
+      });
+      
+      if (response.data.success) {
+        // Show success message
+        alert(`Success: ${response.data.message}`);
+        
+        // Clear the new WWPN input and conflicts
+        setNewWwpn("");
+        setWwpnConflicts([]);
+        
+        // Reload WWPNs for this host
+        loadHostWwpns(hostId);
+        
+        // Refresh the main table to show the updated WWPNs
+        if (tableRef.current?.refreshData) {
+          tableRef.current.refreshData();
+        }
+      }
+    } catch (error) {
+      console.error("Error assigning host to alias:", error);
+      alert(`Error: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
   // Wait for config to load before showing any content
   if (!config) {
     return (
@@ -241,22 +377,55 @@ const HostTable = ({ storage }) => {
       return td;
     },
     wwpns: (instance, td, row, col, prop, value) => {
-      // Display comma-separated WWPNs from aliases
-      if (value) {
-        td.innerText = value; // Already formatted as comma-separated from backend
-        td.style.fontFamily = "monospace";
-        td.style.fontSize = "12px"; // Smaller font for better readability with multiple WWPNs
+      const rowData = instance.getSourceDataAtRow(row);
+      const wwpnDetails = rowData.wwpn_details || [];
+      
+      if (wwpnDetails.length > 0) {
+        // Create HTML with visual indicators for each WWPN
+        const wwpnElements = wwpnDetails.map(w => {
+          let indicator, title;
+          if (w.source_type === 'alias') {
+            indicator = '<span style="color: #059669; font-weight: bold;" title="From alias">🔗</span>';
+            title = `From alias: ${w.source_alias || 'Unknown'}`;
+          } else {
+            indicator = '<span style="color: #dc2626; font-weight: bold;" title="Manual">✏️</span>';
+            title = 'Manually assigned';
+          }
+          return `<span style="margin-right: 8px;" title="${title}">${indicator} ${w.wwpn}</span>`;
+        }).join('');
         
-        // Add tooltip showing count if multiple WWPNs
-        const wwpnList = value.split(',').map(w => w.trim()).filter(w => w.length > 0);
-        if (wwpnList.length > 1) {
-          td.title = `${wwpnList.length} WWPNs from aliases referencing this host`;
-        } else if (wwpnList.length === 1) {
-          td.title = `1 WWPN from alias referencing this host`;
-        }
+        td.innerHTML = wwpnElements;
+        td.style.fontFamily = "monospace";
+        td.style.fontSize = "12px";
+        
+        // Summary tooltip
+        const aliasCount = wwpnDetails.filter(w => w.source_type === 'alias').length;
+        const manualCount = wwpnDetails.filter(w => w.source_type === 'manual').length;
+        let summary = '';
+        if (aliasCount > 0) summary += `${aliasCount} from aliases`;
+        if (manualCount > 0) summary += `${summary ? ', ' : ''}${manualCount} manual`;
+        td.title = `${wwpnDetails.length} WWPNs total: ${summary}`;
+        
+        // Add click handler for WWPN management
+        td.style.cursor = 'pointer';
+        td.onclick = () => {
+          const hostId = rowData.id;
+          const hostName = rowData.name;
+          if (window.openWwpnManagement) {
+            window.openWwpnManagement(hostId, hostName);
+          }
+        };
       } else {
-        td.innerText = "";
-        td.title = "No aliases reference this host";
+        td.innerHTML = '<span style="color: #6b7280; font-style: italic;">No WWPNs</span>';
+        td.title = "No WWPNs assigned - click to manage";
+        td.style.cursor = 'pointer';
+        td.onclick = () => {
+          const hostId = rowData.id;
+          const hostName = rowData.name;
+          if (window.openWwpnManagement) {
+            window.openWwpnManagement(hostId, hostName);
+          }
+        };
       }
       return td;
     },
@@ -748,6 +917,29 @@ const HostTable = ({ storage }) => {
             onClick: handleSetHostTypes
           },
           {
+            text: "Manage WWPNs",
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/>
+              </svg>
+            ),
+            onClick: () => {
+              const selected = tableRef.current?.hotInstance?.getSelected();
+              if (selected && selected.length > 0) {
+                const row = selected[0][0];
+                const rowData = tableRef.current.hotInstance.getSourceDataAtRow(row);
+                if (rowData && rowData.id) {
+                  handleManageWwpns(rowData.id, rowData.name);
+                } else {
+                  alert("Please select a valid host to manage WWPNs.");
+                }
+              } else {
+                alert("Please select a host first.");
+              }
+            }
+          },
+          {
             text: "Storage Scripts",
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -887,6 +1079,140 @@ const HostTable = ({ storage }) => {
               Override All ({hostTypeModalData.allHostTypeCount})
             </Button>
           )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* WWPN Management Modal */}
+      <Modal show={showWwpnModal} onHide={() => setShowWwpnModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Manage WWPNs for {wwpnModalData?.hostName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {wwpnModalData && (
+            <div>
+              <div className="mb-4">
+                <h6>Current WWPNs:</h6>
+                {wwpnModalData.wwpns.length > 0 ? (
+                  <div className="list-group">
+                    {wwpnModalData.wwpns.map((wwpn, index) => (
+                      <div key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                          <span className="font-monospace">{wwpn.wwpn}</span>
+                          {wwpn.source_type === 'alias' ? (
+                            <span className="badge bg-success ms-2" title="From alias">
+                              🔗 {wwpn.source_alias || 'Alias'}
+                            </span>
+                          ) : (
+                            <span className="badge bg-primary ms-2" title="Manual">
+                              ✏️ Manual
+                            </span>
+                          )}
+                        </div>
+                        {wwpn.source_type === 'manual' && (
+                          <button 
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => removeWwpn(wwpn.wwpn)}
+                            title="Remove manual WWPN"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="alert alert-info">No WWPNs assigned to this host.</div>
+                )}
+              </div>
+
+              <div className="border-top pt-4">
+                <h6>Add Manual WWPN:</h6>
+                <div className="row g-2 align-items-end">
+                  <div className="col">
+                    <label className="form-label">WWPN:</label>
+                    <input 
+                      type="text" 
+                      className="form-control font-monospace"
+                      value={newWwpn}
+                      onChange={(e) => {
+                        setNewWwpn(e.target.value);
+                        checkWwpnConflicts(e.target.value, wwpnModalData.hostId);
+                      }}
+                      placeholder="50:01:23:45:67:89:AB:CD"
+                      maxLength="23"
+                    />
+                  </div>
+                  <div className="col-auto">
+                    <button 
+                      className="btn btn-primary"
+                      onClick={addWwpn}
+                      disabled={!newWwpn.trim() || checkingConflicts}
+                    >
+                      Add WWPN
+                    </button>
+                  </div>
+                </div>
+
+                {checkingConflicts && (
+                  <div className="mt-2">
+                    <small className="text-muted">Checking for conflicts...</small>
+                  </div>
+                )}
+
+                {wwpnConflicts.length > 0 && (
+                  <div className="mt-3">
+                    <h6 className="text-warning">⚠️ Conflicts Detected:</h6>
+                    <div className="list-group list-group-flush">
+                      {wwpnConflicts.map((conflict, index) => (
+                        <div key={index} className={`list-group-item ${
+                          conflict.alignment === 'matched' ? 'list-group-item-success' :
+                          conflict.alignment === 'available' ? 'list-group-item-info' :
+                          'list-group-item-warning'
+                        }`}>
+                          <div className="d-flex justify-content-between align-items-start">
+                            <div className="flex-grow-1">
+                              <strong>
+                                {conflict.type === 'alias' ? `Alias: ${conflict.alias_name}` : 
+                                 `Host: ${conflict.host_name}`}
+                              </strong>
+                              <br />
+                              <small>{conflict.message}</small>
+                              {conflict.type === 'alias' && conflict.fabric_name && (
+                                <><br /><small className="text-muted">Fabric: {conflict.fabric_name}</small></>
+                              )}
+                            </div>
+                            <div className="d-flex align-items-center gap-2">
+                              {conflict.alignment === 'available' && conflict.type === 'alias' && (
+                                <button 
+                                  className="btn btn-sm btn-primary"
+                                  onClick={() => assignHostToAlias(conflict.alias_id, wwpnModalData.hostId)}
+                                  title="Assign this host to the alias"
+                                >
+                                  Assign to Host
+                                </button>
+                              )}
+                              <span className={`badge ${
+                                conflict.alignment === 'matched' ? 'bg-success' :
+                                conflict.alignment === 'available' ? 'bg-info' :
+                                'bg-warning text-dark'
+                              }`}>
+                                {conflict.alignment}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowWwpnModal(false)}>
+            Close
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>

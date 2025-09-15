@@ -8,7 +8,9 @@ from .views import (
     storage_insights_systems, 
     storage_insights_volumes,
     storage_insights_host_connections,
-    mkhost_scripts_view
+    mkhost_scripts_view,
+    host_wwpns_view,
+    check_wwpn_conflicts_view
 )
 
 urlpatterns = [
@@ -20,5 +22,7 @@ urlpatterns = [
     path("insights/host-connections/", storage_insights_host_connections, name="storage-insights-host-connections"),
     path("volumes/", volume_list, name="volume_list"),
     path("hosts/", host_list, name="host_list"),
+    path("hosts/<int:host_id>/wwpns/", host_wwpns_view, name="host-wwpns"),
+    path("check-wwpn-conflicts/", check_wwpn_conflicts_view, name="check-wwpn-conflicts"),
     path("mkhost-scripts/<int:customer_id>/", mkhost_scripts_view, name="mkhost-scripts"),
 ]

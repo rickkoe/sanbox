@@ -1,6 +1,5 @@
 from django.contrib import admin
-from .models import Storage, Host
-from .models import Volume
+from .models import Storage, Host, Volume, HostWwpn
 from core.dashboard_views import clear_dashboard_cache_for_customer
 
 
@@ -63,3 +62,63 @@ class HostAdmin(admin.ModelAdmin):
     )
     search_fields = ("name", "storage_system", "host_type", "volume_group")
     list_filter = ("host_type", "status", "storage_system")
+
+
+@admin.register(HostWwpn)
+class HostWwpnAdmin(admin.ModelAdmin):
+    list_display = (
+        "host_name",
+        "wwpn", 
+        "source_type",
+        "source_alias_name",
+        "created_at",
+        "updated_at"
+    )
+    search_fields = ("host__name", "wwpn", "source_alias__name")
+    list_filter = ("source_type", "created_at", "host__project")
+    readonly_fields = ("created_at", "updated_at")
+    raw_id_fields = ("host", "source_alias")
+    
+    def host_name(self, obj):
+        """Display the host name"""
+        return obj.host.name if obj.host else "-"
+    host_name.short_description = "Host"
+    host_name.admin_order_field = "host__name"
+    
+    def source_alias_name(self, obj):
+        """Display the source alias name"""
+        if obj.source_type == 'alias' and obj.source_alias:
+            return obj.source_alias.name
+        return "-"
+    source_alias_name.short_description = "Source Alias"
+    source_alias_name.admin_order_field = "source_alias__name"
+    
+    def get_queryset(self, request):
+        """Optimize queries by selecting related objects"""
+        return super().get_queryset(request).select_related('host', 'source_alias', 'host__project')
+    
+    fieldsets = (
+        (None, {
+            'fields': ('host', 'wwpn', 'source_type')
+        }),
+        ('Source Information', {
+            'fields': ('source_alias',),
+            'description': 'Only applicable when source_type is "alias"'
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    def has_add_permission(self, request):
+        """Allow manual creation of HostWwpn records"""
+        return True
+    
+    def has_change_permission(self, request, obj=None):
+        """Allow editing of HostWwpn records"""
+        return True
+    
+    def has_delete_permission(self, request, obj=None):
+        """Allow deletion of HostWwpn records"""
+        return True

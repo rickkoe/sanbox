@@ -803,17 +803,9 @@ def hosts_by_project_view(request, project_id):
             aliases_for_host = Alias.objects.filter(host=host)
             aliases_count = aliases_for_host.count()
             
-            # Collect WWPNs from all aliases that reference this host
-            alias_wwpns = []
-            for alias in aliases_for_host:
-                if alias.wwpn:
-                    # Remove colons and any other formatting from WWPN
-                    clean_wwpn = alias.wwpn.replace(':', '').replace('-', '').strip()
-                    if clean_wwpn and clean_wwpn not in alias_wwpns:  # Avoid duplicates
-                        alias_wwpns.append(clean_wwpn)
-            
-            # Create comma-separated list of WWPNs (no spaces)
-            wwpns_string = ','.join(alias_wwpns) if alias_wwpns else ""
+            # Get WWPN details using the new HostWwpn model
+            wwpn_details = host.get_all_wwpns()
+            wwpns_string = host.get_wwpn_display_string()
             
             # Get storage system information
             storage_name = ""
@@ -830,7 +822,8 @@ def hosts_by_project_view(request, project_id):
                 "name": host.name,
                 "storage_system": storage_name,
                 "storage_id": storage_id,  # Include storage ID for reference
-                "wwpns": wwpns_string,  # Use alias WWPNs instead of host.wwpns
+                "wwpns": wwpns_string,  # Use new HostWwpn model display string
+                "wwpn_details": wwpn_details,  # Add detailed WWPN information with source tracking
                 "status": host.status or "",
                 "host_type": host.host_type or "",
                 "aliases_count": aliases_count,
@@ -848,8 +841,8 @@ def hosts_by_project_view(request, project_id):
             hosts_data.append(host_data)
             
             # Debug logging
-            if alias_wwpns:
-                print(f"🔍 Host '{host.name}' has {len(alias_wwpns)} WWPNs from aliases: {wwpns_string[:50]}{'...' if len(wwpns_string) > 50 else ''}")
+            if wwpn_details:
+                print(f"🔍 Host '{host.name}' has {len(wwpn_details)} WWPNs: {wwpns_string[:50]}{'...' if len(wwpns_string) > 50 else ''}")
         
         print(f"🔍 Returning {len(hosts_data)} hosts for page {page}")
         
@@ -1086,6 +1079,72 @@ def host_delete_view(request, pk):
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def assign_host_to_alias_view(request):
+    """Assign a host to an alias."""
+    try:
+        data = json.loads(request.body)
+        alias_id = data.get('alias_id')
+        host_id = data.get('host_id')
+        
+        if not alias_id or not host_id:
+            return JsonResponse({"error": "Both alias_id and host_id are required."}, status=400)
+        
+        try:
+            alias = Alias.objects.get(id=alias_id)
+            from storage.models import Host
+            host = Host.objects.get(id=host_id)
+        except Alias.DoesNotExist:
+            return JsonResponse({"error": "Alias not found."}, status=404)
+        except Host.DoesNotExist:
+            return JsonResponse({"error": "Host not found."}, status=404)
+        
+        # Check if alias is already assigned to a different host
+        if alias.host and alias.host.id != host_id:
+            return JsonResponse({
+                "error": f"Alias '{alias.name}' is already assigned to host '{alias.host.name}'."
+            }, status=400)
+        
+        # Check if alias use type is appropriate for host assignment
+        if alias.use and alias.use != 'init':
+            return JsonResponse({
+                "error": f"Only initiator aliases (use=init) can be assigned to hosts. This alias has use='{alias.use}'."
+            }, status=400)
+        
+        # Assign the host to the alias
+        alias.host = host
+        if not alias.use:
+            alias.use = 'init'  # Set to initiator if not already set
+        
+        # Update the timestamp
+        from django.utils import timezone
+        alias.updated = timezone.now()
+        alias.save()
+        
+        return JsonResponse({
+            "success": True,
+            "message": f"Host '{host.name}' assigned to alias '{alias.name}'. WWPN {alias.wwpn} will now appear in the host's WWPN list.",
+            "alias": {
+                "id": alias.id,
+                "name": alias.name,
+                "wwpn": alias.wwpn,
+                "use": alias.use,
+                "fabric_name": alias.fabric.name
+            },
+            "host": {
+                "id": host.id,
+                "name": host.name
+            }
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON data."}, status=400)
+    except Exception as e:
+        print(f"❌ Error assigning host to alias: {e}")
+        return JsonResponse({"error": f"Error assigning host to alias: {str(e)}"}, status=500)
 
 
 @csrf_exempt

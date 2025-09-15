@@ -178,8 +178,56 @@ class Host(models.Model):
     class Meta:
         unique_together = ['project', 'name']
 
+    def get_all_wwpns(self):
+        """Returns list of all WWPNs (manual + from aliases) with source info"""
+        wwpns = []
+        for host_wwpn in self.host_wwpns.all():
+            wwpns.append({
+                'wwpn': host_wwpn.wwpn,
+                'source_type': host_wwpn.source_type,
+                'source_alias': host_wwpn.source_alias.name if host_wwpn.source_alias else None,
+                'source_alias_id': host_wwpn.source_alias.id if host_wwpn.source_alias else None,
+                'aligned': host_wwpn.source_type == 'alias'
+            })
+        return wwpns
+
+    def get_wwpn_display_string(self):
+        """Returns comma-separated WWPNs for table display"""
+        return ', '.join([w['wwpn'] for w in self.get_all_wwpns()])
+
     def __str__(self):
         return f'{self.project}: {self.name}'
+
+
+class HostWwpn(models.Model):
+    """Individual WWPN assignments to hosts with source tracking"""
+    host = models.ForeignKey(Host, related_name='host_wwpns', on_delete=models.CASCADE)
+    wwpn = models.CharField(max_length=23, help_text="Formatted WWPN (e.g., 50:01:23:45:67:89:AB:CD)")
+    source_type = models.CharField(
+        max_length=10,
+        choices=[
+            ('manual', 'Manual'),
+            ('alias', 'From Alias'),
+        ],
+        default='manual'
+    )
+    source_alias = models.ForeignKey(
+        'san.Alias', 
+        null=True, 
+        blank=True, 
+        on_delete=models.CASCADE,
+        help_text="If source_type='alias', this references the source alias"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['host', 'wwpn']
+        ordering = ['created_at']
+    
+    def __str__(self):
+        source = f" (from {self.source_alias.name})" if self.source_alias else ""
+        return f'{self.host.name}: {self.wwpn}{source}'
 
 
 # Volume model
