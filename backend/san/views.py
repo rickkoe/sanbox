@@ -807,6 +807,93 @@ def hosts_by_project_view(request, project_id):
             wwpn_details = host.get_all_wwpns()
             wwpns_string = host.get_wwpn_display_string()
             
+            # Calculate WWPN reconciliation status
+            manual_wwpns = host.host_wwpns.filter(source_type='manual')
+            alias_wwpns = host.host_wwpns.filter(source_type='alias')
+            total_wwpns = host.host_wwpns.count()
+            
+            if total_wwpns == 0:
+                wwpn_status = "No WWPNs assigned"
+                wwpn_status_level = "no_wwpns"
+                wwpn_status_components = [{
+                    "text": "No WWPNs assigned",
+                    "type": "no_wwpns",
+                    "color": "light"
+                }]
+            elif manual_wwpns.exists():
+                # Host has manual WWPNs - check for matches
+                manual_wwpn_values = [hw.wwpn for hw in manual_wwpns]
+                matching_aliases_count = Alias.objects.filter(
+                    projects=project,
+                    host__isnull=True,  # Only unassigned aliases
+                    wwpn__in=manual_wwpn_values
+                ).count()
+                
+                manual_count = manual_wwpns.count()
+                alias_count = alias_wwpns.count()
+                
+                if matching_aliases_count > 0:
+                    # Build status message and components for mixed state
+                    status_parts = []
+                    status_components = []
+                    
+                    if alias_count > 0:
+                        status_parts.append(f"{alias_count} matched")
+                        status_components.append({
+                            "text": f"{alias_count} matched",
+                            "type": "matched",
+                            "color": "success"
+                        })
+                    
+                    if matching_aliases_count > 0:
+                        status_parts.append(f"{matching_aliases_count} match{'es' if matching_aliases_count != 1 else ''} available")
+                        status_components.append({
+                            "text": f"{matching_aliases_count} match{'es' if matching_aliases_count != 1 else ''} available",
+                            "type": "matches_available", 
+                            "color": "warning"
+                        })
+                    
+                    wwpn_status = ", ".join(status_parts)
+                    wwpn_status_level = "matches_available"
+                    wwpn_status_components = status_components
+                else:
+                    # No matches for manual WWPNs
+                    status_components = []
+                    
+                    if alias_count > 0:
+                        status_components.append({
+                            "text": f"{alias_count} matched",
+                            "type": "matched",
+                            "color": "success"
+                        })
+                        status_components.append({
+                            "text": f"{manual_count} manual",
+                            "type": "manual_no_matches",
+                            "color": "secondary"
+                        })
+                        wwpn_status = f"{alias_count} matched, {manual_count} manual"
+                        wwpn_status_level = "mixed_no_matches"
+                    else:
+                        status_components.append({
+                            "text": f"{manual_count} manual, no matches",
+                            "type": "manual_no_matches",
+                            "color": "secondary"
+                        })
+                        wwpn_status = f"{manual_count} manual, no matches"
+                        wwpn_status_level = "no_matches"
+                    
+                    wwpn_status_components = status_components
+            else:
+                # Only alias-sourced WWPNs (all matched)
+                alias_count = alias_wwpns.count()
+                wwpn_status = f"All {alias_count} WWPN{'s' if alias_count != 1 else ''} matched"
+                wwpn_status_level = "all_matched"
+                wwpn_status_components = [{
+                    "text": f"All {alias_count} WWPN{'s' if alias_count != 1 else ''} matched",
+                    "type": "all_matched",
+                    "color": "success"
+                }]
+            
             # Get storage system information
             storage_name = ""
             storage_id = None
@@ -824,6 +911,9 @@ def hosts_by_project_view(request, project_id):
                 "storage_id": storage_id,  # Include storage ID for reference
                 "wwpns": wwpns_string,  # Use new HostWwpn model display string
                 "wwpn_details": wwpn_details,  # Add detailed WWPN information with source tracking
+                "wwpn_status": wwpn_status,  # WWPN reconciliation status
+                "wwpn_status_level": wwpn_status_level,  # Status level for styling
+                "wwpn_status_components": wwpn_status_components,  # Individual status components for multi-line display
                 "status": host.status or "",
                 "host_type": host.host_type or "",
                 "aliases_count": aliases_count,
@@ -1145,6 +1235,78 @@ def assign_host_to_alias_view(request):
     except Exception as e:
         print(f"❌ Error assigning host to alias: {e}")
         return JsonResponse({"error": f"Error assigning host to alias: {str(e)}"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def host_wwpn_reconciliation_view(request, host_id):
+    """Get WWPN reconciliation data for a specific host."""
+    try:
+        from storage.models import Host
+        host = Host.objects.get(id=host_id)
+        project = host.project
+        
+        # Get all manual WWPNs for this host
+        manual_wwpns = host.host_wwpns.filter(source_type='manual')
+        
+        # Get all unassigned aliases in the same project with matching WWPNs
+        unassigned_aliases = Alias.objects.filter(
+            projects=project,
+            host__isnull=True,  # Only unassigned aliases
+            wwpn__in=[hw.wwpn for hw in manual_wwpns]
+        ).select_related('fabric')
+        
+        # Build match data
+        matches = []
+        for manual_wwpn in manual_wwpns:
+            matching_aliases = [alias for alias in unassigned_aliases if alias.wwpn == manual_wwpn.wwpn]
+            if matching_aliases:
+                matches.append({
+                    'wwpn': manual_wwpn.wwpn,
+                    'host_wwpn_id': manual_wwpn.id,
+                    'matching_aliases': [{
+                        'id': alias.id,
+                        'name': alias.name,
+                        'fabric_name': alias.fabric.name,
+                        'fabric_id': alias.fabric.id,
+                        'use': alias.use,
+                        'created': alias.imported.isoformat() if alias.imported else None
+                    } for alias in matching_aliases]
+                })
+        
+        # Calculate status
+        total_manual_wwpns = manual_wwpns.count()
+        wwpns_with_matches = len(matches)
+        total_potential_matches = sum(len(match['matching_aliases']) for match in matches)
+        
+        if total_manual_wwpns == 0:
+            status = 'no_manual_wwpns'
+            status_text = 'No Manual WWPNs'
+        elif wwpns_with_matches == 0:
+            status = 'no_matches'
+            status_text = 'No Matches Available'
+        else:
+            status = 'matches_available'
+            status_text = f'{total_potential_matches} Match{"es" if total_potential_matches != 1 else ""} Found'
+        
+        return JsonResponse({
+            'host_id': host.id,
+            'host_name': host.name,
+            'project_id': project.id,
+            'project_name': project.name,
+            'status': status,
+            'status_text': status_text,
+            'total_manual_wwpns': total_manual_wwpns,
+            'wwpns_with_matches': wwpns_with_matches,
+            'total_potential_matches': total_potential_matches,
+            'matches': matches
+        })
+        
+    except Host.DoesNotExist:
+        return JsonResponse({"error": "Host not found."}, status=404)
+    except Exception as e:
+        print(f"❌ Error getting WWPN reconciliation data: {e}")
+        return JsonResponse({"error": f"Error getting reconciliation data: {str(e)}"}, status=500)
 
 
 @csrf_exempt

@@ -181,14 +181,23 @@ class Host(models.Model):
     def get_all_wwpns(self):
         """Returns list of all WWPNs (manual + from aliases) with source info"""
         wwpns = []
-        for host_wwpn in self.host_wwpns.all():
-            wwpns.append({
+        for host_wwpn in self.host_wwpns.select_related('source_alias__fabric').all():
+            wwpn_info = {
                 'wwpn': host_wwpn.wwpn,
                 'source_type': host_wwpn.source_type,
                 'source_alias': host_wwpn.source_alias.name if host_wwpn.source_alias else None,
                 'source_alias_id': host_wwpn.source_alias.id if host_wwpn.source_alias else None,
                 'aligned': host_wwpn.source_type == 'alias'
-            })
+            }
+            
+            # Add fabric information for alias-sourced WWPNs
+            if host_wwpn.source_alias and host_wwpn.source_alias.fabric:
+                wwpn_info.update({
+                    'source_fabric_name': host_wwpn.source_alias.fabric.name,
+                    'source_fabric_id': host_wwpn.source_alias.fabric.id
+                })
+            
+            wwpns.append(wwpn_info)
         return wwpns
 
     def get_wwpn_display_string(self):

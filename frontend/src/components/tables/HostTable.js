@@ -20,6 +20,7 @@ const ALL_COLUMNS = [
   { data: "name", title: "Host Name" },
   { data: "storage_system", title: "Storage System" },
   { data: "wwpns", title: "WWPNs" },
+  { data: "wwpn_status", title: "WWPN Status" },
   { data: "status", title: "Status" },
   { data: "host_type", title: "Host Type" },
   { data: "aliases_count", title: "Aliases Count" },
@@ -36,7 +37,7 @@ const ALL_COLUMNS = [
 ];
 
 // Default visible columns - showing most relevant host information
-const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 15]; // name, storage_system, wwpns, status, host_type, aliases_count, vols_count, fc_ports_count, create, imported, updated
+const DEFAULT_VISIBLE_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 14, 15, 16]; // name, storage_system, wwpns, wwpn_status, status, host_type, aliases_count, vols_count, fc_ports_count, create, imported, updated
 
 // Template for new rows
 const NEW_HOST_TEMPLATE = {
@@ -44,6 +45,7 @@ const NEW_HOST_TEMPLATE = {
   name: "",
   storage_system: "",
   wwpns: "",
+  wwpn_status: "",
   status: "",
   host_type: "",
   aliases_count: 0,
@@ -81,6 +83,17 @@ const HostTable = ({ storage }) => {
   const [newWwpn, setNewWwpn] = useState("");
   const [wwpnConflicts, setWwpnConflicts] = useState([]);
   const [checkingConflicts, setCheckingConflicts] = useState(false);
+  
+  // WWPN reconciliation modal state
+  const [showReconcileModal, setShowReconcileModal] = useState(false);
+  const [reconcileData, setReconcileData] = useState(null);
+
+  // WWPN Status modal state
+  const [showWwpnStatusModal, setShowWwpnStatusModal] = useState(false);
+  const [wwpnStatusData, setWwpnStatusData] = useState(null);
+
+  // Force refresh key for table re-render
+  const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
   // Storage systems state
   const [storageOptions, setStorageOptions] = useState([]);
@@ -240,6 +253,110 @@ const HostTable = ({ storage }) => {
     };
   }, []);
   
+  // WWPN reconciliation function
+  const handleWwpnReconciliation = async (hostId, hostName) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/san/hosts/${hostId}/wwpn-reconciliation/`);
+      setReconcileData({
+        hostId,
+        hostName,
+        matches: response.data.matches || []
+      });
+      setShowReconcileModal(true);
+    } catch (error) {
+      console.error("Error loading WWPN reconciliation data:", error);
+      alert("Failed to load reconciliation data. Please try again.");
+    }
+  };
+  
+  // Make the reconciliation function globally available
+  React.useEffect(() => {
+    window.openWwpnReconciliation = handleWwpnReconciliation;
+    return () => {
+      window.openWwpnReconciliation = null;
+    };
+  }, []);
+  
+  // WWPN Status modal function - handles all status types
+  const handleWwpnStatusModal = async (hostId, hostName, statusLevel) => {
+    try {
+      // Get detailed WWPN information for all statuses
+      const wwpnResponse = await axios.get(`${API_URL}/api/storage/hosts/${hostId}/wwpns/`);
+      const wwpnDetails = wwpnResponse.data.wwpns || [];
+      
+      // For statuses that might have matches, also get reconciliation data
+      let reconciliationData = null;
+      if (statusLevel === 'matches_available' || statusLevel === 'mixed_no_matches' || statusLevel === 'no_matches') {
+        try {
+          const reconcileResponse = await axios.get(`${API_URL}/api/san/hosts/${hostId}/wwpn-reconciliation/`);
+          reconciliationData = reconcileResponse.data;
+        } catch (error) {
+          console.log("No reconciliation data available:", error);
+        }
+      }
+      
+      setWwpnStatusData({
+        hostId,
+        hostName,
+        statusLevel,
+        wwpnDetails,
+        reconciliationData
+      });
+      setShowWwpnStatusModal(true);
+    } catch (error) {
+      console.error("Error loading WWPN status data:", error);
+      alert("Failed to load WWPN details. Please try again.");
+    }
+  };
+  
+  // Aggressive table refresh function
+  const forceTableRefresh = async (delayMs = 500) => {
+    console.log(`🔄 Force refreshing table in ${delayMs}ms...`);
+    
+    setTimeout(async () => {
+      try {
+        // Method 1: Refresh data
+        if (tableRef.current?.refreshData) {
+          console.log('🔄 Calling table refreshData...');
+          await tableRef.current.refreshData();
+          console.log('✅ Table refresh completed');
+        }
+        
+        // Method 2: Force Handsontable re-render
+        if (tableRef.current?.hotInstance) {
+          console.log('🔄 Forcing Handsontable re-render...');
+          tableRef.current.hotInstance.render();
+          console.log('✅ Handsontable re-render completed');
+        }
+        
+        // Method 3: Force React component re-render by changing key
+        console.log('🔄 Forcing React table component re-render...');
+        setTableRefreshKey(prev => prev + 1);
+        console.log('✅ React component re-render triggered');
+        
+      } catch (error) {
+        console.error('❌ Error in force table refresh:', error);
+      }
+    }, delayMs);
+  };
+
+  // Handle WWPN Status modal close with table refresh
+  const handleWwpnStatusModalClose = async () => {
+    console.log('🔄 Closing WWPN Status modal and refreshing table...');
+    setShowWwpnStatusModal(false);
+    
+    // Force refresh with longer delay to let backend signals complete
+    await forceTableRefresh(1000);
+  };
+
+  // Make the WWPN status modal function globally available
+  React.useEffect(() => {
+    window.openWwpnStatusModal = handleWwpnStatusModal;
+    return () => {
+      window.openWwpnStatusModal = null;
+    };
+  }, []);
+  
   const loadHostWwpns = async (hostId) => {
     try {
       const response = await axios.get(`${API_URL}/api/storage/hosts/${hostId}/wwpns/`);
@@ -350,6 +467,237 @@ const HostTable = ({ storage }) => {
     }
   };
 
+  // WWPN formatting utility function
+  const formatWWPN = (value) => {
+    if (!value) return "";
+    
+    const cleanValue = value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+    
+    if (cleanValue.length !== 16) {
+      return value;
+    }
+    
+    return cleanValue.match(/.{2}/g).join(':');
+  };
+
+  // Accept WWPN match - assign host to the matching alias
+  const handleAcceptMatch = async (match, hostId = null, hostName = null) => {
+    try {
+      // Use provided hostId or fall back to reconcileData
+      const targetHostId = hostId || reconcileData?.hostId;
+      const targetHostName = hostName || reconcileData?.hostName;
+      
+      if (!targetHostId) {
+        alert("Error: Host ID not available for match acceptance.");
+        return;
+      }
+      
+      console.log(`🔄 Accepting match: Host ${targetHostId} -> Alias ${match.alias_id} (${match.alias_name})`);
+      
+      const response = await axios.post(`${API_URL}/api/san/assign-host-to-alias/`, {
+        host_id: targetHostId,
+        alias_id: match.alias_id
+      });
+      
+      if (response.data.success) {
+        console.log(`✅ Successfully assigned host to alias: ${match.alias_name}`);
+        
+        // Force aggressive table refresh
+        await forceTableRefresh(1000);
+        
+        // If we're in reconciliation modal context, refresh that data
+        if (reconcileData && reconcileData.hostId === targetHostId) {
+          await handleWwpnReconciliation(targetHostId, targetHostName);
+        }
+        
+        // If we're in status modal context, refresh that data
+        if (wwpnStatusData && wwpnStatusData.hostId === targetHostId) {
+          await handleWwpnStatusModal(targetHostId, targetHostName, wwpnStatusData.statusLevel);
+        }
+      } else {
+        alert(`Failed to assign host to alias: ${response.data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error("Error accepting WWPN match:", error);
+      alert("Failed to accept match. Please try again.");
+    }
+  };
+
+  // Reject WWPN match - keep as manual assignment
+  const handleRejectMatch = async (match) => {
+    // Remove this specific WWPN match from the reconciliation data
+    setReconcileData(prev => ({
+      ...prev,
+      matches: prev.matches.filter(m => m.wwpn !== match.wwpn)
+    }));
+    
+    console.log(`⏭️ Rejected match for WWPN ${match.wwpn}, keeping as manual`);
+  };
+
+  // Accept all available matches
+  const handleAcceptAllMatches = async () => {
+    const reconciliationData = wwpnStatusData?.reconciliationData;
+    if (!reconciliationData?.matches || reconciliationData.matches.length === 0) {
+      alert("No matches available to accept.");
+      return;
+    }
+
+    const hostId = wwpnStatusData.hostId;
+    const hostName = wwpnStatusData.hostName;
+    
+    // Store for debugging
+    window.lastUpdatedHostId = hostId;
+    window.lastUpdatedHostName = hostName;
+    
+    console.log(`🔄 Accepting all ${reconciliationData.matches.length} available matches for host ${hostName}`);
+    
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      // Process each match
+      for (const match of reconciliationData.matches) {
+        for (const alias of match.matching_aliases) {
+          try {
+            const response = await axios.post(`${API_URL}/api/san/assign-host-to-alias/`, {
+              host_id: hostId,
+              alias_id: alias.id
+            });
+            
+            if (response.data.success) {
+              console.log(`✅ Successfully assigned host to alias: ${alias.name} (WWPN: ${match.wwpn})`);
+              successCount++;
+            } else {
+              console.error(`❌ Failed to assign ${alias.name}: ${response.data.error}`);
+              errors.push(`${alias.name}: ${response.data.error}`);
+              errorCount++;
+            }
+          } catch (error) {
+            console.error(`❌ Error assigning ${alias.name}:`, error);
+            errors.push(`${alias.name}: ${error.response?.data?.error || error.message}`);
+            errorCount++;
+          }
+        }
+      }
+
+      // Show results
+      if (successCount > 0) {
+        console.log(`🎉 Successfully accepted ${successCount} matches`);
+        
+        // Force aggressive table refresh
+        await forceTableRefresh(1500); // Longer delay for bulk operations
+        
+        // Refresh the status modal to show updated data
+        console.log('🔄 Refreshing modal data...');
+        await handleWwpnStatusModal(hostId, hostName, wwpnStatusData.statusLevel);
+        console.log('✅ Modal data refreshed');
+        
+        if (errorCount === 0) {
+          // All successful
+          alert(`Successfully accepted all ${successCount} matches!`);
+        } else {
+          // Some errors
+          alert(`Accepted ${successCount} matches successfully. ${errorCount} failed:\n${errors.join('\n')}`);
+        }
+      } else {
+        // All failed
+        alert(`Failed to accept any matches:\n${errors.join('\n')}`);
+      }
+    } catch (error) {
+      console.error("Error in bulk accept:", error);
+      alert("Failed to process matches. Please try again.");
+    }
+  };
+
+  // Process pasted WWPNs (comma-separated) into individual manual assignments
+  const processPastedWwpns = async (hostId, wwpnString) => {
+    if (!wwpnString || !hostId) return { successCount: 0, errorCount: 0 };
+    
+    // Split by comma and clean up each WWPN
+    const wwpns = wwpnString.split(',')
+      .map(wwpn => wwpn.trim())
+      .filter(wwpn => wwpn.length > 0);
+    
+    console.log(`🔄 Processing ${wwpns.length} pasted WWPNs for host ${hostId}:`, wwpns);
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+    
+    for (const wwpn of wwpns) {
+      try {
+        const response = await axios.post(`${API_URL}/api/storage/hosts/${hostId}/wwpns/`, {
+          action: 'add',
+          wwpn: wwpn
+        });
+        
+        if (response.data.success) {
+          successCount++;
+          console.log(`✅ Added WWPN: ${wwpn}`);
+        }
+      } catch (error) {
+        errorCount++;
+        const errorMsg = error.response?.data?.error || error.message;
+        errors.push(`${wwpn}: ${errorMsg}`);
+        console.error(`❌ Failed to add WWPN ${wwpn}:`, errorMsg);
+      }
+    }
+    
+    // Show summary
+    if (successCount > 0 && errorCount === 0) {
+      console.log(`🎉 Successfully added ${successCount} WWPNs`);
+    } else if (successCount > 0 && errorCount > 0) {
+      alert(`✅ Added ${successCount} WWPNs successfully.\n❌ Failed to add ${errorCount} WWPNs:\n${errors.join('\n')}`);
+    } else if (errorCount > 0) {
+      alert(`❌ Failed to add all ${errorCount} WWPNs:\n${errors.join('\n')}`);
+    }
+    
+    return { successCount, errorCount };
+  };
+
+  // Custom change handler for WWPN bulk editing
+  const handleWwpnCellChange = (changes, source) => {
+    if (source === "loadData" || !changes) return;
+    
+    const hot = tableRef.current?.hotInstance;
+    if (!hot) return;
+    
+    console.log('🔍 Cell change detected:', { changes, source });
+    
+    changes.forEach(([row, prop, oldVal, newVal]) => {
+      console.log(`🔍 Change details: row=${row}, prop=${prop}, oldVal="${oldVal}", newVal="${newVal}", source=${source}`);
+      
+      if (prop === 'wwpns' && newVal !== oldVal && (source === 'edit' || source === 'CopyPaste.paste')) {
+        const rowData = hot.getSourceDataAtRow(row);
+        if (!rowData || !rowData.id) {
+          console.log('❌ No row data or host ID found:', rowData);
+          return;
+        }
+        
+        console.log(`🔄 WWPNs changed for host ${rowData.name} (ID: ${rowData.id}): "${oldVal}" -> "${newVal}"`);
+        
+        // Only process if there's actual new content
+        if (newVal && newVal.trim() !== '') {
+          // Process the pasted WWPNs
+          processPastedWwpns(rowData.id, newVal).then((result) => {
+            if (result && result.successCount > 0) {
+              console.log(`✅ Successfully processed ${result.successCount} WWPNs, refreshing table`);
+              // Refresh the table to show the new WWPNs
+              setTimeout(() => {
+                if (tableRef.current?.refreshData) {
+                  tableRef.current.refreshData();
+                }
+              }, 500);
+            } else {
+              console.log('❌ No WWPNs were successfully processed');
+            }
+          });
+        }
+      }
+    });
+  };
+
   // Wait for config to load before showing any content
   if (!config) {
     return (
@@ -358,6 +706,27 @@ const HostTable = ({ storage }) => {
       </div>
     );
   }
+
+  // Helper function to get status description
+  const getStatusDescription = (statusLevel, wwpnDetails) => {
+    const aliasCount = wwpnDetails.filter(w => w.source_type === 'alias').length;
+    const manualCount = wwpnDetails.filter(w => w.source_type === 'manual').length;
+    
+    switch(statusLevel) {
+      case 'all_matched':
+        return `All ${aliasCount} WWPN${aliasCount !== 1 ? 's' : ''} matched to aliases`;
+      case 'matches_available':
+        return `${aliasCount} matched, ${manualCount} manual with available matches`;
+      case 'no_matches':
+        return `${manualCount} manual WWPN${manualCount !== 1 ? 's' : ''}, no matches found`;
+      case 'mixed_no_matches':
+        return `${aliasCount} matched, ${manualCount} manual with no matches`;
+      case 'no_wwpns':
+        return 'No WWPNs assigned to this host';
+      default:
+        return `${aliasCount} from aliases, ${manualCount} manual`;
+    }
+  };
 
   if (!activeProjectId) {
     return <div className="alert alert-warning">No active project selected.</div>;
@@ -404,29 +773,118 @@ const HostTable = ({ storage }) => {
         let summary = '';
         if (aliasCount > 0) summary += `${aliasCount} from aliases`;
         if (manualCount > 0) summary += `${summary ? ', ' : ''}${manualCount} manual`;
-        td.title = `${wwpnDetails.length} WWPNs total: ${summary}`;
         
-        // Add click handler for WWPN management
+        // Enhanced tooltip with editing instructions
+        td.title = `${wwpnDetails.length} WWPNs total: ${summary}\n\nClick to open management modal, or double-click to paste comma-separated WWPNs directly`;
+        
+        // Add click handler for WWPN management (with delay to allow double-click)
         td.style.cursor = 'pointer';
-        td.onclick = () => {
-          const hostId = rowData.id;
-          const hostName = rowData.name;
-          if (window.openWwpnManagement) {
-            window.openWwpnManagement(hostId, hostName);
-          }
+        let clickTimeout;
+        td.onclick = (e) => {
+          // Only handle single clicks, not double clicks
+          clearTimeout(clickTimeout);
+          clickTimeout = setTimeout(() => {
+            const hostId = rowData.id;
+            const hostName = rowData.name;
+            if (window.openWwpnManagement) {
+              window.openWwpnManagement(hostId, hostName);
+            }
+          }, 300); // 300ms delay to differentiate from double-click
+        };
+        
+        td.ondblclick = (e) => {
+          // Clear the single click timeout on double-click
+          clearTimeout(clickTimeout);
+          e.stopPropagation();
+          // Double-click should trigger edit mode - Handsontable handles this
         };
       } else {
-        td.innerHTML = '<span style="color: #6b7280; font-style: italic;">No WWPNs</span>';
-        td.title = "No WWPNs assigned - click to manage";
+        td.innerHTML = '<span style="color: #6b7280; font-style: italic;">No WWPNs - paste here or click to manage</span>';
+        td.title = "No WWPNs assigned\n\nClick to open management modal, or double-click to paste comma-separated WWPNs directly";
         td.style.cursor = 'pointer';
-        td.onclick = () => {
-          const hostId = rowData.id;
-          const hostName = rowData.name;
-          if (window.openWwpnManagement) {
-            window.openWwpnManagement(hostId, hostName);
-          }
+        let clickTimeout;
+        td.onclick = (e) => {
+          // Only handle single clicks, not double clicks
+          clearTimeout(clickTimeout);
+          clickTimeout = setTimeout(() => {
+            const hostId = rowData.id;
+            const hostName = rowData.name;
+            if (window.openWwpnManagement) {
+              window.openWwpnManagement(hostId, hostName);
+            }
+          }, 300);
+        };
+        
+        td.ondblclick = (e) => {
+          clearTimeout(clickTimeout);
+          e.stopPropagation();
         };
       }
+      
+      // Add visual indicator that this cell is editable
+      td.style.border = "1px solid #e5e7eb";
+      td.style.backgroundColor = "#f9fafb";
+      
+      return td;
+    },
+    wwpn_status: (instance, td, row, col, prop, value) => {
+      const rowData = instance.getSourceDataAtRow(row);
+      const statusLevel = rowData.wwpn_status_level;
+      const statusComponents = rowData.wwpn_status_components || [];
+      
+      const getBootstrapClass = (color) => {
+        switch(color) {
+          case 'success': return 'bg-success';
+          case 'warning': return 'bg-warning text-dark';
+          case 'secondary': return 'bg-secondary';
+          case 'info': return 'bg-info text-dark';
+          case 'light': return 'bg-light text-muted';
+          default: return 'bg-light text-muted';
+        }
+      };
+      
+      const getTooltip = () => {
+        switch(statusLevel) {
+          case 'matches_available': return 'Click to view WWPN status and reconcile matches';
+          case 'no_matches': return 'Click to view manual WWPNs with no matches';
+          case 'mixed_no_matches': return 'Click to view mixed WWPN status';
+          case 'all_matched': return 'Click to view all matched WWPNs';
+          case 'no_wwpns': return 'Click to view WWPN details';
+          default: return 'Click to view WWPN details';
+        }
+      };
+      
+      // Build multi-line status display
+      if (statusComponents.length > 1) {
+        // Multi-line display for mixed statuses
+        const badgeHTML = statusComponents.map(component => 
+          `<div style="margin-bottom: 2px;"><span class="badge ${getBootstrapClass(component.color)}" style="cursor: pointer; user-select: none; font-size: 10px; padding: 2px 6px;">${component.text}</span></div>`
+        ).join('');
+        
+        td.innerHTML = `<div style="text-align: center;">${badgeHTML}</div>`;
+      } else if (statusComponents.length === 1) {
+        // Single badge display
+        const component = statusComponents[0];
+        td.innerHTML = `<span class="badge ${getBootstrapClass(component.color)}" style="cursor: pointer; user-select: none;">${component.text}</span>`;
+      } else {
+        // Fallback to original display if no components
+        td.innerHTML = `<span class="badge bg-light text-muted" style="cursor: pointer; user-select: none;">${value}</span>`;
+      }
+      
+      td.style.textAlign = 'center';
+      td.style.verticalAlign = 'middle';
+      td.title = getTooltip();
+      
+      // Add click handler for WWPN status modal
+      td.onclick = (e) => {
+        e.stopPropagation();
+        const hostId = rowData.id;
+        const hostName = rowData.name;
+        if (window.openWwpnStatusModal) {
+          window.openWwpnStatusModal(hostId, hostName, statusLevel);
+        }
+      };
+      
       return td;
     },
     last_data_collection: (instance, td, row, col, prop, value) => {
@@ -520,6 +978,21 @@ const HostTable = ({ storage }) => {
     }
     
     console.log('✅ preprocessData processing', data.length, 'hosts');
+    
+    // Debug the updated host if we just made changes
+    if (window.lastUpdatedHostId) {
+      const updatedHost = data.find(h => h.id === window.lastUpdatedHostId);
+      if (updatedHost) {
+        console.log(`🔍 Updated host ${window.lastUpdatedHostName} status:`, {
+          wwpn_status: updatedHost.wwpn_status,
+          wwpn_status_level: updatedHost.wwpn_status_level,
+          wwpn_status_components: updatedHost.wwpn_status_components
+        });
+      }
+      // Clear the debug info
+      delete window.lastUpdatedHostId;
+      delete window.lastUpdatedHostName;
+    }
     
     return data.map((host) => {
       // The backend now returns storage_system as the name, which is what we want for display
@@ -851,7 +1324,7 @@ const HostTable = ({ storage }) => {
   return (
     <div className="table-container">
       <GenericTable
-        key={`all-hosts-table-${storageOptions.length}-${storage?.id || 'all'}`} // Force re-render when storage options or storage filter changes
+        key={`all-hosts-table-${storageOptions.length}-${storage?.id || 'all'}-${tableRefreshKey}`} // Force re-render when storage options, storage filter, or refresh key changes
         ref={tableRef}
         apiUrl={getApiUrl()}
         saveUrl={API_ENDPOINTS.hostSave}
@@ -884,6 +1357,15 @@ const HostTable = ({ storage }) => {
             column.type = "dropdown";
             column.allowInvalid = false;
             column.strict = true;
+          } else if (col.data === "wwpns") {
+            // Make WWPNs column editable for bulk paste functionality
+            column.readOnly = false;
+            column.type = "text";
+            column.className = "htLeft";
+            column.wordWrap = true;
+            // Provide a custom editor that starts with empty value for pasting
+            column.editor = 'text';
+            column.allowEmpty = true;
           } else if (col.data === "create") {
             column.type = "checkbox";
             column.className = "htCenter";
@@ -897,6 +1379,18 @@ const HostTable = ({ storage }) => {
         onSave={handleSave}
         onDelete={handleDelete}
         getCellsConfig={getCellsConfig}
+        afterChange={handleWwpnCellChange}
+        beforeEdit={(row, col, prop) => {
+          // When starting to edit the wwpns cell, clear it for clean pasting
+          if (prop === 'wwpns') {
+            console.log('🔍 beforeEdit for wwpns cell:', { row, col, prop });
+            const hot = tableRef.current?.hotInstance;
+            if (hot) {
+              // Clear the cell value when starting to edit
+              hot.setDataAtCell(row, col, '', 'edit');
+            }
+          }
+        }}
         columnSorting={true}
         filters={true}
         defaultVisibleColumns={visibleColumnIndices}
@@ -1213,6 +1707,259 @@ const HostTable = ({ storage }) => {
           <Button variant="secondary" onClick={() => setShowWwpnModal(false)}>
             Close
           </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* WWPN Reconciliation Modal */}
+      <Modal show={showReconcileModal} onHide={() => setShowReconcileModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>WWPN Reconciliation for {reconcileData?.hostName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {reconcileData?.matches && reconcileData.matches.length > 0 ? (
+            <div>
+              <p className="mb-3">
+                The following manual WWPNs on this host match available aliases in the active project:
+              </p>
+              {reconcileData.matches.map((match, matchIndex) => (
+                <div key={matchIndex}>
+                  {match.matching_aliases.map((alias, aliasIndex) => (
+                    <div key={`${matchIndex}-${aliasIndex}`} className="border rounded p-3 mb-3">
+                      <div className="row">
+                        <div className="col-md-6">
+                          <strong>WWPN:</strong> <code>{match.wwpn}</code>
+                          <br />
+                          <small className="text-muted">Currently: Manual assignment</small>
+                        </div>
+                        <div className="col-md-6">
+                          <strong>Matching Alias:</strong> {alias.name}
+                          <br />
+                          <small className="text-muted">Fabric: {alias.fabric_name}</small>
+                          {alias.use && (
+                            <div>
+                              <small className="text-muted">Use: {alias.use}</small>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          variant="success"
+                          size="sm"
+                          className="me-2"
+                          onClick={() => handleAcceptMatch({
+                            wwpn: match.wwpn,
+                            alias_id: alias.id,
+                            alias_name: alias.name,
+                            fabric_name: alias.fabric_name,
+                            host_wwpn_id: match.host_wwpn_id
+                          })}
+                        >
+                          Accept Match
+                        </Button>
+                        <Button
+                          variant="outline-secondary"
+                          size="sm"
+                          onClick={() => handleRejectMatch({
+                            wwpn: match.wwpn,
+                            host_wwpn_id: match.host_wwpn_id
+                          })}
+                        >
+                          Keep Manual
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p>No WWPN matches found for reconciliation.</p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowReconcileModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* WWPN Status Details Modal */}
+      <Modal show={showWwpnStatusModal} onHide={handleWwpnStatusModalClose} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>WWPN Details for {wwpnStatusData?.hostName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {wwpnStatusData?.wwpnDetails && wwpnStatusData.wwpnDetails.length > 0 ? (
+            <div>
+              <div className="mb-3">
+                <strong>Status:</strong> {getStatusDescription(wwpnStatusData.statusLevel, wwpnStatusData.wwpnDetails)}
+              </div>
+              
+              {/* Existing Alias Relationships */}
+              {wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'alias').length > 0 && (
+                <div className="mb-4">
+                  <h6 className="text-success">🔗 Matched Aliases ({wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'alias').length})</h6>
+                  {wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'alias').map((wwpn, index) => (
+                    <div key={`alias-${index}`} className="border border-success rounded p-3 mb-2 bg-light">
+                      <div className="row">
+                        <div className="col-md-6">
+                          <strong>WWPN:</strong> <code>{wwpn.wwpn}</code>
+                          <br />
+                          <span className="badge bg-success mt-1">🔗 From Alias</span>
+                        </div>
+                        <div className="col-md-6">
+                          <strong>Alias:</strong> {wwpn.source_alias}
+                          <br />
+                          {wwpn.source_fabric_name && (
+                            <div>
+                              <small className="text-muted">Fabric: {wwpn.source_fabric_name}</small>
+                              <br />
+                            </div>
+                          )}
+                          <small className="text-muted">Automatically synchronized</small>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Manual WWPNs (only show if no matches available) */}
+              {wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'manual').length > 0 && 
+               (!wwpnStatusData.reconciliationData?.matches || wwpnStatusData.reconciliationData.matches.length === 0) && (
+                <div className="mb-4">
+                  <h6 className="text-warning">✏️ Manual WWPNs ({wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'manual').length})</h6>
+                  {wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'manual').map((wwpn, index) => (
+                    <div key={`manual-${index}`} className="border border-warning rounded p-3 mb-2">
+                      <div className="row">
+                        <div className="col-md-6">
+                          <strong>WWPN:</strong> <code>{wwpn.wwpn}</code>
+                          <br />
+                          <span className="badge bg-warning text-dark mt-1">✏️ Manual</span>
+                        </div>
+                        <div className="col-md-6">
+                          <strong>Source:</strong> Manual assignment
+                          <br />
+                          <small className="text-muted">Manually entered WWPN</small>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Proposed Matches (for mixed states) */}
+              {wwpnStatusData.reconciliationData?.matches && wwpnStatusData.reconciliationData.matches.length > 0 && (
+                <div className="mb-4">
+                  <h6 className="text-primary">🎯 Available Matches</h6>
+                  <p className="text-muted small">These manual WWPNs match available aliases in the active project:</p>
+                  {wwpnStatusData.reconciliationData.matches.map((match, matchIndex) => (
+                    <div key={matchIndex}>
+                      {match.matching_aliases.map((alias, aliasIndex) => (
+                        <div key={`${matchIndex}-${aliasIndex}`} className="border border-primary rounded p-3 mb-2 bg-light">
+                          <div className="row">
+                            <div className="col-md-6">
+                              <strong>WWPN:</strong> <code>{match.wwpn}</code>
+                              <br />
+                              <span className="badge bg-primary mt-1">🎯 Match Available</span>
+                            </div>
+                            <div className="col-md-6">
+                              <strong>Matching Alias:</strong> {alias.name}
+                              <br />
+                              <small className="text-muted">Fabric: {alias.fabric_name}</small>
+                              {alias.use && (
+                                <div>
+                                  <small className="text-muted">Use: {alias.use}</small>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-2">
+                            <Button
+                              variant="success"
+                              size="sm"
+                              className="me-2"
+                              onClick={() => {
+                                handleAcceptMatch({
+                                  wwpn: match.wwpn,
+                                  alias_id: alias.id,
+                                  alias_name: alias.name,
+                                  fabric_name: alias.fabric_name,
+                                  host_wwpn_id: match.host_wwpn_id
+                                }, wwpnStatusData.hostId, wwpnStatusData.hostName);
+                              }}
+                            >
+                              Accept Match
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Status Messages */}
+              {wwpnStatusData.statusLevel === 'all_matched' && (
+                <div className="alert alert-success mt-3">
+                  <strong>✅ All Good!</strong> All WWPNs are properly matched to aliases. No manual intervention needed.
+                </div>
+              )}
+              
+              {wwpnStatusData.statusLevel === 'matches_available' && (
+                <div className="alert alert-warning mt-3">
+                  <strong>🎯 Matches Available!</strong> Some manual WWPNs can be matched to available aliases. Review and accept matches above.
+                </div>
+              )}
+              
+              {wwpnStatusData.statusLevel === 'no_matches' && (
+                <div className="alert alert-warning mt-3">
+                  <strong>⚠️ Manual WWPNs Found!</strong> These WWPNs were manually assigned and don't match any available aliases in the active project.
+                </div>
+              )}
+              
+              {wwpnStatusData.statusLevel === 'mixed_no_matches' && (
+                <div className="alert alert-info mt-3">
+                  <strong>🔄 Mixed WWPN Status!</strong> This host has both matched aliases and manual WWPNs with no available matches.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p>No WWPNs assigned to this host.</p>
+              <small className="text-muted">You can add WWPNs by clicking the WWPN cell in the table.</small>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleWwpnStatusModalClose}>
+            Close
+          </Button>
+          
+          {/* Accept All Matches button - only show when matches are available */}
+          {wwpnStatusData?.reconciliationData?.matches && wwpnStatusData.reconciliationData.matches.length > 0 && (
+            <Button 
+              variant="success" 
+              onClick={handleAcceptAllMatches}
+            >
+              Accept All Matches ({wwpnStatusData.reconciliationData.matches.reduce((total, match) => total + match.matching_aliases.length, 0)})
+            </Button>
+          )}
+          
+          {(wwpnStatusData?.statusLevel === 'no_matches' || wwpnStatusData?.statusLevel === 'mixed_no_matches' || wwpnStatusData?.statusLevel === 'matches_available') && (
+            <Button 
+              variant="primary" 
+              onClick={() => {
+                setShowWwpnStatusModal(false);
+                handleWwpnReconciliation(wwpnStatusData.hostId, wwpnStatusData.hostName);
+              }}
+            >
+              {wwpnStatusData?.statusLevel === 'matches_available' ? 'Open Reconciliation' : 'Check for Matches'}
+            </Button>
+          )}
         </Modal.Footer>
       </Modal>
     </div>
