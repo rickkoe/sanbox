@@ -95,6 +95,11 @@ const HostTable = ({ storage }) => {
   // Force refresh key for table re-render
   const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
+  // Bulk reconciliation modal state
+  const [showBulkReconcileModal, setShowBulkReconcileModal] = useState(false);
+  const [bulkReconcileData, setBulkReconcileData] = useState([]);
+  const [selectedHosts, setSelectedHosts] = useState(new Set());
+
   // Storage systems state
   const [storageOptions, setStorageOptions] = useState([]);
   const [storageLoaded, setStorageLoaded] = useState(false);
@@ -532,6 +537,156 @@ const HostTable = ({ storage }) => {
     }));
     
     console.log(`⏭️ Rejected match for WWPN ${match.wwpn}, keeping as manual`);
+  };
+
+  // Handle bulk accept alias matches action
+  const handleBulkAcceptAliasMatches = async () => {
+    console.log('🔄 Loading hosts with available matches for bulk reconciliation...');
+    
+    try {
+      const response = await axios.get(`${getApiUrl()}`);
+      const hosts = response.data.results || response.data;
+      
+      // Filter hosts that have matches available
+      const hostsWithMatches = hosts.filter(host => 
+        host.wwpn_status_level === 'matches_available'
+      );
+      
+      if (hostsWithMatches.length === 0) {
+        alert('No hosts with available alias matches found.');
+        return;
+      }
+      
+      console.log(`✅ Found ${hostsWithMatches.length} hosts with available matches`);
+      
+      // Load detailed reconciliation data for each host
+      const hostsWithMatchDetails = [];
+      for (const host of hostsWithMatches) {
+        try {
+          const reconcileResponse = await axios.get(`${API_URL}/api/san/hosts/${host.id}/wwpn-reconciliation/`);
+          if (reconcileResponse.data.matches && reconcileResponse.data.matches.length > 0) {
+            hostsWithMatchDetails.push({
+              ...host,
+              reconciliationData: reconcileResponse.data
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to load reconciliation data for host ${host.name}:`, error);
+        }
+      }
+      
+      setBulkReconcileData(hostsWithMatchDetails);
+      setSelectedHosts(new Set()); // Start with no hosts selected
+      setShowBulkReconcileModal(true);
+      
+    } catch (error) {
+      console.error('Error loading hosts for bulk reconciliation:', error);
+      alert('Failed to load hosts with matches. Please try again.');
+    }
+  };
+
+  // Handle bulk accept for selected hosts
+  const handleBulkAcceptSelected = async () => {
+    if (selectedHosts.size === 0) {
+      alert('Please select at least one host to process.');
+      return;
+    }
+
+    const selectedHostData = bulkReconcileData.filter(host => selectedHosts.has(host.id));
+    await processBulkAccept(selectedHostData, 'selected');
+  };
+
+  // Handle bulk accept for all hosts
+  const handleBulkAcceptAll = async () => {
+    if (bulkReconcileData.length === 0) {
+      alert('No hosts available to process.');
+      return;
+    }
+
+    await processBulkAccept(bulkReconcileData, 'all');
+  };
+
+  // Core bulk processing function
+  const processBulkAccept = async (hostsToProcess, type) => {
+    console.log(`🔄 Starting bulk ${type} accept for ${hostsToProcess.length} hosts`);
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    // Process each host
+    for (const host of hostsToProcess) {
+      console.log(`🔄 Processing host: ${host.name}`);
+      
+      try {
+        // Process all matches for this host
+        for (const match of host.reconciliationData.matches) {
+          for (const alias of match.matching_aliases) {
+            try {
+              console.log(`🔗 Accepting match: ${match.wwpn} → ${alias.name} for host ${host.name}`);
+              console.log(`🔗 API URL: ${API_URL}/api/san/assign-host-to-alias/`);
+              console.log(`🔗 Payload:`, { host_id: host.id, alias_id: alias.id });
+              
+              const response = await axios.post(`${API_URL}/api/san/assign-host-to-alias/`, {
+                host_id: host.id,
+                alias_id: alias.id
+              });
+              
+              console.log(`✅ Successfully accepted match for host ${host.name}:`, response.data);
+              successCount++;
+            } catch (matchError) {
+              console.error(`❌ Failed to accept match ${match.wwpn} → ${alias.name} for host ${host.name}:`, matchError);
+              console.error(`❌ Error details:`, {
+                status: matchError.response?.status,
+                statusText: matchError.response?.statusText,
+                data: matchError.response?.data,
+                message: matchError.message
+              });
+              
+              const errorDetail = matchError.response?.data?.error || matchError.response?.data?.detail || matchError.message || 'Unknown error';
+              errors.push(`${host.name}: ${match.wwpn} → ${alias.name} (${errorDetail})`);
+              errorCount++;
+            }
+          }
+        }
+      } catch (hostError) {
+        console.error(`❌ Failed to process host ${host.name}:`, hostError);
+        errors.push(`${host.name}: ${hostError.response?.data?.error || hostError.message}`);
+        errorCount++;
+      }
+    }
+
+    // Show results
+    let message = '';
+    if (successCount > 0 && errorCount === 0) {
+      message = `✅ Successfully processed ${successCount} match${successCount !== 1 ? 'es' : ''} for ${type === 'all' ? 'all' : 'selected'} hosts!`;
+    } else if (successCount > 0 && errorCount > 0) {
+      message = `⚠️ Processed ${successCount} match${successCount !== 1 ? 'es' : ''} successfully, but ${errorCount} failed:\n${errors.join('\n')}`;
+    } else {
+      message = `❌ Failed to process any matches:\n${errors.join('\n')}`;
+    }
+
+    alert(message);
+
+    // Close the modal and refresh the table
+    setShowBulkReconcileModal(false);
+    setBulkReconcileData([]);
+    setSelectedHosts(new Set());
+
+    // Refresh the table to show updated statuses
+    console.log('🔄 Refreshing table after bulk accept...');
+    if (tableRef.current?.refreshData) {
+      await tableRef.current.refreshData();
+    }
+    
+    // Aggressive refresh strategy - check if instance exists and is not destroyed
+    setTimeout(() => {
+      const hotInstance = tableRef.current?.hotInstance;
+      if (hotInstance && !hotInstance.isDestroyed) {
+        hotInstance.render();
+      }
+      setTableRefreshKey(prev => prev + 1);
+    }, 1000);
   };
 
   // Accept all available matches
@@ -1408,6 +1563,16 @@ const HostTable = ({ storage }) => {
             onClick: handleSetHostTypes
           },
           {
+            text: "Accept Alias Matches",
+            icon: (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12l2 2 4-4"/>
+                <path d="M21 12c0 1.66-.41 3.22-1.14 4.58-.73 1.36-1.85 2.42-3.29 3.1C14.93 20.36 13.5 20.5 12 20.5s-2.93-.14-4.57-.82c-1.44-.68-2.56-1.74-3.29-3.1C3.41 15.22 3 13.66 3 12s.41-3.22 1.14-4.58c.73-1.36 1.85-2.42 3.29-3.10C9.07 3.64 10.5 3.5 12 3.5s2.93.14 4.57.82c1.44.68 2.56 1.74 3.29 3.10C20.59 8.78 21 10.34 21 12z"/>
+              </svg>
+            ),
+            onClick: handleBulkAcceptAliasMatches
+          },
+          {
             text: "Manage WWPNs",
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1435,7 +1600,7 @@ const HostTable = ({ storage }) => {
             icon: (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 12l2 2 4-4"/>
-                <path d="M21 12c0 1.66-.41 3.22-1.14 4.58-.73 1.36-1.85 2.42-3.29 3.1C14.93 20.36 13.5 20.5 12 20.5s-2.93-.14-4.57-.82c-1.44-.68-2.56-1.74-3.29-3.1C3.41 15.22 3 13.66 3 12s.41-3.22 1.14-4.58c.73-1.36 1.85-2.42 3.29-3.1C9.07 3.64 10.5 3.5 12 3.5s2.93.14 4.57.82c1.44.68 2.56 1.74 3.29 3.10C20.59 8.78 21 10.34 21 12z"/>
+                <path d="M21 12c0 1.66-.41 3.22-1.14 4.58-.73 1.36-1.85 2.42-3.29 3.1C14.93 20.36 13.5 20.5 12 20.5s-2.93-.14-4.57-.82c-1.44-.68-2.56-1.74-3.29-3.10C3.41 15.22 3 13.66 3 12s.41-3.22 1.14-4.58c.73-1.36 1.85-2.42 3.29-3.10C9.07 3.64 10.5 3.5 12 3.5s2.93.14 4.57.82c1.44.68 2.56 1.74 3.29 3.10C20.59 8.78 21 10.34 21 12z"/>
               </svg>
             ),
             onClick: () => navigate('/scripts/storage')
@@ -1956,6 +2121,185 @@ const HostTable = ({ storage }) => {
             >
               {wwpnStatusData?.statusLevel === 'matches_available' ? 'Open Reconciliation' : 'Check for Matches'}
             </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* Bulk Reconciliation Modal */}
+      <Modal show={showBulkReconcileModal} onHide={() => setShowBulkReconcileModal(false)} size="xl">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 12l2 2 4-4"/>
+                <path d="M21 12c0 1.66-.41 3.22-1.14 4.58-.73 1.36-1.85 2.42-3.29 3.1C14.93 20.36 13.5 20.5 12 20.5s-2.93-.14-4.57-.82c-1.44-.68-2.56-1.74-3.29-3.10C3.41 15.22 3 13.66 3 12s.41-3.22 1.14-4.58c.73-1.36 1.85-2.42 3.29-3.10C9.07 3.64 10.5 3.5 12 3.5s2.93.14 4.57.82c1.44.68 2.56 1.74 3.29 3.10C20.59 8.78 21 10.34 21 12z"/>
+              </svg>
+              Bulk Accept Alias Matches
+            </div>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {bulkReconcileData.length > 0 ? (
+            <div>
+              <div style={{ 
+                padding: '1rem',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                marginBottom: '1.5rem',
+                border: '1px solid #e9ecef'
+              }}>
+                <div style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '600', 
+                  color: '#374151',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                  </svg>
+                  Bulk Reconciliation
+                </div>
+                <div style={{ 
+                  fontSize: '13px', 
+                  color: '#6b7280',
+                  lineHeight: '1.5'
+                }}>
+                  Found {bulkReconcileData.length} host{bulkReconcileData.length !== 1 ? 's' : ''} with available alias matches. 
+                  Select which hosts to process and click "Accept Selected" or "Accept All" to assign hosts to their matching aliases.
+                </div>
+              </div>
+
+              <div style={{ 
+                maxHeight: '400px', 
+                overflowY: 'auto',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px'
+              }}>
+                {bulkReconcileData.map((host, index) => (
+                  <div key={host.id} style={{
+                    padding: '1rem',
+                    borderBottom: index < bulkReconcileData.length - 1 ? '1px solid #e5e7eb' : 'none',
+                    backgroundColor: selectedHosts.has(host.id) ? '#f0f9ff' : '#fff'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedHosts.has(host.id)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedHosts);
+                          if (e.target.checked) {
+                            newSelected.add(host.id);
+                          } else {
+                            newSelected.delete(host.id);
+                          }
+                          setSelectedHosts(newSelected);
+                        }}
+                        style={{ 
+                          margin: '4px 0',
+                          width: '16px',
+                          height: '16px',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ 
+                          fontSize: '16px', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          marginBottom: '8px'
+                        }}>
+                          {host.name}
+                        </div>
+                        
+                        {host.reconciliationData?.matches && host.reconciliationData.matches.length > 0 && (
+                          <div>
+                            <div style={{ 
+                              fontSize: '14px', 
+                              color: '#6b7280',
+                              marginBottom: '8px'
+                            }}>
+                              Available matches ({host.reconciliationData.matches.reduce((total, match) => total + match.matching_aliases.length, 0)} total):
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                              {host.reconciliationData.matches.map((match, matchIndex) => 
+                                match.matching_aliases.map((alias, aliasIndex) => (
+                                  <div key={`${matchIndex}-${aliasIndex}`} style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '4px 8px',
+                                    backgroundColor: '#e0f2fe',
+                                    border: '1px solid #0284c7',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    color: '#0c4a6e'
+                                  }}>
+                                    <code style={{ backgroundColor: 'transparent' }}>{match.wwpn}</code>
+                                    <span>→</span>
+                                    <span>{alias.name}</span>
+                                    {alias.fabric_name && (
+                                      <span style={{ color: '#6b7280' }}>({alias.fabric_name})</span>
+                                    )}
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ margin: '0 auto 1rem' }}>
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M8 12l2 2 4-4"/>
+              </svg>
+              <p>No hosts with available alias matches found.</p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer style={{ borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+          <div style={{ 
+            fontSize: '12px', 
+            color: '#6b7280',
+            lineHeight: '1.4',
+            flex: 1,
+            textAlign: 'left'
+          }}>
+            {selectedHosts.size > 0 ? (
+              <span><strong>{selectedHosts.size}</strong> host{selectedHosts.size !== 1 ? 's' : ''} selected</span>
+            ) : (
+              <span>Select hosts to process</span>
+            )}
+          </div>
+          <Button variant="secondary" onClick={() => setShowBulkReconcileModal(false)}>
+            Cancel
+          </Button>
+          {bulkReconcileData.length > 0 && (
+            <>
+              <Button 
+                variant="success" 
+                onClick={() => handleBulkAcceptSelected()}
+                disabled={selectedHosts.size === 0}
+                style={{ marginLeft: '8px' }}
+              >
+                Accept Selected ({selectedHosts.size})
+              </Button>
+              <Button 
+                variant="warning" 
+                onClick={() => handleBulkAcceptAll()}
+                style={{ marginLeft: '8px' }}
+              >
+                Accept All ({bulkReconcileData.length})
+              </Button>
+            </>
           )}
         </Modal.Footer>
       </Modal>
