@@ -593,11 +593,8 @@ const HostTable = ({ storage }) => {
         await handleWwpnStatusModal(hostId, hostName, wwpnStatusData.statusLevel);
         console.log('✅ Modal data refreshed');
         
-        if (errorCount === 0) {
-          // All successful
-          alert(`Successfully accepted all ${successCount} matches!`);
-        } else {
-          // Some errors
+        if (errorCount > 0) {
+          // Only show alerts for errors, not success
           alert(`Accepted ${successCount} matches successfully. ${errorCount} failed:\n${errors.join('\n')}`);
         }
       } else {
