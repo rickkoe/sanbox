@@ -97,6 +97,10 @@ const HostTable = ({ storage }) => {
 
   // Bulk reconciliation modal state
   const [showBulkReconcileModal, setShowBulkReconcileModal] = useState(false);
+
+  // WWPN deletion confirmation modal state
+  const [showDeletionModal, setShowDeletionModal] = useState(false);
+  const [deletionData, setDeletionData] = useState(null);
   const [bulkReconcileData, setBulkReconcileData] = useState([]);
   const [selectedHosts, setSelectedHosts] = useState(new Set());
 
@@ -364,13 +368,20 @@ const HostTable = ({ storage }) => {
   
   const loadHostWwpns = async (hostId) => {
     try {
+      console.log(`🔄 Loading WWPNs for host ${hostId}`);
       const response = await axios.get(`${API_URL}/api/storage/hosts/${hostId}/wwpns/`);
+      console.log(`📋 WWPN response:`, response.data);
+      
+      const wwpns = response.data.wwpns || [];
+      console.log(`📋 WWPNs found:`, wwpns);
+      
       setWwpnModalData(prev => ({
         ...prev,
-        wwpns: response.data.wwpns || []
+        wwpns: wwpns
       }));
     } catch (error) {
-      console.error("Error loading WWPNs:", error);
+      console.error("❌ Error loading WWPNs:", error);
+      console.error("❌ Error details:", error.response?.status, error.response?.data);
     }
   };
   
@@ -405,41 +416,124 @@ const HostTable = ({ storage }) => {
       });
       
       if (response.data.success) {
-        // Reload WWPNs
+        // Reload WWPNs for the modal
         loadHostWwpns(wwpnModalData.hostId);
         setNewWwpn("");
         setWwpnConflicts([]);
         
-        // Refresh the main table to show the new WWPN
-        if (tableRef.current?.refreshData) {
-          tableRef.current.refreshData();
+        // Force aggressive table refresh like in handleAcceptMatch
+        await forceTableRefresh(1000);
+        
+        // Clear dirty state since we've processed the changes
+        if (tableRef.current?.setIsDirty) {
+          tableRef.current.setIsDirty(false);
+          console.log('✅ Cleared dirty state after modal WWPN addition');
         }
       }
     } catch (error) {
       console.error("Error adding WWPN:", error);
       alert(`Error: ${error.response?.data?.error || error.message}`);
+      
+      // Refresh table even on error to show current state
+      await forceTableRefresh(1000);
+      
+      // Clear dirty state even on error to prevent confusion
+      if (tableRef.current?.setIsDirty) {
+        tableRef.current.setIsDirty(false);
+        console.log('✅ Cleared dirty state after modal addition error to prevent confusion');
+      }
     }
   };
   
-  const removeWwpn = async (wwpn) => {
+  const removeWwpn = async (wwpnToRemove) => {
     try {
-      const response = await axios.post(`${API_URL}/api/storage/hosts/${wwpnModalData.hostId}/wwpns/`, {
-        action: 'remove',
-        wwpn: wwpn
-      });
+      console.log(`🗑️ Attempting to remove WWPN ${wwpnToRemove} from host ${wwpnModalData.hostId}`);
       
-      if (response.data.success) {
-        // Reload WWPNs
-        loadHostWwpns(wwpnModalData.hostId);
+      // First, get the WWPN details to see if it's from an alias or manual
+      const wwpnData = wwpnModalData.wwpns.find(w => w.wwpn === wwpnToRemove);
+      console.log(`🔍 WWPN data:`, wwpnData);
+      
+      if (!wwpnData) {
+        throw new Error('WWPN not found in current data');
+      }
+      
+      if (wwpnData.source_type === 'alias' && wwpnData.source_alias_id) {
+        // For alias WWPNs, explain the limitation and offer alternatives
+        console.log(`🔗 WWPN ${wwpnToRemove} comes from alias ${wwpnData.source_alias_id}`);
         
-        // Refresh the main table to show the updated WWPNs
-        if (tableRef.current?.refreshData) {
-          tableRef.current.refreshData();
+        const aliasName = wwpnData.source_alias || `Alias ${wwpnData.source_alias_id}`;
+        const confirmUnassign = window.confirm(
+          `This WWPN comes from alias "${aliasName}".\n\n` +
+          `To remove this WWPN, you need to unassign the host from the alias.\n\n` +
+          `Options:\n` +
+          `1. Go to the Alias Table and clear the Host field for "${aliasName}"\n` +
+          `2. Continue here to attempt automatic unassignment\n\n` +
+          `Would you like to try automatic unassignment?`
+        );
+        
+        if (!confirmUnassign) {
+          return;
+        }
+        
+        // Try to unassign the host from the alias
+        try {
+          console.log(`🔗 Attempting to unassign host from alias ${wwpnData.source_alias_id}`);
+          const response = await axios.post(`${API_URL}/api/san/unassign-host-from-alias/`, {
+            host_id: wwpnModalData.hostId,
+            alias_id: wwpnData.source_alias_id
+          });
+          console.log(`✅ Successfully unassigned host from alias:`, response.data);
+        } catch (unassignError) {
+          console.error(`❌ Failed to unassign host from alias:`, unassignError.response?.status, unassignError.response?.data);
+          throw new Error(
+            `Cannot unassign host from alias "${aliasName}".\n\n` +
+            `Please use the Alias Table to manually clear the Host field for this alias.\n\n` +
+            `Error: ${unassignError.response?.data?.error || unassignError.message}`
+          );
+        }
+      } else {
+        // For manual WWPNs, use the backend API directly
+        console.log(`🔧 Removing manual WWPN ${wwpnToRemove} using backend API`);
+        
+        const response = await axios.post(`${API_URL}/api/storage/hosts/${wwpnModalData.hostId}/wwpns/`, {
+          action: 'remove',
+          wwpn: wwpnToRemove
+        });
+        
+        console.log(`✅ Remove WWPN response:`, response.data);
+        
+        if (!response.data.success) {
+          throw new Error(response.data.message || 'Remove operation failed');
         }
       }
+      
+      // If we get here, the operation was successful
+      console.log(`✅ Successfully processed WWPN ${wwpnToRemove}`);
+      
+      // Reload WWPNs for the modal
+      loadHostWwpns(wwpnModalData.hostId);
+      
+      // Force aggressive table refresh like in handleAcceptMatch
+      await forceTableRefresh(1000);
+      
+      // Clear dirty state since we've processed the changes
+      if (tableRef.current?.setIsDirty) {
+        tableRef.current.setIsDirty(false);
+        console.log('✅ Cleared dirty state after modal WWPN removal');
+      }
+      
     } catch (error) {
-      console.error("Error removing WWPN:", error);
-      alert(`Error: ${error.response?.data?.error || error.message}`);
+      console.error("❌ Error removing WWPN:", error);
+      alert(`Error removing WWPN: ${error.message}`);
+      
+      // Refresh table even on error to show current state
+      await forceTableRefresh(1000);
+      
+      // Clear dirty state even on error to prevent confusion
+      if (tableRef.current?.setIsDirty) {
+        tableRef.current.setIsDirty(false);
+        console.log('✅ Cleared dirty state after modal error to prevent confusion');
+      }
     }
   };
   
@@ -461,14 +555,27 @@ const HostTable = ({ storage }) => {
         // Reload WWPNs for this host
         loadHostWwpns(hostId);
         
-        // Refresh the main table to show the updated WWPNs
-        if (tableRef.current?.refreshData) {
-          tableRef.current.refreshData();
+        // Force aggressive table refresh like in handleAcceptMatch
+        await forceTableRefresh(1000);
+        
+        // Clear dirty state since we've processed the changes
+        if (tableRef.current?.setIsDirty) {
+          tableRef.current.setIsDirty(false);
+          console.log('✅ Cleared dirty state after modal alias assignment');
         }
       }
     } catch (error) {
       console.error("Error assigning host to alias:", error);
       alert(`Error: ${error.response?.data?.error || error.message}`);
+      
+      // Refresh table even on error to show current state
+      await forceTableRefresh(1000);
+      
+      // Clear dirty state even on error to prevent confusion
+      if (tableRef.current?.setIsDirty) {
+        tableRef.current.setIsDirty(false);
+        console.log('✅ Cleared dirty state after modal assignment error to prevent confusion');
+      }
     }
   };
 
@@ -604,6 +711,187 @@ const HostTable = ({ storage }) => {
     }
 
     await processBulkAccept(bulkReconcileData, 'all');
+  };
+
+  // Handle deletion confirmation
+  const handleDeletionConfirm = async () => {
+    if (!deletionData) return;
+    
+    setShowDeletionModal(false);
+    
+    try {
+      if (deletionData.isMultiHost) {
+        // Handle multiple hosts
+        console.log(`🗑️ Processing multi-host deletion for ${deletionData.hosts.length} hosts`);
+        
+        let totalSuccessful = 0;
+        let totalFailed = 0;
+        const allErrors = [];
+        
+        // Process each host sequentially to avoid overwhelming the server
+        for (const hostData of deletionData.hosts) {
+          console.log(`🗑️ Processing host ${hostData.hostName} with ${hostData.wwpnsToDelete.length} WWPNs`);
+          
+          try {
+            const result = await handleWwpnDeletion(hostData.hostId, hostData.wwpnsToDelete);
+            totalSuccessful += result.successful;
+            totalFailed += result.failed;
+            
+            if (result.failed > 0) {
+              const hostErrors = result.errors.map(e => `${hostData.hostName}: ${e.message || 'Unknown error'}`);
+              allErrors.push(...hostErrors);
+            }
+          } catch (hostError) {
+            console.error(`❌ Failed to process host ${hostData.hostName}:`, hostError);
+            totalFailed += hostData.wwpnsToDelete.length;
+            allErrors.push(`${hostData.hostName}: ${hostError.message || 'Unknown error'}`);
+          }
+        }
+        
+        // Show combined results
+        if (totalFailed > 0) {
+          alert(`⚠️ Multi-host deletion completed:\n\n✅ Successfully removed: ${totalSuccessful} WWPNs\n❌ Failed to remove: ${totalFailed} WWPNs\n\nErrors:\n${allErrors.join('\n')}`);
+        } else if (totalSuccessful > 0) {
+          alert(`✅ Successfully removed ${totalSuccessful} WWPN${totalSuccessful > 1 ? 's' : ''} from ${deletionData.hosts.length} host${deletionData.hosts.length > 1 ? 's' : ''}`);
+        }
+      } else {
+        // Handle single host (existing logic)
+        const result = await handleWwpnDeletion(deletionData.hostId, deletionData.wwpnsToDelete);
+        
+        // Show result message
+        if (result.failed > 0) {
+          const errors = result.errors.map(e => e.message || 'Unknown error');
+          alert(`⚠️ Some WWPNs could not be removed:\n\n${errors.join('\n')}\n\nSuccessfully removed: ${result.successful}/${deletionData.wwpnsToDelete.length}`);
+        } else if (result.successful > 0) {
+          alert(`✅ Successfully removed ${result.successful} WWPN${result.successful > 1 ? 's' : ''}`);
+        }
+      }
+      
+      // Force aggressive table refresh like in handleAcceptMatch
+      await forceTableRefresh(1000);
+      
+      // Clear dirty state since we've processed the changes
+      if (tableRef.current?.setIsDirty) {
+        tableRef.current.setIsDirty(false);
+        console.log('✅ Cleared dirty state after WWPN deletion');
+      }
+    } catch (error) {
+      console.error('Error during WWPN deletion:', error);
+      alert(`❌ Error during deletion: ${error.message}`);
+      
+      // Refresh anyway to show current state
+      await forceTableRefresh(1000);
+      
+      // Clear dirty state even on error to prevent confusion
+      if (tableRef.current?.setIsDirty) {
+        tableRef.current.setIsDirty(false);
+        console.log('✅ Cleared dirty state after error to prevent confusion');
+      }
+    }
+    
+    setDeletionData(null);
+  };
+
+  const handleDeletionCancel = async () => {
+    setShowDeletionModal(false);
+    setDeletionData(null);
+    
+    // Force table refresh to revert any changes and clear dirty state
+    await forceTableRefresh(100);
+    
+    // Clear dirty state since user cancelled (no actual changes should persist)
+    if (tableRef.current?.setIsDirty) {
+      tableRef.current.setIsDirty(false);
+      console.log('✅ Cleared dirty state after cancelling deletion');
+    }
+  };
+
+  // Handle WWPN deletion from table cells
+  const handleWwpnDeletion = async (hostId, wwpnsToDelete) => {
+    if (!hostId || !wwpnsToDelete || wwpnsToDelete.length === 0) {
+      return;
+    }
+
+    console.log(`🗑️ Deleting WWPNs for host ${hostId}:`, wwpnsToDelete);
+
+    try {
+      // First, get the host's WWPN details to determine source types
+      let hostWwpns = [];
+      try {
+        console.log(`🔍 Getting WWPN details for host ${hostId}`);
+        const hostResponse = await axios.get(`${API_URL}/api/storage/hosts/${hostId}/wwpns/`);
+        console.log(`📋 WWPN details response:`, hostResponse.data);
+        hostWwpns = hostResponse.data.wwpns || [];
+      } catch (detailsError) {
+        console.error(`❌ Could not get WWPN details for host ${hostId}:`, detailsError.response?.status, detailsError.response?.data);
+        // Continue anyway - we'll try to remove as manual WWPNs
+      }
+
+      const results = await Promise.allSettled(
+        wwpnsToDelete.map(async (wwpn) => {
+          try {
+            // Find WWPN info to determine source type
+            const wwpnInfo = hostWwpns.find(w => w.wwpn === wwpn);
+            console.log(`🔍 Found WWPN info for ${wwpn}:`, wwpnInfo);
+            
+            if (wwpnInfo && wwpnInfo.source_type === 'alias' && wwpnInfo.source_alias_id) {
+              // This WWPN came from an alias - need to unassign the host from the alias
+              const aliasId = wwpnInfo.source_alias_id;
+              const aliasName = wwpnInfo.source_alias || `Alias ${aliasId}`;
+              console.log(`🔗 WWPN ${wwpn} comes from alias ${aliasName} (${aliasId}), unassigning host`);
+              
+              try {
+                const unassignResponse = await axios.post(`${API_URL}/api/san/unassign-host-from-alias/`, {
+                  host_id: hostId,
+                  alias_id: aliasId
+                });
+                console.log(`✅ Successfully unassigned host from alias:`, unassignResponse.data);
+              } catch (unassignError) {
+                console.error(`❌ Failed to unassign host from alias:`, unassignError.response?.status, unassignError.response?.data);
+                throw new Error(`Cannot remove alias WWPN ${wwpn}. Please unassign the host from alias "${aliasName}" in the Alias Table.`);
+              }
+            } else {
+              // This is a manual WWPN or unknown - use the storage API to remove it
+              console.log(`✏️ Removing WWPN ${wwpn} as manual WWPN for host ${hostId}`);
+              
+              const response = await axios.post(`${API_URL}/api/storage/hosts/${hostId}/wwpns/`, {
+                action: 'remove',
+                wwpn: wwpn
+              });
+              
+              console.log(`✅ Successfully removed manual WWPN:`, response.data);
+              
+              if (!response.data.success) {
+                throw new Error(response.data.message || 'Remove operation failed');
+              }
+            }
+          } catch (wwpnError) {
+            console.error(`❌ Failed to delete WWPN ${wwpn}:`, wwpnError);
+            throw wwpnError;
+          }
+        })
+      );
+
+      // Check results
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+      
+      console.log(`✅ WWPN deletion complete: ${successful} successful, ${failed} failed`);
+      
+      if (failed > 0) {
+        const errors = results
+          .filter(r => r.status === 'rejected')
+          .map(r => r.reason?.message || 'Unknown error');
+        console.warn('⚠️ Some WWPN deletions failed:', errors);
+      }
+      
+      // Return results for the caller to handle
+      
+      return { successful, failed, errors: results.filter(r => r.status === 'rejected').map(r => r.reason) };
+    } catch (error) {
+      console.error('❌ Error during WWPN deletion:', error);
+      throw error;
+    }
   };
 
   // Core bulk processing function
@@ -817,6 +1105,10 @@ const HostTable = ({ storage }) => {
     
     console.log('🔍 Cell change detected:', { changes, source });
     
+    // Collect all deletion operations first
+    const deletionsByHost = new Map();
+    
+    // Process each change
     changes.forEach(([row, prop, oldVal, newVal]) => {
       console.log(`🔍 Change details: row=${row}, prop=${prop}, oldVal="${oldVal}", newVal="${newVal}", source=${source}`);
       
@@ -829,9 +1121,8 @@ const HostTable = ({ storage }) => {
         
         console.log(`🔄 WWPNs changed for host ${rowData.name} (ID: ${rowData.id}): "${oldVal}" -> "${newVal}"`);
         
-        // Only process if there's actual new content
         if (newVal && newVal.trim() !== '') {
-          // Process the pasted WWPNs
+          // Adding/updating WWPNs - process the pasted WWPNs
           processPastedWwpns(rowData.id, newVal).then((result) => {
             if (result && result.successCount > 0) {
               console.log(`✅ Successfully processed ${result.successCount} WWPNs, refreshing table`);
@@ -845,9 +1136,72 @@ const HostTable = ({ storage }) => {
               console.log('❌ No WWPNs were successfully processed');
             }
           });
+        } else if (oldVal && oldVal.trim() !== '' && (!newVal || newVal.trim() === '')) {
+          // Deleting WWPNs - oldVal had content, newVal is empty
+          console.log(`🗑️ Detected WWPN deletion for host ${rowData.name}: removing "${oldVal}"`);
+          
+          // Parse the old WWPNs that need to be deleted
+          const wwpnsToDelete = oldVal
+            .split(/[,\n\r\s]+/)
+            .map(wwpn => wwpn.trim())
+            .filter(wwpn => wwpn.length > 0)
+            .map(wwpn => {
+              // Ensure proper WWPN format
+              const cleaned = wwpn.replace(/[^0-9a-fA-F]/g, '');
+              if (cleaned.length === 16) {
+                return cleaned.match(/.{2}/g).join(':');
+              }
+              return wwpn;
+            });
+          
+          if (wwpnsToDelete.length > 0) {
+            // Collect deletions by host
+            const hostKey = `${rowData.id}-${rowData.name}`;
+            if (!deletionsByHost.has(hostKey)) {
+              deletionsByHost.set(hostKey, {
+                hostId: rowData.id,
+                hostName: rowData.name,
+                wwpnsToDelete: []
+              });
+            }
+            deletionsByHost.get(hostKey).wwpnsToDelete.push(...wwpnsToDelete);
+          }
         }
       }
     });
+    
+    // If we have any deletions, process them
+    if (deletionsByHost.size > 0) {
+      if (deletionsByHost.size === 1) {
+        // Single host - show modal
+        const [deletionData] = deletionsByHost.values();
+        // Remove duplicates
+        deletionData.wwpnsToDelete = [...new Set(deletionData.wwpnsToDelete)];
+        
+        console.log(`🗑️ Table cell deletion detected for host ${deletionData.hostName}:`, deletionData.wwpnsToDelete);
+        
+        setDeletionData(deletionData);
+        setShowDeletionModal(true);
+      } else {
+        // Multiple hosts - show multi-host modal
+        const hostsData = Array.from(deletionsByHost.values()).map(hostData => ({
+          ...hostData,
+          wwpnsToDelete: [...new Set(hostData.wwpnsToDelete)] // Remove duplicates per host
+        }));
+        
+        const totalWwpns = hostsData.reduce((total, host) => total + host.wwpnsToDelete.length, 0);
+        
+        console.log(`🗑️ Table cell deletion detected across ${deletionsByHost.size} hosts:`, hostsData);
+        
+        // Set up multi-host deletion data
+        setDeletionData({
+          isMultiHost: true,
+          hosts: hostsData,
+          totalWwpns: totalWwpns
+        });
+        setShowDeletionModal(true);
+      }
+    }
   };
 
   // Wait for config to load before showing any content
@@ -906,10 +1260,10 @@ const HostTable = ({ storage }) => {
         const wwpnElements = wwpnDetails.map(w => {
           let indicator, title;
           if (w.source_type === 'alias') {
-            indicator = '<span style="color: #059669; font-weight: bold;" title="From alias">🔗</span>';
+            indicator = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" style="display: inline-block; vertical-align: middle;" title="From alias"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>';
             title = `From alias: ${w.source_alias || 'Unknown'}`;
           } else {
-            indicator = '<span style="color: #dc2626; font-weight: bold;" title="Manual">✏️</span>';
+            indicator = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" style="display: inline-block; vertical-align: middle;" title="Manual"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
             title = 'Manually assigned';
           }
           return `<span style="margin-right: 8px;" title="${title}">${indicator} ${w.wwpn}</span>`;
@@ -1750,35 +2104,52 @@ const HostTable = ({ storage }) => {
                 <h6>Current WWPNs:</h6>
                 {wwpnModalData.wwpns.length > 0 ? (
                   <div className="list-group">
-                    {wwpnModalData.wwpns.map((wwpn, index) => (
-                      <div key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                    {wwpnModalData.wwpns.map((wwpn, index) => {
+                      console.log(`🔍 Rendering WWPN ${index}:`, wwpn);
+                      return (
+                        <div key={index} className="list-group-item d-flex justify-content-between align-items-center">
                         <div>
                           <span className="font-monospace">{wwpn.wwpn}</span>
                           {wwpn.source_type === 'alias' ? (
-                            <span className="badge bg-success ms-2" title="From alias">
-                              🔗 {wwpn.source_alias || 'Alias'}
+                            <span className="badge bg-success ms-2" title="From alias" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                              </svg>
+                              {wwpn.source_alias || 'Alias'}
                             </span>
                           ) : (
-                            <span className="badge bg-primary ms-2" title="Manual">
-                              ✏️ Manual
+                            <span className="badge bg-primary ms-2" title="Manual" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                              </svg>
+                              Manual
                             </span>
                           )}
                         </div>
-                        {wwpn.source_type === 'manual' && (
-                          <button 
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => removeWwpn(wwpn.wwpn)}
-                            title="Remove manual WWPN"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                        <button 
+                          className={`btn btn-sm ${wwpn.source_type === 'manual' ? 'btn-outline-danger' : 'btn-outline-warning'}`}
+                          onClick={() => removeWwpn(wwpn.wwpn)}
+                          title={wwpn.source_type === 'manual' ? 'Remove manual WWPN' : `Guide to unassign from alias ${wwpn.source_alias || 'alias'} (use Alias Table)`}
+                        >
+                          {wwpn.source_type === 'manual' ? 'Remove' : 'Unassign'}
+                        </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="alert alert-info">No WWPNs assigned to this host.</div>
                 )}
+                
+                <div className="alert alert-info" style={{ fontSize: '12px', padding: '8px', marginTop: '1rem' }}>
+                  <strong>💡 WWPN Management:</strong>
+                  <ul style={{ marginBottom: 0, marginTop: '4px', paddingLeft: '16px' }}>
+                    <li><strong>Manual WWPNs:</strong> Can be removed directly using the Remove button</li>
+                    <li><strong>Alias WWPNs:</strong> Must be unassigned via the Alias Table or using the Unassign button</li>
+                  </ul>
+                </div>
               </div>
 
               <div className="border-top pt-4">
@@ -1963,14 +2334,26 @@ const HostTable = ({ storage }) => {
               {/* Existing Alias Relationships */}
               {wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'alias').length > 0 && (
                 <div className="mb-4">
-                  <h6 className="text-success">🔗 Matched Aliases ({wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'alias').length})</h6>
+                  <h6 className="text-success" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                    Matched Aliases ({wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'alias').length})
+                  </h6>
                   {wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'alias').map((wwpn, index) => (
                     <div key={`alias-${index}`} className="border border-success rounded p-3 mb-2 bg-light">
                       <div className="row">
                         <div className="col-md-6">
                           <strong>WWPN:</strong> <code>{wwpn.wwpn}</code>
                           <br />
-                          <span className="badge bg-success mt-1">🔗 From Alias</span>
+                          <span className="badge bg-success mt-1" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                            </svg>
+                            From Alias
+                          </span>
                         </div>
                         <div className="col-md-6">
                           <strong>Alias:</strong> {wwpn.source_alias}
@@ -1993,14 +2376,26 @@ const HostTable = ({ storage }) => {
               {wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'manual').length > 0 && 
                (!wwpnStatusData.reconciliationData?.matches || wwpnStatusData.reconciliationData.matches.length === 0) && (
                 <div className="mb-4">
-                  <h6 className="text-warning">✏️ Manual WWPNs ({wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'manual').length})</h6>
+                  <h6 className="text-warning" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                    Manual WWPNs ({wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'manual').length})
+                  </h6>
                   {wwpnStatusData.wwpnDetails.filter(w => w.source_type === 'manual').map((wwpn, index) => (
                     <div key={`manual-${index}`} className="border border-warning rounded p-3 mb-2">
                       <div className="row">
                         <div className="col-md-6">
                           <strong>WWPN:</strong> <code>{wwpn.wwpn}</code>
                           <br />
-                          <span className="badge bg-warning text-dark mt-1">✏️ Manual</span>
+                          <span className="badge bg-warning text-dark mt-1" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            Manual
+                          </span>
                         </div>
                         <div className="col-md-6">
                           <strong>Source:</strong> Manual assignment
@@ -2301,6 +2696,188 @@ const HostTable = ({ storage }) => {
               </Button>
             </>
           )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* WWPN Deletion Confirmation Modal */}
+      <Modal show={showDeletionModal} onHide={handleDeletionCancel} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+              Confirm WWPN Deletion
+            </div>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deletionData && (
+            <div>
+              <div style={{ 
+                padding: '1rem',
+                backgroundColor: '#fef3c7',
+                borderRadius: '8px',
+                marginBottom: '1.5rem',
+                border: '1px solid #f59e0b'
+              }}>
+                <div style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '600', 
+                  color: '#92400e',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Warning: This action cannot be undone
+                </div>
+                <div style={{ 
+                  fontSize: '13px', 
+                  color: '#92400e',
+                  lineHeight: '1.5'
+                }}>
+                  {deletionData.isMultiHost ? (
+                    <>You are about to delete WWPNs from <strong>{deletionData.hosts.length} hosts</strong>. 
+                    Manual WWPNs will be removed permanently, and alias WWPNs will be unassigned from their hosts.</>
+                  ) : (
+                    <>You are about to delete WWPNs from host <strong>{deletionData.hostName}</strong>. 
+                    Manual WWPNs will be removed permanently, and alias WWPNs will be unassigned from this host.</>
+                  )}
+                </div>
+              </div>
+
+              {deletionData.isMultiHost ? (
+                // Multi-host view
+                <div style={{ marginBottom: '1rem' }}>
+                  <h6 style={{ color: '#374151', marginBottom: '0.5rem' }}>
+                    WWPNs to delete from {deletionData.hosts.length} hosts ({deletionData.totalWwpns} total):
+                  </h6>
+                  <div style={{ 
+                    maxHeight: '300px', 
+                    overflowY: 'auto',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    backgroundColor: '#f9fafb'
+                  }}>
+                    {deletionData.hosts.map((hostData, hostIndex) => (
+                      <div key={hostData.hostId} style={{
+                        borderBottom: hostIndex < deletionData.hosts.length - 1 ? '1px solid #e5e7eb' : 'none'
+                      }}>
+                        <div style={{
+                          padding: '12px',
+                          backgroundColor: '#f3f4f6',
+                          fontWeight: '600',
+                          fontSize: '14px',
+                          color: '#374151',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                            <line x1="8" y1="21" x2="16" y2="21"/>
+                            <line x1="12" y1="17" x2="12" y2="21"/>
+                          </svg>
+                          {hostData.hostName} ({hostData.wwpnsToDelete.length} WWPNs)
+                        </div>
+                        {hostData.wwpnsToDelete.map((wwpn, wwpnIndex) => (
+                          <div key={wwpnIndex} style={{
+                            padding: '8px 12px 8px 40px',
+                            borderBottom: wwpnIndex < hostData.wwpnsToDelete.length - 1 ? '1px solid #f3f4f6' : 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}>
+                            <code style={{ 
+                              backgroundColor: 'transparent',
+                              color: '#374151',
+                              fontFamily: 'monospace',
+                              fontSize: '13px'
+                            }}>
+                              {wwpn}
+                            </code>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                // Single host view
+                <div style={{ marginBottom: '1rem' }}>
+                  <h6 style={{ color: '#374151', marginBottom: '0.5rem' }}>
+                    WWPNs to delete ({deletionData.wwpnsToDelete.length}):
+                  </h6>
+                  <div style={{ 
+                    maxHeight: '200px', 
+                    overflowY: 'auto',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    backgroundColor: '#f9fafb'
+                  }}>
+                    {deletionData.wwpnsToDelete.map((wwpn, index) => (
+                      <div key={index} style={{
+                        padding: '8px 12px',
+                        borderBottom: index < deletionData.wwpnsToDelete.length - 1 ? '1px solid #e5e7eb' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        <code style={{ 
+                          backgroundColor: 'transparent',
+                          color: '#374151',
+                          fontFamily: 'monospace',
+                          fontSize: '13px'
+                        }}>
+                          {wwpn}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ 
+                fontSize: '12px', 
+                color: '#6b7280',
+                backgroundColor: '#f3f4f6',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #d1d5db'
+              }}>
+                <strong>What will happen:</strong>
+                <ul style={{ marginBottom: 0, marginTop: '4px', paddingLeft: '16px' }}>
+                  <li><strong>Manual WWPNs:</strong> Will be permanently removed from {deletionData.isMultiHost ? 'their hosts' : 'the host'}</li>
+                  <li><strong>Alias WWPNs:</strong> Will be unassigned from {deletionData.isMultiHost ? 'their hosts' : 'the host'} (aliases remain available)</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer style={{ borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+          <Button variant="secondary" onClick={handleDeletionCancel}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleDeletionConfirm}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '6px' }}>
+              <path d="M3 6h18"/>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+              <line x1="10" y1="11" x2="10" y2="17"/>
+              <line x1="14" y1="11" x2="14" y2="17"/>
+            </svg>
+            Delete WWPNs ({deletionData?.isMultiHost ? deletionData?.totalWwpns || 0 : deletionData?.wwpnsToDelete?.length || 0})
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>
