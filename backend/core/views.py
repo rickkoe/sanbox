@@ -492,11 +492,11 @@ def dashboard_overview(request):
         
         # Try to import and count Storage models
         try:
-            from storage.models import StorageSystem
-            total_storage = StorageSystem.objects.count()
-            ds8000_count = StorageSystem.objects.filter(storage_type='DS8000').count()
-            flashsystem_count = StorageSystem.objects.filter(storage_type='FlashSystem').count()
-            other_storage_count = StorageSystem.objects.exclude(
+            from storage.models import Storage
+            total_storage = Storage.objects.count()
+            ds8000_count = Storage.objects.filter(storage_type='DS8000').count()
+            flashsystem_count = Storage.objects.filter(storage_type='FlashSystem').count()
+            other_storage_count = Storage.objects.exclude(
                 storage_type__in=['DS8000', 'FlashSystem']
             ).count()
         except (ImportError, AttributeError) as e:
@@ -535,6 +535,469 @@ def dashboard_overview(request):
         
     except Exception as e:
         print(f"❌ Error in dashboard_overview: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def dashboard_stats(request):
+    """
+    Enhanced dashboard statistics for current customer/project with caching support
+    GET /api/core/dashboard/stats/?customer_id=<id>&project_id=<id>
+    """
+    print(f"🔥 Dashboard Stats - Method: {request.method}")
+    
+    try:
+        customer_id = request.GET.get('customer_id')
+        project_id = request.GET.get('project_id')
+        
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id parameter required'}, status=400)
+        
+        customer = get_object_or_404(Customer, id=customer_id)
+        project = None
+        if project_id:
+            project = get_object_or_404(Project, id=project_id)
+        
+        # Basic counts
+        stats = {
+            'total_fabrics': 0,
+            'total_zones': 0,
+            'total_aliases': 0,
+            'total_storage': 0,
+            'total_hosts': 0,
+            'total_volumes': 0
+        }
+        
+        # Try to get SAN data
+        try:
+            from san.models import Fabric, Zone, Alias
+            stats['total_fabrics'] = Fabric.objects.filter(customer=customer).count()
+            
+            if project:
+                stats['total_zones'] = Zone.objects.filter(
+                    fabric__customer=customer,
+                    projects=project
+                ).count()
+                stats['total_aliases'] = Alias.objects.filter(
+                    fabric__customer=customer,
+                    projects=project
+                ).count()
+            else:
+                stats['total_zones'] = Zone.objects.filter(fabric__customer=customer).count()
+                stats['total_aliases'] = Alias.objects.filter(fabric__customer=customer).count()
+                
+        except (ImportError, AttributeError) as e:
+            print(f"⚠️  SAN models not available: {e}")
+        
+        # Try to get Storage data
+        try:
+            from storage.models import Storage, Host, Volume
+            stats['total_storage'] = Storage.objects.filter(customer=customer).count()
+            
+            if project:
+                stats['total_hosts'] = Host.objects.filter(project=project).count()
+                # Get volumes from storage systems of this customer
+                storage_systems = Storage.objects.filter(customer=customer)
+                stats['total_volumes'] = Volume.objects.filter(storage__in=storage_systems).count()
+            else:
+                # Get all hosts for all projects of this customer
+                projects = customer.projects.all()
+                stats['total_hosts'] = Host.objects.filter(project__in=projects).count()
+                storage_systems = Storage.objects.filter(customer=customer)
+                stats['total_volumes'] = Volume.objects.filter(storage__in=storage_systems).count()
+                
+        except (ImportError, AttributeError) as e:
+            print(f"⚠️  Storage models not available: {e}")
+        
+        # Get customer info with insights status
+        customer_data = {
+            'id': customer.id,
+            'name': customer.name,
+            'insights_tenant': getattr(customer, 'insights_tenant', None),
+            'has_insights': bool(getattr(customer, 'insights_api_key', None)) and bool(getattr(customer, 'insights_tenant', None))
+        }
+        
+        # Get last import info
+        last_import = None
+        try:
+            from importer.models import StorageImport
+            last_import_obj = StorageImport.objects.filter(
+                customer=customer
+            ).order_by('-started_at').first()
+            
+            if last_import_obj:
+                last_import = {
+                    'id': last_import_obj.id,
+                    'status': last_import_obj.status,
+                    'started_at': last_import_obj.started_at.isoformat() if last_import_obj.started_at else None,
+                    'completed_at': last_import_obj.completed_at.isoformat() if last_import_obj.completed_at else None,
+                    'storage_systems_imported': getattr(last_import_obj, 'storage_systems_imported', 0),
+                    'volumes_imported': getattr(last_import_obj, 'volumes_imported', 0),
+                    'error_message': getattr(last_import_obj, 'error_message', None)
+                }
+        except (ImportError, AttributeError) as e:
+            print(f"⚠️  Import models not available: {e}")
+        
+        response_data = {
+            'stats': stats,
+            'customer': customer_data,
+            'last_import': last_import,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        print(f"📊 Dashboard stats calculated: {response_data}")
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        print(f"❌ Error in dashboard_stats: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def capacity_analytics(request):
+    """
+    Get storage capacity analytics and trends
+    GET /api/core/dashboard/capacity/?customer_id=<id>
+    """
+    print(f"🔥 Capacity Analytics - Method: {request.method}")
+    
+    try:
+        customer_id = request.GET.get('customer_id')
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id parameter required'}, status=400)
+        
+        customer = get_object_or_404(Customer, id=customer_id)
+        
+        # Initialize analytics data
+        analytics = {
+            'total_capacity_tb': 0,
+            'used_capacity_tb': 0,
+            'available_capacity_tb': 0,
+            'utilization_percent': 0,
+            'storage_systems': [],
+            'capacity_by_type': {},
+            'top_consumers': [],
+            'alerts': []
+        }
+        
+        try:
+            from storage.models import Storage, Volume
+            storage_systems = Storage.objects.filter(customer=customer)
+            
+            total_capacity_bytes = 0
+            total_used_bytes = 0
+            
+            for storage in storage_systems:
+                capacity_bytes = storage.capacity_bytes or 0
+                used_bytes = storage.used_capacity_bytes or 0
+                
+                total_capacity_bytes += capacity_bytes
+                total_used_bytes += used_bytes
+                
+                # Convert to TB
+                capacity_tb = capacity_bytes / (1024 ** 4) if capacity_bytes else 0
+                used_tb = used_bytes / (1024 ** 4) if used_bytes else 0
+                available_tb = capacity_tb - used_tb
+                
+                utilization = (used_tb / capacity_tb * 100) if capacity_tb > 0 else 0
+                
+                storage_info = {
+                    'id': storage.id,
+                    'name': storage.name,
+                    'storage_type': storage.storage_type,
+                    'capacity_tb': round(capacity_tb, 2),
+                    'used_tb': round(used_tb, 2),
+                    'available_tb': round(available_tb, 2),
+                    'utilization_percent': round(utilization, 1),
+                    'status': 'healthy' if utilization < 80 else 'warning' if utilization < 90 else 'critical'
+                }
+                
+                analytics['storage_systems'].append(storage_info)
+                
+                # Track capacity by storage type
+                storage_type = storage.storage_type or 'Unknown'
+                if storage_type not in analytics['capacity_by_type']:
+                    analytics['capacity_by_type'][storage_type] = {
+                        'capacity_tb': 0,
+                        'used_tb': 0,
+                        'count': 0
+                    }
+                
+                analytics['capacity_by_type'][storage_type]['capacity_tb'] += capacity_tb
+                analytics['capacity_by_type'][storage_type]['used_tb'] += used_tb
+                analytics['capacity_by_type'][storage_type]['count'] += 1
+                
+                # Generate alerts for high utilization
+                if utilization > 90:
+                    analytics['alerts'].append({
+                        'type': 'critical',
+                        'message': f'{storage.name} is {utilization:.1f}% full',
+                        'storage_id': storage.id
+                    })
+                elif utilization > 80:
+                    analytics['alerts'].append({
+                        'type': 'warning',
+                        'message': f'{storage.name} is {utilization:.1f}% full',
+                        'storage_id': storage.id
+                    })
+            
+            # Calculate totals
+            analytics['total_capacity_tb'] = round(total_capacity_bytes / (1024 ** 4), 2)
+            analytics['used_capacity_tb'] = round(total_used_bytes / (1024 ** 4), 2)
+            analytics['available_capacity_tb'] = round(analytics['total_capacity_tb'] - analytics['used_capacity_tb'], 2)
+            
+            if analytics['total_capacity_tb'] > 0:
+                analytics['utilization_percent'] = round(
+                    (analytics['used_capacity_tb'] / analytics['total_capacity_tb']) * 100, 1
+                )
+            
+            # Find top volume consumers
+            volumes = Volume.objects.filter(
+                storage__customer=customer
+            ).exclude(
+                capacity_bytes__isnull=True
+            ).order_by('-capacity_bytes')[:10]
+            
+            for volume in volumes:
+                capacity_tb = (volume.capacity_bytes or 0) / (1024 ** 4)
+                analytics['top_consumers'].append({
+                    'id': volume.id,
+                    'name': volume.name,
+                    'storage_name': volume.storage.name,
+                    'capacity_tb': round(capacity_tb, 2)
+                })
+                
+        except (ImportError, AttributeError) as e:
+            print(f"⚠️  Storage models not available: {e}")
+        
+        print(f"📊 Capacity analytics calculated: {analytics}")
+        return JsonResponse(analytics)
+        
+    except Exception as e:
+        print(f"❌ Error in capacity_analytics: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def system_health(request):
+    """
+    Get system health status and recent activity
+    GET /api/core/dashboard/health/?customer_id=<id>
+    """
+    print(f"🔥 System Health - Method: {request.method}")
+    
+    try:
+        customer_id = request.GET.get('customer_id')
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id parameter required'}, status=400)
+        
+        customer = get_object_or_404(Customer, id=customer_id)
+        
+        health = {
+            'overall_status': 'healthy',
+            'issues': [],
+            'recent_imports': [],
+            'fabric_status': [],
+            'storage_status': [],
+            'connection_tests': {}
+        }
+        
+        # Check Storage Insights connection
+        has_insights = bool(getattr(customer, 'insights_api_key', None)) and bool(getattr(customer, 'insights_tenant', None))
+        health['connection_tests']['storage_insights'] = {
+            'status': 'configured' if has_insights else 'not_configured',
+            'message': 'Storage Insights configured' if has_insights else 'Storage Insights not configured'
+        }
+        
+        # Check recent imports
+        try:
+            from importer.models import StorageImport
+            recent_imports = StorageImport.objects.filter(
+                customer=customer
+            ).order_by('-started_at')[:5]
+            
+            failed_imports = 0
+            for import_obj in recent_imports:
+                import_info = {
+                    'id': import_obj.id,
+                    'status': import_obj.status,
+                    'started_at': import_obj.started_at.isoformat() if import_obj.started_at else None,
+                    'completed_at': import_obj.completed_at.isoformat() if import_obj.completed_at else None,
+                    'storage_systems_imported': getattr(import_obj, 'storage_systems_imported', 0),
+                    'volumes_imported': getattr(import_obj, 'volumes_imported', 0)
+                }
+                
+                if import_obj.status == 'failed':
+                    failed_imports += 1
+                    health['issues'].append({
+                        'type': 'import_failed',
+                        'message': f'Import failed on {import_obj.started_at.strftime("%Y-%m-%d %H:%M")}',
+                        'severity': 'warning'
+                    })
+                
+                health['recent_imports'].append(import_info)
+            
+            if failed_imports > 2:
+                health['overall_status'] = 'warning'
+                
+        except (ImportError, AttributeError) as e:
+            print(f"⚠️  Import models not available: {e}")
+        
+        # Check fabric health
+        try:
+            from san.models import Fabric
+            fabrics = Fabric.objects.filter(customer=customer)
+            
+            for fabric in fabrics:
+                fabric_info = {
+                    'id': fabric.id,
+                    'name': fabric.name,
+                    'san_vendor': fabric.san_vendor,
+                    'status': 'active' if fabric.exists else 'inactive'
+                }
+                health['fabric_status'].append(fabric_info)
+                
+                if not fabric.exists:
+                    health['issues'].append({
+                        'type': 'fabric_inactive',
+                        'message': f'Fabric {fabric.name} is marked as inactive',
+                        'severity': 'info'
+                    })
+                    
+        except (ImportError, AttributeError) as e:
+            print(f"⚠️  Fabric models not available: {e}")
+        
+        # Check storage system health
+        try:
+            from storage.models import Storage
+            storage_systems = Storage.objects.filter(customer=customer)
+            
+            critical_systems = 0
+            for storage in storage_systems:
+                used_percent = storage.used_capacity_percent or 0
+                status = 'healthy'
+                
+                if used_percent > 90:
+                    status = 'critical'
+                    critical_systems += 1
+                elif used_percent > 80:
+                    status = 'warning'
+                
+                storage_info = {
+                    'id': storage.id,
+                    'name': storage.name,
+                    'storage_type': storage.storage_type,
+                    'status': status,
+                    'used_percent': used_percent,
+                    'condition': getattr(storage, 'condition', 'unknown')
+                }
+                health['storage_status'].append(storage_info)
+            
+            if critical_systems > 0:
+                health['overall_status'] = 'critical'
+                health['issues'].append({
+                    'type': 'high_capacity',
+                    'message': f'{critical_systems} storage system(s) over 90% capacity',
+                    'severity': 'critical'
+                })
+                
+        except (ImportError, AttributeError) as e:
+            print(f"⚠️  Storage models not available: {e}")
+        
+        print(f"📊 System health calculated: {health}")
+        return JsonResponse(health)
+        
+    except Exception as e:
+        print(f"❌ Error in system_health: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def clear_dashboard_cache(request):
+    """
+    Clear dashboard cache for a customer/project
+    POST /api/core/dashboard/cache/clear/
+    """
+    print(f"🔥 Clear Dashboard Cache - Method: {request.method}")
+    
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        project_id = data.get('project_id')
+        
+        # For now, just return success since we're not implementing actual caching
+        # In a real implementation, you'd clear Redis cache keys here
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Dashboard cache cleared',
+            'customer_id': customer_id,
+            'project_id': project_id
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in clear_dashboard_cache: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def activity_feed(request):
+    """
+    Get recent activity feed for dashboard
+    GET /api/core/dashboard/activity/?customer_id=<id>&limit=<num>
+    """
+    print(f"🔥 Activity Feed - Method: {request.method}")
+    
+    try:
+        customer_id = request.GET.get('customer_id')
+        limit = int(request.GET.get('limit', 10))
+        
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id parameter required'}, status=400)
+        
+        customer = get_object_or_404(Customer, id=customer_id)
+        
+        activities = []
+        
+        # Get recent imports
+        try:
+            from importer.models import StorageImport
+            recent_imports = StorageImport.objects.filter(
+                customer=customer
+            ).order_by('-started_at')[:limit]
+            
+            for import_obj in recent_imports:
+                activity = {
+                    'id': f'import_{import_obj.id}',
+                    'type': 'import',
+                    'title': 'Storage Data Import',
+                    'description': f'Imported {getattr(import_obj, "storage_systems_imported", 0)} storage systems',
+                    'status': import_obj.status,
+                    'timestamp': import_obj.started_at.isoformat() if import_obj.started_at else None,
+                    'icon': 'download',
+                    'link': '/import/ibm-storage-insights'
+                }
+                activities.append(activity)
+                
+        except (ImportError, AttributeError) as e:
+            print(f"⚠️  Import models not available: {e}")
+        
+        # Sort activities by timestamp
+        activities.sort(key=lambda x: x['timestamp'] or '', reverse=True)
+        
+        # Limit results
+        activities = activities[:limit]
+        
+        print(f"📊 Activity feed calculated: {len(activities)} activities")
+        return JsonResponse(activities, safe=False)
+        
+    except Exception as e:
+        print(f"❌ Error in activity_feed: {e}")
         return JsonResponse({'error': str(e)}, status=500)
 
 

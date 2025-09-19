@@ -10,6 +10,7 @@ import "./styles/breadcrumbs.css";
 import "./styles/generictable.css";
 import "./styles/pages.css";
 import "./styles/home.css";
+import "./styles/dashboard.css";
 
 // Navigation Components (critical for initial load)
 import Navbar from "./components/navigation/Navbar";
@@ -18,7 +19,7 @@ import Breadcrumbs from "./components/navigation/Breadcrumbs";
 import { BreadcrumbContext } from "./context/BreadcrumbContext";
 
 // Critical pages (loaded immediately)
-import Home from "./pages/Home";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
 
@@ -137,7 +138,7 @@ function AppContent() {
               <main className={getMainContentClass()}>
                 <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                   <Routes>
-                    <Route path="/" element={<Home />} />
+                    <Route path="/" element={<Dashboard />} />
                     <Route path="/customers" element={<CustomerTable />} />
                     <Route path="/projects" element={<ProjectTable />} />
                     <Route path="/san" element={<SanPage />} />
