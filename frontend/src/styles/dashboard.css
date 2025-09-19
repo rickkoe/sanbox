@@ -308,6 +308,179 @@
   height: 250px;
 }
 
+.chart-container.summary-chart {
+  height: auto;
+  margin-top: 1rem;
+}
+
+.systems-note {
+  padding: 0.25rem 0.75rem;
+  background: #f7fafc;
+  color: #4a5568;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Scalable Capacity Table */
+.capacity-table-container {
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.capacity-table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 2fr;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f7fafc;
+  font-weight: 600;
+  color: #2d3748;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.capacity-table-body {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.capacity-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 2fr;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.2s ease;
+  align-items: center;
+}
+
+.capacity-row:hover {
+  background: #f7fafc;
+}
+
+.capacity-row:last-child {
+  border-bottom: none;
+}
+
+.capacity-row.critical {
+  border-left: 4px solid #e53e3e;
+  background: #fed7d7;
+}
+
+.capacity-row.warning {
+  border-left: 4px solid #f59e0b;
+  background: #fffbeb;
+}
+
+.capacity-row.healthy {
+  border-left: 4px solid #10b981;
+}
+
+.system-name {
+  font-weight: 600;
+  color: #2d3748;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capacity-info,
+.used-info {
+  text-align: center;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.utilization-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.utilization-bar {
+  flex: 1;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.utilization-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.utilization-fill.healthy {
+  background: #10b981;
+}
+
+.utilization-fill.warning {
+  background: #f59e0b;
+}
+
+.utilization-fill.critical {
+  background: #e53e3e;
+}
+
+.utilization-text {
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 50px;
+  text-align: right;
+}
+
+.utilization-text.healthy {
+  color: #22543d;
+}
+
+.utilization-text.warning {
+  color: #744210;
+}
+
+.utilization-text.critical {
+  color: #742a2a;
+}
+
+/* Utilization Bands Summary */
+.utilization-bands {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.band-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #4a5568;
+}
+
+.band-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.band-color.healthy {
+  background: #10b981;
+}
+
+.band-color.warning {
+  background: #f59e0b;
+}
+
+.band-color.critical {
+  background: #e53e3e;
+}
+
 .no-data {
   display: flex;
   flex-direction: column;
@@ -700,6 +873,72 @@
   
   .chart-card {
     padding: 1.5rem;
+  }
+  
+  /* Responsive Capacity Table */
+  .capacity-table-header,
+  .capacity-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .capacity-table-header {
+    display: none; /* Hide headers on mobile, use labels instead */
+  }
+  
+  .capacity-row {
+    display: block;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    background: white;
+  }
+  
+  .capacity-row:last-child {
+    margin-bottom: 0;
+  }
+  
+  .system-name {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #f7fafc;
+    padding-bottom: 0.5rem;
+  }
+  
+  .capacity-info,
+  .used-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    text-align: left;
+  }
+  
+  .capacity-info::before {
+    content: "Capacity:";
+    font-weight: 600;
+    color: #4a5568;
+  }
+  
+  .used-info::before {
+    content: "Used:";
+    font-weight: 600;
+    color: #4a5568;
+  }
+  
+  .utilization-info {
+    margin-top: 0.75rem;
+  }
+  
+  .utilization-bar {
+    margin-bottom: 0.25rem;
+  }
+  
+  .utilization-text {
+    text-align: center;
+    display: block;
+    width: 100%;
   }
 }
 
