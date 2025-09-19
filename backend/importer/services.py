@@ -587,7 +587,7 @@ class SimpleStorageImporter:
                     'id': 'host_2_1', 
                     'name': 'DSHost01',
                     'acknowledged': 'true',
-                    'wwpns': ['10:00:00:05:1e:56:78:90', '10:00:00:05:1e:56:78:91'],
+                    'wwpns': 'C050760C392D0076,C050760C392D0077',  # String format like real API
                     'status': 'online',
                     'storage_system': 'mock_system_2',
                     'associated_resource': 'resource_3',
@@ -602,7 +602,7 @@ class SimpleStorageImporter:
                     'id': 'host_2_2', 
                     'name': 'DSHost02',
                     'acknowledged': 'false',
-                    'wwpns': ['10:00:00:05:1e:56:78:92', '10:00:00:05:1e:56:78:93'],
+                    'wwpns': ['10:00:00:05:1e:56:78:92', '10:00:00:05:1e:56:78:93'],  # List format
                     'status': 'offline',
                     'storage_system': 'mock_system_2',
                     'associated_resource': 'resource_4',
@@ -808,32 +808,26 @@ class SimpleStorageImporter:
                         host_name = host_data.get('name', f'Unknown_Host_{i}')
                         print(f"🔍 Processing host {i+1}/{len(hosts_data)}: {host_name}")
                         
-                        # Log the raw host data structure including WWPN format
-                        wwpn_debug_info = {
-                            'wwpns_raw': host_data.get('wwpns'),
-                            'wwpns_type': type(host_data.get('wwpns')).__name__ if host_data.get('wwpns') else None,
-                            'wwpns_length': len(host_data.get('wwpns', [])) if isinstance(host_data.get('wwpns'), (list, str)) else None
-                        }
-                        
+                        # Log basic host processing info
                         ImportLog.objects.create(
                             import_record=self.import_record,
                             level='DEBUG',
-                            message=f"Processing host: {host_name} - WWPN analysis",
+                            message=f"Processing host: {host_name}",
                             details={
-                                'wwpn_debug': wwpn_debug_info,
-                                'formatted_wwpns': self._format_wwpns(host_data.get('wwpns', [])),
+                                'host_type': host_data.get('host_type'),
+                                'status': host_data.get('status'),
+                                'wwpns_count': len(host_data.get('wwpns', [])) if isinstance(host_data.get('wwpns'), list) else (1 if host_data.get('wwpns') else 0),
                                 'project_id': self.project.id if self.project else None,
                                 'storage_system_id': storage_system.id
                             }
                         )
                         
-                        # Map API fields to Host model fields
+                        # Map API fields to Host model fields (excluding WWPNs - handled separately)
                         defaults = {
                             'project': self.project,
                             'storage': storage_system,
                             'name': host_name,
                             'acknowledged': host_data.get('acknowledged', ''),
-                            'wwpns': self._format_wwpns(host_data.get('wwpns', [])),
                             'status': host_data.get('status', ''),
                             'storage_system': host_data.get('storage_system', ''),
                             'associated_resource': host_data.get('associated_resource', ''),
@@ -853,6 +847,20 @@ class SimpleStorageImporter:
                             name=host_name,
                             project=self.project,
                             defaults=defaults
+                        )
+                        
+                        # Handle WWPNs separately by creating HostWwpn objects
+                        wwpns_created = self._create_host_wwpns(host, host_data.get('wwpns', []))
+                        
+                        ImportLog.objects.create(
+                            import_record=self.import_record,
+                            level='INFO',
+                            message=f"Created {wwpns_created} WWPNs for host {host.name}",
+                            details={
+                                'host_id': host.id,
+                                'wwpns_created': wwpns_created,
+                                'raw_wwpn_data': host_data.get('wwpns', [])
+                            }
                         )
                         
                         # Verify the storage relationship
@@ -963,6 +971,113 @@ class SimpleStorageImporter:
                             formatted_wwpns.append(formatted_wwpn)
         
         return ', '.join(formatted_wwpns)
+    
+    def _create_host_wwpns(self, host, wwpns_data):
+        """Create HostWwpn objects for a host based on WWPN data from API"""
+        from storage.models import HostWwpn
+        from .models import ImportLog
+        
+        if not wwpns_data:
+            return 0
+        
+        # Parse WWPNs using the existing format method, but get individual WWPNs
+        formatted_wwpns = self._parse_individual_wwpns(wwpns_data)
+        
+        if not formatted_wwpns:
+            return 0
+        
+        # Clear existing WWPNs for this host (in case of re-import)
+        existing_wwpns = HostWwpn.objects.filter(host=host, source_type='manual')
+        deleted_count = existing_wwpns.count()
+        if deleted_count > 0:
+            existing_wwpns.delete()
+            ImportLog.objects.create(
+                import_record=self.import_record,
+                level='INFO',
+                message=f"Removed {deleted_count} existing manual WWPNs for host {host.name}"
+            )
+        
+        # Create new HostWwpn objects
+        created_count = 0
+        for wwpn in formatted_wwpns:
+            try:
+                host_wwpn, created = HostWwpn.objects.get_or_create(
+                    host=host,
+                    wwpn=wwpn,
+                    defaults={
+                        'source_type': 'manual',  # Storage Insights imports are considered manual
+                        'source_alias': None
+                    }
+                )
+                if created:
+                    created_count += 1
+                    ImportLog.objects.create(
+                        import_record=self.import_record,
+                        level='DEBUG',
+                        message=f"Created HostWwpn: {host.name} -> {wwpn}"
+                    )
+                else:
+                    ImportLog.objects.create(
+                        import_record=self.import_record,
+                        level='DEBUG',
+                        message=f"HostWwpn already exists: {host.name} -> {wwpn}"
+                    )
+                        
+            except Exception as e:
+                ImportLog.objects.create(
+                    import_record=self.import_record,
+                    level='ERROR',
+                    message=f"Failed to create HostWwpn for {host.name} with WWPN {wwpn}: {str(e)}"
+                )
+                continue
+        
+        return created_count
+    
+    def _parse_individual_wwpns(self, wwpns_data):
+        """Parse WWPN data and return list of individual formatted WWPNs"""
+        if not wwpns_data:
+            return []
+        
+        formatted_wwpns = []
+        
+        # Handle case where wwpns_data is a string (most common case)
+        if isinstance(wwpns_data, str):
+            # Split by comma to get individual WWPNs: "C050760C392D0076,C050760C392D0077" -> ["C050760C392D0076", "C050760C392D0077"]
+            wwpn_strings = [wwpn.strip() for wwpn in wwpns_data.split(',') if wwpn.strip()]
+            
+            for wwpn_hex in wwpn_strings:
+                # Clean up the hex string
+                clean_wwpn = wwpn_hex.replace(':', '').replace('-', '').replace(' ', '').upper()
+                
+                # Validate it's 16 hex characters (8 bytes)
+                if len(clean_wwpn) == 16 and all(c in '0123456789ABCDEF' for c in clean_wwpn):
+                    # Format as standard WWPN: XX:XX:XX:XX:XX:XX:XX:XX
+                    formatted_wwpn = ':'.join([clean_wwpn[i:i+2] for i in range(0, 16, 2)])
+                    formatted_wwpns.append(formatted_wwpn)
+        
+        # Handle case where wwpns_data is a list
+        elif isinstance(wwpns_data, list):
+            for wwpn_raw in wwpns_data:
+                if not wwpn_raw:
+                    continue
+                    
+                if isinstance(wwpn_raw, str):
+                    # Handle individual WWPN strings in the list
+                    clean_wwpn = wwpn_raw.replace(':', '').replace('-', '').replace(' ', '').upper()
+                    if len(clean_wwpn) == 16 and all(c in '0123456789ABCDEF' for c in clean_wwpn):
+                        formatted_wwpn = ':'.join([clean_wwpn[i:i+2] for i in range(0, 16, 2)])
+                        formatted_wwpns.append(formatted_wwpn)
+                
+                elif isinstance(wwpn_raw, list) and len(wwpn_raw) >= 16:
+                    # Handle list of individual hex chars like ['C','0','5','0',...]
+                    hex_chars = [str(x).strip() for x in wwpn_raw[:16] if x is not None and str(x).strip()]
+                    if len(hex_chars) >= 16:
+                        clean_wwpn = ''.join(hex_chars[:16]).upper()
+                        if len(clean_wwpn) == 16 and all(c in '0123456789ABCDEF' for c in clean_wwpn):
+                            formatted_wwpn = ':'.join([clean_wwpn[i:i+2] for i in range(0, 16, 2)])
+                            formatted_wwpns.append(formatted_wwpn)
+        
+        return formatted_wwpns
     
     def _parse_capacity_to_bytes(self, capacity_str) -> int:
         """Parse capacity string/number to bytes value"""
