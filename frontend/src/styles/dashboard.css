@@ -557,64 +557,6 @@
   margin-bottom: 0.5rem;
 }
 
-/* Quick Actions */
-.quick-actions {
-  background: #fff;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-}
-
-.quick-actions h3 {
-  margin: 0 0 1.5rem 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #2d3748;
-}
-
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.action-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  border-radius: 8px;
-  text-decoration: none;
-  color: #fff;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
-.action-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  color: #fff;
-}
-
-.action-card.import {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.action-card.fabrics {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-.action-card.storage {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-}
-
-.action-card.tools {
-  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-}
-
-.action-card svg {
-  font-size: 1.5rem;
-}
 
 /* Welcome Screen */
 .welcome-screen {
@@ -758,14 +700,6 @@
   
   .chart-card {
     padding: 1.5rem;
-  }
-  
-  .quick-actions {
-    padding: 1.5rem;
-  }
-  
-  .actions-grid {
-    grid-template-columns: 1fr;
   }
 }
 

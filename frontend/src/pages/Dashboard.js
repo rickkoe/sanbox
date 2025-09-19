@@ -2,8 +2,8 @@ import React, { useState, useContext } from "react";
 import { 
   FaNetworkWired, FaServer, FaUsers, FaDatabase,
   FaChartLine, FaExclamationTriangle, FaCheckCircle, 
-  FaClock, FaDownload, FaSync, FaPlus, FaCog,
-  FaTimesCircle, FaBolt, FaCloud, FaHdd
+  FaClock, FaDownload, FaSync, FaCog,
+  FaTimesCircle, FaCloud, FaHdd
 } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { ConfigContext } from "../context/ConfigContext";
@@ -85,9 +85,6 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* Quick Actions */}
-      <QuickActions />
     </div>
   );
 };
@@ -400,30 +397,6 @@ const ActivityFeed = ({ activities }) => (
   </div>
 );
 
-// Quick Actions Component
-const QuickActions = () => (
-  <div className="quick-actions">
-    <h3>Quick Actions</h3>
-    <div className="actions-grid">
-      <Link to="/import/ibm-storage-insights" className="action-card import">
-        <FaCloud />
-        <span>Import Data</span>
-      </Link>
-      <Link to="/san/fabrics" className="action-card fabrics">
-        <FaNetworkWired />
-        <span>Manage Fabrics</span>
-      </Link>
-      <Link to="/storage/systems" className="action-card storage">
-        <FaServer />
-        <span>Storage Systems</span>
-      </Link>
-      <Link to="/tools" className="action-card tools">
-        <FaCog />
-        <span>Tools</span>
-      </Link>
-    </div>
-  </div>
-);
 
 // Storage Insights Status Component
 const StorageInsightsStatus = ({ customer, lastImport }) => {
