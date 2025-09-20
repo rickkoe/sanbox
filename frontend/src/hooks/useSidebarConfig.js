@@ -115,6 +115,7 @@ const getSidebarLinks = (pathname) => {
         expandable: true,
         subLinks: [
           { path: "/import/ibm-storage-insights", label: "IBM Storage Insights", icon: Database },
+          { path: "/import/zoning", label: "SAN Zoning Import", icon: Network },
         ]
       },
       { 
