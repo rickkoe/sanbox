@@ -1,14 +1,62 @@
 /* ========== ENHANCED NAVBAR STYLES ========== */
 
-.navbar {
-  background: var(--navbar-bg, linear-gradient(135deg, #667eea 0%, #764ba2 100%)) !important;
+/* Override any Bootstrap navbar defaults */
+.navbar,
+nav.navbar {
   backdrop-filter: blur(20px);
-  box-shadow: var(--navbar-shadow, 0 8px 32px rgba(0, 0, 0, 0.1));
-  border-bottom: 1px solid var(--navbar-border, rgba(255, 255, 255, 0.1));
+  box-shadow: none !important;
+  border: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
   transition: all 0.3s ease;
   position: relative;
   z-index: 100;
-  padding: 0.75rem 0;
+  padding: 1.25rem 0;
+  margin: 0.5rem 0;
+}
+
+/* Force navbar background for each theme with maximum specificity */
+nav.navbar.navbar-expand-lg.theme-modern,
+.navbar.theme-modern,
+.theme-modern .navbar {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+  background-color: #f5f7fa !important; /* Fallback */
+}
+
+nav.navbar.navbar-expand-lg.theme-dark,
+.navbar.theme-dark,
+.theme-dark .navbar {
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%) !important;
+  background-color: #0f0f23 !important; /* Fallback */
+}
+
+nav.navbar.navbar-expand-lg.theme-minimal,
+.navbar.theme-minimal,
+.theme-minimal .navbar {
+  background: #ffffff !important;
+  background-color: #ffffff !important; /* Fallback */
+}
+
+nav.navbar.navbar-expand-lg.theme-corporate,
+.navbar.theme-corporate,
+.theme-corporate .navbar {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
+  background-color: #1e3c72 !important; /* Fallback */
+}
+
+nav.navbar.navbar-expand-lg.theme-colorful,
+.navbar.theme-colorful,
+.theme-colorful .navbar {
+  background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4) !important;
+  background-color: #ff6b6b !important; /* Fallback */
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 /* ========== THEME VARIABLES ========== */
@@ -201,6 +249,362 @@
   color: #2d3436 !important;
 }
 
+/* ========== FORCE THEME COLORS FOR ALL NAVBAR ELEMENTS ========== */
+
+/* Modern Theme */
+.navbar.theme-modern .nav-link,
+.navbar.theme-modern .navbar-nav .nav-item .nav-link,
+.navbar.theme-modern .dropdown-toggle,
+.navbar.theme-modern .nav-label,
+.navbar.theme-modern .user-profile {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-modern .nav-link:hover,
+.navbar.theme-modern .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-modern .dropdown-toggle:hover,
+.navbar.theme-modern .nav-item .nav-link:hover,
+.navbar.theme-modern .nav-item .nav-link:hover .nav-label,
+.navbar.theme-modern .nav-item .nav-link:hover svg {
+  color: #ffffff !important; /* White text on hover for readability */
+}
+
+.navbar.theme-modern .nav-link.active,
+.navbar.theme-modern .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-modern .dropdown-toggle.active,
+.navbar.theme-modern .nav-item .nav-link.active,
+.navbar.theme-modern .nav-item .nav-link.active .nav-label,
+.navbar.theme-modern .nav-item .nav-link.active svg {
+  color: #ffffff !important; /* White text when active */
+}
+
+/* Dark Theme */
+.navbar.theme-dark .nav-link,
+.navbar.theme-dark .navbar-nav .nav-item .nav-link,
+.navbar.theme-dark .dropdown-toggle,
+.navbar.theme-dark .nav-label,
+.navbar.theme-dark .user-profile {
+  color: #e2e8f0 !important;
+}
+
+.navbar.theme-dark .nav-link:hover,
+.navbar.theme-dark .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-dark .dropdown-toggle:hover,
+.navbar.theme-dark .nav-item .nav-link:hover,
+.navbar.theme-dark .nav-item .nav-link:hover .nav-label,
+.navbar.theme-dark .nav-item .nav-link:hover svg {
+  color: #000000 !important; /* Black text on hover for readability */
+}
+
+.navbar.theme-dark .nav-link.active,
+.navbar.theme-dark .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-dark .dropdown-toggle.active,
+.navbar.theme-dark .nav-item .nav-link.active,
+.navbar.theme-dark .nav-item .nav-link.active .nav-label,
+.navbar.theme-dark .nav-item .nav-link.active svg {
+  color: #000000 !important; /* Black text when active */
+}
+
+/* Minimal Theme */
+.navbar.theme-minimal .nav-link,
+.navbar.theme-minimal .navbar-nav .nav-item .nav-link,
+.navbar.theme-minimal .dropdown-toggle,
+.navbar.theme-minimal .nav-label,
+.navbar.theme-minimal .user-profile {
+  color: #1f2937 !important;
+}
+
+.navbar.theme-minimal .nav-link:hover,
+.navbar.theme-minimal .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-minimal .dropdown-toggle:hover,
+.navbar.theme-minimal .nav-item .nav-link:hover,
+.navbar.theme-minimal .nav-item .nav-link:hover .nav-label,
+.navbar.theme-minimal .nav-item .nav-link:hover svg {
+  color: #ffffff !important; /* White text on hover for readability */
+}
+
+.navbar.theme-minimal .nav-link.active,
+.navbar.theme-minimal .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-minimal .dropdown-toggle.active,
+.navbar.theme-minimal .nav-item .nav-link.active,
+.navbar.theme-minimal .nav-item .nav-link.active .nav-label,
+.navbar.theme-minimal .nav-item .nav-link.active svg {
+  color: #ffffff !important; /* White text when active */
+}
+
+/* Corporate Theme */
+.navbar.theme-corporate .nav-link,
+.navbar.theme-corporate .navbar-nav .nav-item .nav-link,
+.navbar.theme-corporate .dropdown-toggle,
+.navbar.theme-corporate .nav-label,
+.navbar.theme-corporate .user-profile {
+  color: #ffffff !important;
+}
+
+.navbar.theme-corporate .nav-link:hover,
+.navbar.theme-corporate .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-corporate .dropdown-toggle:hover,
+.navbar.theme-corporate .nav-item .nav-link:hover,
+.navbar.theme-corporate .nav-item .nav-link:hover .nav-label,
+.navbar.theme-corporate .nav-item .nav-link:hover svg {
+  color: #1e3c72 !important; /* Dark blue text on hover for readability */
+}
+
+.navbar.theme-corporate .nav-link.active,
+.navbar.theme-corporate .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-corporate .dropdown-toggle.active,
+.navbar.theme-corporate .nav-item .nav-link.active,
+.navbar.theme-corporate .nav-item .nav-link.active .nav-label,
+.navbar.theme-corporate .nav-item .nav-link.active svg {
+  color: #1e3c72 !important; /* Dark blue text when active */
+}
+
+/* Colorful Theme */
+.navbar.theme-colorful .nav-link,
+.navbar.theme-colorful .navbar-nav .nav-item .nav-link,
+.navbar.theme-colorful .dropdown-toggle,
+.navbar.theme-colorful .nav-label,
+.navbar.theme-colorful .user-profile {
+  color: #2d3436 !important;
+}
+
+.navbar.theme-colorful .nav-link:hover,
+.navbar.theme-colorful .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-colorful .dropdown-toggle:hover,
+.navbar.theme-colorful .nav-item .nav-link:hover,
+.navbar.theme-colorful .nav-item .nav-link:hover .nav-label,
+.navbar.theme-colorful .nav-item .nav-link:hover svg {
+  color: #ffffff !important; /* White text on hover for readability */
+}
+
+.navbar.theme-colorful .nav-link.active,
+.navbar.theme-colorful .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-colorful .dropdown-toggle.active,
+.navbar.theme-colorful .nav-item .nav-link.active,
+.navbar.theme-colorful .nav-item .nav-link.active .nav-label,
+.navbar.theme-colorful .nav-item .nav-link.active svg {
+  color: #ffffff !important; /* White text when active */
+}
+
+/* ========== THEME-SPECIFIC ACTIVE BACKGROUNDS ========== */
+
+/* Modern Theme Active Background */
+.navbar.theme-modern .nav-link.active,
+.navbar.theme-modern .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-modern .dropdown-toggle.active {
+  background: #667eea !important;
+  color: #ffffff !important;
+  border-color: #667eea !important;
+}
+
+/* Dark Theme Active Background */
+.navbar.theme-dark .nav-link.active,
+.navbar.theme-dark .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-dark .dropdown-toggle.active {
+  background: #64ffda !important;
+  color: #000000 !important;
+  border-color: #64ffda !important;
+}
+
+/* Minimal Theme Active Background */
+.navbar.theme-minimal .nav-link.active,
+.navbar.theme-minimal .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-minimal .dropdown-toggle.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* Corporate Theme Active Background */
+.navbar.theme-corporate .nav-link.active,
+.navbar.theme-corporate .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-corporate .dropdown-toggle.active {
+  background: #bfdbfe !important;
+  color: #1e3c72 !important;
+  border-color: #bfdbfe !important;
+}
+
+/* Colorful Theme Active Background */
+.navbar.theme-colorful .nav-link.active,
+.navbar.theme-colorful .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-colorful .dropdown-toggle.active {
+  background: #e17055 !important;
+  color: #ffffff !important;
+  border-color: #e17055 !important;
+}
+
+/* ========== DROPDOWN MENU THEME COLORS ========== */
+
+/* Modern Theme - All Dropdown Menus */
+.navbar.theme-modern .context-customer,
+.navbar.theme-modern .context-project,
+.navbar.theme-modern .context-indicator,
+.navbar.theme-modern .context-menu-primary,
+.navbar.theme-modern .context-menu-item,
+.navbar.theme-modern .dropdown-item,
+.navbar.theme-modern .dropdown-menu .dropdown-item {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-modern .dropdown-item:hover,
+.navbar.theme-modern .dropdown-menu .dropdown-item:hover,
+.navbar.theme-modern .context-menu-item:hover {
+  color: #ffffff !important;
+  background-color: #667eea !important;
+}
+
+.navbar.theme-modern .dropdown-item:focus,
+.navbar.theme-modern .dropdown-menu .dropdown-item:focus,
+.navbar.theme-modern .context-menu-item:focus {
+  color: #ffffff !important;
+  background-color: #667eea !important;
+}
+
+.navbar.theme-modern .dropdown-item.active,
+.navbar.theme-modern .dropdown-menu .dropdown-item.active,
+.navbar.theme-modern .dropdown-menu a.active,
+.navbar.theme-modern .dropdown-menu .active {
+  color: #ffffff !important;
+  background-color: #667eea !important;
+  font-weight: 600 !important;
+}
+
+/* Dark Theme - All Dropdown Menus */
+.navbar.theme-dark .context-customer,
+.navbar.theme-dark .context-project,
+.navbar.theme-dark .context-indicator,
+.navbar.theme-dark .context-menu-primary,
+.navbar.theme-dark .context-menu-item,
+.navbar.theme-dark .dropdown-item,
+.navbar.theme-dark .dropdown-menu .dropdown-item {
+  color: #e2e8f0 !important;
+}
+
+.navbar.theme-dark .dropdown-item:hover,
+.navbar.theme-dark .dropdown-menu .dropdown-item:hover,
+.navbar.theme-dark .context-menu-item:hover {
+  color: #000000 !important;
+  background-color: #64ffda !important;
+}
+
+.navbar.theme-dark .dropdown-item:focus,
+.navbar.theme-dark .dropdown-menu .dropdown-item:focus,
+.navbar.theme-dark .context-menu-item:focus {
+  color: #000000 !important;
+  background-color: #64ffda !important;
+}
+
+.navbar.theme-dark .dropdown-item.active,
+.navbar.theme-dark .dropdown-menu .dropdown-item.active,
+.navbar.theme-dark .dropdown-menu a.active,
+.navbar.theme-dark .dropdown-menu .active {
+  color: #000000 !important;
+  background-color: #64ffda !important;
+  font-weight: 600 !important;
+}
+
+/* Minimal Theme - All Dropdown Menus */
+.navbar.theme-minimal .context-customer,
+.navbar.theme-minimal .context-project,
+.navbar.theme-minimal .context-indicator,
+.navbar.theme-minimal .context-menu-primary,
+.navbar.theme-minimal .context-menu-item,
+.navbar.theme-minimal .dropdown-item,
+.navbar.theme-minimal .dropdown-menu .dropdown-item {
+  color: #1f2937 !important;
+}
+
+.navbar.theme-minimal .dropdown-item:hover,
+.navbar.theme-minimal .dropdown-menu .dropdown-item:hover,
+.navbar.theme-minimal .context-menu-item:hover {
+  color: #ffffff !important;
+  background-color: #2563eb !important;
+}
+
+.navbar.theme-minimal .dropdown-item:focus,
+.navbar.theme-minimal .dropdown-menu .dropdown-item:focus,
+.navbar.theme-minimal .context-menu-item:focus {
+  color: #ffffff !important;
+  background-color: #2563eb !important;
+}
+
+.navbar.theme-minimal .dropdown-item.active,
+.navbar.theme-minimal .dropdown-menu .dropdown-item.active,
+.navbar.theme-minimal .dropdown-menu a.active,
+.navbar.theme-minimal .dropdown-menu .active {
+  color: #ffffff !important;
+  background-color: #2563eb !important;
+  font-weight: 600 !important;
+}
+
+/* Corporate Theme - All Dropdown Menus */
+.navbar.theme-corporate .context-customer,
+.navbar.theme-corporate .context-project,
+.navbar.theme-corporate .context-indicator,
+.navbar.theme-corporate .context-menu-primary,
+.navbar.theme-corporate .context-menu-item,
+.navbar.theme-corporate .dropdown-item,
+.navbar.theme-corporate .dropdown-menu .dropdown-item {
+  color: #ffffff !important;
+}
+
+.navbar.theme-corporate .dropdown-item:hover,
+.navbar.theme-corporate .dropdown-menu .dropdown-item:hover,
+.navbar.theme-corporate .context-menu-item:hover {
+  color: #1e3c72 !important;
+  background-color: #bfdbfe !important;
+}
+
+.navbar.theme-corporate .dropdown-item:focus,
+.navbar.theme-corporate .dropdown-menu .dropdown-item:focus,
+.navbar.theme-corporate .context-menu-item:focus {
+  color: #1e3c72 !important;
+  background-color: #bfdbfe !important;
+}
+
+.navbar.theme-corporate .dropdown-item.active,
+.navbar.theme-corporate .dropdown-menu .dropdown-item.active,
+.navbar.theme-corporate .dropdown-menu a.active,
+.navbar.theme-corporate .dropdown-menu .active {
+  color: #1e3c72 !important;
+  background-color: #bfdbfe !important;
+  font-weight: 600 !important;
+}
+
+/* Colorful Theme - All Dropdown Menus */
+.navbar.theme-colorful .context-customer,
+.navbar.theme-colorful .context-project,
+.navbar.theme-colorful .context-indicator,
+.navbar.theme-colorful .context-menu-primary,
+.navbar.theme-colorful .context-menu-item,
+.navbar.theme-colorful .dropdown-item,
+.navbar.theme-colorful .dropdown-menu .dropdown-item {
+  color: #2d3436 !important;
+}
+
+.navbar.theme-colorful .dropdown-item:hover,
+.navbar.theme-colorful .dropdown-menu .dropdown-item:hover,
+.navbar.theme-colorful .context-menu-item:hover {
+  color: #ffffff !important;
+  background-color: #e17055 !important;
+}
+
+.navbar.theme-colorful .dropdown-item:focus,
+.navbar.theme-colorful .dropdown-menu .dropdown-item:focus,
+.navbar.theme-colorful .context-menu-item:focus {
+  color: #ffffff !important;
+  background-color: #e17055 !important;
+}
+
+.navbar.theme-colorful .dropdown-item.active,
+.navbar.theme-colorful .dropdown-menu .dropdown-item.active,
+.navbar.theme-colorful .dropdown-menu a.active,
+.navbar.theme-colorful .dropdown-menu .active {
+  color: #ffffff !important;
+  background-color: #e17055 !important;
+  font-weight: 600 !important;
+}
+
 .nav-link::before {
   content: '';
   position: absolute;
@@ -223,6 +627,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* Default active state - overridden by theme-specific rules below */
 .nav-link.active {
   background: var(--navbar-button-hover, #ffffff) !important;
   color: var(--navbar-bg, #667eea) !important;
@@ -335,6 +740,55 @@
   transition: width 0.3s ease;
 }
 
+/* ========== IMPORT PROGRESS ANIMATIONS ========== */
+
+.import-progress-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.import-progress-dots {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+}
+
+.import-progress-dots span {
+  width: 4px;
+  height: 4px;
+  background: var(--navbar-text, #28a745);
+  border-radius: 50%;
+  animation: importDots 1.2s ease-in-out infinite;
+}
+
+.import-progress-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.import-progress-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.import-progress-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes importDots {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
 /* ========== NAVBAR GENERAL STYLES ========== */
 
 /* Navbar gap between items */
@@ -359,13 +813,52 @@
 .navbar-nav .nav-item .nav-link {
   padding: 0.75rem 1rem !important;
   border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  transition: all 0.3s ease !important;
+  background: var(--navbar-button-bg, rgba(255, 255, 255, 0.1)) !important;
+  border: 2px solid var(--navbar-border, rgba(255, 255, 255, 0.2)) !important;
+  color: var(--navbar-text) !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+}
+
+.navbar-nav .nav-item .nav-link:hover {
+  background: var(--navbar-button-hover, #ffffff) !important;
+  color: var(--navbar-bg, #667eea) !important;
+  border-color: var(--navbar-button-hover, #ffffff) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  text-decoration: none !important;
+}
+
+/* Default active state - overridden by theme-specific rules above */
+.navbar-nav .nav-item .nav-link.active {
+  background: var(--navbar-button-hover, #ffffff) !important;
+  color: var(--navbar-bg, #667eea) !important;
+  border-color: var(--navbar-button-hover, #ffffff) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .nav-label {
   font-size: 0.9rem;
   font-weight: 500;
   display: none;
-  color: #f8f9fa;
+}
+
+@media (min-width: 992px) {
+  .nav-label {
+    display: inline;
+  }
+}
+
+.nav-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: none;
+  color: inherit;
 }
 
 @media (min-width: 992px) {
@@ -475,7 +968,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.5rem;
-  color: white;
+  color: var(--navbar-text);
   transition: all 0.2s ease;
   backdrop-filter: blur(10px);
   min-width: 200px;
@@ -658,6 +1151,33 @@
   width: 80%;
 }
 
+/* Active bottom border indicator - also needs theme colors */
+.navbar.theme-modern .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #667eea;
+}
+
+.navbar.theme-dark .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #64ffda;
+}
+
+.navbar.theme-minimal .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #2563eb;
+}
+
+.navbar.theme-corporate .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #bfdbfe;
+}
+
+.navbar.theme-colorful .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #e17055;
+}
+
+/* Default fallback */
 .navbar-nav .nav-item.active::after {
   width: 80%;
   background: var(--navbar-bg, #667eea);

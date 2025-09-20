@@ -234,6 +234,173 @@
   line-height: 1.3;
 }
 
+/* ========== THEME-SPECIFIC COLORS ========== */
+
+/* Modern Theme */
+.navbar.theme-modern .theme-toggle {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-modern .theme-toggle:hover {
+  background: #667eea !important;
+  color: #ffffff !important;
+  border-color: #667eea !important;
+}
+
+.navbar.theme-modern .theme-menu-header h6,
+.navbar.theme-modern .theme-menu-header p,
+.navbar.theme-modern .theme-name,
+.navbar.theme-modern .theme-description {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-modern .theme-option.active {
+  background: rgba(102, 126, 234, 0.15) !important;
+  border-color: #667eea !important;
+  color: #2d3748 !important;
+}
+
+.navbar.theme-modern .theme-option.active .theme-name,
+.navbar.theme-modern .theme-option.active .theme-description {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-modern .theme-check {
+  color: #667eea !important;
+}
+
+/* Dark Theme */
+.navbar.theme-dark .theme-toggle {
+  color: #e2e8f0 !important;
+}
+
+.navbar.theme-dark .theme-toggle:hover {
+  background: #64ffda !important;
+  color: #000000 !important;
+  border-color: #64ffda !important;
+}
+
+.navbar.theme-dark .theme-menu-header h6,
+.navbar.theme-dark .theme-menu-header p,
+.navbar.theme-dark .theme-name,
+.navbar.theme-dark .theme-description {
+  color: #e2e8f0 !important;
+}
+
+.navbar.theme-dark .theme-option.active {
+  background: rgba(100, 255, 218, 0.15) !important;
+  border-color: #64ffda !important;
+  color: #e2e8f0 !important;
+}
+
+.navbar.theme-dark .theme-option.active .theme-name,
+.navbar.theme-dark .theme-option.active .theme-description {
+  color: #e2e8f0 !important;
+}
+
+.navbar.theme-dark .theme-check {
+  color: #64ffda !important;
+}
+
+/* Minimal Theme */
+.navbar.theme-minimal .theme-toggle {
+  color: #1f2937 !important;
+}
+
+.navbar.theme-minimal .theme-toggle:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+.navbar.theme-minimal .theme-menu-header h6,
+.navbar.theme-minimal .theme-menu-header p,
+.navbar.theme-minimal .theme-name,
+.navbar.theme-minimal .theme-description {
+  color: #1f2937 !important;
+}
+
+.navbar.theme-minimal .theme-option.active {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: #2563eb !important;
+  color: #1f2937 !important;
+}
+
+.navbar.theme-minimal .theme-option.active .theme-name,
+.navbar.theme-minimal .theme-option.active .theme-description {
+  color: #1f2937 !important;
+}
+
+.navbar.theme-minimal .theme-check {
+  color: #2563eb !important;
+}
+
+/* Corporate Theme */
+.navbar.theme-corporate .theme-toggle {
+  color: #ffffff !important;
+}
+
+.navbar.theme-corporate .theme-toggle:hover {
+  background: #bfdbfe !important;
+  color: #1e3c72 !important;
+  border-color: #bfdbfe !important;
+}
+
+.navbar.theme-corporate .theme-menu-header h6,
+.navbar.theme-corporate .theme-menu-header p,
+.navbar.theme-corporate .theme-name,
+.navbar.theme-corporate .theme-description {
+  color: #ffffff !important;
+}
+
+.navbar.theme-corporate .theme-option.active {
+  background: rgba(191, 219, 254, 0.15) !important;
+  border-color: #bfdbfe !important;
+  color: #ffffff !important;
+}
+
+.navbar.theme-corporate .theme-option.active .theme-name,
+.navbar.theme-corporate .theme-option.active .theme-description {
+  color: #ffffff !important;
+}
+
+.navbar.theme-corporate .theme-check {
+  color: #bfdbfe !important;
+}
+
+/* Colorful Theme */
+.navbar.theme-colorful .theme-toggle {
+  color: #2d3436 !important;
+}
+
+.navbar.theme-colorful .theme-toggle:hover {
+  background: #e17055 !important;
+  color: #ffffff !important;
+  border-color: #e17055 !important;
+}
+
+.navbar.theme-colorful .theme-menu-header h6,
+.navbar.theme-colorful .theme-menu-header p,
+.navbar.theme-colorful .theme-name,
+.navbar.theme-colorful .theme-description {
+  color: #2d3436 !important;
+}
+
+.navbar.theme-colorful .theme-option.active {
+  background: rgba(225, 112, 85, 0.15) !important;
+  border-color: #e17055 !important;
+  color: #2d3436 !important;
+}
+
+.navbar.theme-colorful .theme-option.active .theme-name,
+.navbar.theme-colorful .theme-option.active .theme-description {
+  color: #2d3436 !important;
+}
+
+.navbar.theme-colorful .theme-check {
+  color: #e17055 !important;
+}
+
 /* ========== RESPONSIVE DESIGN ========== */
 
 @media (max-width: 992px) {

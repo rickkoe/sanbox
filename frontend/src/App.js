@@ -129,7 +129,7 @@ function AppContent() {
               <TableControlsProvider>
               <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
               <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-                <header className="navbar">
+                <header className="navbar-header">
                   <Navbar />
                 </header>
                 <aside className="sidebar">

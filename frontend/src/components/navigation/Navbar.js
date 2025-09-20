@@ -10,7 +10,6 @@ import NavbarBrand from "./NavbarBrand";
 import NavbarContext from "./NavbarContext";
 import ImportButton from "./ImportButton";
 import ScriptsDropdown from "./ScriptsDropdown";
-import ThemeDropdown from "./ThemeDropdown";
 import UserSection from "./UserSection";
 import AboutModal from "../../pages/AboutPage";
 
@@ -54,8 +53,6 @@ const Navbar = () => {
               currentImport={currentImport}
               onCancelImport={handleCancelImport}
             />
-
-            <ThemeDropdown />
 
             <li className="nav-item nav-divider">
               <span className="divider-line"></span>

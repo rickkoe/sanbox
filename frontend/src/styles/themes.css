@@ -50,8 +50,8 @@
   --navbar-bg: var(--primary-bg);
   --navbar-text: var(--primary-text);
   --navbar-text-hover: var(--link-text);
-  --navbar-border: var(--button-border);
-  --navbar-shadow: var(--shadow-light);
+  --navbar-border: none;
+  --navbar-shadow: none;
   --navbar-button-bg: var(--button-bg);
   --navbar-button-hover: var(--button-hover);
   --navbar-brand-color: var(--link-text);
@@ -98,8 +98,8 @@
   --navbar-bg: var(--primary-bg);
   --navbar-text: var(--primary-text);
   --navbar-text-hover: var(--link-text);
-  --navbar-border: var(--button-border);
-  --navbar-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --navbar-border: none;
+  --navbar-shadow: none;
   --navbar-button-bg: var(--button-bg);
   --navbar-button-hover: var(--button-hover);
   --navbar-brand-color: var(--link-text);
@@ -146,8 +146,8 @@
   --navbar-bg: var(--primary-bg);
   --navbar-text: var(--primary-text);
   --navbar-text-hover: var(--link-text);
-  --navbar-border: var(--button-border);
-  --navbar-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --navbar-border: none;
+  --navbar-shadow: none;
   --navbar-button-bg: var(--button-bg);
   --navbar-button-hover: var(--button-hover);
   --navbar-brand-color: var(--link-text);
@@ -194,8 +194,8 @@
   --navbar-bg: var(--primary-bg);
   --navbar-text: var(--primary-text);
   --navbar-text-hover: var(--link-text);
-  --navbar-border: var(--button-border);
-  --navbar-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --navbar-border: none;
+  --navbar-shadow: none;
   --navbar-button-bg: var(--button-bg);
   --navbar-button-hover: var(--button-hover);
   --navbar-brand-color: var(--primary-text);
@@ -242,8 +242,8 @@
   --navbar-bg: var(--primary-bg);
   --navbar-text: var(--primary-text);
   --navbar-text-hover: var(--link-text);
-  --navbar-border: var(--button-border);
-  --navbar-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --navbar-border: none;
+  --navbar-shadow: none;
   --navbar-button-bg: var(--button-bg);
   --navbar-button-hover: var(--button-hover);
   --navbar-brand-color: var(--primary-text);

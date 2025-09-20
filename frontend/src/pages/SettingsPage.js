@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useSettings } from "../context/SettingsContext";
+import { useTheme } from "../context/ThemeContext";
+import { FaPalette, FaCheck } from 'react-icons/fa';
 import "../styles/settings.css";
 
 const SettingsPage = () => {
     const { settings, loading, updateSettings } = useSettings();
+    const { theme, updateTheme } = useTheme();
     const [saveStatus, setSaveStatus] = useState("");
     const [saving, setSaving] = useState(false);
 
@@ -15,6 +18,25 @@ const SettingsPage = () => {
         
         // Auto-save the change using context
         await autoSave({ [name]: newValue });
+    };
+
+    const handleThemeChange = async (newTheme) => {
+        setSaving(true);
+        setSaveStatus("");
+        
+        try {
+            await updateTheme(newTheme);
+            setSaveStatus("Theme updated ✅");
+            // Clear success message after 2 seconds
+            setTimeout(() => setSaveStatus(""), 2000);
+        } catch (error) {
+            console.error("Error updating theme:", error);
+            setSaveStatus("Error updating theme ⚠️");
+            // Clear error message after 4 seconds
+            setTimeout(() => setSaveStatus(""), 4000);
+        } finally {
+            setSaving(false);
+        }
     };
     
     const autoSave = async (changedField) => {
@@ -85,6 +107,44 @@ const SettingsPage = () => {
 
             <div className="settings-form-card">
                 <form className="settings-form">
+                    {/* Theme Settings */}
+                    <div className="settings-section">
+                        <h3><FaPalette className="settings-icon" /> Application Theme</h3>
+                        <p className="settings-description">Choose a theme that affects the entire application appearance</p>
+                        
+                        <div className="theme-selection-grid">
+                            {[
+                                { name: 'modern', display: 'Modern', description: 'Clean and contemporary design', color: '#667eea' },
+                                { name: 'dark', display: 'Dark', description: 'Dark mode with neon accents', color: '#64ffda' },
+                                { name: 'minimal', display: 'Minimal', description: 'Simple and elegant interface', color: '#2563eb' },
+                                { name: 'corporate', display: 'Corporate', description: 'Professional blue theme', color: '#1e3c72' },
+                                { name: 'colorful', display: 'Colorful', description: 'Vibrant animated gradients', color: '#e17055' }
+                            ].map((themeOption) => (
+                                <div
+                                    key={themeOption.name}
+                                    className={`theme-option-card ${theme === themeOption.name ? 'active' : ''}`}
+                                    onClick={() => handleThemeChange(themeOption.name)}
+                                >
+                                    <div className="theme-preview-area">
+                                        <div 
+                                            className={`theme-preview-color theme-preview-${themeOption.name}`}
+                                            style={{ backgroundColor: themeOption.color }}
+                                        ></div>
+                                        {theme === themeOption.name && (
+                                            <div className="theme-active-indicator">
+                                                <FaCheck />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="theme-option-info">
+                                        <h4 className="theme-option-name">{themeOption.display}</h4>
+                                        <p className="theme-option-description">{themeOption.description}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Display Settings */}
                     <div className="settings-section">
                         <h3>Display Settings</h3>
