@@ -66,7 +66,7 @@ const UserSection = ({ onAboutClick }) => {
 
       <li className="nav-item">
         <span
-          className="nav-link user-profile"
+          className="nav-link"
           style={{ cursor: "pointer" }}
           title="User Profile"
         >

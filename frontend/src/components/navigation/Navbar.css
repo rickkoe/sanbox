@@ -260,6 +260,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   color: #2d3748 !important;
 }
 
+
 .navbar.theme-modern .nav-link:hover,
 .navbar.theme-modern .navbar-nav .nav-item .nav-link:hover,
 .navbar.theme-modern .dropdown-toggle:hover,
@@ -286,6 +287,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-dark .user-profile {
   color: #e2e8f0 !important;
 }
+
 
 .navbar.theme-dark .nav-link:hover,
 .navbar.theme-dark .navbar-nav .nav-item .nav-link:hover,
@@ -314,6 +316,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   color: #1f2937 !important;
 }
 
+
 .navbar.theme-minimal .nav-link:hover,
 .navbar.theme-minimal .navbar-nav .nav-item .nav-link:hover,
 .navbar.theme-minimal .dropdown-toggle:hover,
@@ -341,6 +344,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   color: #ffffff !important;
 }
 
+
 .navbar.theme-corporate .nav-link:hover,
 .navbar.theme-corporate .navbar-nav .nav-item .nav-link:hover,
 .navbar.theme-corporate .dropdown-toggle:hover,
@@ -367,6 +371,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-colorful .user-profile {
   color: #2d3436 !important;
 }
+
 
 .navbar.theme-colorful .nav-link:hover,
 .navbar.theme-colorful .navbar-nav .nav-item .nav-link:hover,
@@ -911,21 +916,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.user-profile {
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  padding: 0.5rem;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-profile:hover {
-  border-color: rgba(255, 255, 255, 0.6);
-  background-color: rgba(255, 255, 255, 0.1);
-}
+/* User profile inherits all nav-link styling - no custom overrides needed */
 
 /* ========== BACK BUTTON STYLES ========== */
 
