@@ -126,3 +126,360 @@ def clear_dashboard_cache(request):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+# ========== CUSTOMIZABLE DASHBOARD VIEWS ==========
+
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.db import transaction
+from django.contrib.auth.decorators import login_required
+from datetime import timedelta
+from django.utils import timezone
+
+from .models import (
+    DashboardLayout, DashboardWidget, WidgetType, DashboardTheme, 
+    DashboardPreset, DashboardAnalytics, WidgetDataSource
+)
+
+
+@method_decorator([login_required, csrf_exempt], name='dispatch')
+class DashboardLayoutView(View):
+    """Manage user dashboard layouts"""
+    
+    def get(self, request):
+        """Get user's dashboard layout"""
+        customer_id = request.GET.get('customer_id')
+        if not customer_id:
+            return JsonResponse({'error': 'Customer ID required'}, status=400)
+        
+        try:
+            customer = Customer.objects.get(id=customer_id)
+            layout, created = DashboardLayout.objects.get_or_create(
+                user=request.user,
+                customer=customer,
+                defaults={
+                    'name': f"{customer.name} Dashboard",
+                    'theme': 'modern'
+                }
+            )
+            
+            # Get all widgets for this layout
+            widgets = DashboardWidget.objects.filter(layout=layout, is_visible=True)
+            
+            # Track dashboard view
+            DashboardAnalytics.objects.create(
+                layout=layout,
+                event_type='view',
+                session_id=request.session.session_key,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+            
+            return JsonResponse({
+                'layout': {
+                    'id': layout.id,
+                    'name': layout.name,
+                    'theme': layout.theme,
+                    'grid_columns': layout.grid_columns,
+                    'auto_refresh': layout.auto_refresh,
+                    'refresh_interval': layout.refresh_interval,
+                    'created_at': layout.created_at.isoformat(),
+                    'updated_at': layout.updated_at.isoformat()
+                },
+                'widgets': [{
+                    'id': widget.id,
+                    'widget_type': {
+                        'name': widget.widget_type.name,
+                        'display_name': widget.widget_type.display_name,
+                        'component_name': widget.widget_type.component_name,
+                        'category': widget.widget_type.category,
+                        'icon': widget.widget_type.icon
+                    },
+                    'title': widget.title,
+                    'position_x': widget.position_x,
+                    'position_y': widget.position_y,
+                    'width': widget.width,
+                    'height': widget.height,
+                    'config': widget.config,
+                    'data_filters': widget.data_filters,
+                    'refresh_interval': widget.refresh_interval,
+                    'z_index': widget.z_index
+                } for widget in widgets]
+            })
+            
+        except Customer.DoesNotExist:
+            return JsonResponse({'error': 'Customer not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    def post(self, request):
+        """Create or update dashboard layout"""
+        try:
+            data = json.loads(request.body)
+            customer_id = data.get('customer_id')
+            
+            if not customer_id:
+                return JsonResponse({'error': 'Customer ID required'}, status=400)
+            
+            customer = Customer.objects.get(id=customer_id)
+            
+            with transaction.atomic():
+                layout, created = DashboardLayout.objects.get_or_create(
+                    user=request.user,
+                    customer=customer
+                )
+                
+                # Update layout properties
+                layout.name = data.get('name', layout.name)
+                layout.theme = data.get('theme', layout.theme)
+                layout.grid_columns = data.get('grid_columns', layout.grid_columns)
+                layout.auto_refresh = data.get('auto_refresh', layout.auto_refresh)
+                layout.refresh_interval = data.get('refresh_interval', layout.refresh_interval)
+                layout.save()
+                
+                # Track configuration change
+                DashboardAnalytics.objects.create(
+                    layout=layout,
+                    event_type='config_change',
+                    metadata=data,
+                    session_id=request.session.session_key,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                )
+                
+                return JsonResponse({
+                    'message': 'Layout updated successfully',
+                    'layout_id': layout.id
+                })
+                
+        except Customer.DoesNotExist:
+            return JsonResponse({'error': 'Customer not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@method_decorator([login_required, csrf_exempt], name='dispatch')
+class DashboardWidgetView(View):
+    """Manage dashboard widgets"""
+    
+    def post(self, request):
+        """Add a new widget to dashboard"""
+        try:
+            data = json.loads(request.body)
+            customer_id = data.get('customer_id')
+            widget_type_name = data.get('widget_type')
+            
+            if not customer_id or not widget_type_name:
+                return JsonResponse({'error': 'Customer ID and widget type required'}, status=400)
+            
+            customer = Customer.objects.get(id=customer_id)
+            widget_type = WidgetType.objects.get(name=widget_type_name, is_active=True)
+            
+            layout, _ = DashboardLayout.objects.get_or_create(
+                user=request.user,
+                customer=customer
+            )
+            
+            with transaction.atomic():
+                widget = DashboardWidget.objects.create(
+                    layout=layout,
+                    widget_type=widget_type,
+                    title=data.get('title', widget_type.display_name),
+                    position_x=data.get('position_x', 0),
+                    position_y=data.get('position_y', 0),
+                    width=data.get('width', widget_type.default_width),
+                    height=data.get('height', widget_type.default_height),
+                    config=data.get('config', {}),
+                    data_filters=data.get('data_filters', {}),
+                    refresh_interval=data.get('refresh_interval')
+                )
+                
+                # Track widget addition
+                DashboardAnalytics.objects.create(
+                    layout=layout,
+                    widget=widget,
+                    event_type='widget_add',
+                    metadata={'widget_type': widget_type_name},
+                    session_id=request.session.session_key,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                )
+                
+                return JsonResponse({
+                    'message': 'Widget added successfully',
+                    'widget_id': widget.id
+                })
+                
+        except (Customer.DoesNotExist, WidgetType.DoesNotExist):
+            return JsonResponse({'error': 'Customer or widget type not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    def put(self, request, widget_id):
+        """Update widget configuration"""
+        try:
+            data = json.loads(request.body)
+            
+            widget = DashboardWidget.objects.get(
+                id=widget_id,
+                layout__user=request.user
+            )
+            
+            with transaction.atomic():
+                # Update widget properties
+                widget.title = data.get('title', widget.title)
+                widget.position_x = data.get('position_x', widget.position_x)
+                widget.position_y = data.get('position_y', widget.position_y)
+                widget.width = data.get('width', widget.width)
+                widget.height = data.get('height', widget.height)
+                widget.config = data.get('config', widget.config)
+                widget.data_filters = data.get('data_filters', widget.data_filters)
+                widget.refresh_interval = data.get('refresh_interval', widget.refresh_interval)
+                widget.z_index = data.get('z_index', widget.z_index)
+                widget.save()
+                
+                # Track widget update
+                event_type = 'widget_move' if 'position_x' in data or 'position_y' in data else 'config_change'
+                if 'width' in data or 'height' in data:
+                    event_type = 'widget_resize'
+                
+                DashboardAnalytics.objects.create(
+                    layout=widget.layout,
+                    widget=widget,
+                    event_type=event_type,
+                    metadata=data,
+                    session_id=request.session.session_key,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                )
+                
+                return JsonResponse({'message': 'Widget updated successfully'})
+                
+        except DashboardWidget.DoesNotExist:
+            return JsonResponse({'error': 'Widget not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    def delete(self, request, widget_id):
+        """Remove widget from dashboard"""
+        try:
+            widget = DashboardWidget.objects.get(
+                id=widget_id,
+                layout__user=request.user
+            )
+            
+            layout = widget.layout
+            widget_type_name = widget.widget_type.name
+            
+            with transaction.atomic():
+                widget.delete()
+                
+                # Track widget removal
+                DashboardAnalytics.objects.create(
+                    layout=layout,
+                    event_type='widget_remove',
+                    metadata={'widget_type': widget_type_name},
+                    session_id=request.session.session_key,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                )
+                
+                return JsonResponse({'message': 'Widget removed successfully'})
+                
+        except DashboardWidget.DoesNotExist:
+            return JsonResponse({'error': 'Widget not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_types_view(request):
+    """Get available widget types"""
+    try:
+        category = request.GET.get('category')
+        
+        widget_types = WidgetType.objects.filter(is_active=True)
+        if category:
+            widget_types = widget_types.filter(category=category)
+        
+        return JsonResponse({
+            'widget_types': [{
+                'name': wt.name,
+                'display_name': wt.display_name,
+                'description': wt.description,
+                'component_name': wt.component_name,
+                'category': wt.category,
+                'icon': wt.icon,
+                'default_width': wt.default_width,
+                'default_height': wt.default_height,
+                'min_width': wt.min_width,
+                'min_height': wt.min_height,
+                'max_width': wt.max_width,
+                'max_height': wt.max_height,
+                'is_resizable': wt.is_resizable,
+                'requires_data_source': wt.requires_data_source,
+                'config_schema': wt.config_schema
+            } for wt in widget_types]
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def dashboard_themes_view(request):
+    """Get available dashboard themes"""
+    try:
+        themes = DashboardTheme.objects.filter(is_active=True)
+        
+        return JsonResponse({
+            'themes': [{
+                'name': theme.name,
+                'display_name': theme.display_name,
+                'description': theme.description,
+                'css_variables': theme.css_variables,
+                'background_type': theme.background_type,
+                'background_config': theme.background_config,
+                'card_style': theme.card_style,
+                'animation_level': theme.animation_level,
+                'is_system': theme.is_system
+            } for theme in themes]
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def dashboard_presets_view(request):
+    """Get available dashboard presets"""
+    try:
+        category = request.GET.get('category')
+        
+        presets = DashboardPreset.objects.filter(is_system=True)
+        if category:
+            presets = presets.filter(category=category)
+        
+        return JsonResponse({
+            'presets': [{
+                'name': preset.name,
+                'display_name': preset.display_name,
+                'description': preset.description,
+                'category': preset.category,
+                'thumbnail_url': preset.thumbnail_url,
+                'layout_config': preset.layout_config,
+                'target_roles': preset.target_roles,
+                'is_featured': preset.is_featured,
+                'usage_count': preset.usage_count
+            } for preset in presets]
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

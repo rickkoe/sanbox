@@ -19,6 +19,8 @@ import {
   Type,
   Calculator,
   Cable,
+  BarChart3,
+  Layout,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -59,6 +61,15 @@ const getSidebarLinks = (pathname) => {
     icon: Menu,
     showBackButton: false,
     links: [
+      { 
+        label: "Dashboard", 
+        icon: BarChart3, 
+        expandable: true,
+        subLinks: [
+          { path: "/", label: "Overview", icon: BarChart3 },
+          { path: "/dashboard-v2", label: "Customizable Dashboard", icon: Layout },
+        ]
+      },
       { 
         label: "Organization", 
         icon: Building2, 

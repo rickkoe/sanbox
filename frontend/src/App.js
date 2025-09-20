@@ -20,6 +20,7 @@ import { BreadcrumbContext } from "./context/BreadcrumbContext";
 
 // Critical pages (loaded immediately)
 import Dashboard from "./pages/Dashboard";
+import CustomizableDashboard from "./pages/CustomizableDashboard";
 import NotFound from "./pages/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
 
@@ -139,6 +140,7 @@ function AppContent() {
                 <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
+                    <Route path="/dashboard-v2" element={<CustomizableDashboard />} />
                     <Route path="/customers" element={<CustomerTable />} />
                     <Route path="/projects" element={<ProjectTable />} />
                     <Route path="/san" element={<SanPage />} />

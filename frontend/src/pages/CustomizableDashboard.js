@@ -1,0 +1,342 @@
+import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+import { 
+  FaPlus, FaCog, FaGripVertical, FaTimes, FaExpand, FaCompress,
+  FaPalette, FaDownload, FaUpload, FaRedo, FaEye, FaEyeSlash,
+  FaLayerGroup, FaStore, FaWrench, FaChartLine, FaDatabase,
+  FaNetworkWired, FaServer, FaUsers, FaHdd, FaSearch,
+  FaBars, FaTh, FaThLarge, FaGlobe, FaExclamationTriangle,
+} from 'react-icons/fa';
+import { ConfigContext } from '../context/ConfigContext';
+import { useCustomDashboard } from '../hooks/useCustomDashboard';
+import { WidgetMarketplace } from '../components/dashboard/WidgetMarketplace';
+import { ThemeSelector } from '../components/dashboard/ThemeSelector';
+import { DashboardPresets } from '../components/dashboard/DashboardPresets';
+import { GridLayoutRenderer } from '../components/dashboard/GridLayoutRenderer';
+import { DashboardToolbar } from '../components/dashboard/DashboardToolbar';
+import './CustomizableDashboard.css';
+
+const CustomizableDashboard = () => {
+  const { config } = useContext(ConfigContext);
+  const {
+    dashboard,
+    loading,
+    error,
+    addWidget,
+    updateWidget,
+    removeWidget,
+    updateLayout,
+    applyPreset,
+    refreshDashboard
+  } = useCustomDashboard(config?.customer?.id);
+
+  const [editMode, setEditMode] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
+  const [showThemes, setShowThemes] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
+  const [selectedWidget, setSelectedWidget] = useState(null);
+  const [dashboardView, setDashboardView] = useState('grid'); // grid, list, cards
+
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (!dashboard?.layout?.auto_refresh || editMode) return;
+    
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        refreshDashboard();
+      }
+    }, (dashboard.layout.refresh_interval || 30) * 1000);
+
+    return () => clearInterval(interval);
+  }, [dashboard?.layout, editMode, refreshDashboard]);
+
+  const handleAddWidget = useCallback(async (widgetType, position) => {
+    try {
+      await addWidget({
+        widget_type: widgetType.name,
+        title: widgetType.display_name,
+        position_x: position?.x || 0,
+        position_y: position?.y || 0,
+        width: widgetType.default_width,
+        height: widgetType.default_height
+      });
+      setShowMarketplace(false);
+    } catch (error) {
+      console.error('Failed to add widget:', error);
+    }
+  }, [addWidget]);
+
+  const handleThemeChange = useCallback(async (theme) => {
+    try {
+      await updateLayout({
+        theme: theme.name,
+        customer_id: config?.customer?.id
+      });
+      setShowThemes(false);
+    } catch (error) {
+      console.error('Failed to update theme:', error);
+    }
+  }, [updateLayout, config?.customer?.id]);
+
+  const handlePresetApply = useCallback(async (preset) => {
+    try {
+      await applyPreset({
+        preset_name: preset.name,
+        customer_id: config?.customer?.id
+      });
+      setShowPresets(false);
+      setEditMode(false);
+    } catch (error) {
+      console.error('Failed to apply preset:', error);
+    }
+  }, [applyPreset, config?.customer?.id]);
+
+  if (loading && !dashboard) {
+    return <DashboardSkeleton />;
+  }
+
+  if (error) {
+    return <DashboardError error={error} onRetry={refreshDashboard} />;
+  }
+
+  if (!config?.customer?.id || !config?.active_project?.id) {
+    return <WelcomeScreen />;
+  }
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className={`customizable-dashboard theme-${dashboard?.layout?.theme || 'modern'}`}>
+        {/* Dashboard Header & Controls */}
+        <DashboardHeader
+          layout={dashboard?.layout}
+          editMode={editMode}
+          onEditModeToggle={() => setEditMode(!editMode)}
+          onShowMarketplace={() => setShowMarketplace(true)}
+          onShowThemes={() => setShowThemes(true)}
+          onShowPresets={() => setShowPresets(true)}
+          onRefresh={refreshDashboard}
+          dashboardView={dashboardView}
+          onViewChange={setDashboardView}
+        />
+
+        {/* Edit Mode Toolbar */}
+        {editMode && (
+          <DashboardToolbar
+            onAddWidget={() => setShowMarketplace(true)}
+            onChangeTheme={() => setShowThemes(true)}
+            onLoadPreset={() => setShowPresets(true)}
+            selectedWidget={selectedWidget}
+            onWidgetConfig={setSelectedWidget}
+          />
+        )}
+
+        {/* Main Dashboard Content */}
+        <div className="dashboard-content">
+          <GridLayoutRenderer
+            widgets={dashboard?.widgets || []}
+            layout={dashboard?.layout}
+            editMode={editMode}
+            onWidgetUpdate={updateWidget}
+            onWidgetRemove={removeWidget}
+            onWidgetSelect={setSelectedWidget}
+            selectedWidget={selectedWidget}
+            viewMode={dashboardView}
+          />
+        </div>
+
+        {/* Dashboard Stats Footer */}
+        {editMode && (
+          <DashboardFooter
+            layout={dashboard?.layout}
+            widgetCount={dashboard?.widgets?.length || 0}
+          />
+        )}
+
+        {/* Modals and Overlays */}
+        {showMarketplace && (
+          <WidgetMarketplace
+            onAddWidget={handleAddWidget}
+            onClose={() => setShowMarketplace(false)}
+            existingWidgets={dashboard?.widgets || []}
+          />
+        )}
+
+        {showThemes && (
+          <ThemeSelector
+            currentTheme={dashboard?.layout?.theme}
+            onThemeSelect={handleThemeChange}
+            onClose={() => setShowThemes(false)}
+          />
+        )}
+
+        {showPresets && (
+          <DashboardPresets
+            onPresetSelect={handlePresetApply}
+            onClose={() => setShowPresets(false)}
+            currentLayout={dashboard?.layout}
+          />
+        )}
+      </div>
+    </DndProvider>
+  );
+};
+
+// Dashboard Header Component
+const DashboardHeader = ({ 
+  layout, 
+  editMode, 
+  onEditModeToggle, 
+  onShowMarketplace, 
+  onShowThemes, 
+  onShowPresets,
+  onRefresh,
+  dashboardView,
+  onViewChange 
+}) => {
+  const { config } = useContext(ConfigContext);
+  
+  return (
+    <div className="dashboard-header-v2">
+      <div className="header-left">
+        <div className="dashboard-title">
+          <h1>{layout?.name || 'My Dashboard'}</h1>
+          <span className="customer-name">{config?.customer?.name}</span>
+          {layout?.updated_at && (
+            <small className="last-updated">
+              Updated: {new Date(layout.updated_at).toLocaleString()}
+            </small>
+          )}
+        </div>
+      </div>
+
+      <div className="header-controls">
+        {/* View Mode Selector */}
+        <div className="view-selector">
+          <button
+            className={`view-btn ${dashboardView === 'grid' ? 'active' : ''}`}
+            onClick={() => onViewChange('grid')}
+            title="Grid View"
+          >
+            <FaTh />
+          </button>
+          <button
+            className={`view-btn ${dashboardView === 'list' ? 'active' : ''}`}
+            onClick={() => onViewChange('list')}
+            title="List View"
+          >
+            <FaBars />
+          </button>
+          <button
+            className={`view-btn ${dashboardView === 'cards' ? 'active' : ''}`}
+            onClick={() => onViewChange('cards')}
+            title="Card View"
+          >
+            <FaThLarge />
+          </button>
+        </div>
+
+        {/* Dashboard Actions */}
+        <div className="header-actions">
+          <button className="action-btn" onClick={onRefresh} title="Refresh">
+            <FaRedo />
+          </button>
+
+          <button className="action-btn" onClick={onShowThemes} title="Themes">
+            <FaPalette />
+          </button>
+
+          <button className="action-btn" onClick={onShowPresets} title="Templates">
+            <FaLayerGroup />
+          </button>
+
+          {editMode && (
+            <button className="action-btn" onClick={onShowMarketplace} title="Add Widget">
+              <FaStore />
+            </button>
+          )}
+
+          <button 
+            className={`action-btn ${editMode ? 'active' : ''}`}
+            onClick={onEditModeToggle}
+            title={editMode ? 'Exit Edit Mode' : 'Edit Dashboard'}
+          >
+            <FaWrench />
+            {editMode ? 'Done' : 'Edit'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Dashboard Footer Component
+const DashboardFooter = ({ layout, widgetCount }) => (
+  <div className="dashboard-footer">
+    <div className="footer-stats">
+      <span className="stat-item">
+        <FaLayerGroup /> {widgetCount} widgets
+      </span>
+      <span className="stat-item">
+        <FaTh /> {layout?.grid_columns || 12} columns
+      </span>
+      <span className="stat-item">
+        <FaRedo /> {layout?.refresh_interval || 30}s refresh
+      </span>
+      <span className="stat-item">
+        <FaPalette /> {layout?.theme || 'modern'} theme
+      </span>
+    </div>
+    <div className="footer-tip">
+      <FaGripVertical /> Drag widgets to reposition • Click to configure • Right-click for options
+    </div>
+  </div>
+);
+
+// Error State Component
+const DashboardError = ({ error, onRetry }) => (
+  <div className="dashboard-error">
+    <div className="error-content">
+      <FaExclamationTriangle className="error-icon" />
+      <h3>Dashboard Error</h3>
+      <p>{error}</p>
+      <button onClick={onRetry} className="btn btn-primary">
+        <FaRedo /> Try Again
+      </button>
+    </div>
+  </div>
+);
+
+// Loading State Component
+const DashboardSkeleton = () => (
+  <div className="dashboard-skeleton">
+    <div className="skeleton-header"></div>
+    <div className="skeleton-toolbar"></div>
+    <div className="skeleton-grid">
+      {[1, 2, 3, 4, 5, 6].map(i => (
+        <div key={i} className="skeleton-widget"></div>
+      ))}
+    </div>
+  </div>
+);
+
+// Welcome Screen Component
+const WelcomeScreen = () => (
+  <div className="welcome-screen">
+    <div className="welcome-content">
+      <FaGlobe className="welcome-icon" />
+      <h1>Welcome to Sanbox Dashboard</h1>
+      <p>Create your personalized SAN management experience</p>
+      <div className="welcome-actions">
+        <button className="btn btn-primary">
+          <FaCog /> Configure Project
+        </button>
+        <button className="btn btn-outline-primary">
+          <FaUsers /> Manage Customers
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+export default CustomizableDashboard;

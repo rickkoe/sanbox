@@ -29,6 +29,12 @@ from .views import (
     table_columns_list,
 )
 
+# Import new dashboard views
+from .dashboard_views import (
+    DashboardLayoutView, DashboardWidgetView, widget_types_view,
+    dashboard_themes_view, dashboard_presets_view
+)
+
 urlpatterns = [
     path("config/", config_detail, name="config-detail"),  # Function-based view
     path("projects/<int:customer_id>/", projects_for_customer, name="projects-for-customer"),  # Get projects by customer
@@ -70,4 +76,19 @@ urlpatterns = [
     path("custom-variables/", custom_variables_list, name="custom-variables-list"),
     path("custom-variables/<int:pk>/", custom_variable_detail, name="custom-variable-detail"),
     path("table-columns/", table_columns_list, name="table-columns-list"),
+    
+    # ========== CUSTOMIZABLE DASHBOARD ENDPOINTS ==========
+    # Dashboard Layout Management
+    path("dashboard-v2/layout/", DashboardLayoutView.as_view(), name="dashboard-layout"),
+    
+    # Widget Management
+    path("dashboard-v2/widgets/", DashboardWidgetView.as_view(), name="dashboard-widgets"),
+    path("dashboard-v2/widgets/<int:widget_id>/", DashboardWidgetView.as_view(), name="dashboard-widget-detail"),
+    
+    # Widget Types and Configuration
+    path("dashboard-v2/widget-types/", widget_types_view, name="widget-types"),
+    
+    # Themes and Presets
+    path("dashboard-v2/themes/", dashboard_themes_view, name="dashboard-themes"),
+    path("dashboard-v2/presets/", dashboard_presets_view, name="dashboard-presets"),
 ]

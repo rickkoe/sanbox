@@ -446,3 +446,199 @@ class CustomVariable(models.Model):
             variables = variables.filter(user__isnull=True)
             
         return variables.order_by('name')
+
+
+# ========== CUSTOMIZABLE DASHBOARD MODELS ==========
+
+class DashboardLayout(models.Model):
+    """User's dashboard layout configuration"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='dashboard_layout')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255, default="My Dashboard")
+    theme = models.CharField(max_length=50, default='modern', choices=[
+        ('modern', 'Modern'),
+        ('dark', 'Dark Mode'),
+        ('minimal', 'Minimal'),
+        ('corporate', 'Corporate'),
+        ('colorful', 'Colorful')
+    ])
+    grid_columns = models.IntegerField(default=12)
+    auto_refresh = models.BooleanField(default=True)
+    refresh_interval = models.IntegerField(default=30)  # seconds
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['user', 'customer']
+
+    def __str__(self):
+        return f"{self.user.username}'s {self.name}"
+
+
+class WidgetType(models.Model):
+    """Available widget types that can be added to dashboards"""
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=200)
+    description = models.TextField()
+    component_name = models.CharField(max_length=100)  # React component name
+    category = models.CharField(max_length=50, choices=[
+        ('metrics', 'Key Metrics'),
+        ('charts', 'Charts & Graphs'),
+        ('tables', 'Data Tables'),
+        ('health', 'System Health'),
+        ('activity', 'Activity & Logs'),
+        ('tools', 'Quick Tools'),
+        ('custom', 'Custom Widgets')
+    ])
+    icon = models.CharField(max_length=50)  # FontAwesome icon name
+    default_width = models.IntegerField(default=4)  # Grid columns
+    default_height = models.IntegerField(default=300)  # Pixels
+    min_width = models.IntegerField(default=2)
+    min_height = models.IntegerField(default=200)
+    max_width = models.IntegerField(default=12)
+    max_height = models.IntegerField(default=800)
+    is_resizable = models.BooleanField(default=True)
+    requires_data_source = models.BooleanField(default=True)
+    config_schema = models.JSONField(default=dict)  # JSON schema for widget configuration
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.display_name
+
+
+class DashboardWidget(models.Model):
+    """Individual widget instance on a dashboard"""
+    layout = models.ForeignKey(DashboardLayout, on_delete=models.CASCADE, related_name='widgets')
+    widget_type = models.ForeignKey(WidgetType, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    position_x = models.IntegerField(default=0)  # Grid position
+    position_y = models.IntegerField(default=0)
+    width = models.IntegerField(default=4)  # Grid columns
+    height = models.IntegerField(default=300)  # Pixels
+    config = models.JSONField(default=dict)  # Widget-specific configuration
+    data_filters = models.JSONField(default=dict)  # Data filtering options
+    refresh_interval = models.IntegerField(null=True, blank=True)  # Override default
+    is_visible = models.BooleanField(default=True)
+    z_index = models.IntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['position_y', 'position_x']
+
+    def __str__(self):
+        return f"{self.title} ({self.widget_type.display_name})"
+
+
+class DashboardTheme(models.Model):
+    """Custom dashboard themes"""
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    css_variables = models.JSONField(default=dict)  # CSS custom properties
+    background_type = models.CharField(max_length=20, default='solid', choices=[
+        ('solid', 'Solid Color'),
+        ('gradient', 'Gradient'),
+        ('pattern', 'Pattern'),
+        ('image', 'Background Image')
+    ])
+    background_config = models.JSONField(default=dict)
+    card_style = models.CharField(max_length=20, default='modern', choices=[
+        ('modern', 'Modern Cards'),
+        ('flat', 'Flat Design'),
+        ('glass', 'Glassmorphism'),
+        ('neumorphism', 'Neumorphism'),
+        ('minimal', 'Minimal Borders')
+    ])
+    animation_level = models.CharField(max_length=20, default='medium', choices=[
+        ('none', 'No Animations'),
+        ('minimal', 'Minimal'),
+        ('medium', 'Medium'),
+        ('full', 'Full Animations')
+    ])
+    is_system = models.BooleanField(default=False)  # System vs user-created themes
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.display_name
+
+
+class WidgetDataSource(models.Model):
+    """Data sources that widgets can connect to"""
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=200)
+    description = models.TextField()
+    endpoint_pattern = models.CharField(max_length=500)  # API endpoint pattern
+    parameters_schema = models.JSONField(default=dict)  # Required/optional parameters
+    cache_duration = models.IntegerField(default=300)  # Cache duration in seconds
+    requires_auth = models.BooleanField(default=True)
+    data_format = models.CharField(max_length=50, default='json')
+    is_real_time = models.BooleanField(default=False)
+    update_frequency = models.IntegerField(default=30)  # seconds
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.display_name
+
+
+class DashboardPreset(models.Model):
+    """Pre-configured dashboard templates"""
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=200)
+    description = models.TextField()
+    category = models.CharField(max_length=50, choices=[
+        ('executive', 'Executive Overview'),
+        ('technical', 'Technical Operations'),
+        ('capacity', 'Capacity Planning'),
+        ('security', 'Security Monitoring'),
+        ('performance', 'Performance Analytics'),
+        ('custom', 'Custom Templates')
+    ])
+    thumbnail_url = models.URLField(blank=True)
+    layout_config = models.JSONField()  # Complete dashboard configuration
+    required_permissions = models.JSONField(default=list)
+    target_roles = models.JSONField(default=list)  # Recommended for specific roles
+    is_system = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+    usage_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_featured', '-usage_count', 'display_name']
+
+    def __str__(self):
+        return self.display_name
+
+
+class DashboardAnalytics(models.Model):
+    """Track dashboard usage and widget performance"""
+    layout = models.ForeignKey(DashboardLayout, on_delete=models.CASCADE)
+    widget = models.ForeignKey(DashboardWidget, on_delete=models.CASCADE, null=True, blank=True)
+    event_type = models.CharField(max_length=50, choices=[
+        ('view', 'Dashboard View'),
+        ('widget_add', 'Widget Added'),
+        ('widget_remove', 'Widget Removed'),
+        ('widget_resize', 'Widget Resized'),
+        ('widget_move', 'Widget Moved'),
+        ('config_change', 'Configuration Changed'),
+        ('theme_change', 'Theme Changed'),
+        ('export', 'Data Export'),
+        ('refresh', 'Manual Refresh')
+    ])
+    metadata = models.JSONField(default=dict)  # Event-specific data
+    session_id = models.CharField(max_length=100, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['layout', 'event_type', 'timestamp']),
+            models.Index(fields=['widget', 'event_type', 'timestamp']),
+        ]
