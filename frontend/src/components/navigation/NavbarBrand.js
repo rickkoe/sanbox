@@ -2,9 +2,16 @@ import React from "react";
 import PropTypes from "prop-types";
 import { NavLink, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { useTheme } from "../../context/ThemeContext";
 
 const NavbarBrand = ({ showBackButton, backPath }) => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+
+  // Use dark logo for light themes (modern, minimal, colorful) and light logo for dark themes (dark, corporate)
+  const logoSrc = theme === 'dark' || theme === 'corporate' 
+    ? "/images/logo-light.png" 
+    : "/images/logo-dark.png";
 
   return (
     <div className="navbar-left">
@@ -22,7 +29,7 @@ const NavbarBrand = ({ showBackButton, backPath }) => {
         )}
       </div>
       <NavLink className="navbar-brand" to="/">
-        <img src="/images/logo-light.png" alt="Logo" className="logo-image" />
+        <img src={logoSrc} alt="Logo" className="logo-image" />
       </NavLink>
     </div>
   );

@@ -106,8 +106,8 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 /* Ensure logo sizing is proper */
 .navbar-brand img,
 .navbar-brand .logo-image {
-  height: 32px !important;
-  max-width: 120px !important;
+  height: 48px !important;
+  max-width: 200px !important;
   width: auto !important;
 }
 
@@ -929,6 +929,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 
 /* ========== BACK BUTTON STYLES ========== */
 
+/* Default back button styling */
 .nav-back-button {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -948,6 +949,67 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   color: white;
   border-color: rgba(255, 255, 255, 0.3);
   transform: translateX(-1px);
+}
+
+/* Theme-specific back button colors */
+.navbar.theme-modern .nav-back-button {
+  background: rgba(45, 55, 72, 0.1);
+  border-color: rgba(45, 55, 72, 0.2);
+  color: #2d3748;
+}
+
+.navbar.theme-modern .nav-back-button:hover {
+  background: rgba(45, 55, 72, 0.15);
+  border-color: rgba(45, 55, 72, 0.3);
+  color: #2d3748;
+}
+
+.navbar.theme-dark .nav-back-button {
+  background: rgba(226, 232, 240, 0.1);
+  border-color: rgba(226, 232, 240, 0.2);
+  color: #e2e8f0;
+}
+
+.navbar.theme-dark .nav-back-button:hover {
+  background: rgba(226, 232, 240, 0.15);
+  border-color: rgba(226, 232, 240, 0.3);
+  color: #e2e8f0;
+}
+
+.navbar.theme-minimal .nav-back-button {
+  background: rgba(31, 41, 55, 0.1);
+  border-color: rgba(31, 41, 55, 0.2);
+  color: #1f2937;
+}
+
+.navbar.theme-minimal .nav-back-button:hover {
+  background: rgba(31, 41, 55, 0.15);
+  border-color: rgba(31, 41, 55, 0.3);
+  color: #1f2937;
+}
+
+.navbar.theme-corporate .nav-back-button {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.navbar.theme-corporate .nav-back-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.navbar.theme-colorful .nav-back-button {
+  background: rgba(45, 52, 54, 0.1);
+  border-color: rgba(45, 52, 54, 0.2);
+  color: #2d3436;
+}
+
+.navbar.theme-colorful .nav-back-button:hover {
+  background: rgba(45, 52, 54, 0.15);
+  border-color: rgba(45, 52, 54, 0.3);
+  color: #2d3436;
 }
 
 .nav-back-container {
