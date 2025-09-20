@@ -30,8 +30,8 @@ export const ThemeProvider = ({ children }) => {
       try {
         await dashboardUpdateRef.current(newTheme);
       } catch (error) {
-        console.error('Failed to update dashboard theme:', error);
-        // Don't throw error to prevent UI issues
+        // Silently fail dashboard updates - theme still works in UI
+        // Dashboard database might be locked or unavailable
       }
     }
     

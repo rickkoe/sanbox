@@ -32,6 +32,8 @@ const Sidebar = ({ isCollapsed, onCollapseChange }) => {
     }
   }, [backPath, location.pathname, navigate]);
 
+  console.log('Sidebar theme class:', `modern-sidebar theme-${theme} ${isCollapsed ? 'collapsed' : ''}`);
+  
   return (
     <div className={`modern-sidebar theme-${theme} ${isCollapsed ? 'collapsed' : ''}`}>
       

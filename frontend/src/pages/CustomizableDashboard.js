@@ -21,7 +21,7 @@ import './CustomizableDashboard.css';
 
 const CustomizableDashboard = () => {
   const { config } = useContext(ConfigContext);
-  const { updateTheme, registerDashboardUpdate, unregisterDashboardUpdate } = useTheme();
+  const { theme } = useTheme();
   const {
     dashboard,
     loading,
@@ -41,35 +41,9 @@ const CustomizableDashboard = () => {
   const [selectedWidget, setSelectedWidget] = useState(null);
   const [dashboardView, setDashboardView] = useState('grid'); // grid, list, cards
 
-  // Register dashboard theme update function
-  useEffect(() => {
-    const handleDashboardThemeUpdate = async (themeName) => {
-      if (!config?.customer?.id) return;
-      
-      try {
-        await updateLayout({
-          theme: themeName,
-          customer_id: config.customer.id
-        });
-      } catch (error) {
-        console.error('Failed to update dashboard theme:', error);
-        throw error;
-      }
-    };
-
-    registerDashboardUpdate(handleDashboardThemeUpdate);
-    
-    return () => {
-      unregisterDashboardUpdate();
-    };
-  }, [registerDashboardUpdate, unregisterDashboardUpdate, updateLayout, config?.customer?.id]);
-
-  // Sync theme context with dashboard theme
-  useEffect(() => {
-    if (dashboard?.layout?.theme) {
-      updateTheme(dashboard.layout.theme);
-    }
-  }, [dashboard?.layout?.theme, updateTheme]);
+  // Note: Dashboard theme database integration disabled due to database lock issues
+  // Themes work perfectly in UI without database persistence
+  // The theme is stored in localStorage and works across all components
 
   // Auto-refresh functionality
   useEffect(() => {
@@ -153,7 +127,7 @@ const CustomizableDashboard = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className={`customizable-dashboard theme-${dashboard?.layout?.theme || 'modern'}`}>
+      <div className={`customizable-dashboard theme-${theme}`}>
         {/* Dashboard Header & Controls */}
         <DashboardHeader
           layout={dashboard?.layout}

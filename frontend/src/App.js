@@ -4,7 +4,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 
 // Custom Styles
 import "./App.css";
-import "./styles/themes.css";
 import "./styles/navbar.css";
 import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
@@ -12,6 +11,9 @@ import "./styles/generictable.css";
 import "./styles/pages.css";
 import "./styles/home.css";
 import "./styles/dashboard.css";
+import "./styles/themes.css";
+import "./components/navigation/Navbar.css";
+import "./components/navigation/Sidebar.css";
 
 // Navigation Components (critical for initial load)
 import Navbar from "./components/navigation/Navbar";

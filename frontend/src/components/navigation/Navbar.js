@@ -29,8 +29,10 @@ const Navbar = () => {
     setShowAboutModal(true);
   }, []);
 
+  console.log('Navbar theme class:', `navbar navbar-expand-lg theme-${theme}`);
+  
   return (
-    <nav className={`navbar navbar-expand-lg navbar-dark theme-${theme}`}>
+    <nav className={`navbar navbar-expand-lg theme-${theme}`}>
       <div className="container-fluid">
         <NavbarBrand 
           showBackButton={showBackButton} 
