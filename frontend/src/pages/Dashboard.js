@@ -201,22 +201,6 @@ const CapacityChart = ({ capacity }) => {
 
   // Sort systems by utilization percentage (highest first) for better insights
   const sortedSystems = [...capacity.storage_systems].sort((a, b) => b.utilization_percent - a.utilization_percent);
-  
-  // Show top 10 systems with highest utilization + aggregate the rest
-  const topSystems = sortedSystems.slice(0, 10);
-  const remainingSystems = sortedSystems.slice(10);
-  
-  const hasRemainingItems = remainingSystems.length > 0;
-  const aggregatedRemaining = hasRemainingItems ? {
-    name: `+${remainingSystems.length} others`,
-    used_tb: remainingSystems.reduce((sum, s) => sum + (s.used_tb || 0), 0),
-    available_tb: remainingSystems.reduce((sum, s) => sum + (s.available_tb || 0), 0),
-    capacity_tb: remainingSystems.reduce((sum, s) => sum + (s.capacity_tb || 0), 0),
-    utilization_percent: remainingSystems.length > 0 ? 
-      remainingSystems.reduce((sum, s) => sum + (s.utilization_percent || 0), 0) / remainingSystems.length : 0
-  } : null;
-
-  const displaySystems = hasRemainingItems ? [...topSystems, aggregatedRemaining] : topSystems;
 
   return (
     <div className="chart-card">
@@ -229,11 +213,9 @@ const CapacityChart = ({ capacity }) => {
           <span className={`utilization ${(capacity.utilization_percent || 0) > 80 ? 'high' : 'normal'}`}>
             {capacity.utilization_percent || 0}% Used
           </span>
-          {hasRemainingItems && (
-            <span className="systems-note">
-              Showing top 10 by utilization
-            </span>
-          )}
+          <span className="systems-note">
+            {sortedSystems.length} system{sortedSystems.length !== 1 ? 's' : ''}
+          </span>
         </div>
       </div>
       
@@ -246,7 +228,7 @@ const CapacityChart = ({ capacity }) => {
           <span>Utilization</span>
         </div>
         <div className="capacity-table-body">
-          {displaySystems.map((system, index) => (
+          {sortedSystems.map((system, index) => (
             <CapacityTableRow key={index} system={system} />
           ))}
         </div>
