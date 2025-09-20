@@ -4,25 +4,17 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./Navbar.css";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useTheme } from "../../context/ThemeContext";
-import { useImportStatus } from "../../context/ImportStatusContext";
 import { useNavigation } from "../../hooks/useNavigation";
 import NavbarBrand from "./NavbarBrand";
 import NavbarContext from "./NavbarContext";
-import ImportButton from "./ImportButton";
-import ScriptsDropdown from "./ScriptsDropdown";
 import UserSection from "./UserSection";
 import AboutModal from "../../pages/AboutPage";
 
 const Navbar = () => {
   const { config, loading } = useContext(ConfigContext);
   const { theme } = useTheme();
-  const { isImportRunning, importProgress, currentImport, cancelImport } = useImportStatus();
   const { backPath, showBackButton } = useNavigation();
   const [showAboutModal, setShowAboutModal] = useState(false);
-
-  const handleCancelImport = useCallback(async (importId) => {
-    await cancelImport(importId);
-  }, [cancelImport]);
 
   const handleAboutClick = useCallback(() => {
     setShowAboutModal(true);
@@ -45,19 +37,6 @@ const Navbar = () => {
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto align-items-center d-flex">
-            <ScriptsDropdown />
-
-            <ImportButton 
-              isImportRunning={isImportRunning}
-              importProgress={importProgress}
-              currentImport={currentImport}
-              onCancelImport={handleCancelImport}
-            />
-
-            <li className="nav-item nav-divider">
-              <span className="divider-line"></span>
-            </li>
-
             <UserSection onAboutClick={handleAboutClick} />
           </ul>
         </div>

@@ -21,6 +21,8 @@ import {
   Cable,
   BarChart3,
   Layout,
+  Terminal,
+  Upload,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -80,14 +82,6 @@ const getSidebarLinks = (pathname) => {
         ]
       },
       { 
-        label: "Storage Insights", 
-        icon: Database, 
-        expandable: true,
-        subLinks: [
-          { path: "/import/ibm-storage-insights", label: "Data Importer", icon: Database },
-        ]
-      },
-      { 
         label: "SAN", 
         icon: Network, 
         expandable: true,
@@ -104,6 +98,23 @@ const getSidebarLinks = (pathname) => {
         subLinks: [
           { path: "/storage/systems", label: "Systems", icon: Server },
           { path: "/storage/hosts", label: "Hosts", icon: Monitor },
+        ]
+      },
+      { 
+        label: "Scripts", 
+        icon: Terminal, 
+        expandable: true,
+        subLinks: [
+          { path: "/scripts/zoning", label: "SAN Scripts", icon: Terminal },
+          { path: "/scripts/storage", label: "Storage Scripts", icon: Terminal },
+        ]
+      },
+      { 
+        label: "Data Import", 
+        icon: Upload, 
+        expandable: true,
+        subLinks: [
+          { path: "/import/ibm-storage-insights", label: "IBM Storage Insights", icon: Database },
         ]
       },
       { 

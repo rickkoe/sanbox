@@ -51,10 +51,12 @@ const Sidebar = ({ isCollapsed, onCollapseChange }) => {
         />
       )}
 
-      <SidebarNavigation 
-        links={links} 
-        isCollapsed={isCollapsed} 
-      />
+      <div className="sidebar-navigation">
+        <SidebarNavigation 
+          links={links} 
+          isCollapsed={isCollapsed} 
+        />
+      </div>
     </div>
   );
 };
