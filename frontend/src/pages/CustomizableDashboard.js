@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import axios from 'axios';
 import { 
   FaPlus, FaCog, FaGripVertical, FaTimes, FaExpand, FaCompress,
   FaPalette, FaDownload, FaUpload, FaRedo, FaEye, FaEyeSlash,
@@ -13,6 +14,7 @@ import { useCustomDashboard } from '../hooks/useCustomDashboard';
 import { WidgetMarketplace } from '../components/dashboard/WidgetMarketplace';
 import { ThemeSelector } from '../components/dashboard/ThemeSelector';
 import { DashboardPresets } from '../components/dashboard/DashboardPresets';
+import { SaveTemplateModal } from '../components/dashboard/SaveTemplateModal';
 import { GridLayoutRenderer } from '../components/dashboard/GridLayoutRenderer';
 import { DashboardToolbar } from '../components/dashboard/DashboardToolbar';
 import './CustomizableDashboard.css';
@@ -35,6 +37,7 @@ const CustomizableDashboard = () => {
   const [showMarketplace, setShowMarketplace] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [selectedWidget, setSelectedWidget] = useState(null);
   const [dashboardView, setDashboardView] = useState('grid'); // grid, list, cards
 
@@ -89,8 +92,33 @@ const CustomizableDashboard = () => {
       setEditMode(false);
     } catch (error) {
       console.error('Failed to apply preset:', error);
+      console.error('Error details:', error.response?.data);
+      alert('Failed to apply template. Please try again.');
     }
   }, [applyPreset, config?.customer?.id]);
+
+  const handleSaveTemplate = useCallback(async (templateData) => {
+    try {
+      if (!config?.customer?.id) {
+        alert('No customer selected. Please select a customer first.');
+        return;
+      }
+      
+      const response = await axios.post('/api/core/dashboard-v2/templates/save/', {
+        customer_id: config?.customer?.id,
+        template_name: templateData.name,
+        template_description: templateData.description,
+        is_public: templateData.isPublic || false
+      });
+      
+      setShowSaveTemplate(false);
+      // Show success message or refresh presets
+      alert(`Template "${templateData.name}" saved successfully!`);
+    } catch (error) {
+      console.error('Failed to save template:', error);
+      alert('Failed to save template. Please try again.');
+    }
+  }, [config?.customer?.id]);
 
   if (loading && !dashboard) {
     return <DashboardSkeleton />;
@@ -115,6 +143,7 @@ const CustomizableDashboard = () => {
           onShowMarketplace={() => setShowMarketplace(true)}
           onShowThemes={() => setShowThemes(true)}
           onShowPresets={() => setShowPresets(true)}
+          onShowSaveTemplate={() => setShowSaveTemplate(true)}
           onRefresh={refreshDashboard}
           dashboardView={dashboardView}
           onViewChange={setDashboardView}
@@ -178,6 +207,17 @@ const CustomizableDashboard = () => {
             currentLayout={dashboard?.layout}
           />
         )}
+
+        {showSaveTemplate && (
+          <SaveTemplateModal
+            onSave={handleSaveTemplate}
+            onClose={() => setShowSaveTemplate(false)}
+            currentLayout={{
+              ...dashboard?.layout,
+              widgets: dashboard?.widgets || []
+            }}
+          />
+        )}
       </div>
     </DndProvider>
   );
@@ -191,6 +231,7 @@ const DashboardHeader = ({
   onShowMarketplace, 
   onShowThemes, 
   onShowPresets,
+  onShowSaveTemplate,
   onRefresh,
   dashboardView,
   onViewChange 
@@ -249,6 +290,10 @@ const DashboardHeader = ({
 
           <button className="action-btn" onClick={onShowPresets} title="Templates">
             <FaLayerGroup />
+          </button>
+
+          <button className="action-btn" onClick={onShowSaveTemplate} title="Save as Template">
+            <FaDownload />
           </button>
 
           {editMode && (

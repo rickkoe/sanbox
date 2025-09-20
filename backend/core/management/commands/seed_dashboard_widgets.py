@@ -278,7 +278,7 @@ class Command(BaseCommand):
             {
                 'name': 'executive_overview',
                 'display_name': 'Executive Overview',
-                'description': 'High-level metrics and KPIs perfect for executives and managers',
+                'description': 'High-level metrics and KPIs perfect for executives and managers. Layout adapts to your current theme.',
                 'category': 'executive',
                 'thumbnail_url': '',
                 'layout_config': {
@@ -323,7 +323,7 @@ class Command(BaseCommand):
             {
                 'name': 'technical_operations',
                 'display_name': 'Technical Operations',
-                'description': 'Comprehensive operational dashboard for technical teams',
+                'description': 'Comprehensive operational dashboard for technical teams. Widget layout uses your selected theme.',
                 'category': 'technical',
                 'thumbnail_url': '',
                 'layout_config': {
@@ -377,7 +377,7 @@ class Command(BaseCommand):
             {
                 'name': 'capacity_planning',
                 'display_name': 'Capacity Planning',
-                'description': 'Focused on storage capacity analysis and growth planning',
+                'description': 'Focused on storage capacity analysis and growth planning. Respects your current theme settings.',
                 'category': 'capacity',
                 'thumbnail_url': '',
                 'layout_config': {

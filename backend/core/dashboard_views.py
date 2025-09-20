@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.core.cache import cache
 from customers.models import Customer
 from core.models import Project
@@ -462,13 +462,28 @@ def dashboard_presets_view(request):
     """Get available dashboard presets"""
     try:
         category = request.GET.get('category')
+        customer_id = request.GET.get('customer_id')
         
-        presets = DashboardPreset.objects.filter(is_system=True)
+        # Build query for presets
+        preset_filter = Q(is_system=True)  # System presets
+        
+        # Include user's custom templates and public custom templates
+        if customer_id:
+            try:
+                customer = Customer.objects.get(id=customer_id)
+                preset_filter |= Q(created_by=request.user, customer=customer)  # User's own templates
+                preset_filter |= Q(is_public=True, is_system=False)  # Public custom templates
+            except Customer.DoesNotExist:
+                pass
+        
+        presets = DashboardPreset.objects.filter(preset_filter)
+        
         if category:
             presets = presets.filter(category=category)
         
-        return JsonResponse({
-            'presets': [{
+        preset_data = []
+        for preset in presets:
+            preset_info = {
                 'name': preset.name,
                 'display_name': preset.display_name,
                 'description': preset.description,
@@ -477,9 +492,222 @@ def dashboard_presets_view(request):
                 'layout_config': preset.layout_config,
                 'target_roles': preset.target_roles,
                 'is_featured': preset.is_featured,
-                'usage_count': preset.usage_count
-            } for preset in presets]
+                'usage_count': preset.usage_count,
+                'is_system': preset.is_system,
+                'is_custom': not preset.is_system,
+                'created_by': preset.created_by.get_full_name() or preset.created_by.username if preset.created_by else None,
+                'created_at': preset.created_at.isoformat() if hasattr(preset, 'created_at') else None
+            }
+            preset_data.append(preset_info)
+        
+        return JsonResponse({
+            'presets': preset_data
         })
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@method_decorator([login_required, csrf_exempt], name='dispatch')
+class DashboardPresetApplyView(View):
+    """Apply a dashboard preset"""
+    
+    def post(self, request):
+        """Apply a preset to user's dashboard"""
+        try:
+            data = json.loads(request.body)
+            customer_id = data.get('customer_id')
+            preset_name = data.get('preset_name')
+            
+            if not customer_id or not preset_name:
+                return JsonResponse({'error': 'Customer ID and preset name required'}, status=400)
+            
+            customer = Customer.objects.get(id=customer_id)
+            # Get preset (system or custom) - check user access for custom templates
+            try:
+                preset = DashboardPreset.objects.get(name=preset_name, is_system=True)
+            except DashboardPreset.DoesNotExist:
+                # Try to find custom template accessible to user
+                preset = DashboardPreset.objects.get(
+                    Q(name=preset_name, created_by=request.user, customer=customer) |  # User's own template
+                    Q(name=preset_name, is_public=True, is_system=False)  # Public custom template
+                )
+            
+            with transaction.atomic():
+                # Get or create layout
+                layout, _ = DashboardLayout.objects.get_or_create(
+                    user=request.user,
+                    customer=customer
+                )
+                
+                # Clear existing widgets
+                DashboardWidget.objects.filter(layout=layout).delete()
+                
+                # Apply preset configuration (preserve user's theme)
+                layout_config = preset.layout_config
+                current_theme = layout.theme  # Preserve current theme
+                
+                if 'grid_columns' in layout_config:
+                    layout.grid_columns = layout_config['grid_columns']
+                if 'auto_refresh' in layout_config:
+                    layout.auto_refresh = layout_config['auto_refresh']
+                if 'refresh_interval' in layout_config:
+                    layout.refresh_interval = layout_config['refresh_interval']
+                
+                # Keep the user's current theme instead of preset theme
+                layout.theme = current_theme
+                
+                layout.name = data.get('name', f"{preset.display_name} Dashboard")
+                layout.save()
+                
+                # Create widgets from preset
+                widgets_created = []
+                for widget_config in layout_config.get('widgets', []):
+                    try:
+                        widget_type = WidgetType.objects.get(
+                            name=widget_config['widget_type'], 
+                            is_active=True
+                        )
+                        
+                        widget = DashboardWidget.objects.create(
+                            layout=layout,
+                            widget_type=widget_type,
+                            title=widget_config.get('title', widget_type.display_name),
+                            position_x=widget_config.get('position_x', 0),
+                            position_y=widget_config.get('position_y', 0),
+                            width=widget_config.get('width', widget_type.default_width),
+                            height=widget_config.get('height', widget_type.default_height),
+                            config=widget_config.get('config', {}),
+                            data_filters=widget_config.get('data_filters', {}),
+                            refresh_interval=widget_config.get('refresh_interval')
+                        )
+                        widgets_created.append(widget)
+                        
+                    except WidgetType.DoesNotExist:
+                        # Skip widgets with missing types
+                        continue
+                
+                # Update preset usage count
+                preset.usage_count += 1
+                preset.save()
+                
+                # Track preset application
+                DashboardAnalytics.objects.create(
+                    layout=layout,
+                    event_type='preset_apply',
+                    metadata={
+                        'preset_name': preset_name,
+                        'widgets_created': len(widgets_created)
+                    },
+                    session_id=request.session.session_key,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                )
+                
+                return JsonResponse({
+                    'message': 'Preset applied successfully',
+                    'layout_id': layout.id,
+                    'widgets_created': len(widgets_created)
+                })
+                
+        except (Customer.DoesNotExist, DashboardPreset.DoesNotExist):
+            return JsonResponse({'error': 'Customer or preset not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@method_decorator([login_required, csrf_exempt], name='dispatch')
+class DashboardTemplateSaveView(View):
+    """Save current dashboard as a custom template"""
+    
+    def post(self, request):
+        """Save user's current dashboard layout as a custom template"""
+        try:
+            data = json.loads(request.body)
+            customer_id = data.get('customer_id')
+            template_name = data.get('template_name')
+            template_description = data.get('template_description', '')
+            is_public = data.get('is_public', False)
+            
+            if not customer_id or not template_name:
+                return JsonResponse({'error': 'Customer ID and template name required'}, status=400)
+            
+            customer = Customer.objects.get(id=customer_id)
+            
+            # Get user's current dashboard layout
+            try:
+                layout = DashboardLayout.objects.get(user=request.user, customer=customer)
+            except DashboardLayout.DoesNotExist:
+                return JsonResponse({'error': 'No dashboard layout found to save'}, status=404)
+            
+            # Get all widgets for this layout
+            widgets = DashboardWidget.objects.filter(layout=layout, is_visible=True)
+            
+            with transaction.atomic():
+                # Create layout configuration
+                layout_config = {
+                    'theme': layout.theme,
+                    'grid_columns': layout.grid_columns,
+                    'auto_refresh': layout.auto_refresh,
+                    'refresh_interval': layout.refresh_interval,
+                    'widgets': []
+                }
+                
+                # Add widget configurations
+                for widget in widgets:
+                    widget_config = {
+                        'widget_type': widget.widget_type.name,
+                        'title': widget.title,
+                        'position_x': widget.position_x,
+                        'position_y': widget.position_y,
+                        'width': widget.width,
+                        'height': widget.height,
+                        'config': widget.config,
+                        'data_filters': widget.data_filters,
+                        'refresh_interval': widget.refresh_interval
+                    }
+                    layout_config['widgets'].append(widget_config)
+                
+                # Create the custom preset
+                preset = DashboardPreset.objects.create(
+                    name=f"custom_{request.user.id}_{int(timezone.now().timestamp())}",
+                    display_name=template_name,
+                    description=template_description or f"Custom template created by {request.user.get_full_name() or request.user.username}",
+                    category='custom',
+                    layout_config=layout_config,
+                    created_by=request.user,
+                    customer=customer if not is_public else None,
+                    is_system=False,
+                    is_public=is_public,
+                    is_featured=False,
+                    usage_count=0
+                )
+                
+                # Track template creation
+                DashboardAnalytics.objects.create(
+                    layout=layout,
+                    event_type='template_save',
+                    metadata={
+                        'template_name': template_name,
+                        'widget_count': len(layout_config['widgets']),
+                        'is_public': is_public
+                    },
+                    session_id=request.session.session_key,
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')
+                )
+                
+                return JsonResponse({
+                    'message': 'Template saved successfully',
+                    'template_id': preset.id,
+                    'template_name': preset.display_name
+                })
+                
+        except Customer.DoesNotExist:
+            return JsonResponse({'error': 'Customer not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)

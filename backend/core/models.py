@@ -607,6 +607,11 @@ class DashboardPreset(models.Model):
     usage_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Custom template fields
+    created_by = models.ForeignKey('auth.User', on_delete=models.CASCADE, null=True, blank=True)
+    customer = models.ForeignKey('customers.Customer', on_delete=models.CASCADE, null=True, blank=True)
+    is_public = models.BooleanField(default=False)  # If true, available to all users
 
     class Meta:
         ordering = ['-is_featured', '-usage_count', 'display_name']

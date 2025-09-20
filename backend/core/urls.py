@@ -32,7 +32,8 @@ from .views import (
 # Import new dashboard views
 from .dashboard_views import (
     DashboardLayoutView, DashboardWidgetView, widget_types_view,
-    dashboard_themes_view, dashboard_presets_view
+    dashboard_themes_view, dashboard_presets_view, DashboardPresetApplyView,
+    DashboardTemplateSaveView
 )
 
 urlpatterns = [
@@ -91,4 +92,6 @@ urlpatterns = [
     # Themes and Presets
     path("dashboard-v2/themes/", dashboard_themes_view, name="dashboard-themes"),
     path("dashboard-v2/presets/", dashboard_presets_view, name="dashboard-presets"),
+    path("dashboard-v2/presets/apply/", DashboardPresetApplyView.as_view(), name="dashboard-preset-apply"),
+    path("dashboard-v2/templates/save/", DashboardTemplateSaveView.as_view(), name="dashboard-template-save"),
 ]
