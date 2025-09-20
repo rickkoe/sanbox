@@ -608,49 +608,226 @@ const renderWidget = (widget) => {
 };
 ```
 
-#### 2. Creating Custom Themes
+#### 2. Theme Customization System
 
-**Step 1: Define Theme Variables**
+Sanbox features a comprehensive theme system that applies consistently across the entire application (navbar, sidebar, and dashboard). All theme customization is managed through a **centralized configuration file**.
+
+##### 🚀 Quick Start - Theme Customization
+
+**📍 Central File**: `frontend/src/styles/themes.css` - **Edit this file to customize all themes**
+
+**🎯 Common Customizations**:
 ```css
-/* frontend/src/components/dashboard/themes/custom-theme.css */
-.theme-custom {
-  /* Primary colors */
-  --primary-color: #6366f1;
-  --secondary-color: #8b5cf6;
-  --accent-color: #06b6d4;
+/* To fix hard-to-read text, adjust these in any theme: */
+--primary-text: #000000;     /* Main text - make darker for better contrast */
+--secondary-text: #333333;   /* Secondary text */
+--link-text: #0066cc;        /* Links and buttons */
+
+/* To change background colors: */
+--primary-bg: #ffffff;       /* Main background */
+--secondary-bg: #f5f5f5;     /* Cards and panels */
+
+/* To adjust button appearance: */
+--button-bg: #f0f0f0;        /* Button background */
+--button-hover: #0066cc;     /* Button hover color */
+```
+
+**📍 Central Theme Configuration File: `frontend/src/styles/themes.css`**
+
+This is the **single location** where all theme colors and variables are defined. Modifying this file automatically updates themes across the entire application.
+
+##### Available Themes
+
+1. **Modern** - Clean and contemporary light theme
+2. **Dark** - Dark mode with neon accents  
+3. **Minimal** - Simple and elegant design
+4. **Corporate** - Professional blue business theme
+5. **Colorful** - Vibrant animated gradients
+
+##### Theme Management
+
+**🎨 Theme Selection**: Themes can be changed from the navbar theme dropdown (🎨 icon) and apply instantly to the entire application.
+
+**💾 Theme Persistence**: Selected themes are automatically saved and synchronized across browser tabs.
+
+##### Customizing Existing Themes
+
+**Step 1: Open the Theme Configuration File**
+```bash
+# Edit the central theme file
+nano frontend/src/styles/themes.css
+```
+
+**Step 2: Modify Theme Variables**
+Each theme is defined as a CSS class with custom properties. For example, to customize the Modern theme:
+
+```css
+/* Find this section in themes.css */
+.theme-modern {
+  /* Background Colors - Change these to customize */
+  --primary-bg: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  --secondary-bg: rgba(255, 255, 255, 0.8);
+  --accent-bg: rgba(255, 255, 255, 0.95);
   
-  /* Background colors */
-  --dashboard-bg: #f1f5f9;
-  --card-bg: #ffffff;
-  --sidebar-bg: #1e293b;
+  /* Text Colors - Adjust for readability */
+  --primary-text: #2d3748;        /* Main text color */
+  --secondary-text: #4a5568;      /* Secondary text */
+  --muted-text: #718096;          /* Muted/disabled text */
+  --link-text: #667eea;           /* Links and accents */
+  --link-hover: #5a67d8;          /* Link hover state */
   
-  /* Text colors */
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
+  /* Interactive Colors - Button and form styling */
+  --button-bg: rgba(255, 255, 255, 0.8);
+  --button-hover: #667eea;
+  --button-active: #5a67d8;
+  --button-border: rgba(0, 0, 0, 0.1);
   
-  /* Border and shadow */
-  --border-color: #e2e8f0;
-  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* Status Colors - Alerts and notifications */
+  --success-color: #48bb78;       /* Success messages */
+  --error-color: #f56565;         /* Error messages */
+  --warning-color: #ed8936;       /* Warning messages */
+  --info-color: #4299e1;          /* Info messages */
 }
 ```
 
-**Step 2: Add Theme to Database**
-```python
-# Add to setup_dashboard.py
-themes = [
-    {
-        'name': 'custom',
-        'display_name': 'Custom Corporate',
-        'description': 'Custom corporate branding theme',
-        'css_variables': {
-            'primary_color': '#6366f1',
-            'secondary_color': '#8b5cf6',
-            'dashboard_bg': '#f1f5f9'
-        }
-    }
-]
+**Step 3: Save and Test**
+Changes are applied immediately after saving. No build or restart required.
+
+##### Creating a New Custom Theme
+
+**Step 1: Add New Theme Class**
+Add a new theme class to `frontend/src/styles/themes.css`:
+
+```css
+/* Custom Corporate Branding Theme */
+.theme-corporate-custom {
+  /* Background Colors */
+  --primary-bg: linear-gradient(135deg, #1a365d 0%, #2a4365 100%);
+  --secondary-bg: rgba(255, 255, 255, 0.1);
+  --accent-bg: rgba(255, 255, 255, 0.15);
+  
+  /* Text Colors */
+  --primary-text: #ffffff;
+  --secondary-text: #e2e8f0;
+  --muted-text: #cbd5e0;
+  --link-text: #90cdf4;
+  --link-hover: #bfdbfe;
+  
+  /* Interactive Colors */
+  --button-bg: rgba(255, 255, 255, 0.1);
+  --button-hover: #90cdf4;
+  --button-active: #bfdbfe;
+  --button-border: rgba(255, 255, 255, 0.2);
+  
+  /* Status Colors */
+  --success-color: #68d391;
+  --error-color: #fc8181;
+  --warning-color: #f6ad55;
+  --info-color: #90cdf4;
+  
+  /* Component Specific Variables */
+  --navbar-bg: var(--primary-bg);
+  --navbar-text: var(--primary-text);
+  --navbar-text-hover: var(--link-text);
+  --navbar-border: var(--button-border);
+  --navbar-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --navbar-button-bg: var(--button-bg);
+  --navbar-button-hover: var(--button-hover);
+  --navbar-brand-color: var(--primary-text);
+  
+  --sidebar-bg: var(--primary-bg);
+  --sidebar-text: var(--primary-text);
+  --sidebar-text-hover: var(--link-text);
+  --sidebar-border: var(--button-border);
+  --sidebar-shadow: 8px 0 24px rgba(0, 0, 0, 0.15);
+  --sidebar-button-bg: var(--button-bg);
+  --sidebar-button-hover: var(--button-hover);
+  --sidebar-header-color: var(--primary-text);
+  --sidebar-active-bg: rgba(144, 205, 244, 0.1);
+  --sidebar-active-border: var(--link-text);
+}
 ```
+
+**Step 2: Add Theme to Dropdown Options**
+Update `frontend/src/components/navigation/ThemeDropdown.js`:
+
+```javascript
+const themes = [
+  { name: 'modern', display: 'Modern', description: 'Clean and contemporary' },
+  { name: 'dark', display: 'Dark', description: 'Dark mode with neon accents' },
+  { name: 'minimal', display: 'Minimal', description: 'Simple and elegant' },
+  { name: 'corporate', display: 'Corporate', description: 'Professional blue theme' },
+  { name: 'colorful', display: 'Colorful', description: 'Vibrant animated gradients' },
+  // Add your custom theme
+  { name: 'corporate-custom', display: 'Custom Corporate', description: 'Your custom corporate theme' }
+];
+```
+
+**Step 3: Add Theme Preview**
+Add preview styling to `frontend/src/components/navigation/ThemeDropdown.css`:
+
+```css
+.theme-preview-corporate-custom {
+  background: linear-gradient(135deg, #1a365d 0%, #2a4365 100%);
+}
+```
+
+##### Theme Variable Reference
+
+**Essential Variables for Readability:**
+- `--primary-text`: Main text color (ensure good contrast)
+- `--secondary-text`: Secondary text color
+- `--muted-text`: Disabled/muted text
+- `--link-text`: Links and interactive elements
+- `--button-bg`: Button background
+- `--button-hover`: Button hover state
+
+**Background Variables:**
+- `--primary-bg`: Main background (gradients supported)
+- `--secondary-bg`: Secondary panels/cards
+- `--accent-bg`: Highlighted areas
+
+**Component-Specific Variables:**
+- `--navbar-*`: Navbar styling
+- `--sidebar-*`: Sidebar styling  
+- All variables inherit from base theme variables
+
+##### Accessibility Considerations
+
+The theme system includes built-in accessibility features:
+
+```css
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .theme-custom {
+    --button-border: #000000;
+    --primary-text: #000000;
+    --link-text: #0000ff;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .theme-custom * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+```
+
+##### Troubleshooting Theme Issues
+
+**Problem**: Text is hard to read
+**Solution**: Adjust `--primary-text` and `--secondary-text` for better contrast
+
+**Problem**: Buttons don't look right  
+**Solution**: Update `--button-bg`, `--button-hover`, and `--button-border`
+
+**Problem**: Theme not applying consistently
+**Solution**: Ensure all component variables (`--navbar-*`, `--sidebar-*`) reference base variables
+
+**Problem**: Colors clash
+**Solution**: Use a color palette tool to ensure harmonious color relationships
 
 #### 3. Dashboard Preset Creation
 

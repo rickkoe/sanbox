@@ -1,0 +1,359 @@
+/* ========== SANBOX THEME SYSTEM ========== */
+/* 
+ * Central theme configuration for the entire application.
+ * Modify these variables to customize themes across navbar, sidebar, and dashboard.
+ * 
+ * To customize:
+ * 1. Find the theme you want to modify (e.g., .theme-modern)
+ * 2. Update the CSS custom properties (variables starting with --)
+ * 3. Changes will apply automatically to navbar, sidebar, and dashboard
+ */
+
+/* ========== BASE THEME VARIABLES ========== */
+:root {
+  /* Common variables used across all themes */
+  --transition-speed: 0.3s;
+  --border-radius: 12px;
+  --shadow-light: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 8px 25px rgba(0, 0, 0, 0.15);
+  --shadow-heavy: 0 12px 40px rgba(0, 0, 0, 0.2);
+  --backdrop-blur: blur(20px);
+}
+
+/* ========== MODERN THEME ========== */
+.theme-modern {
+  /* Background Colors */
+  --primary-bg: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  --secondary-bg: rgba(255, 255, 255, 0.8);
+  --accent-bg: rgba(255, 255, 255, 0.95);
+  
+  /* Text Colors */
+  --primary-text: #2d3748;
+  --secondary-text: #4a5568;
+  --muted-text: #718096;
+  --link-text: #667eea;
+  --link-hover: #5a67d8;
+  
+  /* Interactive Colors */
+  --button-bg: rgba(255, 255, 255, 0.8);
+  --button-hover: #667eea;
+  --button-active: #5a67d8;
+  --button-border: rgba(0, 0, 0, 0.1);
+  
+  /* Status Colors */
+  --success-color: #48bb78;
+  --error-color: #f56565;
+  --warning-color: #ed8936;
+  --info-color: #4299e1;
+  
+  /* Component Specific */
+  --navbar-bg: var(--primary-bg);
+  --navbar-text: var(--primary-text);
+  --navbar-text-hover: var(--link-text);
+  --navbar-border: var(--button-border);
+  --navbar-shadow: var(--shadow-light);
+  --navbar-button-bg: var(--button-bg);
+  --navbar-button-hover: var(--button-hover);
+  --navbar-brand-color: var(--link-text);
+  
+  --sidebar-bg: var(--primary-bg);
+  --sidebar-text: var(--primary-text);
+  --sidebar-text-hover: var(--link-text);
+  --sidebar-border: var(--button-border);
+  --sidebar-shadow: var(--shadow-medium);
+  --sidebar-button-bg: var(--button-bg);
+  --sidebar-button-hover: var(--button-hover);
+  --sidebar-header-color: var(--link-text);
+  --sidebar-active-bg: rgba(102, 126, 234, 0.1);
+  --sidebar-active-border: var(--link-text);
+}
+
+/* ========== DARK THEME ========== */
+.theme-dark {
+  /* Background Colors */
+  --primary-bg: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+  --secondary-bg: rgba(30, 30, 60, 0.8);
+  --accent-bg: rgba(40, 40, 80, 0.95);
+  
+  /* Text Colors */
+  --primary-text: #e2e8f0;
+  --secondary-text: #cbd5e0;
+  --muted-text: #a0aec0;
+  --link-text: #64ffda;
+  --link-hover: #4fd1c7;
+  
+  /* Interactive Colors */
+  --button-bg: rgba(30, 30, 60, 0.8);
+  --button-hover: #64ffda;
+  --button-active: #4fd1c7;
+  --button-border: rgba(255, 255, 255, 0.1);
+  
+  /* Status Colors */
+  --success-color: #68d391;
+  --error-color: #fc8181;
+  --warning-color: #f6ad55;
+  --info-color: #63b3ed;
+  
+  /* Component Specific */
+  --navbar-bg: var(--primary-bg);
+  --navbar-text: var(--primary-text);
+  --navbar-text-hover: var(--link-text);
+  --navbar-border: var(--button-border);
+  --navbar-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --navbar-button-bg: var(--button-bg);
+  --navbar-button-hover: var(--button-hover);
+  --navbar-brand-color: var(--link-text);
+  
+  --sidebar-bg: var(--primary-bg);
+  --sidebar-text: var(--primary-text);
+  --sidebar-text-hover: var(--link-text);
+  --sidebar-border: var(--button-border);
+  --sidebar-shadow: 8px 0 32px rgba(0, 0, 0, 0.3);
+  --sidebar-button-bg: var(--button-bg);
+  --sidebar-button-hover: var(--button-hover);
+  --sidebar-header-color: var(--link-text);
+  --sidebar-active-bg: rgba(100, 255, 218, 0.1);
+  --sidebar-active-border: var(--link-text);
+}
+
+/* ========== MINIMAL THEME ========== */
+.theme-minimal {
+  /* Background Colors */
+  --primary-bg: #ffffff;
+  --secondary-bg: #f9fafb;
+  --accent-bg: #ffffff;
+  
+  /* Text Colors */
+  --primary-text: #1f2937;
+  --secondary-text: #374151;
+  --muted-text: #6b7280;
+  --link-text: #2563eb;
+  --link-hover: #1d4ed8;
+  
+  /* Interactive Colors */
+  --button-bg: #f9fafb;
+  --button-hover: #2563eb;
+  --button-active: #1d4ed8;
+  --button-border: #e5e7eb;
+  
+  /* Status Colors */
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
+  --info-color: #3b82f6;
+  
+  /* Component Specific */
+  --navbar-bg: var(--primary-bg);
+  --navbar-text: var(--primary-text);
+  --navbar-text-hover: var(--link-text);
+  --navbar-border: var(--button-border);
+  --navbar-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --navbar-button-bg: var(--button-bg);
+  --navbar-button-hover: var(--button-hover);
+  --navbar-brand-color: var(--link-text);
+  
+  --sidebar-bg: var(--primary-bg);
+  --sidebar-text: var(--primary-text);
+  --sidebar-text-hover: var(--link-text);
+  --sidebar-border: var(--button-border);
+  --sidebar-shadow: 8px 0 16px rgba(0, 0, 0, 0.05);
+  --sidebar-button-bg: var(--button-bg);
+  --sidebar-button-hover: var(--button-hover);
+  --sidebar-header-color: var(--link-text);
+  --sidebar-active-bg: rgba(37, 99, 235, 0.1);
+  --sidebar-active-border: var(--link-text);
+}
+
+/* ========== CORPORATE THEME ========== */
+.theme-corporate {
+  /* Background Colors */
+  --primary-bg: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  --secondary-bg: rgba(255, 255, 255, 0.1);
+  --accent-bg: rgba(255, 255, 255, 0.15);
+  
+  /* Text Colors */
+  --primary-text: #ffffff;
+  --secondary-text: #e2e8f0;
+  --muted-text: #cbd5e0;
+  --link-text: #bfdbfe;
+  --link-hover: #dbeafe;
+  
+  /* Interactive Colors */
+  --button-bg: rgba(255, 255, 255, 0.1);
+  --button-hover: #bfdbfe;
+  --button-active: #dbeafe;
+  --button-border: rgba(255, 255, 255, 0.2);
+  
+  /* Status Colors */
+  --success-color: #68d391;
+  --error-color: #fc8181;
+  --warning-color: #f6ad55;
+  --info-color: #90cdf4;
+  
+  /* Component Specific */
+  --navbar-bg: var(--primary-bg);
+  --navbar-text: var(--primary-text);
+  --navbar-text-hover: var(--link-text);
+  --navbar-border: var(--button-border);
+  --navbar-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --navbar-button-bg: var(--button-bg);
+  --navbar-button-hover: var(--button-hover);
+  --navbar-brand-color: var(--primary-text);
+  
+  --sidebar-bg: var(--primary-bg);
+  --sidebar-text: var(--primary-text);
+  --sidebar-text-hover: var(--link-text);
+  --sidebar-border: var(--button-border);
+  --sidebar-shadow: 8px 0 24px rgba(0, 0, 0, 0.15);
+  --sidebar-button-bg: var(--button-bg);
+  --sidebar-button-hover: var(--button-hover);
+  --sidebar-header-color: var(--primary-text);
+  --sidebar-active-bg: rgba(191, 219, 254, 0.1);
+  --sidebar-active-border: var(--link-text);
+}
+
+/* ========== COLORFUL THEME ========== */
+.theme-colorful {
+  /* Background Colors - Animated gradients */
+  --primary-bg: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+  --secondary-bg: rgba(255, 255, 255, 0.2);
+  --accent-bg: rgba(255, 255, 255, 0.3);
+  
+  /* Text Colors */
+  --primary-text: #2d3436;
+  --secondary-text: #636e72;
+  --muted-text: #74b9ff;
+  --link-text: #e17055;
+  --link-hover: #d63031;
+  
+  /* Interactive Colors */
+  --button-bg: rgba(255, 255, 255, 0.2);
+  --button-hover: #e17055;
+  --button-active: #d63031;
+  --button-border: rgba(255, 255, 255, 0.3);
+  
+  /* Status Colors */
+  --success-color: #00b894;
+  --error-color: #e84393;
+  --warning-color: #fdcb6e;
+  --info-color: #6c5ce7;
+  
+  /* Component Specific */
+  --navbar-bg: var(--primary-bg);
+  --navbar-text: var(--primary-text);
+  --navbar-text-hover: var(--link-text);
+  --navbar-border: var(--button-border);
+  --navbar-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --navbar-button-bg: var(--button-bg);
+  --navbar-button-hover: var(--button-hover);
+  --navbar-brand-color: var(--primary-text);
+  
+  --sidebar-bg: var(--primary-bg);
+  --sidebar-text: var(--primary-text);
+  --sidebar-text-hover: var(--link-text);
+  --sidebar-border: var(--button-border);
+  --sidebar-shadow: 8px 0 32px rgba(0, 0, 0, 0.2);
+  --sidebar-button-bg: var(--button-bg);
+  --sidebar-button-hover: var(--button-hover);
+  --sidebar-header-color: var(--primary-text);
+  --sidebar-active-bg: rgba(225, 112, 85, 0.1);
+  --sidebar-active-border: var(--link-text);
+}
+
+/* ========== COLORFUL THEME ANIMATIONS ========== */
+.theme-colorful .navbar,
+.theme-colorful .modern-sidebar,
+.theme-colorful .customizable-dashboard {
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ========== ACCESSIBILITY IMPROVEMENTS ========== */
+/* Ensure sufficient contrast for text readability */
+.theme-dark .muted-text,
+.theme-colorful .muted-text {
+  opacity: 0.8;
+}
+
+.theme-minimal .muted-text {
+  opacity: 0.7;
+}
+
+/* Focus states for accessibility */
+.theme-modern *:focus,
+.theme-minimal *:focus {
+  outline: 2px solid var(--link-text);
+  outline-offset: 2px;
+}
+
+.theme-dark *:focus,
+.theme-corporate *:focus,
+.theme-colorful *:focus {
+  outline: 2px solid var(--link-text);
+  outline-offset: 2px;
+}
+
+/* ========== PRINT STYLES ========== */
+@media print {
+  .theme-modern,
+  .theme-dark,
+  .theme-minimal,
+  .theme-corporate,
+  .theme-colorful {
+    --primary-bg: #ffffff !important;
+    --secondary-bg: #f9f9f9 !important;
+    --primary-text: #000000 !important;
+    --secondary-text: #333333 !important;
+    --navbar-bg: #ffffff !important;
+    --sidebar-bg: #ffffff !important;
+    background: white !important;
+    color: black !important;
+  }
+}
+
+/* ========== RESPONSIVE ADJUSTMENTS ========== */
+@media (max-width: 768px) {
+  .theme-colorful {
+    /* Reduce animation intensity on mobile for performance */
+    animation-duration: 20s;
+  }
+}
+
+/* ========== HIGH CONTRAST MODE ========== */
+@media (prefers-contrast: high) {
+  .theme-modern,
+  .theme-minimal {
+    --button-border: #000000;
+    --primary-text: #000000;
+    --link-text: #0000ff;
+  }
+  
+  .theme-dark,
+  .theme-corporate,
+  .theme-colorful {
+    --button-border: #ffffff;
+    --primary-text: #ffffff;
+    --link-text: #00ffff;
+  }
+}
+
+/* ========== REDUCED MOTION ========== */
+@media (prefers-reduced-motion: reduce) {
+  .theme-colorful .navbar,
+  .theme-colorful .modern-sidebar,
+  .theme-colorful .customizable-dashboard {
+    animation: none;
+    background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
+  }
+  
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

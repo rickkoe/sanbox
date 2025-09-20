@@ -1,12 +1,11 @@
 import React from 'react';
 import { 
-  FaPlus, FaPalette, FaLayerGroup, FaCog, FaTrash, 
+  FaPlus, FaLayerGroup, FaCog, FaTrash, 
   FaClone, FaEye, FaEyeSlash, FaDownload, FaUpload 
 } from 'react-icons/fa';
 
 export const DashboardToolbar = ({ 
   onAddWidget, 
-  onChangeTheme, 
   onLoadPreset,
   selectedWidget,
   onWidgetConfig 
@@ -23,12 +22,6 @@ export const DashboardToolbar = ({
         </button>
       </div>
 
-      <div className="toolbar-section">
-        <h3>Appearance</h3>
-        <button className="toolbar-btn" onClick={onChangeTheme}>
-          <FaPalette /> Change Theme
-        </button>
-      </div>
 
       {selectedWidget && (
         <div className="toolbar-section">

@@ -4,15 +4,15 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import axios from 'axios';
 import { 
   FaPlus, FaCog, FaGripVertical, FaTimes, FaExpand, FaCompress,
-  FaPalette, FaDownload, FaUpload, FaRedo, FaEye, FaEyeSlash,
+  FaDownload, FaUpload, FaRedo, FaEye, FaEyeSlash,
   FaLayerGroup, FaStore, FaWrench, FaChartLine, FaDatabase,
   FaNetworkWired, FaServer, FaUsers, FaHdd, FaSearch,
   FaBars, FaTh, FaThLarge, FaGlobe, FaExclamationTriangle,
 } from 'react-icons/fa';
 import { ConfigContext } from '../context/ConfigContext';
+import { useTheme } from '../context/ThemeContext';
 import { useCustomDashboard } from '../hooks/useCustomDashboard';
 import { WidgetMarketplace } from '../components/dashboard/WidgetMarketplace';
-import { ThemeSelector } from '../components/dashboard/ThemeSelector';
 import { DashboardPresets } from '../components/dashboard/DashboardPresets';
 import { SaveTemplateModal } from '../components/dashboard/SaveTemplateModal';
 import { GridLayoutRenderer } from '../components/dashboard/GridLayoutRenderer';
@@ -21,6 +21,7 @@ import './CustomizableDashboard.css';
 
 const CustomizableDashboard = () => {
   const { config } = useContext(ConfigContext);
+  const { updateTheme, registerDashboardUpdate, unregisterDashboardUpdate } = useTheme();
   const {
     dashboard,
     loading,
@@ -35,11 +36,40 @@ const CustomizableDashboard = () => {
 
   const [editMode, setEditMode] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
-  const [showThemes, setShowThemes] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [selectedWidget, setSelectedWidget] = useState(null);
   const [dashboardView, setDashboardView] = useState('grid'); // grid, list, cards
+
+  // Register dashboard theme update function
+  useEffect(() => {
+    const handleDashboardThemeUpdate = async (themeName) => {
+      if (!config?.customer?.id) return;
+      
+      try {
+        await updateLayout({
+          theme: themeName,
+          customer_id: config.customer.id
+        });
+      } catch (error) {
+        console.error('Failed to update dashboard theme:', error);
+        throw error;
+      }
+    };
+
+    registerDashboardUpdate(handleDashboardThemeUpdate);
+    
+    return () => {
+      unregisterDashboardUpdate();
+    };
+  }, [registerDashboardUpdate, unregisterDashboardUpdate, updateLayout, config?.customer?.id]);
+
+  // Sync theme context with dashboard theme
+  useEffect(() => {
+    if (dashboard?.layout?.theme) {
+      updateTheme(dashboard.layout.theme);
+    }
+  }, [dashboard?.layout?.theme, updateTheme]);
 
   // Auto-refresh functionality
   useEffect(() => {
@@ -70,17 +100,6 @@ const CustomizableDashboard = () => {
     }
   }, [addWidget]);
 
-  const handleThemeChange = useCallback(async (theme) => {
-    try {
-      await updateLayout({
-        theme: theme.name,
-        customer_id: config?.customer?.id
-      });
-      setShowThemes(false);
-    } catch (error) {
-      console.error('Failed to update theme:', error);
-    }
-  }, [updateLayout, config?.customer?.id]);
 
   const handlePresetApply = useCallback(async (preset) => {
     try {
@@ -141,7 +160,6 @@ const CustomizableDashboard = () => {
           editMode={editMode}
           onEditModeToggle={() => setEditMode(!editMode)}
           onShowMarketplace={() => setShowMarketplace(true)}
-          onShowThemes={() => setShowThemes(true)}
           onShowPresets={() => setShowPresets(true)}
           onShowSaveTemplate={() => setShowSaveTemplate(true)}
           onRefresh={refreshDashboard}
@@ -153,7 +171,6 @@ const CustomizableDashboard = () => {
         {editMode && (
           <DashboardToolbar
             onAddWidget={() => setShowMarketplace(true)}
-            onChangeTheme={() => setShowThemes(true)}
             onLoadPreset={() => setShowPresets(true)}
             selectedWidget={selectedWidget}
             onWidgetConfig={setSelectedWidget}
@@ -192,13 +209,6 @@ const CustomizableDashboard = () => {
           />
         )}
 
-        {showThemes && (
-          <ThemeSelector
-            currentTheme={dashboard?.layout?.theme}
-            onThemeSelect={handleThemeChange}
-            onClose={() => setShowThemes(false)}
-          />
-        )}
 
         {showPresets && (
           <DashboardPresets
@@ -229,7 +239,6 @@ const DashboardHeader = ({
   editMode, 
   onEditModeToggle, 
   onShowMarketplace, 
-  onShowThemes, 
   onShowPresets,
   onShowSaveTemplate,
   onRefresh,
@@ -284,9 +293,6 @@ const DashboardHeader = ({
             <FaRedo />
           </button>
 
-          <button className="action-btn" onClick={onShowThemes} title="Themes">
-            <FaPalette />
-          </button>
 
           <button className="action-btn" onClick={onShowPresets} title="Templates">
             <FaLayerGroup />
@@ -329,9 +335,6 @@ const DashboardFooter = ({ layout, widgetCount }) => (
       </span>
       <span className="stat-item">
         <FaRedo /> {layout?.refresh_interval || 30}s refresh
-      </span>
-      <span className="stat-item">
-        <FaPalette /> {layout?.theme || 'modern'} theme
       </span>
     </div>
     <div className="footer-tip">

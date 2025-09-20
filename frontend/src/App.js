@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 
 // Custom Styles
 import "./App.css";
+import "./styles/themes.css";
 import "./styles/navbar.css";
 import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
@@ -30,6 +31,7 @@ import { ConfigProvider } from "./context/ConfigContext";
 import { ImportStatusProvider } from "./context/ImportStatusContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { TableControlsProvider } from "./context/TableControlsContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 // Lazy-loaded components for better performance
 const SanPage = React.lazy(() => import("./pages/SanPage"));
@@ -118,10 +120,11 @@ function AppContent() {
 
   return (
     <ConfigProvider>
-      <SanVendorProvider>
-        <ImportStatusProvider>
-          <SettingsProvider>
-            <TableControlsProvider>
+      <ThemeProvider>
+        <SanVendorProvider>
+          <ImportStatusProvider>
+            <SettingsProvider>
+              <TableControlsProvider>
               <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
               <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
                 <header className="navbar">
@@ -197,11 +200,12 @@ function AppContent() {
                 </Suspense>
               </main>
             </div>
-            </BreadcrumbContext.Provider>
-            </TableControlsProvider>
-          </SettingsProvider>
-        </ImportStatusProvider>
-      </SanVendorProvider>
+              </BreadcrumbContext.Provider>
+              </TableControlsProvider>
+            </SettingsProvider>
+          </ImportStatusProvider>
+        </SanVendorProvider>
+      </ThemeProvider>
     </ConfigProvider>
   );
 }

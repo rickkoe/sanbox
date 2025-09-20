@@ -1,7 +1,10 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useContext } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import PropTypes from "prop-types";
+import "./Sidebar.css";
 import { useSidebarConfig } from "../../hooks/useSidebarConfig";
+import { ConfigContext } from "../../context/ConfigContext";
+import { useTheme } from "../../context/ThemeContext";
 import SidebarHeader from "./SidebarHeader";
 import SidebarBackButton from "./SidebarBackButton";
 import SidebarNavigation from "./SidebarNavigation";
@@ -9,6 +12,8 @@ import SidebarNavigation from "./SidebarNavigation";
 const Sidebar = ({ isCollapsed, onCollapseChange }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { config } = useContext(ConfigContext);
+  const { theme } = useTheme();
   const { icon, links, showBackButton, backPath, dynamicHeader } = useSidebarConfig();
 
   const handleToggle = useCallback(() => {
@@ -28,7 +33,7 @@ const Sidebar = ({ isCollapsed, onCollapseChange }) => {
   }, [backPath, location.pathname, navigate]);
 
   return (
-    <div className={`modern-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+    <div className={`modern-sidebar theme-${theme} ${isCollapsed ? 'collapsed' : ''}`}>
       
       <SidebarHeader 
         icon={icon} 

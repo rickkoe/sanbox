@@ -1,0 +1,74 @@
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+
+const ThemeContext = createContext();
+
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+};
+
+export const ThemeProvider = ({ children }) => {
+  const [theme, setTheme] = useState(() => {
+    // Try to get theme from localStorage first
+    const savedTheme = localStorage.getItem('dashboard-theme');
+    return savedTheme || 'modern';
+  });
+
+  // Store dashboard update function
+  const dashboardUpdateRef = useRef(null);
+
+  const updateTheme = async (newTheme) => {
+    // Update theme immediately for UI responsiveness
+    setTheme(newTheme);
+    localStorage.setItem('dashboard-theme', newTheme);
+
+    // If dashboard update function is registered, call it
+    if (dashboardUpdateRef.current) {
+      try {
+        await dashboardUpdateRef.current(newTheme);
+      } catch (error) {
+        console.error('Failed to update dashboard theme:', error);
+        // Don't throw error to prevent UI issues
+      }
+    }
+    
+    // Always resolve successfully for UI updates
+    return Promise.resolve();
+  };
+
+  const registerDashboardUpdate = (updateFunction) => {
+    dashboardUpdateRef.current = updateFunction;
+  };
+
+  const unregisterDashboardUpdate = () => {
+    dashboardUpdateRef.current = null;
+  };
+
+  // Listen for theme changes from other tabs/windows
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'dashboard-theme' && e.newValue) {
+        setTheme(e.newValue);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  return (
+    <ThemeContext.Provider value={{ 
+      theme, 
+      updateTheme, 
+      registerDashboardUpdate, 
+      unregisterDashboardUpdate 
+    }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
+
+export default ThemeContext;
