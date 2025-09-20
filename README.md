@@ -28,6 +28,7 @@ Sanbox is a full-stack Django + React application designed for enterprise storag
 - **Capacity Planning**: Storage calculators and capacity analysis tools
 - **Script Generation**: Automated script generation for storage operations
 - **Custom Naming**: Flexible naming conventions with variable substitution
+- **Customizable Dashboards**: Drag-and-drop dashboard builder with custom templates
 
 ### Technology Stack
 
@@ -174,6 +175,11 @@ sanbox/
 - **Multiple View Modes**: Grid, list, and card views for optimal organization
 - **Theme System**: Professional themes with CSS variable customization
 - **Dashboard Presets**: Pre-configured templates for quick setup
+- **Custom Templates**: Save and share personalized dashboard layouts
+  - Save current dashboard as custom template
+  - Public/private template sharing
+  - Template preview with visual layout representation
+  - Theme inheritance (templates preserve user's chosen theme)
 - **Real-time Data**: Auto-refreshing widgets with configurable intervals
 - **User Personalization**: Per-user dashboard configurations and preferences
 - **Analytics Tracking**: Usage metrics and dashboard performance monitoring
@@ -866,11 +872,76 @@ WidgetType.objects.create(
 - Implement proper permissions for dashboard access
 - Rate limit API calls from widgets
 
+### Custom Dashboard Templates
+
+The dashboard system supports saving and sharing custom templates, allowing users to preserve and distribute personalized dashboard layouts.
+
+#### Creating Custom Templates
+
+1. **Configure Your Dashboard**:
+   ```bash
+   # Arrange widgets in your preferred layout
+   # Set widget sizes and positions
+   # Configure widget settings
+   ```
+
+2. **Save as Template**:
+   - Click the "Save as Template" button (📥 icon) in dashboard header
+   - Enter template name and description
+   - Choose public/private sharing option
+   - Save template
+
+3. **Template Features**:
+   - **Theme Inheritance**: Templates preserve user's selected theme
+   - **Widget Configuration**: All widget settings and positions are saved
+   - **Sharing Options**: Make templates public for organization-wide access
+   - **Creator Attribution**: Templates show who created them
+
+#### Applying Templates
+
+1. **Browse Templates**:
+   - Click "Templates" button (📚 icon) in dashboard header
+   - View system templates and custom templates
+   - Custom templates display green "Custom" badge
+
+2. **Preview Templates**:
+   - Click "Preview" to see template layout
+   - View widget arrangement and configuration
+   - Check compatibility with current theme
+
+3. **Apply Templates**:
+   - Click "Apply Template" to use selected layout
+   - Current dashboard is replaced with template configuration
+   - User's theme preference is preserved
+
+#### Template Management
+
+**Database Models**:
+```python
+class DashboardPreset(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    display_name = models.CharField(max_length=200)
+    description = models.TextField()
+    category = models.CharField(max_length=50)
+    layout_config = models.JSONField()  # Complete dashboard configuration
+    is_system = models.BooleanField(default=True)
+    is_public = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True)
+```
+
+**API Endpoints**:
+```bash
+GET  /api/core/dashboard-v2/presets/?customer_id=123  # List templates
+POST /api/core/dashboard-v2/templates/save/           # Save custom template
+POST /api/core/dashboard-v2/presets/apply/           # Apply template
+```
+
 ### Future Enhancements
 
 #### 1. Advanced Features
 - **Widget Sharing**: Share widgets between users
-- **Dashboard Templates**: Import/export dashboard configurations
+- **Template Import/Export**: File-based template exchange
 - **Real-time Collaboration**: Multi-user dashboard editing
 - **Custom Data Sources**: Connect to external APIs
 - **Advanced Analytics**: Usage patterns and optimization suggestions
@@ -1006,6 +1077,26 @@ npm run build
 # Run tests
 npm test
 ```
+
+4. **Dashboard Operations**
+```bash
+# Seed system dashboard presets
+python manage.py seed_dashboard_presets
+
+# Seed widget types
+python manage.py seed_dashboard_widgets
+
+# Clear dashboard cache for customer
+curl -X POST http://localhost:8000/api/core/dashboard/cache/clear/ \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": 1, "project_id": 1}'
+```
+
+**Custom Template Usage**:
+- **Save Template**: Dashboard → Save as Template button → Fill form → Save
+- **Apply Template**: Dashboard → Templates button → Select template → Apply
+- **Manage Templates**: Templates are stored in `DashboardPreset` model
+- **Share Templates**: Enable "Make Public" when saving template
 
 ### Production Operations
 
