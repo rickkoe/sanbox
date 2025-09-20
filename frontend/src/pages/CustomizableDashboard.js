@@ -61,7 +61,7 @@ const CustomizableDashboard = () => {
         width: widgetType.default_width,
         height: widgetType.default_height
       });
-      setShowMarketplace(false);
+      // Keep marketplace open after adding a widget
     } catch (error) {
       console.error('Failed to add widget:', error);
     }
@@ -157,6 +157,7 @@ const CustomizableDashboard = () => {
         {showMarketplace && (
           <WidgetMarketplace
             onAddWidget={handleAddWidget}
+            onRemoveWidget={removeWidget}
             onClose={() => setShowMarketplace(false)}
             existingWidgets={dashboard?.widgets || []}
           />
@@ -251,8 +252,9 @@ const DashboardHeader = ({
           </button>
 
           {editMode && (
-            <button className="action-btn" onClick={onShowMarketplace} title="Add Widget">
+            <button className="action-btn" onClick={onShowMarketplace} title="Manage Widgets">
               <FaStore />
+              Manage Widgets
             </button>
           )}
 

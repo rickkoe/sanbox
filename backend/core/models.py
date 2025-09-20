@@ -452,7 +452,7 @@ class CustomVariable(models.Model):
 
 class DashboardLayout(models.Model):
     """User's dashboard layout configuration"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='dashboard_layout')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='dashboard_layouts')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     name = models.CharField(max_length=255, default="My Dashboard")
     theme = models.CharField(max_length=50, default='modern', choices=[

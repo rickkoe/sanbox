@@ -14,9 +14,9 @@ export const DashboardToolbar = ({
   return (
     <div className="dashboard-toolbar">
       <div className="toolbar-section">
-        <h3>Add Content</h3>
+        <h3>Manage Content</h3>
         <button className="toolbar-btn" onClick={onAddWidget}>
-          <FaPlus /> Add Widget
+          <FaPlus /> Manage Widgets
         </button>
         <button className="toolbar-btn" onClick={onLoadPreset}>
           <FaLayerGroup /> Load Template

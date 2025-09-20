@@ -9,7 +9,7 @@ import {
 import axios from 'axios';
 import './WidgetMarketplace.css';
 
-export const WidgetMarketplace = ({ onAddWidget, onClose, existingWidgets = [] }) => {
+export const WidgetMarketplace = ({ onAddWidget, onRemoveWidget, onClose, existingWidgets = [] }) => {
   const [widgetTypes, setWidgetTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,6 +17,8 @@ export const WidgetMarketplace = ({ onAddWidget, onClose, existingWidgets = [] }
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
   const [viewMode, setViewMode] = useState('grid'); // grid, list
+  const [recentlyAdded, setRecentlyAdded] = useState(new Set()); // Track recently added widgets
+  const [previewWidget, setPreviewWidget] = useState(null); // Track which widget is being previewed
 
   // Fetch widget types from API
   useEffect(() => {
@@ -76,23 +78,61 @@ export const WidgetMarketplace = ({ onAddWidget, onClose, existingWidgets = [] }
     });
 
   const handleAddWidget = (widgetType) => {
-    // Find a good position for the new widget
-    const position = findOptimalPosition(existingWidgets, widgetType);
-    onAddWidget(widgetType, position);
+    try {
+      // Find a good position for the new widget
+      const position = findOptimalPosition(existingWidgets, widgetType);
+      onAddWidget(widgetType, position);
+      
+      // Track recently added widget for visual feedback
+      setRecentlyAdded(prev => new Set([...prev, widgetType.name]));
+      
+      // Clear the "recently added" status after 3 seconds
+      setTimeout(() => {
+        setRecentlyAdded(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(widgetType.name);
+          return newSet;
+        });
+      }, 3000);
+    } catch (error) {
+      console.error('WidgetMarketplace: Error in handleAddWidget:', error);
+    }
+  };
+
+  const handleRemoveWidget = (widgetType) => {
+    try {
+      // Find the existing widget of this type
+      const existingWidget = existingWidgets.find(w => w.widget_type.name === widgetType.name);
+      if (existingWidget && onRemoveWidget) {
+        onRemoveWidget(existingWidget.id);
+      }
+    } catch (error) {
+      console.error('WidgetMarketplace: Error in handleRemoveWidget:', error);
+    }
+  };
+
+  const handleWidgetAction = (widgetType, isInstalled) => {
+    if (isInstalled) {
+      handleRemoveWidget(widgetType);
+    } else {
+      handleAddWidget(widgetType);
+    }
   };
 
   if (loading) {
     return (
       <div className="widget-marketplace">
-        <div className="marketplace-header">
-          <h2>Widget Marketplace</h2>
-          <button onClick={onClose} className="close-btn">
-            <FaTimes />
-          </button>
-        </div>
-        <div className="marketplace-loading">
-          <div className="loading-spinner"></div>
-          <p>Loading widgets...</p>
+        <div className="marketplace-content">
+          <div className="marketplace-header">
+            <h2>Widget Manager</h2>
+            <button onClick={onClose} className="close-btn">
+              <FaTimes />
+            </button>
+          </div>
+          <div className="marketplace-loading">
+            <div className="loading-spinner"></div>
+            <p>Loading widgets...</p>
+          </div>
         </div>
       </div>
     );
@@ -101,15 +141,17 @@ export const WidgetMarketplace = ({ onAddWidget, onClose, existingWidgets = [] }
   if (error) {
     return (
       <div className="widget-marketplace">
-        <div className="marketplace-header">
-          <h2>Widget Marketplace</h2>
-          <button onClick={onClose} className="close-btn">
-            <FaTimes />
-          </button>
-        </div>
-        <div className="marketplace-error">
-          <FaExclamationTriangle />
-          <p>{error}</p>
+        <div className="marketplace-content">
+          <div className="marketplace-header">
+            <h2>Widget Manager</h2>
+            <button onClick={onClose} className="close-btn">
+              <FaTimes />
+            </button>
+          </div>
+          <div className="marketplace-error">
+            <FaExclamationTriangle />
+            <p>{error}</p>
+          </div>
         </div>
       </div>
     );
@@ -117,109 +159,129 @@ export const WidgetMarketplace = ({ onAddWidget, onClose, existingWidgets = [] }
 
   return (
     <div className="widget-marketplace">
-      <div className="marketplace-header">
-        <h2>Widget Marketplace</h2>
-        <div className="header-stats">
-          <span>{filteredWidgets.length} widgets available</span>
-        </div>
-        <button onClick={onClose} className="close-btn">
-          <FaTimes />
-        </button>
-      </div>
-
       <div className="marketplace-content">
-        {/* Sidebar Filters */}
-        <div className="marketplace-sidebar">
-          <div className="search-section">
-            <div className="search-box">
-              <FaSearch />
-              <input
-                type="text"
-                placeholder="Search widgets..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+        <div className="marketplace-header">
+          <h2>Widget Manager</h2>
+          <div className="header-stats">
+            <span>{filteredWidgets.length} widgets available</span>
+          </div>
+          <button onClick={onClose} className="close-btn">
+            <FaTimes />
+          </button>
+        </div>
+        
+        {/* Main Content */}
+        <div className="marketplace-body">
+          {/* Sidebar Filters */}
+          <div className="marketplace-sidebar">
+            <div className="search-section">
+              <div className="search-box">
+                <FaSearch />
+                <input
+                  type="text"
+                  placeholder="Search widgets..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="filter-section">
+              <h3><FaFilter /> Categories</h3>
+              <div className="category-list">
+                {categories.map(category => (
+                  <button
+                    key={category.key}
+                    className={`category-item ${selectedCategory === category.key ? 'active' : ''}`}
+                    onClick={() => setSelectedCategory(category.key)}
+                  >
+                    {category.icon && <category.icon />}
+                    <span>{category.label}</span>
+                    <span className="count">{category.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="sort-section">
+              <h3><FaSort /> Sort By</h3>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="popular">Most Popular</option>
+                <option value="name">Name</option>
+                <option value="category">Category</option>
+                <option value="newest">Newest</option>
+              </select>
             </div>
           </div>
 
-          <div className="filter-section">
-            <h3><FaFilter /> Categories</h3>
-            <div className="category-list">
-              {categories.map(category => (
+          {/* Widget Grid */}
+          <div className="marketplace-main">
+            <div className="marketplace-toolbar">
+              <div className="view-controls">
                 <button
-                  key={category.key}
-                  className={`category-item ${selectedCategory === category.key ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(category.key)}
+                  className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                  onClick={() => setViewMode('grid')}
                 >
-                  {category.icon && <category.icon />}
-                  <span>{category.label}</span>
-                  <span className="count">{category.count}</span>
+                  <FaTh /> Grid
                 </button>
+                <button
+                  className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  <FaBars /> List
+                </button>
+              </div>
+              <div className="results-info">
+                Showing {filteredWidgets.length} widgets
+              </div>
+            </div>
+
+            <div className={`widget-grid ${viewMode}`}>
+              {filteredWidgets.map(widget => (
+                <WidgetCard
+                  key={widget.name}
+                  widget={widget}
+                  onAction={(isInstalled) => handleWidgetAction(widget, isInstalled)}
+                  onPreview={setPreviewWidget}
+                  isInstalled={existingWidgets.some(w => w.widget_type.name === widget.name)}
+                  isRecentlyAdded={recentlyAdded.has(widget.name)}
+                  viewMode={viewMode}
+                />
               ))}
             </div>
-          </div>
 
-          <div className="sort-section">
-            <h3><FaSort /> Sort By</h3>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-              <option value="popular">Most Popular</option>
-              <option value="name">Name</option>
-              <option value="category">Category</option>
-              <option value="newest">Newest</option>
-            </select>
+            {filteredWidgets.length === 0 && (
+              <div className="no-results">
+                <FaSearch className="no-results-icon" />
+                <h3>No widgets found</h3>
+                <p>Try adjusting your search or filter criteria</p>
+              </div>
+            )}
           </div>
-        </div>
-
-        {/* Widget Grid */}
-        <div className="marketplace-main">
-          <div className="marketplace-toolbar">
-            <div className="view-controls">
-              <button
-                className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                onClick={() => setViewMode('grid')}
-              >
-                <FaTh /> Grid
-              </button>
-              <button
-                className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-                onClick={() => setViewMode('list')}
-              >
-                <FaBars /> List
-              </button>
-            </div>
-            <div className="results-info">
-              Showing {filteredWidgets.length} widgets
-            </div>
-          </div>
-
-          <div className={`widget-grid ${viewMode}`}>
-            {filteredWidgets.map(widget => (
-              <WidgetCard
-                key={widget.name}
-                widget={widget}
-                onAdd={() => handleAddWidget(widget)}
-                isInstalled={existingWidgets.some(w => w.widget_type.name === widget.name)}
-                viewMode={viewMode}
-              />
-            ))}
-          </div>
-
-          {filteredWidgets.length === 0 && (
-            <div className="no-results">
-              <FaSearch className="no-results-icon" />
-              <h3>No widgets found</h3>
-              <p>Try adjusting your search or filter criteria</p>
-            </div>
-          )}
         </div>
       </div>
+      
+      {/* Widget Preview Modal - Rendered outside marketplace modal */}
+      {previewWidget && (
+        <WidgetPreview
+          widget={previewWidget}
+          onClose={() => setPreviewWidget(null)}
+          onAction={(isInstalled) => {
+            if (isInstalled) {
+              handleRemoveWidget(previewWidget);
+            } else {
+              handleAddWidget(previewWidget, findOptimalPosition(existingWidgets, previewWidget));
+            }
+          }}
+          isInstalled={existingWidgets.some(w => w.widget_type.name === previewWidget.name)}
+        />
+      )}
     </div>
   );
 };
 
 // Individual Widget Card Component
-const WidgetCard = ({ widget, onAdd, isInstalled, viewMode }) => {
-  const [showPreview, setShowPreview] = useState(false);
+const WidgetCard = ({ widget, onAction, isInstalled, isRecentlyAdded, viewMode, onPreview }) => {
 
   const categoryColor = getCategoryColor(widget.category);
   const IconComponent = getWidgetIcon(widget.icon);
@@ -240,22 +302,22 @@ const WidgetCard = ({ widget, onAdd, isInstalled, viewMode }) => {
         </div>
         <div className="widget-actions">
           <button
-            onClick={() => setShowPreview(true)}
+            onClick={() => onPreview(widget)}
             className="btn btn-outline-secondary"
             title="Preview"
           >
             <FaEye />
           </button>
           <button
-            onClick={onAdd}
-            disabled={isInstalled}
-            className={`btn ${isInstalled ? 'btn-success' : 'btn-primary'}`}
-            title={isInstalled ? 'Already added' : 'Add widget'}
+            onClick={() => onAction(isInstalled)}
+            className={`btn ${isInstalled ? 'btn-success' : 'btn-primary'} ${isRecentlyAdded ? 'recently-added' : ''}`}
+            title={isInstalled ? 'Remove from dashboard' : 'Add to dashboard'}
           >
             {isInstalled ? <FaCheckCircle /> : <FaPlus />}
-            {isInstalled ? 'Added' : 'Add'}
+            {isRecentlyAdded ? 'Added!' : isInstalled ? 'Remove' : 'Add'}
           </button>
         </div>
+
       </div>
     );
   }
@@ -291,36 +353,26 @@ const WidgetCard = ({ widget, onAdd, isInstalled, viewMode }) => {
 
       <div className="widget-actions">
         <button
-          onClick={() => setShowPreview(true)}
+          onClick={() => onPreview(widget)}
           className="btn btn-outline-secondary btn-sm"
         >
           <FaEye /> Preview
         </button>
         <button
-          onClick={onAdd}
-          disabled={isInstalled}
-          className={`btn btn-sm ${isInstalled ? 'btn-success' : 'btn-primary'}`}
+          onClick={() => onAction(isInstalled)}
+          className={`btn btn-sm ${isInstalled ? 'btn-success' : 'btn-primary'} ${isRecentlyAdded ? 'recently-added' : ''}`}
         >
           {isInstalled ? <FaCheckCircle /> : <FaPlus />}
-          {isInstalled ? 'Added' : 'Add'}
+          {isRecentlyAdded ? 'Added!' : isInstalled ? 'Remove' : 'Add'}
         </button>
       </div>
 
-      {/* Widget Preview Modal */}
-      {showPreview && (
-        <WidgetPreview
-          widget={widget}
-          onClose={() => setShowPreview(false)}
-          onAdd={onAdd}
-          isInstalled={isInstalled}
-        />
-      )}
     </div>
   );
 };
 
 // Widget Preview Modal
-const WidgetPreview = ({ widget, onClose, onAdd, isInstalled }) => (
+const WidgetPreview = ({ widget, onClose, onAction, isInstalled }) => (
   <div className="widget-preview-modal">
     <div className="preview-content">
       <div className="preview-header">
@@ -367,12 +419,17 @@ const WidgetPreview = ({ widget, onClose, onAdd, isInstalled }) => (
           Close
         </button>
         <button
-          onClick={() => { onAdd(); onClose(); }}
-          disabled={isInstalled}
+          onClick={() => { 
+            onAction(isInstalled); 
+            // Close modal only when removing, keep open when adding
+            if (isInstalled) {
+              onClose(); 
+            }
+          }}
           className={`btn ${isInstalled ? 'btn-success' : 'btn-primary'}`}
         >
           {isInstalled ? <FaCheckCircle /> : <FaPlus />}
-          {isInstalled ? 'Already Added' : 'Add to Dashboard'}
+          {isInstalled ? 'Remove from Dashboard' : 'Add to Dashboard'}
         </button>
       </div>
     </div>

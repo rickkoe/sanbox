@@ -282,8 +282,33 @@
 /* ========== DASHBOARD CONTENT ========== */
 
 .dashboard-content {
-  padding: 0 2rem;
-  min-height: 60vh;
+  padding: 2rem;
+  height: 70vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  box-sizing: border-box;
+}
+
+/* Custom scrollbar styling */
+.dashboard-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dashboard-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.dashboard-content::-webkit-scrollbar-thumb {
+  background: var(--primary-color, #667eea);
+  border-radius: 10px;
+  opacity: 0.7;
+}
+
+.dashboard-content::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color, #764ba2);
+  opacity: 1;
 }
 
 /* ========== DASHBOARD FOOTER ========== */
@@ -505,7 +530,8 @@
   }
   
   .dashboard-content {
-    padding: 0 1.5rem;
+    padding: 1.5rem;
+    height: 65vh;
   }
   
   .dashboard-footer {
@@ -535,7 +561,8 @@
   }
   
   .dashboard-content {
-    padding: 0 1rem;
+    padding: 1rem;
+    height: 60vh;
   }
   
   .dashboard-footer {

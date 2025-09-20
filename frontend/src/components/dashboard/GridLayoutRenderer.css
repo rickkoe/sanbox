@@ -3,8 +3,12 @@
 .grid-layout {
   display: grid;
   position: relative;
-  min-height: 400px;
+  min-height: 100%;
+  height: auto;
   transition: all 0.3s ease;
+  padding: 1rem;
+  padding-bottom: 5rem; /* Extra space for drag operations and bottom content */
+  box-sizing: border-box;
 }
 
 .grid-layout.edit-mode {
@@ -77,18 +81,28 @@
   position: absolute;
   top: 8px;
   left: 8px;
-  background: rgba(102, 126, 234, 0.1);
+  background: rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(102, 126, 234, 0.3);
   border-radius: 8px;
-  padding: 4px;
+  padding: 6px;
   color: var(--primary-color, #667eea);
   cursor: grab;
-  opacity: 0;
+  opacity: 0.7;
   transition: all 0.3s ease;
   z-index: 5;
+  font-size: 0.9rem;
+}
+
+.drag-handle:hover {
+  opacity: 1;
+  background: rgba(102, 126, 234, 0.3);
+  transform: scale(1.1);
 }
 
 .drag-handle:active {
   cursor: grabbing;
+  background: var(--primary-color, #667eea);
+  color: white;
 }
 
 .widget-container:hover .drag-handle,
@@ -195,35 +209,39 @@
 
 /* ========== DROP ZONE ========== */
 
-.drop-zone {
+.grid-drop-zone {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  border: 3px dashed transparent;
-  border-radius: 16px;
   transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  pointer-events: auto;
   z-index: 0;
 }
 
-.drop-zone.active {
-  border-color: var(--primary-color, #667eea);
+.grid-drop-zone.active {
   background: rgba(102, 126, 234, 0.1);
   z-index: 2;
 }
 
-.drop-indicator {
+.grid-drop-zone .drop-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background: var(--primary-color, #667eea);
   color: white;
   padding: 1rem 2rem;
   border-radius: 12px;
-  font-weight: 600;
   box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
   animation: bounce 0.5s ease infinite alternate;
+  z-index: 3;
+}
+
+.drop-message {
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 @keyframes bounce {
@@ -238,6 +256,39 @@
   border-radius: 16px;
   overflow: hidden;
   box-shadow: var(--card-shadow, 0 4px 20px rgba(0, 0, 0, 0.08));
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  flex: 1;
+  padding: 0 0 3rem 0;
+  box-sizing: border-box;
+}
+
+/* Custom scrollbar for list view */
+.list-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.list-body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+.list-body::-webkit-scrollbar-thumb {
+  background: var(--primary-color, #667eea);
+  border-radius: 10px;
+  opacity: 0.6;
+}
+
+.list-body::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color, #764ba2);
+  opacity: 1;
 }
 
 .list-header {
@@ -249,6 +300,10 @@
   font-weight: 600;
   color: var(--text-color, #333);
   border-bottom: 1px solid var(--border-color, #e9ecef);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .list-item {
@@ -306,6 +361,33 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+/* Custom scrollbar for card view */
+.card-view::-webkit-scrollbar {
+  width: 8px;
+}
+
+.card-view::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+.card-view::-webkit-scrollbar-thumb {
+  background: var(--primary-color, #667eea);
+  border-radius: 10px;
+  opacity: 0.6;
+}
+
+.card-view::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary-color, #764ba2);
+  opacity: 1;
 }
 
 .widget-card {
@@ -496,6 +578,7 @@
 
   .card-view {
     grid-template-columns: 1fr;
+    padding: 1rem 1rem 4rem 1rem;
   }
 
   .metric-value {

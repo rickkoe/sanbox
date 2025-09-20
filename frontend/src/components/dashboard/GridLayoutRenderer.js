@@ -27,13 +27,18 @@ export const GridLayoutRenderer = ({
   const gridRef = useRef(null);
 
   // Calculate grid positioning
-  const getGridPosition = useCallback((x, y) => {
+  const getGridPosition = useCallback((clientX, clientY) => {
     if (!gridRef.current) return { col: 0, row: 0 };
     
     const rect = gridRef.current.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    
     const colWidth = rect.width / GRID_COLUMNS;
+    const rowHeight = 60; // Approximate row height including gap
+    
     const col = Math.floor(x / colWidth);
-    const row = Math.floor(y / 50); // 50px row height
+    const row = Math.floor(y / rowHeight);
     
     return {
       col: Math.max(0, Math.min(GRID_COLUMNS - 1, col)),
@@ -42,8 +47,10 @@ export const GridLayoutRenderer = ({
   }, []);
 
   // Handle widget drop
-  const handleWidgetDrop = useCallback((widget, position) => {
-    const gridPos = getGridPosition(position.x, position.y);
+  const handleWidgetDrop = useCallback((widget, clientOffset) => {
+    if (!clientOffset) return;
+    
+    const gridPos = getGridPosition(clientOffset.x, clientOffset.y);
     
     onWidgetUpdate(widget.id, {
       position_x: gridPos.col,
@@ -103,7 +110,7 @@ export const GridLayoutRenderer = ({
       ))}
 
       {/* Drop Zone for new widgets */}
-      {editMode && <DropZone onDrop={handleWidgetDrop} />}
+      {editMode && <GridDropZone onDrop={handleWidgetDrop} />}
     </div>
   );
 };
@@ -134,10 +141,8 @@ const DraggableWidget = ({
   const [, drop] = useDrop({
     accept: 'widget',
     drop: (item, monitor) => {
-      const offset = monitor.getSourceClientOffset();
-      if (offset && item.widget.id !== widget.id) {
-        onDrop(item.widget, offset);
-      }
+      // Only allow drops on the grid, not on other widgets
+      return;
     }
   });
 
@@ -152,7 +157,7 @@ const DraggableWidget = ({
   return (
     <div
       ref={(node) => {
-        drag(dragPreview(drop(node)));
+        dragPreview(drop(node));
       }}
       className={`widget-container ${selected ? 'selected' : ''} ${editMode ? 'editable' : ''}`}
       style={widgetStyle}
@@ -172,7 +177,7 @@ const DraggableWidget = ({
 
       {/* Drag Handle */}
       {editMode && (
-        <div className="drag-handle">
+        <div ref={drag} className="drag-handle" title="Drag to move widget">
           <FaGripVertical />
         </div>
       )}
@@ -240,34 +245,43 @@ const WidgetControls = ({ widget, onRemove, onToggleVisibility, onClone }) => (
   </div>
 );
 
-// Drop Zone Component
-const DropZone = ({ onDrop }) => {
-  const [{ isOver }, drop] = useDrop({
+// Grid Drop Zone Component  
+const GridDropZone = ({ onDrop }) => {
+  const [{ isOver, canDrop }, drop] = useDrop({
     accept: 'widget',
     drop: (item, monitor) => {
-      const offset = monitor.getSourceClientOffset();
-      if (offset) {
-        onDrop(item.widget, offset);
+      if (monitor.didDrop()) {
+        return; // Already handled by a child component
+      }
+      
+      const clientOffset = monitor.getClientOffset();
+      if (clientOffset) {
+        onDrop(item.widget, clientOffset);
       }
     },
     collect: (monitor) => ({
-      isOver: monitor.isOver()
+      isOver: monitor.isOver({ shallow: true }),
+      canDrop: monitor.canDrop()
     })
   });
 
   return (
     <div 
       ref={drop}
-      className={`drop-zone ${isOver ? 'active' : ''}`}
+      className={`grid-drop-zone ${isOver && canDrop ? 'active' : ''}`}
       style={{
-        gridColumn: '1 / -1',
-        gridRow: '1 / -1',
-        pointerEvents: isOver ? 'auto' : 'none'
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        pointerEvents: 'auto',
+        zIndex: 0
       }}
     >
-      {isOver && (
+      {isOver && canDrop && (
         <div className="drop-indicator">
-          Drop widget here
+          <div className="drop-message">Drop widget here</div>
         </div>
       )}
     </div>
@@ -284,21 +298,23 @@ const ListView = ({ widgets, editMode, onWidgetUpdate, onWidgetRemove }) => (
       <span>Position</span>
       {editMode && <span>Actions</span>}
     </div>
-    {widgets.map(widget => (
-      <div key={widget.id} className="list-item">
-        <span className="widget-title">{widget.title}</span>
-        <span className="widget-type">{widget.widget_type.display_name}</span>
-        <span className="widget-size">{widget.width}×{widget.height}</span>
-        <span className="widget-position">({widget.position_x}, {widget.position_y})</span>
-        {editMode && (
-          <div className="list-actions">
-            <button onClick={() => onWidgetRemove(widget.id)} className="btn-remove">
-              <FaTimes />
-            </button>
-          </div>
-        )}
-      </div>
-    ))}
+    <div className="list-body">
+      {widgets.map(widget => (
+        <div key={widget.id} className="list-item">
+          <span className="widget-title">{widget.title}</span>
+          <span className="widget-type">{widget.widget_type.display_name}</span>
+          <span className="widget-size">{widget.width}×{widget.height}</span>
+          <span className="widget-position">({widget.position_x}, {widget.position_y})</span>
+          {editMode && (
+            <div className="list-actions">
+              <button onClick={() => onWidgetRemove(widget.id)} className="btn-remove">
+                <FaTimes />
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   </div>
 );
 
