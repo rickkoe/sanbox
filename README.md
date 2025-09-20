@@ -1365,6 +1365,24 @@ curl -X GET "http://localhost:8000/api/storage/storage/?storage_type=FlashSystem
 - Check for JavaScript errors
 - Verify all dependencies are compatible
 
+#### 6. Modal Components Covered by Navigation
+**Problem**: Modals (dialogs/overlays) appear behind navbar, sidebar, or breadcrumbs
+**Cause**: Modals rendered inside CSS Grid layout are constrained by grid areas
+**Solution**: Use React Portals to render modals outside the grid layout
+```javascript
+import { createPortal } from 'react-dom';
+
+// Instead of:
+return <div className="modal">...</div>
+
+// Use:
+return createPortal(
+  <div className="modal">...</div>,
+  document.body
+);
+```
+**Note**: This is a recurring issue due to the CSS Grid layout structure. Always use portals for full-screen modals.
+
 ### Health Checks
 
 ```bash

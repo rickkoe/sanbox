@@ -443,7 +443,7 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 9999;
+  z-index: 1000;
   min-width: 200px;
   animation: fadeInLeft 0.2s ease;
 }

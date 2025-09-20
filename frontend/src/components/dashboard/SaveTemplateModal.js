@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FaTimes, FaSave, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 import './SaveTemplateModal.css';
 
@@ -70,7 +71,7 @@ export const SaveTemplateModal = ({ onSave, onClose, currentLayout }) => {
 
   const widgetCount = currentLayout?.widgets?.length || 0;
 
-  return (
+  return createPortal(
     <div className="save-template-modal" onKeyDown={handleKeyDown}>
       <div className="save-template-content">
         <div className="save-template-header">
@@ -216,6 +217,7 @@ export const SaveTemplateModal = ({ onSave, onClose, currentLayout }) => {
           </small>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   FaTimes, FaSearch, FaFilter, FaPlus, FaCheckCircle,
   FaChartBar, FaTable, FaHeart, FaClock, FaTools,
@@ -157,7 +158,7 @@ export const WidgetMarketplace = ({ onAddWidget, onRemoveWidget, onClose, existi
     );
   }
 
-  return (
+  return createPortal(
     <div className="widget-marketplace">
       <div className="marketplace-content">
         <div className="marketplace-header">
@@ -276,7 +277,8 @@ export const WidgetMarketplace = ({ onAddWidget, onRemoveWidget, onClose, existi
           isInstalled={existingWidgets.some(w => w.widget_type.name === previewWidget.name)}
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 

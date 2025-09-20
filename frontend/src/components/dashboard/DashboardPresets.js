@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { FaTimes, FaLayerGroup, FaDownload, FaEye, FaSpinner } from 'react-icons/fa';
 import axios from 'axios';
 import { ConfigContext } from '../../context/ConfigContext';
@@ -111,7 +112,7 @@ export const DashboardPresets = ({ onPresetSelect, onClose, currentLayout }) => 
     );
   }
 
-  return (
+  return createPortal(
     <div className="presets-modal">
       <div className="presets-content">
         <div className="presets-header">
@@ -206,7 +207,8 @@ export const DashboardPresets = ({ onPresetSelect, onClose, currentLayout }) => 
           currentLayout={currentLayout}
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 
