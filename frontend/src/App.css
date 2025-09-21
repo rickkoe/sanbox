@@ -61,7 +61,7 @@
   position: relative; /* Add this */
   width: 100%;
   z-index: 100;
-  padding: 0.75rem 0;
+  padding: 0.0rem 0;
 }
 
 /* Theme-specific backgrounds for navbar header wrapper */
