@@ -1,6 +1,7 @@
 // App.js
 import React, { useState, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { useTheme } from "./context/ThemeContext";
 
 // Custom Styles
 import "./App.css";
@@ -123,12 +124,29 @@ function AppContent() {
   return (
     <ConfigProvider>
       <ThemeProvider>
-        <SanVendorProvider>
-          <ImportStatusProvider>
-            <SettingsProvider>
-              <TableControlsProvider>
-              <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
-              <div className={`app-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+        <ThemedAppLayout 
+          breadcrumbMap={breadcrumbMap}
+          setBreadcrumbMap={setBreadcrumbMap}
+          isSidebarCollapsed={isSidebarCollapsed}
+          setIsSidebarCollapsed={setIsSidebarCollapsed}
+          getMainContentClass={getMainContentClass}
+        />
+      </ThemeProvider>
+    </ConfigProvider>
+  );
+}
+
+// Component that has access to theme context
+function ThemedAppLayout({ breadcrumbMap, setBreadcrumbMap, isSidebarCollapsed, setIsSidebarCollapsed, getMainContentClass }) {
+  const { theme } = useTheme();
+  
+  return (
+    <SanVendorProvider>
+      <ImportStatusProvider>
+        <SettingsProvider>
+          <TableControlsProvider>
+            <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
+              <div className={`app-layout theme-${theme} ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
                 <header className="navbar-header">
                   <Navbar />
                 </header>
@@ -202,13 +220,11 @@ function AppContent() {
                 </Suspense>
               </main>
             </div>
-              </BreadcrumbContext.Provider>
-              </TableControlsProvider>
-            </SettingsProvider>
-          </ImportStatusProvider>
-        </SanVendorProvider>
-      </ThemeProvider>
-    </ConfigProvider>
+            </BreadcrumbContext.Provider>
+          </TableControlsProvider>
+        </SettingsProvider>
+      </ImportStatusProvider>
+    </SanVendorProvider>
   );
 }
 

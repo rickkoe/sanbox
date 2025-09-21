@@ -6,6 +6,7 @@ import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/dist/handsontable.full.css';
 import { useSettings } from '../../../context/SettingsContext';
 import { useTableControls } from '../../../context/TableControlsContext';
+import { useTheme } from '../../../context/ThemeContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Import sub-components
@@ -181,6 +182,9 @@ const GenericTable = forwardRef(({
   
   // Get table controls context
   const { setTableControlsProps } = useTableControls();
+  
+  // Get theme
+  const { theme } = useTheme();
   
   // Callback to update global settings when table page size changes
   const handleGlobalPageSizeChange = useCallback(async (newPageSize) => {
@@ -1890,7 +1894,7 @@ const GenericTable = forwardRef(({
   };
 
   return (
-    <div className="modern-table-container">
+    <div className={`modern-table-container theme-${theme}`}>
       <TableHeader
         loading={loading || currentLoading}
         isDirty={isDirty}

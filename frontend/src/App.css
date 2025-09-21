@@ -104,10 +104,7 @@
 /* Breadcrumbs or topbar below the navbar */
 .topbar {
   grid-area: topbar;
-  position: relative; /* Add this */
-  padding: 0.5rem 1rem;
-  background: #f8f9fa;
-  border-bottom: 1px solid #ddd;
+  position: relative;
   height: 50px;
   z-index: 80;
 }
@@ -117,7 +114,8 @@
   grid-area: main-content;
   position: relative; /* Add this */
   padding: 1rem;
-  background: #fff;
+  background: var(--content-bg, #fff);
+  color: var(--content-text, #212529);
   z-index: 2; /* Lower value */
   overflow: visible; /* Ensure content is not clipped */
 }

@@ -1,6 +1,7 @@
 import React, { useContext } from "react";
 import { BreadcrumbContext } from "../../context/BreadcrumbContext";
 import { useTableControls } from "../../context/TableControlsContext";
+import { useTheme } from "../../context/ThemeContext";
 import { Link, useLocation } from "react-router-dom";
 import { Breadcrumb } from "react-bootstrap";
 import TableControls from "../tables/GenericTable/components/TableControls";
@@ -8,11 +9,12 @@ import TableControls from "../tables/GenericTable/components/TableControls";
 const Breadcrumbs = ({ rightContent = null }) => {
     const { breadcrumbMap } = useContext(BreadcrumbContext);
     const { tableControlsProps } = useTableControls();
+    const { theme } = useTheme();
     const location = useLocation();
     const paths = location.pathname.split("/").filter(path => path);
 
     return (
-        <div className="breadcrumb-container">
+        <div className={`breadcrumb-container theme-${theme}`}>
             <nav className="breadcrumb-nav">
                 <div className="breadcrumb-wrapper">
                     <ol className="breadcrumb modern-breadcrumb">
