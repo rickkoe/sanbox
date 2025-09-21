@@ -69,7 +69,7 @@ const getSidebarLinks = (pathname) => {
         expandable: true,
         subLinks: [
           { path: "/", label: "Overview", icon: BarChart3 },
-          { path: "/dashboard-v2", label: "Customizable Dashboard", icon: Layout },
+          { path: "/dashboard-v2", label: "Dashboard", icon: Layout },
         ]
       },
       { 
