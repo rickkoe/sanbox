@@ -18,7 +18,6 @@ const UserSection = ({ onAboutClick }) => {
             title="Settings & Configuration"
           >
             <Settings size={24} />
-            <span className="nav-label ms-1">Settings</span>
           </Dropdown.Toggle>
           <Dropdown.Menu>
             <Dropdown.Item as={NavLink} to="/settings/project-config">
