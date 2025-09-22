@@ -1430,7 +1430,13 @@ const GenericTable = forwardRef(({
     JSON.stringify(columnFilters),
     isDirty,
     serverPagination,
-    apiUrl
+    apiUrl,
+    // Add server pagination data for stats updates
+    serverPaginationHook?.currentPage,
+    serverPaginationHook?.totalCount,
+    serverPaginationHook?.totalPages,
+    serverPaginationHook?.pageSize,
+    currentData?.length // Include data length changes
     // Deliberately exclude: setQuickSearch, handleFilterChange, onBulkUpdate, data objects
   ]);
 

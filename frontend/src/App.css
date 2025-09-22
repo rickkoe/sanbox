@@ -2,11 +2,12 @@
 
 .app-layout {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   grid-template-columns: 250px 1fr;
   grid-template-areas:
     "navbar navbar"
     "sidebar topbar"
+    "sidebar table-toolbar"
     "sidebar main-content";
   height: 100vh;
   overflow: hidden;
@@ -106,6 +107,12 @@
   grid-area: topbar;
   position: relative;
   height: 50px;
+}
+
+/* Table toolbar area */
+.table-toolbar-area {
+  grid-area: table-toolbar;
+  position: relative;
   z-index: 80;
 }
 

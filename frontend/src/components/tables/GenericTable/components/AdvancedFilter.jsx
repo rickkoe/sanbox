@@ -31,6 +31,12 @@ const AdvancedFilter = ({
   // Local state for search input (separate from actual search value)
   const [searchInputValue, setSearchInputValue] = useState(quickSearch || '');
   
+  // State for search expansion
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  
+  // State for dynamic width
+  const [searchWidth, setSearchWidth] = useState(280);
+  
   // Cache for server-side unique values
   const [uniqueValuesCache, setUniqueValuesCache] = useState({});
   const [loadingColumns, setLoadingColumns] = useState({});
@@ -50,6 +56,7 @@ const AdvancedFilter = ({
   
   const filterButtonRef = useRef(null);
   const filterDropdownRef = useRef(null);
+  const searchContainerRef = useRef(null);
 
   // Calculate filter dropdown position
   const calculateFilterPosition = () => {
@@ -116,10 +123,99 @@ const AdvancedFilter = ({
     setQuickSearch('');
   };
 
+  // Calculate available width for search expansion
+  const calculateSearchWidth = () => {
+    if (!searchContainerRef.current) return 400;
+    
+    // Try to find the table toolbar or table controls container
+    const tableToolbar = searchContainerRef.current.closest('.table-toolbar');
+    const tableControls = searchContainerRef.current.closest('.table-controls');
+    const parentContainer = tableToolbar || tableControls;
+    
+    if (!parentContainer) return 400;
+    
+    // Get the advanced filter container (immediate parent)
+    const filterContainer = searchContainerRef.current.closest('.advanced-filter-container');
+    if (!filterContainer) return 400;
+    
+    // Calculate available space
+    const containerRect = parentContainer.getBoundingClientRect();
+    
+    // Get all sibling elements after the advanced filter container
+    const siblings = Array.from(parentContainer.children);
+    const filterIndex = siblings.indexOf(filterContainer);
+    const siblingsAfter = siblings.slice(filterIndex + 1);
+    
+    // Calculate width of elements after the filter container
+    const siblingsWidth = siblingsAfter.reduce((total, sibling) => {
+      return total + sibling.getBoundingClientRect().width + 16; // 16px gap
+    }, 0);
+    
+    // Calculate available width (more generous in toolbar)
+    const usedWidth = 60; // Space for magnifying glass + padding
+    const availableWidth = containerRect.width - usedWidth - siblingsWidth - 32; // 32px padding
+    
+    // More generous bounds for toolbar layout
+    return Math.max(320, Math.min(availableWidth, 800));
+  };
+
+  // Handle search icon click (expand search)
+  const handleSearchIconClick = () => {
+    setIsSearchExpanded(true);
+    // Calculate width after DOM update
+    setTimeout(() => {
+      const newWidth = calculateSearchWidth();
+      setSearchWidth(newWidth);
+    }, 10);
+  };
+
+  // Handle search collapse (when clicking outside or escape)
+  const handleSearchCollapse = () => {
+    if (!searchInputValue && !quickSearch) {
+      setIsSearchExpanded(false);
+    }
+  };
+
   // Sync searchInputValue when quickSearch changes externally
   useEffect(() => {
     setSearchInputValue(quickSearch || '');
   }, [quickSearch]);
+
+  // Handle outside clicks for search collapse
+  useEffect(() => {
+    const handleClickOutsideSearch = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        handleSearchCollapse();
+      }
+    };
+
+    if (isSearchExpanded) {
+      document.addEventListener('mousedown', handleClickOutsideSearch);
+      return () => document.removeEventListener('mousedown', handleClickOutsideSearch);
+    }
+  }, [isSearchExpanded, searchInputValue, quickSearch]);
+
+  // Auto-expand search if there's an active search
+  useEffect(() => {
+    if (quickSearch) {
+      const newWidth = calculateSearchWidth();
+      setSearchWidth(newWidth);
+      setIsSearchExpanded(true);
+    }
+  }, [quickSearch]);
+
+  // Recalculate width on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (isSearchExpanded) {
+        const newWidth = calculateSearchWidth();
+        setSearchWidth(newWidth);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isSearchExpanded]);
 
   // Fetch unique values from server for a specific column
   const fetchUniqueValues = async (columnIndex) => {
@@ -348,25 +444,45 @@ const AdvancedFilter = ({
 
   return (
     <div className="advanced-filter-container">
-      {/* Quick Search */}
-      <div className={`advanced-search-input ${searchInputValue !== quickSearch ? 'has-unsaved-search' : ''}`}>
-        <Search size={16} className="search-icon" />
-        <input
-          type="text"
-          placeholder="Quick search... (press Enter)"
-          value={searchInputValue}
-          onChange={(e) => setSearchInputValue(e.target.value)}
-          onKeyPress={handleSearchKeyPress}
-          className="search-field"
-        />
-        {searchInputValue && (
+      {/* Collapsible Search */}
+      <div 
+        ref={searchContainerRef}
+        className={`collapsible-search ${isSearchExpanded ? 'expanded' : 'collapsed'} ${searchInputValue !== quickSearch ? 'has-unsaved-search' : ''} ${quickSearch ? 'has-active-search' : ''}`}
+        style={isSearchExpanded ? { width: `${searchWidth}px` } : {}}
+      >
+        {!isSearchExpanded ? (
+          // Collapsed state: just the magnifying glass
           <button
-            onClick={handleSearchClear}
-            className="search-clear"
-            title="Clear search"
+            onClick={handleSearchIconClick}
+            className="search-toggle-btn"
+            title="Search"
           >
-            <X size={14} />
+            <Search size={18} />
           </button>
+        ) : (
+          // Expanded state: full search input
+          <>
+            <Search size={16} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Quick search... (press Enter)"
+              value={searchInputValue}
+              onChange={(e) => setSearchInputValue(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
+              onBlur={handleSearchCollapse}
+              className="search-field"
+              autoFocus
+            />
+            {searchInputValue && (
+              <button
+                onClick={handleSearchClear}
+                className="search-clear"
+                title="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </>
         )}
       </div>
 

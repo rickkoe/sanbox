@@ -2,6 +2,7 @@
 import React, { useState, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { useTheme } from "./context/ThemeContext";
+import { useTableControls } from "./context/TableControlsContext";
 
 // Custom Styles
 import "./App.css";
@@ -9,6 +10,7 @@ import "./styles/navbar.css";
 import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
 import "./styles/generictable.css";
+import "./components/tables/GenericTable/components/TableToolbar.css";
 import "./styles/pages.css";
 import "./styles/home.css";
 import "./styles/dashboard.css";
@@ -20,6 +22,7 @@ import "./components/navigation/Sidebar.css";
 import Navbar from "./components/navigation/Navbar";
 import Sidebar from "./components/navigation/Sidebar";
 import Breadcrumbs from "./components/navigation/Breadcrumbs";
+import TableToolbar from "./components/tables/GenericTable/components/TableToolbar";
 import { BreadcrumbContext } from "./context/BreadcrumbContext";
 
 // Critical pages (loaded immediately)
@@ -146,20 +149,44 @@ function ThemedAppLayout({ breadcrumbMap, setBreadcrumbMap, isSidebarCollapsed, 
         <SettingsProvider>
           <TableControlsProvider>
             <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
-              <div className={`app-layout theme-${theme} ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-                <header className="navbar-header">
-                  <Navbar />
-                </header>
-                <aside className="sidebar">
-                  <Sidebar 
-                    isCollapsed={isSidebarCollapsed}
-                    onCollapseChange={setIsSidebarCollapsed} 
-                  />
-                </aside>
-                <div className="topbar">
-                  <Breadcrumbs />
-                </div>
-              <main className={getMainContentClass()}>
+              <AppLayoutWithTableControls 
+                theme={theme}
+                isSidebarCollapsed={isSidebarCollapsed}
+                setIsSidebarCollapsed={setIsSidebarCollapsed}
+                getMainContentClass={getMainContentClass}
+              />
+            </BreadcrumbContext.Provider>
+          </TableControlsProvider>
+        </SettingsProvider>
+      </ImportStatusProvider>
+    </SanVendorProvider>
+  );
+}
+
+// Component that can use TableControlsProvider
+function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCollapsed, getMainContentClass }) {
+  const { tableControlsProps } = useTableControls();
+  
+  return (
+    <div className={`app-layout theme-${theme} ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      <header className="navbar-header">
+        <Navbar />
+      </header>
+      <aside className="sidebar">
+        <Sidebar 
+          isCollapsed={isSidebarCollapsed}
+          onCollapseChange={setIsSidebarCollapsed} 
+        />
+      </aside>
+      <div className="topbar">
+        <Breadcrumbs />
+      </div>
+      {tableControlsProps && (
+        <div className="table-toolbar-area">
+          <TableToolbar tableControlsProps={tableControlsProps} />
+        </div>
+      )}
+      <main className={getMainContentClass()}>
                 <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
@@ -219,12 +246,7 @@ function ThemedAppLayout({ breadcrumbMap, setBreadcrumbMap, isSidebarCollapsed, 
                   </Routes>
                 </Suspense>
               </main>
-            </div>
-            </BreadcrumbContext.Provider>
-          </TableControlsProvider>
-        </SettingsProvider>
-      </ImportStatusProvider>
-    </SanVendorProvider>
+    </div>
   );
 }
 

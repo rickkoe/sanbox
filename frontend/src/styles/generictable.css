@@ -439,13 +439,13 @@
   position: relative;
   background: var(--table-bg, white);
   min-height: 400px;
-  max-height: calc(100vh - 300px); /* Force maximum height to leave room for footer */
+  max-height: calc(100vh - 360px); /* Account for navbar + breadcrumbs + toolbar + footer */
 }
 
 /* When pagination footer is actually present, adjust the table container height */
 .modern-table-container:has(.table-pagination-footer) .table-scroll-container {
   flex: 0 1 auto; /* Don't grow, allow shrink, use content size */
-  max-height: calc(100vh - 300px); /* Balanced fit for footer */
+  max-height: calc(100vh - 360px); /* Account for navbar + breadcrumbs + toolbar + footer + padding */
 }
 
 .table-wrapper {

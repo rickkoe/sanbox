@@ -1,0 +1,86 @@
+/* Table Toolbar Styles */
+.table-toolbar {
+  background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%));
+  border-bottom: 1px solid var(--table-border, #e2e8f0);
+  padding: 12px 16px;
+  margin: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.table-toolbar-content {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Update table controls for toolbar layout */
+.table-toolbar .table-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.table-toolbar .advanced-filter-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0; /* Allow shrinking */
+}
+
+/* Give search more room in toolbar */
+.table-toolbar .collapsible-search.expanded {
+  min-width: 320px;
+  max-width: 500px;
+  width: 100%;
+}
+
+/* Adjust stats container for toolbar */
+.table-toolbar .stats-container {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .table-toolbar {
+    padding: 8px 12px;
+  }
+  
+  .table-toolbar .table-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .table-toolbar .advanced-filter-container {
+    justify-content: center;
+  }
+  
+  .table-toolbar .stats-container {
+    text-align: center;
+  }
+}
+
+/* Theme-specific toolbar styling */
+.theme-dark .table-toolbar {
+  background: var(--table-header-bg, linear-gradient(135deg, #1e293b 0%, #0f172a 100%));
+  border-bottom-color: var(--table-border, rgba(255, 255, 255, 0.1));
+}
+
+.theme-minimal .table-toolbar {
+  background: #ffffff;
+  border-bottom-color: #e5e7eb;
+}
+
+.theme-corporate .table-toolbar {
+  background: var(--table-header-bg, linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%));
+  border-bottom-color: var(--table-border, rgba(255, 255, 255, 0.2));
+}
+
+.theme-colorful .table-toolbar {
+  background: var(--table-header-bg, linear-gradient(45deg, rgba(255, 107, 107, 0.1), rgba(78, 205, 196, 0.1), rgba(69, 183, 209, 0.1), rgba(150, 206, 180, 0.1)));
+  border-bottom-color: var(--table-border, #e2e8f0);
+}

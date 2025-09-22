@@ -6,10 +6,55 @@
   gap: 12px;
 }
 
-.advanced-search-input {
+/* Collapsible Search Styles */
+.collapsible-search {
   position: relative;
   display: flex;
   align-items: center;
+  transition: width 0.3s ease;
+  overflow: hidden;
+}
+
+.collapsible-search.collapsed {
+  width: 40px;
+}
+
+.collapsible-search.expanded {
+  /* Width set dynamically via inline styles */
+  min-width: 280px;
+}
+
+.search-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.search-toggle-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #f8fafc;
+}
+
+/* Active search indicator for collapsed state */
+.collapsible-search.collapsed.has-active-search .search-toggle-btn {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.collapsible-search.collapsed.has-unsaved-search .search-toggle-btn {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #f59e0b;
 }
 
 .search-icon {
@@ -20,13 +65,14 @@
 }
 
 .search-field {
-  padding: 8px 12px 8px 36px;
+  padding: 10px 12px 10px 36px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
-  width: 240px;
+  width: 100%;
   outline: none;
   transition: border-color 0.15s ease;
+  background: #ffffff;
 }
 
 .search-field:focus {
@@ -35,12 +81,12 @@
 }
 
 /* Visual indicator for unsaved search */
-.advanced-search-input.has-unsaved-search .search-field {
+.collapsible-search.has-unsaved-search .search-field {
   border-color: #f59e0b;
   background-color: #fffbeb;
 }
 
-.advanced-search-input.has-unsaved-search .search-field:focus {
+.collapsible-search.has-unsaved-search .search-field:focus {
   border-color: #f59e0b;
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
 }
