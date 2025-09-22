@@ -17,6 +17,7 @@ import NavigationModal from './components/NavigationModal';
 import ScrollButtons from './components/ScrollButtons';
 import TableControls from './components/TableControls';
 import PaginationFooter from './components/PaginationFooter';
+import TableLoadingOverlay from './components/TableLoadingOverlay';
 import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
 import { useServerPagination } from './hooks/useServerPagination';
@@ -198,6 +199,7 @@ const GenericTable = forwardRef(({
   
   // Core state
   const [loading, setLoading] = useState(false);
+  const [savingData, setSavingData] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
   const [forceRefreshKey, setForceRefreshKey] = useState(0); // Force table re-render
   const [bulkModifiedData, setBulkModifiedData] = useState(null); // Store bulk changes across all pages
@@ -1786,7 +1788,7 @@ const GenericTable = forwardRef(({
   const handleSaveModifiedRows = async () => {
     if (!isDirty) return;
     
-    setLoading(true);
+    setSavingData(true);
     setSaveStatus("Saving changes...");
     
     try {
@@ -1895,7 +1897,7 @@ const GenericTable = forwardRef(({
     } catch (error) {
       setSaveStatus(`Save failed: ${error.response?.data?.message || error.message}`);
     } finally {
-      setLoading(false);
+      setSavingData(false);
       setTimeout(() => setSaveStatus(""), 3000);
     }
   };
@@ -1903,7 +1905,7 @@ const GenericTable = forwardRef(({
   return (
     <div className={`modern-table-container theme-${theme}${serverPagination && serverPaginationHook ? ' with-pagination' : ''}`}>
       <TableHeader
-        loading={loading || currentLoading}
+        loading={savingData}
         isDirty={isDirty}
         onSave={handleSaveModifiedRows}
         onExportCSV={handleExportCSV}
@@ -1931,19 +1933,18 @@ const GenericTable = forwardRef(({
         style={{ height, overflow: 'hidden' }}
       >
         {currentLoading && (!data || data.length === 0) ? (
-          <div className="loading-container">
-            <div className="loading-content">
-              <div className="spinner large"></div>
-              <span>Loading data...</span>
-            </div>
-          </div>
+          <TableLoadingOverlay 
+            isVisible={true}
+            message="Loading table data..."
+            showProgress={serverPagination}
+            progressMessage={serverPagination ? "Fetching records from server..." : ""}
+          />
         ) : !isTableReady ? (
-          <div className="loading-container">
-            <div className="loading-content">
-              <div className="spinner large"></div>
-              <span>Initializing table...</span>
-            </div>
-          </div>
+          <TableLoadingOverlay 
+            isVisible={true}
+            message="Initializing table..."
+            progressMessage="Setting up table components..."
+          />
         ) : (
           <div className="table-wrapper" style={{ position: 'relative', width: '100%', height: '100%' }}>
             <HotTable
@@ -2091,6 +2092,14 @@ const GenericTable = forwardRef(({
                 }, 300); // Delay to ensure table is fully initialized
               }}
             />
+            
+            {/* Loading overlay for when table has data but is refreshing */}
+            <TableLoadingOverlay 
+              isVisible={currentLoading && data && data.length > 0}
+              message="Updating table..."
+              showProgress={true}
+              progressMessage={serverPagination ? "Loading new page..." : "Refreshing data..."}
+            />
           </div>
         )}
 
@@ -2108,7 +2117,7 @@ const GenericTable = forwardRef(({
         onHide={() => setShowDeleteModal(false)}
         rowsToDelete={rowsToDelete}
         onConfirm={async () => {
-          setLoading(true);
+          setSavingData(true);
           try {
             if (onDelete && typeof onDelete === 'function') {
               // Use custom delete handler
@@ -2144,7 +2153,7 @@ const GenericTable = forwardRef(({
           } finally {
             setShowDeleteModal(false);
             setRowsToDelete([]);
-            setLoading(false);
+            setSavingData(false);
           }
         }}
         onCancel={() => {

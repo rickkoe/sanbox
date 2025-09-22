@@ -11,6 +11,7 @@ import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
 import "./styles/generictable.css";
 import "./components/tables/GenericTable/components/TableToolbar.css";
+import "./components/tables/GenericTable/components/TableLoadingOverlay.css";
 import "./styles/pages.css";
 import "./styles/home.css";
 import "./styles/dashboard.css";
