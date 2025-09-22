@@ -152,7 +152,7 @@
   --sidebar-active-border: var(--link-text);
   
   /* Content and Layout */
-  --content-bg: #1a202c;
+  --content-bg: #0f172a;
   --content-text: var(--primary-text);
   --breadcrumb-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   --breadcrumb-border: rgba(100, 255, 218, 0.3);

@@ -153,8 +153,10 @@
   overflow: visible;
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 100px); /* Account for navbar + topbar */
-  padding: 1rem 0 50px 0; /* Remove left/right padding, keep top/bottom */
+  min-height: 0; /* Important for flex child to shrink */
+  flex: 1; /* Take all available space */
+  padding: 0; /* Remove all padding */
+  margin: 0; /* Remove all margins */
 }
 
 /* Ensure page titles are visible on table pages */
@@ -166,7 +168,16 @@
 
 .main-content.table-page h1,
 .main-content.table-page h2, 
-.main-content.table-page h3,
+.main-content.table-page h3 {
+  flex-shrink: 0; /* Prevent title from shrinking */
+  margin: 0;
+  padding: 1rem 1.5rem 0.5rem 1.5rem; /* Add padding since main content has none */
+  background: var(--table-bg, #ffffff); /* Match table background */
+  color: var(--content-text, #212529);
+  position: relative;
+  z-index: 10;
+}
+
 .main-content.scrollable h1,
 .main-content.scrollable h2,
 .main-content.scrollable h3 {

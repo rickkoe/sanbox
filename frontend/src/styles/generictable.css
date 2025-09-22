@@ -2,26 +2,19 @@
 .modern-table-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-height: calc(100vh - 150px);
-  min-height: 500px;
+  min-height: 0; /* Important for flex child to shrink */
+  flex: 1; /* Take all available space in parent */
   width: 100%;
   background: var(--table-bg, #ffffff);
-  border-radius: 12px;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1), 
-    0 2px 4px -1px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
+  border-radius: 0; /* Remove border radius for full viewport */
+  box-shadow: none; /* Remove shadow for seamless integration */
   overflow: hidden;
   transition: box-shadow 0.3s ease;
-  margin-bottom: 20px;
+  margin: 0; /* Remove margins */
 }
 
 .modern-table-container:hover {
-  box-shadow: 
-    0 10px 15px -3px rgba(0, 0, 0, 0.1), 
-    0 4px 6px -2px rgba(0, 0, 0, 0.05),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-shadow: none; /* Remove hover shadow for seamless integration */
 }
 
 /* Header Styles */
@@ -446,17 +439,20 @@
   position: relative;
   background: var(--table-bg, white);
   min-height: 400px;
-  max-height: 100%;
+  max-height: calc(100vh - 300px); /* Force maximum height to leave room for footer */
 }
 
-/* When pagination is enabled, adjust the table container height */
-.modern-table-container.with-pagination .table-scroll-container {
-  height: calc(100% - 60px);
+/* When pagination footer is actually present, adjust the table container height */
+.modern-table-container:has(.table-pagination-footer) .table-scroll-container {
+  flex: 0 1 auto; /* Don't grow, allow shrink, use content size */
+  max-height: calc(100vh - 300px); /* Balanced fit for footer */
 }
 
 .table-wrapper {
   height: 100%;
+  max-height: 100%;
   width: 100%;
+  overflow: hidden;
 }
 
 .loading-container {
@@ -579,11 +575,37 @@
   backdrop-filter: blur(10px);
 }
 
+/* New Pagination Footer Styles */
+.table-pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%));
+  border-top: 1px solid var(--table-border, #e2e8f0);
+  flex-wrap: wrap;
+  gap: 16px;
+  min-height: 60px;
+}
+
 .pagination-info {
   display: flex;
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+/* Pagination Footer specific info layout */
+.table-pagination-footer .pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.pagination-stats {
+  display: flex;
+  align-items: center;
 }
 
 .pagination-text {
@@ -633,9 +655,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
   border: 1px solid var(--table-border, #d1d5db);
   background: var(--table-bg, white);
   color: var(--table-cell-text, #374151);
@@ -2677,4 +2699,125 @@
     font-size: 11px;
     padding: 2px 6px;
   }
+}
+
+/* ===== PAGINATION FOOTER STYLES ===== */
+.table-pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%));
+  border-top: 1px solid var(--table-border, #e2e8f0);
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 40px;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.table-pagination-footer .pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.pagination-stats {
+  display: flex;
+  align-items: center;
+}
+
+.pagination-text {
+  color: var(--table-cell-text, #374151);
+  font-size: 14px;
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-size-label {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+}
+
+.page-size-select {
+  padding: 4px 8px;
+  border: 1px solid var(--table-border, #d1d5db);
+  border-radius: 4px;
+  font-size: 14px;
+  background: var(--table-bg, white);
+  cursor: pointer;
+}
+
+.page-size-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--table-border, #d1d5db);
+  background: var(--table-bg, white);
+  color: var(--table-cell-text, #374151);
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.pagination-btn:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.pagination-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.pagination-btn.active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 8px;
+}
+
+.pagination-ellipsis {
+  padding: 0 8px;
+  color: #9ca3af;
+  font-size: 14px;
 }

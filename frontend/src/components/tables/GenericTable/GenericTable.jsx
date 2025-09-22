@@ -16,6 +16,7 @@ import DeleteModal from './components/DeleteModal';
 import NavigationModal from './components/NavigationModal';
 import ScrollButtons from './components/ScrollButtons';
 import TableControls from './components/TableControls';
+import PaginationFooter from './components/PaginationFooter';
 import { useTableColumns } from './hooks/useTableColumns';
 import { useTableOperations } from './hooks/useTableOperations';
 import { useServerPagination } from './hooks/useServerPagination';
@@ -1894,7 +1895,7 @@ const GenericTable = forwardRef(({
   };
 
   return (
-    <div className={`modern-table-container theme-${theme}`}>
+    <div className={`modern-table-container theme-${theme}${serverPagination && serverPaginationHook ? ' with-pagination' : ''}`}>
       <TableHeader
         loading={loading || currentLoading}
         isDirty={isDirty}
@@ -2157,6 +2158,19 @@ const GenericTable = forwardRef(({
           }
         }}
       />
+
+      {/* Pagination Footer */}
+      {serverPagination && serverPaginationHook && (
+        <PaginationFooter
+          currentPage={serverPaginationHook.currentPage}
+          totalPages={serverPaginationHook.totalPages}
+          pageSize={serverPaginationHook.pageSize}
+          totalItems={serverPaginationHook.totalCount}
+          onPageChange={serverPaginationHook.handlePageChange}
+          onPageSizeChange={serverPaginationHook.handlePageSizeChange}
+          loading={currentLoading}
+        />
+      )}
     </div>
   );
 });
