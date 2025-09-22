@@ -28,6 +28,9 @@ const AdvancedFilter = ({
   const [activeColumn, setActiveColumn] = useState(null);
   const [columnSearch, setColumnSearch] = useState('');
   
+  // Local state for search input (separate from actual search value)
+  const [searchInputValue, setSearchInputValue] = useState(quickSearch || '');
+  
   // Cache for server-side unique values
   const [uniqueValuesCache, setUniqueValuesCache] = useState({});
   const [loadingColumns, setLoadingColumns] = useState({});
@@ -99,6 +102,24 @@ const AdvancedFilter = ({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showFilterDropdown]);
+
+  // Handle search input key press (search on Enter)
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      setQuickSearch(searchInputValue);
+    }
+  };
+
+  // Handle search clear
+  const handleSearchClear = () => {
+    setSearchInputValue('');
+    setQuickSearch('');
+  };
+
+  // Sync searchInputValue when quickSearch changes externally
+  useEffect(() => {
+    setSearchInputValue(quickSearch || '');
+  }, [quickSearch]);
 
   // Fetch unique values from server for a specific column
   const fetchUniqueValues = async (columnIndex) => {
@@ -328,18 +349,19 @@ const AdvancedFilter = ({
   return (
     <div className="advanced-filter-container">
       {/* Quick Search */}
-      <div className="advanced-search-input">
+      <div className={`advanced-search-input ${searchInputValue !== quickSearch ? 'has-unsaved-search' : ''}`}>
         <Search size={16} className="search-icon" />
         <input
           type="text"
-          placeholder="Quick search..."
-          value={quickSearch}
-          onChange={(e) => setQuickSearch(e.target.value)}
+          placeholder="Quick search... (press Enter)"
+          value={searchInputValue}
+          onChange={(e) => setSearchInputValue(e.target.value)}
+          onKeyPress={handleSearchKeyPress}
           className="search-field"
         />
-        {quickSearch && (
+        {searchInputValue && (
           <button
-            onClick={() => setQuickSearch('')}
+            onClick={handleSearchClear}
             className="search-clear"
             title="Clear search"
           >

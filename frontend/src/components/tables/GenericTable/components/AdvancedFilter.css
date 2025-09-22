@@ -34,6 +34,17 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* Visual indicator for unsaved search */
+.advanced-search-input.has-unsaved-search .search-field {
+  border-color: #f59e0b;
+  background-color: #fffbeb;
+}
+
+.advanced-search-input.has-unsaved-search .search-field:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
 .search-clear {
   position: absolute;
   right: 8px;
