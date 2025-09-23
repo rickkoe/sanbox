@@ -11,115 +11,15 @@ class Command(BaseCommand):
         # Create Widget Types
         widget_types = [
             {
-                'name': 'san_metrics',
-                'display_name': 'SAN Metrics',
-                'description': 'Display key SAN infrastructure metrics like fabric count, zones, and aliases',
-                'component_name': 'MetricWidget',
-                'category': 'metrics',
-                'icon': 'FaNetworkWired',
-                'default_width': 3,
-                'default_height': 200,
-                'min_width': 2,
-                'min_height': 150,
-                'max_width': 6,
-                'max_height': 400,
-                'is_resizable': True,
-                'requires_data_source': True,
-                'config_schema': {
-                    'metric_type': {'type': 'select', 'options': ['fabrics', 'zones', 'aliases', 'hosts']},
-                    'show_trend': {'type': 'boolean', 'default': True}
-                }
-            },
-            {
-                'name': 'storage_capacity',
-                'display_name': 'Storage Capacity Overview',
-                'description': 'Visualize storage capacity utilization across all systems',
-                'component_name': 'CapacityWidget',
-                'category': 'charts',
-                'icon': 'FaServer',
-                'default_width': 8,
-                'default_height': 350,
-                'min_width': 4,
-                'min_height': 250,
-                'max_width': 12,
-                'max_height': 500,
-                'is_resizable': True,
-                'requires_data_source': True,
-                'config_schema': {
-                    'chart_type': {'type': 'select', 'options': ['bar', 'table', 'pie']},
-                    'show_utilization': {'type': 'boolean', 'default': True}
-                }
-            },
-            {
-                'name': 'system_health',
-                'display_name': 'System Health Monitor',
-                'description': 'Monitor overall system health and active issues',
-                'component_name': 'HealthWidget',
-                'category': 'health',
-                'icon': 'FaExclamationTriangle',
-                'default_width': 4,
-                'default_height': 300,
-                'min_width': 3,
-                'min_height': 200,
-                'max_width': 6,
-                'max_height': 400,
-                'is_resizable': True,
-                'requires_data_source': True,
-                'config_schema': {
-                    'show_details': {'type': 'boolean', 'default': True},
-                    'alert_threshold': {'type': 'number', 'default': 80}
-                }
-            },
-            {
-                'name': 'recent_activity',
-                'display_name': 'Recent Activity Feed',
-                'description': 'Show recent system activities and operations',
-                'component_name': 'ActivityWidget',
-                'category': 'activity',
-                'icon': 'FaClock',
-                'default_width': 4,
-                'default_height': 350,
-                'min_width': 3,
-                'min_height': 250,
-                'max_width': 8,
-                'max_height': 500,
-                'is_resizable': True,
-                'requires_data_source': True,
-                'config_schema': {
-                    'max_items': {'type': 'number', 'default': 10},
-                    'filter_type': {'type': 'select', 'options': ['all', 'imports', 'errors', 'warnings']}
-                }
-            },
-            {
-                'name': 'fabric_overview',
-                'display_name': 'SAN Fabric Overview',
-                'description': 'Overview of SAN fabric status and zone counts',
-                'component_name': 'NetworkWidget',
-                'category': 'charts',
-                'icon': 'FaNetworkWired',
-                'default_width': 6,
-                'default_height': 300,
-                'min_width': 4,
-                'min_height': 200,
-                'max_width': 8,
-                'max_height': 400,
-                'is_resizable': True,
-                'requires_data_source': True,
-                'config_schema': {
-                    'show_zone_count': {'type': 'boolean', 'default': True},
-                    'layout': {'type': 'select', 'options': ['list', 'grid']}
-                }
-            },
-            {
                 'name': 'storage_systems',
                 'display_name': 'Storage Systems',
-                'description': 'List of storage systems with status and capacity',
+                'description': 'List of storage systems with detailed information including hosts and volumes',
                 'component_name': 'SystemsWidget',
                 'category': 'tables',
                 'icon': 'FaServer',
-                'default_width': 6,
+                'default_width': 8,
                 'default_height': 350,
-                'min_width': 4,
+                'min_width': 6,
                 'min_height': 250,
                 'max_width': 12,
                 'max_height': 500,
@@ -127,47 +27,7 @@ class Command(BaseCommand):
                 'requires_data_source': True,
                 'config_schema': {
                     'show_capacity': {'type': 'boolean', 'default': True},
-                    'sort_by': {'type': 'select', 'options': ['name', 'capacity', 'utilization']}
-                }
-            },
-            {
-                'name': 'capacity_analytics',
-                'display_name': 'Capacity Analytics',
-                'description': 'Advanced capacity analytics with trends and forecasting',
-                'component_name': 'ChartWidget',
-                'category': 'charts',
-                'icon': 'FaChartLine',
-                'default_width': 12,
-                'default_height': 400,
-                'min_width': 6,
-                'min_height': 300,
-                'max_width': 12,
-                'max_height': 600,
-                'is_resizable': True,
-                'requires_data_source': True,
-                'config_schema': {
-                    'time_range': {'type': 'select', 'options': ['7d', '30d', '90d', '1y']},
-                    'chart_type': {'type': 'select', 'options': ['line', 'bar', 'area']}
-                }
-            },
-            {
-                'name': 'zone_table',
-                'display_name': 'Zone Management Table',
-                'description': 'Detailed table view of SAN zones with management options',
-                'component_name': 'TableWidget',
-                'category': 'tables',
-                'icon': 'FaDatabase',
-                'default_width': 12,
-                'default_height': 400,
-                'min_width': 6,
-                'min_height': 300,
-                'max_width': 12,
-                'max_height': 600,
-                'is_resizable': True,
-                'requires_data_source': True,
-                'config_schema': {
-                    'columns': {'type': 'multiselect', 'options': ['name', 'fabric', 'members', 'status']},
-                    'page_size': {'type': 'number', 'default': 25}
+                    'sort_by': {'type': 'select', 'options': ['name', 'type', 'model']}
                 }
             }
         ]

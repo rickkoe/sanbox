@@ -38,11 +38,6 @@ const NavbarContext = ({ config, loading }) => {
               <div className="context-customer">{config.customer.name}</div>
               <div className="context-project">{config.active_project.name}</div>
             </div>
-            <div className="context-chevron">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                <path d="M6 9L2 5h8L6 9z"/>
-              </svg>
-            </div>
           </div>
         </Dropdown.Toggle>
         <Dropdown.Menu className="context-menu">

@@ -17,7 +17,7 @@ const UserSection = ({ onAboutClick }) => {
             style={{ cursor: "pointer" }}
             title="Settings & Configuration"
           >
-            <Settings size={24} />
+            <Settings size={18} />
           </Dropdown.Toggle>
           <Dropdown.Menu>
             <Dropdown.Item as={NavLink} to="/settings/project-config">
@@ -40,7 +40,7 @@ const UserSection = ({ onAboutClick }) => {
             style={{ cursor: "pointer" }}
             title="Help & Admin"
           >
-            <HelpCircle size={24} />
+            <HelpCircle size={18} />
           </Dropdown.Toggle>
           <Dropdown.Menu>
             <Dropdown.Item onClick={onAboutClick}>
@@ -69,7 +69,7 @@ const UserSection = ({ onAboutClick }) => {
           style={{ cursor: "pointer" }}
           title="User Profile"
         >
-          <User size={24} />
+          <User size={18} />
         </span>
       </li>
     </>

@@ -546,6 +546,119 @@
   to { transform: rotate(360deg); }
 }
 
+/* ========== SYSTEMS WIDGET SPECIFIC STYLES ========== */
+
+.systems-table-container {
+  flex: 1;
+  overflow: auto;
+  max-height: 400px;
+}
+
+.systems-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.systems-table th {
+  background: var(--border-color, #f8f9fa);
+  color: var(--text-color, #333);
+  font-weight: 600;
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  border-bottom: 2px solid var(--border-color, #e9ecef);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.systems-table td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border-color, #e9ecef);
+  vertical-align: middle;
+}
+
+.systems-table tr:hover {
+  background: var(--border-color, #f8f9fa);
+}
+
+.system-name {
+  font-weight: 600;
+  color: var(--text-color, #333);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-type {
+  color: var(--primary-color, #667eea);
+  font-weight: 500;
+}
+
+.system-model,
+.system-machine-type {
+  color: var(--text-color, #666);
+}
+
+.system-serial,
+.system-firmware {
+  color: var(--text-color, #666);
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+.count-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  min-width: 24px;
+  text-align: center;
+}
+
+.count-badge.hosts {
+  background: var(--primary-color, #667eea);
+  color: white;
+}
+
+.count-badge.volumes {
+  background: var(--success-color, #10b981);
+  color: white;
+}
+
+.systems-footer {
+  padding: 0.75rem;
+  text-align: center;
+  color: var(--text-color, #666);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border-color, #e9ecef);
+  background: var(--border-color, #f8f9fa);
+}
+
+.systems-empty,
+.network-empty,
+.activity-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: var(--text-color, #666);
+  font-style: italic;
+  flex: 1;
+}
+
+.systems-count,
+.network-count,
+.activity-count {
+  font-size: 0.9rem;
+  color: var(--text-color, #666);
+  background: var(--border-color, #f8f9fa);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
 /* ========== RESPONSIVE DESIGN ========== */
 
 @media (max-width: 768px) {

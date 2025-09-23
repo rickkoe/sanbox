@@ -11,8 +11,8 @@ nav.navbar {
   transition: all 0.3s ease;
   position: relative;
   z-index: 100;
-  padding: 1.25rem 0;
-  margin: 0.5rem 0;
+  padding: 0.5rem 0;
+  margin: 0;
 }
 
 /* Force navbar background for each theme with maximum specificity */
@@ -145,7 +145,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   align-items: center !important;
   gap: 0.75rem !important;
   transition: all 0.3s ease !important;
-  padding: 0.5rem 0 !important;
+  padding: 0.25rem 0 !important;
 }
 
 .navbar-brand:hover {
@@ -188,14 +188,16 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   color: var(--navbar-text) !important;
   font-weight: 500 !important;
   text-decoration: none !important;
-  padding: 0.75rem 1rem !important;
-  border-radius: 12px !important;
+  padding: 0.5rem !important;
+  border-radius: 8px !important;
   transition: all 0.3s ease !important;
   display: flex !important;
   align-items: center !important;
   gap: 0.5rem !important;
   position: relative !important;
   overflow: hidden !important;
+  background: transparent !important;
+  border: none !important;
 }
 
 /* Force theme text colors with maximum specificity - Override Bootstrap */
@@ -627,16 +629,33 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 
 .nav-link:hover {
   color: var(--navbar-text-hover) !important;
-  background: var(--navbar-button-bg, rgba(255, 255, 255, 0.1)) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(-1px);
+  box-shadow: none;
 }
 
 /* Default active state - overridden by theme-specific rules below */
 .nav-link.active {
-  background: var(--navbar-button-hover, #ffffff) !important;
-  color: var(--navbar-bg, #667eea) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: var(--navbar-text-hover) !important;
+  box-shadow: none;
+}
+
+/* ========== HIDE DROPDOWN INDICATORS ========== */
+
+/* Hide Bootstrap dropdown carets/arrows */
+.navbar .dropdown-toggle::after,
+.navbar .dropdown-toggle::before {
+  display: none !important;
+}
+
+.navbar .btn-outline-secondary::after {
+  display: none !important;
+}
+
+/* Hide any caret elements */
+.navbar .caret {
+  display: none !important;
 }
 
 /* ========== DROPDOWN STYLING ========== */
@@ -818,11 +837,11 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 
 /* Essential navbar override styles */
 .navbar {
-  padding: 0.75rem 0 !important;
+  padding: 0.5rem 0 !important;
 }
 
 .navbar-brand {
-  padding: 0.5rem 0 !important;
+  padding: 0.25rem 0 !important;
   margin-right: 1rem !important;
 }
 
@@ -831,14 +850,14 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 }
 
 .navbar-nav .nav-item .nav-link {
-  padding: 0.75rem 1rem !important;
-  border-radius: 12px !important;
+  padding: 0.5rem !important;
+  border-radius: 8px !important;
   display: flex !important;
   align-items: center !important;
   gap: 0.5rem !important;
   transition: all 0.3s ease !important;
-  background: var(--navbar-button-bg, rgba(255, 255, 255, 0.1)) !important;
-  border: 2px solid var(--navbar-border, rgba(255, 255, 255, 0.2)) !important;
+  background: transparent !important;
+  border: none !important;
   color: var(--navbar-text) !important;
   font-weight: 500 !important;
   cursor: pointer !important;
@@ -846,20 +865,18 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 }
 
 .navbar-nav .nav-item .nav-link:hover {
-  background: var(--navbar-button-hover, #ffffff) !important;
-  color: var(--navbar-bg, #667eea) !important;
-  border-color: var(--navbar-button-hover, #ffffff) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: var(--navbar-text-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: none;
   text-decoration: none !important;
 }
 
 /* Default active state - overridden by theme-specific rules above */
 .navbar-nav .nav-item .nav-link.active {
-  background: var(--navbar-button-hover, #ffffff) !important;
-  color: var(--navbar-bg, #667eea) !important;
-  border-color: var(--navbar-button-hover, #ffffff) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: var(--navbar-text-hover) !important;
+  box-shadow: none;
 }
 
 .nav-label {
@@ -1022,29 +1039,28 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.5rem 1rem;
-  background: var(--navbar-button-bg, rgba(255, 255, 255, 0.1));
-  border-radius: 12px;
-  border: 1px solid var(--navbar-border, rgba(255, 255, 255, 0.1));
-  backdrop-filter: blur(10px);
+  padding: 0.5rem 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  backdrop-filter: none;
 }
 
 .context-indicator {
   display: flex;
   align-items: center;
   padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  border: none;
   border-radius: 0.5rem;
   color: var(--navbar-text);
   transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
+  backdrop-filter: none;
   min-width: 200px;
 }
 
 .context-indicator:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .context-icon {

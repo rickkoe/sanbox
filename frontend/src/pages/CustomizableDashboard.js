@@ -16,7 +16,6 @@ import { WidgetMarketplace } from '../components/dashboard/WidgetMarketplace';
 import { DashboardPresets } from '../components/dashboard/DashboardPresets';
 import { SaveTemplateModal } from '../components/dashboard/SaveTemplateModal';
 import { GridLayoutRenderer } from '../components/dashboard/GridLayoutRenderer';
-import { DashboardToolbar } from '../components/dashboard/DashboardToolbar';
 import './CustomizableDashboard.css';
 
 const CustomizableDashboard = () => {
@@ -113,6 +112,7 @@ const CustomizableDashboard = () => {
     }
   }, [config?.customer?.id]);
 
+
   if (loading && !dashboard) {
     return <DashboardSkeleton />;
   }
@@ -140,16 +140,6 @@ const CustomizableDashboard = () => {
           dashboardView={dashboardView}
           onViewChange={setDashboardView}
         />
-
-        {/* Edit Mode Toolbar */}
-        {editMode && (
-          <DashboardToolbar
-            onAddWidget={() => setShowMarketplace(true)}
-            onLoadPreset={() => setShowPresets(true)}
-            selectedWidget={selectedWidget}
-            onWidgetConfig={setSelectedWidget}
-          />
-        )}
 
         {/* Main Dashboard Content */}
         <div className="dashboard-content">

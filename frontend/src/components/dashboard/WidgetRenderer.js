@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { 
   FaChartLine, FaDatabase, FaServer, FaNetworkWired, 
   FaExclamationTriangle, FaClock, FaUsers, FaHdd,
@@ -6,17 +6,33 @@ import {
 } from 'react-icons/fa';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import axios from 'axios';
+import { ConfigContext } from '../../context/ConfigContext';
 
 export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
+  const { config } = useContext(ConfigContext);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [hasFetched, setHasFetched] = useState(false);
+  
+  // Get customer ID from config context
+  const customerId = config?.customer?.id;
 
   // Fetch widget data based on type
   useEffect(() => {
     const fetchWidgetData = async () => {
-      if (!widget?.widget_type?.requires_data_source) {
-        // Static widget - no data needed
+      // Force data fetch for storage_systems widget regardless of requires_data_source
+      if (widget?.widget_type?.name !== 'storage_systems' && !widget?.widget_type?.requires_data_source) {
+        return;
+      }
+
+      if (!customerId) {
+        setError('No active customer selected');
+        return;
+      }
+
+      // Prevent multiple fetches for storage_systems widget
+      if (widget?.widget_type?.name === 'storage_systems' && hasFetched) {
         return;
       }
 
@@ -24,8 +40,9 @@ export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
       setError(null);
 
       try {
-        const response = await getWidgetData(widget);
+        const response = await getWidgetData(widget, customerId);
         setData(response);
+        setHasFetched(true);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -35,13 +52,13 @@ export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
 
     fetchWidgetData();
 
-    // Set up auto-refresh if needed
+    // Set up auto-refresh if needed (disabled for storage_systems to prevent flickering)
     const refreshInterval = widget.refresh_interval || 30;
-    if (!editMode && refreshInterval > 0) {
+    if (!editMode && refreshInterval > 0 && widget?.widget_type?.name !== 'storage_systems') {
       const interval = setInterval(fetchWidgetData, refreshInterval * 1000);
       return () => clearInterval(interval);
     }
-  }, [widget, editMode]);
+  }, [widget?.id, widget?.widget_type?.name, editMode, customerId]);
 
   if (loading) {
     return <WidgetLoading />;
@@ -53,20 +70,6 @@ export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
 
   // Render based on widget type
   switch (widget.widget_type.component_name) {
-    case 'MetricWidget':
-      return <MetricWidget widget={widget} data={data} compact={compact} />;
-    case 'ChartWidget':
-      return <ChartWidget widget={widget} data={data} compact={compact} />;
-    case 'TableWidget':
-      return <TableWidget widget={widget} data={data} compact={compact} />;
-    case 'HealthWidget':
-      return <HealthWidget widget={widget} data={data} compact={compact} />;
-    case 'ActivityWidget':
-      return <ActivityWidget widget={widget} data={data} compact={compact} />;
-    case 'CapacityWidget':
-      return <CapacityWidget widget={widget} data={data} compact={compact} />;
-    case 'NetworkWidget':
-      return <NetworkWidget widget={widget} data={data} compact={compact} />;
     case 'SystemsWidget':
       return <SystemsWidget widget={widget} data={data} compact={compact} />;
     default:
@@ -75,344 +78,129 @@ export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
 };
 
 // Widget Data Fetcher
-const getWidgetData = async (widget) => {
+const getWidgetData = async (widget, customerId) => {
   const { widget_type, data_filters, config } = widget;
   
-  switch (widget_type.name) {
-    case 'san_metrics':
-      return axios.get('/api/core/dashboard/stats/', { params: data_filters });
-    case 'storage_capacity':
-      return axios.get('/api/core/dashboard/capacity/', { params: data_filters });
-    case 'system_health':
-      return axios.get('/api/core/dashboard/health/', { params: data_filters });
-    case 'recent_activity':
-      return axios.get('/api/core/dashboard/activity/', { params: data_filters });
-    case 'fabric_overview':
-      return axios.get('/api/san/fabrics/', { params: data_filters });
-    case 'storage_systems':
-      return axios.get('/api/storage/systems/', { params: data_filters });
-    default:
-      // Mock data for demo purposes
-      return generateMockData(widget_type.name);
+  try {
+    let response;
+    // Merge customer ID with existing data filters
+    const params = { ...data_filters, customer: customerId };
+    
+    switch (widget_type.name) {
+      case 'storage_systems':
+        response = await axios.get('/api/storage/', { params });
+        return response.data;
+      default:
+        // Mock data for demo purposes - fallback for unsupported widget types
+        return generateMockData(widget_type.name);
+    }
+  } catch (error) {
+    throw new Error(`Failed to fetch widget data: ${error.response?.data?.detail || error.message}`);
   }
 };
 
 // Individual Widget Components
 
-const MetricWidget = ({ widget, data, compact }) => {
-  const value = data?.value || Math.floor(Math.random() * 1000);
-  const label = widget.config.label || widget.title;
-  const trend = data?.trend || { value: Math.floor(Math.random() * 20) - 10, period: 'month' };
-  const icon = getWidgetIcon(widget.widget_type.icon);
-
-  return (
-    <div className="metric-widget">
-      <div className="metric-header">
-        <div className="metric-icon">
-          {React.createElement(icon)}
-        </div>
-        {!compact && (
-          <div className="metric-trend">
-            <span className={trend.value >= 0 ? 'positive' : 'negative'}>
-              {trend.value >= 0 ? '+' : ''}{trend.value}%
-            </span>
-            <small>this {trend.period}</small>
-          </div>
-        )}
-      </div>
-      <div className="metric-value">{value.toLocaleString()}</div>
-      <div className="metric-label">{label}</div>
-    </div>
-  );
-};
-
-const ChartWidget = ({ widget, data, compact }) => {
-  const chartData = data?.data || generateChartData();
-  const chartType = widget.config.chart_type || 'bar';
-
-  const renderChart = () => {
-    switch (chartType) {
-      case 'line':
-        return (
-          <LineChart data={chartData}>
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="value" stroke="#667eea" strokeWidth={2} />
-          </LineChart>
-        );
-      case 'pie':
-        return (
-          <PieChart>
-            <Pie
-              data={chartData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              outerRadius={compact ? 40 : 60}
-              fill="#667eea"
-            >
-              {chartData.map((_, index) => (
-                <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-          </PieChart>
-        );
-      default:
-        return (
-          <BarChart data={chartData}>
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="value" fill="#667eea" />
-          </BarChart>
-        );
-    }
-  };
-
-  return (
-    <div className="chart-widget">
-      <div className="widget-header">
-        <h4>{widget.title}</h4>
-      </div>
-      <div className="chart-container" style={{ height: compact ? 150 : 250 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {renderChart()}
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-};
-
-const TableWidget = ({ widget, data, compact }) => {
-  const tableData = data?.data || generateTableData();
-  const columns = widget.config.columns || ['name', 'status', 'value'];
-  const maxRows = compact ? 3 : 10;
-
-  return (
-    <div className="table-widget">
-      <div className="widget-header">
-        <h4>{widget.title}</h4>
-        <span className="row-count">{tableData.length} items</span>
-      </div>
-      <div className="table-container">
-        <table className="widget-table">
-          <thead>
-            <tr>
-              {columns.map(col => (
-                <th key={col}>{col.charAt(0).toUpperCase() + col.slice(1)}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {tableData.slice(0, maxRows).map((row, index) => (
-              <tr key={index}>
-                {columns.map(col => (
-                  <td key={col}>
-                    {col === 'status' ? (
-                      <span className={`status ${row[col]?.toLowerCase()}`}>
-                        {row[col]}
-                      </span>
-                    ) : (
-                      row[col]
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {tableData.length > maxRows && (
-          <div className="table-footer">
-            +{tableData.length - maxRows} more items
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const HealthWidget = ({ widget, data, compact }) => {
-  const health = data?.health || {
-    overall: Math.random() > 0.7 ? 'healthy' : Math.random() > 0.3 ? 'warning' : 'critical',
-    systems: Math.floor(Math.random() * 20) + 5,
-    issues: Math.floor(Math.random() * 3),
-    uptime: '99.8%'
-  };
-
-  const statusColor = {
-    healthy: '#10b981',
-    warning: '#f59e0b',
-    critical: '#ef4444'
-  }[health.overall];
-
-  return (
-    <div className="health-widget">
-      <div className="widget-header">
-        <h4>{widget.title}</h4>
-        <div className="health-status" style={{ color: statusColor }}>
-          {health.overall === 'healthy' ? <FaCheckCircle /> : 
-           health.overall === 'warning' ? <FaExclamationTriangle /> : <FaTimesCircle />}
-          {health.overall.charAt(0).toUpperCase() + health.overall.slice(1)}
-        </div>
-      </div>
-      <div className="health-metrics">
-        <div className="health-metric">
-          <span className="metric-value">{health.systems}</span>
-          <span className="metric-label">Systems Online</span>
-        </div>
-        <div className="health-metric">
-          <span className="metric-value">{health.issues}</span>
-          <span className="metric-label">Active Issues</span>
-        </div>
-        {!compact && (
-          <div className="health-metric">
-            <span className="metric-value">{health.uptime}</span>
-            <span className="metric-label">Uptime</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const ActivityWidget = ({ widget, data, compact }) => {
-  const activities = data?.activities || generateActivityData();
-  const maxItems = compact ? 3 : 8;
-
-  return (
-    <div className="activity-widget">
-      <div className="widget-header">
-        <h4>{widget.title}</h4>
-        <span className="activity-count">{activities.length} recent</span>
-      </div>
-      <div className="activity-list">
-        {activities.slice(0, maxItems).map((activity, index) => (
-          <div key={index} className="activity-item">
-            <div className="activity-icon">
-              <FaClock />
-            </div>
-            <div className="activity-content">
-              <span className="activity-text">{activity.text}</span>
-              <span className="activity-time">{activity.time}</span>
-            </div>
-            <div className={`activity-status ${activity.status}`}>
-              {activity.status === 'success' ? <FaCheckCircle /> :
-               activity.status === 'error' ? <FaTimesCircle /> : <FaSpinner />}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const CapacityWidget = ({ widget, data, compact }) => {
-  const capacity = data?.capacity || {
-    total: Math.floor(Math.random() * 1000) + 500,
-    used: Math.floor(Math.random() * 400) + 100,
-    available: 0
-  };
-  capacity.available = capacity.total - capacity.used;
-  capacity.utilization = ((capacity.used / capacity.total) * 100).toFixed(1);
-
-  const utilizationColor = 
-    capacity.utilization > 90 ? '#ef4444' :
-    capacity.utilization > 80 ? '#f59e0b' : '#10b981';
-
-  return (
-    <div className="capacity-widget">
-      <div className="widget-header">
-        <h4>{widget.title}</h4>
-        <span className="utilization" style={{ color: utilizationColor }}>
-          {capacity.utilization}% Used
-        </span>
-      </div>
-      <div className="capacity-bar">
-        <div 
-          className="capacity-fill" 
-          style={{ 
-            width: `${capacity.utilization}%`,
-            backgroundColor: utilizationColor
-          }}
-        />
-      </div>
-      <div className="capacity-details">
-        <div className="capacity-stat">
-          <span className="stat-value">{capacity.used}TB</span>
-          <span className="stat-label">Used</span>
-        </div>
-        <div className="capacity-stat">
-          <span className="stat-value">{capacity.available}TB</span>
-          <span className="stat-label">Available</span>
-        </div>
-        {!compact && (
-          <div className="capacity-stat">
-            <span className="stat-value">{capacity.total}TB</span>
-            <span className="stat-label">Total</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const NetworkWidget = ({ widget, data, compact }) => {
-  const networks = data?.networks || generateNetworkData();
-
-  return (
-    <div className="network-widget">
-      <div className="widget-header">
-        <h4>{widget.title}</h4>
-        <span className="network-count">{networks.length} fabrics</span>
-      </div>
-      <div className="network-list">
-        {networks.slice(0, compact ? 3 : 6).map((network, index) => (
-          <div key={index} className="network-item">
-            <div className="network-icon">
-              <FaNetworkWired />
-            </div>
-            <div className="network-info">
-              <span className="network-name">{network.name}</span>
-              <span className="network-status">{network.zones} zones</span>
-            </div>
-            <div className={`network-health ${network.status}`}>
-              {network.status === 'active' ? <FaCheckCircle /> : <FaExclamationTriangle />}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 const SystemsWidget = ({ widget, data, compact }) => {
-  const systems = data?.systems || generateSystemsData();
+  // Handle real storage systems data from backend
+  const systems = data?.results || [];
+
+  const formatSystem = (system) => {
+    return {
+      id: system.id,
+      name: system.name || `Storage-${system.id}`,
+      storage_type: system.storage_type || '-',
+      machine_type: system.machine_type || '-',
+      model: system.model || '-',
+      serial_number: system.serial_number || '-',
+      firmware_level: system.firmware_level || '-',
+      hosts: system.db_hosts_count || 0,
+      volumes: system.db_volumes_count || 0
+    };
+  };
+
+  const formattedSystems = systems.map(formatSystem);
+  const maxRows = compact ? 5 : 10;
 
   return (
     <div className="systems-widget">
       <div className="widget-header">
         <h4>{widget.title}</h4>
-        <span className="systems-count">{systems.length} systems</span>
+        <span className="systems-count">{formattedSystems.length} systems</span>
       </div>
-      <div className="systems-grid">
-        {systems.slice(0, compact ? 4 : 8).map((system, index) => (
-          <div key={index} className="system-card">
-            <div className="system-icon">
-              <FaServer />
+      
+      {formattedSystems.length === 0 ? (
+        <div className="systems-empty">
+          <span>No storage systems found</span>
+        </div>
+      ) : (
+        <div className="systems-table-container">
+          <table className="systems-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Model</th>
+                <th>Serial</th>
+                {!compact && <th>Machine Type</th>}
+                {!compact && <th>Firmware</th>}
+                <th>Hosts</th>
+                <th>Volumes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {formattedSystems.slice(0, maxRows).map((system) => (
+                <tr key={system.id}>
+                  <td className="system-name" title={system.name}>
+                    {system.name}
+                  </td>
+                  <td className="system-type">
+                    {system.storage_type}
+                  </td>
+                  <td className="system-model">
+                    {system.model}
+                  </td>
+                  <td className="system-serial" title={system.serial_number}>
+                    {system.serial_number.length > 8 ? 
+                      `${system.serial_number.substring(0, 8)}...` : 
+                      system.serial_number
+                    }
+                  </td>
+                  {!compact && (
+                    <td className="system-machine-type">
+                      {system.machine_type}
+                    </td>
+                  )}
+                  {!compact && (
+                    <td className="system-firmware" title={system.firmware_level}>
+                      {system.firmware_level.length > 10 ? 
+                        `${system.firmware_level.substring(0, 10)}...` : 
+                        system.firmware_level
+                      }
+                    </td>
+                  )}
+                  <td className="system-hosts">
+                    <span className="count-badge hosts">
+                      {system.hosts}
+                    </span>
+                  </td>
+                  <td className="system-volumes">
+                    <span className="count-badge volumes">
+                      {system.volumes}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          
+          {formattedSystems.length > maxRows && (
+            <div className="systems-footer">
+              +{formattedSystems.length - maxRows} more systems
             </div>
-            <div className="system-info">
-              <span className="system-name">{system.name}</span>
-              <span className="system-capacity">{system.capacity}TB</span>
-            </div>
-            <div className={`system-status ${system.status}`}>
-              {system.status === 'online' ? <FaCheckCircle /> : <FaTimesCircle />}
-            </div>
-          </div>
-        ))}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -454,6 +242,22 @@ const getWidgetIcon = (iconName) => {
     FaExclamationTriangle, FaClock, FaUsers, FaHdd
   };
   return icons[iconName] || FaDatabase;
+};
+
+const formatTimeAgo = (dateString) => {
+  if (!dateString) return 'Unknown time';
+  
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
 };
 
 const CHART_COLORS = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#43e97b'];
