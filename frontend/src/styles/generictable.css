@@ -2065,50 +2065,19 @@
   color: #94a3b8 !important;
 }
 
-/* Corporate theme specific adjustments */
-.theme-corporate .modern-table-container {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 
-              0 2px 4px -1px rgba(0, 0, 0, 0.1),
-              0 0 0 1px rgba(255, 255, 255, 0.1);
-}
 
-.theme-corporate .handsontable tbody tr:nth-child(even) td {
-  background-color: rgba(191, 219, 254, 0.03) !important;
-}
-
-.theme-corporate .handsontable tbody tr:hover td {
-  background-color: rgba(191, 219, 254, 0.08) !important;
-  border-bottom-color: rgba(191, 219, 254, 0.2) !important;
-}
-
-/* Colorful theme specific adjustments */
-.theme-colorful .modern-table-container {
-  box-shadow: 0 4px 6px -1px rgba(225, 112, 85, 0.15), 
-              0 2px 4px -1px rgba(225, 112, 85, 0.1),
-              0 0 0 1px rgba(225, 112, 85, 0.1);
-}
-
-.theme-colorful .handsontable tbody tr:nth-child(even) td {
-  background-color: rgba(225, 112, 85, 0.02) !important;
-}
-
-.theme-colorful .handsontable tbody tr:hover td {
-  background-color: rgba(225, 112, 85, 0.08) !important;
-  border-bottom-color: rgba(225, 112, 85, 0.2) !important;
-}
-
-/* Minimal theme specific adjustments */
-.theme-minimal .modern-table-container {
+/* Light theme specific adjustments */
+.theme-light .modern-table-container {
   box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.06), 
               0 1px 2px -1px rgba(0, 0, 0, 0.04),
               0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
-.theme-minimal .handsontable tbody tr:nth-child(even) td {
+.theme-light .handsontable tbody tr:nth-child(even) td {
   background-color: rgba(37, 99, 235, 0.015) !important;
 }
 
-.theme-minimal .handsontable tbody tr:hover td {
+.theme-light .handsontable tbody tr:hover td {
   background-color: rgba(37, 99, 235, 0.05) !important;
   border-bottom-color: rgba(37, 99, 235, 0.15) !important;
 }

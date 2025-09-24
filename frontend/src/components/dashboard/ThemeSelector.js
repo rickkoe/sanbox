@@ -10,37 +10,19 @@ export const ThemeSelector = ({ currentTheme, onThemeSelect, onClose }) => {
   useEffect(() => {
     const fetchThemes = async () => {
       try {
-        // For now, use predefined themes
+        // Simplified to only light and dark themes
         setThemes([
           {
-            name: 'modern',
-            display_name: 'Modern',
-            description: 'Clean and contemporary design with subtle gradients',
-            preview: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+            name: 'light',
+            display_name: 'Light',
+            description: 'Clean and bright interface with excellent readability',
+            preview: '#ffffff'
           },
           {
             name: 'dark',
-            display_name: 'Dark Mode',
-            description: 'Dark theme for low-light environments',
+            display_name: 'Dark',
+            description: 'Dark theme with teal accents for low-light environments',
             preview: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)'
-          },
-          {
-            name: 'minimal',
-            display_name: 'Minimal',
-            description: 'Clean and simple with minimal distractions',
-            preview: '#fafafa'
-          },
-          {
-            name: 'corporate',
-            display_name: 'Corporate',
-            description: 'Professional blue theme for business environments',
-            preview: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)'
-          },
-          {
-            name: 'colorful',
-            display_name: 'Colorful',
-            description: 'Vibrant and energetic with dynamic colors',
-            preview: 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4)'
           }
         ]);
         setLoading(false);

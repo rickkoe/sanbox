@@ -114,11 +114,8 @@ const SettingsPage = () => {
                         
                         <div className="theme-selection-grid">
                             {[
-                                { name: 'modern', display: 'Modern', description: 'Clean and contemporary design', color: '#667eea' },
-                                { name: 'dark', display: 'Dark', description: 'Dark mode with neon accents', color: '#64ffda' },
-                                { name: 'minimal', display: 'Minimal', description: 'Simple and elegant interface', color: '#2563eb' },
-                                { name: 'corporate', display: 'Corporate', description: 'Professional blue theme', color: '#1e3c72' },
-                                { name: 'colorful', display: 'Colorful', description: 'Vibrant animated gradients', color: '#e17055' }
+                                { name: 'light', display: 'Light', description: 'Clean and bright interface with excellent readability', color: '#ffffff', textColor: '#2563eb' },
+                                { name: 'dark', display: 'Dark', description: 'Dark theme with teal accents for low-light environments', color: '#1a1a2e', textColor: '#64ffda' }
                             ].map((themeOption) => (
                                 <div
                                     key={themeOption.name}
@@ -128,7 +125,10 @@ const SettingsPage = () => {
                                     <div className="theme-preview-area">
                                         <div 
                                             className={`theme-preview-color theme-preview-${themeOption.name}`}
-                                            style={{ backgroundColor: themeOption.color }}
+                                            style={{ 
+                                                backgroundColor: themeOption.color,
+                                                border: themeOption.name === 'light' ? '2px solid #e5e7eb' : 'none'
+                                            }}
                                         ></div>
                                         {theme === themeOption.name && (
                                             <div className="theme-active-indicator">

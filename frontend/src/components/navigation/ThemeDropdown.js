@@ -9,11 +9,8 @@ const ThemeDropdown = () => {
   const dropdownRef = useRef(null);
 
   const themes = [
-    { name: 'modern', display: 'Modern', description: 'Clean and contemporary' },
-    { name: 'dark', display: 'Dark', description: 'Dark mode with neon accents' },
-    { name: 'minimal', display: 'Minimal', description: 'Simple and elegant' },
-    { name: 'corporate', display: 'Corporate', description: 'Professional blue theme' },
-    { name: 'colorful', display: 'Colorful', description: 'Vibrant animated gradients' }
+    { name: 'light', display: 'Light', description: 'Clean and bright interface' },
+    { name: 'dark', display: 'Dark', description: 'Dark mode with teal accents' }
   ];
 
   const handleThemeSelect = async (themeName, event) => {

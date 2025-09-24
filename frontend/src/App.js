@@ -13,8 +13,6 @@ import "./styles/generictable.css";
 import "./components/tables/GenericTable/components/TableToolbar.css";
 import "./components/tables/GenericTable/components/TableLoadingOverlay.css";
 import "./styles/pages.css";
-import "./styles/home.css";
-import "./styles/dashboard.css";
 import "./styles/themes.css";
 import "./components/navigation/Navbar.css";
 import "./components/navigation/Sidebar.css";
@@ -27,7 +25,6 @@ import TableToolbar from "./components/tables/GenericTable/components/TableToolb
 import { BreadcrumbContext } from "./context/BreadcrumbContext";
 
 // Critical pages (loaded immediately)
-import Dashboard from "./pages/Dashboard";
 import CustomizableDashboard from "./pages/CustomizableDashboard";
 import NotFound from "./pages/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
@@ -190,8 +187,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
       <main className={getMainContentClass()}>
                 <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                   <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/dashboard-v2" element={<CustomizableDashboard />} />
+                    <Route path="/" element={<CustomizableDashboard />} />
                     <Route path="/customers" element={<CustomerTable />} />
                     <Route path="/projects" element={<ProjectTable />} />
                     <Route path="/san" element={<SanPage />} />

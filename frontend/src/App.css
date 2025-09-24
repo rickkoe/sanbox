@@ -66,32 +66,12 @@
 }
 
 /* Theme-specific backgrounds for navbar header wrapper */
-.navbar-header:has(.theme-modern) {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+.navbar-header:has(.theme-light) {
+  background: #ffffff;
 }
 
 .navbar-header:has(.theme-dark) {
   background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
-}
-
-.navbar-header:has(.theme-minimal) {
-  background: #ffffff;
-}
-
-.navbar-header:has(.theme-corporate) {
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-}
-
-.navbar-header:has(.theme-colorful) {
-  background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
-  background-size: 200% 200%;
-  animation: gradientShift 3s ease infinite;
-}
-
-@keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 
 /* Sidebar on the left */

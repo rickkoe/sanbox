@@ -14,7 +14,10 @@ export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     // Try to get theme from localStorage first
     const savedTheme = localStorage.getItem('dashboard-theme');
-    return savedTheme || 'modern';
+    // Map old theme names to new simplified themes
+    if (savedTheme === 'minimal') return 'light';
+    if (['modern', 'corporate', 'colorful'].includes(savedTheme)) return 'light';
+    return savedTheme === 'dark' ? 'dark' : 'light';
   });
 
   // Store dashboard update function

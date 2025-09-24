@@ -62,28 +62,28 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(f'Widget type already exists: {widget_type.display_name}')
 
-        # Create Dashboard Themes
+        # Create Dashboard Themes - Simplified to Light and Dark only
         themes = [
             {
-                'name': 'modern',
-                'display_name': 'Modern',
-                'description': 'Clean and contemporary design with subtle gradients',
+                'name': 'light',
+                'display_name': 'Light',
+                'description': 'Clean and bright interface with excellent readability',
                 'css_variables': {
-                    '--dashboard-bg': 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-                    '--card-bg': 'rgba(255, 255, 255, 0.95)',
-                    '--primary-color': '#667eea',
-                    '--secondary-color': '#764ba2'
+                    '--dashboard-bg': '#ffffff',
+                    '--card-bg': '#ffffff',
+                    '--primary-color': '#2563eb',
+                    '--text-color': '#1f2937'
                 },
-                'background_type': 'gradient',
-                'background_config': {'gradient': 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'},
-                'card_style': 'modern',
-                'animation_level': 'medium',
+                'background_type': 'solid',
+                'background_config': {'color': '#ffffff'},
+                'card_style': 'minimal',
+                'animation_level': 'minimal',
                 'is_system': True
             },
             {
                 'name': 'dark',
-                'display_name': 'Dark Mode',
-                'description': 'Dark theme optimized for low-light environments',
+                'display_name': 'Dark',
+                'description': 'Dark theme with teal accents for low-light environments',
                 'css_variables': {
                     '--dashboard-bg': 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)',
                     '--card-bg': 'rgba(30, 30, 60, 0.95)',
@@ -94,51 +94,6 @@ class Command(BaseCommand):
                 'background_config': {'gradient': 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%)'},
                 'card_style': 'modern',
                 'animation_level': 'medium',
-                'is_system': True
-            },
-            {
-                'name': 'minimal',
-                'display_name': 'Minimal',
-                'description': 'Clean and simple design with minimal distractions',
-                'css_variables': {
-                    '--dashboard-bg': '#fafafa',
-                    '--card-bg': '#ffffff',
-                    '--primary-color': '#2563eb'
-                },
-                'background_type': 'solid',
-                'background_config': {'color': '#fafafa'},
-                'card_style': 'minimal',
-                'animation_level': 'minimal',
-                'is_system': True
-            },
-            {
-                'name': 'corporate',
-                'display_name': 'Corporate',
-                'description': 'Professional blue theme for business environments',
-                'css_variables': {
-                    '--dashboard-bg': 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
-                    '--card-bg': 'rgba(255, 255, 255, 0.98)',
-                    '--primary-color': '#1e40af'
-                },
-                'background_type': 'gradient',
-                'background_config': {'gradient': 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)'},
-                'card_style': 'modern',
-                'animation_level': 'minimal',
-                'is_system': True
-            },
-            {
-                'name': 'colorful',
-                'display_name': 'Colorful',
-                'description': 'Vibrant and energetic theme with dynamic colors',
-                'css_variables': {
-                    '--dashboard-bg': 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4)',
-                    '--card-bg': 'rgba(255, 255, 255, 0.9)',
-                    '--primary-color': '#e17055'
-                },
-                'background_type': 'gradient',
-                'background_config': {'gradient': 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4)'},
-                'card_style': 'modern',
-                'animation_level': 'full',
                 'is_system': True
             }
         ]
@@ -162,7 +117,7 @@ class Command(BaseCommand):
                 'category': 'executive',
                 'thumbnail_url': '',
                 'layout_config': {
-                    'theme': 'corporate',
+                    'theme': 'light',
                     'grid_columns': 12,
                     'widgets': [
                         {
@@ -261,7 +216,7 @@ class Command(BaseCommand):
                 'category': 'capacity',
                 'thumbnail_url': '',
                 'layout_config': {
-                    'theme': 'modern',
+                    'theme': 'light',
                     'grid_columns': 12,
                     'widgets': [
                         {

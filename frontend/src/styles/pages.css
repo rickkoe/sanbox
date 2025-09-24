@@ -386,27 +386,6 @@
   border-color: #64ffda !important;
 }
 
-/* Corporate Theme Page Overrides */
-.theme-corporate .importing-content {
-  background: #1e3c72 !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(191, 219, 254, 0.3) !important;
-}
-
-.theme-corporate .importing-dots span {
-  background: #bfdbfe !important;
-}
-
-/* Colorful Theme Page Overrides */
-.theme-colorful .importing-content {
-  background: rgba(255, 255, 255, 0.95) !important;
-  color: #2d3436 !important;
-  border: 1px solid rgba(225, 112, 85, 0.3) !important;
-}
-
-.theme-colorful .importing-dots span {
-  background: #e17055 !important;
-}
 
 /* Dark Theme Bootstrap Component Overrides */
 .theme-dark .card {

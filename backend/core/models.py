@@ -179,7 +179,6 @@ class AppSettings(models.Model):
         choices=[
             ('light', 'Light'),
             ('dark', 'Dark'),
-            ('auto', 'Auto (System)'),
         ],
         default='light',
         help_text="UI theme preference"
@@ -455,12 +454,9 @@ class DashboardLayout(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='dashboard_layouts')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     name = models.CharField(max_length=255, default="My Dashboard")
-    theme = models.CharField(max_length=50, default='modern', choices=[
-        ('modern', 'Modern'),
-        ('dark', 'Dark Mode'),
-        ('minimal', 'Minimal'),
-        ('corporate', 'Corporate'),
-        ('colorful', 'Colorful')
+    theme = models.CharField(max_length=50, default='light', choices=[
+        ('light', 'Light'),
+        ('dark', 'Dark')
     ])
     grid_columns = models.IntegerField(default=12)
     auto_refresh = models.BooleanField(default=True)

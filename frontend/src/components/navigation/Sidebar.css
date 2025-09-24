@@ -24,34 +24,22 @@
 /* This file only contains sidebar-specific styling that uses those variables */
 
 /* Force theme color inheritance with higher specificity */
-.modern-sidebar.theme-modern {
-  --sidebar-text: #2d3748;
-  --sidebar-text-hover: #667eea;
-  --sidebar-header-color: #667eea;
-}
 
 .modern-sidebar.theme-dark {
   --sidebar-text: #e2e8f0;
   --sidebar-text-hover: #64ffda;
   --sidebar-header-color: #64ffda;
+  --sidebar-active-bg: rgba(100, 255, 218, 0.15);
+  --sidebar-active-border: #64ffda;
 }
 
-.modern-sidebar.theme-minimal {
+.modern-sidebar.theme-light {
   --sidebar-text: #1f2937;
   --sidebar-text-hover: #2563eb;
   --sidebar-header-color: #2563eb;
-}
-
-.modern-sidebar.theme-corporate {
-  --sidebar-text: #ffffff;
-  --sidebar-text-hover: #bfdbfe;
-  --sidebar-header-color: #ffffff;
-}
-
-.modern-sidebar.theme-colorful {
-  --sidebar-text: #2d3436;
-  --sidebar-text-hover: #e17055;
-  --sidebar-header-color: #2d3436;
+  --sidebar-active-bg: rgba(37, 99, 235, 0.12);
+  --sidebar-active-border: #2563eb;
+  --sidebar-section-text: #1f2937;
 }
 
 /* ========== SIDEBAR HEADER ========== */
@@ -284,15 +272,17 @@
 }
 
 .sidebar-link.active {
-  background: linear-gradient(135deg, #0d6efd, #0056b3);
-  color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+  background: var(--sidebar-active-bg, rgba(255, 255, 255, 0.2));
+  color: var(--sidebar-text-hover) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-left: 3px solid var(--sidebar-text-hover);
+  padding-left: calc(1rem - 3px);
 }
 
 .sidebar-link.active:hover {
   transform: none;
-  background: linear-gradient(135deg, #0056b3, #004085);
-  color: #ffffff !important;
+  background: var(--sidebar-active-bg, rgba(255, 255, 255, 0.3));
+  color: var(--sidebar-text-hover) !important;
 }
 
 .sidebar-link-icon {
@@ -405,15 +395,15 @@
 }
 
 .sidebar-sublink.active {
-  background: rgba(13, 110, 253, 0.2);
-  color: #ffffff !important;
-  border-left: 2px solid #0d6efd;
+  background: var(--sidebar-active-bg, rgba(255, 255, 255, 0.15));
+  color: var(--sidebar-text-hover) !important;
+  border-left: 2px solid var(--sidebar-text-hover);
   padding-left: calc(0.75rem - 2px);
 }
 
 .sidebar-sublink.active:hover {
-  background: rgba(13, 110, 253, 0.3);
-  color: #ffffff !important;
+  background: var(--sidebar-active-bg, rgba(255, 255, 255, 0.25));
+  color: var(--sidebar-text-hover) !important;
   transform: none;
 }
 
@@ -482,9 +472,9 @@
 }
 
 .sidebar-popover-link.active {
-  background: #0d6efd;
-  color: #ffffff;
-  border-left: 3px solid #0856b3;
+  background: var(--sidebar-text-hover, #0d6efd);
+  color: var(--sidebar-bg, #ffffff);
+  border-left: 3px solid var(--sidebar-text-hover, #0856b3);
   padding-left: calc(1rem - 3px);
 }
 
@@ -594,20 +584,47 @@
   border: 2px solid transparent;
 }
 
-/* Force theme text colors with maximum specificity - Override Bootstrap */
-.modern-sidebar.theme-modern .sidebar-nav-link,
-.modern-sidebar.theme-modern .sidebar-brand,
-.modern-sidebar.theme-modern .sidebar-title,
-.modern-sidebar.theme-modern .sidebar-nav-link:hover,
-.modern-sidebar.theme-modern .sidebar-nav-link:focus,
-.modern-sidebar.theme-modern .sidebar-brand:hover,
-.modern-sidebar.theme-modern .sidebar-brand:focus,
-.modern-sidebar.theme-modern .sidebar-link,
-.modern-sidebar.theme-modern .sidebar-sublink,
-.modern-sidebar.theme-modern .sidebar-popover-link {
-  color: #2d3748 !important;
+/* ========== THEME-SPECIFIC SECTION HEADER FIXES ========== */
+
+.modern-sidebar.theme-light .sidebar-link.sidebar-section-header:hover {
+  background: rgba(37, 99, 235, 0.05) !important;
 }
 
+.modern-sidebar.theme-light .sidebar-link.sidebar-section-header.expanded {
+  background: rgba(37, 99, 235, 0.08) !important;
+}
+
+.modern-sidebar.theme-light .sidebar-submenu {
+  border-left: 2px solid rgba(37, 99, 235, 0.2);
+}
+
+/* Fix light theme text visibility with maximum specificity */
+.modern-sidebar.theme-light .sidebar-section-header,
+.modern-sidebar.theme-light .sidebar-link,
+.modern-sidebar.theme-light .sidebar-sublink,
+.modern-sidebar.theme-light .sidebar-section-title,
+.modern-sidebar.theme-light .sidebar-link-text,
+.modern-sidebar.theme-light .sidebar-sublink-text,
+.modern-sidebar.theme-light .sidebar-section-header .sidebar-link-text,
+.modern-sidebar.theme-light .sidebar-link.sidebar-section-header,
+.modern-sidebar.theme-light .sidebar-link.sidebar-section-header .sidebar-link-text {
+  color: #1f2937 !important;
+}
+
+/* Fix light theme active states */
+.modern-sidebar.theme-light .sidebar-link.active,
+.modern-sidebar.theme-light .sidebar-sublink.active {
+  background: rgba(37, 99, 235, 0.15) !important;
+  color: #2563eb !important;
+}
+
+.modern-sidebar.theme-light .sidebar-link.active .sidebar-link-text,
+.modern-sidebar.theme-light .sidebar-sublink.active .sidebar-sublink-text {
+  color: #2563eb !important;
+}
+
+
+/* Force theme text colors with maximum specificity - Override Bootstrap */
 .modern-sidebar.theme-dark .sidebar-nav-link,
 .modern-sidebar.theme-dark .sidebar-brand,
 .modern-sidebar.theme-dark .sidebar-title,
@@ -621,57 +638,20 @@
   color: #e2e8f0 !important;
 }
 
-.modern-sidebar.theme-minimal .sidebar-nav-link,
-.modern-sidebar.theme-minimal .sidebar-brand,
-.modern-sidebar.theme-minimal .sidebar-title,
-.modern-sidebar.theme-minimal .sidebar-nav-link:hover,
-.modern-sidebar.theme-minimal .sidebar-nav-link:focus,
-.modern-sidebar.theme-minimal .sidebar-brand:hover,
-.modern-sidebar.theme-minimal .sidebar-brand:focus,
-.modern-sidebar.theme-minimal .sidebar-link,
-.modern-sidebar.theme-minimal .sidebar-sublink,
-.modern-sidebar.theme-minimal .sidebar-popover-link {
+.modern-sidebar.theme-light .sidebar-nav-link,
+.modern-sidebar.theme-light .sidebar-brand,
+.modern-sidebar.theme-light .sidebar-title,
+.modern-sidebar.theme-light .sidebar-nav-link:hover,
+.modern-sidebar.theme-light .sidebar-nav-link:focus,
+.modern-sidebar.theme-light .sidebar-brand:hover,
+.modern-sidebar.theme-light .sidebar-brand:focus,
+.modern-sidebar.theme-light .sidebar-link,
+.modern-sidebar.theme-light .sidebar-sublink,
+.modern-sidebar.theme-light .sidebar-popover-link {
   color: #1f2937 !important;
 }
 
-.modern-sidebar.theme-corporate .sidebar-nav-link,
-.modern-sidebar.theme-corporate .sidebar-brand,
-.modern-sidebar.theme-corporate .sidebar-title,
-.modern-sidebar.theme-corporate .sidebar-nav-link:hover,
-.modern-sidebar.theme-corporate .sidebar-nav-link:focus,
-.modern-sidebar.theme-corporate .sidebar-brand:hover,
-.modern-sidebar.theme-corporate .sidebar-brand:focus,
-.modern-sidebar.theme-corporate .sidebar-link,
-.modern-sidebar.theme-corporate .sidebar-sublink,
-.modern-sidebar.theme-corporate .sidebar-popover-link {
-  color: #ffffff !important;
-}
-
-.modern-sidebar.theme-colorful .sidebar-nav-link,
-.modern-sidebar.theme-colorful .sidebar-brand,
-.modern-sidebar.theme-colorful .sidebar-title,
-.modern-sidebar.theme-colorful .sidebar-nav-link:hover,
-.modern-sidebar.theme-colorful .sidebar-nav-link:focus,
-.modern-sidebar.theme-colorful .sidebar-brand:hover,
-.modern-sidebar.theme-colorful .sidebar-brand:focus,
-.modern-sidebar.theme-colorful .sidebar-link,
-.modern-sidebar.theme-colorful .sidebar-sublink,
-.modern-sidebar.theme-colorful .sidebar-popover-link {
-  color: #2d3436 !important;
-}
-
 /* ========== THEME-SPECIFIC SIDEBAR TOGGLE (HAMBURGER) COLORS ========== */
-
-/* Modern Theme */
-.modern-sidebar.theme-modern .sidebar-toggle,
-.modern-sidebar.theme-modern .sidebar-toggle-icon,
-.modern-sidebar.theme-modern .sidebar-toggle svg,
-.modern-sidebar.theme-modern .sidebar-toggle-icon svg,
-.modern-sidebar.theme-modern .sidebar-toggle path,
-.modern-sidebar.theme-modern .sidebar-toggle-icon path {
-  color: #2d3748 !important;
-  fill: #2d3748 !important;
-}
 
 /* Dark Theme */
 .modern-sidebar.theme-dark .sidebar-toggle,
@@ -684,37 +664,15 @@
   fill: #e2e8f0 !important;
 }
 
-/* Minimal Theme */
-.modern-sidebar.theme-minimal .sidebar-toggle,
-.modern-sidebar.theme-minimal .sidebar-toggle-icon,
-.modern-sidebar.theme-minimal .sidebar-toggle svg,
-.modern-sidebar.theme-minimal .sidebar-toggle-icon svg,
-.modern-sidebar.theme-minimal .sidebar-toggle path,
-.modern-sidebar.theme-minimal .sidebar-toggle-icon path {
+/* Light Theme */
+.modern-sidebar.theme-light .sidebar-toggle,
+.modern-sidebar.theme-light .sidebar-toggle-icon,
+.modern-sidebar.theme-light .sidebar-toggle svg,
+.modern-sidebar.theme-light .sidebar-toggle-icon svg,
+.modern-sidebar.theme-light .sidebar-toggle path,
+.modern-sidebar.theme-light .sidebar-toggle-icon path {
   color: #1f2937 !important;
   fill: #1f2937 !important;
-}
-
-/* Corporate Theme */
-.modern-sidebar.theme-corporate .sidebar-toggle,
-.modern-sidebar.theme-corporate .sidebar-toggle-icon,
-.modern-sidebar.theme-corporate .sidebar-toggle svg,
-.modern-sidebar.theme-corporate .sidebar-toggle-icon svg,
-.modern-sidebar.theme-corporate .sidebar-toggle path,
-.modern-sidebar.theme-corporate .sidebar-toggle-icon path {
-  color: #ffffff !important;
-  fill: #ffffff !important;
-}
-
-/* Colorful Theme */
-.modern-sidebar.theme-colorful .sidebar-toggle,
-.modern-sidebar.theme-colorful .sidebar-toggle-icon,
-.modern-sidebar.theme-colorful .sidebar-toggle svg,
-.modern-sidebar.theme-colorful .sidebar-toggle-icon svg,
-.modern-sidebar.theme-colorful .sidebar-toggle path,
-.modern-sidebar.theme-colorful .sidebar-toggle-icon path {
-  color: #2d3436 !important;
-  fill: #2d3436 !important;
 }
 
 .sidebar-nav-link::before {

@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
 import { Settings, HelpCircle, User, Sliders, Info } from "lucide-react";
+import ThemeToggle from "./ThemeToggle";
 
 const UserSection = ({ onAboutClick }) => {
   const location = useLocation();
@@ -9,6 +10,8 @@ const UserSection = ({ onAboutClick }) => {
   
   return (
     <>
+      <ThemeToggle />
+      
       <li className="nav-item">
         <Dropdown align="end">
           <Dropdown.Toggle 

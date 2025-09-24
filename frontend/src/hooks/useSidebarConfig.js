@@ -64,13 +64,9 @@ const getSidebarLinks = (pathname) => {
     showBackButton: false,
     links: [
       { 
+        path: "/", 
         label: "Dashboard", 
-        icon: BarChart3, 
-        expandable: true,
-        subLinks: [
-          { path: "/", label: "Overview", icon: BarChart3 },
-          { path: "/dashboard-v2", label: "Dashboard", icon: Layout },
-        ]
+        icon: Layout 
       },
       { 
         label: "Organization", 

@@ -1,0 +1,163 @@
+/* ========== THEME TOGGLE COMPONENT ========== */
+
+.theme-toggle-btn {
+  background: none !important;
+  border: none !important;
+  padding: 0.5rem !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  border-radius: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--navbar-button-hover, rgba(255, 255, 255, 0.1)) !important;
+  transform: scale(1.05) !important;
+}
+
+.theme-toggle-btn:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--link-text, #2563eb) !important;
+}
+
+/* ========== TOGGLE TRACK ========== */
+
+.theme-toggle-track {
+  width: 40px;
+  height: 20px;
+  background: var(--navbar-border, rgba(255, 255, 255, 0.2));
+  border-radius: 20px;
+  position: relative;
+  transition: all 0.3s ease;
+  border: 1px solid var(--navbar-border, rgba(255, 255, 255, 0.3));
+}
+
+.theme-toggle-btn:hover .theme-toggle-track {
+  background: var(--navbar-button-hover, rgba(255, 255, 255, 0.3));
+}
+
+/* ========== TOGGLE THUMB ========== */
+
+.theme-toggle-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--navbar-text, #ffffff);
+  border-radius: 50%;
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Move thumb to the right for dark theme */
+.theme-toggle-btn.dark .theme-toggle-thumb {
+  left: 20px;
+}
+
+/* ========== THEME ICONS ========== */
+
+.theme-icon {
+  color: var(--navbar-bg, #667eea);
+  transition: all 0.3s ease;
+}
+
+.theme-toggle-btn:hover .theme-icon {
+  transform: rotate(15deg);
+}
+
+/* ========== THEME-SPECIFIC STYLES ========== */
+
+/* Light Theme */
+.navbar.theme-light .theme-toggle-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.navbar.theme-light .theme-toggle-btn:hover .theme-toggle-track {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #2563eb;
+}
+
+.navbar.theme-light .theme-toggle-thumb {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.navbar.theme-light .theme-icon {
+  color: #2563eb;
+}
+
+/* Dark Theme */
+.navbar.theme-dark .theme-toggle-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.navbar.theme-dark .theme-toggle-btn:hover .theme-toggle-track {
+  background: rgba(100, 255, 218, 0.2);
+  border-color: #64ffda;
+}
+
+.navbar.theme-dark .theme-toggle-thumb {
+  background: #1a1a2e;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.navbar.theme-dark .theme-icon {
+  color: #64ffda;
+}
+
+/* ========== ACCESSIBILITY & ANIMATIONS ========== */
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle-thumb,
+  .theme-toggle-track,
+  .theme-toggle-btn,
+  .theme-icon {
+    transition: none !important;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .theme-toggle-track {
+    border-width: 2px !important;
+  }
+  
+  .theme-toggle-thumb {
+    box-shadow: 0 0 0 2px currentColor !important;
+  }
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+
+@media (max-width: 768px) {
+  .theme-toggle-btn {
+    padding: 0.4rem !important;
+  }
+  
+  .theme-toggle-track {
+    width: 36px;
+    height: 18px;
+  }
+  
+  .theme-toggle-thumb {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .theme-toggle-btn.dark .theme-toggle-thumb {
+    left: 18px;
+  }
+  
+  .theme-icon {
+    width: 12px;
+    height: 12px;
+  }
+}
