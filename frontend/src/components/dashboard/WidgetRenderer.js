@@ -7,6 +7,7 @@ import {
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import axios from 'axios';
 import { ConfigContext } from '../../context/ConfigContext';
+import InsightsStatusWidget from './widgets/InsightsStatusWidget';
 
 export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
   const { config } = useContext(ConfigContext);
@@ -72,6 +73,8 @@ export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
   switch (widget.widget_type.component_name) {
     case 'SystemsWidget':
       return <SystemsWidget widget={widget} data={data} compact={compact} />;
+    case 'InsightsStatusWidget':
+      return <InsightsStatusWidget widget={widget} editMode={editMode} compact={compact} />;
     default:
       return <GenericWidget widget={widget} data={data} compact={compact} />;
   }

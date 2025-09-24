@@ -29,6 +29,26 @@ class Command(BaseCommand):
                     'show_capacity': {'type': 'boolean', 'default': True},
                     'sort_by': {'type': 'select', 'options': ['name', 'type', 'model']}
                 }
+            },
+            {
+                'name': 'insights_status',
+                'display_name': 'IBM Storage Insights Status',
+                'description': 'Shows Storage Insights integration status including tenant and API key configuration',
+                'component_name': 'InsightsStatusWidget',
+                'category': 'health',
+                'icon': 'FaCloudUploadAlt',
+                'default_width': 4,
+                'default_height': 250,
+                'min_width': 3,
+                'min_height': 200,
+                'max_width': 6,
+                'max_height': 300,
+                'is_resizable': True,
+                'requires_data_source': False,
+                'config_schema': {
+                    'show_portal_link': {'type': 'boolean', 'default': True},
+                    'compact_view': {'type': 'boolean', 'default': False}
+                }
             }
         ]
 
