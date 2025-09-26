@@ -123,9 +123,9 @@ div.modern-table-header {
 }
 
 .modern-btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%);
   color: white;
-  border-color: #2563eb;
+  border-color: #475569;
 }
 
 .modern-btn-secondary {
@@ -150,9 +150,22 @@ div.modern-table-header {
 }
 
 .modern-btn.active {
-  background: #3b82f6;
+  background: linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%);
   color: white;
-  border-color: #2563eb;
+  border-color: #475569;
+}
+
+/* Dark theme button support */
+.theme-dark .modern-btn-primary {
+  background: linear-gradient(135deg, #475569 0%, #334155 50%, #1e293b 100%);
+  color: #ffffff;
+  border-color: #334155;
+}
+
+.theme-dark .modern-btn.active {
+  background: linear-gradient(135deg, #475569 0%, #334155 50%, #1e293b 100%);
+  color: #ffffff;
+  border-color: #334155;
 }
 
 /* Spinner */
@@ -274,7 +287,7 @@ div.modern-table-header {
 
 .select-all-item {
   font-weight: 600;
-  color: #2563eb !important;
+  color: #475569 !important;
 }
 
 .dropdown-columns-list {
@@ -323,7 +336,7 @@ div.modern-table-header {
 
 .quick-search-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #475569;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -724,7 +737,7 @@ div.modern-table-header {
 
 .page-size-select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #475569;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -767,14 +780,14 @@ div.modern-table-header {
 }
 
 .pagination-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: #475569;
+  border-color: #475569;
   color: white;
 }
 
 .pagination-btn.active:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #334155;
+  border-color: #334155;
 }
 
 .pagination-pages {
@@ -924,7 +937,7 @@ div.modern-table-header {
 
 .dropdown-item.active {
   background-color: #eff6ff;
-  color: #2563eb;
+  color: #475569;
 }
 
 .dropdown-item svg {
@@ -952,8 +965,8 @@ div.modern-table-header {
 }
 
 .column-filter-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 1px #3b82f6;
+  border-color: #475569;
+  box-shadow: 0 0 0 1px #475569;
 }
 
 .column-list {
@@ -1054,7 +1067,7 @@ div.modern-table-header {
 /* Handsontable Dropdown Container */
 .handsontable .htAutocompleteListContainer {
   background: white !important;
-  border: 2px solid #3b82f6 !important;
+  border: 2px solid #475569 !important;
   border-radius: 8px !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 4px 10px -3px rgba(0, 0, 0, 0.1) !important;
   z-index: 9999 !important;
@@ -1102,17 +1115,17 @@ div.modern-table-header {
 .handsontable .htAutocompleteList li.htHighlight {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
   color: #1e40af !important;
-  border-left: 3px solid #3b82f6 !important;
+  border-left: 3px solid #475569 !important;
   padding-left: 13px !important;
   font-weight: 500 !important;
 }
 
 /* Selected/Active item styling */
 .handsontable .htAutocompleteList li.htSelected {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  background: linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%) !important;
   color: white !important;
   font-weight: 600 !important;
-  border-left: 3px solid #1d4ed8 !important;
+  border-left: 3px solid #334155 !important;
   padding-left: 13px !important;
 }
 
@@ -1139,7 +1152,7 @@ div.modern-table-header {
 
 /* Cell with dropdown styling when focused */
 .handsontable td.htAutoCompleteEditor {
-  border: 2px solid #3b82f6 !important;
+  border: 2px solid #475569 !important;
   background: rgba(59, 130, 246, 0.05) !important;
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2) !important;
 }
@@ -1155,9 +1168,9 @@ div.modern-table-header {
 }
 
 .handsontable .htDropdownMenuButton:hover {
-  border-color: #3b82f6 !important;
+  border-color: #475569 !important;
   background: #f0f9ff !important;
-  color: #3b82f6 !important;
+  color: #475569 !important;
 }
 
 
@@ -1221,7 +1234,7 @@ div.modern-table-header {
 
 .handsontable td.htDropdown:hover {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
-  border-color: #3b82f6 !important;
+  border-color: #475569 !important;
 }
 
 /* Better visual indication for dropdown cells */
@@ -1241,7 +1254,7 @@ div.modern-table-header {
 }
 
 .handsontable td.htAutocompleteCell:hover::after {
-  color: #3b82f6 !important;
+  color: #475569 !important;
 }
 
 /* ========================================
@@ -1526,7 +1539,7 @@ div.modern-table-header {
 .handsontable .handsontableInput {
   font-size: 13px !important;
   padding: 4px 6px !important;
-  border: 2px solid #3b82f6 !important;
+  border: 2px solid #475569 !important;
   border-radius: 4px !important;
   background: var(--table-bg, white) !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
@@ -1628,7 +1641,7 @@ div.modern-table-header {
 .htContextMenu .ht_clone_top .htCore tr:hover td,
 .htContextMenu .ht_clone_top .htCore tbody tr:hover td {
   background: transparent !important;
-  color: #3b82f6 !important;
+  color: #475569 !important;
 }
 
 /* Hide Context Menu Scrollbars - Less Aggressive */
@@ -1815,7 +1828,7 @@ div.modern-table-header {
 }
 
 .handsontable .manualColumnResizer:hover {
-  background: #3b82f6 !important;
+  background: #475569 !important;
   width: 5px !important;
 }
 
@@ -1864,7 +1877,7 @@ div.modern-table-header {
 }
 
 .handsontable .ht_clone_top .manualColumnResizer:hover {
-  background: #3b82f6 !important;
+  background: #475569 !important;
   width: 5px !important;
 }
 
@@ -1903,7 +1916,7 @@ div.modern-table-header {
 .theme-light .handsontable textarea {
   color: #0f172a !important;
   background-color: #ffffff !important;
-  border: 2px solid #3b82f6 !important;
+  border: 2px solid #475569 !important;
   border-radius: 4px !important;
   font-size: 14px !important;
   padding: 4px 8px !important;
@@ -2199,14 +2212,14 @@ div.modern-table-header {
 /* Column Sorting Indicators */
 .handsontable .columnSorting.ascending::after {
   content: "▲" !important;
-  color: #3b82f6 !important;
+  color: #475569 !important;
   font-size: 10px !important;
   margin-left: 4px !important;
 }
 
 .handsontable .columnSorting.descending::after {
   content: "▼" !important;
-  color: #3b82f6 !important;
+  color: #475569 !important;
   font-size: 10px !important;
   margin-left: 4px !important;
 }
@@ -2229,7 +2242,7 @@ div.modern-table-header {
 
 /* Enhanced Focus States for Accessibility */
 .handsontable:focus-within {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #475569;
   outline-offset: 2px;
 }
 
@@ -2243,7 +2256,7 @@ div.modern-table-header {
 .handsontable .htCheckboxRendererInput {
   width: 16px !important;
   height: 16px !important;
-  accent-color: #3b82f6 !important;
+  accent-color: #475569 !important;
 }
 
 /* Enhanced Table Container Integration */
@@ -2364,6 +2377,31 @@ div.modern-table-header {
 .theme-dark .dropdown-item:hover {
   background: rgba(100, 255, 218, 0.15) !important;
   color: #64ffda !important;
+}
+
+/* Dark theme overrides for all elements that now use theme colors */
+.theme-dark [style*="color: #475569"] {
+  color: #64ffda !important;
+}
+
+.theme-dark [style*="border-color: #475569"],
+.theme-dark [style*="border: 2px solid #475569"],
+.theme-dark [style*="border-left: 3px solid #475569"] {
+  border-color: #64ffda !important;
+}
+
+.theme-dark [style*="background: #475569"],
+.theme-dark [style*="accent-color: #475569"] {
+  background: #475569 !important;
+  accent-color: #64ffda !important;
+}
+
+.theme-dark [style*="border-color: #334155"] {
+  border-color: #1e293b !important;
+}
+
+.theme-dark [style*="background: #334155"] {
+  background: #334155 !important;
 }
 
 .theme-dark .pagination-btn {
@@ -2545,7 +2583,7 @@ div.modern-table-header {
 }
 
 .search-field:focus {
-  border-color: #3b82f6;
+  border-color: #475569;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   transform: translateY(-1px);
 }
@@ -2717,7 +2755,7 @@ div.modern-table-header {
 }
 
 .column-search-input:focus {
-  border-color: #3b82f6;
+  border-color: #475569;
   background: white;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
@@ -2764,7 +2802,7 @@ div.modern-table-header {
 
 .column-filter-toggle.has-filter {
   background: #eff6ff;
-  border-left: 3px solid #3b82f6;
+  border-left: 3px solid #475569;
 }
 
 .column-name {
@@ -2833,7 +2871,7 @@ div.modern-table-header {
 }
 
 .filter-input:focus {
-  border-color: #3b82f6;
+  border-color: #475569;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
@@ -2862,14 +2900,14 @@ div.modern-table-header {
 }
 
 .value-button:hover {
-  border-color: #3b82f6;
+  border-color: #475569;
   background: #f0f9ff;
 }
 
 .value-button.selected {
-  background: #3b82f6;
+  background: #475569;
   color: white;
-  border-color: #3b82f6;
+  border-color: #475569;
 }
 
 .more-values {
@@ -2912,7 +2950,7 @@ div.modern-table-header {
   margin: 0 8px 0 0;
   width: 14px;
   height: 14px;
-  accent-color: #3b82f6;
+  accent-color: #475569;
   cursor: pointer;
 }
 
@@ -3035,8 +3073,8 @@ div.modern-table-header {
 
 .pagination-btn:hover:not(:disabled) {
   background: #f0f9ff;
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #475569;
+  color: #475569;
 }
 
 .pagination-btn:disabled {
@@ -3069,7 +3107,7 @@ div.modern-table-header {
 }
 
 .page-size-selector:focus {
-  border-color: #3b82f6;
+  border-color: #475569;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
@@ -3160,7 +3198,7 @@ div.modern-table-header {
 
 .page-size-select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #475569;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -3198,14 +3236,14 @@ div.modern-table-header {
 }
 
 .pagination-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: #475569;
+  border-color: #475569;
   color: white;
 }
 
 .pagination-btn.active:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #334155;
+  border-color: #334155;
 }
 
 .pagination-pages {
