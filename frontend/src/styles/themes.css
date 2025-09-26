@@ -105,38 +105,38 @@
   --success-border: rgba(52, 211, 153, 0.3);
 }
 
-/* ========== LIGHT THEME ========== */
+/* ========== LIGHT THEME (MONOCHROME & EDGY) ========== */
 .theme-light {
-  /* Background Colors */
-  --primary-bg: #ffffff;
-  --secondary-bg: #f9fafb;
-  --accent-bg: #ffffff;
+  /* Background Colors - Monochrome gradient from pure white to darker grays */
+  --primary-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  --secondary-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --accent-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   
-  /* Text Colors */
-  --primary-text: #1f2937;
-  --secondary-text: #374151;
-  --muted-text: #6b7280;
-  --link-text: #2563eb;
-  --link-hover: #1d4ed8;
+  /* Text Colors - High contrast monochrome */
+  --primary-text: #0f172a;
+  --secondary-text: #1e293b;
+  --muted-text: #64748b;
+  --link-text: #334155;
+  --link-hover: #0f172a;
   
-  /* Interactive Colors */
-  --button-bg: #f9fafb;
-  --button-hover: #2563eb;
-  --button-active: #1d4ed8;
-  --button-border: #e5e7eb;
+  /* Interactive Colors - Subtle grays with sharp edges */
+  --button-bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --button-hover: #0f172a;
+  --button-active: #334155;
+  --button-border: #cbd5e1;
   
-  /* Status Colors */
-  --success-color: #10b981;
-  --error-color: #ef4444;
-  --warning-color: #f59e0b;
-  --info-color: #3b82f6;
+  /* Status Colors - Monochrome with subtle gray tones */
+  --success-color: #475569;
+  --error-color: #1e293b;
+  --warning-color: #64748b;
+  --info-color: #334155;
   
   /* Component Specific */
   --navbar-bg: var(--primary-bg);
   --navbar-text: var(--primary-text);
   --navbar-text-hover: var(--link-text);
   --navbar-border: none;
-  --navbar-shadow: none;
+  --navbar-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
   --navbar-button-bg: var(--button-bg);
   --navbar-button-hover: var(--button-hover);
   --navbar-brand-color: var(--link-text);
@@ -145,48 +145,48 @@
   --sidebar-text: var(--primary-text);
   --sidebar-text-hover: var(--link-text);
   --sidebar-border: var(--button-border);
-  --sidebar-shadow: 8px 0 16px rgba(0, 0, 0, 0.05);
+  --sidebar-shadow: 8px 0 32px rgba(15, 23, 42, 0.12);
   --sidebar-button-bg: var(--button-bg);
   --sidebar-button-hover: var(--button-hover);
   --sidebar-header-color: var(--link-text);
-  --sidebar-active-bg: rgba(37, 99, 235, 0.1);
+  --sidebar-active-bg: rgba(15, 23, 42, 0.08);
   --sidebar-active-border: var(--link-text);
   
   /* Content and Layout */
-  --content-bg: #fefefe;
+  --content-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   --content-text: var(--primary-text);
-  --breadcrumb-bg: linear-gradient(135deg, rgba(37, 99, 235, 0.04) 0%, rgba(37, 99, 235, 0.02) 100%);
-  --breadcrumb-border: rgba(37, 99, 235, 0.15);
+  --breadcrumb-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --breadcrumb-border: rgba(51, 65, 85, 0.2);
   --breadcrumb-text: var(--secondary-text);
   --breadcrumb-link: var(--link-text);
   --breadcrumb-link-hover: var(--link-hover);
   
-  /* Tables */
-  --table-bg: #ffffff;
-  --table-header-bg: rgba(37, 99, 235, 0.08);
+  /* Tables - Sharp monochrome design */
+  --table-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  --table-header-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
   --table-header-text: var(--primary-text);
-  --table-border: #e5e7eb;
-  --table-row-hover: rgba(37, 99, 235, 0.03);
-  --table-row-selected: rgba(37, 99, 235, 0.08);
+  --table-border: #cbd5e1;
+  --table-row-hover: rgba(15, 23, 42, 0.04);
+  --table-row-selected: rgba(15, 23, 42, 0.08);
   --table-cell-text: var(--primary-text);
   
   /* Code Blocks */
-  --code-bg: #f9fafb;
-  --code-text: #1f2937;
+  --code-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --code-text: #0f172a;
   
-  /* Alert Colors */
-  --warning-bg: #fef3c7;
-  --warning-text: #92400e;
-  --warning-border: #fde68a;
-  --error-bg: #fee2e2;
-  --error-text: #991b1b;
-  --error-border: #fecaca;
-  --info-bg: #dbeafe;
-  --info-text: #1e40af;
-  --info-border: #bfdbfe;
-  --success-bg: #d1fae5;
-  --success-text: #065f46;
-  --success-border: #a7f3d0;
+  /* Alert Colors - Monochrome with intensity variations */
+  --warning-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --warning-text: #475569;
+  --warning-border: #cbd5e1;
+  --error-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --error-text: #1e293b;
+  --error-border: #94a3b8;
+  --info-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --info-text: #334155;
+  --info-border: #cbd5e1;
+  --success-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --success-text: #475569;
+  --success-border: #cbd5e1;
 }
 
 

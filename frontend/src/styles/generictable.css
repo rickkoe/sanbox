@@ -612,13 +612,56 @@ div.modern-table-header {
   align-items: center;
   padding: 12px 24px;
   background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%));
-  border-top: 1px solid var(--table-border, #e2e8f0);
+  border-top: none !important;
+  border: none !important;
   flex-wrap: wrap;
   gap: 16px;
   min-height: 48px;
   margin-top: auto;
   flex-shrink: 0;
+  backdrop-filter: blur(20px);
 }
+
+/* Dark theme styling for pagination footer to match toolbar */
+.theme-dark .table-pagination-footer {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%) !important;
+  color: #ffffff !important;
+}
+
+/* White text for "Showing x to y of z entries" on dark background */
+.theme-dark .table-pagination-footer .pagination-info,
+.theme-dark .table-pagination-footer .pagination-info span {
+  color: #ffffff !important;
+}
+
+/* Dark text for "Rows per page:" label (it's in a white container) */
+.theme-dark .table-pagination-footer .page-size-label {
+  color: #1e293b !important;
+}
+
+/* Style dropdown to match pagination buttons */
+.theme-dark .table-pagination-footer select,
+.theme-dark .table-pagination-footer .form-select,
+.theme-dark .table-pagination-footer .form-control,
+.theme-dark .table-pagination-footer .dropdown-toggle,
+.theme-dark .table-pagination-footer .page-size-select {
+  background: #334155 !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.theme-dark .table-pagination-footer .page-size-select:hover {
+  background: #475569 !important;
+  border-color: rgba(100, 255, 218, 0.5) !important;
+  color: #64ffda !important;
+}
+
+.theme-dark .table-pagination-footer .page-size-select option {
+  background: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+
 
 .pagination-info {
   display: flex;

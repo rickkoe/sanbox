@@ -101,8 +101,8 @@
   grid-area: table-toolbar;
   position: relative;
   z-index: 80;
-  background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)) !important;
-  backdrop-filter: blur(10px) !important;
+  background: var(--table-header-bg, linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)) !important;
+  backdrop-filter: blur(20px) !important;
   border: none !important;
   border-top: none !important;
   border-bottom: none !important;
