@@ -2,7 +2,7 @@
 .table-toolbar {
   background: transparent !important;
   border-bottom: none !important;
-  padding: 20px 24px;
+  padding: 12px 24px;
   margin: 0;
   position: relative;
   z-index: 10;
@@ -52,7 +52,7 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .table-toolbar {
-    padding: 16px 20px;
+    padding: 10px 20px;
   }
   
   .table-toolbar .table-controls {

@@ -5,6 +5,7 @@
   min-height: 0; /* Important for flex child to shrink */
   flex: 1; /* Take all available space in parent */
   width: 100%;
+  height: calc(100vh - 124px); /* navbar(50px) + topbar(50px) + toolbar(24px) */
   background: transparent !important;
   border-radius: 0; /* Remove border radius for full viewport */
   box-shadow: none; /* Remove shadow for seamless integration */
@@ -22,7 +23,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 12px 24px;
   background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)) !important;
   flex-wrap: wrap;
   gap: 16px;
@@ -461,7 +462,7 @@ div.modern-table-header {
   position: relative;
   background: transparent !important;
   min-height: 400px;
-  max-height: calc(100vh - 320px); /* Account for navbar + breadcrumbs + toolbar + footer */
+  max-height: calc(100vh - 172px); /* navbar(50px) + topbar(50px) + toolbar(24px) + footer(48px) */
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
@@ -469,8 +470,8 @@ div.modern-table-header {
 
 /* When pagination footer is actually present, adjust the table container height */
 .modern-table-container:has(.table-pagination-footer) .table-scroll-container {
-  flex: 0 1 auto; /* Don't grow, allow shrink, use content size */
-  max-height: calc(100vh - 365px); /* Account for navbar + breadcrumbs + toolbar + footer + padding */
+  flex: 1; /* Take remaining space above footer */
+  max-height: calc(100vh - 172px); /* navbar(50px) + topbar(50px) + toolbar(24px) + footer(48px) */
 }
 
 .table-wrapper {
@@ -609,12 +610,14 @@ div.modern-table-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
+  padding: 12px 24px;
   background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%));
   border-top: 1px solid var(--table-border, #e2e8f0);
   flex-wrap: wrap;
   gap: 16px;
-  min-height: 60px;
+  min-height: 48px;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .pagination-info {
