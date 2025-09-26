@@ -38,6 +38,12 @@
   margin-bottom: 0 !important;
 }
 
+/* Light theme white background for table header */
+.theme-light .modern-table-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
 /* Force gradient background with higher specificity */
 .modern-table-container .modern-table-header {
   background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)) !important;
@@ -45,6 +51,14 @@
 
 .table-page .modern-table-header {
   background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)) !important;
+}
+
+/* Override all existing rules for light theme */
+.theme-light .modern-table-container .modern-table-header,
+.theme-light .table-page .modern-table-header,
+.theme-light div.modern-table-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
 }
 
 div.modern-table-header {
@@ -618,6 +632,12 @@ div.modern-table-header {
   backdrop-filter: blur(10px);
 }
 
+/* Light theme white background for pagination */
+.theme-light .table-pagination {
+  background: #ffffff !important;
+  border-top: 1px solid #e5e7eb !important;
+}
+
 /* New Pagination Footer Styles */
 .table-pagination-footer {
   display: flex;
@@ -633,6 +653,12 @@ div.modern-table-header {
   margin-top: auto;
   flex-shrink: 0;
   backdrop-filter: blur(20px);
+}
+
+/* Light theme white background for pagination footer */
+.theme-light .table-pagination-footer {
+  background: #ffffff !important;
+  border-top: 1px solid #e5e7eb !important;
 }
 
 /* Dark theme styling for pagination footer to match toolbar */

@@ -12,6 +12,13 @@
     backdrop-filter: var(--backdrop-blur, blur(10px));
 }
 
+/* Light theme white background */
+.theme-light .breadcrumb-container {
+    background: #ffffff !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+}
+
 .breadcrumb-nav {
     padding: 0 1rem;
     width: 100%;

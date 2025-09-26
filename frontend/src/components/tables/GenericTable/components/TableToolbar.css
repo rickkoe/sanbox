@@ -71,6 +71,13 @@
 }
 
 /* Theme-specific toolbar styling */
+.theme-light .table-toolbar {
+  background: #ffffff !important;
+  border: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+}
+
 .theme-dark .table-toolbar {
   background: transparent !important;
   border-bottom: none !important;
