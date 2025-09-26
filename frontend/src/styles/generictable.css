@@ -1136,22 +1136,24 @@ div.modern-table-header {
   background: #94a3b8 !important;
 }
 
-/* Enhanced Dropdown Arrow */
+/* Enhanced Dropdown Arrow - Minimized */
 .handsontable .htAutocompleteArrow {
-  color: #6b7280 !important;
-  font-size: 12px !important;
-  margin: 0 4px !important;
-  border: 1px solid #d1d5db !important;
-  background: white !important;
-  border-radius: 3px !important;
-  padding: 2px 4px !important;
+  color: #9ca3af !important;
+  font-size: 8px !important;
+  margin: 0 2px !important;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  width: 12px !important;
+  height: 12px !important;
   transition: all 0.2s ease !important;
 }
 
 .handsontable .htAutocompleteArrow:hover {
-  border-color: #3b82f6 !important;
-  background: #f0f9ff !important;
-  color: #3b82f6 !important;
+  color: #6b7280 !important;
+  background: transparent !important;
+  opacity: 0.8 !important;
 }
 
 /* Cell with dropdown styling when focused */
@@ -1180,9 +1182,9 @@ div.modern-table-header {
 /* Make dropdowns more prominent when cell is selected */
 .handsontable td.current .htAutocompleteArrow,
 .handsontable td.area .htAutocompleteArrow {
-  border-color: #3b82f6 !important;
-  background: #f0f9ff !important;
   color: #3b82f6 !important;
+  background: transparent !important;
+  opacity: 1 !important;
 }
 
 /* Improved positioning for better visibility */
@@ -1914,11 +1916,27 @@ div.modern-table-header {
   text-align: center !important;
 }
 
-/* Dropdown Arrow Enhancement */
+/* Dropdown Arrow Enhancement - Consistent sizing */
 .handsontable .htAutocompleteArrow {
-  color: #6b7280 !important;
-  font-size: 10px !important;
+  color: #9ca3af !important;
+  font-size: 8px !important;
   margin: 0 2px !important;
+  width: 12px !important;
+  height: 12px !important;
+}
+
+/* Dark Theme Dropdown Arrows */
+.theme-dark .handsontable .htAutocompleteArrow {
+  color: #6b7280 !important;
+}
+
+.theme-dark .handsontable .htAutocompleteArrow:hover {
+  color: #9ca3af !important;
+}
+
+.theme-dark .handsontable td.current .htAutocompleteArrow,
+.theme-dark .handsontable td.area .htAutocompleteArrow {
+  color: #64ffda !important;
 }
 
 /* Loading Overlay */
