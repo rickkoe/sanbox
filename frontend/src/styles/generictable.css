@@ -634,9 +634,22 @@ div.modern-table-header {
   color: #ffffff !important;
 }
 
-/* Dark text for "Rows per page:" label (it's in a white container) */
+/* Dark theme containers - slightly lighter than buttons for subtle contrast */
+.theme-dark .table-pagination-footer .page-size-selector {
+  background: #475569 !important;
+  padding: 6px 12px !important;
+  border-radius: 6px !important;
+}
+
+.theme-dark .table-pagination-footer .pagination-controls {
+  background: #475569 !important;
+  padding: 6px 8px !important;
+  border-radius: 6px !important;
+}
+
+/* Dark text for "Rows per page:" label (now on darker container) */
 .theme-dark .table-pagination-footer .page-size-label {
-  color: #1e293b !important;
+  color: #e2e8f0 !important;
 }
 
 /* Style dropdown to match pagination buttons */
