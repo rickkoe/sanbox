@@ -13,13 +13,13 @@
 }
 
 .theme-toggle-btn:hover {
-  background: var(--navbar-button-hover, rgba(255, 255, 255, 0.1)) !important;
-  transform: scale(1.05) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  transform: scale(1.02) !important;
 }
 
 .theme-toggle-btn:focus {
   outline: none !important;
-  box-shadow: 0 0 0 2px var(--link-text, #2563eb) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
 }
 
 /* ========== TOGGLE TRACK ========== */
@@ -35,7 +35,8 @@
 }
 
 .theme-toggle-btn:hover .theme-toggle-track {
-  background: var(--navbar-button-hover, rgba(255, 255, 255, 0.3));
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* ========== TOGGLE THUMB ========== */
@@ -63,7 +64,7 @@
 /* ========== THEME ICONS ========== */
 
 .theme-icon {
-  color: var(--navbar-bg, #667eea);
+  color: var(--navbar-bg, #475569);
   transition: all 0.3s ease;
 }
 
@@ -80,8 +81,8 @@
 }
 
 .navbar.theme-light .theme-toggle-btn:hover .theme-toggle-track {
-  background: rgba(37, 99, 235, 0.2);
-  border-color: #2563eb;
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
 }
 
 .navbar.theme-light .theme-toggle-thumb {
@@ -90,7 +91,15 @@
 }
 
 .navbar.theme-light .theme-icon {
-  color: #2563eb;
+  color: #475569;
+}
+
+.navbar.theme-light .theme-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.03) !important;
+}
+
+.navbar.theme-light .theme-toggle-btn:focus {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Dark Theme */
@@ -100,8 +109,8 @@
 }
 
 .navbar.theme-dark .theme-toggle-btn:hover .theme-toggle-track {
-  background: rgba(100, 255, 218, 0.2);
-  border-color: #64ffda;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .navbar.theme-dark .theme-toggle-thumb {
@@ -111,6 +120,14 @@
 
 .navbar.theme-dark .theme-icon {
   color: #64ffda;
+}
+
+.navbar.theme-dark .theme-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.navbar.theme-dark .theme-toggle-btn:focus {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
 }
 
 /* ========== ACCESSIBILITY & ANIMATIONS ========== */

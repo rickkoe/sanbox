@@ -35,10 +35,10 @@
 
 .modern-sidebar.theme-light {
   --sidebar-text: #1f2937;
-  --sidebar-text-hover: #2563eb;
-  --sidebar-header-color: #2563eb;
-  --sidebar-active-bg: rgba(37, 99, 235, 0.12);
-  --sidebar-active-border: #2563eb;
+  --sidebar-text-hover: #475569;
+  --sidebar-header-color: #475569;
+  --sidebar-active-bg: rgba(71, 85, 105, 0.12);
+  --sidebar-active-border: #475569;
   --sidebar-section-text: #1f2937;
 }
 
@@ -391,14 +391,14 @@
 
 .sidebar-popover-link:hover {
   background: #f8f9fa;
-  color: #0d6efd;
+  color: #475569;
   text-decoration: none;
 }
 
 .sidebar-popover-link.active {
-  background: var(--sidebar-text-hover, #0d6efd);
+  background: var(--sidebar-text-hover, #475569);
   color: var(--sidebar-bg, #ffffff);
-  border-left: 3px solid var(--sidebar-text-hover, #0856b3);
+  border-left: 3px solid var(--sidebar-text-hover, #475569);
   padding-left: calc(1rem - 3px);
 }
 
@@ -511,15 +511,15 @@
 /* ========== THEME-SPECIFIC SECTION HEADER FIXES ========== */
 
 .modern-sidebar.theme-light .sidebar-link.sidebar-section-header:hover {
-  background: rgba(37, 99, 235, 0.05) !important;
+  background: rgba(71, 85, 105, 0.05) !important;
 }
 
 .modern-sidebar.theme-light .sidebar-link.sidebar-section-header.expanded {
-  background: rgba(37, 99, 235, 0.08) !important;
+  background: rgba(71, 85, 105, 0.08) !important;
 }
 
 .modern-sidebar.theme-light .sidebar-submenu {
-  border-left: 2px solid rgba(37, 99, 235, 0.2);
+  border-left: 2px solid rgba(71, 85, 105, 0.2);
 }
 
 /* Fix light theme text visibility with maximum specificity */
@@ -538,13 +538,13 @@
 /* Fix light theme active states */
 .modern-sidebar.theme-light .sidebar-link.active,
 .modern-sidebar.theme-light .sidebar-sublink.active {
-  background: rgba(37, 99, 235, 0.15) !important;
-  color: #2563eb !important;
+  background: rgba(71, 85, 105, 0.15) !important;
+  color: #475569 !important;
 }
 
 .modern-sidebar.theme-light .sidebar-link.active .sidebar-link-text,
 .modern-sidebar.theme-light .sidebar-sublink.active .sidebar-sublink-text {
-  color: #2563eb !important;
+  color: #475569 !important;
 }
 
 
@@ -925,9 +925,9 @@
   justify-content: center;
   min-width: 32px;
   height: 32px;
-  background: rgba(13, 110, 253, 0.2);
+  background: rgba(71, 85, 105, 0.2);
   border-radius: 8px;
-  color: #60a5fa;
+  color: #475569;
 }
 
 .modern-sidebar.collapsed .sidebar-header {
