@@ -14,8 +14,7 @@ import "./components/tables/GenericTable/components/TableToolbar.css";
 import "./components/tables/GenericTable/components/TableLoadingOverlay.css";
 import "./styles/pages.css";
 import "./styles/themes.css";
-import "./components/navigation/Navbar.css";
-import "./components/navigation/Sidebar.css";
+// Navbar styles are now consolidated in styles/navbar.css (imported elsewhere)
 
 // Navigation Components (critical for initial load)
 import Navbar from "./components/navigation/Navbar";

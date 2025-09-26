@@ -215,13 +215,8 @@ const DashboardHeader = ({
     <div className="dashboard-header-v2">
       <div className="header-left">
         <div className="dashboard-title">
-          <h1>{layout?.name || 'My Dashboard'}</h1>
+          <h1>{config?.active_project?.name || 'My Dashboard'}</h1>
           <span className="customer-name">{config?.customer?.name}</span>
-          {layout?.updated_at && (
-            <small className="last-updated">
-              Updated: {new Date(layout.updated_at).toLocaleString()}
-            </small>
-          )}
         </div>
       </div>
 

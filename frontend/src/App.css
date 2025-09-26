@@ -74,12 +74,19 @@
   background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
 }
 
+/* Dark theme for table toolbar area */
+.theme-dark .table-toolbar-area {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%) !important;
+  color: #e2e8f0 !important;
+}
+
 /* Sidebar on the left */
 .sidebar {
   grid-area: sidebar;
   position: relative; /* Add this */
   height: 100%;
-  z-index: 90;
+  z-index: 101;
+  overflow: visible;
 }
 
 /* Breadcrumbs or topbar below the navbar */
@@ -94,7 +101,16 @@
   grid-area: table-toolbar;
   position: relative;
   z-index: 80;
+  background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)) !important;
+  backdrop-filter: blur(10px) !important;
+  border: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
 }
+
 
 /* Main content area */
 .main-content {

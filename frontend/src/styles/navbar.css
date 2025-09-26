@@ -1,39 +1,823 @@
-/* Navbar Left Section */
-.navbar-left {
+/* ========== ENHANCED NAVBAR STYLES ========== */
+
+/* Override any Bootstrap navbar defaults */
+.navbar,
+nav.navbar {
+  backdrop-filter: blur(20px);
+  box-shadow: none !important;
+  border: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 100;
+  padding: 0.25rem 0;
+  margin: 0;
+  min-height: 50px;
+}
+
+/* Force navbar background for each theme with maximum specificity */
+nav.navbar.navbar-expand-lg.theme-modern,
+.navbar.theme-modern,
+.theme-modern .navbar {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+  background-color: #f5f7fa !important; /* Fallback */
+}
+
+nav.navbar.navbar-expand-lg.theme-dark,
+.navbar.theme-dark,
+.theme-dark .navbar {
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%) !important;
+  background-color: #0f0f23 !important; /* Fallback */
+}
+
+nav.navbar.navbar-expand-lg.theme-minimal,
+.navbar.theme-minimal,
+.theme-minimal .navbar {
+  background: #ffffff !important;
+  background-color: #ffffff !important; /* Fallback */
+}
+
+nav.navbar.navbar-expand-lg.theme-corporate,
+.navbar.theme-corporate,
+.theme-corporate .navbar {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
+  background-color: #1e3c72 !important; /* Fallback */
+}
+
+nav.navbar.navbar-expand-lg.theme-colorful,
+.navbar.theme-colorful,
+.theme-colorful .navbar {
+  background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4) !important;
+  background-color: #ff6b6b !important; /* Fallback */
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ========== THEME VARIABLES ========== */
+/* Force theme color inheritance with higher specificity */
+.navbar.theme-modern {
+  --navbar-text: #2d3748;
+  --navbar-text-hover: #667eea;
+  --navbar-brand-color: #667eea;
+}
+
+.navbar.theme-dark {
+  --navbar-text: #e2e8f0;
+  --navbar-text-hover: #64ffda;
+  --navbar-brand-color: #64ffda;
+}
+
+.navbar.theme-minimal {
+  --navbar-text: #1f2937;
+  --navbar-text-hover: #2563eb;
+  --navbar-brand-color: #2563eb;
+}
+
+.navbar.theme-corporate {
+  --navbar-text: #ffffff;
+  --navbar-text-hover: #bfdbfe;
+  --navbar-brand-color: #ffffff;
+}
+
+.navbar.theme-colorful {
+  --navbar-text: #2d3436;
+  --navbar-text-hover: #e17055;
+  --navbar-brand-color: #2d3436;
+}
+
+/* Override any Bootstrap navbar-dark classes that might remain */
+.navbar:not(.navbar-light) .navbar-nav .nav-link {
+  color: inherit !important;
+}
+
+.navbar:not(.navbar-light) .navbar-brand {
+  color: inherit !important;
+}
+
+/* Ensure logo sizing is proper */
+.navbar-brand img,
+.navbar-brand .logo-image {
+  height: 48px !important;
+  max-width: 200px !important;
+  width: auto !important;
+}
+
+/* ========== NAVBAR CONTAINER ========== */
+
+.navbar .container-fluid {
+  max-width: 100%;
+  padding: 0 2rem;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
+/* Ensure Bootstrap navbar-collapse and ms-auto work correctly */
+.navbar .navbar-collapse {
+  flex-grow: 1;
+  display: flex !important;
+  justify-content: flex-end;
+}
 
-/* Back Button */
-.nav-back-button {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.375rem;
+.navbar .navbar-nav.ms-auto {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+}
+
+/* ========== NAVBAR BRAND ========== */
+
+.navbar-brand {
+  color: var(--navbar-brand-color) !important;
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  transition: all 0.3s ease !important;
+  padding: 0.25rem 0 !important;
+  margin: 0 !important;
+  margin-right: 1rem !important;
+}
+
+.navbar-brand:hover {
+  color: var(--navbar-text-hover) !important;
+  transform: scale(1.05);
+}
+
+.navbar-brand svg,
+.navbar-brand i {
+  font-size: 1.75rem;
   color: inherit;
-  padding: 0.5rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
+  transition: all 0.3s ease;
 }
 
-.nav-back-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: inherit;
-  transform: translateX(-2px);
+.navbar-brand:hover svg,
+.navbar-brand:hover i {
+  transform: rotate(5deg);
 }
 
-.nav-back-button:active {
-  transform: translateX(-1px);
-  background: rgba(255, 255, 255, 0.15);
+/* ========== NAVBAR NAVIGATION ========== */
+
+.navbar-nav {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  flex-direction: row !important;
 }
 
-/* New Context Indicator */
+/* Override Bootstrap defaults to maintain right alignment */
+.navbar-nav.ms-auto {
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-link {
+  color: var(--navbar-text) !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  padding: 0.5rem !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  position: relative !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+
+.nav-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.nav-link:hover::before {
+  left: 100%;
+}
+
+.nav-link:hover {
+  color: var(--navbar-text-hover) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(-1px);
+  box-shadow: none;
+  text-decoration: none !important;
+}
+
+/* Default active state - overridden by theme-specific rules below */
+.nav-link.active {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: var(--navbar-text-hover) !important;
+  box-shadow: none;
+}
+
+/* Force theme text colors with maximum specificity - Override Bootstrap */
+.navbar.theme-modern .nav-link,
+.navbar.theme-modern .navbar-nav .nav-link,
+.navbar.theme-modern .navbar-brand,
+.navbar.theme-modern .navbar-nav .nav-link:hover,
+.navbar.theme-modern .navbar-nav .nav-link:focus,
+.navbar.theme-modern .navbar-brand:hover,
+.navbar.theme-modern .navbar-brand:focus {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-dark .nav-link,
+.navbar.theme-dark .navbar-nav .nav-link,
+.navbar.theme-dark .navbar-brand,
+.navbar.theme-dark .navbar-nav .nav-link:hover,
+.navbar.theme-dark .navbar-nav .nav-link:focus,
+.navbar.theme-dark .navbar-brand:hover,
+.navbar.theme-dark .navbar-brand:focus {
+  color: #e2e8f0 !important;
+}
+
+.navbar.theme-minimal .nav-link,
+.navbar.theme-minimal .navbar-nav .nav-link,
+.navbar.theme-minimal .navbar-brand,
+.navbar.theme-minimal .navbar-nav .nav-link:hover,
+.navbar.theme-minimal .navbar-nav .nav-link:focus,
+.navbar.theme-minimal .navbar-brand:hover,
+.navbar.theme-minimal .navbar-brand:focus {
+  color: #1f2937 !important;
+}
+
+.navbar.theme-corporate .nav-link,
+.navbar.theme-corporate .navbar-nav .nav-link,
+.navbar.theme-corporate .navbar-brand,
+.navbar.theme-corporate .navbar-nav .nav-link:hover,
+.navbar.theme-corporate .navbar-nav .nav-link:focus,
+.navbar.theme-corporate .navbar-brand:hover,
+.navbar.theme-corporate .navbar-brand:focus {
+  color: #ffffff !important;
+}
+
+.navbar.theme-colorful .nav-link,
+.navbar.theme-colorful .navbar-nav .nav-link,
+.navbar.theme-colorful .navbar-brand,
+.navbar.theme-colorful .navbar-nav .nav-link:hover,
+.navbar.theme-colorful .navbar-nav .nav-link:focus,
+.navbar.theme-colorful .navbar-brand:hover,
+.navbar.theme-colorful .navbar-brand:focus {
+  color: #2d3436 !important;
+}
+
+/* ========== FORCE THEME COLORS FOR ALL NAVBAR ELEMENTS ========== */
+
+/* Modern Theme */
+.navbar.theme-modern .nav-link,
+.navbar.theme-modern .navbar-nav .nav-item .nav-link,
+.navbar.theme-modern .dropdown-toggle,
+.navbar.theme-modern .nav-label,
+.navbar.theme-modern .user-profile {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-modern .nav-link:hover,
+.navbar.theme-modern .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-modern .dropdown-toggle:hover,
+.navbar.theme-modern .nav-item .nav-link:hover,
+.navbar.theme-modern .nav-item .nav-link:hover .nav-label,
+.navbar.theme-modern .nav-item .nav-link:hover svg {
+  color: #ffffff !important; /* White text on hover for readability */
+}
+
+.navbar.theme-modern .nav-link.active,
+.navbar.theme-modern .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-modern .dropdown-toggle.active,
+.navbar.theme-modern .nav-item .nav-link.active,
+.navbar.theme-modern .nav-item .nav-link.active .nav-label,
+.navbar.theme-modern .nav-item .nav-link.active svg {
+  color: #ffffff !important; /* White text when active */
+}
+
+/* Dark Theme */
+.navbar.theme-dark .nav-link,
+.navbar.theme-dark .navbar-nav .nav-item .nav-link,
+.navbar.theme-dark .dropdown-toggle,
+.navbar.theme-dark .nav-label,
+.navbar.theme-dark .user-profile {
+  color: #e2e8f0 !important;
+}
+
+.navbar.theme-dark .nav-link:hover,
+.navbar.theme-dark .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-dark .dropdown-toggle:hover,
+.navbar.theme-dark .nav-item .nav-link:hover,
+.navbar.theme-dark .nav-item .nav-link:hover .nav-label,
+.navbar.theme-dark .nav-item .nav-link:hover svg {
+  color: #ffffff !important; /* White text/icons on hover for visibility */
+}
+
+.navbar.theme-dark .nav-link.active,
+.navbar.theme-dark .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-dark .dropdown-toggle.active,
+.navbar.theme-dark .nav-item .nav-link.active,
+.navbar.theme-dark .nav-item .nav-link.active .nav-label,
+.navbar.theme-dark .nav-item .nav-link.active svg {
+  color: #64ffda !important; /* Cyan accent color when active */
+}
+
+/* Minimal Theme */
+.navbar.theme-minimal .nav-link,
+.navbar.theme-minimal .navbar-nav .nav-item .nav-link,
+.navbar.theme-minimal .dropdown-toggle,
+.navbar.theme-minimal .nav-label,
+.navbar.theme-minimal .user-profile {
+  color: #1f2937 !important;
+}
+
+.navbar.theme-minimal .nav-link:hover,
+.navbar.theme-minimal .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-minimal .dropdown-toggle:hover,
+.navbar.theme-minimal .nav-item .nav-link:hover,
+.navbar.theme-minimal .nav-item .nav-link:hover .nav-label,
+.navbar.theme-minimal .nav-item .nav-link:hover svg {
+  color: #ffffff !important; /* White text on hover for readability */
+}
+
+.navbar.theme-minimal .nav-link.active,
+.navbar.theme-minimal .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-minimal .dropdown-toggle.active,
+.navbar.theme-minimal .nav-item .nav-link.active,
+.navbar.theme-minimal .nav-item .nav-link.active .nav-label,
+.navbar.theme-minimal .nav-item .nav-link.active svg {
+  color: #ffffff !important; /* White text when active */
+}
+
+/* Corporate Theme */
+.navbar.theme-corporate .nav-link,
+.navbar.theme-corporate .navbar-nav .nav-item .nav-link,
+.navbar.theme-corporate .dropdown-toggle,
+.navbar.theme-corporate .nav-label,
+.navbar.theme-corporate .user-profile {
+  color: #ffffff !important;
+}
+
+.navbar.theme-corporate .nav-link:hover,
+.navbar.theme-corporate .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-corporate .dropdown-toggle:hover,
+.navbar.theme-corporate .nav-item .nav-link:hover,
+.navbar.theme-corporate .nav-item .nav-link:hover .nav-label,
+.navbar.theme-corporate .nav-item .nav-link:hover svg {
+  color: #1e3c72 !important; /* Dark blue text on hover for readability */
+}
+
+.navbar.theme-corporate .nav-link.active,
+.navbar.theme-corporate .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-corporate .dropdown-toggle.active,
+.navbar.theme-corporate .nav-item .nav-link.active,
+.navbar.theme-corporate .nav-item .nav-link.active .nav-label,
+.navbar.theme-corporate .nav-item .nav-link.active svg {
+  color: #1e3c72 !important; /* Dark blue text when active */
+}
+
+/* Colorful Theme */
+.navbar.theme-colorful .nav-link,
+.navbar.theme-colorful .navbar-nav .nav-item .nav-link,
+.navbar.theme-colorful .dropdown-toggle,
+.navbar.theme-colorful .nav-label,
+.navbar.theme-colorful .user-profile {
+  color: #2d3436 !important;
+}
+
+.navbar.theme-colorful .nav-link:hover,
+.navbar.theme-colorful .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-colorful .dropdown-toggle:hover,
+.navbar.theme-colorful .nav-item .nav-link:hover,
+.navbar.theme-colorful .nav-item .nav-link:hover .nav-label,
+.navbar.theme-colorful .nav-item .nav-link:hover svg {
+  color: #ffffff !important; /* White text on hover for readability */
+}
+
+.navbar.theme-colorful .nav-link.active,
+.navbar.theme-colorful .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-colorful .dropdown-toggle.active,
+.navbar.theme-colorful .nav-item .nav-link.active,
+.navbar.theme-colorful .nav-item .nav-link.active .nav-label,
+.navbar.theme-colorful .nav-item .nav-link.active svg {
+  color: #ffffff !important; /* White text when active */
+}
+
+/* ========== THEME-SPECIFIC ACTIVE BACKGROUNDS ========== */
+
+/* Modern Theme Active Background */
+.navbar.theme-modern .nav-link.active,
+.navbar.theme-modern .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-modern .dropdown-toggle.active {
+  background: #667eea !important;
+  color: #ffffff !important;
+  border-color: #667eea !important;
+}
+
+/* Dark Theme Active Background */
+.navbar.theme-dark .nav-link.active,
+.navbar.theme-dark .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-dark .dropdown-toggle.active {
+  background: #64ffda !important;
+  color: #000000 !important;
+  border-color: #64ffda !important;
+}
+
+/* Minimal Theme Active Background */
+.navbar.theme-minimal .nav-link.active,
+.navbar.theme-minimal .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-minimal .dropdown-toggle.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* Corporate Theme Active Background */
+.navbar.theme-corporate .nav-link.active,
+.navbar.theme-corporate .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-corporate .dropdown-toggle.active {
+  background: #bfdbfe !important;
+  color: #1e3c72 !important;
+  border-color: #bfdbfe !important;
+}
+
+/* Colorful Theme Active Background */
+.navbar.theme-colorful .nav-link.active,
+.navbar.theme-colorful .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-colorful .dropdown-toggle.active {
+  background: #e17055 !important;
+  color: #ffffff !important;
+  border-color: #e17055 !important;
+}
+
+/* ========== HIDE DROPDOWN INDICATORS ========== */
+
+/* Hide Bootstrap dropdown carets/arrows */
+.navbar .dropdown-toggle::after,
+.navbar .dropdown-toggle::before {
+  display: none !important;
+}
+
+.navbar .btn-outline-secondary::after {
+  display: none !important;
+}
+
+/* Hide any caret elements */
+.navbar .caret {
+  display: none !important;
+}
+
+/* ========== DROPDOWN STYLING ========== */
+
+/* Default dropdown styling for navbar dropdowns - Override Bootstrap */
+.navbar .dropdown-menu,
+.navbar .dropdown .dropdown-menu,
+.navbar .nav-item .dropdown-menu {
+  background: #ffffff !important;
+  border: 1px solid #dee2e6 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  padding: 0.5rem !important;
+  margin-top: 0.25rem !important;
+}
+
+/* Override Bootstrap dropdown defaults specifically for navbar */
+.navbar .dropdown-menu.show,
+.navbar .dropdown .dropdown-menu.show,
+.navbar .nav-item .dropdown-menu.show {
+  background: inherit !important;
+  border-color: inherit !important;
+}
+
+/* All dropdown backgrounds - Solid white for all themes */
+.navbar.theme-modern .dropdown-menu,
+.navbar.theme-modern .navbar-nav .dropdown-menu,
+.navbar.theme-modern .nav-item .dropdown-menu,
+.navbar.theme-modern .context-menu,
+.navbar.theme-modern .navbar-context .dropdown .dropdown-menu,
+.navbar.theme-modern .navbar-context .dropdown .dropdown-menu.context-menu {
+  background: #ffffff !important;
+  border-color: #dee2e6 !important;
+}
+
+.navbar.theme-dark .dropdown-menu,
+.navbar.theme-dark .navbar-nav .dropdown-menu,
+.navbar.theme-dark .nav-item .dropdown-menu,
+.navbar.theme-dark .context-menu,
+.navbar.theme-dark .navbar-context .dropdown .dropdown-menu,
+.navbar.theme-dark .navbar-context .dropdown .dropdown-menu.context-menu {
+  background: #ffffff !important;
+  border-color: #dee2e6 !important;
+}
+
+.navbar.theme-minimal .dropdown-menu,
+.navbar.theme-minimal .navbar-nav .dropdown-menu,
+.navbar.theme-minimal .nav-item .dropdown-menu,
+.navbar.theme-minimal .context-menu,
+.navbar.theme-minimal .navbar-context .dropdown .dropdown-menu,
+.navbar.theme-minimal .navbar-context .dropdown .dropdown-menu.context-menu {
+  background: #ffffff !important;
+  border-color: #dee2e6 !important;
+}
+
+.navbar.theme-corporate .dropdown-menu,
+.navbar.theme-corporate .navbar-nav .dropdown-menu,
+.navbar.theme-corporate .nav-item .dropdown-menu,
+.navbar.theme-corporate .context-menu,
+.navbar.theme-corporate .navbar-context .dropdown .dropdown-menu,
+.navbar.theme-corporate .navbar-context .dropdown .dropdown-menu.context-menu {
+  background: #ffffff !important;
+  border-color: #dee2e6 !important;
+}
+
+.navbar.theme-colorful .dropdown-menu,
+.navbar.theme-colorful .navbar-nav .dropdown-menu,
+.navbar.theme-colorful .nav-item .dropdown-menu,
+.navbar.theme-colorful .context-menu,
+.navbar.theme-colorful .navbar-context .dropdown .dropdown-menu,
+.navbar.theme-colorful .navbar-context .dropdown .dropdown-menu.context-menu {
+  background: #ffffff !important;
+  border-color: #dee2e6 !important;
+}
+
+.navbar .dropdown-item,
+.navbar .navbar-context .dropdown-item,
+.navbar-context .dropdown-item {
+  color: #2d3748 !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  font-weight: 500 !important;
+  transition: none !important;
+}
+
+.navbar .dropdown-item:hover,
+.navbar .navbar-context .dropdown-item:hover,
+.navbar-context .dropdown-item:hover {
+  background: #f8f9fa !important;
+  color: #2d3748 !important;
+}
+
+.dropdown-divider {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  margin: 0.5rem 0 !important;
+}
+
+/* ========== DROPDOWN MENU THEME COLORS ========== */
+
+/* Modern Theme - All Dropdown Items (dark text on white bg) */
+.navbar.theme-modern .context-customer,
+.navbar.theme-modern .context-project,
+.navbar.theme-modern .context-indicator,
+.navbar.theme-modern .context-menu-primary,
+.navbar.theme-modern .context-menu-item,
+.navbar.theme-modern .context-menu-header,
+.navbar.theme-modern .dropdown-item,
+.navbar.theme-modern .dropdown-menu .dropdown-item,
+.navbar.theme-modern .navbar-nav .dropdown-item,
+.navbar.theme-modern .nav-item .dropdown-item {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-modern .dropdown-item:hover,
+.navbar.theme-modern .dropdown-menu .dropdown-item:hover,
+.navbar.theme-modern .navbar-nav .dropdown-item:hover,
+.navbar.theme-modern .nav-item .dropdown-item:hover,
+.navbar.theme-modern .context-menu-item:hover {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-modern .context-menu-header {
+  border-bottom-color: #dee2e6 !important;
+}
+
+.navbar.theme-modern .dropdown-item:focus,
+.navbar.theme-modern .dropdown-menu .dropdown-item:focus,
+.navbar.theme-modern .navbar-nav .dropdown-item:focus,
+.navbar.theme-modern .nav-item .dropdown-item:focus,
+.navbar.theme-modern .context-menu-item:focus {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-modern .dropdown-item.active,
+.navbar.theme-modern .dropdown-menu .dropdown-item.active,
+.navbar.theme-modern .dropdown-menu a.active,
+.navbar.theme-modern .dropdown-menu .active {
+  color: #ffffff !important;
+  background-color: #667eea !important;
+  font-weight: 600 !important;
+}
+
+/* Dark Theme - All Dropdown Items (dark text on white bg) */
+.navbar.theme-dark .context-customer,
+.navbar.theme-dark .context-project,
+.navbar.theme-dark .context-indicator,
+.navbar.theme-dark .context-menu-primary,
+.navbar.theme-dark .context-menu-item,
+.navbar.theme-dark .context-menu-header,
+.navbar.theme-dark .dropdown-item,
+.navbar.theme-dark .dropdown-menu .dropdown-item,
+.navbar.theme-dark .navbar-nav .dropdown-item,
+.navbar.theme-dark .nav-item .dropdown-item {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-dark .context-menu-header .text-muted {
+  color: #6c757d !important;
+}
+
+.navbar.theme-dark .dropdown-item:hover,
+.navbar.theme-dark .dropdown-menu .dropdown-item:hover,
+.navbar.theme-dark .navbar-nav .dropdown-item:hover,
+.navbar.theme-dark .nav-item .dropdown-item:hover,
+.navbar.theme-dark .context-menu-item:hover {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-dark .context-menu-header {
+  border-bottom-color: #dee2e6 !important;
+}
+
+.navbar.theme-dark .dropdown-item:focus,
+.navbar.theme-dark .dropdown-menu .dropdown-item:focus,
+.navbar.theme-dark .navbar-nav .dropdown-item:focus,
+.navbar.theme-dark .nav-item .dropdown-item:focus,
+.navbar.theme-dark .context-menu-item:focus {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-dark .dropdown-item.active,
+.navbar.theme-dark .dropdown-menu .dropdown-item.active,
+.navbar.theme-dark .dropdown-menu a.active,
+.navbar.theme-dark .dropdown-menu .active {
+  color: #000000 !important;
+  background-color: #64ffda !important;
+  font-weight: 600 !important;
+}
+
+/* Minimal Theme - All Dropdown Items (dark text on white bg) */
+.navbar.theme-minimal .context-customer,
+.navbar.theme-minimal .context-project,
+.navbar.theme-minimal .context-indicator,
+.navbar.theme-minimal .context-menu-primary,
+.navbar.theme-minimal .context-menu-item,
+.navbar.theme-minimal .context-menu-header,
+.navbar.theme-minimal .dropdown-item,
+.navbar.theme-minimal .dropdown-menu .dropdown-item,
+.navbar.theme-minimal .navbar-nav .dropdown-item,
+.navbar.theme-minimal .nav-item .dropdown-item {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-minimal .dropdown-item:hover,
+.navbar.theme-minimal .dropdown-menu .dropdown-item:hover,
+.navbar.theme-minimal .navbar-nav .dropdown-item:hover,
+.navbar.theme-minimal .nav-item .dropdown-item:hover,
+.navbar.theme-minimal .context-menu-item:hover {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-minimal .context-menu-header {
+  border-bottom-color: #dee2e6 !important;
+}
+
+.navbar.theme-minimal .dropdown-item:focus,
+.navbar.theme-minimal .dropdown-menu .dropdown-item:focus,
+.navbar.theme-minimal .navbar-nav .dropdown-item:focus,
+.navbar.theme-minimal .nav-item .dropdown-item:focus,
+.navbar.theme-minimal .context-menu-item:focus {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-minimal .dropdown-item.active,
+.navbar.theme-minimal .dropdown-menu .dropdown-item.active,
+.navbar.theme-minimal .dropdown-menu a.active,
+.navbar.theme-minimal .dropdown-menu .active {
+  color: #ffffff !important;
+  background-color: #2563eb !important;
+  font-weight: 600 !important;
+}
+
+/* Corporate Theme - All Dropdown Items (dark text on white bg) */
+.navbar.theme-corporate .context-customer,
+.navbar.theme-corporate .context-project,
+.navbar.theme-corporate .context-indicator,
+.navbar.theme-corporate .context-menu-primary,
+.navbar.theme-corporate .context-menu-item,
+.navbar.theme-corporate .context-menu-header,
+.navbar.theme-corporate .dropdown-item,
+.navbar.theme-corporate .dropdown-menu .dropdown-item,
+.navbar.theme-corporate .navbar-nav .dropdown-item,
+.navbar.theme-corporate .nav-item .dropdown-item {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-corporate .dropdown-item:hover,
+.navbar.theme-corporate .dropdown-menu .dropdown-item:hover,
+.navbar.theme-corporate .navbar-nav .dropdown-item:hover,
+.navbar.theme-corporate .nav-item .dropdown-item:hover,
+.navbar.theme-corporate .context-menu-item:hover {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-corporate .context-menu-header {
+  border-bottom-color: #dee2e6 !important;
+}
+
+.navbar.theme-corporate .context-menu-header .text-muted {
+  color: #6c757d !important;
+}
+
+.navbar.theme-corporate .dropdown-item:focus,
+.navbar.theme-corporate .dropdown-menu .dropdown-item:focus,
+.navbar.theme-corporate .navbar-nav .dropdown-item:focus,
+.navbar.theme-corporate .nav-item .dropdown-item:focus,
+.navbar.theme-corporate .context-menu-item:focus {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-corporate .dropdown-item.active,
+.navbar.theme-corporate .dropdown-menu .dropdown-item.active,
+.navbar.theme-corporate .dropdown-menu a.active,
+.navbar.theme-corporate .dropdown-menu .active {
+  color: #1e3c72 !important;
+  background-color: #bfdbfe !important;
+  font-weight: 600 !important;
+}
+
+/* Colorful Theme - All Dropdown Items (dark text on white bg) */
+.navbar.theme-colorful .context-customer,
+.navbar.theme-colorful .context-project,
+.navbar.theme-colorful .context-indicator,
+.navbar.theme-colorful .context-menu-primary,
+.navbar.theme-colorful .context-menu-item,
+.navbar.theme-colorful .context-menu-header,
+.navbar.theme-colorful .dropdown-item,
+.navbar.theme-colorful .dropdown-menu .dropdown-item,
+.navbar.theme-colorful .navbar-nav .dropdown-item,
+.navbar.theme-colorful .nav-item .dropdown-item {
+  color: #2d3748 !important;
+}
+
+.navbar.theme-colorful .dropdown-item:hover,
+.navbar.theme-colorful .dropdown-menu .dropdown-item:hover,
+.navbar.theme-colorful .navbar-nav .dropdown-item:hover,
+.navbar.theme-colorful .nav-item .dropdown-item:hover,
+.navbar.theme-colorful .context-menu-item:hover {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-colorful .context-menu-header {
+  border-bottom-color: #dee2e6 !important;
+}
+
+.navbar.theme-colorful .dropdown-item:focus,
+.navbar.theme-colorful .dropdown-menu .dropdown-item:focus,
+.navbar.theme-colorful .navbar-nav .dropdown-item:focus,
+.navbar.theme-colorful .nav-item .dropdown-item:focus,
+.navbar.theme-colorful .context-menu-item:focus {
+  color: #2d3748 !important;
+  background-color: #f8f9fa !important;
+}
+
+.navbar.theme-colorful .dropdown-item.active,
+.navbar.theme-colorful .dropdown-menu .dropdown-item.active,
+.navbar.theme-colorful .dropdown-menu a.active,
+.navbar.theme-colorful .dropdown-menu .active {
+  color: #ffffff !important;
+  background-color: #e17055 !important;
+  font-weight: 600 !important;
+}
+
+/* ========== NAVBAR CONTEXT ========== */
+
 .navbar-context {
     position: absolute;
     left: 320px;
@@ -99,6 +883,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: inherit;
 }
 
 .context-project {
@@ -108,6 +893,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: inherit;
 }
 
 .context-chevron {
@@ -161,230 +947,226 @@
     text-decoration: none;
 }
 
-/* Context Dropdown Menu */
+/* Context Dropdown Menu - Base styles with high specificity */
+.navbar .navbar-context .dropdown .dropdown-menu,
+.navbar .navbar-context .dropdown .dropdown-menu.context-menu,
+.navbar-context .dropdown .dropdown-menu.context-menu,
+.navbar-context .dropdown-menu,
 .context-menu {
-    background: white;
-    border: 1px solid #e9ecef;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    padding: 0.5rem 0;
+    background: #ffffff !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    padding: 0.5rem !important;
+    margin-top: 0.25rem !important;
     min-width: 250px;
-    margin-top: 0.5rem;
 }
 
 .context-menu-header {
     padding: 0.5rem 1rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid #dee2e6 !important;
     margin-bottom: 0.5rem;
 }
 
 .context-menu-item {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    border: none;
-    background: none;
-    color: #495057;
-    text-decoration: none;
+    color: #2d3748 !important;
+    padding: 0.75rem 1rem !important;
+    border-radius: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    font-weight: 500 !important;
+    transition: none !important;
+    border: none !important;
+    background: none !important;
+    text-decoration: none !important;
 }
 
 .context-menu-item:hover {
-    background: #f8f9fa;
-    color: #495057;
-}
-
-.context-menu-item:focus {
-    background: #f8f9fa;
-    color: #495057;
-}
-
-/* Import Status Animations */
-.import-progress-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.import-progress-dots {
-    position: absolute;
-    bottom: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 2px;
-}
-
-.import-progress-dots span {
-    width: 4px;
-    height: 4px;
-    background: #28a745;
-    border-radius: 50%;
-    animation: importDots 1.2s ease-in-out infinite;
-}
-
-.import-progress-dots span:nth-child(1) {
-    animation-delay: 0s;
-}
-
-.import-progress-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.import-progress-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes importDots {
-    0%, 80%, 100% {
-        opacity: 0.3;
-        transform: scale(0.8);
-    }
-    40% {
-        opacity: 1;
-        transform: scale(1.2);
-    }
-}
-
-/* Import button positioning */
-.nav-item .nav-link {
-    position: relative;
-}
-
-
-/* Back button container and spacer */
-.nav-back-container {
-    width: 40px; /* Fixed width to maintain consistent spacing */
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.nav-back-button {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.8);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    transition: all 0.2s ease;
-}
-
-.nav-back-button:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: inherit;
-    border-color: rgba(255, 255, 255, 0.3);
-    transform: translateX(-1px);
-}
-
-.nav-back-spacer {
-    width: 36px;
-    height: 36px;
-    /* Invisible placeholder that takes up the same space as the back button */
+    background: #f8f9fa !important;
+    color: #2d3748 !important;
 }
 
 .context-menu-primary {
-    font-weight: 600;
-    color: #212529;
+    font-weight: 600 !important;
+    color: #2d3748 !important;
     line-height: 1.2;
 }
-  
-  .nav-link.active {
-    font-weight: bold;
-    border-bottom: 2px solid #0d6efd; /* Bootstrap primary color */
-    z-index: 100;
 
-  }
-  
-  .dropdown-menu {
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    opacity: 0;
-    transform: translateY(-10px);
-    z-index: 100;
+/* Context indicator theming for navbar */
+/* Modern Theme Context Indicator */
+.navbar.theme-modern .context-customer,
+.navbar.theme-modern .context-project {
+    color: #2d3748 !important;
+}
 
+/* Dark Theme Context Indicator */
+.navbar.theme-dark .context-customer,
+.navbar.theme-dark .context-project {
+    color: #e2e8f0 !important;
+}
+
+/* Minimal Theme Context Indicator */
+.navbar.theme-minimal .context-customer,
+.navbar.theme-minimal .context-project {
+    color: #1f2937 !important;
+}
+
+/* Corporate Theme Context Indicator */
+.navbar.theme-corporate .context-customer,
+.navbar.theme-corporate .context-project {
+    color: #ffffff !important;
+}
+
+/* Colorful Theme Context Indicator */
+.navbar.theme-colorful .context-customer,
+.navbar.theme-colorful .context-project {
+    color: #2d3436 !important;
+}
+
+/* Text-muted theming for context dropdown */
+.navbar .context-menu .text-muted,
+.navbar .context-menu-header .text-muted {
+    color: #6c757d !important;
+}
+
+/* All themes should use consistent muted text in dropdowns */
+.navbar.theme-modern .context-menu .text-muted,
+.navbar.theme-dark .context-menu .text-muted,
+.navbar.theme-minimal .context-menu .text-muted,
+.navbar.theme-corporate .context-menu .text-muted,
+.navbar.theme-colorful .context-menu .text-muted {
+    color: #6c757d !important;
+}
+
+
+/* ========== IMPORT BUTTON STYLING ========== */
+
+.import-button {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  color: var(--navbar-text) !important;
+  border-radius: 12px !important;
+  padding: 0.75rem 1rem !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.import-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.import-button:hover::before {
+  left: 100%;
+}
+
+.import-button:hover {
+  background: #ffffff !important;
+  color: #667eea !important;
+  border-color: #ffffff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.import-button.running {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+  animation: pulse 2s infinite;
+}
+
+.import-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: #ffffff;
+  border-radius: 0 0 12px 12px;
+  transition: width 0.3s ease;
+}
+
+.import-progress-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.import-progress-dots {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+}
+
+.import-progress-dots span {
+  width: 4px;
+  height: 4px;
+  background: #28a745;
+  border-radius: 50%;
+  animation: importDots 1.2s ease-in-out infinite;
+}
+
+.import-progress-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.import-progress-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.import-progress-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes importDots {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
   }
-  
-  .dropdown:hover .dropdown-menu {
+  40% {
     opacity: 1;
-    transform: translateY(0);
-    z-index: 100;
-
-  }
-
-  /* Ensure dropdown items have proper text styling */
-  .dropdown-item {
-    color: #212529 !important;
-  }
-
-  .dropdown-item:hover, .dropdown-item:focus {
-    color: #16181b !important;
-  }
-
-  .logo-image {
-    height: 40px;
-    width: auto;
-    max-width: 150px;
-    z-index: 100;
-  }
-
-  .navbar-brand .logo-image {
-    height: 32px;
-    max-width: 120px;
-  }
-
-  .navbar-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-/* New navbar styling improvements */
-.navbar-nav {
-  gap: 0.5rem;
-}
-
-.nav-label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  display: none;
-  color: inherit;
-}
-
-@media (min-width: 992px) {
-  .nav-label {
-    display: inline;
+    transform: scale(1.2);
   }
 }
 
-.nav-divider {
+/* ========== USER SECTION ========== */
+
+.user-section {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
-  margin: 0 0.5rem;
+  justify-content: center;
+  color: var(--navbar-text);
+  font-weight: 600;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
 }
 
-.divider-line {
-  width: 1px;
-  height: 24px;
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  transition: background-color 0.2s ease;
-  color: inherit !important;
-}
-
-.nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: inherit !important;
+.user-avatar:hover {
+  background: #ffffff;
+  color: #667eea;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .user-profile {
@@ -403,8 +1185,121 @@
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Responsive adjustments for context indicator */
+/* ========== NAV DIVIDER ========== */
+
+.nav-divider {
+  padding: 0 !important;
+  margin: 0 0.5rem !important;
+}
+
+.divider-line {
+  display: block;
+  width: 1px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1px;
+}
+
+/* ========== NAV LABELS ========== */
+
+.nav-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: none;
+  color: inherit;
+}
+
+@media (min-width: 992px) {
+  .nav-label {
+    display: inline;
+  }
+}
+
+/* ========== HOVER ANIMATIONS ========== */
+
+.navbar-nav .nav-item {
+  position: relative;
+}
+
+.navbar-nav .nav-item::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: var(--navbar-text-hover, #ffffff);
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+.navbar-nav .nav-item:hover::after {
+  width: 80%;
+}
+
+/* Active bottom border indicator - also needs theme colors */
+.navbar.theme-modern .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #667eea;
+}
+
+.navbar.theme-dark .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #64ffda;
+}
+
+.navbar.theme-minimal .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #2563eb;
+}
+
+.navbar.theme-corporate .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #bfdbfe;
+}
+
+.navbar.theme-colorful .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #e17055;
+}
+
+/* Default fallback */
+.navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #667eea;
+}
+
+/* ========== LOADING STATES ========== */
+
+.navbar-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar-loading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  animation: loading 2s infinite;
+}
+
+@keyframes loading {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+
 @media (max-width: 1200px) {
+  .navbar .container-fluid {
+    padding: 0 1.5rem;
+  }
+  
   .navbar-context {
     left: 300px;
   }
@@ -415,6 +1310,18 @@
 }
 
 @media (max-width: 992px) {
+  .navbar .container-fluid {
+    padding: 0 1rem;
+  }
+  
+  .navbar-brand {
+    font-size: 1.25rem !important;
+  }
+  
+  .nav-link {
+    padding: 0.5rem 0.75rem !important;
+  }
+
   .navbar-context {
     left: 270px;
   }
@@ -430,6 +1337,28 @@
 }
 
 @media (max-width: 768px) {
+  .navbar .container-fluid {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .navbar .navbar-collapse {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 1rem;
+  }
+  
+  .navbar-nav.ms-auto {
+    width: auto;
+    justify-content: flex-end !important;
+    margin-left: auto !important;
+  }
+  
+  .navbar-context,
+  .nav-divider {
+    display: none;
+  }
+
   .navbar-context {
     position: static;
     transform: none;
@@ -441,4 +1370,51 @@
     min-width: auto;
     width: 100%;
   }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding: 0.5rem 0;
+  }
+  
+  .navbar .container-fluid {
+    padding: 0 0.5rem;
+  }
+  
+  .navbar-brand {
+    font-size: 1rem !important;
+  }
+  
+  .nav-link {
+    padding: 0.5rem !important;
+    font-size: 0.9rem !important;
+  }
+  
+  .import-button {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Additional utility classes */
+.logo-image {
+  height: 40px;
+  width: auto;
+  max-width: 150px;
+}
+
+.navbar-brand .logo-image {
+  height: 32px;
+  max-width: 120px;
+}
+
+.nav-link.active {
+  font-weight: bold;
+  border-bottom: 2px solid #0d6efd;
 }

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
+
   // Only use layered navigation for individual storage system detail pages
   if (pathname.startsWith("/storage/")) {
     const storageIdMatch = pathname.match(/^\/storage\/(\d+)/);
@@ -33,8 +34,6 @@ const getSidebarLinks = (pathname) => {
       return {
         header: "Storage System",
         icon: Server,
-        showBackButton: true,
-        backPath: "/storage/systems",
         storageId: storageIdMatch[1],
         links: [
           {
@@ -59,9 +58,8 @@ const getSidebarLinks = (pathname) => {
 
   // For all other pages, show the expandable main menu
   return {
-    header: "Main Menu",
+    header: "",
     icon: Menu,
-    showBackButton: false,
     links: [
       { 
         path: "/", 

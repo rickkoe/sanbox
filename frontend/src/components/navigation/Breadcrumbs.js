@@ -3,6 +3,7 @@ import { BreadcrumbContext } from "../../context/BreadcrumbContext";
 import { useTheme } from "../../context/ThemeContext";
 import { Link, useLocation } from "react-router-dom";
 import { Breadcrumb } from "react-bootstrap";
+import { FaHome } from "react-icons/fa";
 
 const Breadcrumbs = ({ rightContent = null }) => {
     const { breadcrumbMap } = useContext(BreadcrumbContext);
@@ -17,7 +18,7 @@ const Breadcrumbs = ({ rightContent = null }) => {
                     <ol className="breadcrumb modern-breadcrumb">
                         <li className="breadcrumb-item">
                             <Link to="/" className="breadcrumb-link home-link">
-                                <span className="breadcrumb-icon">🏠</span>
+                                <span className="breadcrumb-icon"><FaHome /></span>
                                 <span className="breadcrumb-text">Home</span>
                             </Link>
                         </li>

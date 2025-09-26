@@ -1,12 +1,13 @@
 /* Table Toolbar Styles */
 .table-toolbar {
-  background: var(--table-header-bg, linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%));
-  border-bottom: 1px solid var(--table-border, #e2e8f0);
-  padding: 12px 16px;
+  background: transparent !important;
+  border-bottom: none !important;
+  padding: 20px 24px;
   margin: 0;
   position: relative;
   z-index: 10;
 }
+
 
 .table-toolbar-content {
   max-width: 100%;
@@ -20,6 +21,11 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .table-toolbar .advanced-filter-container {
@@ -46,13 +52,13 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .table-toolbar {
-    padding: 8px 12px;
+    padding: 16px 20px;
   }
   
   .table-toolbar .table-controls {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    gap: 16px;
   }
   
   .table-toolbar .advanced-filter-container {
@@ -66,8 +72,9 @@
 
 /* Theme-specific toolbar styling */
 .theme-dark .table-toolbar {
-  background: var(--table-header-bg, linear-gradient(135deg, #1e293b 0%, #0f172a 100%));
-  border-bottom-color: var(--table-border, rgba(255, 255, 255, 0.1));
+  background: transparent !important;
+  border-bottom: none !important;
+  color: #e2e8f0 !important;
 }
 
 .theme-minimal .table-toolbar {
