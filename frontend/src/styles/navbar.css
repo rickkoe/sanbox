@@ -38,6 +38,13 @@ nav.navbar.navbar-expand-lg.theme-minimal,
   background-color: #ffffff !important; /* Fallback */
 }
 
+nav.navbar.navbar-expand-lg.theme-light,
+.navbar.theme-light,
+.theme-light .navbar {
+  background: #ffffff !important;
+  background-color: #ffffff !important; /* Fallback */
+}
+
 nav.navbar.navbar-expand-lg.theme-corporate,
 .navbar.theme-corporate,
 .theme-corporate .navbar {
@@ -335,7 +342,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-dark .nav-item .nav-link.active,
 .navbar.theme-dark .nav-item .nav-link.active .nav-label,
 .navbar.theme-dark .nav-item .nav-link.active svg {
-  color: #64ffda !important; /* Cyan accent color when active */
+  color: #e2e8f0 !important; /* Light gray when active */
 }
 
 /* Minimal Theme */
@@ -419,6 +426,16 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   color: #ffffff !important; /* White text when active */
 }
 
+/* Light Theme Active Text/Icons */
+.navbar.theme-light .nav-link.active,
+.navbar.theme-light .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-light .dropdown-toggle.active,
+.navbar.theme-light .nav-item .nav-link.active,
+.navbar.theme-light .nav-item .nav-link.active .nav-label,
+.navbar.theme-light .nav-item .nav-link.active svg {
+  color: #475569 !important; /* Dark gray when active */
+}
+
 /* ========== THEME-SPECIFIC ACTIVE BACKGROUNDS ========== */
 
 /* Modern Theme Active Background */
@@ -434,9 +451,9 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-dark .nav-link.active,
 .navbar.theme-dark .navbar-nav .nav-item .nav-link.active,
 .navbar.theme-dark .dropdown-toggle.active {
-  background: #64ffda !important;
-  color: #000000 !important;
-  border-color: #64ffda !important;
+  background: rgba(100, 255, 218, 0.2) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(100, 255, 218, 0.3) !important;
 }
 
 /* Minimal Theme Active Background */
@@ -464,6 +481,15 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   background: #e17055 !important;
   color: #ffffff !important;
   border-color: #e17055 !important;
+}
+
+/* Light Theme Active Background */
+.navbar.theme-light .nav-link.active,
+.navbar.theme-light .navbar-nav .nav-item .nav-link.active,
+.navbar.theme-light .dropdown-toggle.active {
+  background: rgba(71, 85, 105, 0.15) !important;
+  color: #475569 !important;
+  border-color: #475569 !important;
 }
 
 /* ========== HIDE DROPDOWN INDICATORS ========== */
@@ -501,8 +527,8 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar .dropdown-menu.show,
 .navbar .dropdown .dropdown-menu.show,
 .navbar .nav-item .dropdown-menu.show {
-  background: inherit !important;
-  border-color: inherit !important;
+  background: #ffffff !important;
+  border-color: #dee2e6 !important;
 }
 
 /* All dropdown backgrounds - Solid white for all themes */
@@ -556,6 +582,16 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   border-color: #dee2e6 !important;
 }
 
+.navbar.theme-light .dropdown-menu,
+.navbar.theme-light .navbar-nav .dropdown-menu,
+.navbar.theme-light .nav-item .dropdown-menu,
+.navbar.theme-light .context-menu,
+.navbar.theme-light .navbar-context .dropdown .dropdown-menu,
+.navbar.theme-light .navbar-context .dropdown .dropdown-menu.context-menu {
+  background: #ffffff !important;
+  border-color: #dee2e6 !important;
+}
+
 .navbar .dropdown-item,
 .navbar .navbar-context .dropdown-item,
 .navbar-context .dropdown-item {
@@ -577,8 +613,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 }
 
 .dropdown-divider {
-  border-color: rgba(0, 0, 0, 0.1) !important;
-  margin: 0.5rem 0 !important;
+  display: none !important;
 }
 
 /* ========== DROPDOWN MENU THEME COLORS ========== */
@@ -865,9 +900,34 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* Dark theme - remove background and border from context indicator */
+.navbar.theme-dark .context-indicator {
+    background: transparent !important;
+    border: none !important;
+}
+
+.navbar.theme-dark .context-indicator:hover {
+    background: transparent !important;
+    border: none !important;
+}
+
 .context-icon {
     margin-right: 0.5rem;
     opacity: 0.8;
+}
+
+.context-icon svg {
+    width: 24px !important;
+    height: 24px !important;
+}
+
+/* Dark theme - make context icon lighter */
+.navbar.theme-dark .context-icon {
+    opacity: 1;
+}
+
+.navbar.theme-dark .context-icon svg {
+    color: rgba(255, 255, 255, 0.9) !important;
 }
 
 .context-text {
@@ -1246,7 +1306,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 
 .navbar.theme-dark .navbar-nav .nav-item.active::after {
   width: 80%;
-  background: #64ffda;
+  background: rgba(100, 255, 218, 0.6);
 }
 
 .navbar.theme-minimal .navbar-nav .nav-item.active::after {
@@ -1262,6 +1322,11 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-colorful .navbar-nav .nav-item.active::after {
   width: 80%;
   background: #e17055;
+}
+
+.navbar.theme-light .navbar-nav .nav-item.active::after {
+  width: 80%;
+  background: #475569;
 }
 
 /* Default fallback */

@@ -14,6 +14,7 @@
   position: relative;
   z-index: 1;
   transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
 }
 
 .app-layout.sidebar-collapsed {
@@ -59,10 +60,11 @@
 /* Navbar fixed to the top */
 .navbar-header {
   grid-area: navbar;
-  position: relative; /* Add this */
+  position: relative;
   width: 100%;
   z-index: 100;
   padding: 0.0rem 0;
+  min-width: 0; /* Prevent overflow */
 }
 
 /* Theme-specific backgrounds for navbar header wrapper */
@@ -83,10 +85,11 @@
 /* Sidebar on the left */
 .sidebar {
   grid-area: sidebar;
-  position: relative; /* Add this */
+  position: relative;
   height: 100%;
   z-index: 101;
   overflow: visible;
+  min-width: 0; /* Prevent overflow */
 }
 
 /* Breadcrumbs or topbar below the navbar */
@@ -94,6 +97,8 @@
   grid-area: topbar;
   position: relative;
   height: 50px;
+  min-width: 0; /* Prevent overflow */
+  overflow: hidden; /* Prevent content from overflowing */
 }
 
 /* Table toolbar area */
@@ -109,18 +114,21 @@
   outline: none !important;
   box-shadow: none !important;
   margin: 0 !important;
+  min-width: 0; /* Prevent overflow */
+  overflow: hidden; /* Prevent content from overflowing */
 }
 
 
 /* Main content area */
 .main-content {
   grid-area: main-content;
-  position: relative; /* Add this */
+  position: relative;
   padding: 1rem;
   background: var(--content-bg, #fff);
   color: var(--content-text, #212529);
-  z-index: 2; /* Lower value */
-  overflow: visible; /* Ensure content is not clipped */
+  z-index: 2;
+  overflow: visible;
+  min-width: 0; /* Prevent overflow */
 }
 
 /* Add this to prevent any invisible overlays */

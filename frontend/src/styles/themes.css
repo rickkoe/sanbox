@@ -107,10 +107,10 @@
 
 /* ========== LIGHT THEME (MONOCHROME & EDGY) ========== */
 .theme-light {
-  /* Background Colors - Monochrome gradient from pure white to darker grays */
-  --primary-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  --secondary-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-  --accent-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  /* Background Colors - Pure white */
+  --primary-bg: #ffffff;
+  --secondary-bg: #ffffff;
+  --accent-bg: #ffffff;
   
   /* Text Colors - High contrast monochrome */
   --primary-text: #0f172a;
@@ -120,7 +120,7 @@
   --link-hover: #0f172a;
   
   /* Interactive Colors - Subtle grays with sharp edges */
-  --button-bg: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  --button-bg: #ffffff;
   --button-hover: #0f172a;
   --button-active: #334155;
   --button-border: #cbd5e1;
@@ -132,7 +132,7 @@
   --info-color: #334155;
   
   /* Component Specific */
-  --navbar-bg: var(--primary-bg);
+  --navbar-bg: #ffffff;
   --navbar-text: var(--primary-text);
   --navbar-text-hover: var(--link-text);
   --navbar-border: none;
@@ -145,7 +145,7 @@
   --sidebar-text: var(--primary-text);
   --sidebar-text-hover: var(--link-text);
   --sidebar-border: var(--button-border);
-  --sidebar-shadow: 8px 0 32px rgba(15, 23, 42, 0.12);
+  --sidebar-shadow: none;
   --sidebar-button-bg: var(--button-bg);
   --sidebar-button-hover: var(--button-hover);
   --sidebar-header-color: var(--link-text);
@@ -153,17 +153,17 @@
   --sidebar-active-border: var(--link-text);
   
   /* Content and Layout */
-  --content-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  --content-bg: #ffffff;
   --content-text: var(--primary-text);
-  --breadcrumb-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --breadcrumb-bg: #ffffff;
   --breadcrumb-border: rgba(51, 65, 85, 0.2);
   --breadcrumb-text: var(--secondary-text);
   --breadcrumb-link: var(--link-text);
   --breadcrumb-link-hover: var(--link-hover);
   
   /* Tables - Sharp monochrome design */
-  --table-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  --table-header-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --table-bg: #ffffff;
+  --table-header-bg: #ffffff;
   --table-header-text: var(--primary-text);
   --table-border: #cbd5e1;
   --table-row-hover: rgba(15, 23, 42, 0.04);
@@ -171,20 +171,20 @@
   --table-cell-text: var(--primary-text);
   
   /* Code Blocks */
-  --code-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --code-bg: #ffffff;
   --code-text: #0f172a;
   
   /* Alert Colors - Monochrome with intensity variations */
-  --warning-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --warning-bg: #ffffff;
   --warning-text: #475569;
   --warning-border: #cbd5e1;
-  --error-bg: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  --error-bg: #ffffff;
   --error-text: #1e293b;
   --error-border: #94a3b8;
-  --info-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --info-bg: #ffffff;
   --info-text: #334155;
   --info-border: #cbd5e1;
-  --success-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --success-bg: #ffffff;
   --success-text: #475569;
   --success-border: #cbd5e1;
 }

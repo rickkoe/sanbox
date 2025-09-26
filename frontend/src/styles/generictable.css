@@ -2544,12 +2544,39 @@ div.modern-table-header {
 }
 
 .theme-light .handsontable tbody tr:nth-child(even) td {
-  background-color: rgba(37, 99, 235, 0.015) !important;
+  background-color: #ffffff !important;
 }
 
 .theme-light .handsontable tbody tr:hover td {
-  background-color: rgba(37, 99, 235, 0.05) !important;
+  background-color: #f8f9fa !important;
   border-bottom-color: rgba(37, 99, 235, 0.15) !important;
+}
+
+/* Light theme table header - pure white background */
+.theme-light .handsontable thead th,
+.theme-light .handsontable .ht_clone_top thead th,
+.theme-light .handsontable .ht_clone_top_left_corner thead th,
+.theme-light .handsontable .ht_clone_top_inline_start_corner thead th {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border-right: 1px solid #d1d5db !important;
+  border-bottom: 1px solid #d1d5db !important;
+}
+
+.theme-light .handsontable thead th.ht__active_highlight,
+.theme-light .handsontable .ht_clone_top thead th.ht__active_highlight,
+.theme-light .handsontable thead th.ht__highlight,
+.theme-light .handsontable .ht_clone_top thead th.ht__highlight {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border-right: 1px solid #d1d5db !important;
+}
+
+.theme-light .handsontable thead th:hover,
+.theme-light .handsontable .ht_clone_top thead th:hover {
+  background: #f8f9fa !important;
+  border-right: 1px solid #d1d5db !important;
+  border-left: 1px solid #d1d5db !important;
 }
 
 /* Hide any remaining filter/dropdown elements */
