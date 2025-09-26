@@ -222,7 +222,8 @@ const ZoneTable = () => {
     
     for (let i = 1; i <= memberColumns; i++) {
       memberColumns_array.push({ 
-        data: `member_${i}`
+        data: `member_${i}`,
+        type: "dropdown"
       });
       memberHeaders.push(`Member ${i}`);
     }
@@ -1017,11 +1018,22 @@ const ZoneTable = () => {
   }, [allColumns]);
 
   const dropdownSources = useMemo(
-    () => ({
-      fabric: fabricOptions.map((f) => f.name),
-      zone_type: ["smart", "standard"],
-    }),
-    [fabricOptions]
+    () => {
+      const sources = {
+        fabric: fabricOptions.map((f) => f.name),
+        zone_type: ["smart", "standard"],
+      };
+      
+      // Add all member columns as dropdown sources to show dropdown arrows
+      for (let i = 1; i <= memberColumnsInfo.totalMemberColumns; i++) {
+        const memberKey = `member_${i}`;
+        // Use the memberOptions as the source for all member columns
+        sources[memberKey] = memberOptions.map(alias => alias.name);
+      }
+      
+      return sources;
+    },
+    [fabricOptions, memberOptions, memberColumnsInfo.totalMemberColumns]
   );
 
   // Simplified handler for adding member columns

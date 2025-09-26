@@ -66,9 +66,9 @@
 
 /* Active search indicator for collapsed state */
 .collapsible-search.collapsed.has-active-search .search-toggle-btn {
-  border-color: #3b82f6;
-  background: #eff6ff;
-  color: #3b82f6;
+  border-color: #334155;
+  background: #f1f5f9;
+  color: #1e293b;
 }
 
 .collapsible-search.collapsed.has-unsaved-search .search-toggle-btn {
@@ -98,8 +98,8 @@
 }
 
 .search-field:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #334155;
+  box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
   transform: translateY(-1px);
 }
 
@@ -148,8 +148,8 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 110px;
   justify-content: center;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+  text-transform: none;
+  letter-spacing: normal;
   position: relative;
   overflow: hidden;
   backdrop-filter: blur(10px);
@@ -178,13 +178,13 @@
 }
 
 .advanced-filter-button.has-filters {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  border-color: #3b82f6;
-  color: #1e40af;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-color: #64748b;
+  color: #475569;
 }
 
 .filter-count {
-  background: #3b82f6;
+  background: #64748b;
   color: white;
   border-radius: 10px;
   padding: 2px 6px;
@@ -263,8 +263,8 @@
 }
 
 .column-search-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #334155;
+  box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
 }
 
 .columns-list {
@@ -406,8 +406,8 @@
 }
 
 .filter-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #334155;
+  box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
 }
 
 .range-filter-inputs {
@@ -427,8 +427,8 @@
 }
 
 .range-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #334155;
+  box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
 }
 
 .values-list-checkboxes {
@@ -485,7 +485,7 @@
   width: 16px;
   height: 16px;
   border: 2px solid #e5e7eb;
-  border-top: 2px solid #3b82f6;
+  border-top: 2px solid #334155;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

@@ -1136,25 +1136,6 @@ div.modern-table-header {
   background: #94a3b8 !important;
 }
 
-/* Enhanced Dropdown Arrow - Minimized */
-.handsontable .htAutocompleteArrow {
-  color: #9ca3af !important;
-  font-size: 8px !important;
-  margin: 0 2px !important;
-  border: none !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-  padding: 0 !important;
-  width: 12px !important;
-  height: 12px !important;
-  transition: all 0.2s ease !important;
-}
-
-.handsontable .htAutocompleteArrow:hover {
-  color: #6b7280 !important;
-  background: transparent !important;
-  opacity: 0.8 !important;
-}
 
 /* Cell with dropdown styling when focused */
 .handsontable td.htAutoCompleteEditor {
@@ -1179,13 +1160,6 @@ div.modern-table-header {
   color: #3b82f6 !important;
 }
 
-/* Make dropdowns more prominent when cell is selected */
-.handsontable td.current .htAutocompleteArrow,
-.handsontable td.area .htAutocompleteArrow {
-  color: #3b82f6 !important;
-  background: transparent !important;
-  opacity: 1 !important;
-}
 
 /* Improved positioning for better visibility */
 .handsontable .htAutocompleteListContainer {
@@ -1916,27 +1890,281 @@ div.modern-table-header {
   text-align: center !important;
 }
 
-/* Dropdown Arrow Enhancement - Consistent sizing */
+/* Hide dropdown arrows completely for cleaner look */
 .handsontable .htAutocompleteArrow {
-  color: #9ca3af !important;
-  font-size: 8px !important;
-  margin: 0 2px !important;
-  width: 12px !important;
-  height: 12px !important;
+  display: none !important;
 }
 
-/* Dark Theme Dropdown Arrows */
-.theme-dark .handsontable .htAutocompleteArrow {
-  color: #6b7280 !important;
+/* Cell Editor Styling for Light Theme */
+.theme-light .handsontable .htEditor,
+.theme-light .handsontable .htTextareaEditor,
+.theme-light .handsontable .htAutocompleteEditor,
+.theme-light .handsontable input[type="text"],
+.theme-light .handsontable textarea {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  border: 2px solid #3b82f6 !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  padding: 4px 8px !important;
 }
 
-.theme-dark .handsontable .htAutocompleteArrow:hover {
-  color: #9ca3af !important;
+/* Cell Editor Styling for Dark Theme */
+.theme-dark .handsontable .htEditor,
+.theme-dark .handsontable .htTextareaEditor,
+.theme-dark .handsontable .htAutocompleteEditor,
+.theme-dark .handsontable input[type="text"],
+.theme-dark .handsontable textarea {
+  color: #e2e8f0 !important;
+  background-color: #1e293b !important;
+  border: 2px solid #64ffda !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  padding: 4px 8px !important;
 }
 
-.theme-dark .handsontable td.current .htAutocompleteArrow,
-.theme-dark .handsontable td.area .htAutocompleteArrow {
-  color: #64ffda !important;
+/* Ensure input focus styling */
+.theme-dark .handsontable .htEditor:focus,
+.theme-dark .handsontable .htTextareaEditor:focus,
+.theme-dark .handsontable .htAutocompleteEditor:focus,
+.theme-dark .handsontable input[type="text"]:focus,
+.theme-dark .handsontable textarea:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.2) !important;
+}
+
+.theme-light .handsontable .htEditor:focus,
+.theme-light .handsontable .htTextareaEditor:focus,
+.theme-light .handsontable .htAutocompleteEditor:focus,
+.theme-light .handsontable input[type="text"]:focus,
+.theme-light .handsontable textarea:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Additional editor input styling for autocomplete dropdowns */
+.theme-dark .handsontableEditor input,
+.theme-dark .handsontableEditor textarea,
+.theme-dark .autocompleteEditor input {
+  color: #e2e8f0 !important;
+  background-color: #1e293b !important;
+}
+
+.theme-light .handsontableEditor input,
+.theme-light .handsontableEditor textarea,
+.theme-light .autocompleteEditor input {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+/* ========== PROFESSIONAL SAVE BUTTON STYLING ========== */
+
+/* Save Button Base Styling */
+.modern-btn-primary.save-button {
+  position: relative;
+  min-width: 160px !important;
+  height: 44px !important;
+  padding: 0 20px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  border-radius: 12px !important;
+  border: none !important;
+  overflow: hidden !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+}
+
+/* Light Theme Save Button - Refined Gray Elegance */
+.theme-light .modern-btn-primary.save-button {
+  background: linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 
+    0 4px 12px rgba(100, 116, 139, 0.25),
+    0 2px 4px rgba(100, 116, 139, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.theme-light .modern-btn-primary.save-button:hover:not(.disabled):not(.loading) {
+  background: linear-gradient(135deg, #475569 0%, #334155 50%, #1e293b 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 
+    0 6px 20px rgba(71, 85, 105, 0.35),
+    0 4px 8px rgba(71, 85, 105, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+.theme-light .modern-btn-primary.save-button:active:not(.disabled):not(.loading) {
+  transform: translateY(0px) !important;
+  box-shadow: 
+    0 2px 8px rgba(51, 65, 85, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Dark Theme Save Button */
+.theme-dark .modern-btn-primary.save-button {
+  background: linear-gradient(135deg, #64ffda 0%, #4fd1c7 50%, #38b2ac 100%) !important;
+  color: #0f172a !important;
+  box-shadow: 
+    0 4px 12px rgba(100, 255, 218, 0.25),
+    0 2px 4px rgba(100, 255, 218, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.theme-dark .modern-btn-primary.save-button:hover:not(.disabled):not(.loading) {
+  background: linear-gradient(135deg, #4fd1c7 0%, #38b2ac 50%, #319795 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 
+    0 6px 20px rgba(100, 255, 218, 0.35),
+    0 4px 8px rgba(100, 255, 218, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+.theme-dark .modern-btn-primary.save-button:active:not(.disabled):not(.loading) {
+  transform: translateY(0px) !important;
+  box-shadow: 
+    0 2px 8px rgba(100, 255, 218, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Disabled State */
+.modern-btn-primary.save-button.disabled {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  border: 1px solid #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+.theme-dark .modern-btn-primary.save-button.disabled {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+  color: #64748b !important;
+  border: 1px solid #475569 !important;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Loading State - Fixed Size */
+.modern-btn-primary.save-button.loading {
+  background: linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%) !important;
+  color: #ffffff !important;
+  cursor: wait !important;
+  transform: none !important;
+  pointer-events: none !important;
+  min-width: 160px !important;
+  height: 44px !important;
+}
+
+.theme-dark .modern-btn-primary.save-button.loading {
+  background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 50%, #0891b2 100%) !important;
+  color: #0f172a !important;
+}
+
+/* Save Button Icons */
+.modern-btn-primary.save-button svg {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 2.5 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Loading Spinner for Save Button */
+.modern-btn-primary.save-button .spinner {
+  width: 18px !important;
+  height: 18px !important;
+  border-width: 2px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Shimmer Effect for Active Save Button */
+.modern-btn-primary.save-button:not(.disabled):not(.loading)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.6s ease;
+  z-index: 1;
+}
+
+.modern-btn-primary.save-button:hover:not(.disabled):not(.loading)::before {
+  left: 100%;
+}
+
+/* Text Content */
+.modern-btn-primary.save-button .save-text {
+  position: relative;
+  z-index: 2;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+
+/* Pulse Effect for Urgent Save State */
+.modern-btn-primary.save-button.urgent {
+  animation: urgentPulse 2s infinite;
+}
+
+@keyframes urgentPulse {
+  0%, 100% {
+    box-shadow: 
+      0 4px 12px rgba(100, 116, 139, 0.25),
+      0 2px 4px rgba(100, 116, 139, 0.15);
+  }
+  50% {
+    box-shadow: 
+      0 6px 20px rgba(100, 116, 139, 0.4),
+      0 4px 8px rgba(100, 116, 139, 0.25);
+  }
+}
+
+.theme-dark .modern-btn-primary.save-button.urgent {
+  animation: urgentPulseDark 2s infinite;
+}
+
+@keyframes urgentPulseDark {
+  0%, 100% {
+    box-shadow: 
+      0 4px 12px rgba(100, 255, 218, 0.25),
+      0 2px 4px rgba(100, 255, 218, 0.15);
+  }
+  50% {
+    box-shadow: 
+      0 6px 20px rgba(100, 255, 218, 0.4),
+      0 4px 8px rgba(100, 255, 218, 0.25);
+  }
+}
+
+/* Success Flash Animation */
+.modern-btn-primary.save-button.success-flash {
+  animation: successFlash 0.6s ease-out;
+}
+
+@keyframes successFlash {
+  0% {
+    background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%) !important;
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Loading Overlay */
@@ -2389,9 +2617,9 @@ div.modern-table-header {
 }
 
 .advanced-filter-button.has-filters {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
-  border-color: #3b82f6 !important;
-  color: #1e40af !important;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
+  border-color: #64748b !important;
+  color: #475569 !important;
 }
 
 .filter-text {
@@ -2399,7 +2627,7 @@ div.modern-table-header {
 }
 
 .filter-count {
-  background: #3b82f6;
+  background: #64748b;
   color: white;
   font-size: 11px;
   font-weight: 600;

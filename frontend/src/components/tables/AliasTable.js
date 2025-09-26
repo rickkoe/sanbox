@@ -778,7 +778,7 @@ const AliasTable = () => {
           } else if (col.data === "fabric_details.name") {
             column.type = "dropdown";
           } else if (col.data === "host_details.name") {
-            column.type = "dropdown";
+            column.type = "dropdown";  // Changed from "dropdown" to "autocomplete" 
             // Remove strict validation to allow users to delete/clear values
             column.allowInvalid = true;
             column.allowEmpty = true;
@@ -801,7 +801,7 @@ const AliasTable = () => {
               }
             };
           } else if (col.data === "storage_details.name") {
-            column.type = "dropdown";
+            column.type = "autocomplete";  // Changed from "dropdown" to "autocomplete"
             // Remove strict validation to allow users to delete/clear values
             column.allowInvalid = true;
             column.allowEmpty = true;

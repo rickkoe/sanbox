@@ -596,6 +596,25 @@ const GenericTable = forwardRef(({
         console.log(`✅ Applied ${appliedCount} bulk modifications in data processing`);
       }
     }
+
+    // Apply individual cell modifications to ensure changes persist visually
+    if (Object.keys(modifiedRows).length > 0) {
+      console.log(`🔄 Applying ${Object.keys(modifiedRows).length} individual modifications to data processing...`);
+      
+      processedArray = processedArray.map(row => {
+        // Check if this row has modifications
+        const rowKey = row.id || `new_${processedArray.indexOf(row)}`;
+        const modifications = modifiedRows[rowKey];
+        
+        if (modifications) {
+          console.log(`📝 Applying individual modifications to row ${rowKey}`);
+          // Merge the modifications into the row data
+          return { ...row, ...modifications };
+        }
+        
+        return row;
+      });
+    }
     
     // For server pagination, skip client-side filtering as it's handled server-side
     if (serverPagination) {
@@ -710,6 +729,25 @@ const GenericTable = forwardRef(({
       }
     }
     
+    // Apply individual cell modifications for client-side tables too
+    if (!serverPagination && Object.keys(modifiedRows).length > 0) {
+      console.log(`🔄 Applying ${Object.keys(modifiedRows).length} individual modifications to client-side data...`);
+      
+      processedArray = processedArray.map(row => {
+        // Check if this row has modifications
+        const rowKey = row.id || `new_${processedArray.indexOf(row)}`;
+        const modifications = modifiedRows[rowKey];
+        
+        if (modifications) {
+          console.log(`📝 Applying individual modifications to client-side row ${rowKey}`);
+          // Merge the modifications into the row data
+          return { ...row, ...modifications };
+        }
+        
+        return row;
+      });
+    }
+    
     // ALWAYS add blank row for new entries if we have a template (but only when not filtering)
     if (newRowTemplate && !quickSearch && Object.keys(columnFilters).length === 0) {
       // Check if we need to add a blank row
@@ -731,7 +769,7 @@ const GenericTable = forwardRef(({
     }
     
     return processedArray;
-  }, [currentData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns, serverPagination, forceRefreshKey, bulkModifiedData, serverPaginationHook?.currentPage]);
+  }, [currentData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns, serverPagination, forceRefreshKey, bulkModifiedData, serverPaginationHook?.currentPage, modifiedRows]);
 
   // Column management
   const {
