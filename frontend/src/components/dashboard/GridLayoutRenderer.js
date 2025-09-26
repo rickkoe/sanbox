@@ -323,20 +323,13 @@ const CardView = ({ widgets, editMode, onWidgetUpdate, onWidgetRemove }) => (
   <div className="card-view">
     {widgets.map(widget => (
       <div key={widget.id} className="widget-card">
-        <div className="card-header">
-          <h4>{widget.title}</h4>
+        <div className="card-content">
           {editMode && (
             <button onClick={() => onWidgetRemove(widget.id)} className="btn-remove">
               <FaTimes />
             </button>
           )}
-        </div>
-        <div className="card-content">
           <WidgetRenderer widget={widget} editMode={editMode} compact />
-        </div>
-        <div className="card-footer">
-          <span className="widget-type">{widget.widget_type.display_name}</span>
-          <span className="widget-info">{widget.width}×{widget.height}</span>
         </div>
       </div>
     ))}

@@ -27,9 +27,8 @@
 /* ========== DASHBOARD HEADER ========== */
 
 .dashboard-header-v2 {
-  background: var(--secondary-bg);
+  background: transparent;
   backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-medium);
   padding: 0rem 3rem;
   margin: 1rem 1rem 0 1rem;
   border-radius: 0 0 16px 16px;
@@ -38,8 +37,6 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-  border: 1px solid var(--button-border);
-  border-top: none;
   flex-shrink: 0;
 }
 
@@ -114,6 +111,13 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+/* Dark theme active view button */
+.theme-dark .view-btn.active {
+  background: #64ffda;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(100, 255, 218, 0.3);
+}
+
 .header-actions {
   display: flex;
   gap: 0.5rem;
@@ -161,6 +165,13 @@
   background: var(--link-text);
   color: white;
   border-color: var(--link-text);
+}
+
+/* Dark theme active action button */
+.theme-dark .action-btn.active {
+  background: #64ffda;
+  color: #0f172a;
+  border-color: #64ffda;
 }
 
 /* ========== DASHBOARD TOOLBAR ========== */
@@ -219,6 +230,13 @@
 .toolbar-btn:hover {
   background: var(--link-text);
   color: white;
+  transform: scale(1.05);
+}
+
+/* Dark theme toolbar button hover/active */
+.theme-dark .toolbar-btn:hover {
+  background: #64ffda;
+  color: #0f172a;
   transform: scale(1.05);
 }
 

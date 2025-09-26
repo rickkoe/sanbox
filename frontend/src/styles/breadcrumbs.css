@@ -121,9 +121,19 @@
 
 /* Dark theme breadcrumb active state */
 .theme-dark .breadcrumb-item.active .breadcrumb-current {
-    background: linear-gradient(135deg, #475569 0%, #334155 50%, #1e293b 100%);
-    color: #ffffff;
-    box-shadow: 0 1px 3px rgba(71, 85, 105, 0.4);
+    background: #64ffda;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(100, 255, 218, 0.4);
+}
+
+/* Dark theme breadcrumb links (previous pages) */
+.theme-dark .breadcrumb-link {
+    color: #e2e8f0;
+}
+
+.theme-dark .breadcrumb-link:hover {
+    color: #64ffda;
+    background-color: rgba(100, 255, 218, 0.1);
 }
 
 /* Responsive adjustments */
