@@ -570,7 +570,6 @@ const GenericTable = forwardRef(({
     let processed = preprocessData ? preprocessData(currentData) : currentData;
     let processedArray = processed || [];
     
-    console.log(`📊 Data memo recalculating with ${processedArray.length} rows, ${Object.keys(modifiedRows).length} modifications`);
     
     // FIRST: Add enough blank rows to match minSpareRows BEFORE applying modifications
     // This ensures blank rows exist when we try to apply modifications to them
@@ -601,9 +600,6 @@ const GenericTable = forwardRef(({
         processedArray.push(blankRow);
       }
       
-      if (rowsToAdd > 0) {
-        console.log(`Added ${rowsToAdd} blank rows to match minSpareRows. Total rows: ${processedArray.length}, Blank rows: ${existingBlankRows + rowsToAdd}`);
-      }
     }
 
     // Apply bulk modifications to the current page data if available
@@ -635,28 +631,12 @@ const GenericTable = forwardRef(({
 
     // Apply individual cell modifications to ensure changes persist visually
     if (Object.keys(modifiedRows).length > 0) {
-      console.log(`🔄 Applying ${Object.keys(modifiedRows).length} individual modifications to data processing...`);
-      console.log(`🗝️ Available modification keys:`, Object.keys(modifiedRows));
-      
       processedArray = processedArray.map((row, index) => {
         // Check if this row has modifications - use consistent key generation
         const rowKey = row.id || `new_${index}`;
-        console.log(`🔍 Checking row ${index} with key ${rowKey}:`, { 
-          hasId: !!row.id, 
-          modifications: !!modifiedRows[rowKey], 
-          rowId: row.id,
-          isNew: row._isNew,
-          rowData: row
-        });
-        
         const modifications = modifiedRows[rowKey];
         
         if (modifications) {
-          console.log(`📝 Applying individual modifications to row ${rowKey}:`, {
-            originalRow: { ...row },
-            modifications,
-            mergedResult: { ...row, ...modifications }
-          });
           // Merge the modifications into the row data
           return { ...row, ...modifications };
         }
@@ -1121,11 +1101,6 @@ const GenericTable = forwardRef(({
   const handleAfterChange = (changes, source) => {
     if (source === "loadData" || !changes || isUpdatingRef.current) return;
     
-    console.log(`🔄 AfterChange triggered:`, { 
-      source, 
-      changesCount: changes.length,
-      changes: changes.map(([row, prop, oldVal, newVal]) => ({ row, prop, oldVal, newVal }))
-    });
     
     // Call custom afterChange if provided
     if (afterChange) {
@@ -1172,24 +1147,12 @@ const GenericTable = forwardRef(({
           const physicalRow = hot.toPhysicalRow(row);
           const rowKey = rowData.id || `new_${physicalRow}`;
           
-          console.log(`🔍 HandleAfterChange Debug:`, {
-            row,
-            physicalRow,
-            prop,
-            oldValue,
-            newValue,
-            rowKey,
-            rowData: { ...rowData },
-            totalRows: hot.countRows(),
-            sourceDataLength: hot.getSourceData().length
-          });
           
           if (!newModifiedRows[rowKey]) {
             newModifiedRows[rowKey] = { ...rowData };
           }
           newModifiedRows[rowKey][prop] = newValue;
           
-          console.log(`📝 Modified row data for ${rowKey}:`, newModifiedRows[rowKey]);
           
           hasChanges = true;
           
@@ -1214,7 +1177,6 @@ const GenericTable = forwardRef(({
       // Set flag to prevent recursive updates
       isUpdatingRef.current = true;
       
-      console.log(`🔄 Setting modified rows state:`, newModifiedRows);
       setModifiedRows(newModifiedRows);
       setIsDirty(true);
       

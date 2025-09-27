@@ -2442,6 +2442,18 @@ div.modern-table-header {
   color: #64ffda !important;
 }
 
+.theme-dark .pagination-btn.active {
+  background: #64ffda !important;
+  border-color: #64ffda !important;
+  color: #1e293b !important;
+}
+
+.theme-dark .pagination-btn.active:hover {
+  background: #4ade80 !important;
+  border-color: #4ade80 !important;
+  color: #1e293b !important;
+}
+
 .theme-dark .page-size-select {
   background: #334155 !important;
   color: #e2e8f0 !important;
