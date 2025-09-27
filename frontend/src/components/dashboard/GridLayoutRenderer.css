@@ -898,6 +898,374 @@
   border-radius: 12px;
 }
 
+/* ========== THEME SPECIFIC STYLES ========== */
+
+/* Dark Theme Widget Styling */
+.theme-dark .widget-container {
+  background: var(--table-bg);
+  border-color: var(--table-border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.theme-dark .widget-container:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  border-color: #64ffda;
+}
+
+.theme-dark .widget-container.selected {
+  border-color: #64ffda;
+  box-shadow: 0 0 0 4px rgba(100, 255, 218, 0.2);
+}
+
+.theme-dark .widget-card {
+  background: var(--table-bg);
+  border-color: var(--table-border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.theme-dark .widget-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  border-color: #64ffda;
+}
+
+.theme-dark .list-view {
+  background: var(--table-bg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.theme-dark .widget-header h4,
+.theme-dark .widget-title {
+  color: var(--table-header-text);
+}
+
+.theme-dark .widget-header {
+  border-color: var(--table-border);
+}
+
+.theme-dark .metric-value {
+  color: #64ffda;
+}
+
+.theme-dark .metric-label,
+.theme-dark .widget-type,
+.theme-dark .widget-size,
+.theme-dark .widget-position {
+  color: var(--table-cell-text);
+}
+
+.theme-dark .metric-icon {
+  background: #64ffda;
+  color: #0f172a;
+}
+
+.theme-dark .list-header {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  border-color: var(--table-border);
+}
+
+.theme-dark .list-item {
+  border-color: var(--table-border);
+}
+
+.theme-dark .list-item:hover {
+  background: var(--table-row-hover);
+}
+
+.theme-dark .systems-table th {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  border-color: var(--table-border);
+}
+
+.theme-dark .systems-table td {
+  border-color: var(--table-border);
+  color: var(--table-cell-text);
+}
+
+.theme-dark .systems-table tr:hover {
+  background: var(--table-row-hover);
+}
+
+.theme-dark .system-name,
+.theme-dark .insights-status-widget .status-label,
+.theme-dark .insights-status-widget .overall-message {
+  color: var(--table-cell-text);
+}
+
+.theme-dark .system-type {
+  color: #64ffda;
+}
+
+.theme-dark .status-item {
+  background: var(--table-row-hover);
+  border-color: var(--table-border);
+}
+
+.theme-dark .control-btn {
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--table-cell-text);
+}
+
+.theme-dark .control-btn:hover {
+  background: #64ffda;
+  color: #0f172a;
+}
+
+.theme-dark .drag-handle {
+  background: rgba(100, 255, 218, 0.2);
+  border-color: rgba(100, 255, 218, 0.3);
+  color: #64ffda;
+}
+
+.theme-dark .drag-handle:hover {
+  background: rgba(100, 255, 218, 0.3);
+}
+
+.theme-dark .drag-handle:active {
+  background: #64ffda;
+  color: #0f172a;
+}
+
+/* Dark Theme - Fix text contrast in IBM Storage Insights Status widget */
+.theme-dark .insights-status-widget .overall-description {
+  color: var(--table-cell-text) !important;
+}
+
+.theme-dark .insights-status-widget .status-item {
+  color: var(--table-cell-text) !important;
+}
+
+.theme-dark .insights-status-widget .no-customer {
+  color: var(--table-cell-text) !important;
+}
+
+.theme-dark .insights-status-widget .config-button {
+  color: var(--table-cell-text) !important;
+  border-color: var(--table-border) !important;
+}
+
+.theme-dark .insights-status-widget .config-button:hover {
+  background: var(--table-row-hover) !important;
+  border-color: #64ffda !important;
+  color: #64ffda !important;
+}
+
+.theme-dark .insights-status-widget .systems-footer {
+  color: var(--table-cell-text) !important;
+  background: var(--table-row-hover) !important;
+}
+
+/* Light Theme Widget Styling - Monochrome */
+.theme-light .widget-container {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .widget-container:hover {
+  border-color: #64748b;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .widget-container.selected {
+  border-color: #475569;
+  box-shadow: 0 0 0 4px rgba(71, 85, 105, 0.2);
+}
+
+.theme-light .widget-card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .widget-card:hover {
+  border-color: #64748b;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.theme-light .list-view {
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.theme-light .widget-header h4,
+.theme-light .widget-title {
+  color: #0f172a;
+}
+
+.theme-light .widget-header {
+  border-color: #cbd5e1;
+}
+
+.theme-light .metric-value {
+  color: #1e293b;
+}
+
+.theme-light .metric-label,
+.theme-light .widget-type,
+.theme-light .widget-size,
+.theme-light .widget-position {
+  color: #64748b;
+}
+
+.theme-light .metric-icon {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.theme-light .list-header {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.theme-light .list-item {
+  border-color: #cbd5e1;
+}
+
+.theme-light .list-item:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.theme-light .systems-table th {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.theme-light .systems-table td {
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.theme-light .systems-table tr:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.theme-light .system-name,
+.theme-light .insights-status-widget .status-label,
+.theme-light .insights-status-widget .overall-message {
+  color: #1e293b;
+}
+
+.theme-light .system-type {
+  color: #475569;
+}
+
+.theme-light .status-item {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: #cbd5e1;
+}
+
+.theme-light .control-btn {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+}
+
+.theme-light .control-btn:hover {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #1e293b;
+}
+
+.theme-light .drag-handle {
+  background: rgba(71, 85, 105, 0.2);
+  border-color: rgba(71, 85, 105, 0.3);
+  color: #475569;
+}
+
+.theme-light .drag-handle:hover {
+  background: rgba(71, 85, 105, 0.3);
+}
+
+.theme-light .drag-handle:active {
+  background: #475569;
+  color: #ffffff;
+}
+
+/* Light Theme Monochrome - Override all color elements */
+.theme-light .insights-status-widget .status-icon {
+  background: rgba(71, 85, 105, 0.1) !important;
+  color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .status-icon.ready {
+  background: rgba(71, 85, 105, 0.1) !important;
+  color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .status-icon.missing {
+  background: rgba(71, 85, 105, 0.1) !important;
+  color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .check-icon.ready {
+  color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .check-icon.missing {
+  color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .overall-status.ready {
+  background: rgba(71, 85, 105, 0.1) !important;
+  border-color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .overall-status.partial {
+  background: rgba(71, 85, 105, 0.1) !important;
+  border-color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .overall-status.not_configured {
+  background: rgba(71, 85, 105, 0.1) !important;
+  border-color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .portal-button {
+  background: #475569 !important;
+  color: #ffffff !important;
+}
+
+.theme-light .insights-status-widget .portal-button:hover {
+  background: #1e293b !important;
+}
+
+.theme-light .insights-status-widget .config-button:hover {
+  background: rgba(71, 85, 105, 0.1) !important;
+  border-color: #475569 !important;
+  color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .portal-link {
+  color: #475569 !important;
+}
+
+.theme-light .insights-status-widget .portal-link:hover {
+  background: #475569 !important;
+  color: #ffffff !important;
+}
+
+.theme-light .count-badge.hosts {
+  background: #475569 !important;
+  color: #ffffff !important;
+}
+
+.theme-light .count-badge.volumes {
+  background: #64748b !important;
+  color: #ffffff !important;
+}
+
+.theme-light .metric-trend .positive {
+  color: #475569 !important;
+}
+
+.theme-light .metric-trend .negative {
+  color: #475569 !important;
+}
+
 /* ========== RESPONSIVE DESIGN ========== */
 
 @media (max-width: 768px) {

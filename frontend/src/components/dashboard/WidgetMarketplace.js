@@ -8,9 +8,11 @@ import {
   FaEye, FaDownload, FaTags, FaSort, FaTh, FaBars
 } from 'react-icons/fa';
 import axios from 'axios';
+import { useTheme } from '../../context/ThemeContext';
 import './WidgetMarketplace.css';
 
 export const WidgetMarketplace = ({ onAddWidget, onRemoveWidget, onClose, existingWidgets = [] }) => {
+  const { theme } = useTheme();
   const [widgetTypes, setWidgetTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -159,7 +161,7 @@ export const WidgetMarketplace = ({ onAddWidget, onRemoveWidget, onClose, existi
   }
 
   return createPortal(
-    <div className="widget-marketplace">
+    <div className={`widget-marketplace theme-${theme}`}>
       <div className="marketplace-content">
         <div className="marketplace-header">
           <h2>Widget Manager</h2>

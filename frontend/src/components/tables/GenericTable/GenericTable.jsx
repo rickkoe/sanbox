@@ -570,6 +570,41 @@ const GenericTable = forwardRef(({
     let processed = preprocessData ? preprocessData(currentData) : currentData;
     let processedArray = processed || [];
     
+    console.log(`📊 Data memo recalculating with ${processedArray.length} rows, ${Object.keys(modifiedRows).length} modifications`);
+    
+    // FIRST: Add enough blank rows to match minSpareRows BEFORE applying modifications
+    // This ensures blank rows exist when we try to apply modifications to them
+    if (newRowTemplate && !quickSearch && Object.keys(columnFilters).length === 0) {
+      // Calculate how many spare rows we need based on minSpareRows setting
+      const targetSpareRows = serverPagination ? 50 : 25; // Match our minSpareRows setting
+      
+      // Count existing blank rows
+      let existingBlankRows = 0;
+      for (let i = processedArray.length - 1; i >= 0; i--) {
+        const row = processedArray[i];
+        if (row && !row.id && row._isNew) {
+          existingBlankRows++;
+        } else {
+          break; // Stop at first non-blank row
+        }
+      }
+      
+      // Add blank rows to reach target
+      const rowsToAdd = Math.max(0, targetSpareRows - existingBlankRows);
+      for (let i = 0; i < rowsToAdd; i++) {
+        const blankRow = { 
+          ...newRowTemplate, 
+          saved: false,
+          _isNew: true
+        };
+        processedArray.push(blankRow);
+      }
+      
+      if (rowsToAdd > 0) {
+        console.log(`Added ${rowsToAdd} blank rows to match minSpareRows. Total rows: ${processedArray.length}, Blank rows: ${existingBlankRows + rowsToAdd}`);
+      }
+    }
+
     // Apply bulk modifications to the current page data if available
     if (serverPagination && bulkModifiedData && bulkModifiedData.length > 0) {
       console.log(`🔄 Applying bulk modifications to data processing for page ${serverPaginationHook?.currentPage}...`);
@@ -600,14 +635,27 @@ const GenericTable = forwardRef(({
     // Apply individual cell modifications to ensure changes persist visually
     if (Object.keys(modifiedRows).length > 0) {
       console.log(`🔄 Applying ${Object.keys(modifiedRows).length} individual modifications to data processing...`);
+      console.log(`🗝️ Available modification keys:`, Object.keys(modifiedRows));
       
-      processedArray = processedArray.map(row => {
-        // Check if this row has modifications
-        const rowKey = row.id || `new_${processedArray.indexOf(row)}`;
+      processedArray = processedArray.map((row, index) => {
+        // Check if this row has modifications - use consistent key generation
+        const rowKey = row.id || `new_${index}`;
+        console.log(`🔍 Checking row ${index} with key ${rowKey}:`, { 
+          hasId: !!row.id, 
+          modifications: !!modifiedRows[rowKey], 
+          rowId: row.id,
+          isNew: row._isNew,
+          rowData: row
+        });
+        
         const modifications = modifiedRows[rowKey];
         
         if (modifications) {
-          console.log(`📝 Applying individual modifications to row ${rowKey}`);
+          console.log(`📝 Applying individual modifications to row ${rowKey}:`, {
+            originalRow: { ...row },
+            modifications,
+            mergedResult: { ...row, ...modifications }
+          });
           // Merge the modifications into the row data
           return { ...row, ...modifications };
         }
@@ -618,25 +666,6 @@ const GenericTable = forwardRef(({
     
     // For server pagination, skip client-side filtering as it's handled server-side
     if (serverPagination) {
-      // Only add blank row for new entries if we have a template and no filters/search
-      if (newRowTemplate && !quickSearch && Object.keys(columnFilters).length === 0) {
-        // Check if we need to add a blank row
-        const hasBlankRow = processedArray.length > 0 && 
-          processedArray[processedArray.length - 1] && 
-          !processedArray[processedArray.length - 1].id &&
-          processedArray[processedArray.length - 1]._isNew;
-        
-        if (!hasBlankRow) {
-          // Initialize the blank row with default values
-          const blankRow = { 
-            ...newRowTemplate, 
-            saved: false,
-            _isNew: true
-          };
-          processedArray.push(blankRow);
-          console.log('Added blank row to table. Total rows:', processedArray.length);
-        }
-      }
       return processedArray;
     }
     
@@ -733,13 +762,13 @@ const GenericTable = forwardRef(({
     if (!serverPagination && Object.keys(modifiedRows).length > 0) {
       console.log(`🔄 Applying ${Object.keys(modifiedRows).length} individual modifications to client-side data...`);
       
-      processedArray = processedArray.map(row => {
-        // Check if this row has modifications
-        const rowKey = row.id || `new_${processedArray.indexOf(row)}`;
+      processedArray = processedArray.map((row, index) => {
+        // Check if this row has modifications - use consistent key generation
+        const rowKey = row.id || `new_${index}`;
         const modifications = modifiedRows[rowKey];
         
         if (modifications) {
-          console.log(`📝 Applying individual modifications to client-side row ${rowKey}`);
+          console.log(`📝 Applying individual modifications to client-side row ${rowKey}:`, modifications);
           // Merge the modifications into the row data
           return { ...row, ...modifications };
         }
@@ -748,25 +777,7 @@ const GenericTable = forwardRef(({
       });
     }
     
-    // ALWAYS add blank row for new entries if we have a template (but only when not filtering)
-    if (newRowTemplate && !quickSearch && Object.keys(columnFilters).length === 0) {
-      // Check if we need to add a blank row
-      const hasBlankRow = processedArray.length > 0 && 
-        processedArray[processedArray.length - 1] && 
-        !processedArray[processedArray.length - 1].id &&
-        processedArray[processedArray.length - 1]._isNew;
-      
-      if (!hasBlankRow) {
-        // Initialize the blank row with default values
-        const blankRow = { 
-          ...newRowTemplate, 
-          saved: false,
-          _isNew: true
-        };
-        processedArray.push(blankRow);
-        console.log('Added blank row to table. Total rows:', processedArray.length);
-      }
-    }
+    // Blank row is already added at the beginning - no need to add again
     
     return processedArray;
   }, [currentData, preprocessData, newRowTemplate, quickSearch, columnFilters, columns, serverPagination, forceRefreshKey, bulkModifiedData, serverPaginationHook?.currentPage, modifiedRows]);
@@ -1102,9 +1113,12 @@ const GenericTable = forwardRef(({
     // We'll handle scroll detection through the existing afterScrollVertically callback
   }, [data]);
 
+  // Flag to prevent recursive updates
+  const isUpdatingRef = useRef(false);
+
   // Table change handler
   const handleAfterChange = (changes, source) => {
-    if (source === "loadData" || !changes) return;
+    if (source === "loadData" || !changes || isUpdatingRef.current) return;
     
     // Call custom afterChange if provided
     if (afterChange) {
@@ -1146,16 +1160,29 @@ const GenericTable = forwardRef(({
       if (oldValue !== newValue) {
         const rowData = hot.getSourceDataAtRow(row);
         if (rowData) {
-          // For new rows (no id), use a temporary key
-          const rowKey = rowData.id || `new_${row}`;
+          // For new rows (no id), use a temporary key based on the physical row index
+          // This must match the key generation in data processing (new_${index})
+          const physicalRow = hot.toPhysicalRow(row);
+          const rowKey = rowData.id || `new_${physicalRow}`;
+          
+          console.log(`🔍 HandleAfterChange Debug:`, {
+            row,
+            physicalRow,
+            prop,
+            oldValue,
+            newValue,
+            rowKey,
+            rowData: { ...rowData },
+            totalRows: hot.countRows(),
+            sourceDataLength: hot.getSourceData().length
+          });
           
           if (!newModifiedRows[rowKey]) {
             newModifiedRows[rowKey] = { ...rowData };
           }
           newModifiedRows[rowKey][prop] = newValue;
           
-          // Update the source data directly
-          rowData[prop] = newValue;
+          console.log(`📝 Modified row data for ${rowKey}:`, newModifiedRows[rowKey]);
           
           hasChanges = true;
           
@@ -1177,15 +1204,17 @@ const GenericTable = forwardRef(({
     });
     
     if (hasChanges) {
+      // Set flag to prevent recursive updates
+      isUpdatingRef.current = true;
+      
+      console.log(`🔄 Setting modified rows state:`, newModifiedRows);
       setModifiedRows(newModifiedRows);
       setIsDirty(true);
       
-      // Force a render to show the changes immediately
+      // Clear the flag after state updates are complete
       setTimeout(() => {
-        if (hot) {
-          hot.render();
-        }
-      }, 0);
+        isUpdatingRef.current = false;
+      }, 100);
     }
     
     // Add new blank row if needed - but only for genuine user input
@@ -2003,7 +2032,7 @@ const GenericTable = forwardRef(({
               fixedColumnsLeft={0}
               allowHtml={false}
               preventOverflow={false}
-              minSpareRows={serverPagination ? 5 : 3}
+              minSpareRows={serverPagination ? 50 : 25}
               afterChange={handleAfterChange}
               afterSelection={(r, c, r2, c2) => {
                 updateSelectedCount();

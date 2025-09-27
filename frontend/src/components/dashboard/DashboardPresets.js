@@ -3,10 +3,12 @@ import { createPortal } from 'react-dom';
 import { FaTimes, FaLayerGroup, FaDownload, FaEye, FaSpinner } from 'react-icons/fa';
 import axios from 'axios';
 import { ConfigContext } from '../../context/ConfigContext';
+import { useTheme } from '../../context/ThemeContext';
 import './DashboardPresets.css';
 
 export const DashboardPresets = ({ onPresetSelect, onClose, currentLayout }) => {
   const { config } = useContext(ConfigContext);
+  const { theme } = useTheme();
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(null);
@@ -113,7 +115,7 @@ export const DashboardPresets = ({ onPresetSelect, onClose, currentLayout }) => 
   }
 
   return createPortal(
-    <div className="presets-modal">
+    <div className={`presets-modal theme-${theme}`}>
       <div className="presets-content">
         <div className="presets-header">
           <h3><FaLayerGroup /> Dashboard Templates</h3>
