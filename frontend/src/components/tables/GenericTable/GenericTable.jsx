@@ -592,11 +592,12 @@ const GenericTable = forwardRef(({
       // Add blank rows to reach target
       const rowsToAdd = Math.max(0, targetSpareRows - existingBlankRows);
       for (let i = 0; i < rowsToAdd; i++) {
-        const blankRow = { 
+        // Use deep clone to avoid shared object references for nested properties
+        const blankRow = JSON.parse(JSON.stringify({
           ...newRowTemplate, 
           saved: false,
           _isNew: true
-        };
+        }));
         processedArray.push(blankRow);
       }
       
@@ -1119,6 +1120,12 @@ const GenericTable = forwardRef(({
   // Table change handler
   const handleAfterChange = (changes, source) => {
     if (source === "loadData" || !changes || isUpdatingRef.current) return;
+    
+    console.log(`🔄 AfterChange triggered:`, { 
+      source, 
+      changesCount: changes.length,
+      changes: changes.map(([row, prop, oldVal, newVal]) => ({ row, prop, oldVal, newVal }))
+    });
     
     // Call custom afterChange if provided
     if (afterChange) {
@@ -2033,6 +2040,7 @@ const GenericTable = forwardRef(({
               allowHtml={false}
               preventOverflow={false}
               minSpareRows={serverPagination ? 50 : 25}
+              fillHandle={false}
               afterChange={handleAfterChange}
               afterSelection={(r, c, r2, c2) => {
                 updateSelectedCount();
