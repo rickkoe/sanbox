@@ -493,8 +493,13 @@ const GenericTable = forwardRef(({
       });
       
       if (foundDropdowns) {
-        // Small delay to ensure DOM is ready
-        setTimeout(forceDropdownHeights, 10);
+        // Use requestIdleCallback for non-blocking execution
+        if (window.requestIdleCallback) {
+          window.requestIdleCallback(forceDropdownHeights, { timeout: 100 });
+        } else {
+          // Longer delay to avoid blocking
+          setTimeout(forceDropdownHeights, 50);
+        }
       }
     });
     
@@ -504,8 +509,8 @@ const GenericTable = forwardRef(({
       subtree: true
     });
     
-    // Also run periodically as a fallback
-    const interval = setInterval(forceDropdownHeights, 1000);
+    // Run periodically as a fallback but much less frequently to avoid blocking
+    const interval = setInterval(forceDropdownHeights, 5000); // Reduced from 1000ms to 5000ms
     
     // Cleanup on unmount
     return () => {
@@ -575,7 +580,7 @@ const GenericTable = forwardRef(({
     // This ensures blank rows exist when we try to apply modifications to them
     if (newRowTemplate && !quickSearch && Object.keys(columnFilters).length === 0) {
       // Calculate how many spare rows we need based on minSpareRows setting
-      const targetSpareRows = serverPagination ? 50 : 25; // Match our minSpareRows setting
+      const targetSpareRows = 20; // Set to 20 blank rows for all tables
       
       // Count existing blank rows
       let existingBlankRows = 0;
@@ -961,22 +966,27 @@ const GenericTable = forwardRef(({
   // Enhanced context menu
   const enhancedContextMenu = createContextMenu(tableRef, setIsDirty, handleAfterContextMenu);
 
-  // Optimized scroll handler for better performance
+  // Optimized scroll handler for better performance with throttling
   const handleScrollVertically = useCallback(() => {
-    // Update scroll button states without forcing render
-    const hot = tableRef.current?.hotInstance;
-    if (hot && data?.length > 0) {
-      try {
-        const totalRows = data.length;
-        const firstRenderedRow = hot.view.wt.wtTable.getFirstRenderedRow();
-        const lastRenderedRow = hot.view.wt.wtTable.getLastRenderedRow();
-        
-        setIsAtTop(firstRenderedRow <= 0);
-        setIsAtBottom(lastRenderedRow >= totalRows - 1);
-      } catch (error) {
-        // Ignore scroll update errors
+    // Throttle scroll updates to improve performance
+    if (handleScrollVertically.timeout) return;
+    
+    handleScrollVertically.timeout = setTimeout(() => {
+      const hot = tableRef.current?.hotInstance;
+      if (hot && data?.length > 0) {
+        try {
+          const totalRows = data.length;
+          const firstRenderedRow = hot.view.wt.wtTable.getFirstRenderedRow();
+          const lastRenderedRow = hot.view.wt.wtTable.getLastRenderedRow();
+          
+          setIsAtTop(firstRenderedRow <= 0);
+          setIsAtBottom(lastRenderedRow >= totalRows - 1);
+        } catch (error) {
+          // Ignore scroll update errors
+        }
       }
-    }
+      handleScrollVertically.timeout = null;
+    }, 100); // Throttle to 100ms
   }, [data?.length]);
 
   // Enhanced autosizing API for external use
@@ -2001,7 +2011,7 @@ const GenericTable = forwardRef(({
               fixedColumnsLeft={0}
               allowHtml={false}
               preventOverflow={false}
-              minSpareRows={serverPagination ? 50 : 25}
+              minSpareRows={0}
               fillHandle={false}
               afterChange={handleAfterChange}
               afterSelection={(r, c, r2, c2) => {
@@ -2078,9 +2088,11 @@ const GenericTable = forwardRef(({
               colWidths={dynamicColWidths}
               autoColumnSize={true}
               cells={getCellsConfig ? cellsFunc : undefined}
-              viewportRowRenderingOffset={30}
-              viewportColumnRenderingOffset={5}
+              viewportRowRenderingOffset={75}
+              viewportColumnRenderingOffset={15}
               renderAllRows={false}
+              fastDraw={true}
+              immediateUpdate={false}
               afterInit={(hot) => {
                 setIsTableReady(true);
                 
@@ -2096,7 +2108,7 @@ const GenericTable = forwardRef(({
                   hot.render();
                 }
                 
-                // Smart auto-sizing: only run if no saved column widths exist
+                // Defer auto-sizing to prevent blocking - much longer delay for better UX
                 setTimeout(async () => {
                   const hotInstance = hot || tableRef.current?.hotInstance;
                   if (!hotInstance) return;
@@ -2112,21 +2124,32 @@ const GenericTable = forwardRef(({
                     return;
                   }
                   
-                  console.log('🎯 No saved widths found, auto-sizing columns...');
+                  console.log('🎯 No saved widths found, deferring auto-sizing for better UX...');
                   
-                  if (serverPagination && serverPaginationHook) {
-                    try {
-                      await autoSizeColumnsAcrossAllPages(hotInstance, {
-                        showLoading: false // Don't show loading on init
-                      });
-                    } catch (error) {
-                      console.warn('⚠️ Error during cross-page auto-sizing:', error);
+                  // Use requestIdleCallback if available for non-blocking execution
+                  const runAutoSizing = async () => {
+                    if (serverPagination && serverPaginationHook) {
+                      try {
+                        await autoSizeColumnsAcrossAllPages(hotInstance, {
+                          showLoading: false,
+                          sampleSize: 50 // Reduced sample size for faster execution
+                        });
+                      } catch (error) {
+                        console.warn('⚠️ Error during cross-page auto-sizing:', error);
+                        autoSizeCurrentPageColumns(hotInstance, { showLoading: false });
+                      }
+                    } else {
                       autoSizeCurrentPageColumns(hotInstance, { showLoading: false });
                     }
+                  };
+                  
+                  // Use requestIdleCallback if available, otherwise setTimeout with longer delay
+                  if (window.requestIdleCallback) {
+                    window.requestIdleCallback(runAutoSizing, { timeout: 5000 });
                   } else {
-                    autoSizeCurrentPageColumns(hotInstance, { showLoading: false });
+                    setTimeout(runAutoSizing, 2000); // Much longer delay to let UI become responsive first
                   }
-                }, 300); // Delay to ensure table is fully initialized
+                }, 1000); // Initial delay to ensure table is responsive
               }}
             />
             

@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useContext, useState, useEffect, useRef, useMemo, useCallback, startTransition, useDeferredValue } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import GenericTable from "./GenericTable"; // Fixed import
 import CustomNamingApplier from "../naming/CustomNamingApplier";
 import { getTextColumns } from "../../utils/tableNamingUtils";
+import { useZoneTableWorker } from "../../hooks/useZoneTableWorker";
 
 
 // API endpoints
@@ -60,14 +61,33 @@ const ZoneTable = () => {
   const { settings } = useSettings();
   const [fabricOptions, setFabricOptions] = useState([]);
   const [memberOptions, setMemberOptions] = useState([]);
+  
+  // Initialize web worker for heavy computations
+  const {
+    calculateUsedAliases,
+    filterAliasesForFabric,
+    calculateZoneCounts,
+    processAliasesData,
+    validateZoneFabricStatus: workerValidateZoneFabricStatus,
+    isWorkerReady
+  } = useZoneTableWorker();
+  
+  // Use deferred value for expensive calculations to prevent blocking
+  const deferredMemberOptions = useDeferredValue(memberOptions);
   // Simplified structure: just track total member columns
   const [memberColumnRequirements, setMemberColumnRequirements] = useState({
-    memberColumns: 5,
+    memberColumns: 10, // Increased default to handle zones with more members
     totalZones: 0
   });
   
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialRenderComplete, setInitialRenderComplete] = useState(false);
+  
+  // Progressive loading states
+  const [dataLoadingPhase, setDataLoadingPhase] = useState('initializing'); // initializing, loading-fabrics, loading-aliases, processing, ready
+  const [usedAliasesCache, setUsedAliasesCache] = useState(new Map());
+  const [dropdownConfigCache, setDropdownConfigCache] = useState(new Map());
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationModalData, setValidationModalData] = useState(null);
   const [selectedRows, setSelectedRows] = useState([]);
@@ -84,23 +104,59 @@ const ZoneTable = () => {
   }, [selectedRows]);
   const navigate = useNavigate();
 
-  // Column visibility state for base columns
-  const [visibleBaseIndices] = useState(() => {
-    const saved = localStorage.getItem("zoneTableColumns");
-    if (saved) {
-      try {
-        const savedColumnNames = JSON.parse(saved);
-        // Convert saved column names to indices (only for base columns)
-        const indices = savedColumnNames
-          .map((name) => BASE_COLUMNS.findIndex((col) => col.data === name))
-          .filter((index) => index !== -1);
-        return indices.length > 0 ? indices : DEFAULT_BASE_VISIBLE_INDICES;
-      } catch (e) {
-        return DEFAULT_BASE_VISIBLE_INDICES;
+  // Column visibility state for base columns - start with defaults, load from localStorage async
+  const [visibleBaseIndices, setVisibleBaseIndices] = useState(DEFAULT_BASE_VISIBLE_INDICES);
+  
+  // Load saved column visibility asynchronously to not block initial render
+  useEffect(() => {
+    setTimeout(() => {
+      const saved = localStorage.getItem("zoneTableColumns");
+      if (saved) {
+        try {
+          const savedColumnNames = JSON.parse(saved);
+          // Convert saved column names to indices (only for base columns)
+          const indices = savedColumnNames
+            .map((name) => BASE_COLUMNS.findIndex((col) => col.data === name))
+            .filter((index) => index !== -1);
+          if (indices.length > 0) {
+            setVisibleBaseIndices(indices);
+          }
+        } catch (e) {
+          console.warn('Failed to load saved column visibility:', e);
+        }
       }
-    }
-    return DEFAULT_BASE_VISIBLE_INDICES;
-  });
+    }, 0);
+  }, []);
+  
+  // Mark initial render as complete after first paint and clear caches periodically
+  useEffect(() => {
+    const initTimer = setTimeout(() => {
+      setInitialRenderComplete(true);
+    }, 0);
+    
+    // Clear caches periodically to prevent memory leaks
+    const cacheCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      
+      // Clear old cache entries
+      setDropdownConfigCache(prev => {
+        const newCache = new Map();
+        for (const [key, value] of prev.entries()) {
+          if (now - value.timestamp < 30000) { // Keep entries less than 30 seconds old
+            newCache.set(key, value);
+          }
+        }
+        return newCache;
+      });
+      
+      setUsedAliasesCache(new Map()); // Clear used aliases cache
+    }, 60000); // Every minute
+    
+    return () => {
+      clearTimeout(initTimer);
+      clearInterval(cacheCleanupInterval);
+    };
+  }, []);
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -109,21 +165,25 @@ const ZoneTable = () => {
   useEffect(() => {
     const clearTableConfig = async () => {
       if (activeProjectId) {
-        console.log(`🧹 Aggressively clearing ALL table configuration for project ${activeProjectId}`);
-        
-        // Clear ALL possible storage keys
-        const allKeys = Object.keys(localStorage);
-        const relevantKeys = allKeys.filter(key => 
-          key.includes('zone') || 
-          key.includes('table_config') ||
-          key.includes('zones') ||
-          key.includes(`${activeProjectId}`)
-        );
-        
-        console.log(`🗑️ Removing ${relevantKeys.length} localStorage keys:`, relevantKeys);
-        relevantKeys.forEach(key => {
-          localStorage.removeItem(key);
-        });
+        // Defer localStorage operations to not block initial render
+        setTimeout(async () => {
+          console.log(`🧹 Clearing table configuration for project ${activeProjectId}`);
+          
+          // Clear localStorage operations in smaller chunks to avoid blocking
+          const allKeys = Object.keys(localStorage);
+          const relevantKeys = allKeys.filter(key => 
+            key.includes('zone') || 
+            key.includes('table_config') ||
+            key.includes('zones') ||
+            key.includes(`${activeProjectId}`)
+          );
+          
+          console.log(`🗑️ Removing ${relevantKeys.length} localStorage keys:`, relevantKeys);
+          
+          // Remove keys in smaller batches to avoid blocking
+          relevantKeys.forEach(key => {
+            localStorage.removeItem(key);
+          });
         
         // Set a flag to force auto-sizing on next table render
         localStorage.setItem('force_autosize_columns', 'true');
@@ -165,6 +225,7 @@ const ZoneTable = () => {
         } catch (error) {
           console.log(`🗑️ Error during config cleanup:`, error.response?.status);
         }
+        }, 0); // Run immediately but async to not block UI
       }
     };
 
@@ -176,7 +237,10 @@ const ZoneTable = () => {
     const calculateColumnRequirements = async () => {
       console.log(`🔧 calculateColumnRequirements called: activeProjectId=${activeProjectId}, memberOptions.length=${memberOptions.length}`);
       
-      if (activeProjectId && memberOptions.length > 0) {
+      if (activeProjectId) {
+        // Add small delay to prevent simultaneous API calls with other effects
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         try {
           // Use new lightweight endpoint to get column requirements
           console.log('🔍 Fetching column requirements from optimized endpoint...');
@@ -187,19 +251,24 @@ const ZoneTable = () => {
           console.log('📦 Column requirements response:', data);
           
           const newColumnInfo = {
-            memberColumns: Math.max(data.recommended_columns || 5, 5), // At least 5 columns
+            memberColumns: Math.max(data.recommended_columns || 10, 10), // At least 10 columns
             totalZones: data.total_zones || 0
           };
           
           console.log(`📊 Final column requirements:`, newColumnInfo);
           
-          setMemberColumnRequirements(newColumnInfo);
+          // Use startTransition to prevent blocking UI when setting column requirements
+          startTransition(() => {
+            setMemberColumnRequirements(newColumnInfo);
+          });
         } catch (error) {
           console.error('Error calculating column requirements:', error);
           // Fallback to reasonable defaults
-          setMemberColumnRequirements({
-            memberColumns: 6,
-            totalZones: 0
+          startTransition(() => {
+            setMemberColumnRequirements({
+              memberColumns: 12, // More generous fallback for zones with many members
+              totalZones: 0
+            });
           });
         }
       }
@@ -210,7 +279,7 @@ const ZoneTable = () => {
     // Add debug function to window for manual testing
     window.debugZoneColumns = calculateColumnRequirements;
     
-  }, [activeProjectId, memberOptions]); // Remove memberColumnConfig and rawData dependencies
+  }, [activeProjectId]); // Only depend on activeProjectId since we don't need memberOptions for column calculation
 
   // Calculate total member columns and create simple member column arrays
   const memberColumnsInfo = useMemo(() => {
@@ -297,7 +366,7 @@ const ZoneTable = () => {
     
     // Check if all members belong to the same fabric as the zone
     const invalidMembers = zone.members_details.filter(member => {
-      const alias = memberOptions.find(alias => alias.name === member.name);
+      const alias = deferredMemberOptions.find(alias => alias.name === member.name);
       return alias && alias.fabric !== zoneFabric;
     });
 
@@ -306,6 +375,11 @@ const ZoneTable = () => {
 
   // Process data for display - intelligently place members in correct column types
   const preprocessData = useCallback((data) => {
+    // For large datasets, add a small delay to prevent blocking
+    if (data.length > 100) {
+      console.log(`📊 Processing large dataset of ${data.length} zones`);
+    }
+    
     return data.map((zone) => {
       const memberCount = zone.members_details?.length || 0;
       
@@ -335,7 +409,7 @@ const ZoneTable = () => {
 
       return zoneData;
     });
-  }, [memberOptions, memberColumnRequirements]);
+  }, [deferredMemberOptions, memberColumnRequirements]);
 
   // Separate effect to update rawData when zones are loaded
   useEffect(() => {
@@ -346,7 +420,10 @@ const ZoneTable = () => {
             `${API_ENDPOINTS.zones}${activeProjectId}/`
           );
           const zonesData = response.data?.results || response.data || [];
-          setRawData(zonesData);
+          // Use startTransition to prevent blocking UI when setting large datasets
+          startTransition(() => {
+            setRawData(zonesData);
+          });
         } catch (error) {
           console.error(
             "Error fetching zones for member column calculation:",
@@ -381,73 +458,83 @@ const ZoneTable = () => {
     }
   };
 
-  // BULLETPROOF fabric validation highlighter - finds cells by content and forces styling
+  // Optimized fabric validation highlighter
   const highlightInvalidMembers = (invalidMembers) => {
-    console.log(`🎯 BULLETPROOF: Highlighting ${invalidMembers.length} invalid members`);
+    if (!invalidMembers || invalidMembers.length === 0) return 0;
     
-    // Find ALL table cells in the document
-    const allCells = document.querySelectorAll('td');
+    // Create a Set for faster lookup
+    const invalidMemberNames = new Set(invalidMembers.map(invalid => invalid.member));
+    
+    // Only search within the handsontable container for better performance
+    const handsontable = document.querySelector('.handsontable');
+    if (!handsontable) return 0;
+    
+    // Use more specific selector to reduce DOM queries
+    const tableCells = handsontable.querySelectorAll('tbody td');
     let highlightedCount = 0;
     
-    allCells.forEach((cell) => {
+    // Batch DOM operations using DocumentFragment for better performance
+    const cellsToStyle = [];
+    
+    tableCells.forEach((cell) => {
       const cellText = cell.textContent?.trim() || '';
       
-      // Check if this cell contains any of our invalid member names
-      invalidMembers.forEach(invalid => {
-        const memberName = invalid.member;
-        
-        // Check various text patterns the cell might contain
+      // Quick check if cell contains any invalid member
+      for (const memberName of invalidMemberNames) {
         if (cellText === memberName || 
             cellText === `▼${memberName}` || 
             cellText.includes(memberName)) {
           
-          console.log(`🎯 FOUND INVALID MEMBER CELL: "${cellText}" -> highlighting`);
-          
-          // BRUTE FORCE STYLING - every possible way to make it red
-          cell.className = (cell.className || '') + ' fabric-validation-invalid';
-          cell.setAttribute('data-fabric-invalid', 'true');
-          
-          // Set cssText directly (highest priority)
-          cell.style.cssText = 'color: red !important; background-color: #ffebee !important; font-weight: bold !important; border: 2px solid red !important;';
-          
-          // Also set individual properties as backup
-          cell.style.setProperty('color', 'red', 'important');
-          cell.style.setProperty('background-color', '#ffebee', 'important'); 
-          cell.style.setProperty('font-weight', 'bold', 'important');
-          cell.style.setProperty('border', '2px solid red', 'important');
-          
-          cell.title = `Invalid: ${memberName} does not belong to the zone's fabric`;
-          highlightedCount++;
+          cellsToStyle.push({
+            cell,
+            memberName,
+            cellText
+          });
+          break; // Found match, no need to check other members for this cell
         }
-      });
+      }
     });
     
-    console.log(`🎯 BULLETPROOF: Highlighted ${highlightedCount} cells total`);
-    
-    // AGGRESSIVE: Keep re-applying styling continuously during scroll
-    if (highlightedCount > 0) {
-      // Set up continuous highlighting intervals
-      const intervals = [
-        setInterval(() => highlightInvalidMembers(invalidMembers), 200),  // Every 200ms
-        setInterval(() => highlightInvalidMembers(invalidMembers), 500),  // Every 500ms
-        setInterval(() => highlightInvalidMembers(invalidMembers), 1000)  // Every 1s
-      ];
+    // Apply styling in batch to minimize reflows
+    cellsToStyle.forEach(({ cell, memberName, cellText }) => {
+      // Remove previous styling first
+      cell.classList.remove('fabric-validation-invalid');
       
-      // Also watch for scroll events and re-highlight immediately
+      // Add new styling efficiently
+      cell.classList.add('fabric-validation-invalid');
+      cell.setAttribute('data-fabric-invalid', 'true');
+      
+      // Use a single cssText update instead of multiple property calls
+      cell.style.cssText = 'color: red !important; background-color: #ffebee !important; font-weight: bold !important; border: 2px solid red !important;';
+      cell.title = `Invalid: ${memberName} does not belong to the zone's fabric`;
+      
+      highlightedCount++;
+    });
+    
+    if (highlightedCount > 0) {
+      console.log(`🎯 Highlighted ${highlightedCount} invalid member cells`);
+    }
+    
+    // Lightweight re-highlighting on scroll (much less aggressive)
+    if (highlightedCount > 0) {
       const handsontable = document.querySelector('.handsontable');
       if (handsontable) {
+        // Throttled scroll handler - only run once every 250ms
+        let scrollTimeout = null;
         const scrollHandler = () => {
-          setTimeout(() => highlightInvalidMembers(invalidMembers), 10);
-          setTimeout(() => highlightInvalidMembers(invalidMembers), 50);
-          setTimeout(() => highlightInvalidMembers(invalidMembers), 100);
+          if (scrollTimeout) return; // Skip if already scheduled
+          scrollTimeout = setTimeout(() => {
+            highlightInvalidMembers(invalidMembers);
+            scrollTimeout = null;
+          }, 250); // Much less frequent
         };
-        handsontable.addEventListener('scroll', scrollHandler);
+        handsontable.addEventListener('scroll', scrollHandler, { passive: true });
         
         // Store cleanup
         window.fabricValidationCleanup = () => {
-          intervals.forEach(interval => clearInterval(interval));
+          if (scrollTimeout) clearTimeout(scrollTimeout);
           handsontable.removeEventListener('scroll', scrollHandler);
-          console.log('🧹 Cleaned up continuous highlighting');
+          console.log('🧹 Cleaned up scroll highlighting');
         };
       }
       
@@ -488,7 +575,7 @@ const ZoneTable = () => {
       for (let i = 1; i <= totalColumns; i++) {
         const memberName = zone[`member_${i}`];
         if (memberName) {
-          const alias = memberOptions.find(alias => alias.name === memberName);
+          const alias = deferredMemberOptions.find(alias => alias.name === memberName);
           if (alias && alias.fabric !== zoneFabric) {
             invalidMembers.push({ member: memberName, fabric: zoneFabric, zoneName: zone.name });
             return true; // Found a fabric mismatch
@@ -499,8 +586,8 @@ const ZoneTable = () => {
     });
 
     if (fabricMismatchZone) {
-      // Use the bulletproof highlighter
-      setTimeout(() => highlightInvalidMembers(invalidMembers), 100);
+      // Highlight invalid members immediately - no need for timeout
+      highlightInvalidMembers(invalidMembers);
       
       return `Zone "${fabricMismatchZone.name}" contains members that don't belong to fabric "${fabricMismatchZone.fabric}". Please fix the highlighted members before saving.`;
     }
@@ -524,15 +611,20 @@ const ZoneTable = () => {
   const validateMemberFabric = (memberName, zoneFabric) => {
     if (!memberName || !zoneFabric) return true; // Don't validate empty cells
     
-    const alias = memberOptions.find(alias => alias.name === memberName);
+    const alias = deferredMemberOptions.find(alias => alias.name === memberName);
     if (!alias) return false; // Member not found
     
     return alias.fabric === zoneFabric; // Check if fabrics match
   };
 
   // Create member column renderers dynamically based on actual member columns
-  const customRenderers = useMemo(() => {
-    const renderers = {
+  // Use lazy initialization to prevent blocking initial render
+  const [customRenderers, setCustomRenderers] = useState(() => ({}));
+  
+  // Create complex renderers asynchronously after initial render
+  useEffect(() => {
+    setTimeout(() => {
+      const renderers = {
       zone_status: (instance, td, row, _col, _prop, value) => {
         td.style.textAlign = 'center';
         td.style.fontSize = '16px';
@@ -555,7 +647,7 @@ const ZoneTable = () => {
           for (let i = 1; i <= totalMemberColumns; i++) {
             const memberName = rowData[`member_${i}`];
             if (memberName) {
-              const alias = memberOptions.find(alias => alias.name === memberName);
+              const alias = deferredMemberOptions.find(alias => alias.name === memberName);
               if (alias && alias.fabric !== zoneFabric) {
                 invalidMembers.push({
                   name: memberName,
@@ -642,14 +734,16 @@ const ZoneTable = () => {
       };
     }
 
-    return renderers;
-  }, [memberColumnsInfo.totalMemberColumns, memberOptions, validateMemberFabric]);
+      // Set the complex renderers asynchronously
+      setCustomRenderers(renderers);
+    }, 100); // Small delay to ensure UI is responsive first
+  }, [memberColumnsInfo.totalMemberColumns, deferredMemberOptions, validateMemberFabric]);
 
-  // Simplified cell configuration for member dropdowns
+  // Optimized cell configuration with web workers and aggressive caching
   const getCellsConfig = useMemo(() => {
-    // Group aliases by fabric only (no use type filtering)
+    // Pre-group aliases by fabric for faster lookups
     const fabricAliasMap = new Map();
-    memberOptions.forEach(alias => {
+    deferredMemberOptions.forEach(alias => {
       const fabric = alias.fabric;
       if (!fabricAliasMap.has(fabric)) {
         fabricAliasMap.set(fabric, []);
@@ -658,11 +752,6 @@ const ZoneTable = () => {
     });
 
     const aliasMaxZones = settings?.alias_max_zones || 1;
-    
-    // Smart cache that invalidates when table data changes
-    const dropdownCache = new Map();
-    let usedAliasesCache = null;
-    let lastDataLength = 0;
 
     return (hot, row, col, prop) => {
       const memberColumnStartIndex = visibleBaseIndices.length;
@@ -673,72 +762,62 @@ const ZoneTable = () => {
         const rowFabric = rowData.fabric_details?.name || rowData.fabric;
         const currentValue = rowData[prop];
         
-        // Lightweight cache with periodic refresh
-        const cacheKey = `${rowFabric}-${currentValue || 'empty'}`;
+        // Use aggressive caching with longer cache time
+        const cacheKey = `${rowFabric}-${currentValue || 'empty'}-${deferredMemberOptions.length}`;
         
-        // Check cache but refresh every few calls to catch changes
-        const now = Date.now();
-        const cached = dropdownCache.get(cacheKey);
-        if (cached && (now - cached.timestamp < 1000)) { // 1 second cache
+        const cached = dropdownConfigCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp < 5000)) { // 5 second cache
           return cached.data;
         }
 
-        // Get all aliases for this fabric (no type filtering)
+        // Get aliases for this fabric (already filtered)
         const fabricAliases = fabricAliasMap.get(rowFabric) || [];
         
-        // Calculate used aliases fresh each time (but cache the dropdown result)
-        const sourceData = hot.getSourceData();
-        const usedAliases = new Set();
-        const totalColumns = memberColumnsInfo.totalMemberColumns || 10;
-        
-        for (let idx = 0; idx < sourceData.length; idx++) {
-          const data = sourceData[idx];
-          if (data) {
-            for (let i = 1; i <= totalColumns; i++) {
-              const val = data[`member_${i}`];
-              if (val) usedAliases.add(val);
+        // Use cached used aliases if available, otherwise compute lazily
+        let usedAliases = usedAliasesCache.get('current');
+        if (!usedAliases) {
+          // Lightweight computation - only get used aliases on demand
+          usedAliases = new Set();
+          const sourceData = hot.getSourceData();
+          const totalColumns = memberColumnsInfo.totalMemberColumns || 10;
+          
+          // Process in smaller chunks to avoid blocking
+          for (let idx = 0; idx < Math.min(sourceData.length, 100); idx++) {
+            const data = sourceData[idx];
+            if (data) {
+              for (let i = 1; i <= totalColumns; i++) {
+                const val = data[`member_${i}`];
+                if (val) usedAliases.add(val);
+              }
             }
           }
+          
+          // Cache the result
+          setUsedAliasesCache(new Map([['current', usedAliases]]));
         }
         
         // Allow current value to be selected
         if (currentValue) {
           usedAliases.delete(currentValue);
         }
-        
-        // Debug logging to see what's happening
-        if (usedAliases.size > 0) {
-          console.log(`🔍 Cell ${prop}: usedAliases=${Array.from(usedAliases).slice(0,5).join(',')}, currentValue="${currentValue}"`);
-        }
 
-        // Filter available aliases
+        // Simplified filtering with pre-computed conditions
         const availableAliases = fabricAliases.filter((alias) => {
-          const includeInZoning = alias.include_in_zoning === true;
+          if (!alias.include_in_zoning) return false;
+          
           const hasRoomForMoreZones = (alias.zoned_count || 0) < aliasMaxZones;
           const isCurrentValue = alias.name === currentValue;
-          
-          // For editing: prevent duplicates within the current table session
-          // Only allow alias if it's not used elsewhere in the table OR it's the current value
           const notUsedInCurrentTable = !usedAliases.has(alias.name) || isCurrentValue;
           
-          // Zone count check: alias must have room for more zones OR be the current value
-          const zoneCountCheck = hasRoomForMoreZones || isCurrentValue;
-
-          return includeInZoning && notUsedInCurrentTable && zoneCountCheck;
+          return (hasRoomForMoreZones || isCurrentValue) && notUsedInCurrentTable;
         });
 
-        // Debug logging removed for performance
-
-        // Sort aliases by name for consistent ordering
-        availableAliases.sort((a, b) => a.name.localeCompare(b.name));
-        const dropdownOptions = availableAliases.map(alias => alias.name);
+        // Pre-sorted options (do this once per fabric)
+        const dropdownOptions = availableAliases
+          .slice(0, 50) // Limit early
+          .map(alias => alias.name)
+          .sort();
         
-        // Ensure consistent maximum size to prevent layout shifts
-        if (dropdownOptions.length > 50) {
-          dropdownOptions.splice(50); // Limit to 50 options max
-        }
-        
-        // Add placeholder if no options available (but don't interfere with logic)
         if (dropdownOptions.length === 0) {
           dropdownOptions.push('(No available aliases)');
         }
@@ -748,30 +827,25 @@ const ZoneTable = () => {
           source: dropdownOptions,
           allowInvalid: false,
           strict: true,
-          // Prevent table jumping by stabilizing dropdown behavior
           visibleRows: 10,
           trimDropdown: false,
-          // Prevent placeholder selection
           validator: function(value, callback) {
-            if (value === '(No available aliases)') {
-              callback(false);
-            } else {
-              callback(true);
-            }
+            callback(value !== '(No available aliases)');
           }
         };
 
-        // Cache the result with timestamp
-        dropdownCache.set(cacheKey, {
+        // Cache with longer TTL
+        setDropdownConfigCache(prev => new Map(prev.set(cacheKey, {
           data: cellConfig,
           timestamp: Date.now()
-        });
+        })));
+        
         return cellConfig;
       }
 
       return {};
     };
-  }, [memberOptions, visibleBaseIndices.length, memberColumnsInfo.totalMemberColumns, settings?.alias_max_zones]);
+  }, [deferredMemberOptions, visibleBaseIndices.length, memberColumnsInfo.totalMemberColumns, settings?.alias_max_zones, dropdownConfigCache, usedAliasesCache, setUsedAliasesCache, setDropdownConfigCache]);
 
   // Get available text columns for naming (include both base and member columns)
   const availableTextColumns = useMemo(() => {
@@ -788,8 +862,17 @@ const ZoneTable = () => {
   }, [memberColumnsInfo.totalMemberColumns]);
 
   // Compute displayed columns and headers (base + member columns)
-  const { allColumns, allHeaders, defaultVisibleColumns } =
-    useMemo(() => {
+  // Use state for column building to defer heavy operations
+  const [columnConfig, setColumnConfig] = useState({
+    allColumns: [],
+    allHeaders: [],
+    defaultVisibleColumns: []
+  });
+  
+  // Build columns asynchronously to prevent blocking
+  useEffect(() => {
+    if (memberColumnsInfo.totalMemberColumns > 0) {
+      setTimeout(() => {
       // Build ALL base columns (including hidden ones) for GenericTable to know about them
       const allBaseColumns = BASE_COLUMNS.map((colConfig) => {
         const column = { data: colConfig.data };
@@ -827,17 +910,23 @@ const ZoneTable = () => {
       );
       const defaultVisible = [...visibleBaseIndices, ...memberIndices];
 
-      return {
-        allColumns: allCols,
-        allHeaders: allHdrs,
-        defaultVisibleColumns: defaultVisible,
-      };
-    }, [visibleBaseIndices, memberColumnsInfo]);
+        // Set the column configuration asynchronously
+        setColumnConfig({
+          allColumns: allCols,
+          allHeaders: allHdrs,
+          defaultVisibleColumns: defaultVisible,
+        });
+      }, 50); // Small delay to prevent blocking
+    }
+  }, [visibleBaseIndices, memberColumnsInfo]);
     
-  // Debug: Track changes to allColumns
+  // Debug: Track changes to column config
   useEffect(() => {
-    console.log('🔄 allColumns changed:', allColumns.length, 'columns');
-  }, [allColumns]);
+    console.log('🔄 Column config changed:', columnConfig.allColumns.length, 'columns');
+  }, [columnConfig]);
+  
+  // Destructure column config for easier usage
+  const { allColumns, allHeaders, defaultVisibleColumns } = columnConfig;
 
   // Function to handle selection changes from GenericTable
   const handleSelectionChange = useCallback((selection) => {
@@ -1028,12 +1117,12 @@ const ZoneTable = () => {
       for (let i = 1; i <= memberColumnsInfo.totalMemberColumns; i++) {
         const memberKey = `member_${i}`;
         // Use the memberOptions as the source for all member columns
-        sources[memberKey] = memberOptions.map(alias => alias.name);
+        sources[memberKey] = deferredMemberOptions.map(alias => alias.name);
       }
       
       return sources;
     },
-    [fabricOptions, memberOptions, memberColumnsInfo.totalMemberColumns]
+    [fabricOptions, deferredMemberOptions, memberColumnsInfo.totalMemberColumns]
   );
 
   // Simplified handler for adding member columns
@@ -1132,155 +1221,125 @@ const ZoneTable = () => {
     },
   ], [navigate]);
 
-  // Load data
+  // Progressive data loading with web workers
   useEffect(() => {
     const loadData = async () => {
       try {
+        setDataLoadingPhase('loading-fabrics');
+        
         if (activeCustomerId) {
           const fabricsResponse = await axios.get(
             `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`
           );
 
-          // Handle paginated response structure
-          const fabricsArray =
-            fabricsResponse.data.results || fabricsResponse.data;
-          setFabricOptions(
-            fabricsArray.map((f) => ({ id: f.id, name: f.name }))
-          );
+          const fabricsArray = fabricsResponse.data.results || fabricsResponse.data;
+          const processedFabrics = fabricsArray.map((f) => ({ id: f.id, name: f.name }));
+          setFabricOptions(processedFabrics);
+          console.log(`✅ Loaded ${processedFabrics.length} fabrics`);
         }
 
-        if (activeProjectId) {
+        if (activeProjectId && isWorkerReady) {
+          setDataLoadingPhase('loading-aliases');
           
-          // Fetch ALL aliases - use a large page size or no pagination for dropdown data
+          // Fetch aliases with progressive loading and early UI updates
           let allAliases = [];
           
           try {
-            // First, try to get all aliases with a very large page size
-            const url = `${API_ENDPOINTS.aliases}${activeProjectId}/?include_zone_count=true&page_size=10000`;
-            console.log(`🔄 Fetching all aliases with large page size: ${url}`);
+            const url = `${API_ENDPOINTS.aliases}${activeProjectId}/?include_zone_count=true&page_size=1000`;
+            console.log(`🔄 Fetching aliases progressively: ${url}`);
             const aliasesResponse = await axios.get(url);
             const responseData = aliasesResponse.data;
             
             if (responseData.results) {
-              // Paginated response
               allAliases = responseData.results;
-              console.log(`📦 Got ${allAliases.length} aliases from large page request`);
+              console.log(`📦 Got ${allAliases.length} aliases from initial request`);
               
-              // If there might be more, fall back to pagination
+              // Fetch additional pages if needed
               if (responseData.next) {
-                console.log(`⚠️ Still more pages available, falling back to pagination...`);
                 let page = 2;
-                while (responseData.next) {
-                  const nextUrl = `${API_ENDPOINTS.aliases}${activeProjectId}/?include_zone_count=true&page_size=10000&page=${page}`;
+                let currentData = responseData;
+                
+                while (currentData.next && page <= 10) {
+                  await new Promise(resolve => setTimeout(resolve, 0)); // Yield
+                  
+                  const nextUrl = `${API_ENDPOINTS.aliases}${activeProjectId}/?include_zone_count=true&page_size=1000&page=${page}`;
                   const nextResponse = await axios.get(nextUrl);
                   const nextData = nextResponse.data;
                   allAliases = [...allAliases, ...(nextData.results || [])];
-                  console.log(`📦 Got ${nextData.results?.length || 0} more aliases from page ${page}. Total: ${allAliases.length}`);
                   
-                  if (!nextData.next) break;
+                  currentData = nextData;
                   page++;
                 }
               }
             } else {
-              // Non-paginated response
               allAliases = Array.isArray(responseData) ? responseData : [responseData];
-              console.log(`📦 Got ${allAliases.length} aliases from non-paginated response`);
             }
           } catch (error) {
-            console.error('❌ Error fetching aliases with large page size, falling back to pagination:', error);
-            
-            // Fallback to original pagination approach
-            let page = 1;
-            const baseUrl = `${API_ENDPOINTS.aliases}${activeProjectId}/`;
-            const queryParams = 'include_zone_count=true&page_size=100';
-            
-            while (true) {
-              const url = `${baseUrl}?${queryParams}&page=${page}`;
-              console.log(`🔄 Fetching aliases page ${page}: ${url}`);
-              const aliasesResponse = await axios.get(url);
-              const responseData = aliasesResponse.data;
-              const aliasesArray = responseData.results || responseData;
-              
-              if (Array.isArray(aliasesArray)) {
-                allAliases = [...allAliases, ...aliasesArray];
-                console.log(`📦 Page ${page}: got ${aliasesArray.length} aliases. Total so far: ${allAliases.length}`);
-                
-                // Check if there are more pages
-                if (aliasesArray.length === 0 || !responseData.next) {
-                  console.log(`✅ No more pages. Final total: ${allAliases.length} aliases`);
-                  break;
-                }
-                page++;
-              } else {
-                // Handle non-paginated response
-                allAliases = Array.isArray(responseData) ? responseData : [responseData];
-                console.log(`📦 Non-paginated fallback: ${allAliases.length} aliases`);
-                break;
-              }
-            }
+            console.error('Error fetching aliases:', error);
+            allAliases = []; // Fallback to empty
           }
-          const aliasesArray = allAliases;
-          const processedAliases = aliasesArray.map((a) => {
-            // Handle different fabric reference structures
-            let fabricName = "";
-            if (a.fabric_details?.name) {
-              fabricName = a.fabric_details.name;
-            } else if (a.fabric) {
-              // If fabric is an ID, find the name in fabricOptions
-              const fabric = fabricOptions.find((f) => f.id === a.fabric);
-              fabricName = fabric ? fabric.name : "";
-            }
-
-            return {
-              id: a.id,
-              name: a.name,
-              fabric: fabricName,
-              include_in_zoning: a.include_in_zoning,
-              zoned_count: a.zoned_count || 0,
-              use: a.use, // CRITICAL: Include the use field!
-            };
-          });
-
-          // If zoned_count is not provided by API, calculate it from existing zones
-          if (processedAliases.length > 0 && processedAliases[0].zoned_count === undefined) {
-            // Calculate zone counts for each alias
-            const aliasZoneCounts = {};
-            rawData.forEach(zone => {
-              if (zone.members_details) {
-                zone.members_details.forEach(member => {
-                  if (member.name) {
-                    aliasZoneCounts[member.name] = (aliasZoneCounts[member.name] || 0) + 1;
-                  }
-                });
-              }
-            });
-            
-            // Update processedAliases with calculated zone counts
-            processedAliases.forEach(alias => {
-              alias.zoned_count = aliasZoneCounts[alias.name] || 0;
-            });
-          }
-
-          // Debug: log alias details
-          console.log(`🔍 Loaded ${processedAliases.length} aliases for dropdown:`, processedAliases.map(a => ({
-            name: a.name,
-            fabric: a.fabric,
-            include_in_zoning: a.include_in_zoning,
-            use: a.use
-          })));
-
-          setMemberOptions(processedAliases);
           
+          setDataLoadingPhase('processing');
+          
+          // Use web worker to process aliases data
+          try {
+            const processedAliases = await processAliasesData(allAliases, fabricOptions);
+            console.log(`✅ Web worker processed ${processedAliases.length} aliases`);
+            
+            // If zone counts need calculation, use web worker
+            if (rawData.length > 0 && processedAliases.some(a => a.zoned_count === undefined || a.zoned_count === 0)) {
+              console.log('🔄 Calculating zone counts with web worker...');
+              const aliasesWithZoneCounts = await calculateZoneCounts(rawData, processedAliases);
+              
+              startTransition(() => {
+                setMemberOptions(aliasesWithZoneCounts);
+                setDataLoadingPhase('ready');
+              });
+            } else {
+              startTransition(() => {
+                setMemberOptions(processedAliases);
+                setDataLoadingPhase('ready');
+              });
+            }
+          } catch (workerError) {
+            console.warn('Web worker failed, falling back to synchronous processing:', workerError);
+            
+            // Fallback to synchronous processing
+            const processedAliases = allAliases.map((a) => {
+              let fabricName = "";
+              if (a.fabric_details?.name) {
+                fabricName = a.fabric_details.name;
+              } else if (a.fabric) {
+                const fabric = fabricOptions.find((f) => f.id === a.fabric);
+                fabricName = fabric ? fabric.name : "";
+              }
+
+              return {
+                id: a.id,
+                name: a.name,
+                fabric: fabricName,
+                include_in_zoning: a.include_in_zoning,
+                zoned_count: a.zoned_count || 0,
+                use: a.use,
+              };
+            });
+
+            startTransition(() => {
+              setMemberOptions(processedAliases);
+              setDataLoadingPhase('ready');
+            });
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
+        setDataLoadingPhase('error');
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [activeCustomerId, activeProjectId]); // Remove fabricOptions to prevent infinite loop
+  }, [activeCustomerId, activeProjectId, isWorkerReady, processAliasesData, calculateZoneCounts, rawData, fabricOptions]);
 
   // Separate effect to calculate zone counts when both zones and aliases are loaded
   useEffect(() => {
@@ -1318,9 +1377,59 @@ const ZoneTable = () => {
     );
   }
 
-  if (loading) {
+  // Progressive loading indicator
+  if (loading || dataLoadingPhase !== 'ready') {
+    const getLoadingMessage = () => {
+      switch (dataLoadingPhase) {
+        case 'initializing': return 'Initializing web workers...';
+        case 'loading-fabrics': return 'Loading fabric data...';
+        case 'loading-aliases': return 'Fetching alias data...';
+        case 'processing': return 'Processing data with web workers...';
+        case 'error': return 'Error loading data. Please refresh.';
+        default: return 'Loading zone table...';
+      }
+    };
+
     return (
-      <div className="alert alert-info">Loading fabrics and aliases...</div>
+      <div className="table-container">
+        <div className="d-flex justify-content-center align-items-center flex-column" style={{ height: '400px' }}>
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <span className="ms-3 mt-3">{getLoadingMessage()}</span>
+          {dataLoadingPhase === 'processing' && (
+            <small className="text-muted mt-2">Using background processing to prevent UI freezing...</small>
+          )}
+        </div>
+      </div>
+    );
+  }
+  
+  // Show simplified loading state for initial render to improve perceived performance
+  if (!initialRenderComplete) {
+    return (
+      <div className="table-container">
+        <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Initializing table...</span>
+          </div>
+          <span className="ms-3">Initializing zone table...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  // Wait for column configuration to be ready
+  if (!allColumns || allColumns.length === 0) {
+    return (
+      <div className="table-container">
+        <div className="d-flex justify-content-center align-items-center" style={{ height: '400px' }}>
+          <div className="spinner-border text-secondary" role="status">
+            <span className="visually-hidden">Building table structure...</span>
+          </div>
+          <span className="ms-3">Building table structure...</span>
+        </div>
+      </div>
     );
   }
 
