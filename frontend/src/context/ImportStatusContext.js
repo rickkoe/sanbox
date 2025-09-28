@@ -1,7 +1,14 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 
-const ImportStatusContext = createContext();
+const ImportStatusContext = createContext({
+  isImportRunning: false,
+  currentImport: null,
+  importProgress: null,
+  startImport: () => {},
+  cancelImport: () => {},
+  checkForRunningImports: () => {}
+});
 
 export const useImportStatus = () => {
   const context = useContext(ImportStatusContext);

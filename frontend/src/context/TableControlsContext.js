@@ -1,11 +1,18 @@
 import React, { createContext, useContext, useState } from 'react';
 
-const TableControlsContext = createContext();
+const TableControlsContext = createContext({
+  tableControlsProps: null,
+  setTableControlsProps: () => {}
+});
 
 export const useTableControls = () => {
   const context = useContext(TableControlsContext);
   if (!context) {
-    throw new Error('useTableControls must be used within a TableControlsProvider');
+    console.warn('useTableControls called outside of TableControlsProvider, using defaults');
+    return {
+      tableControlsProps: null,
+      setTableControlsProps: () => {}
+    };
   }
   return context;
 };

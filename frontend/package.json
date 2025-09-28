@@ -22,7 +22,7 @@
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.9",
     "react-chartjs-2": "^5.3.0",
-    "react-data-grid": "^7.0.0-beta.48",
+    "react-data-grid": "^6.1.0",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.2.0",

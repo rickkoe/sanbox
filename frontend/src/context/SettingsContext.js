@@ -1,7 +1,23 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "axios";
 
-export const SettingsContext = createContext();
+export const SettingsContext = createContext({
+  settings: {
+    theme: 'light',
+    items_per_page: 'All',
+    auto_refresh: true,
+    auto_refresh_interval: 30,
+    notifications: true,
+    compact_mode: false,
+    show_advanced_features: false,
+    zone_ratio: 'one-to-one',
+    alias_max_zones: 1
+  },
+  loading: true,
+  error: null,
+  fetchSettings: () => {},
+  updateSettings: () => {}
+});
 
 export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState({

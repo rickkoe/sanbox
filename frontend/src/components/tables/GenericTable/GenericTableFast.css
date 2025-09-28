@@ -1,0 +1,290 @@
+/* Enhanced styling for GenericTableFast */
+.generic-table-fast {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.generic-table-fast-grid {
+  font-size: 14px;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Action controls styling */
+.table-action-controls {
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  padding: 8px 16px;
+}
+
+.table-action-controls .btn-sm {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* Header styling */
+.generic-table-fast-grid .rdg-header-row {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.generic-table-fast-grid .rdg-header-cell {
+  border-right: 1px solid #dee2e6;
+  padding: 8px 12px;
+  color: #495057;
+}
+
+/* Row styling */
+.generic-table-fast-grid .rdg-row {
+  border-bottom: 1px solid #f1f3f4;
+  transition: background-color 0.15s ease;
+}
+
+.generic-table-fast-grid .rdg-row:hover {
+  background-color: #f8f9fa;
+}
+
+.generic-table-fast-grid .rdg-row:nth-child(even) {
+  background-color: #fdfdfd;
+}
+
+.generic-table-fast-grid .rdg-row:nth-child(even):hover {
+  background-color: #f1f3f4;
+}
+
+/* Cell styling */
+.generic-table-fast-grid .rdg-cell {
+  border-right: 1px solid #f1f3f4;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.generic-table-fast-grid .rdg-cell:focus {
+  outline: 2px solid #0d6efd;
+  outline-offset: -2px;
+}
+
+/* Make editable cells more obvious */
+.generic-table-fast-grid .rdg-cell.rdg-cell-editable {
+  background-color: #f8f9fa;
+  transition: background-color 0.15s ease;
+}
+
+.generic-table-fast-grid .rdg-cell.rdg-cell-editable:hover {
+  background-color: #e9ecef;
+  border: 1px solid #0d6efd;
+}
+
+/* Selected cell styling */
+.generic-table-fast-grid .rdg-cell.rdg-cell-selected {
+  background-color: #e7f3ff;
+  border: 2px solid #0d6efd;
+}
+
+/* Editor styling */
+.generic-table-fast-grid .rdg-editor-container {
+  padding: 0;
+}
+
+.generic-table-fast-grid .form-select,
+.generic-table-fast-grid input[type="text"],
+.generic-table-fast-grid input[type="number"] {
+  border: none;
+  padding: 4px 8px;
+  font-size: 13px;
+  width: 100%;
+  height: 100%;
+}
+
+.generic-table-fast-grid .form-select:focus,
+.generic-table-fast-grid input:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+/* Status column specific styling */
+.generic-table-fast-grid .rdg-cell[aria-colindex="1"] {
+  text-align: center;
+}
+
+/* Member count column styling */
+.generic-table-fast-grid .rdg-cell .member-count-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Fabric column styling */
+.generic-table-fast-grid .fabric-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Member column styling */
+.generic-table-fast-grid .member-cell {
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Checkbox styling */
+.generic-table-fast-grid input[type="checkbox"] {
+  transform: scale(1.3);
+  accent-color: #28a745;
+}
+
+/* Notes column styling */
+.generic-table-fast-grid .notes-cell {
+  font-size: 11px;
+  font-style: italic;
+  color: #6c757d;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Theme Support */
+
+/* Light Theme (Default) */
+.generic-table-fast.theme-light {
+  background: #ffffff;
+  color: #212529;
+}
+
+.generic-table-fast.theme-light .table-action-controls {
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+/* Dark Theme */
+.generic-table-fast.theme-dark {
+  background: #212529;
+  color: #e2e8f0;
+}
+
+.generic-table-fast.theme-dark .table-action-controls {
+  background: #343a40;
+  border-bottom: 1px solid #495057;
+}
+
+.generic-table-fast.theme-dark .generic-table-fast-grid {
+  background-color: #212529;
+  color: #e2e8f0;
+}
+
+.generic-table-fast.theme-dark .rdg-header-row {
+  background: linear-gradient(135deg, #343a40 0%, #495057 100%);
+  border-bottom: 2px solid #495057;
+  color: #f8f9fa;
+}
+
+.generic-table-fast.theme-dark .rdg-row {
+  border-bottom: 1px solid #495057;
+}
+
+.generic-table-fast.theme-dark .rdg-row:hover {
+  background-color: #343a40;
+}
+
+.generic-table-fast.theme-dark .rdg-cell {
+  border-right: 1px solid #495057;
+  color: #e2e8f0;
+}
+
+.generic-table-fast.theme-dark .rdg-cell.rdg-cell-selected {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+/* Minimal Theme */
+.generic-table-fast.theme-minimal {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+}
+
+.generic-table-fast.theme-minimal .table-action-controls {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.generic-table-fast.theme-minimal .rdg-header-row {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Corporate Theme */
+.generic-table-fast.theme-corporate {
+  background: #ffffff;
+  border: 2px solid #1e40af;
+}
+
+.generic-table-fast.theme-corporate .table-action-controls {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.generic-table-fast.theme-corporate .rdg-header-row {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  color: #ffffff;
+  border-bottom: 2px solid #1e40af;
+}
+
+/* Colorful Theme */
+.generic-table-fast.theme-colorful {
+  background: #ffffff;
+  border: 2px solid transparent;
+  background-image: linear-gradient(white, white), linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+  background-origin: border-box;
+  background-clip: content-box, border-box;
+}
+
+.generic-table-fast.theme-colorful .table-action-controls {
+  background: linear-gradient(45deg, rgba(255, 107, 107, 0.1), rgba(78, 205, 196, 0.1), rgba(69, 183, 209, 0.1), rgba(150, 206, 180, 0.1));
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.generic-table-fast.theme-colorful .rdg-header-row {
+  background: linear-gradient(45deg, rgba(255, 107, 107, 0.2), rgba(78, 205, 196, 0.2), rgba(69, 183, 209, 0.2), rgba(150, 206, 180, 0.2));
+  border-bottom: 2px solid #e2e8f0;
+}
+
+/* Loading state */
+.generic-table-fast .table-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 16px;
+  color: #6c757d;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .generic-table-fast-grid {
+    font-size: 12px;
+  }
+  
+  .generic-table-fast-grid .rdg-cell {
+    padding: 6px 8px;
+  }
+  
+  .generic-table-fast-grid .rdg-header-cell {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}

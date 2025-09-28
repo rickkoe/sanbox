@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom";
-import HostTable from "../components/tables/HostTable";
+import HostTable from "../components/tables/HostTableFast";
 import Breadcrumbs from "../components/navigation/Breadcrumbs";
 import axios from "axios";
 import { BreadcrumbContext } from "../context/BreadcrumbContext";

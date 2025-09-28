@@ -1,7 +1,14 @@
 import React, { createContext, useState, useEffect } from "react";
 import axios from "axios";
 
-export const ConfigContext = createContext();
+export const ConfigContext = createContext({
+  config: null,
+  activeStorageSystem: null,
+  loading: true,
+  error: null,
+  fetchActiveConfig: () => {},
+  setActiveStorageSystem: () => {}
+});
 
 export const ConfigProvider = ({ children }) => {
   const [config, setConfig] = useState(null);

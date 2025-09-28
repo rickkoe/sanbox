@@ -1,11 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 
-const ThemeContext = createContext();
+const ThemeContext = createContext({
+  theme: 'light',
+  updateTheme: () => {},
+  registerDashboardUpdate: () => {},
+  unregisterDashboardUpdate: () => {}
+});
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    // Return default values instead of throwing error
+    console.warn('useTheme called outside of ThemeProvider, using defaults');
+    return {
+      theme: 'light',
+      updateTheme: () => {},
+      registerDashboardUpdate: () => {},
+      unregisterDashboardUpdate: () => {}
+    };
   }
   return context;
 };

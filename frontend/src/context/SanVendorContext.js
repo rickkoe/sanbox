@@ -2,10 +2,23 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "axios";
 import { useLocation } from "react-router-dom";
 
-const SanVendorContext = createContext();
+const SanVendorContext = createContext({
+  sanVendor: null,
+  setSanVendor: () => {}
+});
 const configApiUrl = "/api/core/config/";
 
-export const useSanVendor = () => useContext(SanVendorContext);
+export const useSanVendor = () => {
+  const context = useContext(SanVendorContext);
+  if (!context) {
+    console.warn('useSanVendor called outside of SanVendorProvider, using defaults');
+    return {
+      sanVendor: null,
+      setSanVendor: () => {}
+    };
+  }
+  return context;
+};
 
 export const SanVendorProvider = ({ children }) => {
     const [sanVendor, setSanVendor] = useState(null);
