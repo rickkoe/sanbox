@@ -979,3 +979,37 @@
 .sidebar-header-content {
   overflow: hidden;
 }
+
+/* ========== TEST LINK STYLING FOR TANSTACK TABLE ========== */
+
+/* Test link styling for TanStack Table link */
+.sidebar-navigation .test-link {
+  background: linear-gradient(135deg, #3498db, #2980b9) !important;
+  color: white !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2) !important;
+  border: 1px solid rgba(52, 152, 219, 0.3) !important;
+}
+
+.sidebar-navigation .test-link:hover {
+  background: linear-gradient(135deg, #2980b9, #1f5f8b) !important;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+.sidebar-navigation .test-link .sidebar-sublink-text::before {
+  content: "🚀 ";
+  margin-right: 4px;
+}
+
+/* Ensure the test link is visible in both light and dark themes */
+.modern-sidebar.theme-light .sidebar-navigation .test-link,
+.modern-sidebar.theme-dark .sidebar-navigation .test-link {
+  background: linear-gradient(135deg, #3498db, #2980b9) !important;
+  color: white !important;
+}
+
+.modern-sidebar.theme-light .sidebar-navigation .test-link .sidebar-sublink-text,
+.modern-sidebar.theme-dark .sidebar-navigation .test-link .sidebar-sublink-text {
+  color: white !important;
+}

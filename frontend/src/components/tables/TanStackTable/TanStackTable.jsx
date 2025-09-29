@@ -19,8 +19,6 @@ import { Pagination } from './components/ui/Pagination';
 
 // Utils
 import { createColumnDefinitions } from './utils/columnDefinitions';
-import { useSettings } from '../../context/SettingsContext';
-import { useTheme } from '../../context/ThemeContext';
 
 /**
  * TanStack Table component - High-performance replacement for GenericTable
@@ -88,9 +86,9 @@ const TanStackTable = forwardRef(({
   ...otherProps
 }, ref) => {
 
-  // Context
-  const { settings } = useSettings();
-  const { theme } = useTheme();
+  // Simple defaults without context
+  const settings = { items_per_page: 50 };
+  const theme = 'light';
 
   // Refs
   const containerRef = useRef(null);
