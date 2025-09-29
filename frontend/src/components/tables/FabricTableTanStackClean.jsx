@@ -32,6 +32,7 @@ const FabricTableTanStackClean = () => {
     // State for editing
     const [editableData, setEditableData] = useState([]);
     const [hasChanges, setHasChanges] = useState(false);
+    const [deletedRows, setDeletedRows] = useState([]); // Track deleted row IDs
 
     // API URL for fabric data
     const fabricsApiUrl = useMemo(() => {
@@ -45,6 +46,9 @@ const FabricTableTanStackClean = () => {
             return url;
         }
     }, [customerId, API_URL]);
+
+    // Delete API URL (individual deletion pattern)
+    const getFabricDeleteUrl = (id) => `${API_URL}/api/san/fabrics/delete/${id}/`;
 
     // Vendor mapping (same as original FabricTable)
     const vendorOptions = [
@@ -143,6 +147,7 @@ const FabricTableTanStackClean = () => {
     useEffect(() => {
         console.log('👤 Customer changed to:', customerId);
         setEditableData([]);
+        setDeletedRows([]);
         setHasChanges(false);
     }, [customerId]);
 
@@ -198,6 +203,15 @@ const FabricTableTanStackClean = () => {
 
             console.log('➕ New rows to create:', newRows.length);
             console.log('✏️ Existing rows to update:', existingRows.length);
+            console.log('🗑️ Rows to delete:', deletedRows.length);
+
+            // Delete rows first (individual DELETE requests)
+            const uniqueDeletedRows = [...new Set(deletedRows)]; // Remove duplicates
+            for (const deletedId of uniqueDeletedRows) {
+                console.log('🗑️ Deleting fabric ID:', deletedId);
+                const response = await axios.delete(getFabricDeleteUrl(deletedId));
+                console.log('✅ Deleted fabric response:', response.data);
+            }
 
             // Save new rows (POST requests)
             for (const newRow of newRows) {
@@ -256,6 +270,7 @@ const FabricTableTanStackClean = () => {
 
             setFabricData(processedData);
             setEditableData([...processedData]); // Force new array reference
+            setDeletedRows([]); // Clear deleted rows after successful save
             setHasChanges(false);
 
             console.log('✅ All changes saved successfully!');
@@ -268,7 +283,7 @@ const FabricTableTanStackClean = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [editableData, hasChanges, customerId, fabricsApiUrl, vendorOptions, API_URL]);
+    }, [editableData, hasChanges, deletedRows, customerId, fabricsApiUrl, vendorOptions, API_URL]);
 
     // Searchable dropdown cell component for vendor selection
     const VendorDropdownCell = ({ getValue, row, column, table }) => {
@@ -611,7 +626,21 @@ const FabricTableTanStackClean = () => {
                 if (!cellMap.has(rowIndex)) {
                     cellMap.set(rowIndex, new Map());
                 }
-                cellMap.get(rowIndex).set(colIndex, row[column.accessorKey] || '');
+
+                // Get the raw value from the data
+                let cellValue = row[column.accessorKey];
+
+                // Handle different data types properly
+                if (cellValue === null || cellValue === undefined) {
+                    cellValue = '';
+                } else if (typeof cellValue === 'boolean') {
+                    cellValue = cellValue ? 'TRUE' : 'FALSE';
+                } else {
+                    cellValue = String(cellValue);
+                }
+
+                // console.log(`📋 Copying cell [${rowIndex}, ${colIndex}] (${column.accessorKey}):`, cellValue);
+                cellMap.get(rowIndex).set(colIndex, cellValue);
             }
         });
 
@@ -633,6 +662,193 @@ const FabricTableTanStackClean = () => {
             console.error('Copy failed:', err);
         });
     }, [selectedCells, currentTableData, columns]);
+
+    // Paste from clipboard (Excel-style)
+    const pasteFromClipboard = useCallback(async () => {
+        if (selectedCells.size === 0) {
+            console.log('⚠️ No cells selected for paste operation');
+            return;
+        }
+
+        try {
+            const clipboardText = await navigator.clipboard.readText();
+            console.log('📋 Pasting clipboard data:', clipboardText.substring(0, 100) + (clipboardText.length > 100 ? '...' : ''));
+
+            // Parse clipboard data (Excel format: tabs = columns, newlines = rows)
+            const rows = clipboardText.split('\n').filter(row => row.trim() !== '');
+            const pasteData = rows.map(row => row.split('\t'));
+
+            console.log('📊 Parsed paste data:', pasteData.length, 'rows x', pasteData[0]?.length || 0, 'columns');
+
+            // Get the starting cell (top-left of selection)
+            const cellKeys = Array.from(selectedCells).sort();
+            const [startRowIndex, startColIndex] = cellKeys[0].split('-').map(Number);
+
+            console.log('📍 Paste starting at row', startRowIndex, 'col', startColIndex);
+
+            // Update data with pasted values (auto-extend rows if needed)
+            setEditableData(currentData => {
+                let newData = [...currentData];
+                let changedCells = 0;
+                let addedRows = 0;
+
+                pasteData.forEach((rowValues, pasteRowIndex) => {
+                    const targetRowIndex = startRowIndex + pasteRowIndex;
+
+                    // Auto-extend: Add new rows if needed
+                    while (targetRowIndex >= newData.length) {
+                        const newRow = {
+                            id: `new-${Date.now()}-${addedRows}`, // Unique temporary ID
+                            name: '',
+                            san_vendor: '',
+                            zoneset_name: '',
+                            vsan: '',
+                            exists: false,
+                            notes: ''
+                        };
+                        newData.push(newRow);
+                        addedRows++;
+                        console.log(`➕ Auto-added row ${newData.length - 1} for paste operation`);
+                    }
+
+                    rowValues.forEach((cellValue, pasteColIndex) => {
+                        const targetColIndex = startColIndex + pasteColIndex;
+
+                        // Skip if target column doesn't exist
+                        if (targetColIndex >= columns.length) return;
+
+                        const targetColumn = columns[targetColIndex];
+                        if (!targetColumn) return;
+
+                        // Update the cell value
+                        newData[targetRowIndex] = {
+                            ...newData[targetRowIndex],
+                            [targetColumn.accessorKey]: cellValue.trim()
+                        };
+
+                        changedCells++;
+                    });
+                });
+
+                console.log('✅ Paste completed: Updated', changedCells, 'cells');
+                if (addedRows > 0) {
+                    console.log('🔄 Auto-extended table by', addedRows, 'rows');
+                }
+                return newData;
+            });
+
+            setHasChanges(true);
+
+            // Show success notification
+            const pastePreview = {
+                operation: 'Paste',
+                sourceValue: `${pasteData.length}x${pasteData[0]?.length || 0} data`,
+                columnName: 'Multiple Columns',
+                targetCells: [],
+                count: pasteData.length * (pasteData[0]?.length || 0)
+            };
+
+            setFillPreview(pastePreview);
+
+            // Hide preview after 2 seconds
+            setTimeout(() => {
+                setFillPreview(null);
+            }, 2000);
+
+        } catch (error) {
+            console.error('❌ Paste failed:', error);
+            alert('Paste failed. Make sure you have copied data to clipboard.');
+        }
+    }, [selectedCells, columns]);
+
+    // Clear selected cell contents
+    const clearCellContents = useCallback(() => {
+        if (selectedCells.size === 0) return;
+
+        console.log('🗑️ Clearing', selectedCells.size, 'selected cells');
+
+        setEditableData(currentData => {
+            const newData = [...currentData];
+            let clearedCells = 0;
+
+            Array.from(selectedCells).forEach(cellKey => {
+                const [rowIndex, colIndex] = cellKey.split('-').map(Number);
+                const column = columns[colIndex];
+
+                if (newData[rowIndex] && column) {
+                    // Set appropriate empty value based on column type
+                    let emptyValue = '';
+                    if (column.accessorKey === 'exists') {
+                        emptyValue = false;
+                    } else if (column.accessorKey === 'vsan') {
+                        emptyValue = '';
+                    }
+
+                    newData[rowIndex] = {
+                        ...newData[rowIndex],
+                        [column.accessorKey]: emptyValue
+                    };
+                    clearedCells++;
+                }
+            });
+
+            console.log('✅ Cleared', clearedCells, 'cells');
+            return newData;
+        });
+
+        setHasChanges(true);
+    }, [selectedCells, columns]);
+
+    // Delete selected rows
+    const deleteSelectedRows = useCallback(() => {
+        if (selectedCells.size === 0) return;
+
+        // Get unique row indices from selected cells
+        const selectedRowIndices = new Set();
+        Array.from(selectedCells).forEach(cellKey => {
+            const [rowIndex] = cellKey.split('-').map(Number);
+            selectedRowIndices.add(rowIndex);
+        });
+
+        if (selectedRowIndices.size === 0) return;
+
+        const rowCount = selectedRowIndices.size;
+        const confirmation = window.confirm(`Delete ${rowCount} row${rowCount > 1 ? 's' : ''}? This action cannot be undone.`);
+
+        if (!confirmation) return;
+
+        console.log('🗑️ Deleting', rowCount, 'rows:', Array.from(selectedRowIndices).sort());
+
+        setEditableData(currentData => {
+            // Sort indices in descending order to avoid index shifting issues
+            const sortedIndices = Array.from(selectedRowIndices).sort((a, b) => b - a);
+            let newData = [...currentData];
+            const toDelete = [];
+
+            sortedIndices.forEach(rowIndex => {
+                if (rowIndex < newData.length) {
+                    const row = newData[rowIndex];
+                    // Only track for deletion if it's an existing row (has real ID, not new-*)
+                    if (row.id && !String(row.id).startsWith('new-')) {
+                        toDelete.push(row.id);
+                    }
+                    newData.splice(rowIndex, 1);
+                }
+            });
+
+            // Track deleted row IDs for API deletion
+            if (toDelete.length > 0) {
+                setDeletedRows(prev => [...prev, ...toDelete]);
+                console.log('🗑️ Marked for deletion:', toDelete);
+            }
+
+            console.log('✅ Deleted rows, remaining:', newData.length);
+            return newData;
+        });
+
+        setSelectedCells(new Set()); // Clear selection
+        setHasChanges(true);
+    }, [selectedCells]);
 
     const handleCellClick = useCallback((rowIndex, colIndex, event) => {
         const cellKey = `${rowIndex}-${colIndex}`;
@@ -787,12 +1003,21 @@ const FabricTableTanStackClean = () => {
         if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
             event.preventDefault();
             copySelectedCells();
+        } else if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+            event.preventDefault();
+            pasteFromClipboard();
         } else if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
             event.preventDefault();
             fillDown();
         } else if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
             event.preventDefault();
             fillRight();
+        } else if (event.key === 'Delete') {
+            event.preventDefault();
+            clearCellContents();
+        } else if ((event.ctrlKey || event.metaKey) && event.key === 'Backspace') {
+            event.preventDefault();
+            deleteSelectedRows();
         } else if (!event.ctrlKey && !event.metaKey) {
             // Arrow key navigation
             let newRow = currentCell.row;
@@ -871,7 +1096,7 @@ const FabricTableTanStackClean = () => {
                 }
             }
         }
-    }, [copySelectedCells, fillDown, fillRight, currentCell, filteredData.length, columns.length, selectionRange]);
+    }, [copySelectedCells, pasteFromClipboard, fillDown, fillRight, clearCellContents, deleteSelectedRows, currentCell, filteredData.length, columns.length, selectionRange]);
 
     // Table instance
     const table = useReactTable({
@@ -967,6 +1192,21 @@ const FabricTableTanStackClean = () => {
                             📋 Copy ({selectedCells.size})
                         </button>
                         <button
+                            onClick={pasteFromClipboard}
+                            disabled={selectedCells.size === 0}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: selectedCells.size > 0 ? '#9c27b0' : '#ccc',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: selectedCells.size > 0 ? 'pointer' : 'not-allowed',
+                                fontSize: '14px'
+                            }}
+                        >
+                            📥 Paste
+                        </button>
+                        <button
                             onClick={fillDown}
                             disabled={selectedCells.size <= 1}
                             style={{
@@ -1010,26 +1250,55 @@ const FabricTableTanStackClean = () => {
                         >
                             ➕ Add New Row
                         </button>
-                        {hasChanges && (
-                            <button
-                                onClick={saveChanges}
-                                disabled={isLoading}
-                                style={{
-                                    padding: '8px 16px',
-                                    backgroundColor: isLoading ? '#6c757d' : '#28a745',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: isLoading ? 'not-allowed' : 'pointer',
-                                    fontSize: '14px',
-                                    fontWeight: 'bold'
-                                }}
-                            >
-                                {isLoading ? '⏳ Saving...' : '💾 Save Changes'}
-                            </button>
-                        )}
+                        <button
+                            onClick={clearCellContents}
+                            disabled={selectedCells.size === 0}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: selectedCells.size > 0 ? '#f39c12' : '#ccc',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: selectedCells.size > 0 ? 'pointer' : 'not-allowed',
+                                fontSize: '14px'
+                            }}
+                        >
+                            🗑️ Clear Cells
+                        </button>
+                        <button
+                            onClick={deleteSelectedRows}
+                            disabled={selectedCells.size === 0}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: selectedCells.size > 0 ? '#dc3545' : '#ccc',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: selectedCells.size > 0 ? 'pointer' : 'not-allowed',
+                                fontSize: '14px'
+                            }}
+                        >
+                            🗑️ Delete Rows
+                        </button>
+                        <button
+                            onClick={saveChanges}
+                            disabled={!hasChanges || isLoading}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: isLoading ? '#6c757d' : (hasChanges ? '#28a745' : '#e0e0e0'),
+                                color: hasChanges ? 'white' : '#999',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: (!hasChanges || isLoading) ? 'not-allowed' : 'pointer',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                opacity: hasChanges ? 1 : 0.6
+                            }}
+                        >
+                            {isLoading ? '⏳ Saving...' : '💾 Save Changes'}
+                        </button>
                         <span style={{ fontSize: '12px', color: '#666' }}>
-                            Ctrl+C copy | Ctrl+D fill down | Ctrl+R fill right
+                            Ctrl+C copy | Ctrl+V paste | Ctrl+D fill down | Ctrl+R fill right | Del clear | Ctrl+Backspace delete rows
                         </span>
                     </div>
                 </div>
