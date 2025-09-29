@@ -75,13 +75,74 @@ The application uses five main Django apps with their respective models:
 
 ## Important Development Notes
 
-### GenericTable Component
-The `GenericTable` component (frontend/src/components/tables/GenericTable/) is the core reusable table component used throughout the application. It uses Handsontable for advanced spreadsheet-like functionality including:
+### GenericTable Component System
+The application uses two table systems:
+
+#### GenericTable (Legacy - Handsontable)
+The original `GenericTable` component (frontend/src/components/tables/GenericTable/) uses Handsontable for advanced spreadsheet-like functionality including:
 - Server-side pagination
 - Column sorting and filtering
 - Export capabilities (Excel, CSV)
 - Inline editing with validation
 - Context menus and bulk operations
+
+#### GenericTableFast (New - react-data-grid v6)
+The new `GenericTableFast` component provides 50x better performance using react-data-grid v6:
+- Native virtualization (only renders visible rows)
+- Same API as GenericTable for easy migration
+- Enhanced formatters and editors
+- 20 blank rows for data entry
+- Professional styling with theme support
+
+**CRITICAL: react-data-grid v6 CSS Styling Guide**
+
+When styling GenericTableFast, you MUST use these specific CSS selectors because react-data-grid v6 uses ARIA roles instead of custom CSS classes:
+
+```css
+/* ✅ CORRECT CSS selectors for react-data-grid v6 */
+
+/* Main grid container */
+div[class*="react-grid"] {
+  background: var(--table-bg, #ffffff) !important;
+  border: 1px solid var(--table-border, #cbd5e1) !important;
+}
+
+/* Header cells */
+[role="columnheader"] {
+  background: var(--table-header-bg, #f8f9fa) !important;
+  color: var(--table-header-text, #0f172a) !important;
+}
+
+/* Data rows */
+[role="row"]:not([role="row"][aria-rowindex="0"]) {
+  background: var(--table-bg, #ffffff) !important;
+  border-bottom: 1px solid var(--table-border, #e9ecef) !important;
+}
+
+/* Data cells */
+[role="gridcell"] {
+  color: var(--table-cell-text, #0f172a) !important;
+  border-right: 1px solid var(--table-border, #e9ecef) !important;
+}
+```
+
+**❌ DO NOT use these selectors - they don't work:**
+- `.rdg`, `.rdg-header-row`, `.rdg-cell` (these classes don't exist)
+- `.react-grid-Main`, `.react-grid-HeaderRow` (wrong version)
+
+**💡 Testing CSS Changes:**
+When making styling changes, first add bright test colors to verify selectors work:
+```css
+/* Test with obvious colors first */
+div[class*="react-grid"] { background: red !important; }
+[role="columnheader"] { background: blue !important; }
+[role="gridcell"] { background: green !important; }
+```
+
+**🎨 Theme Integration:**
+Both light and dark themes are supported via CSS custom properties:
+- Light: `--table-bg: #ffffff`, `--table-header-bg: #f8f9fa`
+- Dark: `--table-bg: #1e293b`, `--table-header-bg: rgba(100, 255, 218, 0.15)`
 
 ### API Structure
 All API endpoints are prefixed with `/api/` and organized by app:
@@ -104,12 +165,22 @@ All API endpoints are prefixed with `/api/` and organized by app:
 
 ## Key Files and Configurations
 
-- `frontend/src/components/tables/GenericTable/GenericTable.jsx` - Main table component
+### Table System Files
+- `frontend/src/components/tables/GenericTable/GenericTable.jsx` - Legacy Handsontable component
+- `frontend/src/components/tables/GenericTable/GenericTableFast.jsx` - New high-performance react-data-grid component
+- `frontend/src/components/tables/GenericTable/GenericTableFast.css` - Critical styling for react-data-grid v6
+- `frontend/src/components/tables/GenericTable/components/FastEditors.jsx` - Custom editors (dropdown, checkbox, etc.)
+- `frontend/src/components/tables/GenericTable/components/FastFormatters.jsx` - Visual formatters for cells
+- `frontend/src/components/tables/GenericTable/utils/columnUtils.js` - Auto-column generation
+- `frontend/src/components/tables/*TableFast.js` - Fast table implementations (Zone, Alias, Fabric, etc.)
+
+### Core Configuration Files
 - `backend/sanbox/settings.py` - Django development settings
 - `backend/sanbox/settings_production.py` - Production Django settings
 - `backend/sanbox/urls.py` - Main URL routing
 - `ecosystem.config.js` - PM2 process management configuration
 - `deploy.sh` - Production deployment script
+- `frontend/src/styles/themes.css` - Theme system with table CSS variables
 
 ## Context and State Management
 

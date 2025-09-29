@@ -38,18 +38,34 @@ const StatsContainer = ({
         </>
       ) : (
         <>
-          {/* Regular stats */}
+          {/* Client-side pagination stats */}
           <div className="stat-item">
             <span className="stat-label">Total</span>
-            <span className="stat-value">{totalRows}</span>
+            <span className="stat-value">{pagination?.totalRows || totalRows}</span>
           </div>
           
           {pagination && pagination.pageSize !== "All" && (
             <>
               <div className="stat-divider"></div>
               <div className="stat-item">
+                <span className="stat-label">Page</span>
+                <span className="stat-value">{pagination.currentPage} of {pagination.totalPages}</span>
+              </div>
+              
+              <div className="stat-divider"></div>
+              <div className="stat-item">
                 <span className="stat-label">Showing</span>
-                <span className="stat-value">{displayedRows}</span>
+                <span className="stat-value">{pagination.endRow - pagination.startRow + 1}</span>
+              </div>
+            </>
+          )}
+          
+          {pagination && pagination.filteredRows && pagination.filteredRows !== pagination.totalRows && (
+            <>
+              <div className="stat-divider"></div>
+              <div className="stat-item">
+                <span className="stat-label">Filtered</span>
+                <span className="stat-value">{pagination.filteredRows}</span>
               </div>
             </>
           )}

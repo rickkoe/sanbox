@@ -61,21 +61,21 @@ const AliasTableFast = () => {
       try {
         // Load fabrics
         const fabricsResponse = await axios.get(
-          `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`
+          `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}&page_size=10000`
         );
         const fabricsArray = fabricsResponse.data.results || fabricsResponse.data;
         setFabricOptions(fabricsArray.map((f) => f.name));
 
         // Load hosts
         const hostsResponse = await axios.get(
-          `${API_ENDPOINTS.hosts}${activeProjectId}/`
+          `${API_ENDPOINTS.hosts}${activeProjectId}/?page_size=10000`
         );
         const hostsArray = hostsResponse.data.results || hostsResponse.data;
         setHostOptions(hostsArray.map((h) => h.name));
 
         // Load storage systems
         const storageResponse = await axios.get(
-          `${API_ENDPOINTS.storages}?customer_id=${activeCustomerId}`
+          `${API_ENDPOINTS.storages}?customer_id=${activeCustomerId}&page_size=10000`
         );
         const storageArray = storageResponse.data.results || storageResponse.data;
         setStorageOptions(storageArray.map((s) => s.name));

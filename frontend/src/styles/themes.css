@@ -163,7 +163,7 @@
   
   /* Tables - Sharp monochrome design */
   --table-bg: #ffffff;
-  --table-header-bg: #ffffff;
+  --table-header-bg: #f8f9fa;
   --table-header-text: var(--primary-text);
   --table-border: #cbd5e1;
   --table-row-hover: rgba(15, 23, 42, 0.04);

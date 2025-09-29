@@ -8,6 +8,7 @@ import {
   generateServerFilters 
 } from '../utils/columnFilterUtils';
 import './AdvancedFilter.css';
+import '../GenericTableFast.css'; // Import action-btn styles
 
 const AdvancedFilter = ({
   columns,
@@ -444,6 +445,21 @@ const AdvancedFilter = ({
 
   return (
     <div className="advanced-filter-container">
+      {/* Advanced Filter Button */}
+      <button
+        ref={filterButtonRef}
+        onClick={handleFilterToggle}
+        className={`action-btn action-btn-secondary advanced-filter-button ${activeFilterCount > 0 ? 'has-filters' : ''}`}
+        title="Advanced filters"
+      >
+        <Filter size={16} />
+        <span className="filter-text">Filters</span>
+        {activeFilterCount > 0 && (
+          <span className="filter-count">{activeFilterCount}</span>
+        )}
+        {showFilterDropdown ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+
       {/* Collapsible Search */}
       <div 
         ref={searchContainerRef}
@@ -454,10 +470,10 @@ const AdvancedFilter = ({
           // Collapsed state: just the magnifying glass
           <button
             onClick={handleSearchIconClick}
-            className="search-toggle-btn"
+            className="action-btn action-btn-secondary search-toggle-btn"
             title="Search"
           >
-            <Search size={18} />
+            <Search size={28} />
           </button>
         ) : (
           // Expanded state: full search input
@@ -476,7 +492,7 @@ const AdvancedFilter = ({
             {searchInputValue && (
               <button
                 onClick={handleSearchClear}
-                className="search-clear"
+                className="action-btn action-btn-secondary search-clear"
                 title="Clear search"
               >
                 <X size={14} />
@@ -485,21 +501,6 @@ const AdvancedFilter = ({
           </>
         )}
       </div>
-
-      {/* Advanced Filter Button */}
-      <button
-        ref={filterButtonRef}
-        onClick={handleFilterToggle}
-        className={`advanced-filter-button ${activeFilterCount > 0 ? 'has-filters' : ''}`}
-        title="Advanced filters"
-      >
-        <Filter size={16} />
-        <span className="filter-text">Filters</span>
-        {activeFilterCount > 0 && (
-          <span className="filter-count">{activeFilterCount}</span>
-        )}
-        {showFilterDropdown ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
 
       {/* Filter Dropdown */}
       {showFilterDropdown && createPortal(

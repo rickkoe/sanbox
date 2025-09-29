@@ -2,10 +2,7 @@ import React, { useContext, useState, useEffect, useRef, useMemo, useCallback } 
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useSettings } from "../../context/SettingsContext";
-import { useNavigate } from "react-router-dom";
 import GenericTableFast from "./GenericTable/GenericTableFast";
-import CustomNamingApplier from "../naming/CustomNamingApplier";
-import { getTextColumns } from "../../utils/tableNamingUtils";
 
 // API endpoints
 const API_URL = process.env.REACT_APP_API_URL || "";
@@ -37,14 +34,12 @@ const NEW_ZONE_TEMPLATE = {
 const ZoneTableFast = () => {
   const { config } = useContext(ConfigContext);
   const { settings } = useSettings();
-  const navigate = useNavigate();
   const tableRef = useRef(null);
   
   // State for dropdown sources
   const [fabricOptions, setFabricOptions] = useState([]);
   const [memberOptions, setMemberOptions] = useState([]);
   const [memberCount, setMemberCount] = useState(20);
-  const [selectedRows, setSelectedRows] = useState([]);
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -57,7 +52,7 @@ const ZoneTableFast = () => {
       try {
         // Load fabrics
         const fabricsResponse = await axios.get(
-          `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`
+          `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}&page_size=10000`
         );
         const fabricsArray = fabricsResponse.data.results || fabricsResponse.data;
         const processedFabrics = fabricsArray.map((f) => ({ id: f.id, name: f.name }));
@@ -278,105 +273,26 @@ const ZoneTableFast = () => {
     return sources;
   }, [fabricOptions, memberOptions, memberCount]);
 
-  // Get available text columns for naming
-  const availableTextColumns = useMemo(() => {
-    const baseTextColumns = getTextColumns([
-      { data: "name", title: "Name" },
-      { data: "notes", title: "Notes" }
-    ]);
-    
-    // Add member columns
-    const memberTextColumns = [];
-    for (let i = 1; i <= memberCount; i++) {
-      memberTextColumns.push({
-        key: `member_${i}`,
-        label: `Member ${i}`
-      });
-    }
-    
-    return [...baseTextColumns, ...memberTextColumns];
-  }, [memberCount]);
-
-  // Handle selection changes - this will be called by our table controls
-  const handleSelectionChange = useCallback((selectedRowObjects) => {
-    console.log('ZoneTableFast: Selection changed:', selectedRowObjects);
-    setSelectedRows(selectedRowObjects);
-  }, []);
-
-  // Handle applying custom naming
-  const handleApplyNaming = useCallback((updatedRows, rule) => {
-    if (!tableRef.current) return;
-
-    // Update the table data directly through the ref
-    updatedRows.forEach(updatedRow => {
-      // The GenericTableFast component will handle the updates internally
-      console.log(`Applied naming rule "${rule.name}" to zone:`, updatedRow.name);
-    });
-
-    // Clear selection after applying
-    setSelectedRows([]);
-  }, []);
 
   // Add member column
   const handleAddColumn = useCallback(() => {
     setMemberCount(prev => prev + 1);
   }, []);
 
-  // Additional buttons config
-  const additionalButtonsConfig = useMemo(() => [
+  // Column actions for the dropdown
+  const columnActions = useMemo(() => [
     {
-      text: "Generate Zone Creation Scripts",
+      text: "Add Member Column",
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14,2 14,8 20,8" />
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       ),
-      onClick: () => {
-        if (tableRef.current?.isDirty) {
-          if (window.confirm("You have unsaved changes. Save before generating scripts?")) {
-            tableRef.current.save().then(() => navigate("/san/zones/zone-creation-scripts"));
-          }
-        } else {
-          navigate("/san/zones/zone-creation-scripts");
-        }
-      },
+      onClick: handleAddColumn,
     },
-    {
-      text: "Generate Deletion Scripts",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-          <line x1="10" y1="11" x2="10" y2="17"/>
-          <line x1="14" y1="11" x2="14" y2="17"/>
-        </svg>
-      ),
-      onClick: () => {
-        if (tableRef.current?.isDirty) {
-          if (window.confirm("You have unsaved changes. Save before generating deletion scripts?")) {
-            tableRef.current.save().then(() => navigate("/san/zones/zone-deletion-scripts"));
-          }
-        } else {
-          navigate("/san/zones/zone-deletion-scripts");
-        }
-      },
-    },
-    {
-      text: "Bulk Import",
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14,2 14,8 20,8" />
-          <path d="M16 13H8" />
-          <path d="M16 17H8" />
-          <path d="M10 9H8" />
-        </svg>
-      ),
-      onClick: () => navigate("/san/bulk-import"),
-    },
-  ], [navigate]);
+  ], [handleAddColumn]);
+
 
   if (!activeProjectId) {
     return (
@@ -404,42 +320,6 @@ const ZoneTableFast = () => {
         }
         height="600px"
       />
-      
-      {/* Table Controls */}
-      <div className="table-controls mt-3 d-flex gap-2 flex-wrap">
-        <CustomNamingApplier
-          tableName="zones"
-          selectedRows={selectedRows}
-          onApplyNaming={handleApplyNaming}
-          customerId={activeCustomerId}
-          targetColumn={availableTextColumns.length === 1 ? availableTextColumns[0].key : null}
-          availableColumns={availableTextColumns}
-        />
-        
-        <button
-          className="btn btn-outline-secondary"
-          onClick={handleAddColumn}
-          title="Add Member Column"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Add Member Column
-        </button>
-        
-        {additionalButtonsConfig.map((button, index) => (
-          <button
-            key={index}
-            className="btn btn-outline-primary"
-            onClick={button.onClick}
-            title={button.text}
-          >
-            {button.icon}
-            {button.text}
-          </button>
-        ))}
-      </div>
     </div>
   );
 };
