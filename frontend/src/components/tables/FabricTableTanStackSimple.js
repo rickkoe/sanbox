@@ -29,6 +29,10 @@ const FabricTableTanStackSimple = () => {
     const [globalFilter, setGlobalFilter] = useState('');
     const [fillPreview, setFillPreview] = useState(null);
 
+    // State for editing
+    const [editableData, setEditableData] = useState([]);
+    const [hasChanges, setHasChanges] = useState(false);
+
     // API URL for fabric data
     const fabricsApiUrl = useMemo(() => {
         if (customerId) {
@@ -89,6 +93,100 @@ const FabricTableTanStackSimple = () => {
     // Use server data if available, otherwise use sample data
     const tableData = fabricData.length > 0 ? fabricData : sampleData;
 
+    // Initialize editable data when server data changes
+    useEffect(() => {
+        if (tableData.length > 0) {
+            setEditableData([...tableData]);
+        }
+    }, [tableData]);
+
+    // Use editable data for the table if it exists, otherwise use original
+    const currentTableData = editableData.length > 0 ? editableData : tableData;
+
+    // Dropdown cell component for vendor selection
+    const VendorDropdownCell = ({ getValue, row, column, table }) => {
+        const initialValue = getValue();
+        const [value, setValue] = useState(initialValue);
+
+        const handleChange = (e) => {
+            const newValue = e.target.value;
+            setValue(newValue);
+
+            // Update the editable data
+            const rowIndex = row.index;
+            const newData = [...editableData];
+            newData[rowIndex] = {
+                ...newData[rowIndex],
+                [column.columnDef.accessorKey]: newValue
+            };
+            setEditableData(newData);
+            setHasChanges(true);
+
+            console.log(`📝 Updated ${column.columnDef.header} for row ${rowIndex} to: ${newValue}`);
+        };
+
+        return (
+            <select
+                value={value || ''}
+                onChange={handleChange}
+                style={{
+                    width: '100%',
+                    border: 'none',
+                    background: 'transparent',
+                    fontSize: '14px',
+                    padding: '2px',
+                    outline: 'none',
+                    cursor: 'pointer'
+                }}
+            >
+                <option value="">Select Vendor</option>
+                {vendorOptions.map(vendor => (
+                    <option key={vendor.code} value={vendor.name}>
+                        {vendor.name}
+                    </option>
+                ))}
+            </select>
+        );
+    };
+
+    // Checkbox cell component for exists field
+    const ExistsCheckboxCell = ({ getValue, row, column, table }) => {
+        const initialValue = Boolean(getValue());
+        const [checked, setChecked] = useState(initialValue);
+
+        const handleChange = (e) => {
+            const newValue = e.target.checked;
+            setChecked(newValue);
+
+            // Update the editable data
+            const rowIndex = row.index;
+            const newData = [...editableData];
+            newData[rowIndex] = {
+                ...newData[rowIndex],
+                [column.columnDef.accessorKey]: newValue
+            };
+            setEditableData(newData);
+            setHasChanges(true);
+
+            console.log(`📝 Updated ${column.columnDef.header} for row ${rowIndex} to: ${newValue ? 'checked' : 'unchecked'}`);
+        };
+
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={handleChange}
+                    style={{
+                        cursor: 'pointer',
+                        transform: 'scale(1.2)',
+                        margin: 0
+                    }}
+                />
+            </div>
+        );
+    };
+
     // Table columns - define this before functions that use it
     const columns = useMemo(() => [
         {
@@ -99,7 +197,8 @@ const FabricTableTanStackSimple = () => {
         {
             accessorKey: 'san_vendor',
             header: 'Vendor',
-            size: 100,
+            size: 120,
+            cell: VendorDropdownCell,
         },
         {
             accessorKey: 'zoneset_name',
@@ -115,11 +214,7 @@ const FabricTableTanStackSimple = () => {
             accessorKey: 'exists',
             header: 'Exists',
             size: 80,
-            cell: ({ getValue }) => (
-                <span style={{ color: getValue() ? '#28a745' : '#dc3545', fontWeight: 'bold' }}>
-                    {getValue() ? '✓' : '✗'}
-                </span>
-            ),
+            cell: ExistsCheckboxCell,
         },
         {
             accessorKey: 'notes',
@@ -130,36 +225,52 @@ const FabricTableTanStackSimple = () => {
 
     // Filter data based on global search - define before functions that use it
     const filteredData = useMemo(() => {
-        if (!globalFilter) return tableData;
+        if (!globalFilter) return currentTableData;
 
-        return tableData.filter(row =>
+        return currentTableData.filter(row =>
             Object.values(row).some(value =>
                 String(value).toLowerCase().includes(globalFilter.toLowerCase())
             )
         );
-    }, [tableData, globalFilter]);
+    }, [currentTableData, globalFilter]);
 
     // Excel-like functions
     const copySelectedCells = useCallback(() => {
         if (selectedCells.size === 0) return;
 
-        const cellValues = Array.from(selectedCells).map(cellKey => {
+        // Group cells by row and column for proper 2D formatting
+        const cellMap = new Map();
+        Array.from(selectedCells).forEach(cellKey => {
             const [rowIndex, colIndex] = cellKey.split('-').map(Number);
-            const row = tableData[rowIndex];
+            const row = currentTableData[rowIndex];
             const column = columns[colIndex];
+
             if (row && column) {
-                return row[column.accessorKey] || '';
+                if (!cellMap.has(rowIndex)) {
+                    cellMap.set(rowIndex, new Map());
+                }
+                cellMap.get(rowIndex).set(colIndex, row[column.accessorKey] || '');
             }
-            return '';
         });
 
-        const textData = cellValues.join('\t'); // Tab-separated for Excel compatibility
+        // Convert to 2D array format for proper Excel pasting
+        const sortedRows = Array.from(cellMap.keys()).sort((a, b) => a - b);
+        const textRows = sortedRows.map(rowIndex => {
+            const rowMap = cellMap.get(rowIndex);
+            const sortedCols = Array.from(rowMap.keys()).sort((a, b) => a - b);
+            return sortedCols.map(colIndex => rowMap.get(colIndex)).join('\t');
+        });
+
+        // Join rows with newlines for proper Excel row structure
+        const textData = textRows.join('\n');
+
         navigator.clipboard.writeText(textData).then(() => {
-            console.log('📋 Copied to clipboard:', cellValues.length, 'cells');
+            console.log('📋 Copied to clipboard:', selectedCells.size, 'cells in', textRows.length, 'rows');
+            console.log('Data preview:', textData.substring(0, 100) + (textData.length > 100 ? '...' : ''));
         }).catch(err => {
             console.error('Copy failed:', err);
         });
-    }, [selectedCells, tableData, columns]);
+    }, [selectedCells, currentTableData, columns]);
 
     const handleCellClick = useCallback((rowIndex, colIndex, event) => {
         const cellKey = `${rowIndex}-${colIndex}`;
@@ -207,7 +318,7 @@ const FabricTableTanStackSimple = () => {
         const cellKeys = Array.from(selectedCells).sort();
         const firstCellKey = cellKeys[0];
         const [firstRowIndex, firstColIndex] = firstCellKey.split('-').map(Number);
-        const sourceValue = tableData[firstRowIndex]?.[columns[firstColIndex]?.accessorKey];
+        const sourceValue = currentTableData[firstRowIndex]?.[columns[firstColIndex]?.accessorKey];
         const columnName = columns[firstColIndex]?.header;
 
         if (sourceValue === undefined || sourceValue === null) return;
@@ -237,7 +348,7 @@ const FabricTableTanStackSimple = () => {
         //     updatedData[rowIndex][columns[firstColIndex].accessorKey] = sourceValue;
         // });
         // setTableData(updatedData);
-    }, [selectedCells, tableData, columns]);
+    }, [selectedCells, currentTableData, columns]);
 
     // Fill right operation - copy value from leftmost selected cell to others
     const fillRight = useCallback(() => {
@@ -246,7 +357,7 @@ const FabricTableTanStackSimple = () => {
         const cellKeys = Array.from(selectedCells).sort();
         const firstCellKey = cellKeys[0];
         const [firstRowIndex, firstColIndex] = firstCellKey.split('-').map(Number);
-        const sourceValue = tableData[firstRowIndex]?.[columns[firstColIndex]?.accessorKey];
+        const sourceValue = currentTableData[firstRowIndex]?.[columns[firstColIndex]?.accessorKey];
         const columnName = columns[firstColIndex]?.header;
 
         if (sourceValue === undefined || sourceValue === null) return;
@@ -270,7 +381,7 @@ const FabricTableTanStackSimple = () => {
         }, 3000);
 
         // In a real editable implementation, this would update the actual data across columns
-    }, [selectedCells, tableData, columns]);
+    }, [selectedCells, currentTableData, columns]);
 
     const handleKeyDown = useCallback((event) => {
         const maxRows = filteredData.length - 1;
@@ -411,8 +522,9 @@ const FabricTableTanStackSimple = () => {
                 <p style={{ margin: 0, fontSize: '14px' }}>
                     Customer: {config?.customer?.name || 'Not available'} |
                     Data Source: {fabricData.length > 0 ? 'Server API' : 'Sample'} |
-                    Rows: {tableData.length} |
+                    Rows: {currentTableData.length} |
                     Columns: {columns.length}
+                    {hasChanges && <span style={{ color: '#ffc107', fontWeight: 'bold' }}> | 📝 UNSAVED CHANGES</span>}
                 </p>
                 {error && (
                     <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#dc3545' }}>
@@ -494,6 +606,26 @@ const FabricTableTanStackSimple = () => {
                         >
                             ➡️ Fill Right
                         </button>
+                        {hasChanges && (
+                            <button
+                                onClick={() => {
+                                    setHasChanges(false);
+                                    console.log('💾 Data saved! Changes:', editableData);
+                                }}
+                                style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: '#28a745',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                💾 Save Changes
+                            </button>
+                        )}
                         <span style={{ fontSize: '12px', color: '#666' }}>
                             Ctrl+C copy | Ctrl+D fill down | Ctrl+R fill right
                         </span>
@@ -628,6 +760,8 @@ const FabricTableTanStackSimple = () => {
                             <li>✅ Tab/Shift+Tab navigation</li>
                             <li>✅ Copy/paste operations</li>
                             <li>✅ Fill down/right operations</li>
+                            <li>✅ Dropdown editing (Vendor column)</li>
+                            <li>✅ Checkbox editing (Exists column)</li>
                         </ul>
                     </div>
                 </div>
@@ -643,11 +777,13 @@ const FabricTableTanStackSimple = () => {
                         <li><strong>Search:</strong> Type "cisco" or "prod" in search box</li>
                         <li><strong>Sort:</strong> Click column headers (Name, Vendor, etc.)</li>
                         <li><strong>Cell Selection:</strong> Click cells (yellow = active, blue = selected)</li>
+                        <li><strong>Dropdown Editing:</strong> Change vendor values using dropdown</li>
+                        <li><strong>Checkbox Editing:</strong> Toggle exists status by clicking checkboxes</li>
+                        <li><strong>Save Changes:</strong> Make edits, then click Save Changes button</li>
                         <li><strong>Multi-select:</strong> Ctrl+click or Shift+click for ranges</li>
                         <li><strong>Navigation:</strong> Arrow keys, Tab/Shift+Tab, Enter</li>
                         <li><strong>Copy:</strong> Ctrl+C or Copy button, paste to Excel/Notepad</li>
                         <li><strong>Fill Operations:</strong> Select range, Ctrl+D (down) or Ctrl+R (right)</li>
-                        <li><strong>Range Selection:</strong> Click and Shift+arrow keys</li>
                     </ol>
                 </div>
 
