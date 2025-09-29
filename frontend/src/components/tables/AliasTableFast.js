@@ -23,15 +23,12 @@ const NEW_ALIAS_TEMPLATE = {
   wwpn: "",
   use: "",
   fabric: "",
-  fabric_details: { name: "" },
   host: "",
-  host_details: { name: "" },
   storage: "",
-  storage_details: { name: "" },
-  cisco_alias: false,
+  cisco_alias: "",
   create: false,
   delete: false,
-  include_in_zoning: true,
+  include_in_zoning: false,
   logged_in: false,
   zoned_count: 0,
   imported: null,
@@ -64,21 +61,21 @@ const AliasTableFast = () => {
           `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}&page_size=10000`
         );
         const fabricsArray = fabricsResponse.data.results || fabricsResponse.data;
-        setFabricOptions(fabricsArray.map((f) => f.name));
+        setFabricOptions(fabricsArray); // Keep full objects
 
         // Load hosts
         const hostsResponse = await axios.get(
           `${API_ENDPOINTS.hosts}${activeProjectId}/?page_size=10000`
         );
         const hostsArray = hostsResponse.data.results || hostsResponse.data;
-        setHostOptions(hostsArray.map((h) => h.name));
+        setHostOptions(hostsArray); // Keep full objects
 
         // Load storage systems
         const storageResponse = await axios.get(
           `${API_ENDPOINTS.storages}?customer_id=${activeCustomerId}&page_size=10000`
         );
         const storageArray = storageResponse.data.results || storageResponse.data;
-        setStorageOptions(storageArray.map((s) => s.name));
+        setStorageOptions(storageArray); // Keep full objects
       } catch (error) {
         console.error("Error loading dropdown data:", error);
       }
@@ -106,10 +103,24 @@ const AliasTableFast = () => {
     const storageId = storageOptions.find((s) => s.name === row.storage)?.id;
 
     const payload = { ...row };
-    delete payload.saved;
     
-    // Handle boolean fields
-    const booleanFields = ['cisco_alias', 'create', 'delete', 'include_in_zoning', 'logged_in'];
+    // Clean up internal fields
+    delete payload.saved;
+    delete payload.fabric_details;
+    delete payload.host_details; 
+    delete payload.storage_details;
+    delete payload.zoned_count;
+    delete payload._id;
+    delete payload._isNew;
+    
+    // Handle required fields - ensure we don't send null/undefined values
+    payload.name = payload.name || "";
+    payload.wwpn = payload.wwpn || "";
+    payload.use = payload.use || "";
+    payload.notes = payload.notes || "";
+    
+    // Handle boolean fields - convert "unknown" values to default False
+    const booleanFields = ['create', 'delete', 'include_in_zoning', 'logged_in'];
     booleanFields.forEach(field => {
       if (payload[field] === 'unknown' || payload[field] === undefined || payload[field] === null || payload[field] === '') {
         payload[field] = false;
@@ -117,22 +128,41 @@ const AliasTableFast = () => {
         payload[field] = payload[field].toLowerCase() === 'true';
       }
     });
+    
+    // Handle cisco_alias - it's a choice field, not boolean
+    if (payload.cisco_alias === undefined || payload.cisco_alias === null) {
+      payload.cisco_alias = "";
+    }
 
-    return {
+    // Only include fabric/host/storage if they have valid values
+    const result = {
       ...payload,
       projects: [activeProjectId],
-      fabric: fabricId,
-      host: hostId,
-      storage: storageId,
+      fabric: fabricId || null,
+      host: hostId || null,
+      storage: storageId || null,
     };
+    
+    // Remove null foreign key references to avoid validation errors
+    if (!result.fabric) delete result.fabric;
+    if (!result.host) delete result.host;  
+    if (!result.storage) delete result.storage;
+    
+    return result;
   }, [fabricOptions, hostOptions, storageOptions, activeProjectId]);
 
   // Save handler
-  const handleSave = async (unsavedData) => {
+  const handleSave = async (processedData) => {
     try {
-      const payload = unsavedData
-        .filter((alias) => alias.id || (alias.name && alias.name.trim() !== ""))
-        .map(buildPayload);
+      // Filter out truly empty rows - must have name at minimum
+      const payload = processedData.filter((alias) => {
+        // Keep existing aliases with IDs
+        if (alias.id) return true;
+        
+        // For new aliases, require at least a name
+        return alias.name && alias.name.trim() !== "";
+      });
+
 
       await axios.post(API_ENDPOINTS.aliasSave, {
         project_id: activeProjectId,
@@ -144,7 +174,7 @@ const AliasTableFast = () => {
       console.error("Error saving aliases:", error);
       return {
         success: false,
-        message: `Error: ${error.response?.data?.message || error.message}`,
+        message: `Error: ${error.response?.data?.error || error.response?.data?.message || error.message}`,
       };
     }
   };
@@ -173,11 +203,11 @@ const AliasTableFast = () => {
 
   // Create dropdown sources
   const dropdownSources = useMemo(() => ({
-    fabric: fabricOptions,
-    host: hostOptions,
-    storage: storageOptions,
-    use: ["host", "storage", "target", "initiator", "other"],
-    cisco_alias: ["true", "false"],
+    fabric: fabricOptions.map(f => f.name),
+    host: hostOptions.map(h => h.name),
+    storage: storageOptions.map(s => s.name),
+    use: ["init", "target", "both"],
+    cisco_alias: ["device-alias", "fcalias", "wwpn"],
     create: ["true", "false"],
     delete: ["true", "false"],
     include_in_zoning: ["true", "false"],

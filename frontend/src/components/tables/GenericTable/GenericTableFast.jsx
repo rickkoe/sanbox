@@ -233,7 +233,9 @@ const GenericTableFast = forwardRef((props, ref) => {
 
   // Save handler
   const handleSave = useCallback(async () => {
-    if (!isDirty || (!onSave && !saveUrl)) return;
+    if (!isDirty || (!onSave && !saveUrl)) {
+      return;
+    }
     
     try {
       setLoading(true);
@@ -250,6 +252,8 @@ const GenericTableFast = forwardRef((props, ref) => {
       if (onBuildPayload) {
         dataToSave = dataToSave.map(row => onBuildPayload(row));
       }
+      
+      console.log('Final payload to be sent:', JSON.stringify(dataToSave.slice(0, 2), null, 2)); // Show first 2 items
 
       if (beforeSave) {
         const validation = await beforeSave(dataToSave);
@@ -361,10 +365,10 @@ const GenericTableFast = forwardRef((props, ref) => {
   const selectedRowCount = Object.keys(rowSelection).length;
 
   return (
-    <div className={`generic-table-fast ${className} theme-${theme}`} style={{ height }}>
+    <div className={`generic-table-fast ${className} theme-${theme}`} style={{ height, display: 'flex', flexDirection: 'column' }}>
       {/* Action Buttons */}
       {((onSave || saveUrl) || (onDelete || deleteUrl) || getExportFilename) && (
-        <div className="table-action-controls d-flex gap-2 align-items-center px-3 py-2 bg-light border-bottom">
+        <div className="table-action-controls d-flex gap-2 align-items-center px-3 py-2 bg-light border-bottom" style={{ flexShrink: 0 }}>
           {(onSave || saveUrl) && (
             <button 
               className={`btn btn-sm ${isDirty ? 'btn-primary' : 'btn-outline-secondary'}`}
@@ -425,16 +429,16 @@ const GenericTableFast = forwardRef((props, ref) => {
           <div className="ms-auto d-flex align-items-center gap-2">
             {loading && <div className="spinner-border spinner-border-sm" />}
             <span className="text-muted small">
-              Page {pagination.pageIndex + 1} of {table.getPageCount()} • {data.filter(row => !row._isNew).length} rows
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()} • {data.filter(row => !row._isNew).length} rows
             </span>
           </div>
         </div>
       )}
 
       {/* Table */}
-      <div className="table-responsive" style={{ flex: 1, overflow: 'auto' }}>
+      <div className="table-responsive" style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         <table className={`table table-striped table-hover table-sm mb-0 table-${theme}`}>
-          <thead>
+          <thead className="table-header-sticky">
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => (
@@ -447,7 +451,10 @@ const GenericTableFast = forwardRef((props, ref) => {
                       fontWeight: '600',
                       fontSize: '14px',
                       padding: '12px 8px',
-                      cursor: header.column.getCanSort() ? 'pointer' : 'default'
+                      cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 10
                     }}
                     onClick={header.column.getToggleSortingHandler()}
                   >
@@ -495,8 +502,8 @@ const GenericTableFast = forwardRef((props, ref) => {
         </table>
       </div>
       
-      {/* Pagination */}
-      <div className="table-pagination-footer d-flex justify-content-between align-items-center p-3 bg-light border-top">
+      {/* Pagination Footer */}
+      <div className="table-pagination-footer d-flex justify-content-between align-items-center p-3 bg-light border-top" style={{ flexShrink: 0 }}>
         <div className="d-flex align-items-center gap-2">
           <span className="text-muted small">Show:</span>
           <select

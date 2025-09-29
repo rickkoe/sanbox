@@ -21,9 +21,9 @@ const NEW_ZONE_TEMPLATE = {
   name: "",
   fabric: "",
   member_count: 0,
-  create: false,
-  delete: false,
-  exists: false,
+  create: "false",
+  delete: "false",
+  exists: "false",
   zone_type: "",
   notes: "",
   imported: null,
@@ -176,13 +176,16 @@ const ZoneTableFast = () => {
     for (let i = 1; i <= memberCount; i++) delete payload[`member_${i}`];
     delete payload.saved;
 
-    // Handle boolean fields
+    // Handle boolean fields - server expects lowercase string values
     const booleanFields = ['create', 'delete', 'exists'];
     booleanFields.forEach(field => {
       if (payload[field] === 'unknown' || payload[field] === undefined || payload[field] === null || payload[field] === '') {
-        payload[field] = false;
+        payload[field] = 'false';
+      } else if (typeof payload[field] === 'boolean') {
+        payload[field] = payload[field] ? 'true' : 'false';
       } else if (typeof payload[field] === 'string') {
-        payload[field] = payload[field].toLowerCase() === 'true';
+        const lowerValue = payload[field].toLowerCase();
+        payload[field] = (lowerValue === 'true' || lowerValue === '1') ? 'true' : 'false';
       }
     });
 
