@@ -270,10 +270,12 @@ const FabricTableTanStackClean = () => {
         }
     }, [editableData, hasChanges, customerId, fabricsApiUrl, vendorOptions, API_URL]);
 
-    // Dropdown cell component for vendor selection
+    // Searchable dropdown cell component for vendor selection
     const VendorDropdownCell = ({ getValue, row, column, table }) => {
         const initialValue = getValue();
         const [value, setValue] = useState(initialValue);
+        const [isOpen, setIsOpen] = useState(false);
+        const [searchText, setSearchText] = useState('');
 
         // Update local state when the underlying data changes (for fill operations)
         useEffect(() => {
@@ -283,33 +285,124 @@ const FabricTableTanStackClean = () => {
             }
         }, [getValue, value]);
 
-        const handleChange = (e) => {
-            const newValue = e.target.value;
-            setValue(newValue);
-            updateCellData(row.index, column.columnDef.accessorKey, newValue);
+        // Filter options based on search text
+        const filteredOptions = vendorOptions.filter(vendor =>
+            vendor.name.toLowerCase().includes(searchText.toLowerCase())
+        );
+
+        const handleInputChange = (e) => {
+            const newSearchText = e.target.value;
+            setSearchText(newSearchText);
+            setIsOpen(true);
+
+            // If exact match found, select it
+            const exactMatch = vendorOptions.find(vendor =>
+                vendor.name.toLowerCase() === newSearchText.toLowerCase()
+            );
+            if (exactMatch) {
+                setValue(exactMatch.name);
+                updateCellData(row.index, column.columnDef.accessorKey, exactMatch.name);
+            }
+        };
+
+        const handleOptionClick = (selectedVendor) => {
+            setValue(selectedVendor.name);
+            setSearchText('');
+            setIsOpen(false);
+            updateCellData(row.index, column.columnDef.accessorKey, selectedVendor.name);
+        };
+
+        const handleInputFocus = () => {
+            setIsOpen(true);
+            setSearchText('');
+        };
+
+        const handleInputBlur = () => {
+            // Delay closing to allow option clicks
+            setTimeout(() => {
+                setIsOpen(false);
+                setSearchText('');
+            }, 150);
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setIsOpen(false);
+                setSearchText('');
+            } else if (e.key === 'Enter' && filteredOptions.length === 1) {
+                handleOptionClick(filteredOptions[0]);
+            }
         };
 
         return (
-            <select
-                value={value || ''}
-                onChange={handleChange}
-                style={{
-                    width: '100%',
-                    border: 'none',
-                    background: 'transparent',
-                    fontSize: '14px',
-                    padding: '2px',
-                    outline: 'none',
-                    cursor: 'pointer'
-                }}
-            >
-                <option value="">Select Vendor</option>
-                {vendorOptions.map(vendor => (
-                    <option key={vendor.code} value={vendor.name}>
-                        {vendor.name}
-                    </option>
-                ))}
-            </select>
+            <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                    type="text"
+                    value={isOpen ? searchText : (value || '')}
+                    onChange={handleInputChange}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Select or type vendor..."
+                    style={{
+                        width: '100%',
+                        border: 'none',
+                        background: 'transparent',
+                        fontSize: '14px',
+                        padding: '2px 4px',
+                        outline: 'none',
+                        cursor: 'text'
+                    }}
+                />
+                {isOpen && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: 'white',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        zIndex: 1000,
+                        maxHeight: '150px',
+                        overflowY: 'auto'
+                    }}>
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map(vendor => (
+                                <div
+                                    key={vendor.code}
+                                    onClick={() => handleOptionClick(vendor)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        cursor: 'pointer',
+                                        borderBottom: '1px solid #eee',
+                                        fontSize: '14px',
+                                        backgroundColor: 'white'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.backgroundColor = '#f0f0f0';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.backgroundColor = 'white';
+                                    }}
+                                >
+                                    {vendor.name}
+                                </div>
+                            ))
+                        ) : (
+                            <div style={{
+                                padding: '8px 12px',
+                                fontSize: '14px',
+                                color: '#999',
+                                fontStyle: 'italic'
+                            }}>
+                                No vendors found
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
         );
     };
 
