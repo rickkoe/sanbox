@@ -25,7 +25,7 @@ const FabricTable = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config, loading: configLoading } = useContext(ConfigContext);
     const tableRef = useRef(null);
-    
+
     // Get customer ID early so it can be used in URLs
     const customerId = config?.customer?.id;
 
@@ -48,14 +48,14 @@ const FabricTable = () => {
     });
 
 
-    const NEW_FABRIC_TEMPLATE = { 
-        id: null, 
-        name: "", 
-        san_vendor: "", 
-        zoneset_name: "", 
-        vsan: "", 
-        exists: false, 
-        notes: "" 
+    const NEW_FABRIC_TEMPLATE = {
+        id: null,
+        name: "",
+        san_vendor: "",
+        zoneset_name: "",
+        vsan: "",
+        exists: false,
+        notes: ""
     };
 
     // API URL with customer filter for server pagination - reactive to customerId changes
@@ -68,7 +68,7 @@ const FabricTable = () => {
             return `${API_URL}/api/san/fabrics/`;
         }
     }, [customerId, API_URL]);
-    
+
     const fabricDeleteApiUrl = `${API_URL}/api/san/fabrics/delete/`;
 
     // No need for useMemo - we pass all columns to GenericTable and let it handle filtering
@@ -117,18 +117,18 @@ const FabricTable = () => {
         try {
             const errors = [];
             const successes = [];
-            
+
             for (const fabric of unsavedData) {
                 try {
                     const payload = { ...fabric };
                     delete payload.saved;
                     delete payload._isNew;
-                    
+
                     // Apply the same transformations as saveTransform
                     payload.customer = config?.customer?.id;
                     payload.san_vendor = vendorOptions.find(v => v.name === payload.san_vendor || v.code === payload.san_vendor)?.code || payload.san_vendor;
                     payload.vsan = payload.vsan === "" ? null : payload.vsan;
-                    
+
                     if (fabric.id) {
                         // Update existing fabric
                         const response = await axios.put(`${API_URL}/api/san/fabrics/${fabric.id}/`, payload);
@@ -147,24 +147,24 @@ const FabricTable = () => {
                     });
                 }
             }
-            
+
             if (errors.length > 0) {
                 const errorMessages = errors.map(e => `${e.fabric}: ${JSON.stringify(e.error)}`).join('\n');
-                return { 
-                    success: false, 
-                    message: `Errors saving fabrics:\n${errorMessages}` 
+                return {
+                    success: false,
+                    message: `Errors saving fabrics:\n${errorMessages}`
                 };
             }
-            
-            return { 
-                success: true, 
-                message: successes.length > 0 ? successes.join(', ') : 'No changes to save' 
+
+            return {
+                success: true,
+                message: successes.length > 0 ? successes.join(', ') : 'No changes to save'
             };
         } catch (error) {
             console.error('General save error:', error);
-            return { 
-                success: false, 
-                message: `Error: ${error.message}` 
+            return {
+                success: false,
+                message: `Error: ${error.message}`
             };
         }
     };
@@ -198,7 +198,7 @@ const FabricTable = () => {
                 colHeaders={ALL_COLUMNS.map(col => col.title)}
                 columns={ALL_COLUMNS.map(col => {
                     const column = { data: col.data };
-                    
+
                     // Add specific column configurations
                     if (col.data === "san_vendor") {
                         column.type = "dropdown";
@@ -210,7 +210,7 @@ const FabricTable = () => {
                         column.type = "checkbox";
                         column.className = "htCenter";
                     }
-                    
+
                     return column;
                 })}
                 customRenderers={customRenderers}

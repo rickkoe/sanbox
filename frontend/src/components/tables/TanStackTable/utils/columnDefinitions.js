@@ -49,10 +49,28 @@ export function createColumnDefinitions(
         const value = getValue();
         const cellConfig = getCellsConfig ? getCellsConfig(table, row.index, column.getIndex?.() || index, accessorKey) : {};
 
-        // Use custom renderer if available
+        // Use custom renderer if available (adapted for React)
         if (customRenderers[accessorKey] || customRenderers[headerName]) {
           const customRenderer = customRenderers[accessorKey] || customRenderers[headerName];
-          return customRenderer(value, row.original, row.index, column);
+
+          // For GenericTable compatibility, create a mock DOM element to capture the text
+          const mockTd = {
+            innerText: '',
+            innerHTML: '',
+            set innerText(text) { this._text = String(text); },
+            get innerText() { return this._text || ''; }
+          };
+
+          try {
+            // Call the custom renderer with GenericTable-style parameters
+            const result = customRenderer(null, mockTd, row.index, index, accessorKey, value);
+
+            // Return the text content that was set by the renderer
+            return <span>{mockTd.innerText || String(value || '')}</span>;
+          } catch (error) {
+            console.warn('Custom renderer error:', error);
+            return <span>{String(value || '')}</span>;
+          }
         }
 
         // Use type-specific cell component
