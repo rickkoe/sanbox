@@ -21,8 +21,8 @@
   grid-template-columns: 70px 1fr;
 }
 
-/* Responsive layout adjustments */
-@media (max-width: 1024px) {
+/* Responsive layout adjustments - match modern-sidebar widths */
+@media (max-width: 1200px) {
   .app-layout {
     grid-template-columns: 220px 1fr;
   }
@@ -123,7 +123,7 @@
 .main-content {
   grid-area: main-content;
   position: relative;
-  padding: 1rem;
+  padding: 0;
   background: var(--content-bg, #fff);
   color: var(--content-text, #212529);
   z-index: 2;

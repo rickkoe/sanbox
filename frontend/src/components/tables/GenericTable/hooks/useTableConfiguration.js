@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useCallback } from 'react';
+import { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { ConfigContext } from '../../../../context/ConfigContext';
 
@@ -14,7 +14,14 @@ export const useTableConfiguration = ({
   userId = null
 }) => {
   const { config } = useContext(ConfigContext);
-  const customerId = config?.customer?.id;
+  const customerId = useMemo(() => config?.customer?.id, [config?.customer?.id]); // Memoize to prevent unnecessary re-renders
+  
+  // console.log(`🔍 useTableConfiguration for ${tableName}:`, {
+  //   config,
+  //   customerId,
+  //   configLoaded: !!config,
+  //   customerLoaded: !!(config?.customer)
+  // });
 
   // Configuration state
   const [tableConfig, setTableConfig] = useState({
@@ -64,6 +71,8 @@ export const useTableConfiguration = ({
     try {
       const response = await axios.get(url);
       const config = response.data;
+      
+      console.log(`🔍 API Response for table configuration ${tableName}:`, response.data);
       
       // If we got an empty response, use defaults
       if (!config.visible_columns || config.visible_columns.length === 0) {
@@ -134,6 +143,7 @@ export const useTableConfiguration = ({
         ...newConfig
       };
 
+      console.log('💾 Saving table configuration payload:', JSON.stringify(payload, null, 2));
       await axios.post('/api/core/table-config/', payload);
       setTableConfig(newConfig);
       console.log(`💾 Saved table configuration for ${tableName}:`, newConfig);
@@ -235,14 +245,25 @@ export const useTableConfiguration = ({
 
   // Load configuration on mount or when dependencies change
   useEffect(() => {
-    if (customerId && tableName && colHeaders.length > 0) {
+    console.log(`🔍 useTableConfiguration effect triggered for ${tableName}:`, {
+      customerId, 
+      tableName, 
+      colHeadersLength: colHeaders.length,
+      isConfigLoaded,
+      hasConfig: !!config
+    });
+    
+    if (customerId && tableName) {
+      console.log(`📋 Loading configuration for table: ${tableName} with customer ${customerId}`);
       loadConfiguration();
     } else if (!tableName) {
       // If no tableName provided, just mark as loaded with defaults
       setIsConfigLoaded(true);
       setConfigError(true); // Treat as error so no API calls are made
+    } else if (!customerId) {
+      console.log(`⏳ Waiting for customer ID to load for table: ${tableName}`);
     }
-  }, [customerId, tableName, colHeaders.length]); // Remove loadConfiguration from dependencies to prevent infinite loop
+  }, [customerId, tableName]); // Remove config dependency to prevent re-renders on every cell edit
 
   return {
     tableConfig,

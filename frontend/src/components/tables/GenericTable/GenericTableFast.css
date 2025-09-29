@@ -4,12 +4,25 @@
 .generic-table-fast {
   display: flex;
   flex-direction: column;
-  min-height: 600px;
+  height: 100%;
   width: 100%;
   background: var(--table-bg, #ffffff);
+  border-radius: 0; /* Remove rounded corners for full-width layout */
+  box-shadow: none; /* Remove shadow for flush layout */
+  overflow: hidden;
+}
+
+/* Add back rounded corners and shadow only when not in main content */
+.main-content .generic-table-fast {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* For tables in other contexts, keep the original styling */
+.card .generic-table-fast,
+.modal .generic-table-fast {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
 }
 
 /* Action controls */
@@ -91,6 +104,17 @@
   width: 100%;
   font-size: 14px;
   line-height: 1.5;
+  table-layout: fixed; /* Force fixed layout for consistent column widths */
+}
+
+/* Ensure first column (checkbox) has proper width */
+.generic-table-fast table th:first-child,
+.generic-table-fast table td:first-child {
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+  text-align: center;
+  padding: 8px 4px;
 }
 
 /* Header styling */
@@ -310,23 +334,30 @@
 .table-pagination-footer {
   background: var(--table-header-bg, #f8f9fa);
   border-top: 1px solid var(--table-border, #dee2e6);
-  padding: 12px 16px;
+  padding: 2px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
-  min-height: 60px;
+  gap: 8px;
+  min-height: 24px;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .table-pagination-footer .form-select {
   width: auto;
   min-width: 80px;
+  padding: 1px 8px;
+  font-size: 14px;
+  height: auto;
 }
 
 .table-pagination-footer .btn {
   font-size: 14px;
   min-width: 40px;
+  padding: 1px 8px;
+  height: auto;
 }
 
 .table-pagination-footer .text-muted {
@@ -427,6 +458,7 @@
 .theme-dark .table-pagination-footer {
   background: var(--table-header-bg, rgba(100, 255, 218, 0.15));
   border-top: 1px solid var(--table-border, rgba(255, 255, 255, 0.2));
+  margin-top: auto;
 }
 
 .theme-dark .table-pagination-footer .text-muted {

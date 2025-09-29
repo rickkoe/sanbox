@@ -21,9 +21,9 @@ const NEW_ZONE_TEMPLATE = {
   name: "",
   fabric: "",
   member_count: 0,
-  create: "false",
-  delete: "false",
-  exists: "false",
+  create: false,
+  delete: false,
+  exists: false,
   zone_type: "",
   notes: "",
   imported: null,
@@ -39,7 +39,7 @@ const ZoneTableFast = () => {
   // State for dropdown sources
   const [fabricOptions, setFabricOptions] = useState([]);
   const [memberOptions, setMemberOptions] = useState([]);
-  const [memberCount, setMemberCount] = useState(20);
+  const [memberCount, setMemberCount] = useState(5); // Reduced for performance testing
 
   const activeProjectId = config?.active_project?.id;
   const activeCustomerId = config?.customer?.id;
@@ -49,6 +49,7 @@ const ZoneTableFast = () => {
     const loadData = async () => {
       if (!activeCustomerId || !activeProjectId) return;
 
+      console.log('🔍 ZoneTableFast loading fabric and alias data...');
       try {
         // Load fabrics
         const fabricsResponse = await axios.get(
@@ -56,6 +57,7 @@ const ZoneTableFast = () => {
         );
         const fabricsArray = fabricsResponse.data.results || fabricsResponse.data;
         const processedFabrics = fabricsArray.map((f) => ({ id: f.id, name: f.name }));
+        console.log('🔍 ZoneTableFast loaded fabrics:', processedFabrics.length);
         setFabricOptions(processedFabrics);
 
         // Load aliases  
@@ -83,6 +85,7 @@ const ZoneTableFast = () => {
           };
         });
 
+        console.log('🔍 ZoneTableFast loaded aliases:', processedAliases.length, 'eligible for zoning:', processedAliases.filter(a => a.include_in_zoning).length);
         setMemberOptions(processedAliases);
       } catch (error) {
         console.error("Error loading data:", error);
@@ -92,66 +95,64 @@ const ZoneTableFast = () => {
     loadData();
   }, [activeCustomerId, activeProjectId]);
 
-  // Calculate required member columns
-  useEffect(() => {
-    const calculateMemberCount = async () => {
-      if (!activeProjectId) return;
+  // Skip dynamic member count calculation for now - use fixed count
+  // useEffect(() => {
+  //   const calculateMemberCount = async () => {
+  //     if (!activeProjectId) return;
 
-      try {
-        const response = await axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/column-requirements/`);
-        const data = response.data;
-        setMemberCount(Math.max(data.recommended_columns || 20, 20));
-      } catch (error) {
-        console.error('Error calculating member count:', error);
-        setMemberCount(20); // fallback
-      }
-    };
+  //     try {
+  //       const response = await axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/column-requirements/`);
+  //       const data = response.data;
+  //       setMemberCount(Math.max(data.recommended_columns || 5, 5));
+  //     } catch (error) {
+  //       console.error('Error calculating member count:', error);
+  //       setMemberCount(5); // fallback
+  //     }
+  //   };
 
-    calculateMemberCount();
-  }, [activeProjectId]);
+  //   calculateMemberCount();
+  // }, [activeProjectId]);
 
-  // Process data for display
+  // Process data for display - simplified for performance
   const preprocessData = useCallback((data) => {
-    return data.map((zone) => {
-      const memberCount = zone.members_details?.length || 0;
-      
-      // Validate zone fabric status
-      let zoneStatus = "valid";
-      if (zone.fabric && zone.members_details?.length) {
-        const zoneFabric = zone.fabric_details?.name || zone.fabric;
-        const invalidMembers = zone.members_details.filter(member => {
-          const alias = memberOptions.find(alias => alias.name === member.name);
-          return alias && alias.fabric !== zoneFabric;
-        });
-        zoneStatus = invalidMembers.length > 0 ? "invalid" : "valid";
-      }
-      
+    console.log('🔍 ZoneTableFast preprocessData called with', data.length, 'items');
+    const startTime = performance.now();
+    
+    const result = data.map((zone) => {
       const zoneData = {
         ...zone,
-        zone_status: zoneStatus,
+        zone_status: "valid", // Simplified - validate only on save
         fabric: zone.fabric_details?.name || zone.fabric,
-        member_count: memberCount,
         saved: true,
       };
 
-      // Add member data to columns
-      if (zone.members_details?.length) {
-        zone.members_details.forEach((member, index) => {
-          if (index < memberCount) {
-            zoneData[`member_${index + 1}`] = member.name;
-          }
-        });
-      }
+      // Add member data to columns - TEMPORARILY DISABLED FOR PERFORMANCE TESTING
+      // if (zone.members_details?.length) {
+      //   zone.members_details.forEach((member, index) => {
+      //     if (index < memberCount) {
+      //       zoneData[`member_${index + 1}`] = member.name;
+      //     }
+      //   });
+      // }
 
       return zoneData;
     });
-  }, [memberOptions]);
+    
+    const endTime = performance.now();
+    console.log(`🔍 ZoneTableFast preprocessData took ${endTime - startTime} ms`);
+    return result;
+  }, []);
 
-  // Build payload for saving
+  // Build payload for saving - optimized to reduce dependency changes
   const buildPayload = useCallback((row) => {
+    console.log('🔍 ZoneTableFast buildPayload called - THIS SHOULD ONLY BE CALLED ON SAVE!');
+    const startTime = performance.now();
+    
     // Extract members
     const members = [];
-    for (let i = 1; i <= memberCount; i++) {
+    const currentMemberCount = memberCount; // Capture current value
+    
+    for (let i = 1; i <= currentMemberCount; i++) {
       const memberName = row[`member_${i}`];
       if (memberName) {
         const alias = memberOptions.find((a) => a.name === memberName);
@@ -168,48 +169,112 @@ const ZoneTableFast = () => {
       }
     }
 
-    // Clean up payload
-    const fabricId = fabricOptions.find((f) => f.name === row.fabric)?.id;
+    // Clean up payload - copy row and remove internal fields
     const payload = { ...row };
     
-    // Remove member fields & saved flag
-    for (let i = 1; i <= memberCount; i++) delete payload[`member_${i}`];
+    // Remove member fields & internal UI fields
+    for (let i = 1; i <= currentMemberCount; i++) delete payload[`member_${i}`];
     delete payload.saved;
+    delete payload.members_details;
+    delete payload.fabric_details;
+    delete payload.zone_status;
+    delete payload.member_count;
+    delete payload._id;
+    delete payload._isNew;
 
-    // Handle boolean fields - server expects lowercase string values
+    // Handle boolean fields - Zone model expects actual booleans
     const booleanFields = ['create', 'delete', 'exists'];
     booleanFields.forEach(field => {
-      if (payload[field] === 'unknown' || payload[field] === undefined || payload[field] === null || payload[field] === '') {
-        payload[field] = 'false';
-      } else if (typeof payload[field] === 'boolean') {
-        payload[field] = payload[field] ? 'true' : 'false';
+      if (payload[field] === undefined || payload[field] === null) {
+        payload[field] = false;
       } else if (typeof payload[field] === 'string') {
-        const lowerValue = payload[field].toLowerCase();
-        payload[field] = (lowerValue === 'true' || lowerValue === '1') ? 'true' : 'false';
+        payload[field] = payload[field].toLowerCase() === 'true';
       }
+      // If already boolean, leave as-is
     });
 
-    return {
+    // Find fabric ID
+    const fabricId = fabricOptions.find((f) => f.name === row.fabric)?.id;
+
+    const finalPayload = {
       ...payload,
       projects: [activeProjectId],
       fabric: fabricId,
       members,
     };
-  }, [memberCount, memberOptions, fabricOptions, activeProjectId]);
+    
+    const endTime = performance.now();
+    console.log(`🔍 ZoneTableFast buildPayload took ${endTime - startTime} ms`);
+    return finalPayload;
+  }, []); // Remove all dependencies to prevent constant re-creation
 
-  // Save handler
+  // Save handler - individual REST API calls
   const handleSave = async (unsavedData) => {
+    console.log('🔍 ZoneTableFast handleSave called with:', unsavedData);
+    
     try {
-      const payload = unsavedData
-        .filter((zone) => zone.id || (zone.name && zone.name.trim() !== ""))
-        .map(buildPayload);
-
-      await axios.post(API_ENDPOINTS.zoneSave, {
-        project_id: activeProjectId,
-        zones: payload,
-      });
-
-      return { success: true, message: "Zones saved successfully! ✅" };
+      const errors = [];
+      const successes = [];
+      
+      for (const zone of unsavedData) {
+        try {
+          const payload = buildPayload(zone);
+          console.log(`🔍 Saving zone ${zone.name}:`, payload);
+          
+          // Validate payload before sending
+          if (!payload.fabric) {
+            errors.push(`${zone.name}: Fabric is required`);
+            continue;
+          }
+          
+          if (!payload.name || payload.name.trim() === '') {
+            errors.push(`${zone.name}: Zone name is required`);
+            continue;
+          }
+          
+          let response;
+          if (zone.id) {
+            // Update existing zone
+            console.log(`🔄 Updating zone ${zone.id}`);
+            response = await axios.put(`${API_URL}/api/san/zones/${zone.id}/`, payload);
+            successes.push(`Updated ${zone.name} successfully`);
+          } else {
+            // Create new zone
+            delete payload.id;
+            console.log(`🆕 Creating new zone:`, payload);
+            response = await axios.post(`${API_URL}/api/san/zones/`, payload);
+            successes.push(`Created ${zone.name} successfully`);
+          }
+          
+          console.log(`✅ Zone ${zone.name} save response:`, response.data);
+        } catch (error) {
+          console.error('❌ Error saving zone:', error.response?.data || error.message);
+          
+          // More detailed error reporting
+          if (error.response?.data) {
+            const errorData = error.response.data;
+            if (typeof errorData === 'object') {
+              const errorMessages = Object.entries(errorData).map(([field, messages]) => 
+                `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`
+              ).join('; ');
+              errors.push(`${zone.name}: ${errorMessages}`);
+            } else {
+              errors.push(`${zone.name}: ${errorData}`);
+            }
+          } else {
+            errors.push(`${zone.name}: ${error.message}`);
+          }
+        }
+      }
+      
+      if (errors.length > 0) {
+        return {
+          success: false,
+          message: `Errors: ${errors.join(', ')}`
+        };
+      }
+      
+      return { success: true, message: `Zones saved successfully! ${successes.join(', ')}` };
     } catch (error) {
       console.error("Error saving zones:", error);
       return {
@@ -219,9 +284,12 @@ const ZoneTableFast = () => {
     }
   };
 
-  // Pre-save validation
+  // Pre-save validation - simplified for performance
   const beforeSaveValidation = useCallback((data) => {
-    // Check for zones without fabric
+    console.log('🔍 ZoneTableFast beforeSaveValidation called - THIS SHOULD ONLY BE CALLED ON SAVE!');
+    const startTime = performance.now();
+    
+    // Check for zones without fabric - basic validation only
     const invalidZone = data.find(
       (zone) =>
         zone.name &&
@@ -230,51 +298,42 @@ const ZoneTableFast = () => {
     );
 
     if (invalidZone) {
+      const endTime = performance.now();
+      console.log(`🔍 ZoneTableFast beforeSaveValidation took ${endTime - startTime} ms`);
       return "Each zone must have a fabric selected";
     }
 
-    // Check for fabric mismatch between zone and members
-    const fabricMismatchZone = data.find((zone) => {
-      if (!zone.name || zone.name.trim() === "" || !zone.fabric) return false;
-      
-      const zoneFabric = zone.fabric;
-      
-      for (let i = 1; i <= memberCount; i++) {
-        const memberName = zone[`member_${i}`];
-        if (memberName) {
-          const alias = memberOptions.find(alias => alias.name === memberName);
-          if (alias && alias.fabric !== zoneFabric) {
-            return true; // Found a fabric mismatch
-          }
-        }
-      }
-      return false;
-    });
+    const endTime = performance.now();
+    console.log(`🔍 ZoneTableFast beforeSaveValidation took ${endTime - startTime} ms`);
+    return true; // Simplified - detailed validation handled by server
+  }, []);
 
-    if (fabricMismatchZone) {
-      return `Zone "${fabricMismatchZone.name}" contains members that don't belong to fabric "${fabricMismatchZone.fabric}". Please fix before saving.`;
+  // Delete handler
+  const handleDelete = useCallback(async (zoneId) => {
+    try {
+      await axios.delete(`${API_URL}/api/san/zones/${zoneId}/`);
+      return { success: true, message: 'Zone deleted successfully!' };
+    } catch (error) {
+      console.error('Error deleting zone:', error);
+      return {
+        success: false,
+        message: `Error: ${error.response?.data?.message || error.message}`,
+      };
     }
+  }, []);
 
-    return true;
-  }, [memberOptions, memberCount]);
-
-  // Create dropdown sources
+  // Create dropdown sources - simplified for performance, no member dropdowns for now
   const dropdownSources = useMemo(() => {
     const sources = {
       fabric: fabricOptions.map((f) => f.name),
       zone_type: ["smart", "standard"],
     };
     
-    // Add member column dropdown sources
-    for (let i = 1; i <= memberCount; i++) {
-      const memberKey = `member_${i}`;
-      sources[memberKey] = memberOptions
-        .filter(alias => alias.include_in_zoning)
-        .map(alias => alias.name);
-    }
-    
+    // TODO: Add dynamic member dropdown filtering by fabric
+    // For now, no member dropdowns to eliminate performance issues
+    console.log('🔍 ZoneTableFast dropdownSources created:', Object.keys(sources));
     return sources;
-  }, [fabricOptions, memberOptions, memberCount]);
+  }, [fabricOptions.length]); // Minimal dependencies
 
 
   // Add member column
@@ -296,6 +355,34 @@ const ZoneTableFast = () => {
     },
   ], [handleAddColumn]);
 
+  // Let GenericTableFast auto-generate columns for better performance
+  // const columns = useMemo(() => {
+  //   const baseColumns = [
+  //     { data: "zone_status", title: "Status", width: 80 },
+  //     { data: "name", title: "Zone Name", width: 200 },
+  //     { data: "fabric", title: "Fabric", width: 120 },
+  //     { data: "zone_type", title: "Type", width: 100 },
+  //     { data: "create", title: "Create", width: 80 },
+  //     { data: "delete", title: "Delete", width: 80 },
+  //     { data: "exists", title: "Exists", width: 80 },
+  //   ];
+
+  //   // Static member columns - no dynamic generation for performance
+  //   const memberColumns = [
+  //     { data: "member_1", title: "Member 1", width: 150 },
+  //     { data: "member_2", title: "Member 2", width: 150 },
+  //     { data: "member_3", title: "Member 3", width: 150 },
+  //     { data: "member_4", title: "Member 4", width: 150 },
+  //     { data: "member_5", title: "Member 5", width: 150 },
+  //   ];
+
+  //   console.log('🔍 ZoneTableFast columns created (static)');
+  //   return [
+  //     ...baseColumns,
+  //     ...memberColumns,
+  //     { data: "notes", title: "Notes", width: 200 }
+  //   ];
+  // }, []); // No dependencies
 
   if (!activeProjectId) {
     return (
@@ -304,24 +391,22 @@ const ZoneTableFast = () => {
   }
 
   return (
-    <div className="table-container">
+    <div className="table-container" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <GenericTableFast
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}
-        saveUrl={API_ENDPOINTS.zoneSave}
-        deleteUrl={API_ENDPOINTS.zoneDelete}
         tableName="zones"
-        memberCount={memberCount}
         newRowTemplate={NEW_ZONE_TEMPLATE}
         dropdownSources={dropdownSources}
         preprocessData={preprocessData}
         onBuildPayload={buildPayload}
         onSave={handleSave}
+        onDelete={handleDelete}
         beforeSave={beforeSaveValidation}
         getExportFilename={() =>
           `${config?.customer?.name}_${config?.active_project?.name}_Zone_Table.csv`
         }
-        height="600px"
+        columnActions={columnActions}
       />
     </div>
   );

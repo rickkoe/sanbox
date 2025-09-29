@@ -221,7 +221,7 @@ const AliasTableFast = () => {
   }
 
   return (
-    <div className="table-container">
+    <div className="table-container" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <GenericTableFast
         ref={tableRef}
         apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}

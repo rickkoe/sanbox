@@ -88,6 +88,13 @@ class TableConfigurationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("additional_settings must be a dictionary")
         
         return data
+    
+    def validate_page_size(self, value):
+        """Validate page size is a valid choice"""
+        valid_choices = ['25', '50', '100', '250', 'All']
+        if value not in valid_choices:
+            raise serializers.ValidationError(f"Page size must be one of: {', '.join(valid_choices)}")
+        return value
 
 
 class AppSettingsSerializer(serializers.ModelSerializer):

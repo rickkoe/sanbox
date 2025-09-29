@@ -91,8 +91,16 @@ class TableConfiguration(models.Model):
         blank=True,
         help_text="Sorting configuration (column, direction)"
     )
-    page_size = models.IntegerField(
-        default=25,
+    page_size = models.CharField(
+        max_length=10,
+        default='25',
+        choices=[
+            ('25', '25'),
+            ('50', '50'),
+            ('100', '100'),
+            ('250', '250'),
+            ('All', 'All'),
+        ],
         help_text="Number of rows per page"
     )
     additional_settings = models.JSONField(

@@ -4,8 +4,8 @@ import GenericTableFast from "./GenericTable/GenericTableFast";
 import { ConfigContext } from "../../context/ConfigContext";
 
 const vendorOptions = [
-  'Cisco',
-  'Brocade'
+  { code: 'CI', name: 'Cisco' },
+  { code: 'BR', name: 'Brocade' }
 ];
 
 const FabricTableFast = () => {
@@ -28,25 +28,38 @@ const FabricTableFast = () => {
     saved: false
   };
 
-  // Process data for display
+  // Process data for display - convert vendor codes to names for display
   const preprocessData = useCallback((data) => {
     return data.map((fabric) => ({
       ...fabric,
+      san_vendor: vendorOptions.find(v => v.code === fabric.san_vendor)?.name || fabric.san_vendor,
       saved: true,
     }));
   }, []);
 
-  // Build payload for saving
+  // Build payload for saving - convert names back to codes and handle fields properly
   const buildPayload = useCallback((row) => {
     const payload = { ...row };
     delete payload.saved;
     
-    // Handle boolean fields
-    if (payload.exists === 'unknown' || payload.exists === undefined || payload.exists === null || payload.exists === '') {
-      payload.exists = false;
-    } else if (typeof payload.exists === 'string') {
-      payload.exists = payload.exists.toLowerCase() === 'true';
-    }
+    // Convert vendor name back to code for backend
+    payload.san_vendor = vendorOptions.find(v => v.name === payload.san_vendor || v.code === payload.san_vendor)?.code || payload.san_vendor;
+    
+    // Handle vsan field - empty string becomes null
+    payload.vsan = payload.vsan === "" || payload.vsan === undefined ? null : payload.vsan;
+    
+    // Handle boolean fields - keep as boolean for this model (not strings like aliases)
+    const booleanFields = ['exists'];
+    booleanFields.forEach(field => {
+      if (payload[field] === undefined || payload[field] === null) {
+        payload[field] = false;
+      } else if (typeof payload[field] === 'string') {
+        payload[field] = payload[field].toLowerCase() === 'true';
+      }
+      // If already boolean, leave as-is
+    });
+
+    console.log('🔍 Fabric buildPayload result:', payload);
 
     return {
       ...payload,
@@ -54,19 +67,45 @@ const FabricTableFast = () => {
     };
   }, [customerId]);
 
-  // Save handler
+  // Save handler - simplified to work with GenericTableFast
   const handleSave = async (unsavedData) => {
+    console.log('🔍 FabricTableFast handleSave called with:', unsavedData);
+    
     try {
-      const payload = unsavedData
-        .filter((fabric) => fabric.id || (fabric.name && fabric.name.trim() !== ""))
-        .map(buildPayload);
-
-      await axios.post(`${API_URL}/api/san/fabrics/save/`, {
-        customer_id: customerId,
-        fabrics: payload,
-      });
-
-      return { success: true, message: "Fabrics saved successfully! ✅" };
+      const errors = [];
+      const successes = [];
+      
+      for (const fabric of unsavedData) {
+        try {
+          const payload = buildPayload(fabric);
+          console.log(`🔍 Saving fabric ${fabric.name}:`, payload);
+          
+          if (fabric.id) {
+            // Update existing fabric
+            console.log(`🔄 Updating fabric ${fabric.id}`);
+            const response = await axios.put(`${API_URL}/api/san/fabrics/${fabric.id}/`, payload);
+            successes.push(`Updated ${fabric.name} successfully`);
+          } else {
+            // Create new fabric
+            delete payload.id;
+            console.log(`🆕 Creating new fabric:`, payload);
+            const response = await axios.post(`${API_URL}/api/san/fabrics/`, payload);
+            successes.push(`Created ${fabric.name} successfully`);
+          }
+        } catch (error) {
+          console.error('❌ Error saving fabric:', error.response?.data);
+          errors.push(`${fabric.name}: ${error.response?.data?.message || error.message}`);
+        }
+      }
+      
+      if (errors.length > 0) {
+        return {
+          success: false,
+          message: `Errors: ${errors.join(', ')}`
+        };
+      }
+      
+      return { success: true, message: `Fabrics saved successfully! ${successes.join(', ')}` };
     } catch (error) {
       console.error("Error saving fabrics:", error);
       return {
@@ -98,10 +137,34 @@ const FabricTableFast = () => {
     return true;
   }, []);
 
-  // Create dropdown sources
+  // Delete handler
+  const handleDelete = useCallback(async (fabricId) => {
+    try {
+      await axios.delete(`${API_URL}/api/san/fabrics/${fabricId}/`);
+      return { success: true, message: 'Fabric deleted successfully!' };
+    } catch (error) {
+      console.error('Error deleting fabric:', error);
+      return {
+        success: false,
+        message: `Error: ${error.response?.data?.message || error.message}`,
+      };
+    }
+  }, [API_URL]);
+
+  // Define columns to match Fabric model
+  const columns = [
+    { data: "name", title: "Name", width: 150 },
+    { data: "san_vendor", title: "Vendor", width: 100 },
+    { data: "zoneset_name", title: "Zoneset Name", width: 200 },
+    { data: "vsan", title: "VSAN", width: 80 },
+    { data: "exists", title: "Exists", width: 80 },
+    { data: "notes", title: "Notes", width: 200 }
+  ];
+
+  // Create dropdown sources - use vendor names for display
+  // Note: 'exists' field will automatically be handled as checkbox since it's boolean
   const dropdownSources = {
-    san_vendor: vendorOptions,
-    exists: ["true", "false"]
+    san_vendor: vendorOptions.map(v => v.name)
   };
 
   if (!customerId) {
@@ -111,23 +174,22 @@ const FabricTableFast = () => {
   }
 
   return (
-    <div className="table-container">
+    <div className="table-container" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <GenericTableFast
         ref={tableRef}
         apiUrl={`${API_URL}/api/san/fabrics/?customer_id=${customerId}`}
-        saveUrl={`${API_URL}/api/san/fabrics/save/`}
-        deleteUrl={`${API_URL}/api/san/fabrics/delete/`}
         tableName="fabrics"
+        columns={columns}
         newRowTemplate={NEW_FABRIC_TEMPLATE}
         dropdownSources={dropdownSources}
         preprocessData={preprocessData}
         onBuildPayload={buildPayload}
         onSave={handleSave}
+        onDelete={handleDelete}
         beforeSave={beforeSaveValidation}
         getExportFilename={() =>
           `${config?.customer?.name}_Fabric_Table.csv`
         }
-        height="600px"
       />
     </div>
   );
