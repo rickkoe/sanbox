@@ -8,6 +8,7 @@ import {
   getColumnResizeMode,
   flexRender,
 } from '@tanstack/react-table';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 /**
  * Enhanced TanStack Table with full CRUD operations and Excel-like features
@@ -68,6 +69,12 @@ const TanStackCRUDTable = forwardRef(({
   const [hasChanges, setHasChanges] = useState(false);
   const [deletedRows, setDeletedRows] = useState([]);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Excel-like features state
   const [selectedCells, setSelectedCells] = useState(new Set());
   const [selectionRange, setSelectionRange] = useState(null);
@@ -82,19 +89,31 @@ const TanStackCRUDTable = forwardRef(({
   const [tableConfig, setTableConfig] = useState(null);
   const [resizeState, setResizeState] = useState({ isResizing: false, startX: 0, currentX: 0, columnId: null });
 
-  // API URL with customer filter for server pagination
-  const filteredApiUrl = useMemo(() => {
-    if (customerId && apiUrl) {
-      const url = apiUrl.includes('?')
-        ? `${apiUrl}&customer_id=${customerId}`
-        : `${apiUrl}?customer_id=${customerId}`;
-      console.log('🔗 Building filtered API URL for customer', customerId, ':', url);
-      return url;
-    } else {
-      console.log('⚠️ No customer ID available, using unfiltered API URL:', apiUrl);
-      return apiUrl;
+  // Build API URL with pagination and customer filter
+  const buildApiUrl = useCallback((page, size, search = '') => {
+    if (!apiUrl) return null;
+
+    // Check if apiUrl already has query parameters
+    const separator = apiUrl.includes('?') ? '&' : '?';
+
+    // Handle "All" page size by using a very large number that the backend can handle
+    const actualPageSize = size === 'All' ? 10000 : size;
+
+    let url = `${apiUrl}${separator}page=${page}&page_size=${actualPageSize}`;
+
+    // Add customer filter if provided
+    if (customerId) {
+      url += `&customer_id=${customerId}`;
     }
-  }, [customerId, apiUrl]);
+
+    // Add search parameter
+    if (search.trim()) {
+      url += `&search=${encodeURIComponent(search.trim())}`;
+    }
+
+    console.log(`🌐 Built API URL: ${url}`);
+    return url;
+  }, [apiUrl, customerId]);
 
   // Delete URL function for individual deletions
   const getDeleteUrl = useCallback((id) => {
@@ -175,45 +194,63 @@ const TanStackCRUDTable = forwardRef(({
   }, [tableName, customerId, tableConfig, columnSizing]);
 
 
-  // Load data from server
+  // Load data from server with pagination
+  const loadData = useCallback(async () => {
+    const url = buildApiUrl(currentPage, pageSize, globalFilter);
+    if (!url) {
+      console.log('⚠️ No API URL available');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log(`🔄 Loading page ${currentPage} (size: ${pageSize}) from:`, url);
+      const response = await axios.get(url);
+
+      // Handle paginated response
+      let dataList = response.data.results || response.data;
+      let totalCount = response.data.count || dataList.length;
+
+      console.log(`📥 Loaded ${dataList.length} records from server (total: ${totalCount})`);
+
+      // Process data if preprocessing function provided
+      const processedData = preprocessData ? preprocessData(dataList) : dataList;
+
+      setFabricData(processedData);
+      setEditableData([...processedData]);
+      setTotalItems(totalCount);
+      setTotalPages(pageSize === 'All' ? 1 : Math.max(1, Math.ceil(totalCount / pageSize)));
+      setHasChanges(false);
+      setDeletedRows([]);
+
+    } catch (error) {
+      console.error('❌ Error loading data:', error);
+      setError('Failed to load data: ' + error.message);
+      setFabricData([]);
+      setEditableData([]);
+      setTotalItems(0);
+      setTotalPages(1);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [buildApiUrl, currentPage, pageSize, globalFilter, preprocessData]);
+
+  // Load data when dependencies change
   useEffect(() => {
-    const loadData = async () => {
-      if (!filteredApiUrl) {
-        console.log('⚠️ No API URL available');
-        return;
-      }
+    if (apiUrl) {
+      loadData();
+    }
+  }, [loadData, apiUrl]);
 
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        console.log('🔄 Loading data from:', filteredApiUrl);
-        const response = await axios.get(filteredApiUrl);
-        let dataList = response.data;
-        if (response.data.results) {
-          dataList = response.data.results;
-        }
-
-        console.log('📥 Loaded data from server:', dataList.length, 'records');
-
-        // Process data if preprocessing function provided
-        const processedData = preprocessData ? preprocessData(dataList) : dataList;
-
-        setFabricData(processedData);
-        setEditableData([...processedData]);
-        setHasChanges(false);
-        setDeletedRows([]);
-
-      } catch (error) {
-        console.error('❌ Error loading data:', error);
-        setError('Failed to load data: ' + error.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, [filteredApiUrl, preprocessData]);
+  // Reset to page 1 when search filter changes
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+    // Don't trigger loadData here - it will be triggered by the currentPage change above
+  }, [globalFilter]);
 
   // Load table configuration on mount
   useEffect(() => {
@@ -234,22 +271,11 @@ const TanStackCRUDTable = forwardRef(({
     return () => clearTimeout(debounceTimer);
   }, [columnSizing, saveTableConfig]);
 
-  // Table data with filtering
+  // Current table data (server-side pagination means we show what we loaded)
   const currentTableData = useMemo(() => {
-    if (!globalFilter) {
-      console.log('🔍 No global filter, showing all data:', editableData.length, 'rows');
-      return editableData;
-    }
-
-    const filtered = editableData.filter(item => {
-      return Object.values(item).some(value =>
-        String(value || '').toLowerCase().includes(globalFilter.toLowerCase())
-      );
-    });
-
-    console.log(`🔍 Filtered data: ${filtered.length} of ${editableData.length} rows match "${globalFilter}"`);
-    return filtered;
-  }, [editableData, globalFilter]);
+    console.log(`📄 Displaying ${editableData.length} rows from server`);
+    return editableData;
+  }, [editableData]);
 
   // Auto-size columns function (defined after currentTableData)
   const autoSizeColumns = useCallback(() => {
@@ -393,6 +419,20 @@ const TanStackCRUDTable = forwardRef(({
     }
   }, []);
 
+  // Pagination handlers
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
+    console.log(`📄 Changed to page ${page}`);
+    // Data will be reloaded automatically via useEffect when currentPage changes
+  }, []);
+
+  const handlePageSizeChange = useCallback((newPageSize) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page when changing page size
+    console.log(`📄 Changed page size to ${newPageSize}`);
+    // Data will be reloaded automatically via useEffect when pageSize changes
+  }, []);
+
   // Add new row (following original FabricTable pattern)
   const addNewRow = useCallback(() => {
     const newRow = {
@@ -471,15 +511,7 @@ const TanStackCRUDTable = forwardRef(({
 
         if (result.success) {
           // Reload data from server after successful save
-          const response = await axios.get(filteredApiUrl);
-          let dataList = response.data;
-          if (response.data.results) {
-            dataList = response.data.results;
-          }
-          const processedData = preprocessData ? preprocessData(dataList) : dataList;
-
-          setEditableData(processedData);
-          setFabricData(processedData);
+          await loadData();
           setHasChanges(false);
           setDeletedRows([]);
 
@@ -571,17 +603,7 @@ const TanStackCRUDTable = forwardRef(({
 
       // Reload data from server to get fresh state
       console.log('🔄 Reloading data from server...');
-      const response = await axios.get(filteredApiUrl);
-      let dataList = response.data;
-      if (response.data.results) {
-        dataList = response.data.results;
-      }
-
-      // Process data if preprocessing function provided
-      const processedData = preprocessData ? preprocessData(dataList) : dataList;
-
-      setFabricData(processedData);
-      setEditableData([...processedData]);
+      await loadData();
       setDeletedRows([]);
       setHasChanges(false);
 
@@ -612,7 +634,7 @@ const TanStackCRUDTable = forwardRef(({
     } finally {
       setIsLoading(false);
     }
-  }, [editableData, hasChanges, deletedRows, filteredApiUrl, getDeleteUrl, saveUrl, apiUrl, saveTransform, preprocessData, onSave, customSaveHandler]);
+  }, [editableData, hasChanges, deletedRows, loadData, getDeleteUrl, saveUrl, apiUrl, saveTransform, onSave, customSaveHandler]);
 
   // Create enhanced column definitions with our custom cell components
   const columnDefs = useMemo(() => {
@@ -1326,6 +1348,297 @@ const TanStackCRUDTable = forwardRef(({
     console.log(`📐 Extended selection to [${minRow}-${maxRow}, ${minCol}-${maxCol}]`);
   }, []);
 
+  // Pagination Footer Component
+  const PaginationFooter = () => {
+    const actualPageSize = pageSize === 'All' ? totalItems : pageSize;
+    const startItem = totalItems === 0 ? 0 : ((currentPage - 1) * actualPageSize) + 1;
+    const endItem = Math.min(currentPage * actualPageSize, totalItems);
+
+    const handlePageSizeChangeLocal = (e) => {
+      const newSize = e.target.value === 'all' ? 'All' : parseInt(e.target.value);
+      handlePageSizeChange(newSize);
+    };
+
+    const renderPageButtons = () => {
+      const buttons = [];
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+      // Adjust startPage if we're near the end
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+
+      // Add ellipsis at the beginning if needed
+      if (startPage > 1) {
+        buttons.push(
+          <button
+            key={1}
+            onClick={() => handlePageChange(1)}
+            className="pagination-btn"
+            disabled={isLoading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '28px',
+              height: '28px',
+              padding: '0 6px',
+              border: '1px solid #d1d5db',
+              background: 'white',
+              color: '#374151',
+              fontSize: '14px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            1
+          </button>
+        );
+        if (startPage > 2) {
+          buttons.push(
+            <span key="ellipsis-start" style={{ padding: '0 4px', color: '#6b7280' }}>
+              ...
+            </span>
+          );
+        }
+      }
+
+      // Add page buttons
+      for (let i = startPage; i <= endPage; i++) {
+        buttons.push(
+          <button
+            key={i}
+            onClick={() => handlePageChange(i)}
+            disabled={isLoading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '28px',
+              height: '28px',
+              padding: '0 6px',
+              border: '1px solid #d1d5db',
+              background: i === currentPage ? '#1976d2' : 'white',
+              color: i === currentPage ? 'white' : '#374151',
+              fontSize: '14px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            {i}
+          </button>
+        );
+      }
+
+      // Add ellipsis at the end if needed
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          buttons.push(
+            <span key="ellipsis-end" style={{ padding: '0 4px', color: '#6b7280' }}>
+              ...
+            </span>
+          );
+        }
+        buttons.push(
+          <button
+            key={totalPages}
+            onClick={() => handlePageChange(totalPages)}
+            className="pagination-btn"
+            disabled={isLoading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '28px',
+              height: '28px',
+              padding: '0 6px',
+              border: '1px solid #d1d5db',
+              background: 'white',
+              color: '#374151',
+              fontSize: '14px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            {totalPages}
+          </button>
+        );
+      }
+
+      return buttons;
+    };
+
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 24px',
+        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+        borderTop: '1px solid #e0e0e0',
+        flexWrap: 'wrap',
+        gap: '16px',
+        minHeight: '48px',
+        marginTop: 'auto',
+        flexShrink: 0
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '24px',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <span style={{
+              color: '#374151',
+              fontSize: '14px'
+            }}>
+              Showing {startItem.toLocaleString()} to {endItem.toLocaleString()} of {totalItems.toLocaleString()} entries
+            </span>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <label style={{
+              color: '#6b7280',
+              fontSize: '14px',
+              margin: 0
+            }}>Rows per page:</label>
+            <select
+              value={pageSize === 'All' || pageSize >= totalItems ? 'all' : pageSize}
+              onChange={handlePageSizeChangeLocal}
+              disabled={isLoading}
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                fontSize: '14px',
+                background: 'white',
+                cursor: 'pointer'
+              }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={250}>250</option>
+              <option value="all">All ({totalItems.toLocaleString()})</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1 || isLoading}
+            title="First page"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              border: '1px solid #d1d5db',
+              background: currentPage === 1 || isLoading ? '#f3f4f6' : 'white',
+              color: currentPage === 1 || isLoading ? '#9ca3af' : '#374151',
+              borderRadius: '4px',
+              cursor: currentPage === 1 || isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            <ChevronsLeft size={14} />
+          </button>
+
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1 || isLoading}
+            title="Previous page"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              border: '1px solid #d1d5db',
+              background: currentPage === 1 || isLoading ? '#f3f4f6' : 'white',
+              color: currentPage === 1 || isLoading ? '#9ca3af' : '#374151',
+              borderRadius: '4px',
+              cursor: currentPage === 1 || isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            <ChevronLeft size={14} />
+          </button>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            margin: '0 8px'
+          }}>
+            {renderPageButtons()}
+          </div>
+
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages || isLoading}
+            title="Next page"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              border: '1px solid #d1d5db',
+              background: currentPage === totalPages || isLoading ? '#f3f4f6' : 'white',
+              color: currentPage === totalPages || isLoading ? '#9ca3af' : '#374151',
+              borderRadius: '4px',
+              cursor: currentPage === totalPages || isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            <ChevronRight size={14} />
+          </button>
+
+          <button
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages || isLoading}
+            title="Last page"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              border: '1px solid #d1d5db',
+              background: currentPage === totalPages || isLoading ? '#f3f4f6' : 'white',
+              color: currentPage === totalPages || isLoading ? '#9ca3af' : '#374151',
+              borderRadius: '4px',
+              cursor: currentPage === totalPages || isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            <ChevronsRight size={14} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Expose table methods via ref
   React.useImperativeHandle(ref, () => ({
     addRow: addNewRow,
@@ -1801,6 +2114,9 @@ const TanStackCRUDTable = forwardRef(({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Footer */}
+      <PaginationFooter />
 
       {/* Loading Overlay */}
       {isLoading && (
