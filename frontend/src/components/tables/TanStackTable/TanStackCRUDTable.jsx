@@ -311,10 +311,20 @@ const TanStackCRUDTable = forwardRef(({
 
   // Create enhanced column definitions with our custom cell components
   const columnDefs = useMemo(() => {
+    console.log('🏗️ Building column definitions with dropdownSources:', dropdownSources);
+
     return columns.map((column, index) => {
       const headerName = colHeaders[index] || column.header || column.data || `Column ${index + 1}`;
       const accessorKey = column.data || column.accessorKey || `column_${index}`;
       const dropdownSource = dropdownSources[accessorKey] || dropdownSources[headerName];
+
+      console.log(`🏗️ Column ${index} (${accessorKey}):`, {
+        headerName,
+        accessorKey,
+        columnType: column.type,
+        dropdownSource,
+        hasDropdownSource: !!dropdownSource
+      });
 
       return {
         id: accessorKey,
@@ -327,8 +337,22 @@ const TanStackCRUDTable = forwardRef(({
           const rowIndex = row.index;
           const colIndex = column.getIndex?.() || index;
 
-          // Determine cell type
-          if (column.columnDef.accessorKey === 'exists' || column.type === 'checkbox') {
+          // Get the actual column config to check type
+          const actualColumnConfig = columns[index];
+          const isCheckbox = accessorKey === 'exists' || actualColumnConfig?.type === 'checkbox';
+          const isDropdown = actualColumnConfig?.type === 'dropdown' || accessorKey === 'san_vendor';
+
+          console.log(`🔍 Cell [${rowIndex}, ${colIndex}] ${accessorKey}:`, {
+            value,
+            isCheckbox,
+            isDropdown,
+            columnConfig: actualColumnConfig,
+            dropdownSource,
+            dropdownOptions: dropdownSources[accessorKey]
+          });
+
+          // Checkbox cell
+          if (isCheckbox) {
             return (
               <ExistsCheckboxCell
                 value={value}
@@ -339,11 +363,15 @@ const TanStackCRUDTable = forwardRef(({
             );
           }
 
-          if (dropdownSource) {
+          // Dropdown cell
+          if (isDropdown) {
+            const options = dropdownSource || dropdownSources[accessorKey] || [];
+            console.log(`📋 Dropdown ${accessorKey} options:`, options);
+
             return (
               <VendorDropdownCell
                 value={value}
-                options={dropdownSource}
+                options={options}
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
                 updateCellData={updateCellData}
@@ -351,7 +379,7 @@ const TanStackCRUDTable = forwardRef(({
             );
           }
 
-          // Default to editable text cell
+          // Default text cell
           return (
             <EditableTextCell
               value={value}
@@ -560,33 +588,83 @@ const TanStackCRUDTable = forwardRef(({
     setHasChanges(true);
   }, [selectedCells, currentTableData, columnDefs]);
 
-  // Copy/Paste functionality
+  // Enhanced Copy functionality for Excel compatibility
   const handleCopy = useCallback(() => {
     if (selectedCells.size === 0) return;
 
-    const cellKeys = Array.from(selectedCells).sort();
-    const copyData = cellKeys.map(cellKey => {
-      const [rowIndex, colIndex] = cellKey.split('-').map(Number);
-      const columnKey = columnDefs[colIndex]?.accessorKey;
-      return currentTableData[rowIndex]?.[columnKey] || '';
+    // Convert selected cells to a grid structure
+    const cellArray = Array.from(selectedCells);
+    const rowIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[0])))].sort((a, b) => a - b);
+    const colIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[1])))].sort((a, b) => a - b);
+
+    console.log('📋 Copy operation: rows', rowIndices, 'cols', colIndices);
+
+    // Build a 2D grid of the selected data
+    const copyGrid = rowIndices.map(rowIndex => {
+      return colIndices.map(colIndex => {
+        const cellKey = `${rowIndex}-${colIndex}`;
+        if (selectedCells.has(cellKey)) {
+          const columnKey = columnDefs[colIndex]?.accessorKey;
+          const value = currentTableData[rowIndex]?.[columnKey];
+
+          // Handle different data types properly
+          if (value === null || value === undefined) {
+            return '';
+          } else if (typeof value === 'boolean') {
+            return value ? 'TRUE' : 'FALSE';
+          } else {
+            return String(value);
+          }
+        } else {
+          return ''; // Empty cell in non-contiguous selection
+        }
+      });
     });
 
-    const copyText = copyData.join('\t');
+    // Convert to tab-separated format (Excel standard)
+    const copyText = copyGrid.map(row => row.join('\t')).join('\n');
+
     navigator.clipboard.writeText(copyText);
-    console.log('📋 Copied to clipboard:', copyText);
+    console.log('📋 Copied to clipboard (Excel format):', copyText);
+
+    // Show brief success feedback
+    setFillPreview({
+      operation: 'Copied',
+      sourceValue: `${rowIndices.length} rows × ${colIndices.length} columns`,
+      count: selectedCells.size
+    });
+
+    setTimeout(() => setFillPreview(null), 1500);
   }, [selectedCells, currentTableData, columnDefs]);
 
+  // Enhanced Paste functionality for Excel compatibility
   const handlePaste = useCallback(async () => {
     try {
       const clipboardText = await navigator.clipboard.readText();
-      const rows = clipboardText.split('\n').filter(row => row.trim());
+      if (!clipboardText.trim()) {
+        console.log('📋 Clipboard is empty');
+        return;
+      }
+
+      // Parse Excel-style tab-separated data
+      const rows = clipboardText.split('\n').filter(row => row.length > 0);
       const pasteData = rows.map(row => row.split('\t'));
 
       console.log('📋 Pasting data:', pasteData);
 
-      // Auto-extend rows if needed
+      // Calculate paste dimensions
+      const pasteRowCount = pasteData.length;
+      const pasteColCount = Math.max(...pasteData.map(row => row.length));
+      const targetStartRow = currentCell.row;
+      const targetStartCol = currentCell.col;
+      const targetEndRow = targetStartRow + pasteRowCount - 1;
+      const targetEndCol = targetStartCol + pasteColCount - 1;
+
+      console.log(`📋 Paste area: [${targetStartRow}-${targetEndRow}, ${targetStartCol}-${targetEndCol}]`);
+
+      // Auto-extend table rows if needed
       const currentRowCount = editableData.length;
-      const neededRows = Math.max(0, (currentCell.row + pasteData.length) - currentRowCount);
+      const neededRows = Math.max(0, (targetEndRow + 1) - currentRowCount);
 
       if (neededRows > 0) {
         console.log(`➕ Auto-extending table with ${neededRows} new rows`);
@@ -595,24 +673,46 @@ const TanStackCRUDTable = forwardRef(({
           ...newRowTemplate
         }));
 
+        // Update the data immediately to include new rows
         setEditableData(prev => [...prev, ...newRows]);
       }
 
-      // Apply paste data
+      // Apply paste data with proper data type conversion
       setEditableData(currentData => {
         const newData = [...currentData];
 
         pasteData.forEach((rowData, rowOffset) => {
-          const targetRowIndex = currentCell.row + rowOffset;
+          const targetRowIndex = targetStartRow + rowOffset;
           if (targetRowIndex < newData.length) {
             rowData.forEach((cellValue, colOffset) => {
-              const targetColIndex = currentCell.col + colOffset;
+              const targetColIndex = targetStartCol + colOffset;
               const columnKey = columnDefs[targetColIndex]?.accessorKey;
-              if (columnKey && newData[targetRowIndex]) {
+
+              if (columnKey && newData[targetRowIndex] && targetColIndex < columnDefs.length) {
+                // Convert data types appropriately
+                let convertedValue = cellValue;
+
+                // Handle boolean values
+                if (cellValue === 'TRUE' || cellValue === 'true') {
+                  convertedValue = true;
+                } else if (cellValue === 'FALSE' || cellValue === 'false') {
+                  convertedValue = false;
+                }
+                // Handle numeric values for VSAN column
+                else if (columnKey === 'vsan' && cellValue && !isNaN(cellValue)) {
+                  convertedValue = parseInt(cellValue) || cellValue;
+                }
+                // Keep strings as-is
+                else {
+                  convertedValue = cellValue;
+                }
+
                 newData[targetRowIndex] = {
                   ...newData[targetRowIndex],
-                  [columnKey]: cellValue
+                  [columnKey]: convertedValue
                 };
+
+                console.log(`📝 Pasted "${cellValue}" → "${convertedValue}" to [${targetRowIndex}, ${targetColIndex}] (${columnKey})`);
               }
             });
           }
@@ -621,10 +721,43 @@ const TanStackCRUDTable = forwardRef(({
         return newData;
       });
 
+      // Update selection to show the pasted area
+      const pastedCells = new Set();
+      for (let r = targetStartRow; r <= targetEndRow; r++) {
+        for (let c = targetStartCol; c <= Math.min(targetEndCol, columnDefs.length - 1); c++) {
+          pastedCells.add(`${r}-${c}`);
+        }
+      }
+      setSelectedCells(pastedCells);
+      setSelectionRange({
+        startRow: targetStartRow,
+        startCol: targetStartCol,
+        endRow: targetEndRow,
+        endCol: Math.min(targetEndCol, columnDefs.length - 1)
+      });
+
       setHasChanges(true);
+
+      // Show success feedback
+      setFillPreview({
+        operation: 'Pasted',
+        sourceValue: `${pasteRowCount} rows × ${pasteColCount} columns`,
+        count: pasteRowCount * pasteColCount
+      });
+
+      setTimeout(() => setFillPreview(null), 2000);
 
     } catch (error) {
       console.error('❌ Error pasting data:', error);
+
+      // Show error feedback
+      setFillPreview({
+        operation: 'Paste Error',
+        sourceValue: error.message,
+        count: 0
+      });
+
+      setTimeout(() => setFillPreview(null), 3000);
     }
   }, [currentCell, editableData, newRowTemplate, columnDefs]);
 
@@ -1188,10 +1321,34 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
   const [localValue, setLocalValue] = useState(value || '');
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const dropdownRef = useRef(null);
+  const containerRef = useRef(null);
 
   useEffect(() => {
     setLocalValue(value || '');
   }, [value]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearchText('');
+        setSelectedIndex(-1);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('focusin', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('focusin', handleClickOutside);
+    };
+  }, [isOpen]);
 
   const filteredOptions = options.filter(option =>
     typeof option === 'string'
@@ -1205,12 +1362,81 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
     updateCellData(rowIndex, columnKey, newValue);
     setIsOpen(false);
     setSearchText('');
+    setSelectedIndex(-1);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!isOpen) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => Math.min(prev + 1, filteredOptions.length - 1));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => Math.max(prev - 1, -1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
+          handleSelect(filteredOptions[selectedIndex]);
+        } else if (filteredOptions.length > 0) {
+          handleSelect(filteredOptions[0]);
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setIsOpen(false);
+        setSearchText('');
+        setSelectedIndex(-1);
+        break;
+    }
+  };
+
+  // Determine dropdown position
+  const getDropdownStyle = () => {
+    if (!containerRef.current) {
+      return {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        zIndex: 9999
+      };
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    const dropdownHeight = 200; // max dropdown height
+    const spaceBelow = windowHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    // If there's more space above and not enough below, show above
+    const showAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
+    return {
+      position: 'fixed',
+      left: rect.left,
+      width: rect.width,
+      [showAbove ? 'bottom' : 'top']: showAbove ? windowHeight - rect.top + 2 : rect.bottom + 2,
+      zIndex: 9999,
+      maxHeight: Math.min(dropdownHeight, showAbove ? spaceAbove - 10 : spaceBelow - 10)
+    };
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       <div
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
         style={{
           padding: '6px 10px',
           border: '1px solid #e0e0e0',
@@ -1222,7 +1448,8 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
           alignItems: 'center',
           fontSize: '14px',
           transition: 'all 0.2s',
-          minHeight: '32px'
+          minHeight: '32px',
+          outline: 'none'
         }}
         onMouseEnter={(e) => {
           e.target.style.borderColor = '#1976d2';
@@ -1250,25 +1477,26 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
       </div>
 
       {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          backgroundColor: 'white',
-          border: '1px solid #e0e0e0',
-          borderRadius: '6px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          zIndex: 1001,
-          maxHeight: '200px',
-          overflow: 'hidden',
-          marginTop: '2px'
-        }}>
+        <div
+          ref={dropdownRef}
+          style={{
+            ...getDropdownStyle(),
+            backgroundColor: 'white',
+            border: '1px solid #e0e0e0',
+            borderRadius: '6px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+            overflow: 'hidden'
+          }}
+        >
           <input
             type="text"
             placeholder="🔍 Type to filter..."
             value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+            onChange={(e) => {
+              setSearchText(e.target.value);
+              setSelectedIndex(-1); // Reset selection when filtering
+            }}
+            onKeyDown={handleKeyDown}
             style={{
               width: '100%',
               padding: '10px 12px',
@@ -1276,13 +1504,20 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
               borderBottom: '1px solid #f0f0f0',
               outline: 'none',
               fontSize: '14px',
-              backgroundColor: '#fafafa'
+              backgroundColor: '#fafafa',
+              boxSizing: 'border-box'
             }}
             autoFocus
           />
-          <div style={{ maxHeight: '150px', overflow: 'auto' }}>
+          <div style={{
+            maxHeight: '150px',
+            overflow: 'auto',
+            backgroundColor: 'white'
+          }}>
             {filteredOptions.map((option, index) => {
               const displayText = typeof option === 'string' ? option : (option.name || option.label);
+              const isSelected = index === selectedIndex;
+
               return (
                 <div
                   key={index}
@@ -1292,13 +1527,18 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
                     cursor: 'pointer',
                     borderBottom: index < filteredOptions.length - 1 ? '1px solid #f5f5f5' : 'none',
                     fontSize: '14px',
-                    transition: 'background-color 0.15s'
+                    transition: 'background-color 0.15s',
+                    backgroundColor: isSelected ? '#e3f2fd' : 'white'
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#e3f2fd';
+                    if (!isSelected) {
+                      e.target.style.backgroundColor = '#f5f5f5';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = 'white';
+                    if (!isSelected) {
+                      e.target.style.backgroundColor = 'white';
+                    }
                   }}
                 >
                   {displayText}
@@ -1311,7 +1551,8 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
                 fontSize: '13px',
                 color: '#999',
                 fontStyle: 'italic',
-                textAlign: 'center'
+                textAlign: 'center',
+                backgroundColor: 'white'
               }}>
                 No options found
               </div>
