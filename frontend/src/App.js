@@ -45,11 +45,14 @@ const StoragePage = React.lazy(() => import("./pages/StoragePage"));
 const StorageLandingPage = React.lazy(() => import("./pages/StorageLandingPage"));
 const ScriptsPage = React.lazy(() => import("./pages/ScriptsPage"));
 const CustomerTable = React.lazy(() => import("./components/tables/CustomerTable"));
+const CustomerTableTanStack = React.lazy(() => import("./components/tables/CustomerTableTanStackClean"));
 const ProjectTable = React.lazy(() => import("./components/tables/ProjectTable"));
+const ProjectTableTanStack = React.lazy(() => import("./components/tables/ProjectTableTanStackClean"));
 const FabricTable = React.lazy(() => import("./components/tables/FabricTableTanStackClean"));
 const FabricTableOriginal = React.lazy(() => import("./components/tables/FabricTable"));
 const FabricTableTanStackSimple = React.lazy(() => import("./components/tables/FabricTableTanStackSimple"));
 const AliasTable = React.lazy(() => import("./components/tables/AliasTable"));
+const AliasTableTanStack = React.lazy(() => import("./components/tables/AliasTableTanStackClean"));
 const ZoneTable = React.lazy(() => import("./components/tables/ZoneTable"));
 const StorageTable = React.lazy(() => import("./components/tables/StorageTable"));
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
@@ -190,11 +193,14 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                 <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                   <Routes>
                     <Route path="/" element={<CustomizableDashboard />} />
-                    <Route path="/customers" element={<CustomerTable />} />
-                    <Route path="/projects" element={<ProjectTable />} />
+                    <Route path="/customers" element={<CustomerTableTanStack />} />
+                    <Route path="/customers-original" element={<CustomerTable />} />
+                    <Route path="/projects" element={<ProjectTableTanStack />} />
+                    <Route path="/projects-original" element={<ProjectTable />} />
                     <Route path="/san" element={<SanPage />} />
                     <Route path="/insights" element={<InsightsPage />} />
-                    <Route path="/san/aliases" element={<AliasTable />} />
+                    <Route path="/san/aliases" element={<AliasTableTanStack />} />
+                    <Route path="/san/aliases-original" element={<AliasTable />} />
                     <Route path="/san/zones" element={<ZoneTable />} />
                     <Route path="/storage" element={<StorageLandingPage />} />
                     <Route path="/storage/systems" element={<StorageTable />} />

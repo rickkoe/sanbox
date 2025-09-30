@@ -23,6 +23,7 @@ const TanStackCRUDTable = forwardRef(({
   // API Configuration
   apiUrl,
   saveUrl,
+  updateUrl,
   deleteUrl,
   customerId,
 
@@ -46,6 +47,7 @@ const TanStackCRUDTable = forwardRef(({
   onSave,
   onDelete,
   onDataChange,
+  customSaveHandler,
 
   ...otherProps
 }, ref) => {
@@ -85,10 +87,16 @@ const TanStackCRUDTable = forwardRef(({
 
   // Delete URL function for individual deletions
   const getDeleteUrl = useCallback((id) => {
-    if (deleteUrl && deleteUrl.includes('/delete/')) {
-      return `${deleteUrl}${id}/`;
+    if (deleteUrl) {
+      if (deleteUrl.includes('/delete/')) {
+        // If deleteUrl already has /delete/ pattern, just append the ID
+        return deleteUrl.endsWith('/') ? `${deleteUrl}${id}/` : `${deleteUrl}${id}/`;
+      } else {
+        // Otherwise construct standard URL pattern
+        return deleteUrl.endsWith('/') ? `${deleteUrl}${id}/` : `${deleteUrl}/${id}/`;
+      }
     }
-    return `${deleteUrl}/${id}/`;
+    return null;
   }, [deleteUrl]);
 
   // Load data from server
@@ -162,12 +170,11 @@ const TanStackCRUDTable = forwardRef(({
     setHasChanges(true);
   }, []);
 
-  // Add new row
+  // Add new row (following original FabricTable pattern)
   const addNewRow = useCallback(() => {
-    const newRowId = `new-${Date.now()}`;
     const newRow = {
-      id: newRowId,
-      ...newRowTemplate
+      ...newRowTemplate,
+      id: null  // Use null for new rows like original FabricTable
     };
 
     const newData = [...editableData, newRow];
@@ -223,9 +230,38 @@ const TanStackCRUDTable = forwardRef(({
       console.log('💾 Starting save process...');
       setIsLoading(true);
 
-      // Separate new rows from existing rows
-      const newRows = editableData.filter(row => String(row.id).startsWith('new-'));
-      const existingRows = editableData.filter(row => !String(row.id).startsWith('new-'));
+      // Use custom save handler if provided (for bulk save scenarios like AliasTable)
+      if (customSaveHandler) {
+        console.log('🔧 Using custom save handler with deletions:', deletedRows);
+        const result = await customSaveHandler(editableData, hasChanges, deletedRows);
+
+        if (result.success) {
+          // Reload data from server after successful save
+          const response = await axios.get(filteredApiUrl);
+          let dataList = response.data;
+          if (response.data.results) {
+            dataList = response.data.results;
+          }
+          const processedData = preprocessData ? preprocessData(dataList) : dataList;
+
+          setEditableData(processedData);
+          setFabricData(processedData);
+          setHasChanges(false);
+          setDeletedRows([]);
+
+          console.log('✅ Custom save completed successfully');
+          if (onSave) onSave(result);
+        } else {
+          console.error('❌ Custom save failed:', result.message);
+          if (onSave) onSave(result);
+        }
+        return;
+      }
+
+      // Standard CRUD save process
+      // Separate new rows from existing rows (using original FabricTable logic)
+      const newRows = editableData.filter(row => !row.id || row.id === null);
+      const existingRows = editableData.filter(row => row.id && row.id !== null);
 
       console.log('➕ New rows to create:', newRows.length);
       console.log('✏️ Existing rows to update:', existingRows.length);
@@ -235,14 +271,26 @@ const TanStackCRUDTable = forwardRef(({
       const uniqueDeletedRows = [...new Set(deletedRows)]; // Remove duplicates
       for (const deletedId of uniqueDeletedRows) {
         console.log('🗑️ Deleting record ID:', deletedId);
-        const response = await axios.delete(getDeleteUrl(deletedId));
-        console.log('✅ Deleted record response:', response.data);
+
+        if (onDelete) {
+          // Use custom delete handler if provided
+          const deleteResult = await onDelete(deletedId);
+          console.log('✅ Custom delete result:', deleteResult);
+        } else {
+          // Use default axios delete
+          const response = await axios.delete(getDeleteUrl(deletedId));
+          console.log('✅ Deleted record response:', response.data);
+        }
       }
 
       // Save new rows (POST requests)
       for (const newRow of newRows) {
         let rowData = { ...newRow };
-        delete rowData.id; // Remove temp ID
+
+        // Remove any ID properties for new records (following original FabricTable logic)
+        delete rowData.id;
+        delete rowData.saved;
+        delete rowData._isNew;
 
         // Apply transform if provided
         if (saveTransform) {
@@ -271,9 +319,16 @@ const TanStackCRUDTable = forwardRef(({
 
         console.log('📤 Updating record ID:', existingRow.id);
 
-        // Construct proper PUT URL
-        const baseUrl = saveUrl || apiUrl;
-        const putUrl = baseUrl.endsWith('/') ? `${baseUrl}${existingRow.id}/` : `${baseUrl}/${existingRow.id}/`;
+        // Construct proper PUT URL - use updateUrl if provided, otherwise default pattern
+        let putUrl;
+        if (updateUrl) {
+          // Custom update URL pattern (e.g., /api/core/projects/update/{id}/)
+          putUrl = updateUrl.endsWith('/') ? `${updateUrl}${existingRow.id}/` : `${updateUrl}${existingRow.id}/`;
+        } else {
+          // Standard REST pattern (e.g., /api/customers/{id}/)
+          const baseUrl = saveUrl || apiUrl;
+          putUrl = baseUrl.endsWith('/') ? `${baseUrl}${existingRow.id}/` : `${baseUrl}/${existingRow.id}/`;
+        }
 
         console.log('📤 PUT URL:', putUrl);
         const response = await axios.put(putUrl, rowData);
@@ -323,7 +378,7 @@ const TanStackCRUDTable = forwardRef(({
     } finally {
       setIsLoading(false);
     }
-  }, [editableData, hasChanges, deletedRows, filteredApiUrl, getDeleteUrl, saveUrl, apiUrl, saveTransform, preprocessData, onSave]);
+  }, [editableData, hasChanges, deletedRows, filteredApiUrl, getDeleteUrl, saveUrl, apiUrl, saveTransform, preprocessData, onSave, customSaveHandler]);
 
   // Create enhanced column definitions with our custom cell components
   const columnDefs = useMemo(() => {
@@ -388,6 +443,58 @@ const TanStackCRUDTable = forwardRef(({
               <VendorDropdownCell
                 value={value}
                 options={options}
+                rowIndex={rowIndex}
+                columnKey={accessorKey}
+                updateCellData={updateCellData}
+              />
+            );
+          }
+
+          // Custom renderer cell
+          if (customRenderers && (customRenderers[accessorKey] || customRenderers[headerName])) {
+            const customRenderer = customRenderers[accessorKey] || customRenderers[headerName];
+            let renderResult = value;
+
+            try {
+              // Call custom renderer with row data for context
+              const rowData = editableData[rowIndex] || {};
+              renderResult = customRenderer(rowData, null, rowIndex, colIndex, accessorKey, value);
+            } catch (error) {
+              console.warn('Custom renderer error:', error);
+              renderResult = value;
+            }
+
+            // Check if result contains HTML (like links)
+            if (typeof renderResult === 'string' && renderResult.includes('<a ')) {
+              return (
+                <div
+                  dangerouslySetInnerHTML={{ __html: renderResult }}
+                  style={{
+                    cursor: 'pointer',
+                    color: '#007bff',
+                    textDecoration: 'none'
+                  }}
+                />
+              );
+            }
+
+            // Check if this is a password-like field (shows asterisks)
+            if (typeof renderResult === 'string' && renderResult.includes('••••••••••')) {
+              return (
+                <PasswordLikeCell
+                  actualValue={value}
+                  maskedValue={renderResult}
+                  rowIndex={rowIndex}
+                  columnKey={accessorKey}
+                  updateCellData={updateCellData}
+                />
+              );
+            }
+
+            // Return as text
+            return (
+              <EditableTextCell
+                value={renderResult}
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
                 updateCellData={updateCellData}
@@ -685,8 +792,8 @@ const TanStackCRUDTable = forwardRef(({
       if (neededRows > 0) {
         console.log(`➕ Auto-extending table with ${neededRows} new rows`);
         const newRows = Array.from({ length: neededRows }, (_, i) => ({
-          id: `new-${Date.now()}-${i}`,
-          ...newRowTemplate
+          ...newRowTemplate,
+          id: null  // Use null for new rows like original FabricTable
         }));
 
         // Update the data immediately to include new rows
@@ -1779,6 +1886,116 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
       {localValue || (
         <span style={{ color: '#bbb', fontStyle: 'italic' }}>
           Double-click to edit...
+        </span>
+      )}
+    </div>
+  );
+};
+
+// Password-like cell that shows asterisks but reveals value on double-click
+const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updateCellData }) => {
+  const [localValue, setLocalValue] = useState(actualValue || '');
+  const [isEditing, setIsEditing] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(actualValue || '');
+    }
+  }, [actualValue, isEditing]);
+
+  const handleDoubleClick = () => {
+    if (!isRevealed) {
+      // First double-click reveals the password
+      setIsRevealed(true);
+      setTimeout(() => setIsRevealed(false), 3000); // Hide after 3 seconds
+    } else {
+      // Second double-click (while revealed) starts editing
+      setIsEditing(true);
+    }
+  };
+
+  const handleChange = (e) => {
+    setLocalValue(e.target.value);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setLocalValue(actualValue || '');
+    }
+  };
+
+  const handleBlur = () => {
+    handleSave();
+  };
+
+  const handleSave = () => {
+    setIsEditing(false);
+    setIsRevealed(false);
+    if (updateCellData && localValue !== actualValue) {
+      updateCellData(rowIndex, columnKey, localValue);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        type="text"
+        value={localValue}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        autoFocus
+        style={{
+          width: '100%',
+          border: '2px solid #1976d2',
+          borderRadius: '4px',
+          outline: 'none',
+          padding: '6px 8px',
+          backgroundColor: '#fff',
+          fontSize: '14px',
+          boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)'
+        }}
+      />
+    );
+  }
+
+  const displayValue = isRevealed ? actualValue : maskedValue;
+
+  return (
+    <div
+      onDoubleClick={handleDoubleClick}
+      style={{
+        display: 'block',
+        width: '100%',
+        padding: '6px 8px',
+        cursor: 'pointer',
+        minHeight: '20px',
+        borderRadius: '4px',
+        transition: 'background-color 0.2s',
+        fontSize: '14px',
+        lineHeight: '1.4',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        fontFamily: isRevealed ? 'inherit' : 'monospace',
+        backgroundColor: isRevealed ? '#fff3cd' : 'transparent',
+        border: isRevealed ? '1px solid #ffeaa7' : '1px solid transparent'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.backgroundColor = isRevealed ? '#fff3cd' : '#f9f9f9';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.backgroundColor = isRevealed ? '#fff3cd' : 'transparent';
+      }}
+      title={isRevealed ? "Double-click to edit" : "Double-click to reveal"}
+    >
+      {displayValue || (
+        <span style={{ color: '#bbb', fontStyle: 'italic' }}>
+          Double-click to reveal...
         </span>
       )}
     </div>
