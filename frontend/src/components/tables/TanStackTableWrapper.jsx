@@ -1,5 +1,5 @@
 import React, { forwardRef } from 'react';
-import TanStackTable from './TanStackTable/TanStackTable';
+import TanStackCRUDTable from './TanStackTable/TanStackCRUDTable';
 
 /**
  * TanStackTableWrapper - Drop-in replacement for GenericTable
@@ -49,7 +49,7 @@ const TanStackTableWrapper = forwardRef(({
   const serverPagination = Boolean(apiUrl);
 
   return (
-    <TanStackTable
+    <TanStackCRUDTable
       ref={ref}
       // Core data and API
       apiUrl={apiUrl}

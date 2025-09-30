@@ -3,6 +3,9 @@
  * Provides helpers to ease the transition from Handsontable to TanStack Table
  */
 
+import React, { forwardRef } from 'react';
+import TanStackTable from '../TanStackTable';
+
 /**
  * Convert GenericTable props to TanStackTable props
  * Maps the existing GenericTable API to the new TanStackTable component
@@ -198,9 +201,6 @@ export function migrateCustomRenderers(customRenderers = {}) {
 /**
  * Create a migration wrapper component for backward compatibility
  */
-import React, { forwardRef } from 'react';
-import TanStackTable from '../TanStackTable';
-
 export const GenericTableMigrationWrapper = forwardRef((props, ref) => {
   const migratedProps = migrateGenericTableProps(props);
   const migratedColumns = migrateColumns(props.columns, props.colHeaders);

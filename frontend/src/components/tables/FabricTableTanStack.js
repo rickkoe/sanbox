@@ -1,6 +1,6 @@
 import React, { useRef, useContext, useState, useMemo } from "react";
 import axios from "axios";
-import TanStackTable from "./TanStackTable/TanStackTable";
+import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import { ConfigContext } from "../../context/ConfigContext";
 
 const vendorOptions = [
@@ -249,7 +249,7 @@ const FabricTableTanStack = () => {
                 )}
             </div>
 
-            <TanStackTable
+            <TanStackCRUDTable
                 ref={tableRef}
 
                 // Data and API

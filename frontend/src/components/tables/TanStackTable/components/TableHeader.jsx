@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 
 /**
- * Table header component with controls and actions
- * Provides save, export, filtering, and other table actions
+ * Table header component with CRUD controls and actions
+ * Provides save, export, and other table actions (search/filtering moved to FilterToolbar)
  */
 export function TableHeader({
   table,
@@ -17,14 +17,9 @@ export function TableHeader({
   className = '',
   style = {},
 }) {
-  const [showFilters, setShowFilters] = useState(false);
-
-  // Get table statistics
+  // Get table statistics for export purposes
   const stats = {
-    totalRows: table?.getRowModel().rows.length || 0,
-    filteredRows: table?.getFilteredRowModel().rows.length || 0,
     selectedRows: table?.getSelectedRowModel().rows.length || 0,
-    hasFilters: filtering?.filterStats?.hasAnyFilters || false,
   };
 
   return (
@@ -43,7 +38,7 @@ export function TableHeader({
         ...style,
       }}
     >
-      {/* Left section - Info and filters */}
+      {/* Left section - Status indicators */}
       <div
         className="header-left"
         style={{
@@ -53,9 +48,9 @@ export function TableHeader({
           flex: 1,
         }}
       >
-        {/* Table statistics */}
+        {/* Status indicators */}
         <div
-          className="table-stats"
+          className="status-indicators"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -64,26 +59,6 @@ export function TableHeader({
             color: '#666',
           }}
         >
-          <span>
-            {stats.filteredRows.toLocaleString()} rows
-            {stats.hasFilters && stats.totalRows !== stats.filteredRows && (
-              <span style={{ color: '#3498db' }}>
-                {' '}(filtered from {stats.totalRows.toLocaleString()})
-              </span>
-            )}
-          </span>
-
-          {stats.selectedRows > 0 && (
-            <span
-              style={{
-                color: '#e67e22',
-                fontWeight: '600',
-              }}
-            >
-              {stats.selectedRows} selected
-            </span>
-          )}
-
           {isDirty && (
             <span
               style={{
@@ -106,78 +81,9 @@ export function TableHeader({
             </span>
           )}
         </div>
-
-        {/* Global search */}
-        <div className="global-search" style={{ position: 'relative' }}>
-          <input
-            type="text"
-            placeholder="Search all columns..."
-            value={table?.getState().globalFilter || ''}
-            onChange={(e) => table?.setGlobalFilter(e.target.value)}
-            disabled={isLoading}
-            style={{
-              padding: '8px 12px 8px 32px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              fontSize: '14px',
-              width: '250px',
-              backgroundColor: isLoading ? '#f5f5f5' : 'white',
-            }}
-          />
-          <span
-            style={{
-              position: 'absolute',
-              left: '10px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#999',
-              fontSize: '16px',
-            }}
-          >
-            🔍
-          </span>
-        </div>
-
-        {/* Filter toggle */}
-        {filtering && (
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            disabled={isLoading}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              backgroundColor: showFilters ? '#3498db' : 'white',
-              color: showFilters ? 'white' : '#333',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            🔧 Filters
-            {stats.hasFilters && (
-              <span
-                style={{
-                  backgroundColor: showFilters ? 'rgba(255,255,255,0.2)' : '#e74c3c',
-                  color: showFilters ? 'white' : 'white',
-                  borderRadius: '10px',
-                  padding: '2px 6px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  minWidth: '18px',
-                  textAlign: 'center',
-                }}
-              >
-                {filtering.filterStats?.filteredColumns || 0}
-              </span>
-            )}
-          </button>
-        )}
       </div>
 
-      {/* Right section - Actions */}
+      {/* Right section - CRUD Actions */}
       <div
         className="header-right"
         style={{

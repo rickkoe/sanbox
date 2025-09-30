@@ -9,6 +9,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { FilterToolbar } from './components/FilterToolbar';
 
 /**
  * Enhanced TanStack Table with full CRUD operations and Excel-like features
@@ -1702,6 +1703,16 @@ const TanStackCRUDTable = forwardRef(({
       overflow: 'hidden',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
     }}>
+      {/* Filter Toolbar - Search, Filters, and Stats */}
+      <FilterToolbar
+        table={table}
+        columns={columns}
+        dropdownSources={dropdownSources}
+        onFilterChange={(filters) => {
+          table.setColumnFilters(filters);
+        }}
+      />
+
       {/* Modern Table Controls */}
       <div className="table-controls" style={{
         padding: '16px 20px',

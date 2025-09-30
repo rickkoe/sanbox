@@ -7,6 +7,14 @@ import {
   getPaginationRowModel,
   flexRender,
 } from '@tanstack/react-table';
+import {
+  advancedTextFilter,
+  multiSelectFilter,
+  numberRangeFilter,
+  dateFilter,
+  booleanFilter,
+  enhancedGlobalFilter,
+} from '../../utils/customFilterFunctions';
 
 /**
  * Core TanStack table instance hook
@@ -59,6 +67,16 @@ export function useTableInstance({
     ...(enableSorting ? { getSortedRowModel: getSortedRowModel() } : {}),
     ...(enableFiltering ? { getFilteredRowModel: getFilteredRowModel() } : {}),
     ...(!manualPagination ? { getPaginationRowModel: getPaginationRowModel() } : {}),
+
+    // Custom filter functions
+    filterFns: {
+      advancedTextFilter,
+      multiSelectFilter,
+      numberRangeFilter,
+      dateFilter,
+      booleanFilter,
+    },
+    globalFilterFn: enhancedGlobalFilter,
 
     // Configuration
     manualPagination,

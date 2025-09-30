@@ -50,7 +50,6 @@ const ProjectTable = React.lazy(() => import("./components/tables/ProjectTable")
 const ProjectTableTanStack = React.lazy(() => import("./components/tables/ProjectTableTanStackClean"));
 const FabricTable = React.lazy(() => import("./components/tables/FabricTableTanStackClean"));
 const FabricTableOriginal = React.lazy(() => import("./components/tables/FabricTable"));
-const FabricTableTanStackSimple = React.lazy(() => import("./components/tables/FabricTableTanStackSimple"));
 const AliasTable = React.lazy(() => import("./components/tables/AliasTable"));
 const AliasTableTanStack = React.lazy(() => import("./components/tables/AliasTableTanStackClean"));
 const ZoneTable = React.lazy(() => import("./components/tables/ZoneTable"));
@@ -73,6 +72,7 @@ const ZoneDeleteScriptsPage = React.lazy(() => import("./pages/ZoneDeleteScripts
 const ImportSwitchConfig = React.lazy(() => import("./components/forms/ImportSwitchConfig"));
 const StorageInsightsImporter = React.lazy(() => import("./pages/StorageInsightsImporter"));
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
+const AdvancedFilterDemo = React.lazy(() => import("./components/tables/TanStackTable/demo/AdvancedFilterDemo"));
 const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
 const CustomNamingPage = React.lazy(() => import("./pages/CustomNamingPage"));
 
@@ -93,7 +93,8 @@ function AppContent() {
     '/storage/systems',
     '/storage/hosts',
     '/tools/wwpn-colonizer',
-    '/test'
+    '/test',
+    '/test/advanced-filters'
   ];
 
   // Check for table routes including dynamic routes
@@ -216,7 +217,6 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
                     <Route path="/san/fabrics-original" element={<FabricTableOriginal />} />
-                    <Route path="/san/fabrics-tanstack" element={<FabricTableTanStackSimple />} />
                     <Route path="/settings" element={<div style={{padding: '2rem'}}><h2>Settings</h2><p>Choose a settings category from the Settings dropdown in the navbar.</p></div>} />
                     <Route path="/settings/project-config" element={<ConfigForm />} />
                     <Route path="/settings/app-settings" element={<SettingsPage />} />
@@ -227,6 +227,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/scripts/ds8000" element={<DS8000ScriptsPage />} />
                     <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
                     <Route path="/test" element={<TestFilters />} />
+                    <Route path="/test/advanced-filters" element={<AdvancedFilterDemo />} />
                     <Route path="/import" element={<div style={{padding: '2rem'}}><h2>Import Data</h2><p>Choose an import type from the Import dropdown in the navbar.</p></div>} />
                     <Route path="/import/zoning" element={<BulkZoningImportPage />} />
                   <Route

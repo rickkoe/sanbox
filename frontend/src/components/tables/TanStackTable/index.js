@@ -6,7 +6,7 @@
  */
 
 // Main component
-export { default as TanStackTable } from './TanStackTable';
+export { default as TanStackTable } from './TanStackCRUDTable';
 
 // Core hooks
 export { useTableInstance } from './core/hooks/useTableInstance';
@@ -45,4 +45,4 @@ export {
 export { flexRender } from '@tanstack/react-table';
 
 // Default export
-export { default } from './TanStackTable';
+export { default } from './TanStackCRUDTable';
