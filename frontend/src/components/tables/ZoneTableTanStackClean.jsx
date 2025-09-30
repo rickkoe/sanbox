@@ -847,6 +847,8 @@ const ZoneTableTanStackClean = () => {
                 apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}
                 saveUrl={API_ENDPOINTS.zoneSave}
                 deleteUrl={API_ENDPOINTS.zoneDelete}
+                customerId={activeCustomerId}
+                tableName="zones"
 
                 // Column Configuration
                 columns={allColumns}

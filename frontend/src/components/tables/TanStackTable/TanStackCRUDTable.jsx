@@ -268,6 +268,19 @@ const TanStackCRUDTable = forwardRef(({
 
       // Calculate content width by sampling data
       let maxContentWidth = headerWidth;
+
+      // For dropdown columns, also consider all dropdown options
+      if (column.type === 'dropdown' && dropdownSources && dropdownSources[accessorKey]) {
+        const dropdownOptions = dropdownSources[accessorKey] || [];
+        dropdownOptions.forEach(option => {
+          if (option) {
+            const optionWidth = String(option).length * 8 + 60; // Extra padding for dropdown arrow
+            maxContentWidth = Math.max(maxContentWidth, optionWidth);
+          }
+        });
+        console.log(`📏 Dropdown column "${accessorKey}" - longest option width:`, maxContentWidth);
+      }
+
       if (currentTableData && currentTableData.length > 0) {
         // Sample first 10 rows to estimate content width
         const sampleSize = Math.min(10, currentTableData.length);
@@ -280,8 +293,8 @@ const TanStackCRUDTable = forwardRef(({
         }
       }
 
-      // Set reasonable limits
-      const finalWidth = Math.min(Math.max(maxContentWidth, 80), 400);
+      // Set reasonable limits (increased max for dropdown readability)
+      const finalWidth = Math.min(Math.max(maxContentWidth, 80), column.type === 'dropdown' ? 300 : 400);
       newSizing[accessorKey] = finalWidth;
     });
 
@@ -292,7 +305,22 @@ const TanStackCRUDTable = forwardRef(({
     if (Object.keys(newSizing).length > 0) {
       saveTableConfig({ column_widths: newSizing });
     }
-  }, [columns, colHeaders, currentTableData, saveTableConfig]);
+  }, [columns, colHeaders, currentTableData, dropdownSources, saveTableConfig]);
+
+  // Auto-size columns on first load if no saved configuration exists
+  useEffect(() => {
+    if (editableData.length > 0 && // Data has loaded
+        tableName && customerId && // Required for persistence
+        Object.keys(columnSizing).length === 0 && // No existing column sizes
+        !isLoading) { // Not currently loading
+
+      console.log('🎯 First time loading table with no saved configuration - running auto-sizer');
+      // Small delay to ensure table is fully rendered
+      setTimeout(() => {
+        autoSizeColumns();
+      }, 100);
+    }
+  }, [editableData, tableName, customerId, columnSizing, isLoading, autoSizeColumns]);
 
   // Handle resize events
   useEffect(() => {
@@ -2327,15 +2355,6 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
             accentColor: '#1976d2'
           }}
         />
-        {/* Visual indicator */}
-        <span style={{
-          marginLeft: '8px',
-          fontSize: '12px',
-          color: checked ? '#2e7d32' : '#666',
-          fontWeight: '500'
-        }}>
-          {checked ? '✓' : '○'}
-        </span>
       </label>
     </div>
   );

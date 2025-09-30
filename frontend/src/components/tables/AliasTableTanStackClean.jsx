@@ -336,6 +336,8 @@ const AliasTableTanStackClean = () => {
                 apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}
                 saveUrl={API_ENDPOINTS.aliasSave}
                 deleteUrl={API_ENDPOINTS.aliasDelete}
+                customerId={activeCustomerId}
+                tableName="aliases"
 
                 // Column Configuration
                 columns={columns}

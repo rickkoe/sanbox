@@ -56,6 +56,8 @@ const CustomerTableTanStackClean = () => {
                 apiUrl={`${API_URL}/api/customers/`}
                 saveUrl={`${API_URL}/api/customers/`}
                 deleteUrl={`${API_URL}/api/customers/delete/`}
+                customerId={1} // Global customer list doesn't filter by customer
+                tableName="customers"
 
                 // Column Configuration
                 columns={columns}

@@ -11,6 +11,8 @@ const ProjectTableTanStackClean = () => {
     const [customerOptions, setCustomerOptions] = useState([]);
     const [customersById, setCustomersById] = useState({});
 
+    const activeCustomerId = config?.customer?.id;
+
     // All possible project columns
     const columns = [
         { data: "name", title: "Project Name", required: true },
@@ -120,6 +122,8 @@ const ProjectTableTanStackClean = () => {
                 saveUrl={`${API_URL}/api/core/projects/`}
                 updateUrl={`${API_URL}/api/core/projects/update/`}
                 deleteUrl={`${API_URL}/api/core/projects/delete/`}
+                customerId={activeCustomerId}
+                tableName="projects"
 
                 // Column Configuration
                 columns={columns}

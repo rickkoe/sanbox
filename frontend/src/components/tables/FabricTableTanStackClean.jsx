@@ -89,6 +89,7 @@ const FabricTableTanStackClean = () => {
                 saveUrl={`${API_URL}/api/san/fabrics/`}
                 deleteUrl={`${API_URL}/api/san/fabrics/delete/`}
                 customerId={customerId}
+                tableName="fabrics"
 
                 // Column Configuration
                 columns={columns}
