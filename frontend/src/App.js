@@ -56,9 +56,11 @@ const AliasTableTanStack = React.lazy(() => import("./components/tables/AliasTab
 const ZoneTable = React.lazy(() => import("./components/tables/ZoneTable"));
 const ZoneTableTanStack = React.lazy(() => import("./components/tables/ZoneTableTanStackClean"));
 const StorageTable = React.lazy(() => import("./components/tables/StorageTable"));
+const StorageTableTanStackClean = React.lazy(() => import("./components/tables/StorageTableTanStackClean"));
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
 const HostTable = React.lazy(() => import("./components/tables/HostTable"));
+const HostTableTanStackClean = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
 const ConfigForm = React.lazy(() => import("./components/forms/ConfigForm"));
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const WWPNFormatterTable = React.lazy(() => import("./components/tools/WWPNColonizer"));
@@ -205,8 +207,10 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/san/zones" element={<ZoneTableTanStack />} />
                     <Route path="/san/zones-original" element={<ZoneTable />} />
                     <Route path="/storage" element={<StorageLandingPage />} />
-                    <Route path="/storage/systems" element={<StorageTable />} />
-                    <Route path="/storage/hosts" element={<HostTable />} />
+                    <Route path="/storage/systems" element={<StorageTableTanStackClean />} />
+                    <Route path="/storage/systems-original" element={<StorageTable />} />
+                    <Route path="/storage/hosts" element={<HostTableTanStackClean />} />
+                    <Route path="/storage/hosts-original" element={<HostTable />} />
                     <Route path="/storage/:id" element={<StoragePage />} />
                     <Route path="/storage/:id/volumes" element={<StorageVolumesPage />} />
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />

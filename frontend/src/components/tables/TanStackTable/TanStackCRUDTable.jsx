@@ -5,6 +5,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
+  getColumnResizeMode,
   flexRender,
 } from '@tanstack/react-table';
 
@@ -26,6 +27,9 @@ const TanStackCRUDTable = forwardRef(({
   updateUrl,
   deleteUrl,
   customerId,
+
+  // Table Configuration
+  tableName, // Name for storing table configuration in database
 
   // Column Configuration
   columns = [],
@@ -74,6 +78,9 @@ const TanStackCRUDTable = forwardRef(({
   // Table configuration
   const [sorting, setSorting] = useState([]);
   const [columnFilters, setColumnFilters] = useState([]);
+  const [columnSizing, setColumnSizing] = useState({});
+  const [tableConfig, setTableConfig] = useState(null);
+  const [resizeState, setResizeState] = useState({ isResizing: false, startX: 0, currentX: 0, columnId: null });
 
   // API URL with customer filter for server pagination
   const filteredApiUrl = useMemo(() => {
@@ -102,6 +109,71 @@ const TanStackCRUDTable = forwardRef(({
     }
     return null;
   }, [deleteUrl]);
+
+  // Table configuration API functions
+  const loadTableConfig = useCallback(async () => {
+    if (!tableName || !customerId) return;
+
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      const response = await axios.get(`${API_URL}/api/core/table-config/`, {
+        params: {
+          customer: customerId,
+          table_name: tableName
+        }
+      });
+
+      if (response.data) {
+        setTableConfig(response.data);
+        if (response.data.column_widths && Object.keys(response.data.column_widths).length > 0) {
+          console.log('📊 Loading saved column widths:', response.data.column_widths);
+          setColumnSizing(response.data.column_widths);
+        }
+        console.log('📊 Loaded table configuration:', response.data);
+      }
+    } catch (error) {
+      console.log('⚠️ No existing table configuration found or error loading:', error.message);
+    }
+  }, [tableName, customerId]);
+
+  const saveTableConfig = useCallback(async (configUpdate) => {
+    if (!tableName || !customerId) {
+      console.log('⚠️ Cannot save table config: missing tableName or customerId', { tableName, customerId });
+      return;
+    }
+
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || '';
+      const configData = {
+        customer: customerId,
+        table_name: tableName,
+        column_widths: configUpdate.column_widths || columnSizing,
+        ...configUpdate
+      };
+
+      console.log('💾 Saving table configuration:', {
+        url: tableConfig?.id ? `${API_URL}/api/core/table-config/${tableConfig.id}/` : `${API_URL}/api/core/table-config/`,
+        method: tableConfig?.id ? 'PUT' : 'POST',
+        data: configData
+      });
+
+      if (tableConfig?.id) {
+        // Update existing config
+        await axios.put(`${API_URL}/api/core/table-config/${tableConfig.id}/`, configData);
+        console.log('✅ Updated existing table configuration');
+      } else {
+        // Create new config
+        const response = await axios.post(`${API_URL}/api/core/table-config/`, configData);
+        setTableConfig(response.data);
+        console.log('✅ Created new table configuration:', response.data);
+      }
+    } catch (error) {
+      console.error('❌ Error saving table configuration:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+    }
+  }, [tableName, customerId, tableConfig, columnSizing]);
+
 
   // Load data from server
   useEffect(() => {
@@ -143,6 +215,25 @@ const TanStackCRUDTable = forwardRef(({
     loadData();
   }, [filteredApiUrl, preprocessData]);
 
+  // Load table configuration on mount
+  useEffect(() => {
+    if (tableName && customerId) {
+      loadTableConfig();
+    }
+  }, [tableName, customerId]);
+
+  // Save column widths when they change
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (Object.keys(columnSizing).length > 0) {
+        console.log('💾 Saving column widths:', columnSizing);
+        saveTableConfig({ column_widths: columnSizing });
+      }
+    }, 1000); // Debounce for 1 second
+
+    return () => clearTimeout(debounceTimer);
+  }, [columnSizing, saveTableConfig]);
+
   // Table data with filtering
   const currentTableData = useMemo(() => {
     if (!globalFilter) {
@@ -159,6 +250,77 @@ const TanStackCRUDTable = forwardRef(({
     console.log(`🔍 Filtered data: ${filtered.length} of ${editableData.length} rows match "${globalFilter}"`);
     return filtered;
   }, [editableData, globalFilter]);
+
+  // Auto-size columns function (defined after currentTableData)
+  const autoSizeColumns = useCallback(() => {
+    console.log('📏 Auto-sizing columns...');
+
+    // Reset all column widths to auto-calculated sizes
+    const newSizing = {};
+
+    // For each column, calculate optimal width based on content and header
+    columns.forEach((column, index) => {
+      const accessorKey = column.data || `column_${index}`;
+      const headerName = colHeaders[index] || column.header || column.data || `Column ${index + 1}`;
+
+      // Calculate width based on header length
+      const headerWidth = Math.max(120, headerName.length * 10 + 60);
+
+      // Calculate content width by sampling data
+      let maxContentWidth = headerWidth;
+      if (currentTableData && currentTableData.length > 0) {
+        // Sample first 10 rows to estimate content width
+        const sampleSize = Math.min(10, currentTableData.length);
+        for (let i = 0; i < sampleSize; i++) {
+          const cellValue = currentTableData[i]?.[accessorKey];
+          if (cellValue) {
+            const cellWidth = String(cellValue).length * 8 + 40;
+            maxContentWidth = Math.max(maxContentWidth, cellWidth);
+          }
+        }
+      }
+
+      // Set reasonable limits
+      const finalWidth = Math.min(Math.max(maxContentWidth, 80), 400);
+      newSizing[accessorKey] = finalWidth;
+    });
+
+    console.log('📏 Setting new column sizes:', newSizing);
+    setColumnSizing(newSizing);
+
+    // Save to database
+    if (Object.keys(newSizing).length > 0) {
+      saveTableConfig({ column_widths: newSizing });
+    }
+  }, [columns, colHeaders, currentTableData, saveTableConfig]);
+
+  // Handle resize events
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (resizeState.isResizing) {
+        setResizeState(prev => ({
+          ...prev,
+          currentX: e.clientX
+        }));
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (resizeState.isResizing) {
+        setResizeState({ isResizing: false, startX: 0, currentX: 0, columnId: null });
+      }
+    };
+
+    if (resizeState.isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizeState.isResizing]);
 
   // Update cell data function
   const updateCellData = useCallback((rowIndex, columnKey, newValue) => {
@@ -526,8 +688,13 @@ const TanStackCRUDTable = forwardRef(({
               renderResult = value;
             }
 
-            // Check if result contains HTML (like links)
-            if (typeof renderResult === 'string' && renderResult.includes('<a ')) {
+            // Check if result is a React component
+            if (renderResult && typeof renderResult === 'object' && renderResult.__isReactComponent) {
+              return renderResult.component;
+            }
+
+            // Check if result contains HTML (like links, spans, or buttons)
+            if (typeof renderResult === 'string' && (renderResult.includes('<a ') || renderResult.includes('<span') || renderResult.includes('<button'))) {
               return (
                 <div
                   dangerouslySetInnerHTML={{ __html: renderResult }}
@@ -580,13 +747,14 @@ const TanStackCRUDTable = forwardRef(({
         enableColumnFilter: true,
         enableGlobalFilter: true,
 
-        // Sizing
-        size: column.width || getColumnWidth(headerName, column.type),
+        // Sizing and resizing
+        enableResizing: true,
+        size: columnSizing[accessorKey] || column.width || getColumnWidth(headerName, column.type),
         minSize: 50,
         maxSize: 800,
       };
     });
-  }, [columns, colHeaders, dropdownSources, updateCellData]);
+  }, [columns, colHeaders, dropdownSources, updateCellData, columnSizing]);
 
   // Table instance
   const table = useReactTable({
@@ -595,10 +763,17 @@ const TanStackCRUDTable = forwardRef(({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    enableColumnResizing: true,
+    columnResizeMode: 'onEnd',
     state: {
       sorting,
       columnFilters,
       globalFilter,
+      columnSizing,
+    },
+    onColumnSizingChange: (updater) => {
+      console.log('🔧 Column sizing changed:', updater);
+      setColumnSizing(updater);
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -1134,6 +1309,7 @@ const TanStackCRUDTable = forwardRef(({
     getSelectedCells: () => selectedCells,
     getTableData: () => currentTableData,
     hasChanges,
+    autoSizeColumns,
   }));
 
   return (
@@ -1342,6 +1518,37 @@ const TanStackCRUDTable = forwardRef(({
           {isLoading ? '💾 Saving...' : hasChanges ? '💾 Save Changes' : '💾 No Changes'}
         </button>
 
+        {/* Auto-size columns button */}
+        <button
+          onClick={autoSizeColumns}
+          style={{
+            padding: '10px 18px',
+            backgroundColor: '#1976d2',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'background-color 0.2s, transform 0.1s',
+            boxShadow: '0 2px 4px rgba(25, 118, 210, 0.2)'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.backgroundColor = '#1565c0';
+            e.target.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.backgroundColor = '#1976d2';
+            e.target.style.transform = 'translateY(0)';
+          }}
+          title="Auto-size all columns to fit content"
+        >
+          📏 Auto-size Columns
+        </button>
+
         {/* Status indicator and shortcuts */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
           {selectedCells.size > 0 && (
@@ -1398,10 +1605,12 @@ const TanStackCRUDTable = forwardRef(({
         tabIndex={0}
       >
         <table style={{
-          width: '100%',
+          width: table.getCenterTotalSize(),
           borderCollapse: 'separate',
           borderSpacing: 0,
-          fontSize: '14px'
+          fontSize: '14px',
+          minWidth: '100%',
+          tableLayout: 'fixed'
         }}>
           <thead>
             {table.getHeaderGroups().map(headerGroup => (
@@ -1413,7 +1622,12 @@ const TanStackCRUDTable = forwardRef(({
                       padding: '14px 12px',
                       textAlign: 'left',
                       borderBottom: '2px solid #e0e0e0',
+                      borderRight: '1px solid #e0e0e0',
                       backgroundColor: '#f8f9fa',
+                      height: '50px', // Consistent header height
+                      minHeight: '50px',
+                      position: 'relative',
+                      width: header.getSize(),
                       fontWeight: '600',
                       fontSize: '13px',
                       color: '#424242',
@@ -1446,6 +1660,50 @@ const TanStackCRUDTable = forwardRef(({
                         </span>
                       )}
                     </div>
+                    {/* Column resize handle */}
+                    {header.column.getCanResize() && (
+                      <div
+                        onMouseDown={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setResizeState({
+                            isResizing: true,
+                            startX: e.clientX,
+                            currentX: e.clientX,
+                            columnId: header.id
+                          });
+                          header.getResizeHandler()(e);
+                        }}
+                        onTouchStart={header.getResizeHandler()}
+                        className={`resizer ${header.column.getIsResizing() ? 'isResizing' : ''}`}
+                        onMouseEnter={(e) => {
+                          if (!header.column.getIsResizing()) {
+                            e.target.style.opacity = '1';
+                            e.target.style.background = '#1976d2';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!header.column.getIsResizing()) {
+                            e.target.style.opacity = '0';
+                            e.target.style.background = 'rgba(0, 0, 0, 0.1)';
+                          }
+                        }}
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: 0,
+                          height: '100%',
+                          width: header.column.getIsResizing() ? '3px' : '5px',
+                          background: header.column.getIsResizing() ? '#1976d2' : 'rgba(0, 0, 0, 0.1)',
+                          cursor: 'col-resize',
+                          userSelect: 'none',
+                          touchAction: 'none',
+                          opacity: header.column.getIsResizing() ? 1 : 0,
+                          transition: 'opacity 0.2s',
+                          boxShadow: header.column.getIsResizing() ? '0 0 0 1px #1976d2' : 'none',
+                          zIndex: header.column.getIsResizing() ? 1000 : 10
+                        }}
+                      />
+                    )}
                   </th>
                 ))}
               </tr>
@@ -1481,8 +1739,9 @@ const TanStackCRUDTable = forwardRef(({
                       style={{
                         padding: '10px 12px',
                         border: 'none',
-                        borderBottom: '1px solid #f0f0f0',
-                        borderRight: '1px solid #f5f5f5',
+                        borderBottom: '1px solid #e0e0e0',
+                        borderRight: '1px solid #e0e0e0',
+                        width: cell.column.getSize(),
                         backgroundColor: isSelected ? '#e3f2fd' : 'transparent',
                         cursor: 'cell',
                         position: 'relative',
@@ -1570,6 +1829,32 @@ const TanStackCRUDTable = forwardRef(({
       onMouseEnter={(e) => e.target.style.opacity = '1'}
       onMouseLeave={(e) => e.target.style.opacity = '0.9'}
       >
+        {/* Auto-size Columns Button */}
+        <button
+          onClick={autoSizeColumns}
+          title="Auto-size Columns"
+          style={{
+            width: '32px',
+            height: '32px',
+            backgroundColor: 'white',
+            color: 'black',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'background-color 0.2s',
+            marginBottom: '4px'
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+        >
+          📏
+        </button>
+
         {/* Top Arrow */}
         <button
           onClick={scrollToTop}
@@ -1673,6 +1958,23 @@ const TanStackCRUDTable = forwardRef(({
           ▼
         </button>
       </div>
+
+      {/* Floating resize line that follows cursor during drag */}
+      {resizeState.isResizing && (
+        <div
+          style={{
+            position: 'fixed',
+            left: resizeState.currentX,
+            top: 0,
+            bottom: 0,
+            width: '2px',
+            backgroundColor: '#1976d2',
+            zIndex: 10000,
+            pointerEvents: 'none',
+            boxShadow: '0 0 0 1px rgba(25, 118, 210, 0.3)'
+          }}
+        />
+      )}
     </div>
   );
 });
