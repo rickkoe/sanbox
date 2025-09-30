@@ -1943,32 +1943,6 @@ const TanStackCRUDTable = forwardRef(({
               {selectedCells.size} cell{selectedCells.size > 1 ? 's' : ''} selected
             </div>
           )}
-
-          {/* Keyboard shortcuts hint */}
-          <div style={{
-            padding: '4px 8px',
-            backgroundColor: '#f5f5f5',
-            border: '1px solid #e0e0e0',
-            borderRadius: '4px',
-            fontSize: '11px',
-            color: '#666',
-            cursor: 'help'
-          }}
-          title="Keyboard Shortcuts:
-• Click: Select cell
-• Ctrl+Click: Multi-select
-• Shift+Click: Range select
-• Arrow Keys: Navigate
-• Tab/Shift+Tab: Navigate
-• Ctrl+C/V: Copy/Paste
-• Ctrl+D: Fill Down
-• Ctrl+R: Fill Right
-• Delete: Clear cells
-• Shift+Delete: Delete rows
-• Escape: Clear selection
-• F2: Edit cell">
-            ⌨️ Excel Features
-          </div>
         </div>
       </div>
 

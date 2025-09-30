@@ -81,7 +81,6 @@ const getSidebarLinks = (pathname) => {
         expandable: true,
         subLinks: [
           { path: "/san/fabrics", label: "Fabrics", icon: GitBranch },
-          { path: "/san/fabrics-tanstack", label: "Fabrics (TanStack)", icon: GitBranch, className: "test-link" },
           { path: "/san/aliases", label: "Aliases", icon: Tags },
           { path: "/san/zones", label: "Zones", icon: Layers },
         ]

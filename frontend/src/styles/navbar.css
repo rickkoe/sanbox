@@ -7,7 +7,7 @@ nav.navbar {
   box-shadow: none !important;
   border: none !important;
   border-top: none !important;
-  border-bottom: none !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important; /* Add this line */
   transition: all 0.3s ease;
   position: relative;
   z-index: 100;
