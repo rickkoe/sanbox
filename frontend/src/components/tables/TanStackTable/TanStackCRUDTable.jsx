@@ -89,6 +89,10 @@ const TanStackCRUDTable = forwardRef(({
   const [tableConfig, setTableConfig] = useState(null);
   const [resizeState, setResizeState] = useState({ isResizing: false, startX: 0, currentX: 0, columnId: null });
 
+  // Floating navigation panel state
+  const [showFloatingNav, setShowFloatingNav] = useState(false);
+  const [scrollTimeout, setScrollTimeout] = useState(null);
+
   // Build API URL with pagination and customer filter
   const buildApiUrl = useCallback((page, size, search = '') => {
     if (!apiUrl) return null;
@@ -375,6 +379,40 @@ const TanStackCRUDTable = forwardRef(({
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [resizeState.isResizing]);
+
+  // Handle scroll events for floating navigation panel
+  useEffect(() => {
+    const handleScroll = () => {
+      // Show the floating navigation panel when scrolling
+      setShowFloatingNav(true);
+
+      // Clear existing timeout
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+
+      // Hide the panel after 2 seconds of no scrolling
+      const timeout = setTimeout(() => {
+        setShowFloatingNav(false);
+      }, 2000);
+
+      setScrollTimeout(timeout);
+    };
+
+    const tableWrapper = document.querySelector('.table-wrapper');
+    if (tableWrapper) {
+      tableWrapper.addEventListener('scroll', handleScroll);
+    }
+
+    return () => {
+      if (tableWrapper) {
+        tableWrapper.removeEventListener('scroll', handleScroll);
+      }
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+    };
+  }, [scrollTimeout]);
 
   // Update cell data function
   const updateCellData = useCallback((rowIndex, columnKey, newValue) => {
@@ -2158,21 +2196,30 @@ const TanStackCRUDTable = forwardRef(({
       )}
 
       {/* Floating Navigation Panel */}
-      <div style={{
-        position: 'absolute',
-        bottom: '10px',
-        right: '10px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '4px',
-        zIndex: 1000,
-        opacity: 0.9,
-        transition: 'opacity 0.2s'
-      }}
-      onMouseEnter={(e) => e.target.style.opacity = '1'}
-      onMouseLeave={(e) => e.target.style.opacity = '0.9'}
-      >
+      {showFloatingNav && (
+        <div style={{
+          position: 'absolute',
+          bottom: '60px', // Position above the footer
+          right: '10px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '4px',
+          zIndex: 1000,
+          opacity: showFloatingNav ? 0.9 : 0,
+          transform: showFloatingNav ? 'translateY(0)' : 'translateY(10px)',
+          transition: 'opacity 0.3s ease, transform 0.3s ease',
+          pointerEvents: showFloatingNav ? 'auto' : 'none'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.opacity = '1';
+          e.currentTarget.style.transform = 'translateY(0) scale(1.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.opacity = '0.9';
+          e.currentTarget.style.transform = 'translateY(0) scale(1)';
+        }}
+        >
         {/* Auto-size Columns Button */}
         <button
           onClick={autoSizeColumns}
@@ -2302,6 +2349,7 @@ const TanStackCRUDTable = forwardRef(({
           ▼
         </button>
       </div>
+      )}
 
       {/* Floating resize line that follows cursor during drag */}
       {resizeState.isResizing && (
