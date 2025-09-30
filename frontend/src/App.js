@@ -54,6 +54,7 @@ const FabricTableTanStackSimple = React.lazy(() => import("./components/tables/F
 const AliasTable = React.lazy(() => import("./components/tables/AliasTable"));
 const AliasTableTanStack = React.lazy(() => import("./components/tables/AliasTableTanStackClean"));
 const ZoneTable = React.lazy(() => import("./components/tables/ZoneTable"));
+const ZoneTableTanStack = React.lazy(() => import("./components/tables/ZoneTableTanStackClean"));
 const StorageTable = React.lazy(() => import("./components/tables/StorageTable"));
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
@@ -201,7 +202,8 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/insights" element={<InsightsPage />} />
                     <Route path="/san/aliases" element={<AliasTableTanStack />} />
                     <Route path="/san/aliases-original" element={<AliasTable />} />
-                    <Route path="/san/zones" element={<ZoneTable />} />
+                    <Route path="/san/zones" element={<ZoneTableTanStack />} />
+                    <Route path="/san/zones-original" element={<ZoneTable />} />
                     <Route path="/storage" element={<StorageLandingPage />} />
                     <Route path="/storage/systems" element={<StorageTable />} />
                     <Route path="/storage/hosts" element={<HostTable />} />

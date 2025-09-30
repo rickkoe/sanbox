@@ -31,6 +31,7 @@ const TanStackCRUDTable = forwardRef(({
   columns = [],
   colHeaders = [],
   dropdownSources = {},
+  dropdownFilters = {},
   customRenderers = {},
   newRowTemplate = {},
 
@@ -411,13 +412,16 @@ const TanStackCRUDTable = forwardRef(({
           // Get the actual column config to check type
           const actualColumnConfig = columns[index];
           const isCheckbox = accessorKey === 'exists' || actualColumnConfig?.type === 'checkbox';
-          const isDropdown = actualColumnConfig?.type === 'dropdown' || accessorKey === 'san_vendor';
+          const isDropdown = actualColumnConfig?.type === 'dropdown' || accessorKey === 'san_vendor' || accessorKey.startsWith('member_');
 
           console.log(`🔍 Cell [${rowIndex}, ${colIndex}] ${accessorKey}:`, {
             value,
             isCheckbox,
             isDropdown,
             columnConfig: actualColumnConfig,
+            index,
+            columnsLength: columns.length,
+            isMemberColumn: accessorKey.startsWith('member_'),
             dropdownSource,
             dropdownOptions: dropdownSources[accessorKey]
           });
@@ -436,8 +440,21 @@ const TanStackCRUDTable = forwardRef(({
 
           // Dropdown cell
           if (isDropdown) {
-            const options = dropdownSource || dropdownSources[accessorKey] || [];
-            console.log(`📋 Dropdown ${accessorKey} options:`, options);
+            let options = dropdownSource || dropdownSources[accessorKey] || [];
+
+            // Handle dynamic dropdown sources (functions)
+            if (typeof dropdownSources === 'function') {
+              const dynamicSources = dropdownSources(currentTableData);
+
+              // Check if this column has a dynamic function
+              if (dynamicSources.getMemberOptions && accessorKey.startsWith('member_')) {
+                options = dynamicSources.getMemberOptions(rowIndex, accessorKey, currentTableData);
+              } else {
+                options = dynamicSources[accessorKey] || [];
+              }
+            }
+
+            console.log(`📋 Dropdown ${accessorKey} options:`, Array.isArray(options) ? options.length : 'function');
 
             return (
               <VendorDropdownCell
@@ -446,6 +463,8 @@ const TanStackCRUDTable = forwardRef(({
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
                 updateCellData={updateCellData}
+                rowData={row.original}
+                filterFunction={dropdownFilters?.[accessorKey]}
               />
             );
           }
@@ -1440,7 +1459,7 @@ const TanStackCRUDTable = forwardRef(({
 // Enhanced Cell Components
 
 // Enhanced searchable dropdown cell component
-const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCellData }) => {
+const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCellData, rowData, filterFunction }) => {
   const [localValue, setLocalValue] = useState(value || '');
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -1478,7 +1497,14 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
     }
   }, [isOpen]);
 
-  const filteredOptions = options.filter(option =>
+  // Apply filtering function if provided, then search filtering
+  let availableOptions = options;
+  if (filterFunction && rowData) {
+    availableOptions = filterFunction(options, rowData, columnKey);
+    console.log(`🔍 Filtered ${columnKey} options from ${options.length} to ${availableOptions.length} for row data:`, rowData);
+  }
+
+  const filteredOptions = availableOptions.filter(option =>
     typeof option === 'string'
       ? option.toLowerCase().includes(searchText.toLowerCase())
       : (option.name || option.label || '').toLowerCase().includes(searchText.toLowerCase())
