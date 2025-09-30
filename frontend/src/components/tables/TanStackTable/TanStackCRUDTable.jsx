@@ -174,6 +174,35 @@ const TanStackCRUDTable = forwardRef(({
     setHasChanges(true);
   }, []);
 
+  // Navigation functions for floating panel
+  const scrollToTop = useCallback(() => {
+    const tableWrapper = document.querySelector('.table-wrapper');
+    if (tableWrapper) {
+      tableWrapper.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const tableWrapper = document.querySelector('.table-wrapper');
+    if (tableWrapper) {
+      tableWrapper.scrollTo({ top: tableWrapper.scrollHeight, behavior: 'smooth' });
+    }
+  }, []);
+
+  const scrollToLeft = useCallback(() => {
+    const tableWrapper = document.querySelector('.table-wrapper');
+    if (tableWrapper) {
+      tableWrapper.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  const scrollToRight = useCallback(() => {
+    const tableWrapper = document.querySelector('.table-wrapper');
+    if (tableWrapper) {
+      tableWrapper.scrollTo({ left: tableWrapper.scrollWidth, behavior: 'smooth' });
+    }
+  }, []);
+
   // Add new row (following original FabricTable pattern)
   const addNewRow = useCallback(() => {
     const newRow = {
@@ -1524,6 +1553,126 @@ const TanStackCRUDTable = forwardRef(({
           {fillPreview.operation}: {fillPreview.sourceValue} → {fillPreview.count} cells
         </div>
       )}
+
+      {/* Floating Navigation Panel */}
+      <div style={{
+        position: 'absolute',
+        bottom: '10px',
+        right: '10px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '4px',
+        zIndex: 1000,
+        opacity: 0.9,
+        transition: 'opacity 0.2s'
+      }}
+      onMouseEnter={(e) => e.target.style.opacity = '1'}
+      onMouseLeave={(e) => e.target.style.opacity = '0.9'}
+      >
+        {/* Top Arrow */}
+        <button
+          onClick={scrollToTop}
+          title="Scroll to Top"
+          style={{
+            width: '32px',
+            height: '32px',
+            backgroundColor: 'white',
+            color: 'black',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+        >
+          ▲
+        </button>
+
+        {/* Navigation Row */}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {/* Left Arrow */}
+          <button
+            onClick={scrollToLeft}
+            title="Scroll to Left"
+            style={{
+              width: '32px',
+              height: '32px',
+              backgroundColor: 'white',
+              color: 'black',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+          >
+            ◀
+          </button>
+
+          {/* Right Arrow */}
+          <button
+            onClick={scrollToRight}
+            title="Scroll to Right"
+            style={{
+              width: '32px',
+              height: '32px',
+              backgroundColor: 'white',
+              color: 'black',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+          >
+            ▶
+          </button>
+        </div>
+
+        {/* Bottom Arrow */}
+        <button
+          onClick={scrollToBottom}
+          title="Scroll to Bottom"
+          style={{
+            width: '32px',
+            height: '32px',
+            backgroundColor: 'white',
+            color: 'black',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+        >
+          ▼
+        </button>
+      </div>
     </div>
   );
 });
