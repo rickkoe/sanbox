@@ -270,7 +270,13 @@ const TanStackCRUDTable = forwardRef(({
         }
 
         console.log('📤 Updating record ID:', existingRow.id);
-        const response = await axios.put(`${saveUrl || apiUrl}${existingRow.id}/`, rowData);
+
+        // Construct proper PUT URL
+        const baseUrl = saveUrl || apiUrl;
+        const putUrl = baseUrl.endsWith('/') ? `${baseUrl}${existingRow.id}/` : `${baseUrl}/${existingRow.id}/`;
+
+        console.log('📤 PUT URL:', putUrl);
+        const response = await axios.put(putUrl, rowData);
         console.log('✅ Updated record response:', response.data);
       }
 
@@ -299,7 +305,17 @@ const TanStackCRUDTable = forwardRef(({
 
     } catch (error) {
       console.error('❌ Error saving changes:', error);
+      console.error('❌ Error response:', error.response);
+      console.error('❌ Error config:', error.config);
+
       const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message;
+      const statusCode = error.response?.status;
+      const requestUrl = error.config?.url;
+
+      console.error(`❌ Save failed: ${statusCode} ${errorMessage} (URL: ${requestUrl})`);
+
+      // Don't reset data on save failure to preserve user's work
+      alert(`Save failed: ${errorMessage}\nPlease check the console for details.`);
 
       if (onSave) {
         onSave({ success: false, message: 'Error saving changes: ' + errorMessage });
@@ -1333,6 +1349,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
+        console.log('🖱️ Click outside detected, closing dropdown');
         setIsOpen(false);
         setSearchText('');
         setSelectedIndex(-1);
@@ -1340,14 +1357,18 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('focusin', handleClickOutside);
-    }
+      // Use a slight delay to avoid interfering with option clicks
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('focusin', handleClickOutside);
+      }, 100);
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('focusin', handleClickOutside);
-    };
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('focusin', handleClickOutside);
+      };
+    }
   }, [isOpen]);
 
   const filteredOptions = options.filter(option =>
@@ -1357,12 +1378,19 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
   );
 
   const handleSelect = (selectedOption) => {
+    console.log('🖱️ handleSelect called with:', selectedOption);
+
     const newValue = typeof selectedOption === 'string' ? selectedOption : (selectedOption.name || selectedOption.label);
+
+    console.log(`📝 Setting ${columnKey} to: "${newValue}" for row ${rowIndex}`);
+
     setLocalValue(newValue);
     updateCellData(rowIndex, columnKey, newValue);
     setIsOpen(false);
     setSearchText('');
     setSelectedIndex(-1);
+
+    console.log('✅ Dropdown closed after selection');
   };
 
   const handleKeyDown = (e) => {
@@ -1400,35 +1428,57 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
     }
   };
 
-  // Determine dropdown position
+  // Determine dropdown position with safety checks
   const getDropdownStyle = () => {
     if (!containerRef.current) {
+      console.log('⚠️ containerRef not available, using fallback positioning');
       return {
         position: 'absolute',
         top: '100%',
         left: 0,
         right: 0,
-        zIndex: 9999
+        zIndex: 9999,
+        maxHeight: '200px'
       };
     }
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const windowHeight = window.innerHeight;
-    const dropdownHeight = 200; // max dropdown height
-    const spaceBelow = windowHeight - rect.bottom;
-    const spaceAbove = rect.top;
+    try {
+      const rect = containerRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight || 800;
+      const dropdownHeight = 200; // max dropdown height
+      const spaceBelow = windowHeight - rect.bottom;
+      const spaceAbove = rect.top;
 
-    // If there's more space above and not enough below, show above
-    const showAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+      // If there's more space above and not enough below, show above
+      const showAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
 
-    return {
-      position: 'fixed',
-      left: rect.left,
-      width: rect.width,
-      [showAbove ? 'bottom' : 'top']: showAbove ? windowHeight - rect.top + 2 : rect.bottom + 2,
-      zIndex: 9999,
-      maxHeight: Math.min(dropdownHeight, showAbove ? spaceAbove - 10 : spaceBelow - 10)
-    };
+      const style = {
+        position: 'fixed',
+        left: Math.max(0, rect.left),
+        width: Math.max(100, rect.width),
+        zIndex: 9999,
+        maxHeight: Math.min(dropdownHeight, showAbove ? spaceAbove - 10 : spaceBelow - 10)
+      };
+
+      if (showAbove) {
+        style.bottom = windowHeight - rect.top + 2;
+      } else {
+        style.top = rect.bottom + 2;
+      }
+
+      console.log('📍 Dropdown positioning:', style);
+      return style;
+    } catch (error) {
+      console.error('❌ Error calculating dropdown position:', error);
+      return {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        right: 0,
+        zIndex: 9999,
+        maxHeight: '200px'
+      };
+    }
   };
 
   return (
@@ -1521,14 +1571,24 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
               return (
                 <div
                   key={index}
-                  onClick={() => handleSelect(option)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️ Option clicked:', displayText);
+                    handleSelect(option);
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   style={{
                     padding: '10px 12px',
                     cursor: 'pointer',
                     borderBottom: index < filteredOptions.length - 1 ? '1px solid #f5f5f5' : 'none',
                     fontSize: '14px',
                     transition: 'background-color 0.15s',
-                    backgroundColor: isSelected ? '#e3f2fd' : 'white'
+                    backgroundColor: isSelected ? '#e3f2fd' : 'white',
+                    userSelect: 'none'
                   }}
                   onMouseEnter={(e) => {
                     if (!isSelected) {
