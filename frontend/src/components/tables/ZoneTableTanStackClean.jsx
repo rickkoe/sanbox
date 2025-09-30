@@ -13,6 +13,7 @@ const ZoneTableTanStackClean = () => {
     const [fabricOptions, setFabricOptions] = useState([]);
     const [fabricsById, setFabricsById] = useState({});
     const [aliasOptions, setAliasOptions] = useState([]);
+    const [rawZoneData, setRawZoneData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [maxMemberColumns, setMaxMemberColumns] = useState(10);
 
@@ -85,7 +86,24 @@ const ZoneTableTanStackClean = () => {
         return template;
     }, [maxMemberColumns]);
 
-    // Load fabrics and aliases
+    // Calculate dynamic member columns based on zone data
+    const calculateMaxMemberColumns = useCallback((zones) => {
+        if (!zones || zones.length === 0) return 10; // Default minimum
+
+        const maxMembers = zones.reduce((max, zone) => {
+            const memberCount = zone.members_details ? zone.members_details.length : 0;
+            return Math.max(max, memberCount);
+        }, 0);
+
+        // Add buffer for new members (minimum 5 extra, or 25% more, whichever is larger)
+        const buffer = Math.max(5, Math.ceil(maxMembers * 0.25));
+        const calculatedMax = maxMembers + buffer;
+
+        console.log(`📊 Dynamic member columns: max=${maxMembers}, buffer=${buffer}, total=${calculatedMax}`);
+        return calculatedMax;
+    }, []);
+
+    // Load fabrics, aliases, and zones to calculate member columns
     useEffect(() => {
         const loadData = async () => {
             if (activeCustomerId && activeProjectId) {
@@ -93,9 +111,10 @@ const ZoneTableTanStackClean = () => {
                     setLoading(true);
                     console.log('Loading zone dropdown data...');
 
-                    const [fabricResponse, aliasResponse] = await Promise.all([
+                    const [fabricResponse, aliasResponse, zoneResponse] = await Promise.all([
                         axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
-                        axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`)
+                        axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`),
+                        axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/`)
                     ]);
 
                     // Handle paginated responses
@@ -108,6 +127,14 @@ const ZoneTableTanStackClean = () => {
                         fabricMap[fabric.id] = fabric.name;
                     });
                     setFabricsById(fabricMap);
+
+                    // Process zone data and calculate member columns
+                    const zonesArray = zoneResponse.data.results || zoneResponse.data;
+                    setRawZoneData(zonesArray);
+
+                    // Calculate maximum member columns needed
+                    const requiredMemberColumns = calculateMaxMemberColumns(zonesArray);
+                    setMaxMemberColumns(requiredMemberColumns);
 
                     // Process aliases with fabric names and filtering
                     const aliasesArray = aliasResponse.data.results || aliasResponse.data;
@@ -131,7 +158,7 @@ const ZoneTableTanStackClean = () => {
         };
 
         loadData();
-    }, [activeCustomerId, activeProjectId]);
+    }, [activeCustomerId, activeProjectId, calculateMaxMemberColumns]);
 
     // Calculate used aliases to filter dropdowns
     const calculateUsedAliases = useCallback((tableData, currentRowIndex, currentMemberColumn) => {
