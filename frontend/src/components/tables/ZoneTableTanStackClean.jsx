@@ -15,7 +15,60 @@ const ZoneTableTanStackClean = () => {
     const [aliasOptions, setAliasOptions] = useState([]);
     const [rawZoneData, setRawZoneData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [maxMemberColumns, setMaxMemberColumns] = useState(10);
+    const [memberColumnCounts, setMemberColumnCounts] = useState({
+        targets: 3,
+        initiators: 3,
+        allAccess: 2
+    });
+
+    // Functions to add new member columns
+    const addTargetColumn = () => {
+        setMemberColumnCounts(prev => ({
+            ...prev,
+            targets: prev.targets + 1
+        }));
+        console.log('➕ Added new target member column');
+    };
+
+    const addInitiatorColumn = () => {
+        setMemberColumnCounts(prev => ({
+            ...prev,
+            initiators: prev.initiators + 1
+        }));
+        console.log('➕ Added new initiator member column');
+    };
+
+    const addAllAccessColumn = () => {
+        setMemberColumnCounts(prev => ({
+            ...prev,
+            allAccess: prev.allAccess + 1
+        }));
+        console.log('➕ Added new all access member column');
+    };
+
+    // Custom add actions for the table toolbar
+    const customAddActions = {
+        dropdownLabel: "Add Item",
+        actions: [
+            {
+                label: "Add New Zone Row",
+                onClick: "default", // This will trigger the default add row behavior
+                divider: true
+            },
+            {
+                label: "Add Target Member Column",
+                onClick: addTargetColumn
+            },
+            {
+                label: "Add Initiator Member Column",
+                onClick: addInitiatorColumn
+            },
+            {
+                label: "Add All Access Member Column",
+                onClick: addAllAccessColumn
+            }
+        ]
+    };
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
@@ -43,18 +96,39 @@ const ZoneTableTanStackClean = () => {
         { data: "notes", title: "Notes" }
     ];
 
-    // Generate dynamic member columns (temporarily remove dropdown type)
+    // Generate dynamic member columns organized by use type
     const memberColumns = useMemo(() => {
         const columns = [];
-        for (let i = 1; i <= maxMemberColumns; i++) {
+
+        // Target columns first
+        for (let i = 1; i <= memberColumnCounts.targets; i++) {
             columns.push({
-                data: `member_${i}`,
-                title: `Member ${i}`,
-                // type: "dropdown" // Temporarily remove to debug member preservation
+                data: `target_member_${i}`,
+                title: `Target Member ${i}`,
+                type: "dropdown"
             });
         }
+
+        // Initiator columns next
+        for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+            columns.push({
+                data: `init_member_${i}`,
+                title: `Initiator Member ${i}`,
+                type: "dropdown"
+            });
+        }
+
+        // All Access columns last
+        for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+            columns.push({
+                data: `all_member_${i}`,
+                title: `All Access Member ${i}`,
+                type: "dropdown"
+            });
+        }
+
         return columns;
-    }, [maxMemberColumns]);
+    }, [memberColumnCounts]);
 
     // All columns (base + member)
     const allColumns = useMemo(() => {
@@ -78,29 +152,66 @@ const ZoneTableTanStackClean = () => {
             updated: null
         };
 
-        // Add member fields
-        for (let i = 1; i <= maxMemberColumns; i++) {
-            template[`member_${i}`] = "";
+        // Add target member fields
+        for (let i = 1; i <= memberColumnCounts.targets; i++) {
+            template[`target_member_${i}`] = "";
+        }
+
+        // Add initiator member fields
+        for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+            template[`init_member_${i}`] = "";
+        }
+
+        // Add all access member fields
+        for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+            template[`all_member_${i}`] = "";
         }
 
         return template;
-    }, [maxMemberColumns]);
+    }, [memberColumnCounts]);
 
-    // Calculate dynamic member columns based on zone data
-    const calculateMaxMemberColumns = useCallback((zones) => {
-        if (!zones || zones.length === 0) return 10; // Default minimum
+    // Calculate dynamic member columns by use type based on zone data
+    const calculateMemberColumnsByType = useCallback((zones) => {
+        if (!zones || zones.length === 0) {
+            return { targets: 3, initiators: 3, allAccess: 2 }; // Default minimums
+        }
 
-        const maxMembers = zones.reduce((max, zone) => {
-            const memberCount = zone.members_details ? zone.members_details.length : 0;
-            return Math.max(max, memberCount);
-        }, 0);
+        const memberCounts = { targets: 0, initiators: 0, allAccess: 0 };
 
-        // Add buffer for new members (minimum 5 extra, or 25% more, whichever is larger)
-        const buffer = Math.max(5, Math.ceil(maxMembers * 0.25));
-        const calculatedMax = maxMembers + buffer;
+        zones.forEach(zone => {
+            if (zone.members_details) {
+                const typeCounts = { targets: 0, initiators: 0, allAccess: 0 };
 
-        console.log(`📊 Dynamic member columns: max=${maxMembers}, buffer=${buffer}, total=${calculatedMax}`);
-        return calculatedMax;
+                zone.members_details.forEach(member => {
+                    if (member.alias_details?.use === 'target') {
+                        typeCounts.targets++;
+                    } else if (member.alias_details?.use === 'init') {
+                        typeCounts.initiators++;
+                    } else if (member.alias_details?.use === 'both') {
+                        typeCounts.allAccess++;
+                    }
+                });
+
+                memberCounts.targets = Math.max(memberCounts.targets, typeCounts.targets);
+                memberCounts.initiators = Math.max(memberCounts.initiators, typeCounts.initiators);
+                memberCounts.allAccess = Math.max(memberCounts.allAccess, typeCounts.allAccess);
+            }
+        });
+
+        // Add buffer for each type (minimum 2 extra, or 25% more)
+        const result = {
+            targets: Math.max(3, memberCounts.targets + Math.max(2, Math.ceil(memberCounts.targets * 0.25))),
+            initiators: Math.max(3, memberCounts.initiators + Math.max(2, Math.ceil(memberCounts.initiators * 0.25))),
+            allAccess: Math.max(2, memberCounts.allAccess + Math.max(1, Math.ceil(memberCounts.allAccess * 0.25)))
+        };
+
+        console.log(`📊 Dynamic member columns by type:`, {
+            found: memberCounts,
+            withBuffer: result,
+            total: result.targets + result.initiators + result.allAccess
+        });
+
+        return result;
     }, []);
 
     // Load fabrics, aliases, and zones to calculate member columns
@@ -132,9 +243,9 @@ const ZoneTableTanStackClean = () => {
                     const zonesArray = zoneResponse.data.results || zoneResponse.data;
                     setRawZoneData(zonesArray);
 
-                    // Calculate maximum member columns needed
-                    const requiredMemberColumns = calculateMaxMemberColumns(zonesArray);
-                    setMaxMemberColumns(requiredMemberColumns);
+                    // Calculate member columns by type
+                    const requiredMemberColumns = calculateMemberColumnsByType(zonesArray);
+                    setMemberColumnCounts(requiredMemberColumns);
 
                     // Process aliases with fabric names and filtering
                     const aliasesArray = aliasResponse.data.results || aliasResponse.data;
@@ -158,28 +269,35 @@ const ZoneTableTanStackClean = () => {
         };
 
         loadData();
-    }, [activeCustomerId, activeProjectId, calculateMaxMemberColumns]);
+    }, [activeCustomerId, activeProjectId, calculateMemberColumnsByType]);
 
     // Calculate used aliases to filter dropdowns
     const calculateUsedAliases = useCallback((tableData, currentRowIndex, currentMemberColumn) => {
         const usedAliases = new Set();
 
         tableData.forEach((row, rowIndex) => {
-            for (let i = 1; i <= maxMemberColumns; i++) {
-                const memberName = row[`member_${i}`];
+            // Check all member columns (target, init, all access)
+            const memberColumns = [
+                ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+                ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+                ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+            ];
+
+            memberColumns.forEach(memberKey => {
+                const memberName = row[memberKey];
                 if (memberName) {
                     // Don't count the current cell being edited
-                    if (!(rowIndex === currentRowIndex && `member_${i}` === currentMemberColumn)) {
+                    if (!(rowIndex === currentRowIndex && memberKey === currentMemberColumn)) {
                         usedAliases.add(memberName);
                     }
                 }
-            }
+            });
         });
 
         return usedAliases;
-    }, [maxMemberColumns]);
+    }, [memberColumnCounts]);
 
-    // Custom member dropdown renderer that filters by fabric
+    // Custom member dropdown renderer that filters by fabric and use type
     const getMemberDropdownOptions = useCallback((rowData, columnKey) => {
         const zoneFabric = rowData.fabric;
         console.log(`🔍 Getting member options for ${columnKey}, zone fabric: ${zoneFabric}`);
@@ -191,20 +309,33 @@ const ZoneTableTanStackClean = () => {
 
         const aliasMaxZones = settings?.alias_max_zones || 1;
 
-        // Filter aliases by fabric and zoning rules
+        // Determine required use type based on column type
+        let requiredUseType = null;
+        if (columnKey.startsWith('target_member_')) {
+            requiredUseType = 'target';
+        } else if (columnKey.startsWith('init_member_')) {
+            requiredUseType = 'init';
+        } else if (columnKey.startsWith('all_member_')) {
+            requiredUseType = 'both';
+        }
+
+        console.log(`🎯 Column ${columnKey} requires use type: ${requiredUseType}`);
+
+        // Filter aliases by fabric, use type, and zoning rules
         const filteredAliases = aliasOptions.filter(alias => {
             const matchesFabric = alias.fabric === zoneFabric;
             const includeInZoning = alias.include_in_zoning;
             const hasRoom = (alias.zoned_count || 0) < aliasMaxZones;
+            const matchesUseType = requiredUseType ? alias.use === requiredUseType : true;
 
-            const result = matchesFabric && includeInZoning && hasRoom;
+            const result = matchesFabric && includeInZoning && hasRoom && matchesUseType;
             if (!result && alias.name) {
-                console.log(`❌ Filtered out ${alias.name}: fabric=${alias.fabric} (need ${zoneFabric}), zoning=${includeInZoning}, room=${hasRoom}`);
+                console.log(`❌ Filtered out ${alias.name}: fabric=${alias.fabric} (need ${zoneFabric}), zoning=${includeInZoning}, room=${hasRoom}, use=${alias.use} (need ${requiredUseType})`);
             }
             return result;
         });
 
-        console.log(`✅ Found ${filteredAliases.length} valid members for fabric ${zoneFabric}`);
+        console.log(`✅ Found ${filteredAliases.length} valid ${requiredUseType || 'any'} members for fabric ${zoneFabric}`);
         return filteredAliases.map(alias => alias.name);
     }, [aliasOptions, settings]);
 
@@ -212,11 +343,17 @@ const ZoneTableTanStackClean = () => {
     const customRenderers = useMemo(() => {
         const renderers = {};
 
-        // Add custom renderers for each member column
-        for (let i = 1; i <= maxMemberColumns; i++) {
-            const memberKey = `member_${i}`;
+        // Get all member column keys for all types
+        const allMemberColumns = [
+            ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+            ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+            ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+        ];
+
+        // Add custom renderers for each member column type
+        allMemberColumns.forEach(memberKey => {
             renderers[memberKey] = (rowData, td, row, col, prop, value) => {
-                // Get dynamic options based on zone fabric
+                // Get dynamic options based on zone fabric and use type
                 const options = getMemberDropdownOptions(rowData, memberKey);
 
                 // Create a simple dropdown for now - this will need enhancement
@@ -244,10 +381,10 @@ const ZoneTableTanStackClean = () => {
 
                 return select.outerHTML;
             };
-        }
+        });
 
         return renderers;
-    }, [maxMemberColumns, getMemberDropdownOptions]);
+    }, [memberColumnCounts, getMemberDropdownOptions]);
 
     // Dynamic dropdown sources that include member filtering
     const dropdownSources = useMemo(() => {
@@ -262,21 +399,37 @@ const ZoneTableTanStackClean = () => {
             alias.include_in_zoning && (alias.zoned_count || 0) < aliasMaxZones
         );
 
-        // Add all member columns with full alias list (filtering happens in custom renderer)
-        for (let i = 1; i <= maxMemberColumns; i++) {
-            sources[`member_${i}`] = availableAliases.map(alias => alias.name);
+        // Add target member columns with full alias list (filtering happens in custom renderer)
+        for (let i = 1; i <= memberColumnCounts.targets; i++) {
+            sources[`target_member_${i}`] = availableAliases.filter(alias => alias.use === 'target').map(alias => alias.name);
+        }
+
+        // Add initiator member columns
+        for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+            sources[`init_member_${i}`] = availableAliases.filter(alias => alias.use === 'init').map(alias => alias.name);
+        }
+
+        // Add all access member columns
+        for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+            sources[`all_member_${i}`] = availableAliases.filter(alias => alias.use === 'both').map(alias => alias.name);
         }
 
         return sources;
-    }, [fabricOptions, aliasOptions, settings, maxMemberColumns]);
+    }, [fabricOptions, aliasOptions, settings, memberColumnCounts]);
 
     // Dynamic dropdown filters for member columns
     const dropdownFilters = useMemo(() => {
         const filters = {};
 
-        // Create fabric-based filter for member columns
-        for (let i = 1; i <= maxMemberColumns; i++) {
-            const memberKey = `member_${i}`;
+        // Get all member column keys for all types
+        const allMemberColumns = [
+            ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+            ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+            ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+        ];
+
+        // Create fabric and use-type based filter for member columns
+        allMemberColumns.forEach(memberKey => {
             filters[memberKey] = (options, rowData, columnKey) => {
                 const zoneFabric = rowData?.fabric;
                 if (!zoneFabric) {
@@ -284,25 +437,37 @@ const ZoneTableTanStackClean = () => {
                     return [];
                 }
 
+                // Determine required use type based on column type
+                let requiredUseType = null;
+                if (columnKey.startsWith('target_member_')) {
+                    requiredUseType = 'target';
+                } else if (columnKey.startsWith('init_member_')) {
+                    requiredUseType = 'init';
+                } else if (columnKey.startsWith('all_member_')) {
+                    requiredUseType = 'both';
+                }
+
                 const aliasMaxZones = settings?.alias_max_zones || 1;
                 const currentValue = rowData?.[columnKey]; // Current value in this cell
 
                 // Get all aliases already used in other member columns of this same zone
                 const usedInThisZone = new Set();
-                for (let i = 1; i <= maxMemberColumns; i++) {
-                    const memberCol = `member_${i}`;
+                allMemberColumns.forEach(memberCol => {
                     if (memberCol !== columnKey && rowData?.[memberCol]) {
                         usedInThisZone.add(rowData[memberCol]);
                     }
-                }
+                });
 
-                // Filter aliases by fabric, zone count limits, and current zone usage
+                // Filter aliases by fabric, use type, zone count limits, and current zone usage
                 const filteredAliases = aliasOptions.filter(alias => {
                     // Must match fabric
                     if (alias.fabric !== zoneFabric) return false;
 
                     // Must be marked for zoning
                     if (!alias.include_in_zoning) return false;
+
+                    // Must match required use type
+                    if (requiredUseType && alias.use !== requiredUseType) return false;
 
                     // Check if already used in this zone (but allow current value)
                     const isCurrentValue = alias.name === currentValue;
@@ -330,18 +495,22 @@ const ZoneTableTanStackClean = () => {
                 // Only return options that exist in both the original list and pass all filters
                 const result = options.filter(option => filteredNames.includes(option));
 
-                console.log(`🔍 ${columnKey} filtered from ${options.length} to ${result.length} for fabric ${zoneFabric} (max zones: ${aliasMaxZones}, used in zone: ${usedInThisZone.size})`);
+                console.log(`🔍 ${columnKey} (${requiredUseType}) filtered from ${options.length} to ${result.length} for fabric ${zoneFabric} (max zones: ${aliasMaxZones}, used in zone: ${usedInThisZone.size})`);
                 return result;
             };
-        }
+        });
 
         return filters;
-    }, [maxMemberColumns, aliasOptions, settings]);
+    }, [memberColumnCounts, aliasOptions, settings]);
 
     // Custom cell validation for fabric consistency
     const customValidation = useCallback((value, rowData, columnKey) => {
         // Validate member fabric consistency
-        if (columnKey.startsWith('member_') && value && rowData.fabric) {
+        const isMemberColumn = columnKey.startsWith('target_member_') ||
+                              columnKey.startsWith('init_member_') ||
+                              columnKey.startsWith('all_member_');
+
+        if (isMemberColumn && value && rowData.fabric) {
             const alias = aliasOptions.find(a => a.name === value);
             if (alias && alias.fabric !== rowData.fabric) {
                 return `Member ${value} belongs to fabric ${alias.fabric}, but zone is in fabric ${rowData.fabric}`;
@@ -359,20 +528,88 @@ const ZoneTableTanStackClean = () => {
                 fabric: fabricsById[zone.fabric] || zone.fabric || ''
             };
 
-            // Clear member columns first
-            for (let i = 1; i <= maxMemberColumns; i++) {
-                processedZone[`member_${i}`] = "";
+            // Clear all member columns first
+            // Target member columns
+            for (let i = 1; i <= memberColumnCounts.targets; i++) {
+                processedZone[`target_member_${i}`] = "";
+            }
+            // Initiator member columns
+            for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+                processedZone[`init_member_${i}`] = "";
+            }
+            // All access member columns
+            for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+                processedZone[`all_member_${i}`] = "";
             }
 
-            // Populate member columns from members_details
+            // Populate member columns from members_details organized by use type
             if (zone.members_details && Array.isArray(zone.members_details)) {
                 console.log(`🏗️ Processing zone ${zone.name} with ${zone.members_details.length} members:`, zone.members_details);
-                zone.members_details.forEach((member, index) => {
-                    if (index < maxMemberColumns) {
-                        processedZone[`member_${index + 1}`] = member.name || '';
-                        console.log(`  Set member_${index + 1} = "${member.name}"`);
+
+                // Group members by use type
+                const membersByType = {
+                    targets: [],
+                    initiators: [],
+                    allAccess: []
+                };
+
+                zone.members_details.forEach((member, idx) => {
+                    console.log(`🔍 Member ${idx}:`, {
+                        name: member.name,
+                        alias_details: member.alias_details,
+                        use: member.alias_details?.use,
+                        fullMember: member
+                    });
+
+                    // Check multiple possible locations for use type
+                    let useType = member.alias_details?.use || member.use || null;
+
+                    // If no use type found, look up the alias in our aliasOptions
+                    if (!useType && member.name) {
+                        const aliasInfo = aliasOptions.find(a => a.name === member.name);
+                        if (aliasInfo) {
+                            useType = aliasInfo.use;
+                            console.log(`  💡 Found use type from aliasOptions: ${useType}`);
+                        }
+                    }
+
+                    if (useType === 'target') {
+                        membersByType.targets.push(member);
+                    } else if (useType === 'init') {
+                        membersByType.initiators.push(member);
+                    } else if (useType === 'both') {
+                        membersByType.allAccess.push(member);
+                    } else {
+                        console.log(`⚠️ Unknown use type for member ${member.name}: ${useType} (member data:`, member, ')')
+                        // For now, put unknown types in the all access category as fallback
+                        membersByType.allAccess.push(member);
                     }
                 });
+
+                // Populate target member columns
+                membersByType.targets.forEach((member, index) => {
+                    if (index < memberColumnCounts.targets) {
+                        processedZone[`target_member_${index + 1}`] = member.name || '';
+                        console.log(`  Set target_member_${index + 1} = "${member.name}"`);
+                    }
+                });
+
+                // Populate initiator member columns
+                membersByType.initiators.forEach((member, index) => {
+                    if (index < memberColumnCounts.initiators) {
+                        processedZone[`init_member_${index + 1}`] = member.name || '';
+                        console.log(`  Set init_member_${index + 1} = "${member.name}"`);
+                    }
+                });
+
+                // Populate all access member columns
+                membersByType.allAccess.forEach((member, index) => {
+                    if (index < memberColumnCounts.allAccess) {
+                        processedZone[`all_member_${index + 1}`] = member.name || '';
+                        console.log(`  Set all_member_${index + 1} = "${member.name}"`);
+                    }
+                });
+
                 // Update member count
                 processedZone.member_count = zone.members_details.length;
             } else {
@@ -381,7 +618,7 @@ const ZoneTableTanStackClean = () => {
 
             return processedZone;
         });
-    }, [fabricsById, maxMemberColumns]);
+    }, [fabricsById, memberColumnCounts]);
 
     // Custom save handler for zone bulk save
     const handleZoneSave = async (allTableData, hasChanges, deletedRows = []) => {
@@ -419,30 +656,82 @@ const ZoneTableTanStackClean = () => {
                         name: row.name,
                         fabric: row.fabric,
                         members_details: row.members_details,
-                        memberColumns: Object.keys(row).filter(k => k.startsWith('member_')).reduce((acc, k) => {
+                        memberColumns: Object.keys(row).filter(k =>
+                            k.startsWith('target_member_') ||
+                            k.startsWith('init_member_') ||
+                            k.startsWith('all_member_')
+                        ).reduce((acc, k) => {
                             acc[k] = row[k];
                             return acc;
                         }, {})
                     });
 
-                    // Extract members from member columns
+                    // Extract members from all member columns (organized by type)
                     const members = [];
-                    for (let i = 1; i <= maxMemberColumns; i++) {
-                        const memberName = row[`member_${i}`];
+                    let memberIndex = 0;
+
+                    // Process target members
+                    for (let i = 1; i <= memberColumnCounts.targets; i++) {
+                        const memberName = row[`target_member_${i}`];
                         if (memberName) {
                             const alias = aliasOptions.find(a => a.name === memberName);
                             if (alias) {
                                 // Check if this is an existing member relationship
-                                if (row.members_details?.[i - 1]?.id) {
+                                if (row.members_details?.[memberIndex]?.id) {
                                     members.push({
-                                        id: row.members_details[i - 1].id,
+                                        id: row.members_details[memberIndex].id,
                                         alias: alias.id
                                     });
-                                    console.log(`  ✅ Preserved existing member ${i}: ${memberName} (ID: ${row.members_details[i - 1].id})`);
+                                    console.log(`  ✅ Preserved existing target member ${i}: ${memberName} (ID: ${row.members_details[memberIndex].id})`);
                                 } else {
                                     members.push({ alias: alias.id });
-                                    console.log(`  🆕 New member ${i}: ${memberName} (alias ID: ${alias.id})`);
+                                    console.log(`  🆕 New target member ${i}: ${memberName} (alias ID: ${alias.id})`);
                                 }
+                                memberIndex++;
+                            }
+                        }
+                    }
+
+                    // Process initiator members
+                    for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+                        const memberName = row[`init_member_${i}`];
+                        if (memberName) {
+                            const alias = aliasOptions.find(a => a.name === memberName);
+                            if (alias) {
+                                // Check if this is an existing member relationship
+                                if (row.members_details?.[memberIndex]?.id) {
+                                    members.push({
+                                        id: row.members_details[memberIndex].id,
+                                        alias: alias.id
+                                    });
+                                    console.log(`  ✅ Preserved existing init member ${i}: ${memberName} (ID: ${row.members_details[memberIndex].id})`);
+                                } else {
+                                    members.push({ alias: alias.id });
+                                    console.log(`  🆕 New init member ${i}: ${memberName} (alias ID: ${alias.id})`);
+                                }
+                                memberIndex++;
+                            }
+                        }
+                    }
+
+                    // Process all access members
+                    for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+                        const memberName = row[`all_member_${i}`];
+                        if (memberName) {
+                            const alias = aliasOptions.find(a => a.name === memberName);
+                            if (alias) {
+                                // Check if this is an existing member relationship
+                                if (row.members_details?.[memberIndex]?.id) {
+                                    members.push({
+                                        id: row.members_details[memberIndex].id,
+                                        alias: alias.id
+                                    });
+                                    console.log(`  ✅ Preserved existing all access member ${i}: ${memberName} (ID: ${row.members_details[memberIndex].id})`);
+                                } else {
+                                    members.push({ alias: alias.id });
+                                    console.log(`  🆕 New all access member ${i}: ${memberName} (alias ID: ${alias.id})`);
+                                }
+                                memberIndex++;
                             }
                         }
                     }
@@ -458,9 +747,18 @@ const ZoneTableTanStackClean = () => {
                     // Clean payload
                     const cleanRow = { ...row };
 
-                    // Remove member columns and UI-only fields
-                    for (let i = 1; i <= maxMemberColumns; i++) {
-                        delete cleanRow[`member_${i}`];
+                    // Remove all member columns and UI-only fields
+                    // Remove target member columns
+                    for (let i = 1; i <= memberColumnCounts.targets; i++) {
+                        delete cleanRow[`target_member_${i}`];
+                    }
+                    // Remove initiator member columns
+                    for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+                        delete cleanRow[`init_member_${i}`];
+                    }
+                    // Remove all access member columns
+                    for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+                        delete cleanRow[`all_member_${i}`];
                     }
                     delete cleanRow.saved;
                     // Keep members_details for relationship tracking - DON'T DELETE IT
@@ -566,7 +864,10 @@ const ZoneTableTanStackClean = () => {
 
                 // Table Settings
                 height="calc(100vh - 200px)"
-                storageKey={`zone-table-${activeProjectId || 'default'}-members${maxMemberColumns}`}
+                storageKey={`zone-table-${activeProjectId || 'default'}-bytype-t${memberColumnCounts.targets}i${memberColumnCounts.initiators}a${memberColumnCounts.allAccess}`}
+
+                // Custom Actions
+                customAddActions={customAddActions}
 
                 // Event Handlers
                 onSave={(result) => {

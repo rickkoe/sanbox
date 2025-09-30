@@ -50,6 +50,9 @@ const TanStackCRUDTable = forwardRef(({
   onDataChange,
   customSaveHandler,
 
+  // Custom Actions
+  customAddActions,
+
   ...otherProps
 }, ref) => {
 
@@ -183,6 +186,17 @@ const TanStackCRUDTable = forwardRef(({
     setHasChanges(true);
 
     console.log('➕ Added new row:', newRow);
+
+    // Auto-scroll to bottom to show the new row
+    setTimeout(() => {
+      const tableWrapper = document.querySelector('.table-wrapper');
+      if (tableWrapper) {
+        tableWrapper.scrollTop = tableWrapper.scrollHeight;
+        console.log('📜 Auto-scrolled to bottom after adding new row');
+      } else {
+        console.log('⚠️ Table wrapper not found for auto-scroll');
+      }
+    }, 100); // Small delay to ensure the row is rendered
   }, [editableData, newRowTemplate]);
 
   // Delete selected rows
@@ -1144,34 +1158,92 @@ const TanStackCRUDTable = forwardRef(({
         </div>
 
         {/* Modern Action Buttons */}
-        <button
-          onClick={addNewRow}
-          style={{
-            padding: '10px 18px',
-            backgroundColor: '#1976d2',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'background-color 0.2s, transform 0.1s',
-            boxShadow: '0 2px 4px rgba(25, 118, 210, 0.2)'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.backgroundColor = '#1565c0';
-            e.target.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.backgroundColor = '#1976d2';
-            e.target.style.transform = 'translateY(0)';
-          }}
-        >
-          ➕ Add Row
-        </button>
+        {/* Conditional rendering for Add Actions */}
+        {customAddActions ? (
+          <div className="dropdown">
+            <button
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              style={{
+                padding: '10px 18px',
+                backgroundColor: '#1976d2',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'background-color 0.2s, transform 0.1s',
+                boxShadow: '0 2px 4px rgba(25, 118, 210, 0.2)'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#1565c0';
+                e.target.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#1976d2';
+                e.target.style.transform = 'translateY(0)';
+              }}
+            >
+              {customAddActions.dropdownLabel || "Add Item"} ▼
+            </button>
+            <ul className="dropdown-menu">
+              {customAddActions.actions?.map((action, index) => (
+                <React.Fragment key={index}>
+                  <li>
+                    <button
+                      className="dropdown-item"
+                      type="button"
+                      onClick={() => {
+                        if (action.onClick === "default") {
+                          addNewRow();
+                        } else if (typeof action.onClick === 'function') {
+                          action.onClick();
+                        }
+                      }}
+                    >
+                      {action.label}
+                    </button>
+                  </li>
+                  {action.divider && <li><hr className="dropdown-divider" /></li>}
+                </React.Fragment>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <button
+            onClick={addNewRow}
+            style={{
+              padding: '10px 18px',
+              backgroundColor: '#1976d2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'background-color 0.2s, transform 0.1s',
+              boxShadow: '0 2px 4px rgba(25, 118, 210, 0.2)'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = '#1565c0';
+              e.target.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = '#1976d2';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            ➕ Add Row
+          </button>
+        )}
 
         <button
           onClick={deleteSelectedRows}
