@@ -97,6 +97,9 @@ const TanStackCRUDTable = forwardRef(({
   const [globalFilter, setGlobalFilter] = useState('');
   const [fillPreview, setFillPreview] = useState(null);
 
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, cellKey: null });
+
   // Table configuration
   const [sorting, setSorting] = useState([]);
   const [columnFilters, setColumnFilters] = useState([]);
@@ -1210,6 +1213,47 @@ const TanStackCRUDTable = forwardRef(({
     event.currentTarget.closest('.table-wrapper')?.focus();
   }, [selectedCells, selectionRange]);
 
+  // Context menu handlers
+  const handleCellRightClick = useCallback((rowIndex, colIndex, event) => {
+    event.preventDefault();
+    const cellKey = `${rowIndex}-${colIndex}`;
+
+    // If right-clicking on an unselected cell, select it
+    if (!selectedCells.has(cellKey)) {
+      setSelectedCells(new Set([cellKey]));
+      setCurrentCell({ row: rowIndex, col: colIndex });
+    }
+
+    // Show context menu at mouse position
+    setContextMenu({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      cellKey: cellKey
+    });
+  }, [selectedCells]);
+
+  const hideContextMenu = useCallback(() => {
+    setContextMenu({ visible: false, x: 0, y: 0, cellKey: null });
+  }, []);
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClickOutside = () => hideContextMenu();
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') hideContextMenu();
+    };
+
+    if (contextMenu.visible) {
+      document.addEventListener('click', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('keydown', handleEscape);
+      };
+    }
+  }, [contextMenu.visible, hideContextMenu]);
+
   // Arrow key navigation
   const navigateToCell = useCallback((newRow, newCol) => {
     const maxRow = currentTableData.length - 1;
@@ -1500,6 +1544,31 @@ const TanStackCRUDTable = forwardRef(({
       setTimeout(() => setFillPreview(null), 3000);
     }
   }, [currentCell, editableData, newRowTemplate, columnDefs]);
+
+  // Context menu action handlers
+  const handleContextMenuAction = useCallback((action) => {
+    hideContextMenu();
+
+    switch (action) {
+      case 'copy':
+        handleCopy();
+        break;
+      case 'paste':
+        handlePaste();
+        break;
+      case 'delete':
+        deleteSelectedRows();
+        break;
+      case 'fillDown':
+        fillDown();
+        break;
+      case 'fillRight':
+        fillRight();
+        break;
+      default:
+        console.warn('Unknown context menu action:', action);
+    }
+  }, [hideContextMenu, handleCopy, handlePaste, deleteSelectedRows, fillDown, fillRight]);
 
   // Enhanced keyboard shortcuts and navigation
   const handleKeyDown = useCallback((e) => {
@@ -2201,18 +2270,21 @@ const TanStackCRUDTable = forwardRef(({
           disabled={!hasChanges || isLoading}
           style={{
             padding: '10px 18px',
-            backgroundColor: hasChanges && !isLoading ? 'var(--success-color)' : 'var(--table-pagination-button-bg)',
-            color: hasChanges && !isLoading ? 'var(--content-bg)' : 'var(--muted-text)',
+            backgroundColor: hasChanges && !isLoading
+              ? 'var(--table-pagination-button-active)'
+              : 'var(--table-pagination-button-bg)',
+            color: hasChanges && !isLoading
+              ? 'var(--content-bg)'
+              : 'var(--table-toolbar-text)',
             border: '1px solid var(--table-pagination-button-border)',
             borderRadius: '6px',
             cursor: hasChanges && !isLoading ? 'pointer' : 'not-allowed',
             fontSize: '14px',
             fontWeight: '500',
+            transition: 'all 0.2s ease',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
-            opacity: hasChanges && !isLoading ? 1 : 0.6
+            gap: '6px'
           }}
         >
           {isLoading ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
@@ -2228,18 +2300,17 @@ const TanStackCRUDTable = forwardRef(({
               aria-expanded="false"
               style={{
                 padding: '10px 18px',
-                backgroundColor: 'var(--link-text)',
-                color: 'var(--content-bg)',
-                border: 'none',
+                backgroundColor: 'var(--table-pagination-button-bg)',
+                color: 'var(--table-toolbar-text)',
+                border: '1px solid var(--table-pagination-button-border)',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: '500',
+                transition: 'all 0.2s ease',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                transition: 'background-color 0.2s, transform 0.1s',
-                boxShadow: '0 2px 4px rgba(25, 118, 210, 0.2)'
+                gap: '6px'
               }}
             >
               {customAddActions.dropdownLabel || "Add Item"}
@@ -2272,61 +2343,39 @@ const TanStackCRUDTable = forwardRef(({
             onClick={addNewRow}
             style={{
               padding: '10px 18px',
-              backgroundColor: 'var(--table-pagination-button-active)',
-              color: 'var(--content-bg)',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: 'var(--table-toolbar-text)',
               border: '1px solid var(--table-pagination-button-border)',
               borderRadius: '6px',
               cursor: 'pointer',
               fontSize: '14px',
               fontWeight: '500',
+              transition: 'all 0.2s ease',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
+              gap: '6px'
             }}
           >
             Add Row
           </button>
         )}
 
-        <button
-          onClick={deleteSelectedRows}
-          disabled={selectedCells.size === 0}
-          style={{
-            padding: '10px 18px',
-            backgroundColor: selectedCells.size > 0 ? 'var(--error-color)' : 'var(--table-pagination-button-bg)',
-            color: selectedCells.size > 0 ? 'var(--content-bg)' : 'var(--muted-text)',
-            border: '1px solid var(--table-pagination-button-border)',
-            borderRadius: '6px',
-            cursor: selectedCells.size > 0 ? 'pointer' : 'not-allowed',
-            fontSize: '14px',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
-            opacity: selectedCells.size > 0 ? 1 : 0.6
-          }}
-        >
-          Delete Selected ({selectedCells.size})
-        </button>
-
 {/* Auto-size columns button */}
         <button
           onClick={autoSizeColumns}
           style={{
             padding: '10px 18px',
-            backgroundColor: 'var(--info-color)',
-            color: 'var(--content-bg)',
+            backgroundColor: 'var(--table-pagination-button-bg)',
+            color: 'var(--table-toolbar-text)',
             border: '1px solid var(--table-pagination-button-border)',
             borderRadius: '6px',
             cursor: 'pointer',
             fontSize: '14px',
             fontWeight: '500',
+            transition: 'all 0.2s ease',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease'
+            gap: '6px'
           }}
           title="Auto-size all columns to fit content"
         >
@@ -2481,6 +2530,7 @@ const TanStackCRUDTable = forwardRef(({
                         overflow: 'hidden'
                       }}
                       onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
+                      onContextMenu={(e) => handleCellRightClick(rowIndex, colIndex, e)}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
@@ -2670,6 +2720,111 @@ const TanStackCRUDTable = forwardRef(({
           ↓
         </button>
       </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu.visible && (
+        <div
+          style={{
+            position: 'fixed',
+            left: contextMenu.x,
+            top: contextMenu.y,
+            backgroundColor: 'var(--table-bg)',
+            border: '1px solid var(--table-border)',
+            borderRadius: '4px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            zIndex: 10001,
+            minWidth: '150px',
+            padding: '4px 0',
+            fontSize: '14px'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              padding: '8px 16px',
+              cursor: 'pointer',
+              backgroundColor: 'transparent',
+              color: 'var(--primary-text)',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => handleContextMenuAction('copy')}
+            onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--table-row-hover)'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            Copy
+          </div>
+          <div
+            style={{
+              padding: '8px 16px',
+              cursor: 'pointer',
+              backgroundColor: 'transparent',
+              color: 'var(--primary-text)',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => handleContextMenuAction('paste')}
+            onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--table-row-hover)'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            Paste
+          </div>
+          <div style={{ height: '1px', backgroundColor: 'var(--table-border)', margin: '4px 0' }} />
+          <div
+            style={{
+              padding: '8px 16px',
+              cursor: selectedCells.size > 1 ? 'pointer' : 'not-allowed',
+              backgroundColor: 'transparent',
+              color: selectedCells.size > 1 ? 'var(--primary-text)' : 'var(--muted-text)',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => selectedCells.size > 1 && handleContextMenuAction('fillDown')}
+            onMouseEnter={(e) => {
+              if (selectedCells.size > 1) {
+                e.target.style.backgroundColor = 'var(--table-row-hover)';
+              }
+            }}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            Fill Down
+          </div>
+          <div
+            style={{
+              padding: '8px 16px',
+              cursor: selectedCells.size > 1 ? 'pointer' : 'not-allowed',
+              backgroundColor: 'transparent',
+              color: selectedCells.size > 1 ? 'var(--primary-text)' : 'var(--muted-text)',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => selectedCells.size > 1 && handleContextMenuAction('fillRight')}
+            onMouseEnter={(e) => {
+              if (selectedCells.size > 1) {
+                e.target.style.backgroundColor = 'var(--table-row-hover)';
+              }
+            }}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            Fill Right
+          </div>
+          <div style={{ height: '1px', backgroundColor: 'var(--table-border)', margin: '4px 0' }} />
+          <div
+            style={{
+              padding: '8px 16px',
+              cursor: selectedCells.size > 0 ? 'pointer' : 'not-allowed',
+              backgroundColor: 'transparent',
+              color: selectedCells.size > 0 ? 'var(--error-color)' : 'var(--muted-text)',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => selectedCells.size > 0 && handleContextMenuAction('delete')}
+            onMouseEnter={(e) => {
+              if (selectedCells.size > 0) {
+                e.target.style.backgroundColor = 'var(--table-row-hover)';
+              }
+            }}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            Delete Selected Rows
+          </div>
+        </div>
       )}
 
       {/* Floating resize line that follows cursor during drag */}
