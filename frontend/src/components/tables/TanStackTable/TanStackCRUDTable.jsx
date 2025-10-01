@@ -2562,7 +2562,11 @@ const TanStackCRUDTable = forwardRef(({
         style={{
           flex: 1,
           overflow: 'auto',
-          backgroundColor: 'var(--table-bg)'
+          backgroundColor: 'var(--table-bg)',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none'
         }}
         onKeyDown={handleKeyDown}
         tabIndex={0}
@@ -2573,7 +2577,11 @@ const TanStackCRUDTable = forwardRef(({
           borderSpacing: 0,
           fontSize: '14px',
           minWidth: '100%',
-          tableLayout: 'fixed'
+          tableLayout: 'fixed',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none'
         }}>
           <thead>
             {table.getHeaderGroups().map(headerGroup => (
@@ -3197,13 +3205,12 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       <div
-        onClick={() => setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
         tabIndex={0}
         style={{
           padding: '6px 10px',
           border: 'none',
-          cursor: 'pointer',
+          cursor: 'default',
           backgroundColor: 'transparent',
           color: 'var(--table-cell-text)',
           display: 'flex',
@@ -3219,16 +3226,29 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
           color: localValue ? 'var(--table-cell-text)' : 'var(--muted-text)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none'
         }}>
           {localValue || ''}
         </span>
-        <span style={{
-          color: 'var(--muted-text)',
-          marginLeft: '8px',
-          transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-          transition: 'transform 0.2s'
-        }}>▽</span>
+        <span
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(!isOpen);
+          }}
+          style={{
+            color: 'var(--muted-text)',
+            marginLeft: '8px',
+            transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+            cursor: 'pointer',
+            padding: '4px 8px',
+            margin: '-4px -8px -4px 0',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >▽</span>
       </div>
 
       {isOpen && (
