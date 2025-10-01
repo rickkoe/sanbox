@@ -282,6 +282,25 @@
   }
 }
 
+/* ========== CHECKBOX INDETERMINATE STATE ========== */
+/* Custom styling for indeterminate checkbox to ensure visibility in dark theme */
+.header-checkbox:indeterminate {
+  background-color: var(--link-text);
+  border-color: var(--link-text);
+}
+
+.header-checkbox:indeterminate::before {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 2px;
+  background-color: var(--table-bg);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
 /* ========== REDUCED MOTION ========== */
 @media (prefers-reduced-motion: reduce) {
   * {

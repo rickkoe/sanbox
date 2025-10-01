@@ -3608,6 +3608,7 @@ const CheckboxHeaderCell = ({ columnKey, headerName, editableData, setEditableDa
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <input
         type="checkbox"
+        className="header-checkbox"
         checked={allChecked}
         ref={input => {
           if (input) {
