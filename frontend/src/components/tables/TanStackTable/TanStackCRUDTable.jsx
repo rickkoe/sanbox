@@ -5,10 +5,21 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
+  getPaginationRowModel,
   getColumnResizeMode,
   flexRender,
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useTheme } from '../../../context/ThemeContext';
+import FilterDropdown from './components/FilterDropdown';
+import StatsContainer from './components/StatsContainer';
+import {
+  createTableFilterFunction,
+  convertToColumnFilters,
+  convertFromColumnFilters,
+  getFilterSummary,
+  cleanInvalidFilters
+} from './utils/filterUtils';
 
 /**
  * Enhanced TanStack Table with full CRUD operations and Excel-like features
@@ -61,9 +72,13 @@ const TanStackCRUDTable = forwardRef(({
   ...otherProps
 }, ref) => {
 
+  // Theme context
+  const { theme } = useTheme();
+
   // Core state
   const [fabricData, setFabricData] = useState([]);
   const [editableData, setEditableData] = useState([]);
+  const [allData, setAllData] = useState([]); // Complete dataset for filtering
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -86,7 +101,27 @@ const TanStackCRUDTable = forwardRef(({
   const [sorting, setSorting] = useState([]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
+
+  // Advanced filter state
+  const [activeFilters, setActiveFilters] = useState({});
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [useServerSideFiltering, setUseServerSideFiltering] = useState(false); // Start with client-side filtering
+
+  // Client-side pagination state (for when we load all data)
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: parseInt(pageSize) || 25,
+  });
+
+  // Update pagination pageSize when pageSize prop changes
+  useEffect(() => {
+    setPagination(prev => ({
+      ...prev,
+      pageSize: parseInt(pageSize) || 25
+    }));
+  }, [pageSize]);
   const [tableConfig, setTableConfig] = useState(null);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [resizeState, setResizeState] = useState({ isResizing: false, startX: 0, currentX: 0, columnId: null });
 
   // Floating navigation panel state
@@ -94,7 +129,7 @@ const TanStackCRUDTable = forwardRef(({
   const [scrollTimeout, setScrollTimeout] = useState(null);
 
   // Build API URL with pagination and customer filter
-  const buildApiUrl = useCallback((page, size, search = '') => {
+  const buildApiUrl = useCallback((page, size, search = '', filters = {}) => {
     if (!apiUrl) return null;
 
     // Check if apiUrl already has query parameters
@@ -115,7 +150,49 @@ const TanStackCRUDTable = forwardRef(({
       url += `&search=${encodeURIComponent(search.trim())}`;
     }
 
-    console.log(`🌐 Built API URL: ${url}`);
+    // Add advanced filters
+    Object.keys(filters).forEach(columnId => {
+      const filter = filters[columnId];
+      if (filter && filter.active) {
+        if (filter.type === 'items') {
+          // For item filters, send selected items as comma-separated values
+          if (filter.selectedItems && filter.selectedItems.length > 0) {
+            url += `&filter_${columnId}_in=${encodeURIComponent(filter.selectedItems.join(','))}`;
+          }
+        } else {
+          // For text filters, send the filter type and value
+          const filterValue = encodeURIComponent(filter.value || '');
+          switch (filter.type) {
+            case 'contains':
+              url += `&filter_${columnId}_contains=${filterValue}`;
+              break;
+            case 'not_contains':
+              url += `&filter_${columnId}_not_contains=${filterValue}`;
+              break;
+            case 'starts_with':
+              url += `&filter_${columnId}_startswith=${filterValue}`;
+              break;
+            case 'ends_with':
+              url += `&filter_${columnId}_endswith=${filterValue}`;
+              break;
+            case 'equals':
+              url += `&filter_${columnId}_exact=${filterValue}`;
+              break;
+            case 'not_equals':
+              url += `&filter_${columnId}_not_exact=${filterValue}`;
+              break;
+            case 'is_empty':
+              url += `&filter_${columnId}_isnull=true`;
+              break;
+            case 'is_not_empty':
+              url += `&filter_${columnId}_isnull=false`;
+              break;
+          }
+        }
+      }
+    });
+
+    console.log(`🌐 Built API URL with filters: ${url}`);
     return url;
   }, [apiUrl, customerId]);
 
@@ -152,10 +229,25 @@ const TanStackCRUDTable = forwardRef(({
           console.log('📊 Loading saved column widths:', response.data.column_widths);
           setColumnSizing(response.data.column_widths);
         }
+        // Load page_size from direct field
+        if (response.data.page_size) {
+          console.log('📊 Loading saved page size:', response.data.page_size);
+          setPageSize(response.data.page_size);
+        }
+
+        // Load current_page from additional_settings
+        if (response.data.additional_settings?.current_page) {
+          console.log('📊 Loading saved current page:', response.data.additional_settings.current_page);
+          setCurrentPage(response.data.additional_settings.current_page);
+        }
         console.log('📊 Loaded table configuration:', response.data);
       }
     } catch (error) {
       console.log('⚠️ No existing table configuration found or error loading:', error.message);
+    } finally {
+      // Mark config as loaded regardless of success/failure
+      setConfigLoaded(true);
+      console.log('📊 Table configuration loading completed');
     }
   }, [tableName, customerId]);
 
@@ -197,10 +289,42 @@ const TanStackCRUDTable = forwardRef(({
     }
   }, [tableName, customerId, tableConfig, columnSizing]);
 
+  // Determine if we need client-side pagination (memoized for consistency)
+  const hasActiveClientFilters = useMemo(() => {
+    const hasActiveFilters = Object.keys(activeFilters).some(key => activeFilters[key].active);
+    const hasGlobalFilter = globalFilter && globalFilter.trim().length > 0;
+    const result = !useServerSideFiltering && (hasActiveFilters || hasGlobalFilter);
+    console.log('🔍 hasActiveClientFilters calculation:', {
+      useServerSideFiltering,
+      hasActiveFilters,
+      hasGlobalFilter,
+      result
+    });
+    return result;
+  }, [useServerSideFiltering, activeFilters, globalFilter]);
 
   // Load data from server with pagination
   const loadData = useCallback(async () => {
-    const url = buildApiUrl(currentPage, pageSize, globalFilter);
+    // Only pass filters to server if using server-side filtering
+    const filtersToPass = useServerSideFiltering ? activeFilters : {};
+
+    // Use the memoized hasActiveClientFilters value for consistency
+
+    // Use a large page size when client-side filters are active to get all data
+    const effectivePageSize = hasActiveClientFilters ? 10000 : pageSize;
+    const effectivePage = hasActiveClientFilters ? 1 : currentPage;
+
+    console.log('🔄 loadData parameters:', {
+      hasActiveClientFilters,
+      effectivePageSize,
+      effectivePage,
+      pageSize,
+      currentPage
+    });
+
+    const url = buildApiUrl(effectivePage, effectivePageSize,
+                           useServerSideFiltering ? globalFilter : '',
+                           filtersToPass);
     if (!url) {
       console.log('⚠️ No API URL available');
       return;
@@ -222,10 +346,22 @@ const TanStackCRUDTable = forwardRef(({
       // Process data if preprocessing function provided
       const processedData = preprocessData ? preprocessData(dataList) : dataList;
 
-      setFabricData(processedData);
-      setEditableData([...processedData]);
-      setTotalItems(totalCount);
-      setTotalPages(pageSize === 'All' ? 1 : Math.max(1, Math.ceil(totalCount / pageSize)));
+      // Store all data for filtering, but handle pagination correctly
+      if (hasActiveClientFilters) {
+        // When client-side filtering is active, we have all data
+        // Store the full dataset and let TanStack Table handle filtering and pagination
+        setFabricData(processedData);
+        setEditableData([...processedData]);
+        setTotalItems(totalCount);
+        // For client-side filtering, pagination is handled by TanStack Table
+        setTotalPages(Math.max(1, Math.ceil(processedData.length / pageSize)));
+      } else {
+        // Normal server-side pagination - only store the current page data
+        setFabricData(processedData);
+        setEditableData([...processedData]);
+        setTotalItems(totalCount);
+        setTotalPages(pageSize === 'All' ? 1 : Math.max(1, Math.ceil(totalCount / pageSize)));
+      }
       setHasChanges(false);
       setDeletedRows([]);
 
@@ -239,14 +375,43 @@ const TanStackCRUDTable = forwardRef(({
     } finally {
       setIsLoading(false);
     }
-  }, [buildApiUrl, currentPage, pageSize, globalFilter, preprocessData]);
+  }, [buildApiUrl, currentPage, pageSize, globalFilter, activeFilters, useServerSideFiltering, preprocessData, hasActiveClientFilters]);
 
-  // Load data when dependencies change
-  useEffect(() => {
-    if (apiUrl) {
-      loadData();
+  // Load complete dataset for filter dropdown items
+  const loadAllDataForFiltering = useCallback(async () => {
+    if (!apiUrl) return;
+
+    try {
+      // Load all data without filters (using a large page size)
+      const url = buildApiUrl(1, 10000, '', {});
+      console.log('🔍 Loading complete dataset for filtering from:', url);
+
+      const response = await axios.get(url);
+      let dataList = response.data.results || response.data;
+
+      // Process data if preprocessing function provided
+      const processedData = preprocessData ? preprocessData(dataList) : dataList;
+
+      setAllData(processedData);
+      console.log(`📊 Loaded ${processedData.length} total records for filtering`);
+
+    } catch (error) {
+      console.error('❌ Error loading complete dataset:', error);
     }
-  }, [loadData, apiUrl]);
+  }, [apiUrl, buildApiUrl, preprocessData]);
+
+  // Load data when dependencies change, but wait for table config to load first (if table has config)
+  useEffect(() => {
+    const hasTableConfig = tableName && customerId;
+    const shouldWaitForConfig = hasTableConfig && !configLoaded;
+
+    if (apiUrl && !shouldWaitForConfig) {
+      console.log('🔄 Loading data -', hasTableConfig ? 'after table configuration is ready' : 'no table config needed');
+      loadData();
+      // Also load complete dataset for filtering
+      loadAllDataForFiltering();
+    }
+  }, [loadData, loadAllDataForFiltering, apiUrl, configLoaded, tableName, customerId]);
 
   // Reset to page 1 when search filter changes
   useEffect(() => {
@@ -274,6 +439,28 @@ const TanStackCRUDTable = forwardRef(({
 
     return () => clearTimeout(debounceTimer);
   }, [columnSizing, saveTableConfig]);
+
+  // Save pagination state when it changes
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (tableName && customerId) {
+        console.log('💾 Saving pagination state:', { currentPage, pageSize });
+
+        // Merge with existing additional_settings to avoid overwriting other settings
+        const existingAdditionalSettings = tableConfig?.additional_settings || {};
+
+        saveTableConfig({
+          page_size: parseInt(pageSize) || 25,
+          additional_settings: {
+            ...existingAdditionalSettings,
+            current_page: currentPage
+          }
+        });
+      }
+    }, 500); // Shorter debounce for pagination
+
+    return () => clearTimeout(debounceTimer);
+  }, [currentPage, pageSize, saveTableConfig, tableName, customerId, tableConfig]);
 
   // Current table data (server-side pagination means we show what we loaded)
   const currentTableData = useMemo(() => {
@@ -674,6 +861,65 @@ const TanStackCRUDTable = forwardRef(({
     }
   }, [editableData, hasChanges, deletedRows, loadData, getDeleteUrl, saveUrl, apiUrl, saveTransform, onSave, customSaveHandler]);
 
+  // Advanced filter handling functions
+  const handleFiltersChange = useCallback((newActiveFilters) => {
+    console.log('🔍 Updating active filters:', newActiveFilters);
+
+    // Clean invalid filters
+    const cleanedFilters = cleanInvalidFilters(newActiveFilters);
+    setActiveFilters(cleanedFilters);
+
+    // Reset to page 1 when filters change (for server-side filtering)
+    if (useServerSideFiltering) {
+      setCurrentPage(1);
+    } else {
+      // Reset client-side pagination to first page when filters change
+      setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    }
+
+    // Always update column filters for TanStack Table (needed for both server and client-side)
+    const newColumnFilters = Object.keys(cleanedFilters)
+      .filter(columnId => cleanedFilters[columnId].active)
+      .map(columnId => ({
+        id: columnId,
+        value: cleanedFilters[columnId] // Pass the entire filter object as value
+      }));
+
+    setColumnFilters(newColumnFilters);
+    console.log('✅ Column filters updated:', newColumnFilters);
+
+    console.log('✅ Active filters updated:', cleanedFilters);
+  }, [useServerSideFiltering]);
+
+  const toggleFilterDropdown = useCallback((show) => {
+    setShowFilterDropdown(show !== undefined ? show : !showFilterDropdown);
+  }, [showFilterDropdown]);
+
+  const clearAllFilters = useCallback(() => {
+    console.log('🧹 Clearing all filters and resetting to normal pagination');
+
+    // Clear all filter states
+    setActiveFilters({});
+    setColumnFilters([]);
+    setGlobalFilter('');
+
+    // Reset pagination to first page
+    setCurrentPage(1);
+    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+
+    // The useEffect for loadData will automatically trigger when activeFilters and globalFilter change
+    // No need to manually call loadData here as it will cause the right data loading behavior
+    console.log('🧹 All filters cleared, data will reload automatically');
+  }, []);
+
+  // Sync activeFilters when columnFilters change from other sources
+  useEffect(() => {
+    const newActiveFilters = convertFromColumnFilters(columnFilters);
+    if (JSON.stringify(newActiveFilters) !== JSON.stringify(activeFilters)) {
+      setActiveFilters(newActiveFilters);
+    }
+  }, [columnFilters, activeFilters]);
+
   // Create enhanced column definitions with our custom cell components
   const columnDefs = useMemo(() => {
     console.log('🏗️ Building column definitions with dropdownSources:', dropdownSources);
@@ -834,6 +1080,7 @@ const TanStackCRUDTable = forwardRef(({
         enableSorting: true,
         enableColumnFilter: true,
         enableGlobalFilter: true,
+        filterFn: 'advancedFilter',
 
         // Sizing and resizing
         enableResizing: true,
@@ -846,11 +1093,12 @@ const TanStackCRUDTable = forwardRef(({
 
   // Table instance
   const table = useReactTable({
-    data: currentTableData,
+    data: editableData,
     columns: columnDefs,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    getFilteredRowModel: useServerSideFiltering ? undefined : getFilteredRowModel(),
+    getPaginationRowModel: hasActiveClientFilters ? getPaginationRowModel() : undefined,
     enableColumnResizing: true,
     columnResizeMode: 'onEnd',
     state: {
@@ -858,6 +1106,7 @@ const TanStackCRUDTable = forwardRef(({
       columnFilters,
       globalFilter,
       columnSizing,
+      ...(hasActiveClientFilters && { pagination }),
     },
     onColumnSizingChange: (updater) => {
       console.log('🔧 Column sizing changed:', updater);
@@ -866,7 +1115,50 @@ const TanStackCRUDTable = forwardRef(({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    ...(hasActiveClientFilters && { onPaginationChange: setPagination }),
     enableRowSelection: true,
+    // Custom filter function for advanced filters
+    filterFns: {
+      advancedFilter: (row, columnId, filterValue) => {
+        // If no active filters for this column, show all rows
+        if (!activeFilters[columnId] || !activeFilters[columnId].active) {
+          return true;
+        }
+
+        const filter = activeFilters[columnId];
+        const cellValue = row.getValue(columnId);
+
+        if (filter.type === 'items') {
+          const stringValue = cellValue === null || cellValue === undefined ? '' : String(cellValue);
+          return filter.selectedItems.includes(stringValue);
+        } else {
+          // Handle text filters
+          const stringValue = cellValue === null || cellValue === undefined ? '' : String(cellValue).toLowerCase();
+          const filterString = String(filter.value || '').toLowerCase();
+
+          switch (filter.type) {
+            case 'contains':
+              return stringValue.includes(filterString);
+            case 'not_contains':
+              return !stringValue.includes(filterString);
+            case 'starts_with':
+              return stringValue.startsWith(filterString);
+            case 'ends_with':
+              return stringValue.endsWith(filterString);
+            case 'equals':
+              return stringValue === filterString;
+            case 'not_equals':
+              return stringValue !== filterString;
+            case 'is_empty':
+              return stringValue === '';
+            case 'is_not_empty':
+              return stringValue !== '';
+            default:
+              return true;
+          }
+        }
+      }
+    }
   });
 
   // Excel-like features implementation
@@ -1423,9 +1715,9 @@ const TanStackCRUDTable = forwardRef(({
               minWidth: '28px',
               height: '28px',
               padding: '0 6px',
-              border: '1px solid #d1d5db',
-              background: 'white',
-              color: '#374151',
+              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: 'var(--table-pagination-text)',
               fontSize: '14px',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -1458,9 +1750,9 @@ const TanStackCRUDTable = forwardRef(({
               minWidth: '28px',
               height: '28px',
               padding: '0 6px',
-              border: '1px solid #d1d5db',
-              background: i === currentPage ? '#1976d2' : 'white',
-              color: i === currentPage ? 'white' : '#374151',
+              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: i === currentPage ? 'var(--table-pagination-button-active)' : 'var(--table-pagination-button-bg)',
+              color: i === currentPage ? 'var(--content-bg)' : 'var(--table-pagination-text)',
               fontSize: '14px',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -1494,9 +1786,9 @@ const TanStackCRUDTable = forwardRef(({
               minWidth: '28px',
               height: '28px',
               padding: '0 6px',
-              border: '1px solid #d1d5db',
-              background: 'white',
-              color: '#374151',
+              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: 'var(--table-pagination-text)',
               fontSize: '14px',
               borderRadius: '4px',
               cursor: 'pointer',
@@ -1517,8 +1809,9 @@ const TanStackCRUDTable = forwardRef(({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '12px 24px',
-        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-        borderTop: '1px solid #e0e0e0',
+        backgroundColor: 'var(--table-pagination-bg)',
+        borderTop: '1px solid var(--table-pagination-border)',
+        color: 'var(--table-pagination-text)',
         flexWrap: 'wrap',
         gap: '16px',
         minHeight: '48px',
@@ -1559,10 +1852,11 @@ const TanStackCRUDTable = forwardRef(({
               disabled={isLoading}
               style={{
                 padding: '4px 8px',
-                border: '1px solid #d1d5db',
+                border: '1px solid var(--table-pagination-button-border)',
                 borderRadius: '4px',
                 fontSize: '14px',
-                background: 'white',
+                backgroundColor: 'var(--table-pagination-button-bg)',
+                color: 'var(--table-pagination-text)',
                 cursor: 'pointer'
               }}
             >
@@ -1590,9 +1884,9 @@ const TanStackCRUDTable = forwardRef(({
               justifyContent: 'center',
               width: '28px',
               height: '28px',
-              border: '1px solid #d1d5db',
-              background: currentPage === 1 || isLoading ? '#f3f4f6' : 'white',
-              color: currentPage === 1 || isLoading ? '#9ca3af' : '#374151',
+              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: currentPage === 1 || isLoading ? 'var(--muted-text)' : 'var(--table-pagination-text)',
               borderRadius: '4px',
               cursor: currentPage === 1 || isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s'
@@ -1611,9 +1905,9 @@ const TanStackCRUDTable = forwardRef(({
               justifyContent: 'center',
               width: '28px',
               height: '28px',
-              border: '1px solid #d1d5db',
-              background: currentPage === 1 || isLoading ? '#f3f4f6' : 'white',
-              color: currentPage === 1 || isLoading ? '#9ca3af' : '#374151',
+              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: currentPage === 1 || isLoading ? 'var(--muted-text)' : 'var(--table-pagination-text)',
               borderRadius: '4px',
               cursor: currentPage === 1 || isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s'
@@ -1641,9 +1935,10 @@ const TanStackCRUDTable = forwardRef(({
               justifyContent: 'center',
               width: '28px',
               height: '28px',
-              border: '1px solid #d1d5db',
-              background: currentPage === totalPages || isLoading ? '#f3f4f6' : 'white',
-              color: currentPage === totalPages || isLoading ? '#9ca3af' : '#374151',
+              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: currentPage === totalPages || isLoading ? 'var(--muted-text)' : 'var(--table-pagination-text)',
+              opacity: currentPage === totalPages || isLoading ? 0.5 : 1,
               borderRadius: '4px',
               cursor: currentPage === totalPages || isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s'
@@ -1662,9 +1957,10 @@ const TanStackCRUDTable = forwardRef(({
               justifyContent: 'center',
               width: '28px',
               height: '28px',
-              border: '1px solid #d1d5db',
-              background: currentPage === totalPages || isLoading ? '#f3f4f6' : 'white',
-              color: currentPage === totalPages || isLoading ? '#9ca3af' : '#374151',
+              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: currentPage === totalPages || isLoading ? 'var(--muted-text)' : 'var(--table-pagination-text)',
+              opacity: currentPage === totalPages || isLoading ? 0.5 : 1,
               borderRadius: '4px',
               cursor: currentPage === totalPages || isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s'
@@ -1692,29 +1988,31 @@ const TanStackCRUDTable = forwardRef(({
   }));
 
   return (
-    <div className="tanstack-crud-table-container" style={{
+    <div className={`tanstack-crud-table-container theme-${theme}`} style={{
       height,
       display: 'flex',
       flexDirection: 'column',
-      backgroundColor: '#ffffff',
-      border: '1px solid #e0e0e0',
+      backgroundColor: 'var(--table-bg)',
+      border: '1px solid var(--table-border)',
       borderRadius: '8px',
       overflow: 'hidden',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      boxShadow: 'var(--shadow-light)',
+      color: 'var(--table-cell-text)'
     }}>
-      {/* Modern Table Controls */}
-      <div className="table-controls" style={{
-        padding: '16px 20px',
-        borderBottom: '1px solid #e0e0e0',
+      {/* Top Filter & Search Toolbar */}
+      <div className="filter-search-toolbar" style={{
+        padding: '12px 20px',
+        borderBottom: '1px solid var(--table-toolbar-border)',
         display: 'flex',
-        gap: '12px',
+        gap: '16px',
         alignItems: 'center',
         flexWrap: 'wrap',
-        backgroundColor: '#fafafa',
-        minHeight: '64px'
+        backgroundColor: 'var(--table-toolbar-bg)',
+        minHeight: '60px',
+        color: 'var(--table-toolbar-text)'
       }}>
         {/* Enhanced Search */}
-        <div style={{ position: 'relative', minWidth: '250px' }}>
+        <div style={{ position: 'relative', minWidth: '300px', flex: '1 1 300px', maxWidth: '400px' }}>
           <input
             type="text"
             placeholder="🔍 Search all columns..."
@@ -1723,25 +2021,204 @@ const TanStackCRUDTable = forwardRef(({
             style={{
               width: '100%',
               padding: '10px 16px',
-              border: '1px solid #d0d0d0',
+              border: '1px solid var(--form-input-border)',
               borderRadius: '6px',
               fontSize: '14px',
               outline: 'none',
               transition: 'border-color 0.2s, box-shadow 0.2s',
-              backgroundColor: 'white'
+              backgroundColor: 'var(--form-input-bg)',
+              color: 'var(--form-input-text)'
             }}
             onFocus={(e) => {
-              e.target.style.borderColor = '#1976d2';
-              e.target.style.boxShadow = '0 0 0 2px rgba(25, 118, 210, 0.1)';
+              e.target.style.borderColor = 'var(--form-input-focus-border)';
+              e.target.style.boxShadow = '0 0 0 2px var(--form-input-focus-shadow)';
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = '#d0d0d0';
+              e.target.style.borderColor = 'var(--form-input-border)';
               e.target.style.boxShadow = 'none';
             }}
           />
         </div>
 
-        {/* Modern Action Buttons */}
+        {/* Advanced Filter Button */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => toggleFilterDropdown()}
+            style={{
+              padding: '10px 18px',
+              backgroundColor: Object.keys(activeFilters).length > 0
+                ? 'var(--table-pagination-button-active)'
+                : 'var(--table-pagination-button-bg)',
+              color: Object.keys(activeFilters).length > 0
+                ? 'var(--content-bg)'
+                : 'var(--table-toolbar-text)',
+              border: '1px solid var(--table-pagination-button-border)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            🔽 Advanced Filters
+            {Object.keys(activeFilters).filter(key => activeFilters[key].active).length > 0 && (
+              <span style={{
+                backgroundColor: 'rgba(255,255,255,0.3)',
+                borderRadius: '10px',
+                padding: '2px 6px',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}>
+                {Object.keys(activeFilters).filter(key => activeFilters[key].active).length}
+              </span>
+            )}
+          </button>
+
+          {/* Filter Dropdown */}
+          <FilterDropdown
+            columns={columnDefs.map(col => ({
+              id: col.accessorKey || col.id,
+              header: col.header
+            }))}
+            data={allData.length > 0 ? allData : editableData}
+            activeFilters={activeFilters}
+            onFiltersChange={handleFiltersChange}
+            isOpen={showFilterDropdown}
+            onToggle={toggleFilterDropdown}
+            className="advanced-filter-dropdown"
+          />
+        </div>
+
+        {/* Spacer to push stats to the right */}
+        <div style={{ flex: '1' }}></div>
+
+        {/* Stats Container */}
+        <StatsContainer
+          totalItems={totalItems}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          displayedRows={hasActiveClientFilters ?
+            table.getRowModel().rows.length : // Use TanStack Table's filtered/paginated count
+            editableData.length  // Use server-provided count for normal pagination
+          }
+          selectedCellsCount={selectedCells.size}
+          hasActiveFilters={Object.keys(activeFilters).filter(key => activeFilters[key].active).length > 0}
+          hasUnsavedChanges={hasChanges}
+          globalFilter={globalFilter}
+          isPaginated={totalPages > 1}
+        />
+      </div>
+
+      {/* Active Filters Display */}
+      {Object.keys(activeFilters).filter(key => activeFilters[key].active).length > 0 && (
+        <div style={{
+          padding: '8px 20px',
+          borderBottom: '1px solid #e9ecef',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          backgroundColor: 'var(--table-row-selected)',
+          fontSize: '13px'
+        }}>
+          <span style={{ color: 'var(--link-text)', fontWeight: '500' }}>Active Filters:</span>
+          {getFilterSummary(activeFilters, columnDefs).map((filter) => (
+            <span
+              key={filter.columnId}
+              style={{
+                backgroundColor: 'var(--link-text)',
+                color: 'var(--content-bg)',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '12px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              {filter.columnName}: {filter.summary}
+              <button
+                onClick={() => {
+                  const newFilters = { ...activeFilters };
+                  delete newFilters[filter.columnId];
+                  handleFiltersChange(newFilters);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  padding: '0',
+                  marginLeft: '4px',
+                  fontSize: '14px',
+                  lineHeight: '1'
+                }}
+                title="Remove filter"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <button
+            onClick={clearAllFilters}
+            style={{
+              background: 'none',
+              border: '1px solid var(--link-text)',
+              color: 'var(--link-text)',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              fontWeight: '500'
+            }}
+            title="Clear all filters"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
+
+      {/* Table Action Controls */}
+      <div className="table-controls" style={{
+        padding: '16px 20px',
+        borderBottom: '1px solid var(--table-toolbar-border)',
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        backgroundColor: 'var(--table-toolbar-bg)',
+        color: 'var(--table-toolbar-text)',
+        minHeight: '64px'
+      }}>
+        {/* Save Button */}
+        <button
+          onClick={saveChanges}
+          disabled={!hasChanges || isLoading}
+          style={{
+            padding: '10px 18px',
+            backgroundColor: hasChanges && !isLoading ? 'var(--success-color)' : 'var(--table-pagination-button-bg)',
+            color: hasChanges && !isLoading ? 'var(--content-bg)' : 'var(--muted-text)',
+            border: '1px solid var(--table-pagination-button-border)',
+            borderRadius: '6px',
+            cursor: hasChanges && !isLoading ? 'pointer' : 'not-allowed',
+            fontSize: '14px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease',
+            opacity: hasChanges && !isLoading ? 1 : 0.6
+          }}
+        >
+          {isLoading ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
+        </button>
+
+        {/* Action Buttons */}
         {/* Conditional rendering for Add Actions */}
         {customAddActions ? (
           <div className="dropdown">
@@ -1751,8 +2228,8 @@ const TanStackCRUDTable = forwardRef(({
               aria-expanded="false"
               style={{
                 padding: '10px 18px',
-                backgroundColor: '#1976d2',
-                color: 'white',
+                backgroundColor: 'var(--link-text)',
+                color: 'var(--content-bg)',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
@@ -1764,16 +2241,8 @@ const TanStackCRUDTable = forwardRef(({
                 transition: 'background-color 0.2s, transform 0.1s',
                 boxShadow: '0 2px 4px rgba(25, 118, 210, 0.2)'
               }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#1565c0';
-                e.target.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = '#1976d2';
-                e.target.style.transform = 'translateY(0)';
-              }}
             >
-              {customAddActions.dropdownLabel || "Add Item"} ▼
+              {customAddActions.dropdownLabel || "Add Item"}
             </button>
             <ul className="dropdown-menu">
               {customAddActions.actions?.map((action, index) => (
@@ -1803,9 +2272,9 @@ const TanStackCRUDTable = forwardRef(({
             onClick={addNewRow}
             style={{
               padding: '10px 18px',
-              backgroundColor: '#1976d2',
-              color: 'white',
-              border: 'none',
+              backgroundColor: 'var(--table-pagination-button-active)',
+              color: 'var(--content-bg)',
+              border: '1px solid var(--table-pagination-button-border)',
               borderRadius: '6px',
               cursor: 'pointer',
               fontSize: '14px',
@@ -1813,19 +2282,10 @@ const TanStackCRUDTable = forwardRef(({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              transition: 'background-color 0.2s, transform 0.1s',
-              boxShadow: '0 2px 4px rgba(25, 118, 210, 0.2)'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = '#1565c0';
-              e.target.style.transform = 'translateY(-1px)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = '#1976d2';
-              e.target.style.transform = 'translateY(0)';
+              transition: 'all 0.2s ease'
             }}
           >
-            ➕ Add Row
+            Add Row
           </button>
         )}
 
@@ -1834,9 +2294,9 @@ const TanStackCRUDTable = forwardRef(({
           disabled={selectedCells.size === 0}
           style={{
             padding: '10px 18px',
-            backgroundColor: selectedCells.size > 0 ? '#d32f2f' : '#e0e0e0',
-            color: selectedCells.size > 0 ? 'white' : '#9e9e9e',
-            border: 'none',
+            backgroundColor: selectedCells.size > 0 ? 'var(--error-color)' : 'var(--table-pagination-button-bg)',
+            color: selectedCells.size > 0 ? 'var(--content-bg)' : 'var(--muted-text)',
+            border: '1px solid var(--table-pagination-button-border)',
             borderRadius: '6px',
             cursor: selectedCells.size > 0 ? 'pointer' : 'not-allowed',
             fontSize: '14px',
@@ -1844,67 +2304,21 @@ const TanStackCRUDTable = forwardRef(({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            transition: 'background-color 0.2s, transform 0.1s',
-            boxShadow: selectedCells.size > 0 ? '0 2px 4px rgba(211, 47, 47, 0.2)' : 'none'
-          }}
-          onMouseEnter={(e) => {
-            if (selectedCells.size > 0) {
-              e.target.style.backgroundColor = '#c62828';
-              e.target.style.transform = 'translateY(-1px)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (selectedCells.size > 0) {
-              e.target.style.backgroundColor = '#d32f2f';
-              e.target.style.transform = 'translateY(0)';
-            }
+            transition: 'all 0.2s ease',
+            opacity: selectedCells.size > 0 ? 1 : 0.6
           }}
         >
-          🗑️ Delete Selected ({selectedCells.size})
+          Delete Selected ({selectedCells.size})
         </button>
 
-        <button
-          onClick={saveChanges}
-          disabled={!hasChanges || isLoading}
-          style={{
-            padding: '10px 18px',
-            backgroundColor: hasChanges && !isLoading ? '#2e7d32' : '#e0e0e0',
-            color: hasChanges && !isLoading ? 'white' : '#9e9e9e',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: hasChanges && !isLoading ? 'pointer' : 'not-allowed',
-            fontSize: '14px',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'background-color 0.2s, transform 0.1s',
-            boxShadow: hasChanges && !isLoading ? '0 2px 4px rgba(46, 125, 50, 0.2)' : 'none'
-          }}
-          onMouseEnter={(e) => {
-            if (hasChanges && !isLoading) {
-              e.target.style.backgroundColor = '#1b5e20';
-              e.target.style.transform = 'translateY(-1px)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (hasChanges && !isLoading) {
-              e.target.style.backgroundColor = '#2e7d32';
-              e.target.style.transform = 'translateY(0)';
-            }
-          }}
-        >
-          {isLoading ? '💾 Saving...' : hasChanges ? '💾 Save Changes' : '💾 No Changes'}
-        </button>
-
-        {/* Auto-size columns button */}
+{/* Auto-size columns button */}
         <button
           onClick={autoSizeColumns}
           style={{
             padding: '10px 18px',
-            backgroundColor: '#1976d2',
-            color: 'white',
-            border: 'none',
+            backgroundColor: 'var(--info-color)',
+            color: 'var(--content-bg)',
+            border: '1px solid var(--table-pagination-button-border)',
             borderRadius: '6px',
             cursor: 'pointer',
             fontSize: '14px',
@@ -1912,20 +2326,11 @@ const TanStackCRUDTable = forwardRef(({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            transition: 'background-color 0.2s, transform 0.1s',
-            boxShadow: '0 2px 4px rgba(25, 118, 210, 0.2)'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.backgroundColor = '#1565c0';
-            e.target.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.backgroundColor = '#1976d2';
-            e.target.style.transform = 'translateY(0)';
+            transition: 'all 0.2s ease'
           }}
           title="Auto-size all columns to fit content"
         >
-          📏 Auto-size Columns
+          Auto-size Columns
         </button>
 
         {/* Status indicator and shortcuts */}
@@ -1933,11 +2338,11 @@ const TanStackCRUDTable = forwardRef(({
           {selectedCells.size > 0 && (
             <div style={{
               padding: '6px 12px',
-              backgroundColor: '#e3f2fd',
-              border: '1px solid #1976d2',
+              backgroundColor: 'var(--table-row-selected)',
+              border: '1px solid var(--link-text)',
               borderRadius: '4px',
               fontSize: '12px',
-              color: '#1976d2',
+              color: 'var(--link-text)',
               fontWeight: '500'
             }}>
               {selectedCells.size} cell{selectedCells.size > 1 ? 's' : ''} selected
@@ -1952,7 +2357,7 @@ const TanStackCRUDTable = forwardRef(({
         style={{
           flex: 1,
           overflow: 'auto',
-          backgroundColor: 'white'
+          backgroundColor: 'var(--table-bg)'
         }}
         onKeyDown={handleKeyDown}
         tabIndex={0}
@@ -1974,16 +2379,16 @@ const TanStackCRUDTable = forwardRef(({
                     style={{
                       padding: '14px 12px',
                       textAlign: 'left',
-                      borderBottom: '2px solid #e0e0e0',
-                      borderRight: '1px solid #e0e0e0',
-                      backgroundColor: '#f8f9fa',
+                      borderBottom: '2px solid var(--table-border)',
+                      borderRight: '1px solid var(--table-border)',
+                      backgroundColor: 'var(--table-header-bg)',
                       height: '50px', // Consistent header height
                       minHeight: '50px',
                       position: 'relative',
                       width: header.getSize(),
                       fontWeight: '600',
                       fontSize: '13px',
-                      color: '#424242',
+                      color: 'var(--table-header-text)',
                       cursor: header.column.getCanSort() ? 'pointer' : 'default',
                       position: 'sticky',
                       top: 0,
@@ -1992,24 +2397,16 @@ const TanStackCRUDTable = forwardRef(({
                       transition: 'background-color 0.2s'
                     }}
                     onClick={header.column.getToggleSortingHandler()}
-                    onMouseEnter={(e) => {
-                      if (header.column.getCanSort()) {
-                        e.target.style.backgroundColor = '#f0f0f0';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = '#f8f9fa';
-                    }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
                         <span style={{
-                          color: header.column.getIsSorted() ? '#1976d2' : '#bdbdbd',
+                          color: header.column.getIsSorted() ? 'var(--link-text)' : 'var(--muted-text)',
                           fontSize: '12px'
                         }}>
-                          {header.column.getIsSorted() === 'desc' ? '▼' :
-                           header.column.getIsSorted() === 'asc' ? '▲' : '↕'}
+                          {header.column.getIsSorted() === 'desc' ? '↓' :
+                           header.column.getIsSorted() === 'asc' ? '↑' : '↕'}
                         </span>
                       )}
                     </div>
@@ -2028,31 +2425,19 @@ const TanStackCRUDTable = forwardRef(({
                         }}
                         onTouchStart={header.getResizeHandler()}
                         className={`resizer ${header.column.getIsResizing() ? 'isResizing' : ''}`}
-                        onMouseEnter={(e) => {
-                          if (!header.column.getIsResizing()) {
-                            e.target.style.opacity = '1';
-                            e.target.style.background = '#1976d2';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!header.column.getIsResizing()) {
-                            e.target.style.opacity = '0';
-                            e.target.style.background = 'rgba(0, 0, 0, 0.1)';
-                          }
-                        }}
                         style={{
                           position: 'absolute',
                           right: 0,
                           top: 0,
                           height: '100%',
                           width: header.column.getIsResizing() ? '3px' : '5px',
-                          background: header.column.getIsResizing() ? '#1976d2' : 'rgba(0, 0, 0, 0.1)',
+                          background: header.column.getIsResizing() ? 'var(--link-text)' : 'var(--table-border)',
                           cursor: 'col-resize',
                           userSelect: 'none',
                           touchAction: 'none',
                           opacity: header.column.getIsResizing() ? 1 : 0,
                           transition: 'opacity 0.2s',
-                          boxShadow: header.column.getIsResizing() ? '0 0 0 1px #1976d2' : 'none',
+                          boxShadow: header.column.getIsResizing() ? '0 0 0 1px var(--link-text)' : 'none',
                           zIndex: header.column.getIsResizing() ? 1000 : 10
                         }}
                       />
@@ -2069,16 +2454,6 @@ const TanStackCRUDTable = forwardRef(({
                 style={{
                   transition: 'background-color 0.15s',
                 }}
-                onMouseEnter={(e) => {
-                  if (!Array.from(selectedCells).some(key => key.startsWith(`${row.index}-`))) {
-                    e.target.style.backgroundColor = '#f8f9fa';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!Array.from(selectedCells).some(key => key.startsWith(`${row.index}-`))) {
-                    e.target.style.backgroundColor = 'white';
-                  }
-                }}
               >
                 {row.getVisibleCells().map((cell, cellIndex) => {
                   const rowIndex = row.index;
@@ -2092,30 +2467,20 @@ const TanStackCRUDTable = forwardRef(({
                       style={{
                         padding: '10px 12px',
                         border: 'none',
-                        borderBottom: '1px solid #e0e0e0',
-                        borderRight: '1px solid #e0e0e0',
+                        borderBottom: '1px solid var(--table-border)',
+                        borderRight: '1px solid var(--table-border)',
                         width: cell.column.getSize(),
-                        backgroundColor: isSelected ? '#e3f2fd' : 'transparent',
+                        backgroundColor: isSelected ? 'var(--table-row-selected)' : 'transparent',
                         cursor: 'cell',
                         position: 'relative',
                         transition: 'background-color 0.15s, border-color 0.15s',
-                        outline: isSelected ? '2px solid #1976d2' : 'none',
+                        outline: isSelected ? '2px solid var(--link-text)' : 'none',
                         outlineOffset: '-2px',
                         minHeight: '20px',
                         maxWidth: '300px',
                         overflow: 'hidden'
                       }}
                       onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
-                      onMouseEnter={(e) => {
-                        if (!isSelected) {
-                          e.target.style.backgroundColor = '#f9f9f9';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isSelected) {
-                          e.target.style.backgroundColor = 'transparent';
-                        }
-                      }}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
@@ -2185,14 +2550,6 @@ const TanStackCRUDTable = forwardRef(({
           transition: 'opacity 0.3s ease, transform 0.3s ease',
           pointerEvents: showFloatingNav ? 'auto' : 'none'
         }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.opacity = '1';
-          e.currentTarget.style.transform = 'translateY(0) scale(1.05)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.opacity = '0.9';
-          e.currentTarget.style.transform = 'translateY(0) scale(1)';
-        }}
         >
         {/* Auto-size Columns Button */}
         <button
@@ -2201,9 +2558,9 @@ const TanStackCRUDTable = forwardRef(({
           style={{
             width: '32px',
             height: '32px',
-            backgroundColor: 'white',
-            color: 'black',
-            border: '1px solid #ddd',
+            backgroundColor: 'var(--table-pagination-button-bg)',
+            color: 'var(--table-pagination-text)',
+            border: '1px solid var(--table-pagination-button-border)',
             borderRadius: '4px',
             cursor: 'pointer',
             fontSize: '10px',
@@ -2214,10 +2571,8 @@ const TanStackCRUDTable = forwardRef(({
             transition: 'background-color 0.2s',
             marginBottom: '4px'
           }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
         >
-          📏
+          ⤢
         </button>
 
         {/* Top Arrow */}
@@ -2227,9 +2582,9 @@ const TanStackCRUDTable = forwardRef(({
           style={{
             width: '32px',
             height: '32px',
-            backgroundColor: 'white',
-            color: 'black',
-            border: '1px solid #ddd',
+            backgroundColor: 'var(--table-pagination-button-bg)',
+            color: 'var(--table-pagination-text)',
+            border: '1px solid var(--table-pagination-button-border)',
             borderRadius: '4px',
             cursor: 'pointer',
             fontSize: '12px',
@@ -2239,10 +2594,8 @@ const TanStackCRUDTable = forwardRef(({
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             transition: 'background-color 0.2s'
           }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
         >
-          ▲
+          ↑
         </button>
 
         {/* Navigation Row */}
@@ -2254,9 +2607,9 @@ const TanStackCRUDTable = forwardRef(({
             style={{
               width: '32px',
               height: '32px',
-              backgroundColor: 'white',
-              color: 'black',
-              border: '1px solid #ddd',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: 'var(--table-pagination-text)',
+              border: '1px solid var(--table-pagination-button-border)',
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
@@ -2266,10 +2619,8 @@ const TanStackCRUDTable = forwardRef(({
               boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
               transition: 'background-color 0.2s'
             }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
           >
-            ◀
+            ←
           </button>
 
           {/* Right Arrow */}
@@ -2279,9 +2630,9 @@ const TanStackCRUDTable = forwardRef(({
             style={{
               width: '32px',
               height: '32px',
-              backgroundColor: 'white',
-              color: 'black',
-              border: '1px solid #ddd',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: 'var(--table-pagination-text)',
+              border: '1px solid var(--table-pagination-button-border)',
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
@@ -2291,10 +2642,8 @@ const TanStackCRUDTable = forwardRef(({
               boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
               transition: 'background-color 0.2s'
             }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
           >
-            ▶
+            →
           </button>
         </div>
 
@@ -2305,9 +2654,9 @@ const TanStackCRUDTable = forwardRef(({
           style={{
             width: '32px',
             height: '32px',
-            backgroundColor: 'white',
-            color: 'black',
-            border: '1px solid #ddd',
+            backgroundColor: 'var(--table-pagination-button-bg)',
+            color: 'var(--table-pagination-text)',
+            border: '1px solid var(--table-pagination-button-border)',
             borderRadius: '4px',
             cursor: 'pointer',
             fontSize: '12px',
@@ -2317,10 +2666,8 @@ const TanStackCRUDTable = forwardRef(({
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             transition: 'background-color 0.2s'
           }}
-          onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
         >
-          ▼
+          ↓
         </button>
       </div>
       )}
@@ -2334,10 +2681,10 @@ const TanStackCRUDTable = forwardRef(({
             top: 0,
             bottom: 0,
             width: '2px',
-            backgroundColor: '#1976d2',
+            backgroundColor: 'var(--link-text)',
             zIndex: 10000,
             pointerEvents: 'none',
-            boxShadow: '0 0 0 1px rgba(25, 118, 210, 0.3)'
+            boxShadow: '0 0 0 1px var(--link-text)'
           }}
         />
       )}
@@ -2511,10 +2858,11 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
         tabIndex={0}
         style={{
           padding: '6px 10px',
-          border: '1px solid #e0e0e0',
+          border: '1px solid var(--form-input-border)',
           borderRadius: '4px',
           cursor: 'pointer',
-          backgroundColor: localValue ? '#f8f9fa' : 'white',
+          backgroundColor: localValue ? 'var(--table-row-hover)' : 'var(--form-input-bg)',
+          color: 'var(--form-input-text)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -2523,17 +2871,9 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
           minHeight: '32px',
           outline: 'none'
         }}
-        onMouseEnter={(e) => {
-          e.target.style.borderColor = '#1976d2';
-          e.target.style.backgroundColor = localValue ? '#e3f2fd' : '#f9f9f9';
-        }}
-        onMouseLeave={(e) => {
-          e.target.style.borderColor = '#e0e0e0';
-          e.target.style.backgroundColor = localValue ? '#f8f9fa' : 'white';
-        }}
       >
         <span style={{
-          color: localValue ? '#333' : '#999',
+          color: localValue ? 'var(--form-input-text)' : 'var(--form-input-placeholder)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap'
@@ -2541,11 +2881,11 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
           {localValue || 'Select...'}
         </span>
         <span style={{
-          color: '#666',
+          color: 'var(--muted-text)',
           marginLeft: '8px',
           transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
           transition: 'transform 0.2s'
-        }}>▼</span>
+        }}>▽</span>
       </div>
 
       {isOpen && (
@@ -2553,10 +2893,10 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
           ref={dropdownRef}
           style={{
             ...getDropdownStyle(),
-            backgroundColor: 'white',
-            border: '1px solid #e0e0e0',
+            backgroundColor: 'var(--form-input-bg)',
+            border: '1px solid var(--form-input-border)',
             borderRadius: '6px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+            boxShadow: 'var(--shadow-medium)',
             overflow: 'hidden'
           }}
         >
@@ -2573,10 +2913,11 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
               width: '100%',
               padding: '10px 12px',
               border: 'none',
-              borderBottom: '1px solid #f0f0f0',
+              borderBottom: '1px solid var(--table-border)',
               outline: 'none',
               fontSize: '14px',
-              backgroundColor: '#fafafa',
+              backgroundColor: 'var(--table-row-hover)',
+              color: 'var(--form-input-text)',
               boxSizing: 'border-box'
             }}
             autoFocus
@@ -2584,7 +2925,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
           <div style={{
             maxHeight: '150px',
             overflow: 'auto',
-            backgroundColor: 'white'
+            backgroundColor: 'var(--form-input-bg)'
           }}>
             {filteredOptions.map((option, index) => {
               const displayText = typeof option === 'string' ? option : (option.name || option.label);
@@ -2606,21 +2947,12 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
                   style={{
                     padding: '10px 12px',
                     cursor: 'pointer',
-                    borderBottom: index < filteredOptions.length - 1 ? '1px solid #f5f5f5' : 'none',
+                    borderBottom: index < filteredOptions.length - 1 ? '1px solid var(--table-border)' : 'none',
                     fontSize: '14px',
                     transition: 'background-color 0.15s',
-                    backgroundColor: isSelected ? '#e3f2fd' : 'white',
+                    backgroundColor: isSelected ? 'var(--table-row-selected)' : 'var(--form-input-bg)',
+                    color: 'var(--form-input-text)',
                     userSelect: 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) {
-                      e.target.style.backgroundColor = '#f5f5f5';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isSelected) {
-                      e.target.style.backgroundColor = 'white';
-                    }
                   }}
                 >
                   {displayText}
@@ -2631,10 +2963,10 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
               <div style={{
                 padding: '12px',
                 fontSize: '13px',
-                color: '#999',
                 fontStyle: 'italic',
                 textAlign: 'center',
-                backgroundColor: 'white'
+                backgroundColor: 'var(--form-input-bg)',
+                color: 'var(--muted-text)'
               }}>
                 No options found
               </div>
@@ -2676,12 +3008,7 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
         borderRadius: '4px',
         transition: 'background-color 0.2s'
       }}
-      onMouseEnter={(e) => {
-        e.target.style.backgroundColor = '#f5f5f5';
-      }}
-      onMouseLeave={(e) => {
-        e.target.style.backgroundColor = 'transparent';
-      }}>
+>
         <input
           type="checkbox"
           checked={checked}
@@ -2690,7 +3017,7 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
             cursor: 'pointer',
             transform: 'scale(1.3)',
             margin: 0,
-            accentColor: '#1976d2'
+            accentColor: 'var(--link-text)'
           }}
         />
       </label>
@@ -2752,11 +3079,12 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
         autoFocus
         style={{
           width: '100%',
-          border: '2px solid #1976d2',
+          border: '2px solid var(--link-text)',
           borderRadius: '4px',
           outline: 'none',
           padding: '6px 8px',
-          backgroundColor: '#fff',
+          backgroundColor: 'var(--form-input-bg)',
+          color: 'var(--form-input-text)',
           fontSize: '14px',
           boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)'
         }}
@@ -2781,16 +3109,10 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
       }}
-      onMouseEnter={(e) => {
-        e.target.style.backgroundColor = '#f9f9f9';
-      }}
-      onMouseLeave={(e) => {
-        e.target.style.backgroundColor = 'transparent';
-      }}
       title={String(localValue)}
     >
       {localValue || (
-        <span style={{ color: '#bbb', fontStyle: 'italic' }}>
+        <span style={{ color: 'var(--muted-text)', fontStyle: 'italic' }}>
           Double-click to edit...
         </span>
       )}
@@ -2857,11 +3179,12 @@ const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updat
         autoFocus
         style={{
           width: '100%',
-          border: '2px solid #1976d2',
+          border: '2px solid var(--link-text)',
           borderRadius: '4px',
           outline: 'none',
           padding: '6px 8px',
-          backgroundColor: '#fff',
+          backgroundColor: 'var(--form-input-bg)',
+          color: 'var(--form-input-text)',
           fontSize: '14px',
           boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)'
         }}
@@ -2888,19 +3211,13 @@ const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updat
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
         fontFamily: isRevealed ? 'inherit' : 'monospace',
-        backgroundColor: isRevealed ? '#fff3cd' : 'transparent',
-        border: isRevealed ? '1px solid #ffeaa7' : '1px solid transparent'
-      }}
-      onMouseEnter={(e) => {
-        e.target.style.backgroundColor = isRevealed ? '#fff3cd' : '#f9f9f9';
-      }}
-      onMouseLeave={(e) => {
-        e.target.style.backgroundColor = isRevealed ? '#fff3cd' : 'transparent';
+        backgroundColor: isRevealed ? 'var(--warning-color)' : 'var(--table-bg)',
+        border: isRevealed ? '1px solid var(--warning-color)' : '1px solid transparent'
       }}
       title={isRevealed ? "Double-click to edit" : "Double-click to reveal"}
     >
       {displayValue || (
-        <span style={{ color: '#bbb', fontStyle: 'italic' }}>
+        <span style={{ color: 'var(--muted-text)', fontStyle: 'italic' }}>
           Double-click to reveal...
         </span>
       )}

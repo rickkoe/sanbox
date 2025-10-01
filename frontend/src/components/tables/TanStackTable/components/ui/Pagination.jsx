@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '../../../../context/ThemeContext';
 
 /**
  * Pagination component for TanStack Table
@@ -20,6 +21,7 @@ export function Pagination({
   className = '',
   style = {},
 }) {
+  const { theme } = useTheme();
   const [pageInput, setPageInput] = useState('');
 
   // Calculate display info
@@ -91,14 +93,15 @@ export function Pagination({
 
   return (
     <div
-      className={`table-pagination ${className}`}
+      className={`table-pagination theme-${theme} ${className}`}
       style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '16px 0',
-        borderTop: '1px solid #e0e0e0',
-        backgroundColor: '#f9f9f9',
+        borderTop: '1px solid var(--table-pagination-border)',
+        backgroundColor: 'var(--table-pagination-bg)',
+        color: 'var(--table-pagination-text)',
         flexWrap: 'wrap',
         gap: '16px',
         minHeight: '64px',
@@ -169,10 +172,12 @@ export function Pagination({
             style={{
               width: '60px',
               padding: '4px 8px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--form-input-border)',
               borderRadius: '4px',
               fontSize: '14px',
               textAlign: 'center',
+              backgroundColor: 'var(--form-input-bg)',
+              color: 'var(--form-input-text)',
             }}
           />
           <button
@@ -180,9 +185,10 @@ export function Pagination({
             disabled={loading || !pageInput || totalPages <= 1}
             style={{
               padding: '4px 8px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--form-input-border)',
               borderRadius: '4px',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--form-input-bg)',
+              color: 'var(--form-input-text)',
               cursor: loading ? 'not-allowed' : 'pointer',
               fontSize: '12px',
             }}
@@ -282,10 +288,11 @@ export function Pagination({
             disabled={loading}
             style={{
               padding: '4px 8px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--form-input-border)',
               borderRadius: '4px',
               fontSize: '14px',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--form-input-bg)',
+              color: 'var(--form-input-text)',
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
@@ -355,10 +362,16 @@ function PaginationButton({
       className={`pagination-button ${active ? 'active' : ''} ${className}`}
       style={{
         padding: '8px 12px',
-        border: '1px solid #ccc',
+        border: '1px solid var(--table-pagination-button-border)',
         borderRadius: '4px',
-        backgroundColor: active ? '#3498db' : 'white',
-        color: active ? 'white' : disabled ? '#999' : '#333',
+        backgroundColor: active
+          ? 'var(--table-pagination-button-active)'
+          : 'var(--table-pagination-button-bg)',
+        color: active
+          ? 'var(--content-bg)'
+          : disabled
+            ? 'var(--muted-text)'
+            : 'var(--table-pagination-text)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: '14px',
         fontWeight: active ? '600' : '400',
@@ -373,19 +386,21 @@ function PaginationButton({
           cursor: 'not-allowed',
         } : {}),
         ...(active ? {
-          backgroundColor: '#3498db',
-          color: 'white',
-          borderColor: '#3498db',
+          backgroundColor: 'var(--table-pagination-button-active)',
+          color: 'var(--content-bg)',
+          borderColor: 'var(--table-pagination-button-active)',
         } : {}),
       }}
       onMouseEnter={(e) => {
         if (!disabled && !active) {
-          e.target.style.backgroundColor = '#f0f0f0';
+          e.target.style.backgroundColor = 'var(--table-pagination-button-hover)';
+          e.target.style.color = 'var(--content-bg)';
         }
       }}
       onMouseLeave={(e) => {
         if (!disabled && !active) {
-          e.target.style.backgroundColor = 'white';
+          e.target.style.backgroundColor = 'var(--table-pagination-button-bg)';
+          e.target.style.color = 'var(--table-pagination-text)';
         }
       }}
     >
