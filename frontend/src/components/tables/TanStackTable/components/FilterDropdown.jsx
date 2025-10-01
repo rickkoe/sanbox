@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useTheme } from '../../../../context/ThemeContext';
 
 /**
  * Comprehensive Excel-like Filter Dropdown Component
@@ -19,6 +20,7 @@ const FilterDropdown = ({
   onToggle,
   className = ''
 }) => {
+  const { theme } = useTheme();
   const [selectedColumn, setSelectedColumn] = useState('');
   const [filterType, setFilterType] = useState('contains');
   const [filterText, setFilterText] = useState('');
@@ -178,10 +180,10 @@ const FilterDropdown = ({
         top: '100%',
         left: 0,
         zIndex: 1000,
-        backgroundColor: 'white',
-        border: '1px solid #d0d0d0',
+        backgroundColor: 'var(--table-bg)',
+        border: '1px solid var(--table-border)',
         borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        boxShadow: 'var(--shadow-medium)',
         padding: '16px',
         minWidth: '350px',
         maxWidth: '450px',
@@ -196,15 +198,15 @@ const FilterDropdown = ({
         alignItems: 'center',
         marginBottom: '16px',
         paddingBottom: '12px',
-        borderBottom: '1px solid #e0e0e0'
+        borderBottom: '1px solid var(--table-border)'
       }}>
-        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#333' }}>
+        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: 'var(--primary-text)' }}>
           🔽 Advanced Filters
         </h3>
         {getActiveFilterCount() > 0 && (
           <span style={{
-            backgroundColor: '#1976d2',
-            color: 'white',
+            backgroundColor: 'var(--link-text)',
+            color: 'var(--content-bg)',
             fontSize: '12px',
             padding: '4px 8px',
             borderRadius: '12px',
@@ -222,7 +224,7 @@ const FilterDropdown = ({
           marginBottom: '6px',
           fontSize: '14px',
           fontWeight: '500',
-          color: '#555'
+          color: 'var(--secondary-text)'
         }}>
           Select Column:
         </label>
@@ -232,11 +234,12 @@ const FilterDropdown = ({
           style={{
             width: '100%',
             padding: '8px 12px',
-            border: '1px solid #d0d0d0',
+            border: '1px solid var(--form-input-border)',
             borderRadius: '4px',
             fontSize: '14px',
             outline: 'none',
-            backgroundColor: 'white'
+            backgroundColor: 'var(--form-input-bg)',
+            color: 'var(--form-input-text)'
           }}
         >
           <option value="">Choose a column...</option>
@@ -263,10 +266,10 @@ const FilterDropdown = ({
                 style={{
                   flex: 1,
                   padding: '8px 12px',
-                  border: '1px solid #d0d0d0',
+                  border: '1px solid var(--table-border)',
                   borderRadius: '4px',
-                  backgroundColor: !showItems ? '#1976d2' : 'white',
-                  color: !showItems ? 'white' : '#666',
+                  backgroundColor: !showItems ? 'var(--link-text)' : 'var(--table-bg)',
+                  color: !showItems ? 'var(--content-bg)' : 'var(--secondary-text)',
                   fontSize: '13px',
                   fontWeight: '500',
                   cursor: 'pointer',
@@ -280,10 +283,10 @@ const FilterDropdown = ({
                 style={{
                   flex: 1,
                   padding: '8px 12px',
-                  border: '1px solid #d0d0d0',
+                  border: '1px solid var(--table-border)',
                   borderRadius: '4px',
-                  backgroundColor: showItems ? '#1976d2' : 'white',
-                  color: showItems ? 'white' : '#666',
+                  backgroundColor: showItems ? 'var(--link-text)' : 'var(--table-bg)',
+                  color: showItems ? 'var(--content-bg)' : 'var(--secondary-text)',
                   fontSize: '13px',
                   fontWeight: '500',
                   cursor: 'pointer',
@@ -303,7 +306,7 @@ const FilterDropdown = ({
                     marginBottom: '6px',
                     fontSize: '13px',
                     fontWeight: '500',
-                    color: '#555'
+                    color: 'var(--secondary-text)'
                   }}>
                     Filter Type:
                   </label>
@@ -313,10 +316,12 @@ const FilterDropdown = ({
                     style={{
                       width: '100%',
                       padding: '6px 10px',
-                      border: '1px solid #d0d0d0',
+                      border: '1px solid var(--form-input-border)',
                       borderRadius: '4px',
                       fontSize: '13px',
-                      outline: 'none'
+                      outline: 'none',
+                      backgroundColor: 'var(--form-input-bg)',
+                      color: 'var(--form-input-text)'
                     }}
                   >
                     {filterTypes.map(type => (
@@ -334,7 +339,7 @@ const FilterDropdown = ({
                       marginBottom: '6px',
                       fontSize: '13px',
                       fontWeight: '500',
-                      color: '#555'
+                      color: 'var(--secondary-text)'
                     }}>
                       Filter Value:
                     </label>
@@ -346,10 +351,12 @@ const FilterDropdown = ({
                       style={{
                         width: '100%',
                         padding: '8px 12px',
-                        border: '1px solid #d0d0d0',
+                        border: '1px solid var(--form-input-border)',
                         borderRadius: '4px',
                         fontSize: '13px',
-                        outline: 'none'
+                        outline: 'none',
+                        backgroundColor: 'var(--form-input-bg)',
+                        color: 'var(--form-input-text)'
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -366,8 +373,8 @@ const FilterDropdown = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    backgroundColor: '#1976d2',
-                    color: 'white',
+                    backgroundColor: 'var(--link-text)',
+                    color: 'var(--content-bg)',
                     border: 'none',
                     borderRadius: '4px',
                     fontSize: '13px',
@@ -392,10 +399,12 @@ const FilterDropdown = ({
                     style={{
                       width: '100%',
                       padding: '8px 12px',
-                      border: '1px solid #d0d0d0',
+                      border: '1px solid var(--form-input-border)',
                       borderRadius: '4px',
                       fontSize: '13px',
-                      outline: 'none'
+                      outline: 'none',
+                      backgroundColor: 'var(--form-input-bg)',
+                      color: 'var(--form-input-text)'
                     }}
                   />
                 </div>
@@ -442,7 +451,7 @@ const FilterDropdown = ({
                 <div style={{
                   maxHeight: '200px',
                   overflowY: 'auto',
-                  border: '1px solid #e0e0e0',
+                  border: '1px solid var(--table-border)',
                   borderRadius: '4px',
                   marginBottom: '12px'
                 }}>
@@ -450,7 +459,7 @@ const FilterDropdown = ({
                     <div style={{
                       padding: '12px',
                       textAlign: 'center',
-                      color: '#999',
+                      color: 'var(--muted-text)',
                       fontSize: '13px'
                     }}>
                       No items found
@@ -464,15 +473,16 @@ const FilterDropdown = ({
                           alignItems: 'center',
                           padding: '8px 12px',
                           cursor: 'pointer',
-                          borderBottom: index < filteredValues.length - 1 ? '1px solid #f5f5f5' : 'none',
-                          backgroundColor: selectedItems.has(value) ? '#f0f8ff' : 'transparent',
-                          fontSize: '13px'
+                          borderBottom: index < filteredValues.length - 1 ? '1px solid var(--table-border)' : 'none',
+                          backgroundColor: selectedItems.has(value) ? 'var(--table-row-selected)' : 'transparent',
+                          fontSize: '13px',
+                          color: 'var(--primary-text)'
                         }}
                         onMouseEnter={(e) => {
-                          e.target.style.backgroundColor = selectedItems.has(value) ? '#e6f3ff' : '#f9f9f9';
+                          e.target.style.backgroundColor = selectedItems.has(value) ? 'var(--table-row-selected)' : 'var(--table-row-hover)';
                         }}
                         onMouseLeave={(e) => {
-                          e.target.style.backgroundColor = selectedItems.has(value) ? '#f0f8ff' : 'transparent';
+                          e.target.style.backgroundColor = selectedItems.has(value) ? 'var(--table-row-selected)' : 'transparent';
                         }}
                       >
                         <input
@@ -493,7 +503,7 @@ const FilterDropdown = ({
                   )}
                 </div>
 
-                <div style={{ fontSize: '12px', color: '#666', marginBottom: '12px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--secondary-text)', marginBottom: '12px' }}>
                   {selectedItems.size} of {columnValues.length} items selected
                 </div>
 
@@ -502,8 +512,8 @@ const FilterDropdown = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    backgroundColor: '#1976d2',
-                    color: 'white',
+                    backgroundColor: 'var(--link-text)',
+                    color: 'var(--content-bg)',
                     border: 'none',
                     borderRadius: '4px',
                     fontSize: '13px',
@@ -522,7 +532,7 @@ const FilterDropdown = ({
             display: 'flex',
             gap: '8px',
             paddingTop: '12px',
-            borderTop: '1px solid #e0e0e0'
+            borderTop: '1px solid var(--table-border)'
           }}>
             <button
               onClick={clearColumnFilter}
@@ -530,8 +540,8 @@ const FilterDropdown = ({
               style={{
                 flex: 1,
                 padding: '8px 12px',
-                backgroundColor: activeFilters[selectedColumn]?.active ? '#ff9800' : '#e0e0e0',
-                color: activeFilters[selectedColumn]?.active ? 'white' : '#999',
+                backgroundColor: activeFilters[selectedColumn]?.active ? 'var(--warning-color)' : 'var(--table-border)',
+                color: activeFilters[selectedColumn]?.active ? 'var(--content-bg)' : 'var(--muted-text)',
                 border: 'none',
                 borderRadius: '4px',
                 fontSize: '12px',
@@ -548,7 +558,7 @@ const FilterDropdown = ({
       <div style={{
         marginTop: '16px',
         paddingTop: '12px',
-        borderTop: '1px solid #e0e0e0'
+        borderTop: '1px solid var(--table-border)'
       }}>
         <button
           onClick={clearAllFilters}
@@ -556,8 +566,8 @@ const FilterDropdown = ({
           style={{
             width: '100%',
             padding: '10px 12px',
-            backgroundColor: getActiveFilterCount() > 0 ? '#d32f2f' : '#e0e0e0',
-            color: getActiveFilterCount() > 0 ? 'white' : '#999',
+            backgroundColor: getActiveFilterCount() > 0 ? 'var(--error-color)' : 'var(--table-border)',
+            color: getActiveFilterCount() > 0 ? 'var(--content-bg)' : 'var(--muted-text)',
             border: 'none',
             borderRadius: '4px',
             fontSize: '13px',

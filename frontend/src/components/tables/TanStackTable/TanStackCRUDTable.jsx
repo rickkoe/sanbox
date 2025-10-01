@@ -3013,11 +3013,10 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
         tabIndex={0}
         style={{
           padding: '6px 10px',
-          border: '1px solid var(--form-input-border)',
-          borderRadius: '4px',
+          border: 'none',
           cursor: 'pointer',
-          backgroundColor: localValue ? 'var(--table-row-hover)' : 'var(--form-input-bg)',
-          color: 'var(--form-input-text)',
+          backgroundColor: 'transparent',
+          color: 'var(--table-cell-text)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -3028,7 +3027,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
         }}
       >
         <span style={{
-          color: localValue ? 'var(--form-input-text)' : 'var(--form-input-placeholder)',
+          color: localValue ? 'var(--table-cell-text)' : 'var(--muted-text)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap'
