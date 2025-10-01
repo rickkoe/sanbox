@@ -144,7 +144,9 @@ const AliasTableTanStackClean = () => {
             // Keep nested structure for display
             fabric_details: alias.fabric_details || { name: "" },
             host_details: alias.host_details || { name: "" },
-            storage_details: alias.storage_details || { name: "" }
+            storage_details: alias.storage_details || { name: "" },
+            // Ensure zoned_count defaults to 0 if not set
+            zoned_count: alias.zoned_count || 0
         }));
     };
 

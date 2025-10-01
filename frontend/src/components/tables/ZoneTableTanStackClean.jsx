@@ -614,6 +614,7 @@ const ZoneTableTanStackClean = () => {
                 processedZone.member_count = zone.members_details.length;
             } else {
                 console.log(`⚠️ Zone ${zone.name} has no members_details:`, zone.members_details);
+                processedZone.member_count = 0;
             }
 
             return processedZone;

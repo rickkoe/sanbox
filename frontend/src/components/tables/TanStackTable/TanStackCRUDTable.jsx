@@ -954,7 +954,8 @@ const TanStackCRUDTable = forwardRef(({
           // Get the actual column config to check type
           const actualColumnConfig = columns[index];
           const isCheckbox = accessorKey === 'exists' || actualColumnConfig?.type === 'checkbox';
-          const isDropdown = actualColumnConfig?.type === 'dropdown' || accessorKey === 'san_vendor' || accessorKey.startsWith('member_');
+          const isDropdown = actualColumnConfig?.type === 'dropdown' || accessorKey === 'san_vendor' ||
+            (accessorKey.startsWith('member_') && !accessorKey.includes('count'));
 
           console.log(`🔍 Cell [${rowIndex}, ${colIndex}] ${accessorKey}:`, {
             value,
