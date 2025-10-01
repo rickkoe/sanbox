@@ -604,19 +604,48 @@ const TanStackCRUDTable = forwardRef(({
     };
   }, [scrollTimeout]);
 
-  // Update cell data function
+  // Helper function to get nested property value
+  const getNestedValue = useCallback((obj, path) => {
+    if (!path || !obj) return undefined;
+    return path.split('.').reduce((acc, part) => acc?.[part], obj);
+  }, []);
+
+  // Helper function to set nested property value
+  const setNestedValue = useCallback((obj, path, value) => {
+    if (!path) return obj;
+    const keys = path.split('.');
+    const lastKey = keys.pop();
+    const target = keys.reduce((acc, key) => {
+      if (!acc[key]) acc[key] = {};
+      return acc[key];
+    }, obj);
+    target[lastKey] = value;
+    return obj;
+  }, []);
+
+  // Update cell data function - supports both flat and nested properties
   const updateCellData = useCallback((rowIndex, columnKey, newValue) => {
     setEditableData(currentData => {
       const newData = [...currentData];
-      newData[rowIndex] = {
-        ...newData[rowIndex],
-        [columnKey]: newValue
-      };
-      console.log(`📝 Updated ${columnKey} for row ${rowIndex} to: "${newValue}"`);
+
+      // Check if this is a nested property (contains a dot)
+      if (columnKey.includes('.')) {
+        // Use helper to set nested value
+        setNestedValue(newData[rowIndex], columnKey, newValue);
+        console.log(`📝 Updated nested ${columnKey} for row ${rowIndex} to: "${newValue}"`);
+      } else {
+        // Simple flat property
+        newData[rowIndex] = {
+          ...newData[rowIndex],
+          [columnKey]: newValue
+        };
+        console.log(`📝 Updated ${columnKey} for row ${rowIndex} to: "${newValue}"`);
+      }
+
       return newData;
     });
     setHasChanges(true);
-  }, []);
+  }, [setNestedValue]);
 
   // Navigation functions for floating panel
   const scrollToTop = useCallback(() => {
@@ -1305,38 +1334,96 @@ const TanStackCRUDTable = forwardRef(({
 
   // Fill down operation
   const fillDown = useCallback(() => {
-    if (selectedCells.size <= 1) return;
+    console.log('🔽 Fill Down: Starting with selectedCells:', selectedCells.size);
+
+    if (selectedCells.size <= 1) {
+      console.log('⚠️ Fill Down: Not enough cells selected (need > 1)');
+      return;
+    }
 
     const cellKeys = Array.from(selectedCells).sort();
     const firstCellKey = cellKeys[0];
     const [firstRowIndex, firstColIndex] = firstCellKey.split('-').map(Number);
-    const sourceValue = currentTableData[firstRowIndex]?.[columnDefs[firstColIndex]?.accessorKey];
     const columnKey = columnDefs[firstColIndex]?.accessorKey;
 
-    if (sourceValue === undefined || sourceValue === null) return;
+    console.log(`🔽 Fill Down: First cell [${firstRowIndex}, ${firstColIndex}] column: ${columnKey}`);
 
-    console.log(`🔽 Fill Down: Copying "${sourceValue}" to ${selectedCells.size - 1} cells`);
+    // Get filter function for this column if it exists
+    const filterFunction = dropdownFilters?.[columnKey];
 
     // Update the actual data
     setEditableData(currentData => {
       const newData = [...currentData];
 
+      // Get source value from editableData, using nested accessor if needed
+      const sourceValue = getNestedValue(newData[firstRowIndex], columnKey);
+
+      console.log(`🔽 Fill Down: Source value is:`, sourceValue, `(type: ${typeof sourceValue})`);
+      console.log(`🔽 Fill Down: First row data:`, newData[firstRowIndex]);
+
+      if (sourceValue === undefined || sourceValue === null) {
+        console.log('⚠️ Fill Down: Source value is null/undefined, aborting');
+        return currentData;
+      }
+
+      console.log(`🔽 Fill Down: Copying "${sourceValue}" to ${selectedCells.size - 1} cells`);
+
+      // Get dropdown options if this is a dropdown column
+      const columnDef = columnDefs[firstColIndex];
+      const dropdownOptions = dropdownSources?.[columnKey];
+      let skippedRows = 0;
+
       // Fill all selected cells except the first one with the source value
       cellKeys.slice(1).forEach(cellKey => {
         const [rowIndex] = cellKey.split('-').map(Number);
-        if (newData[rowIndex]) {
-          newData[rowIndex] = {
-            ...newData[rowIndex],
-            [columnKey]: sourceValue
-          };
+        console.log(`  🔽 Processing row ${rowIndex}`);
+
+        if (!newData[rowIndex]) {
+          console.log(`  ⚠️ Row ${rowIndex} doesn't exist in newData`);
+          return;
         }
+
+        // If this column has a filter function, validate the value is allowed for this row
+        // Only apply validation if we have both a filter function AND dropdown options
+        if (filterFunction && dropdownOptions && Array.isArray(dropdownOptions) && dropdownOptions.length > 0) {
+          console.log(`  🔍 Validating with filter function for row ${rowIndex}`);
+          const availableOptions = filterFunction(dropdownOptions, newData[rowIndex], columnKey);
+          console.log(`  📋 Available options for row ${rowIndex}:`, availableOptions.length, 'options');
+
+          // Only validate if the filter function actually returned filtered results
+          if (Array.isArray(availableOptions) && availableOptions.length > 0) {
+            const isValidOption = availableOptions.some(opt =>
+              (typeof opt === 'string' ? opt : (opt.name || opt.label)) === sourceValue
+            );
+
+            console.log(`  ✓ Is "${sourceValue}" valid for row ${rowIndex}?`, isValidOption);
+
+            if (!isValidOption) {
+              console.log(`⚠️ Skipping row ${rowIndex}: "${sourceValue}" not valid for this row's context. Available options:`, availableOptions.slice(0, 5));
+              skippedRows++;
+              return;
+            }
+          }
+        } else {
+          console.log(`  ℹ️ No filter validation for row ${rowIndex} (filterFunction: ${!!filterFunction}, dropdownOptions: ${dropdownOptions ? dropdownOptions.length : 'none'})`);
+        }
+
+        console.log(`  ✅ Setting row ${rowIndex} ${columnKey} = "${sourceValue}"`);
+        // Use helper to set nested values properly
+        setNestedValue(newData[rowIndex], columnKey, sourceValue);
       });
 
+      if (skippedRows > 0) {
+        console.log(`⚠️ Skipped ${skippedRows} rows due to filter validation`);
+      }
+
+      console.log('🔽 Fill Down: Complete, returning newData with', newData.length, 'rows');
       return newData;
     });
 
     setHasChanges(true);
-  }, [selectedCells, currentTableData, columnDefs]);
+    console.log('🔽 Fill Down: Done, hasChanges set to true');
+  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue]);
 
   // Fill right operation
   const fillRight = useCallback(() => {
@@ -1345,33 +1432,63 @@ const TanStackCRUDTable = forwardRef(({
     const cellKeys = Array.from(selectedCells).sort();
     const firstCellKey = cellKeys[0];
     const [firstRowIndex, firstColIndex] = firstCellKey.split('-').map(Number);
-    const sourceValue = currentTableData[firstRowIndex]?.[columnDefs[firstColIndex]?.accessorKey];
-
-    if (sourceValue === undefined || sourceValue === null) return;
-
-    console.log(`➡️ Fill Right: Copying "${sourceValue}" to ${selectedCells.size - 1} cells`);
 
     // Update the actual data
     setEditableData(currentData => {
       const newData = [...currentData];
 
+      // Get source value from editableData using nested accessor if needed
+      const firstColumnKey = columnDefs[firstColIndex]?.accessorKey;
+      const sourceValue = getNestedValue(newData[firstRowIndex], firstColumnKey);
+
+      if (sourceValue === undefined || sourceValue === null) return currentData;
+
+      console.log(`➡️ Fill Right: Copying "${sourceValue}" to ${selectedCells.size - 1} cells`);
+
+      let skippedCells = 0;
+
       // Fill all selected cells except the first one with the source value
       cellKeys.slice(1).forEach(cellKey => {
         const [rowIndex, colIndex] = cellKey.split('-').map(Number);
         const columnKey = columnDefs[colIndex]?.accessorKey;
-        if (newData[rowIndex] && columnKey) {
-          newData[rowIndex] = {
-            ...newData[rowIndex],
-            [columnKey]: sourceValue
-          };
+        if (!newData[rowIndex] || !columnKey) return;
+
+        // Get filter function for this column if it exists
+        const filterFunction = dropdownFilters?.[columnKey];
+        const dropdownOptions = dropdownSources?.[columnKey];
+
+        // If this column has a filter function, validate the value is allowed for this row
+        // Only apply validation if we have both a filter function AND dropdown options
+        if (filterFunction && dropdownOptions && Array.isArray(dropdownOptions) && dropdownOptions.length > 0) {
+          const availableOptions = filterFunction(dropdownOptions, newData[rowIndex], columnKey);
+
+          // Only validate if the filter function actually returned filtered results
+          if (Array.isArray(availableOptions) && availableOptions.length > 0) {
+            const isValidOption = availableOptions.some(opt =>
+              (typeof opt === 'string' ? opt : (opt.name || opt.label)) === sourceValue
+            );
+
+            if (!isValidOption) {
+              console.log(`⚠️ Skipping cell [${rowIndex}, ${colIndex}]: "${sourceValue}" not valid for this row's context. Available options:`, availableOptions.slice(0, 5));
+              skippedCells++;
+              return;
+            }
+          }
         }
+
+        // Use helper to set nested values properly
+        setNestedValue(newData[rowIndex], columnKey, sourceValue);
       });
+
+      if (skippedCells > 0) {
+        console.log(`⚠️ Skipped ${skippedCells} cells due to filter validation`);
+      }
 
       return newData;
     });
 
     setHasChanges(true);
-  }, [selectedCells, currentTableData, columnDefs]);
+  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources]);
 
   // Enhanced Copy functionality for Excel compatibility
   const handleCopy = useCallback(() => {
@@ -1546,6 +1663,41 @@ const TanStackCRUDTable = forwardRef(({
     }
   }, [currentCell, editableData, newRowTemplate, columnDefs]);
 
+  // Clear cell contents (set to empty string)
+  const clearCellContents = useCallback(() => {
+    if (selectedCells.size === 0) {
+      console.log('⚠️ No cells selected to clear');
+      return;
+    }
+
+    console.log(`🗑️ Clearing contents of ${selectedCells.size} cells`);
+
+    setEditableData(currentData => {
+      const newData = [...currentData];
+
+      selectedCells.forEach(cellKey => {
+        const [rowIndex, colIndex] = cellKey.split('-').map(Number);
+        const columnKey = columnDefs[colIndex]?.accessorKey;
+
+        if (columnKey && newData[rowIndex]) {
+          // Check if this is a nested property (contains a dot)
+          if (columnKey.includes('.')) {
+            setNestedValue(newData[rowIndex], columnKey, '');
+            console.log(`  🗑️ Cleared nested ${columnKey} for row ${rowIndex}`);
+          } else {
+            newData[rowIndex][columnKey] = '';
+            console.log(`  🗑️ Cleared ${columnKey} for row ${rowIndex}`);
+          }
+        }
+      });
+
+      return newData;
+    });
+
+    setHasChanges(true);
+    console.log('✅ Cell contents cleared');
+  }, [selectedCells, columnDefs, setNestedValue]);
+
   // Context menu action handlers
   const handleContextMenuAction = useCallback((action) => {
     hideContextMenu();
@@ -1556,6 +1708,9 @@ const TanStackCRUDTable = forwardRef(({
         break;
       case 'paste':
         handlePaste();
+        break;
+      case 'clear':
+        clearCellContents();
         break;
       case 'delete':
         deleteSelectedRows();
@@ -1569,14 +1724,14 @@ const TanStackCRUDTable = forwardRef(({
       default:
         console.warn('Unknown context menu action:', action);
     }
-  }, [hideContextMenu, handleCopy, handlePaste, deleteSelectedRows, fillDown, fillRight]);
+  }, [hideContextMenu, handleCopy, handlePaste, clearCellContents, deleteSelectedRows, fillDown, fillRight]);
 
   // Enhanced keyboard shortcuts and navigation
   const handleKeyDown = useCallback((e) => {
     const isInputFocused = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
 
-    // Don't interfere with input fields unless it's navigation keys
-    if (isInputFocused && !['Tab', 'Escape', 'Enter'].includes(e.key)) {
+    // Don't interfere with input fields unless it's navigation keys or keyboard shortcuts
+    if (isInputFocused && !['Tab', 'Escape', 'Enter'].includes(e.key) && !(e.ctrlKey || e.metaKey)) {
       return;
     }
 
@@ -2806,6 +2961,24 @@ const TanStackCRUDTable = forwardRef(({
           >
             Fill Right
           </div>
+          <div
+            style={{
+              padding: '8px 16px',
+              cursor: selectedCells.size > 0 ? 'pointer' : 'not-allowed',
+              backgroundColor: 'transparent',
+              color: selectedCells.size > 0 ? 'var(--primary-text)' : 'var(--muted-text)',
+              transition: 'background-color 0.2s'
+            }}
+            onClick={() => selectedCells.size > 0 && handleContextMenuAction('clear')}
+            onMouseEnter={(e) => {
+              if (selectedCells.size > 0) {
+                e.target.style.backgroundColor = 'var(--table-row-hover)';
+              }
+            }}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            Clear Cell Contents
+          </div>
           <div style={{ height: '1px', backgroundColor: 'var(--table-border)', margin: '4px 0' }} />
           <div
             style={{
@@ -2918,8 +3091,23 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
     console.log('✅ Dropdown closed after selection');
   };
 
+  const handleClear = () => {
+    console.log(`🗑️ Clearing ${columnKey} for row ${rowIndex}`);
+    setLocalValue('');
+    updateCellData(rowIndex, columnKey, '');
+    setIsOpen(false);
+    setSearchText('');
+    setSelectedIndex(-1);
+  };
+
   const handleKeyDown = (e) => {
+    // Handle delete/backspace when dropdown is closed
     if (!isOpen) {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        handleClear();
+        return;
+      }
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         setIsOpen(true);
@@ -3033,7 +3221,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, columnKey, updateCe
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap'
         }}>
-          {localValue || 'Select...'}
+          {localValue || ''}
         </span>
         <span style={{
           color: 'var(--muted-text)',
@@ -3266,11 +3454,7 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
       }}
       title={String(localValue)}
     >
-      {localValue || (
-        <span style={{ color: 'var(--muted-text)', fontStyle: 'italic' }}>
-          Double-click to edit...
-        </span>
-      )}
+      {localValue || ''}
     </div>
   );
 };

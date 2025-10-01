@@ -12,6 +12,7 @@ const AliasTableTanStackClean = () => {
     const [hostOptions, setHostOptions] = useState([]);
     const [storageOptions, setStorageOptions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [errorModal, setErrorModal] = useState({ show: false, message: '', errors: null });
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
@@ -195,6 +196,53 @@ const AliasTableTanStackClean = () => {
                 };
             }
 
+            // Validate that storage system is not set for initiators
+            const invalidStorageRows = allTableData.filter((alias) => {
+                if (!alias.name || alias.name.trim() === "") return false;
+                const hasStorage = (alias.storage_details?.name && alias.storage_details.name.trim() !== '') ||
+                                 alias['storage_details.name'] ||
+                                 alias.storage;
+                return hasStorage && alias.use === 'init';
+            });
+
+            // Validate that host is not set for targets
+            const invalidHostRows = allTableData.filter((alias) => {
+                if (!alias.name || alias.name.trim() === "") return false;
+                const hasHost = (alias.host_details?.name && alias.host_details.name.trim() !== '') ||
+                              alias['host_details.name'] ||
+                              alias.host;
+                return hasHost && alias.use === 'target';
+            });
+
+            // Build validation error message if there are issues
+            if (invalidStorageRows.length > 0 || invalidHostRows.length > 0) {
+                const errors = [];
+
+                if (invalidStorageRows.length > 0) {
+                    errors.push({
+                        type: 'Storage System on Initiators',
+                        description: 'The following aliases have Use set to "init" (initiator) but have a Storage System selected. Initiators cannot have storage systems.',
+                        solution: 'Change Use to "target" or "both", or remove the Storage System.',
+                        rows: invalidStorageRows.map(r => r.name)
+                    });
+                }
+
+                if (invalidHostRows.length > 0) {
+                    errors.push({
+                        type: 'Host on Targets',
+                        description: 'The following aliases have Use set to "target" but have a Host selected. Targets cannot have hosts.',
+                        solution: 'Change Use to "init" or "both", or remove the Host.',
+                        rows: invalidHostRows.map(r => r.name)
+                    });
+                }
+
+                return {
+                    success: false,
+                    message: 'Validation errors found',
+                    errors: errors
+                };
+            }
+
             // Build payload for each alias using the original logic
             const payload = allTableData
                 .filter(alias => alias.id || (alias.name && alias.name.trim() !== ""))
@@ -209,10 +257,26 @@ const AliasTableTanStackClean = () => {
                         availableFabrics: fabricOptions.map(f => f.name)
                     });
 
-                    // Find IDs from names - the dropdown stores values as 'fabric_details.name' directly in row data
-                    let fabricName = row['fabric_details.name'] || row.fabric_details?.name || row.fabric;
-                    let hostName = row.host_details?.name || row['host_details.name'] || row.host;
-                    let storageName = row.storage_details?.name || row['storage_details.name'] || row.storage;
+                    // Find IDs from names - check nested structure first (new behavior), then flat property (legacy)
+                    // Use explicit checks to handle empty strings properly
+                    let fabricName = (row.fabric_details?.name && row.fabric_details.name.trim() !== '')
+                        ? row.fabric_details.name
+                        : (row['fabric_details.name'] || row.fabric);
+                    let hostName = (row.host_details?.name && row.host_details.name.trim() !== '')
+                        ? row.host_details.name
+                        : (row['host_details.name'] || row.host);
+                    let storageName = (row.storage_details?.name && row.storage_details.name.trim() !== '')
+                        ? row.storage_details.name
+                        : (row['storage_details.name'] || row.storage);
+
+                    console.log('🔍 Name extraction:', {
+                        'row.storage_details': row.storage_details,
+                        'row.storage_details?.name': row.storage_details?.name,
+                        'row["storage_details.name"]': row['storage_details.name'],
+                        'row.storage': row.storage,
+                        'Final storageName': storageName,
+                        'row.use': row.use
+                    });
 
                     const fabric = fabricOptions.find(f => f.name === fabricName);
                     const host = hostOptions.find(h => h.name === hostName);
@@ -224,7 +288,10 @@ const AliasTableTanStackClean = () => {
                         hostName: hostName,
                         host: host,
                         storageName: storageName,
-                        storage: storage
+                        storage: storage,
+                        'row.use': row.use,
+                        'Will set host?': (row.host_details?.name && (row.use === 'init' || row.use === 'both') && host),
+                        'Will set storage?': (row.storage_details?.name && (row.use === 'target' || row.use === 'both') && storage)
                     });
 
                     if (!fabric) {
@@ -263,13 +330,13 @@ const AliasTableTanStackClean = () => {
                         storage: null
                     };
 
-                    // Handle host assignment (only for initiators)
-                    if (row.host_details?.name && row.use === 'init' && host) {
+                    // Handle host assignment (for initiators and both)
+                    if (row.host_details?.name && (row.use === 'init' || row.use === 'both') && host) {
                         result.host = parseInt(host.id);
                     }
 
-                    // Handle storage assignment (only for targets)
-                    if (row.storage_details?.name && row.use === 'target' && storage) {
+                    // Handle storage assignment (for targets and both)
+                    if (row.storage_details?.name && (row.use === 'target' || row.use === 'both') && storage) {
                         result.storage = parseInt(storage.id);
                     }
 
@@ -365,10 +432,134 @@ const AliasTableTanStackClean = () => {
                         console.log('✅ Alias save successful:', result.message);
                     } else {
                         console.error('❌ Alias save failed:', result.message);
-                        alert('Error saving aliases: ' + result.message);
+                        setErrorModal({
+                            show: true,
+                            message: result.message,
+                            errors: result.errors || null
+                        });
                     }
                 }}
             />
+
+            {/* Error Modal */}
+            {errorModal.show && (
+                <div
+                    className="modal show d-block"
+                    tabIndex="-1"
+                    style={{
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        zIndex: 9999,
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0
+                    }}
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) {
+                            setErrorModal({ show: false, message: '', errors: null });
+                        }
+                    }}
+                >
+                    <div className="modal-dialog modal-dialog-centered modal-lg">
+                        <div className="modal-content shadow-lg" style={{
+                            backgroundColor: 'var(--bs-body-bg, #fff)',
+                            color: 'var(--bs-body-color, #212529)',
+                            border: '1px solid var(--bs-border-color, #dee2e6)'
+                        }}>
+                            <div className="modal-header bg-danger text-white" style={{
+                                borderBottom: '1px solid rgba(255,255,255,0.1)'
+                            }}>
+                                <h5 className="modal-title">
+                                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                                    Validation Error
+                                </h5>
+                                <button
+                                    type="button"
+                                    className="btn-close btn-close-white"
+                                    onClick={() => setErrorModal({ show: false, message: '', errors: null })}
+                                ></button>
+                            </div>
+                            <div className="modal-body" style={{
+                                maxHeight: '60vh',
+                                overflowY: 'auto',
+                                backgroundColor: 'var(--bs-body-bg, #fff)'
+                            }}>
+                                {errorModal.errors ? (
+                                    <>
+                                        <p style={{
+                                            color: 'var(--bs-secondary-color, #6c757d)',
+                                            marginBottom: '1rem'
+                                        }}>
+                                            Please fix the following validation errors before saving:
+                                        </p>
+                                        {errorModal.errors.map((error, idx) => (
+                                            <div key={idx} className="mb-4">
+                                                <h6 className="fw-bold" style={{ color: '#dc3545' }}>
+                                                    <i className="bi bi-x-circle me-2"></i>
+                                                    {error.type}
+                                                </h6>
+                                                <p className="small mb-2" style={{
+                                                    color: 'var(--bs-secondary-color, #6c757d)'
+                                                }}>
+                                                    {error.description}
+                                                </p>
+                                                <div
+                                                    className="border rounded p-2 mb-2"
+                                                    style={{
+                                                        maxHeight: '150px',
+                                                        overflowY: 'auto',
+                                                        backgroundColor: 'var(--bs-secondary-bg, #f8f9fa)',
+                                                        borderColor: 'var(--bs-border-color, #dee2e6) !important'
+                                                    }}
+                                                >
+                                                    <strong className="small" style={{
+                                                        color: 'var(--bs-body-color, #212529)'
+                                                    }}>
+                                                        Affected aliases ({error.rows.length}):
+                                                    </strong>
+                                                    <ul className="mb-0 mt-1 small" style={{
+                                                        columnCount: error.rows.length > 10 ? 2 : 1,
+                                                        color: 'var(--bs-body-color, #212529)'
+                                                    }}>
+                                                        {error.rows.map((rowName, rowIdx) => (
+                                                            <li key={rowIdx}>{rowName}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                                <div className="py-2 px-3 mb-0 small rounded" style={{
+                                                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                                                    border: '1px solid rgba(13, 110, 253, 0.3)',
+                                                    color: 'var(--bs-body-color, #212529)'
+                                                }}>
+                                                    <strong>Solution:</strong> {error.solution}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </>
+                                ) : (
+                                    <p className="mb-0" style={{
+                                        color: 'var(--bs-body-color, #212529)'
+                                    }}>{errorModal.message}</p>
+                                )}
+                            </div>
+                            <div className="modal-footer" style={{
+                                borderTop: '1px solid var(--bs-border-color, #dee2e6)',
+                                backgroundColor: 'var(--bs-body-bg, #fff)'
+                            }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={() => setErrorModal({ show: false, message: '', errors: null })}
+                                >
+                                    <i className="bi bi-check-circle me-2"></i>
+                                    OK
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
