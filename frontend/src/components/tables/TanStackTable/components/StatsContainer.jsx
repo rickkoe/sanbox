@@ -36,8 +36,7 @@ const StatsContainer = ({
       color: 'var(--table-toolbar-text)',
       fontWeight: '500',
       whiteSpace: 'nowrap',
-      backgroundColor: 'var(--table-toolbar-bg)',
-      borderTop: '1px solid var(--table-toolbar-border)'
+      backgroundColor: 'var(--table-toolbar-bg)'
     }}>
       {/* Total Items */}
       <div style={{
@@ -102,7 +101,7 @@ const StatsContainer = ({
         </>
       )}
 
-      {/* Selected Cells */}
+      {/* Selected Rows */}
       {selectedCellsCount > 0 && (
         <>
           <div style={{
