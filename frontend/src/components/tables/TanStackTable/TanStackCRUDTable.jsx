@@ -505,7 +505,8 @@ const TanStackCRUDTable = forwardRef(({
         const dropdownOptions = dropdownSources[accessorKey] || [];
         dropdownOptions.forEach(option => {
           if (option) {
-            const optionWidth = String(option).length * 8 + 80; // Extra padding for dropdown arrow + padding
+            // Use 10px per character for proportional fonts
+            const optionWidth = String(option).length * 10 + 80; // Extra padding for dropdown arrow + padding
             maxContentWidth = Math.max(maxContentWidth, optionWidth);
           }
         });
@@ -520,8 +521,9 @@ const TanStackCRUDTable = forwardRef(({
           const cellValue = getNestedValue(currentTableData[i], accessorKey);
           if (cellValue) {
             // Add extra padding for dropdown columns
+            // Use 10px per character for proportional fonts (more accurate than 8px)
             const extraPadding = column.type === 'dropdown' ? 80 : 40;
-            const cellWidth = String(cellValue).length * 8 + extraPadding;
+            const cellWidth = String(cellValue).length * 10 + extraPadding;
             maxContentWidth = Math.max(maxContentWidth, cellWidth);
           }
         }
