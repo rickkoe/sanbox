@@ -513,8 +513,8 @@ const TanStackCRUDTable = forwardRef(({
       }
 
       if (currentTableData && currentTableData.length > 0) {
-        // Sample first 10 rows to estimate content width
-        const sampleSize = Math.min(10, currentTableData.length);
+        // Sample up to 100 rows to estimate content width (or all rows if less than 100)
+        const sampleSize = Math.min(100, currentTableData.length);
         for (let i = 0; i < sampleSize; i++) {
           // Handle nested properties (e.g., "fabric.name" or "fabric_details.name")
           const cellValue = getNestedValue(currentTableData[i], accessorKey);
@@ -530,6 +530,17 @@ const TanStackCRUDTable = forwardRef(({
       // Set reasonable limits (increased max for dropdown readability)
       const finalWidth = Math.min(Math.max(maxContentWidth, 80), column.type === 'dropdown' ? 350 : 400);
       newSizing[accessorKey] = finalWidth;
+
+      // Debug logging for name column
+      if (accessorKey === 'name') {
+        console.log(`📏 Name column sizing details:`, {
+          headerWidth,
+          maxContentWidth,
+          finalWidth,
+          sampleSize: currentTableData ? Math.min(100, currentTableData.length) : 0,
+          sampleData: currentTableData ? currentTableData.slice(0, 3).map(row => getNestedValue(row, accessorKey)) : []
+        });
+      }
     });
 
     console.log('📏 Setting new column sizes:', newSizing);
@@ -3508,10 +3519,22 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
       // If there's more space above and not enough below, show above
       const showAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
 
+      // Calculate optimal width based on longest option text
+      let optimalWidth = rect.width;
+      if (filteredOptions && filteredOptions.length > 0) {
+        // Estimate width based on longest option text
+        // Using approximate character width of 8px + padding
+        const longestOption = filteredOptions.reduce((longest, option) => {
+          const text = typeof option === 'string' ? option : (option.name || option.label || '');
+          return text.length > longest.length ? text : longest;
+        }, '');
+        optimalWidth = Math.max(rect.width, longestOption.length * 8 + 24); // 24px for padding
+      }
+
       const style = {
         position: 'fixed',
         left: Math.max(0, rect.left),
-        width: Math.max(100, rect.width),
+        width: Math.max(100, Math.min(optimalWidth, 500)), // Min 100px, max 500px
         zIndex: 99999,
         maxHeight: Math.min(dropdownHeight, showAbove ? spaceAbove - 10 : spaceBelow - 10)
       };
