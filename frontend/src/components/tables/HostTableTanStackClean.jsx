@@ -132,7 +132,9 @@ const HostTableTanStackClean = ({ storage }) => {
         }
 
         try {
-            console.log('🔥 Custom host save with data:', allTableData);
+            console.log('🔥 Custom host save - RECEIVED DATA:');
+            console.log('📊 Total rows received:', allTableData.length);
+            console.log('📋 First 3 rows (full data):', allTableData.slice(0, 3));
             console.log('🗑️ Deletions to process:', deletedRows);
 
             // Handle deletions first
@@ -156,18 +158,21 @@ const HostTableTanStackClean = ({ storage }) => {
             const payload = allTableData
                 .filter(host => host.id || (host.name && host.name.trim() !== ""))
                 .map(row => {
-                    console.log('🔍 Processing host for save:', {
-                        name: row.name,
-                        storage_system: row.storage_system,
-                        wwpns: row.wwpns
-                    });
+                    console.log('🔍 Processing row for save - RAW DATA:', row);
+                    console.log('   name:', row.name);
+                    console.log('   storage_system:', row.storage_system);
+                    console.log('   wwpns:', row.wwpns);
+                    console.log('   status:', row.status);
+                    console.log('   host_type:', row.host_type);
 
-                    // Find storage system ID from name
+                    // Find storage system ID and name from name
                     let storageSystemId = null;
+                    let storageSystemName = null;
                     if (row.storage_system) {
                         const storage = storageOptions.find(s => s.name === row.storage_system);
                         if (storage) {
                             storageSystemId = parseInt(storage.id);
+                            storageSystemName = storage.name;
                         }
                     }
 
@@ -183,7 +188,8 @@ const HostTableTanStackClean = ({ storage }) => {
                     const result = {
                         ...cleanRow,
                         projects: [activeProjectId],
-                        storage_system: storageSystemId
+                        storage: storageSystemId,  // ForeignKey ID for the storage relation
+                        storage_system: storageSystemName  // CharField for the storage system name
                     };
 
                     return result;
@@ -191,7 +197,10 @@ const HostTableTanStackClean = ({ storage }) => {
 
             // Only call bulk save if there are hosts to save
             if (payload.length > 0) {
-                console.log('🚀 Sending bulk host save:', { project_id: activeProjectId, hosts: payload });
+                console.log('🚀 Sending bulk host save:');
+                console.log('   Project ID:', activeProjectId);
+                console.log('   Total hosts to save:', payload.length);
+                console.log('   First 3 hosts (full payload):', payload.slice(0, 3));
 
                 await axios.post(API_ENDPOINTS.hostSave, {
                     project_id: activeProjectId,
@@ -243,7 +252,7 @@ const HostTableTanStackClean = ({ storage }) => {
         <div className="modern-table-container">
             <TanStackCRUDTable
                 // API Configuration
-                apiUrl={`${API_ENDPOINTS.hosts}${activeProjectId}/`}
+                apiUrl={`${API_ENDPOINTS.hosts}${activeProjectId}/?format=table`}
                 saveUrl={API_ENDPOINTS.hostSave}
                 deleteUrl={API_ENDPOINTS.hostDelete}
                 customerId={activeCustomerId}
