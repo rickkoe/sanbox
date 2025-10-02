@@ -1345,6 +1345,17 @@ const TanStackCRUDTable = forwardRef(({
       endCol: clampedCol,
     });
 
+    // Focus the cell after state update
+    setTimeout(() => {
+      const cellElement = document.querySelector(`[data-cell-key="${cellKey}"]`);
+      if (cellElement) {
+        const focusableElement = cellElement.querySelector('[tabindex="0"]') || cellElement;
+        if (focusableElement && focusableElement !== document.activeElement) {
+          focusableElement.focus();
+        }
+      }
+    }, 0);
+
     console.log(`🔄 Navigated to cell [${clampedRow}, ${clampedCol}]`);
   }, [currentTableData, columnDefs]);
 
@@ -1950,23 +1961,7 @@ const TanStackCRUDTable = forwardRef(({
 
         case 'Enter':
           e.preventDefault();
-          // Check if current cell is a dropdown
-          const currentColumnConfig = columnDefs[currentCell.col];
-          const isDropdownCell = currentColumnConfig?.id?.includes('member_') ||
-                                 columns[currentCell.col]?.type === 'dropdown';
-
-          if (isDropdownCell && !e.shiftKey) {
-            // For dropdown cells, trigger the dropdown by clicking on it
-            const cellKey = `${currentCell.row}-${currentCell.col}`;
-            const cellElement = document.querySelector(`[data-cell-key="${cellKey}"]`);
-            if (cellElement) {
-              const dropdownTrigger = cellElement.querySelector('[tabindex="0"]');
-              if (dropdownTrigger) {
-                // Click to open dropdown
-                dropdownTrigger.click();
-              }
-            }
-          } else if (e.shiftKey) {
+          if (e.shiftKey) {
             // Shift+Enter: Navigate up
             navigateToCell(currentCell.row - 1, currentCell.col);
           } else {
@@ -3303,6 +3298,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   const dropdownRef = useRef(null);
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
+  const triggerRef = useRef(null);
 
   useEffect(() => {
     setLocalValue(value || '');
@@ -3378,6 +3374,13 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
     setSearchText('');
     setSelectedIndex(-1);
 
+    // Return focus to the cell trigger so keyboard navigation works
+    setTimeout(() => {
+      if (triggerRef.current) {
+        triggerRef.current.focus();
+      }
+    }, 0);
+
     console.log('✅ Dropdown closed after selection');
   };
 
@@ -3406,17 +3409,20 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
     if (!isOpen) {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
+        e.stopPropagation();
         handleClear();
         return;
       }
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
+        e.stopPropagation();
         setIsOpen(true);
         return;
       }
       // Check if it's a printable character (letter, number, etc.)
       if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
+        e.stopPropagation();
         // Open dropdown and set the typed character as search text
         setIsOpen(true);
         setSearchText(e.key);
@@ -3448,6 +3454,12 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
         setIsOpen(false);
         setSearchText('');
         setSelectedIndex(-1);
+        // Return focus to the cell trigger
+        setTimeout(() => {
+          if (triggerRef.current) {
+            triggerRef.current.focus();
+          }
+        }, 0);
         break;
     }
   };
@@ -3505,16 +3517,23 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
     }
   };
 
+  const handleFocus = () => {
+    // Update the current cell in the table when this dropdown receives focus
+    const cellKey = `${rowIndex}-${colIndex}`;
+    // This will be handled by the table's cell click handler, so we don't need to do anything here
+  };
+
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       <div
+        ref={triggerRef}
         onKeyDown={handleKeyDown}
-        onClick={() => setIsOpen(true)}
+        onFocus={handleFocus}
         tabIndex={0}
         style={{
           padding: '6px 10px',
           border: 'none',
-          cursor: 'pointer',
+          cursor: 'default',
           backgroundColor: 'transparent',
           color: 'var(--table-cell-text)',
           display: 'flex',
