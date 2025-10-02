@@ -232,144 +232,201 @@ const ConfigForm = () => {
                     <span>Loading configuration...</span>
                 </div>
             ) : (
-                <div className="config-form-card">
-                    <div className="form-header">
-                        <h2>Project Configuration</h2>
-                        <p>Select your customer and project to configure your workspace</p>
+                <div className="settings-layout">
+                    {/* Page Header */}
+                    <div className="settings-header">
+                        <div className="header-content">
+                            <h1 className="settings-title">Project Configuration</h1>
+                            <p className="settings-description">
+                                Manage your workspace settings and preferences
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Show setup guidance for new users */}
-                    {customers.length === 0 && !loading && (
-                        <div className="setup-guidance">
-                            <div className="guidance-icon">🚀</div>
-                            <h3>Welcome to Sanbox!</h3>
-                            <p>Let's set up your first customer and project to get started.</p>
-                            <div className="guidance-steps">
-                                <div className="step">
-                                    <span className="step-number">1</span>
-                                    <span>Click the <strong>+ button</strong> next to "Customer Organization" below</span>
+                    {/* Settings Content */}
+                    <div className="settings-content">
+                        {/* Show setup guidance for new users */}
+                        {customers.length === 0 && !loading && (
+                            <div className="setup-guidance">
+                                <div className="guidance-icon">🚀</div>
+                                <h3>Welcome to Sanbox!</h3>
+                                <p>Let's set up your first customer and project to get started.</p>
+                                <div className="guidance-steps">
+                                    <div className="step">
+                                        <span className="step-number">1</span>
+                                        <span>Click the <strong>+ button</strong> next to "Customer Organization" below</span>
+                                    </div>
+                                    <div className="step">
+                                        <span className="step-number">2</span>
+                                        <span>Add your customer/organization name</span>
+                                    </div>
+                                    <div className="step">
+                                        <span className="step-number">3</span>
+                                        <span>Then add your first project</span>
+                                    </div>
                                 </div>
-                                <div className="step">
-                                    <span className="step-number">2</span>
-                                    <span>Add your customer/organization name</span>
+                            </div>
+                        )}
+
+                        {/* Workspace Settings Card */}
+                        {unsavedConfig && (
+                            <div className="settings-card">
+                                <div className="card-header">
+                                    <div className="card-icon">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                                        </svg>
+                                    </div>
+                                    <div className="card-header-text">
+                                        <h3 className="card-title">Workspace</h3>
+                                        <p className="card-subtitle">Configure your active customer and project</p>
+                                    </div>
                                 </div>
-                                <div className="step">
-                                    <span className="step-number">3</span>
-                                    <span>Then add your first project</span>
+
+                                <form className="config-form">
+                                    <div className="form-section">
+                                        <div className="form-group">
+                                            <label className="form-label">
+                                                <span className="label-icon">🏢</span>
+                                                Customer Organization
+                                                <span className="required">*</span>
+                                            </label>
+                                            <div className="input-group">
+                                                <select
+                                                    className="form-select"
+                                                    name="customer"
+                                                    value={unsavedConfig.customer || ""}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                >
+                                                    <option value="">
+                                                        {customers.length === 0 ? "Click + to add your first customer" : "Choose a customer..."}
+                                                    </option>
+                                                    {Array.isArray(customers) && customers.map(customer => (
+                                                        <option key={customer.id} value={String(customer.id)}>
+                                                            {customer.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    type="button"
+                                                    className={`add-btn ${customers.length === 0 ? "add-btn-highlight" : ""}`}
+                                                    onClick={() => setShowCustomerModal(true)}
+                                                    title="Add new customer"
+                                                >
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            {customers.length === 0 && (
+                                                <div className="field-guidance">
+                                                    👆 <strong>Click the + button</strong> to add your first customer
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">
+                                                <span className="label-icon">📁</span>
+                                                Active Project
+                                                <span className="required">*</span>
+                                            </label>
+                                            <div className="input-group">
+                                                <select
+                                                    className="form-select"
+                                                    name="project"
+                                                    value={unsavedConfig.project || ""}
+                                                    onChange={handleInputChange}
+                                                    disabled={!unsavedConfig.customer}
+                                                    required
+                                                >
+                                                    <option value="">
+                                                        {unsavedConfig.customer ? "Choose a project..." : "Select customer first"}
+                                                    </option>
+                                                    {Array.isArray(projects) && projects.map(project => (
+                                                        <option key={project.id} value={String(project.id)}>
+                                                            {project.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    type="button"
+                                                    className={`add-btn ${unsavedConfig.customer && projects.length === 0 ? "add-btn-highlight" : ""}`}
+                                                    onClick={() => setShowProjectModal(true)}
+                                                    disabled={!unsavedConfig.customer}
+                                                    title="Add new project"
+                                                >
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            {unsavedConfig.customer && projects.length === 0 && (
+                                                <div className="field-guidance">
+                                                    👆 <strong>Click the + button</strong> to add your first project
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="card-footer">
+                                        <button
+                                            type="button"
+                                            className={`save-btn ${saveStatus === "Saving..." ? "saving" : ""}`}
+                                            onClick={handleSave}
+                                            disabled={saveStatus === "Saving..." || !unsavedConfig.customer || !unsavedConfig.project}
+                                        >
+                                            {saveStatus === "Saving..." ? (
+                                                <>
+                                                    <div className="btn-spinner"></div>
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                                    </svg>
+                                                    Save Configuration
+                                                </>
+                                            )}
+                                        </button>
+
+                                        {saveStatus && !saveStatus.includes("Saving") && (
+                                            <div className={`status-message ${saveStatus.includes("✅") ? "success" : "error"}`}>
+                                                {saveStatus}
+                                            </div>
+                                        )}
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* Placeholder for future settings */}
+                        <div className="settings-card settings-card-disabled">
+                            <div className="card-header">
+                                <div className="card-icon card-icon-disabled">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                        <path d="M12 1v6m0 6v6m8.66-9l-5.2 3M8.54 14l-5.2 3m12.72 0l-5.2-3M8.54 10l-5.2-3"></path>
+                                    </svg>
                                 </div>
+                                <div className="card-header-text">
+                                    <h3 className="card-title">Advanced Settings</h3>
+                                    <p className="card-subtitle">Additional configuration options</p>
+                                </div>
+                                <span className="coming-soon-badge">Coming Soon</span>
+                            </div>
+                            <div className="card-body">
+                                <p className="placeholder-text">More configuration options will be available here in future updates.</p>
                             </div>
                         </div>
-                    )}
+                    </div>
 
-                    {unsavedConfig && (
-                        <form className="config-form">
-                            <div className="form-section">
-                                <div className="form-group">
-                                    <label className="form-label">
-                                        Customer Organization
-                                        <span className="required">*</span>
-                                    </label>
-                                    <div className="input-group">
-                                        <select 
-                                            className="form-select" 
-                                            name="customer" 
-                                            value={unsavedConfig.customer || ""} 
-                                            onChange={handleInputChange}
-                                            required
-                                        >
-                                            <option value="">
-                                                {customers.length === 0 ? "Click + to add your first customer" : "Choose a customer..."}
-                                            </option>
-                                            {Array.isArray(customers) && customers.map(customer => (
-                                                <option key={customer.id} value={String(customer.id)}>
-                                                    {customer.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <button 
-                                            type="button" 
-                                            className={`add-btn ${customers.length === 0 ? "add-btn-highlight" : ""}`}
-                                            onClick={() => setShowCustomerModal(true)}
-                                            title="Add new customer"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                    {customers.length === 0 && (
-                                        <div className="field-guidance">
-                                            👆 <strong>Click the + button</strong> to add your first customer
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label">
-                                        Active Project
-                                        <span className="required">*</span>
-                                    </label>
-                                    <div className="input-group">
-                                        <select
-                                            className="form-select"
-                                            name="project"
-                                            value={unsavedConfig.project || ""}
-                                            onChange={handleInputChange}
-                                            disabled={!unsavedConfig.customer}
-                                            required
-                                        >
-                                            <option value="">
-                                                {unsavedConfig.customer ? "Choose a project..." : "Select customer first"}
-                                            </option>
-                                            {Array.isArray(projects) && projects.map(project => (
-                                                <option key={project.id} value={String(project.id)}>
-                                                    {project.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <button 
-                                            type="button" 
-                                            className={`add-btn ${unsavedConfig.customer && projects.length === 0 ? "add-btn-highlight" : ""}`}
-                                            onClick={() => setShowProjectModal(true)}
-                                            disabled={!unsavedConfig.customer}
-                                            title="Add new project"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                    {unsavedConfig.customer && projects.length === 0 && (
-                                        <div className="field-guidance">
-                                            👆 <strong>Click the + button</strong> to add your first project
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="form-actions">
-                                <button 
-                                    type="button" 
-                                    className={`save-btn ${saveStatus === "Saving..." ? "saving" : ""}`}
-                                    onClick={handleSave} 
-                                    disabled={saveStatus === "Saving..." || !unsavedConfig.customer || !unsavedConfig.project}
-                                >
-                                    {saveStatus === "Saving..." ? (
-                                        <>
-                                            <div className="btn-spinner"></div>
-                                            Saving...
-                                        </>
-                                    ) : (
-                                        "Save Configuration"
-                                    )}
-                                </button>
-                                
-                                {saveStatus && !saveStatus.includes("Saving") && (
-                                    <div className={`status-message ${saveStatus.includes("✅") ? "success" : "error"}`}>
-                                        {saveStatus}
-                                    </div>
-                                )}
-                            </div>
-                        </form>
-                    )}
-                    
-                    {/* Modals outside of form */}
+                    {/* Modals */}
                     <Modal show={showProjectModal} onHide={() => setShowProjectModal(false)}>
                         <Modal.Header closeButton>
                             <Modal.Title>Add New Project</Modal.Title>
@@ -390,7 +447,7 @@ const ConfigForm = () => {
                             <Button variant="primary" onClick={handleAddProject}>Add Project</Button>
                         </Modal.Footer>
                     </Modal>
-                    
+
                     <Modal show={showCustomerModal} onHide={() => setShowCustomerModal(false)}>
                         <Modal.Header closeButton>
                             <Modal.Title>Add New Customer</Modal.Title>

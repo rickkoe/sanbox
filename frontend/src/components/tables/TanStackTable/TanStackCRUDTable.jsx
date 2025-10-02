@@ -962,14 +962,17 @@ const TanStackCRUDTable = forwardRef(({
     setColumnFilters([]);
     setGlobalFilter('');
 
-    // Reset pagination to first page
+    // Reset pagination to first page AND reset page size to match current pageSize state
     setCurrentPage(1);
-    setPagination(prev => ({ ...prev, pageIndex: 0 }));
+    setPagination(prev => ({
+      pageIndex: 0,
+      pageSize: parseInt(pageSize) || 25  // Sync with current pageSize state
+    }));
 
     // The useEffect for loadData will automatically trigger when activeFilters and globalFilter change
     // No need to manually call loadData here as it will cause the right data loading behavior
     console.log('🧹 All filters cleared, data will reload automatically');
-  }, []);
+  }, [pageSize]);
 
   // Sync activeFilters when columnFilters change from other sources
   useEffect(() => {
@@ -1187,6 +1190,7 @@ const TanStackCRUDTable = forwardRef(({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: useServerSideFiltering ? undefined : getFilteredRowModel(),
     getPaginationRowModel: hasActiveClientFilters ? getPaginationRowModel() : undefined,
+    manualPagination: !hasActiveClientFilters, // Use manual pagination when not doing client-side filtering
     enableColumnResizing: true,
     columnResizeMode: 'onEnd',
     state: {
@@ -2494,7 +2498,10 @@ const TanStackCRUDTable = forwardRef(({
               gap: '6px'
             }}
           >
-            🔽 Advanced Filters
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Advanced Filters
             {Object.keys(activeFilters).filter(key => activeFilters[key].active).length > 0 && (
               <span style={{
                 backgroundColor: 'rgba(255,255,255,0.3)',

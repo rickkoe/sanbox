@@ -200,8 +200,11 @@ const FilterDropdown = ({
         paddingBottom: '12px',
         borderBottom: '1px solid var(--table-border)'
       }}>
-        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: 'var(--primary-text)' }}>
-          🔽 Advanced Filters
+        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: 'var(--primary-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          Advanced Filters
         </h3>
         {getActiveFilterCount() > 0 && (
           <span style={{
@@ -245,8 +248,8 @@ const FilterDropdown = ({
           <option value="">Choose a column...</option>
           {columns.map(column => (
             <option key={column.id} value={column.id}>
-              {column.header || column.id}
-              {activeFilters[column.id]?.active && ' 🔍'}
+              {typeof column.header === 'function' ? column.id : (column.header || column.id)}
+              {activeFilters[column.id]?.active && ' ●'}
             </option>
           ))}
         </select>
@@ -273,10 +276,18 @@ const FilterDropdown = ({
                   fontSize: '13px',
                   fontWeight: '500',
                   cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
                 }}
               >
-                📝 Text Filter
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Text Filter
               </button>
               <button
                 onClick={() => setShowItems(true)}
@@ -290,10 +301,18 @@ const FilterDropdown = ({
                   fontSize: '13px',
                   fontWeight: '500',
                   cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
                 }}
               >
-                ☑️ Select Items ({columnValues.length})
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 11 12 14 22 4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                Select Items ({columnValues.length})
               </button>
             </div>
 
@@ -395,7 +414,7 @@ const FilterDropdown = ({
                     type="text"
                     value={searchText}
                     onChange={(e) => setSearchText(e.target.value)}
-                    placeholder="🔍 Search items..."
+                    placeholder="Search items..."
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -420,30 +439,45 @@ const FilterDropdown = ({
                     style={{
                       flex: 1,
                       padding: '6px 10px',
-                      backgroundColor: '#4caf50',
-                      color: 'white',
+                      backgroundColor: 'var(--link-text)',
+                      color: 'var(--content-bg)',
                       border: 'none',
                       borderRadius: '4px',
                       fontSize: '12px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
                     }}
                   >
-                    ✓ Select All
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Select All
                   </button>
                   <button
                     onClick={handleDeselectAll}
                     style={{
                       flex: 1,
                       padding: '6px 10px',
-                      backgroundColor: '#f44336',
-                      color: 'white',
-                      border: 'none',
+                      backgroundColor: 'var(--table-pagination-button-bg)',
+                      color: 'var(--table-toolbar-text)',
+                      border: '1px solid var(--table-pagination-button-border)',
                       borderRadius: '4px',
                       fontSize: '12px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
                     }}
                   >
-                    ✗ Deselect All
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    Deselect All
                   </button>
                 </div>
 
@@ -489,7 +523,13 @@ const FilterDropdown = ({
                           type="checkbox"
                           checked={selectedItems.has(value)}
                           onChange={() => handleItemToggle(value)}
-                          style={{ marginRight: '8px' }}
+                          style={{
+                            marginRight: '8px',
+                            width: '16px',
+                            height: '16px',
+                            cursor: 'pointer',
+                            accentColor: 'var(--link-text)'
+                          }}
                         />
                         <span style={{
                           overflow: 'hidden',
@@ -545,10 +585,18 @@ const FilterDropdown = ({
                 border: 'none',
                 borderRadius: '4px',
                 fontSize: '12px',
-                cursor: activeFilters[selectedColumn]?.active ? 'pointer' : 'not-allowed'
+                cursor: activeFilters[selectedColumn]?.active ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
               }}
             >
-              🧹 Clear Column
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Clear Column
             </button>
           </div>
         </>
@@ -572,10 +620,18 @@ const FilterDropdown = ({
             borderRadius: '4px',
             fontSize: '13px',
             fontWeight: '500',
-            cursor: getActiveFilterCount() > 0 ? 'pointer' : 'not-allowed'
+            cursor: getActiveFilterCount() > 0 ? 'pointer' : 'not-allowed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
           }}
         >
-          🗑️ Clear All Filters ({getActiveFilterCount()})
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          Clear All Filters ({getActiveFilterCount()})
         </button>
       </div>
     </div>

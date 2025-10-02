@@ -4,12 +4,11 @@
   backdrop-filter: blur(20px);
   box-shadow: var(--sidebar-shadow, 8px 0 32px rgba(0, 0, 0, 0.1));
   border-right: 1px solid var(--sidebar-border, rgba(255, 255, 255, 0.1));
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: 101;
   display: flex;
   flex-direction: column;
-  width: 250px;
+  width: 100%;
   height: 100%;
   overflow: visible;
   flex-shrink: 0; /* Prevent sidebar from shrinking unexpectedly */
@@ -1013,3 +1012,4 @@
 .modern-sidebar.theme-dark .sidebar-navigation .test-link .sidebar-sublink-text {
   color: white !important;
 }
+
