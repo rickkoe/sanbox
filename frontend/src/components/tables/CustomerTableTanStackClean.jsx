@@ -10,6 +10,7 @@ const CustomerTableTanStackClean = () => {
         { data: "name", title: "Customer Name" },
         { data: "insights_tenant", title: "Storage Insights Tenant" },
         { data: "insights_api_key", title: "Storage Insights API Key" },
+        { data: "insights_portal", title: "Storage Insights Portal", readOnly: true },
         { data: "notes", title: "Notes" }
     ];
 
@@ -20,17 +21,13 @@ const CustomerTableTanStackClean = () => {
         name: "",
         insights_tenant: "",
         insights_api_key: "",
+        insights_portal: "",
         notes: ""
     };
 
     // Custom renderers for customer-specific display logic
     const customRenderers = {
         name: (rowData, td, row, col, prop, value) => {
-            // TanStack passes rowData as the first parameter
-            const customer = rowData || {};
-            if (customer.insights_tenant && value) {
-                return `<a href="https://insights.ibm.com/cui/${customer.insights_tenant}" target="_blank" rel="noopener noreferrer">${value}</a>`;
-            }
             return value || "";
         },
         insights_api_key: (rowData, td, row, col, prop, value) => {
@@ -40,6 +37,17 @@ const CustomerTableTanStackClean = () => {
                 return "••••••••••••••••••••"; // Show asterisks as password-like display
             }
             return value || "";
+        },
+        insights_portal: (rowData, td, row, col, prop, value) => {
+            const customer = rowData || {};
+            const hasValidCredentials = customer.insights_tenant && customer.insights_api_key;
+            const disabled = !hasValidCredentials;
+            const buttonClass = disabled ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm';
+            const disabledAttr = disabled ? 'disabled' : '';
+            const onClick = disabled ? '' : `onclick="window.open('https://insights.ibm.com/cui/${customer.insights_tenant}', '_blank')"`;
+            const buttonText = disabled ? 'Not Available' : 'Launch';
+
+            return `<div style="text-align: center;"><button class="${buttonClass}" ${disabledAttr} ${onClick} style="cursor: ${disabled ? 'not-allowed' : 'pointer'}; min-width: 110px;">${buttonText}</button></div>`;
         }
     };
 

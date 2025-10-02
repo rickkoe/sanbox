@@ -133,26 +133,26 @@
   --primary-bg: #ffffff;
   --secondary-bg: #ffffff;
   --accent-bg: #ffffff;
-  
+
   /* Text Colors - High contrast monochrome */
   --primary-text: #0f172a;
   --secondary-text: #1e293b;
   --muted-text: #64748b;
   --link-text: #334155;
   --link-hover: #0f172a;
-  
+
   /* Interactive Colors - Subtle grays with sharp edges */
   --button-bg: #ffffff;
   --button-hover: #0f172a;
   --button-active: #334155;
   --button-border: #cbd5e1;
-  
+
   /* Status Colors - Monochrome with subtle gray tones */
   --success-color: #475569;
   --error-color: #1e293b;
   --warning-color: #64748b;
   --info-color: #334155;
-  
+
   /* Component Specific */
   --navbar-bg: #ffffff;
   --navbar-text: var(--primary-text);
@@ -162,7 +162,7 @@
   --navbar-button-bg: var(--button-bg);
   --navbar-button-hover: var(--button-hover);
   --navbar-brand-color: var(--link-text);
-  
+
   --sidebar-bg: var(--primary-bg);
   --sidebar-text: var(--primary-text);
   --sidebar-text-hover: var(--link-text);
@@ -173,7 +173,7 @@
   --sidebar-header-color: var(--link-text);
   --sidebar-active-bg: rgba(15, 23, 42, 0.08);
   --sidebar-active-border: var(--link-text);
-  
+
   /* Content and Layout */
   --content-bg: #ffffff;
   --content-text: var(--primary-text);
@@ -182,7 +182,7 @@
   --breadcrumb-text: var(--secondary-text);
   --breadcrumb-link: var(--link-text);
   --breadcrumb-link-hover: var(--link-hover);
-  
+
   /* Tables - Sharp monochrome design */
   --table-bg: #ffffff;
   --table-header-bg: #ffffff;
@@ -213,11 +213,11 @@
   --form-input-placeholder: var(--muted-text);
   --form-input-focus-border: #334155;
   --form-input-focus-shadow: rgba(51, 65, 85, 0.1);
-  
+
   /* Code Blocks */
   --code-bg: #ffffff;
   --code-text: #0f172a;
-  
+
   /* Alert Colors - Monochrome with intensity variations */
   --warning-bg: #ffffff;
   --warning-text: #475569;

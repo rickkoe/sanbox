@@ -51,7 +51,7 @@ const CustomerTable = () => {
         name: (instance, td, row, col, prop, value) => {
             const customer = instance.getSourceDataAtRow(row);
             if (customer.insights_tenant) {
-                td.innerHTML = `<a href="https://insights.ibm.com/cui/${customer.insights_tenant}" target="_blank" rel="noopener noreferrer">${value}</a>`;
+                td.innerHTML = `<a href="https://insights.ibm.com/cui/${customer.insights_tenant}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">${value}</a>`;
             } else {
                 td.innerText = value || "";
             }

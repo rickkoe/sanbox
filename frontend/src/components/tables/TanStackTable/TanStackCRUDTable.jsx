@@ -479,6 +479,12 @@ const TanStackCRUDTable = forwardRef(({
     // Reset all column widths to auto-calculated sizes
     const newSizing = {};
 
+    // Helper function to get nested value from object path (e.g., "fabric.name" or "fabric_details.name")
+    const getNestedValue = (obj, path) => {
+      if (!path) return undefined;
+      return path.split('.').reduce((current, prop) => current?.[prop], obj);
+    };
+
     // For each column, calculate optimal width based on content and header
     columns.forEach((column, index) => {
       const accessorKey = column.data || `column_${index}`;
@@ -495,7 +501,7 @@ const TanStackCRUDTable = forwardRef(({
         const dropdownOptions = dropdownSources[accessorKey] || [];
         dropdownOptions.forEach(option => {
           if (option) {
-            const optionWidth = String(option).length * 8 + 60; // Extra padding for dropdown arrow
+            const optionWidth = String(option).length * 8 + 80; // Extra padding for dropdown arrow + padding
             maxContentWidth = Math.max(maxContentWidth, optionWidth);
           }
         });
@@ -506,16 +512,19 @@ const TanStackCRUDTable = forwardRef(({
         // Sample first 10 rows to estimate content width
         const sampleSize = Math.min(10, currentTableData.length);
         for (let i = 0; i < sampleSize; i++) {
-          const cellValue = currentTableData[i]?.[accessorKey];
+          // Handle nested properties (e.g., "fabric.name" or "fabric_details.name")
+          const cellValue = getNestedValue(currentTableData[i], accessorKey);
           if (cellValue) {
-            const cellWidth = String(cellValue).length * 8 + 40;
+            // Add extra padding for dropdown columns
+            const extraPadding = column.type === 'dropdown' ? 80 : 40;
+            const cellWidth = String(cellValue).length * 8 + extraPadding;
             maxContentWidth = Math.max(maxContentWidth, cellWidth);
           }
         }
       }
 
       // Set reasonable limits (increased max for dropdown readability)
-      const finalWidth = Math.min(Math.max(maxContentWidth, 80), column.type === 'dropdown' ? 300 : 400);
+      const finalWidth = Math.min(Math.max(maxContentWidth, 80), column.type === 'dropdown' ? 350 : 400);
       newSizing[accessorKey] = finalWidth;
     });
 
