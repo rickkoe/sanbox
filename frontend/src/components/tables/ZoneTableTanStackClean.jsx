@@ -322,26 +322,47 @@ const ZoneTableTanStackClean = () => {
     }, [memberColumnCounts]);
 
     // Calculate dynamic member columns by use type based on zone data
-    const calculateMemberColumnsByType = useCallback((zones) => {
+    const calculateMemberColumnsByType = useCallback((zones, aliases) => {
+        console.log('🔢 calculateMemberColumnsByType called with', zones?.length, 'zones and', aliases?.length, 'aliases');
+
         if (!zones || zones.length === 0) {
+            console.log('⚠️ No zones provided, using defaults');
             return { targets: 3, initiators: 3, allAccess: 2 }; // Default minimums
         }
 
         const memberCounts = { targets: 0, initiators: 0, allAccess: 0 };
 
-        zones.forEach(zone => {
+        zones.forEach((zone, zoneIndex) => {
+            console.log(`🔍 Checking zone ${zoneIndex}: ${zone.name}, members_details:`, zone.members_details);
+
             if (zone.members_details) {
                 const typeCounts = { targets: 0, initiators: 0, allAccess: 0 };
 
-                zone.members_details.forEach(member => {
-                    if (member.alias_details?.use === 'target') {
+                zone.members_details.forEach((member, memberIndex) => {
+                    // Try multiple ways to get use type
+                    let useType = member.alias_details?.use || member.use;
+
+                    // If no use type found, look up in aliases array
+                    if (!useType && member.name && aliases) {
+                        const aliasInfo = aliases.find(a => a.name === member.name);
+                        if (aliasInfo) {
+                            useType = aliasInfo.use;
+                            console.log(`  Member ${memberIndex} (${member.name}): found use type from aliases: ${useType}`);
+                        }
+                    }
+
+                    console.log(`  Member ${memberIndex} (${member.name}): use type = ${useType}`);
+
+                    if (useType === 'target') {
                         typeCounts.targets++;
-                    } else if (member.alias_details?.use === 'init') {
+                    } else if (useType === 'init') {
                         typeCounts.initiators++;
-                    } else if (member.alias_details?.use === 'both') {
+                    } else if (useType === 'both') {
                         typeCounts.allAccess++;
                     }
                 });
+
+                console.log(`  Zone ${zone.name} counts:`, typeCounts);
 
                 memberCounts.targets = Math.max(memberCounts.targets, typeCounts.targets);
                 memberCounts.initiators = Math.max(memberCounts.initiators, typeCounts.initiators);
@@ -349,16 +370,16 @@ const ZoneTableTanStackClean = () => {
             }
         });
 
-        // Add buffer for each type (minimum 2 extra, or 25% more)
+        // Use maximum found across all zones, with minimum defaults
         const result = {
-            targets: Math.max(3, memberCounts.targets + Math.max(2, Math.ceil(memberCounts.targets * 0.25))),
-            initiators: Math.max(3, memberCounts.initiators + Math.max(2, Math.ceil(memberCounts.initiators * 0.25))),
-            allAccess: Math.max(2, memberCounts.allAccess + Math.max(1, Math.ceil(memberCounts.allAccess * 0.25)))
+            targets: Math.max(3, memberCounts.targets),
+            initiators: Math.max(3, memberCounts.initiators),
+            allAccess: Math.max(2, memberCounts.allAccess)
         };
 
         console.log(`📊 Dynamic member columns by type:`, {
             found: memberCounts,
-            withBuffer: result,
+            result: result,
             total: result.targets + result.initiators + result.allAccess
         });
 
@@ -390,15 +411,7 @@ const ZoneTableTanStackClean = () => {
                     });
                     setFabricsById(fabricMap);
 
-                    // Process zone data and calculate member columns
-                    const zonesArray = zoneResponse.data.results || zoneResponse.data;
-                    setRawZoneData(zonesArray);
-
-                    // Calculate member columns by type
-                    const requiredMemberColumns = calculateMemberColumnsByType(zonesArray);
-                    setMemberColumnCounts(requiredMemberColumns);
-
-                    // Process aliases with fabric names and filtering
+                    // Process aliases with fabric names and filtering FIRST
                     const aliasesArray = aliasResponse.data.results || aliasResponse.data;
                     const processedAliases = aliasesArray.map(alias => ({
                         id: alias.id,
@@ -409,6 +422,14 @@ const ZoneTableTanStackClean = () => {
                         use: alias.use
                     }));
                     setAliasOptions(processedAliases);
+
+                    // Process zone data and calculate member columns (after aliases are processed)
+                    const zonesArray = zoneResponse.data.results || zoneResponse.data;
+                    setRawZoneData(zonesArray);
+
+                    // Calculate member columns by type - pass aliases for lookup
+                    const requiredMemberColumns = calculateMemberColumnsByType(zonesArray, processedAliases);
+                    setMemberColumnCounts(requiredMemberColumns);
 
                     console.log('✅ Zone dropdown data loaded successfully');
                     setLoading(false);
