@@ -3435,22 +3435,42 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
+        e.stopPropagation();
         setSelectedIndex(prev => Math.min(prev + 1, filteredOptions.length - 1));
         break;
       case 'ArrowUp':
         e.preventDefault();
+        e.stopPropagation();
         setSelectedIndex(prev => Math.max(prev - 1, -1));
         break;
       case 'Enter':
         e.preventDefault();
+        e.stopPropagation();
         if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
           handleSelect(filteredOptions[selectedIndex]);
         } else if (filteredOptions.length > 0) {
           handleSelect(filteredOptions[0]);
         }
         break;
+      case 'Tab':
+        // Select the top value and let Tab continue to navigate
+        e.preventDefault();
+        if (selectedIndex >= 0 && filteredOptions[selectedIndex]) {
+          handleSelect(filteredOptions[selectedIndex]);
+        } else if (filteredOptions.length > 0) {
+          handleSelect(filteredOptions[0]);
+        } else {
+          // No selection, just close dropdown and let tab through
+          setIsOpen(false);
+          setSearchText('');
+          setSelectedIndex(-1);
+        }
+        // Let the Tab event bubble up after selection is complete
+        // Don't call stopPropagation so the global handler can navigate
+        break;
       case 'Escape':
         e.preventDefault();
+        e.stopPropagation();
         setIsOpen(false);
         setSearchText('');
         setSelectedIndex(-1);
