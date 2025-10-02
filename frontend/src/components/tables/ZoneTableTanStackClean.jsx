@@ -182,13 +182,14 @@ const ZoneTableTanStackClean = () => {
     const memberColumns = useMemo(() => {
         const columns = [];
 
-        // Target columns first
+        // Target columns first - subtle blue tint
         for (let i = 1; i <= memberColumnCounts.targets; i++) {
             const isLastTarget = i === memberColumnCounts.targets;
             columns.push({
                 data: `target_member_${i}`,
                 title: `Target Member ${i}`,
                 type: "dropdown",
+                columnGroup: "target",
                 customHeader: isLastTarget ? {
                     component: () => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>
@@ -214,13 +215,14 @@ const ZoneTableTanStackClean = () => {
             });
         }
 
-        // Initiator columns next
+        // Initiator columns next - subtle green tint
         for (let i = 1; i <= memberColumnCounts.initiators; i++) {
             const isLastInitiator = i === memberColumnCounts.initiators;
             columns.push({
                 data: `init_member_${i}`,
                 title: `Initiator Member ${i}`,
                 type: "dropdown",
+                columnGroup: "initiator",
                 customHeader: isLastInitiator ? {
                     component: () => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>
@@ -246,13 +248,14 @@ const ZoneTableTanStackClean = () => {
             });
         }
 
-        // All Access columns last
+        // All Access columns last - subtle purple tint
         for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
             const isLastAllAccess = i === memberColumnCounts.allAccess;
             columns.push({
                 data: `all_member_${i}`,
                 title: `All Access Member ${i}`,
                 type: "dropdown",
+                columnGroup: "allAccess",
                 customHeader: isLastAllAccess ? {
                     component: () => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>

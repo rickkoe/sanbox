@@ -1948,7 +1948,23 @@ const TanStackCRUDTable = forwardRef(({
 
         case 'Enter':
           e.preventDefault();
-          if (e.shiftKey) {
+          // Check if current cell is a dropdown
+          const currentColumnConfig = columnDefs[currentCell.col];
+          const isDropdownCell = currentColumnConfig?.id?.includes('member_') ||
+                                 columns[currentCell.col]?.type === 'dropdown';
+
+          if (isDropdownCell && !e.shiftKey) {
+            // For dropdown cells, trigger the dropdown by clicking on it
+            const cellKey = `${currentCell.row}-${currentCell.col}`;
+            const cellElement = document.querySelector(`[data-cell-key="${cellKey}"]`);
+            if (cellElement) {
+              const dropdownTrigger = cellElement.querySelector('[tabindex="0"]');
+              if (dropdownTrigger) {
+                // Click to open dropdown
+                dropdownTrigger.click();
+              }
+            }
+          } else if (e.shiftKey) {
             // Shift+Enter: Navigate up
             navigateToCell(currentCell.row - 1, currentCell.col);
           } else {
@@ -1969,6 +1985,37 @@ const TanStackCRUDTable = forwardRef(({
           e.preventDefault();
           // Start editing current cell (if it's a text cell)
           console.log('✏️ Edit mode triggered for current cell');
+          break;
+
+        default:
+          // Check if it's a printable character and current cell is a dropdown
+          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const currentColumnConfig = columnDefs[currentCell.col];
+            const isDropdownCell = currentColumnConfig?.id?.includes('member_') ||
+                                   columns[currentCell.col]?.type === 'dropdown';
+
+            if (isDropdownCell) {
+              e.preventDefault();
+              // Focus the dropdown and trigger it with the typed character
+              const cellKey = `${currentCell.row}-${currentCell.col}`;
+              const cellElement = document.querySelector(`[data-cell-key="${cellKey}"]`);
+              if (cellElement) {
+                const dropdownTrigger = cellElement.querySelector('[tabindex="0"]');
+                if (dropdownTrigger) {
+                  dropdownTrigger.focus();
+                  // Dispatch the keydown event to the dropdown trigger
+                  const keyEvent = new KeyboardEvent('keydown', {
+                    key: e.key,
+                    code: e.code,
+                    keyCode: e.keyCode,
+                    which: e.which,
+                    bubbles: true
+                  });
+                  dropdownTrigger.dispatchEvent(keyEvent);
+                }
+              }
+            }
+          }
           break;
       }
     }
@@ -2743,31 +2790,47 @@ const TanStackCRUDTable = forwardRef(({
           <thead>
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-                  <th
-                    key={header.id}
-                    style={{
-                      padding: '14px 12px',
-                      textAlign: 'left',
-                      borderBottom: '2px solid var(--table-border)',
-                      borderRight: '1px solid var(--table-border)',
-                      backgroundColor: 'var(--table-header-bg)',
-                      height: '50px', // Consistent header height
-                      minHeight: '50px',
-                      position: 'relative',
-                      width: header.getSize(),
-                      fontWeight: '600',
-                      fontSize: '13px',
-                      color: 'var(--table-header-text)',
-                      cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 10,
-                      userSelect: 'none',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
+                {headerGroup.headers.map(header => {
+                  // Get column group for styling
+                  const columnIndex = header.column.getIndex();
+                  const columnConfig = columns[columnIndex];
+                  const columnGroup = columnConfig?.columnGroup;
+
+                  // Define subtle background colors for column groups
+                  let headerBg = 'var(--table-header-bg)';
+                  if (columnGroup === 'target') {
+                    headerBg = theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.12)'; // Blue tint
+                  } else if (columnGroup === 'initiator') {
+                    headerBg = theme === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.12)'; // Green tint
+                  } else if (columnGroup === 'allAccess') {
+                    headerBg = theme === 'dark' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(168, 85, 247, 0.12)'; // Purple tint
+                  }
+
+                  return (
+                    <th
+                      key={header.id}
+                      style={{
+                        padding: '14px 12px',
+                        textAlign: 'left',
+                        borderBottom: '2px solid var(--table-border)',
+                        borderRight: '1px solid var(--table-border)',
+                        backgroundColor: headerBg,
+                        height: '50px', // Consistent header height
+                        minHeight: '50px',
+                        position: 'relative',
+                        width: header.getSize(),
+                        fontWeight: '600',
+                        fontSize: '13px',
+                        color: 'var(--table-header-text)',
+                        cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 10,
+                        userSelect: 'none',
+                        transition: 'background-color 0.2s'
+                      }}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
@@ -2813,7 +2876,8 @@ const TanStackCRUDTable = forwardRef(({
                       />
                     )}
                   </th>
-                ))}
+                  );
+                })}
               </tr>
             ))}
           </thead>
@@ -2832,16 +2896,33 @@ const TanStackCRUDTable = forwardRef(({
                   const isSelected = selectedCells.has(cellKey);
                   const isInvalid = invalidCells.has(cellKey);
 
+                  // Get column group for styling
+                  const columnConfig = columns[colIndex];
+                  const columnGroup = columnConfig?.columnGroup;
+
+                  // Define subtle background colors for column groups
+                  let cellBg = 'transparent';
+                  if (!isSelected && !isInvalid) {
+                    if (columnGroup === 'target') {
+                      cellBg = theme === 'dark' ? 'rgba(59, 130, 246, 0.06)' : 'rgba(59, 130, 246, 0.05)'; // Blue tint
+                    } else if (columnGroup === 'initiator') {
+                      cellBg = theme === 'dark' ? 'rgba(34, 197, 94, 0.06)' : 'rgba(34, 197, 94, 0.05)'; // Green tint
+                    } else if (columnGroup === 'allAccess') {
+                      cellBg = theme === 'dark' ? 'rgba(168, 85, 247, 0.06)' : 'rgba(168, 85, 247, 0.05)'; // Purple tint
+                    }
+                  }
+
                   return (
                     <td
                       key={cell.id}
+                      data-cell-key={cellKey}
                       style={{
                         padding: '10px 12px',
                         border: 'none',
                         borderBottom: '1px solid var(--table-border)',
                         borderRight: '1px solid var(--table-border)',
                         width: cell.column.getSize(),
-                        backgroundColor: isInvalid ? '#ffebee' : (isSelected ? 'var(--table-row-selected)' : 'transparent'),
+                        backgroundColor: isInvalid ? '#ffebee' : (isSelected ? 'var(--table-row-selected)' : cellBg),
                         cursor: 'cell',
                         position: 'relative',
                         transition: 'background-color 0.15s, border-color 0.15s',
@@ -3201,10 +3282,18 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const dropdownRef = useRef(null);
   const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     setLocalValue(value || '');
   }, [value]);
+
+  // Auto-focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -3303,6 +3392,16 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         setIsOpen(true);
+        return;
+      }
+      // Check if it's a printable character (letter, number, etc.)
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        // Open dropdown and set the typed character as search text
+        setIsOpen(true);
+        setSearchText(e.key);
+        setSelectedIndex(-1);
+        return;
       }
       return;
     }
@@ -3390,11 +3489,12 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
     <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       <div
         onKeyDown={handleKeyDown}
+        onClick={() => setIsOpen(true)}
         tabIndex={0}
         style={{
           padding: '6px 10px',
           border: 'none',
-          cursor: 'default',
+          cursor: 'pointer',
           backgroundColor: 'transparent',
           color: 'var(--table-cell-text)',
           display: 'flex',
@@ -3448,6 +3548,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
           }}
         >
           <input
+            ref={searchInputRef}
             type="text"
             placeholder="🔍 Type to filter..."
             value={searchText}
@@ -3456,6 +3557,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
               setSelectedIndex(-1); // Reset selection when filtering
             }}
             onKeyDown={handleKeyDown}
+            autoFocus
             style={{
               width: '100%',
               padding: '10px 12px',
@@ -3467,7 +3569,6 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
               color: 'var(--form-input-text)',
               boxSizing: 'border-box'
             }}
-            autoFocus
           />
           <div style={{
             maxHeight: '150px',
