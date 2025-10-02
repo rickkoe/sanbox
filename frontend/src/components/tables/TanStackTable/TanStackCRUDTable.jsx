@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, forwardRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import axios from 'axios';
 import {
   useReactTable,
@@ -1077,6 +1078,7 @@ const TanStackCRUDTable = forwardRef(({
                 filterFunction={dropdownFilters?.[accessorKey]}
                 invalidCells={invalidCells}
                 setInvalidCells={setInvalidCells}
+                theme={theme}
               />
             );
           }
@@ -2795,15 +2797,19 @@ const TanStackCRUDTable = forwardRef(({
                   const columnIndex = header.column.getIndex();
                   const columnConfig = columns[columnIndex];
                   const columnGroup = columnConfig?.columnGroup;
+                  const isNameColumn = header.id === 'name' || columnConfig?.data === 'name';
 
-                  // Define subtle background colors for column groups
+                  // Define solid background colors for column groups (no transparency)
                   let headerBg = 'var(--table-header-bg)';
                   if (columnGroup === 'target') {
-                    headerBg = theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.12)'; // Blue tint
+                    // Blue tint - solid color
+                    headerBg = theme === 'dark' ? '#232f3e' : '#e1effe';
                   } else if (columnGroup === 'initiator') {
-                    headerBg = theme === 'dark' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(34, 197, 94, 0.12)'; // Green tint
+                    // Green tint - solid color
+                    headerBg = theme === 'dark' ? '#243230' : '#dcfce7';
                   } else if (columnGroup === 'allAccess') {
-                    headerBg = theme === 'dark' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(168, 85, 247, 0.12)'; // Purple tint
+                    // Purple tint - solid color
+                    headerBg = theme === 'dark' ? '#2f2a38' : '#f3e8ff';
                   }
 
                   return (
@@ -2817,7 +2823,6 @@ const TanStackCRUDTable = forwardRef(({
                         backgroundColor: headerBg,
                         height: '50px', // Consistent header height
                         minHeight: '50px',
-                        position: 'relative',
                         width: header.getSize(),
                         fontWeight: '600',
                         fontSize: '13px',
@@ -2825,9 +2830,11 @@ const TanStackCRUDTable = forwardRef(({
                         cursor: header.column.getCanSort() ? 'pointer' : 'default',
                         position: 'sticky',
                         top: 0,
-                        zIndex: 10,
+                        left: isNameColumn ? 0 : undefined,
+                        zIndex: isNameColumn ? 20 : 10,
                         userSelect: 'none',
-                        transition: 'background-color 0.2s'
+                        transition: 'background-color 0.2s',
+                        boxShadow: isNameColumn ? '2px 0 4px rgba(0, 0, 0, 0.1)' : 'none'
                       }}
                       onClick={header.column.getToggleSortingHandler()}
                     >
@@ -2899,16 +2906,25 @@ const TanStackCRUDTable = forwardRef(({
                   // Get column group for styling
                   const columnConfig = columns[colIndex];
                   const columnGroup = columnConfig?.columnGroup;
+                  const isNameColumn = cell.column.id === 'name' || columnConfig?.data === 'name';
+                  const rowData = row.original;
+                  const isSavedRow = rowData && rowData.id != null;
 
-                  // Define subtle background colors for column groups
+                  // Define solid background colors for column groups (no transparency)
                   let cellBg = 'transparent';
                   if (!isSelected && !isInvalid) {
-                    if (columnGroup === 'target') {
-                      cellBg = theme === 'dark' ? 'rgba(59, 130, 246, 0.06)' : 'rgba(59, 130, 246, 0.05)'; // Blue tint
+                    if (isNameColumn) {
+                      // Name column gets solid background to prevent transparency when scrolling
+                      cellBg = 'var(--table-bg)';
+                    } else if (columnGroup === 'target') {
+                      // Blue tint - solid color, lighter than header
+                      cellBg = theme === 'dark' ? '#1a2632' : '#eff6ff';
                     } else if (columnGroup === 'initiator') {
-                      cellBg = theme === 'dark' ? 'rgba(34, 197, 94, 0.06)' : 'rgba(34, 197, 94, 0.05)'; // Green tint
+                      // Green tint - solid color, lighter than header
+                      cellBg = theme === 'dark' ? '#1c2a27' : '#f0fdf4';
                     } else if (columnGroup === 'allAccess') {
-                      cellBg = theme === 'dark' ? 'rgba(168, 85, 247, 0.06)' : 'rgba(168, 85, 247, 0.05)'; // Purple tint
+                      // Purple tint - solid color, lighter than header
+                      cellBg = theme === 'dark' ? '#25222e' : '#faf5ff';
                     }
                   }
 
@@ -2924,13 +2940,17 @@ const TanStackCRUDTable = forwardRef(({
                         width: cell.column.getSize(),
                         backgroundColor: isInvalid ? '#ffebee' : (isSelected ? 'var(--table-row-selected)' : cellBg),
                         cursor: 'cell',
-                        position: 'relative',
+                        position: isNameColumn ? 'sticky' : 'relative',
+                        left: isNameColumn ? 0 : undefined,
+                        zIndex: isNameColumn ? 15 : 1,
                         transition: 'background-color 0.15s, border-color 0.15s',
                         outline: isSelected ? '2px solid var(--link-text)' : (isInvalid ? '2px solid #ef5350' : 'none'),
                         outlineOffset: '-2px',
                         minHeight: '20px',
                         maxWidth: '300px',
-                        overflow: 'hidden'
+                        overflow: 'hidden',
+                        fontWeight: isNameColumn && isSavedRow ? '600' : 'normal',
+                        boxShadow: isNameColumn ? '2px 0 4px rgba(0, 0, 0, 0.1)' : 'none'
                       }}
                       onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
                       onContextMenu={(e) => handleCellRightClick(rowIndex, colIndex, e)}
@@ -3275,7 +3295,7 @@ const TanStackCRUDTable = forwardRef(({
 // Enhanced Cell Components
 
 // Enhanced searchable dropdown cell component
-const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, allTableData, filterFunction, invalidCells, setInvalidCells }) => {
+const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, allTableData, filterFunction, invalidCells, setInvalidCells, theme = 'dark' }) => {
   const [localValue, setLocalValue] = useState(value || '');
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -3460,7 +3480,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
         position: 'fixed',
         left: Math.max(0, rect.left),
         width: Math.max(100, rect.width),
-        zIndex: 9999,
+        zIndex: 99999,
         maxHeight: Math.min(dropdownHeight, showAbove ? spaceAbove - 10 : spaceBelow - 10)
       };
 
@@ -3479,7 +3499,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
         top: '100%',
         left: 0,
         right: 0,
-        zIndex: 9999,
+        zIndex: 99999,
         maxHeight: '200px'
       };
     }
@@ -3535,15 +3555,15 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
         >▽</span>
       </div>
 
-      {isOpen && (
+      {isOpen && ReactDOM.createPortal(
         <div
           ref={dropdownRef}
           style={{
             ...getDropdownStyle(),
-            backgroundColor: 'var(--form-input-bg)',
-            border: '1px solid var(--form-input-border)',
-            borderRadius: '6px',
-            boxShadow: 'var(--shadow-medium)',
+            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+            border: theme === 'dark' ? '2px solid #64ffda' : '2px solid #334155',
+            borderRadius: '8px',
+            boxShadow: theme === 'dark' ? '0 8px 32px rgba(0, 0, 0, 0.6)' : '0 8px 32px rgba(15, 23, 42, 0.2)',
             overflow: 'hidden'
           }}
         >
@@ -3562,18 +3582,18 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
               width: '100%',
               padding: '10px 12px',
               border: 'none',
-              borderBottom: '1px solid var(--table-border)',
+              borderBottom: theme === 'dark' ? '1px solid #4a5568' : '1px solid #cbd5e1',
               outline: 'none',
               fontSize: '14px',
-              backgroundColor: 'var(--table-row-hover)',
-              color: 'var(--form-input-text)',
+              backgroundColor: theme === 'dark' ? '#2d3748' : '#ffffff',
+              color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
               boxSizing: 'border-box'
             }}
           />
           <div style={{
             maxHeight: '150px',
             overflow: 'auto',
-            backgroundColor: 'var(--form-input-bg)'
+            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff'
           }}>
             {filteredOptions.map((option, index) => {
               const displayText = typeof option === 'string' ? option : (option.name || option.label);
@@ -3595,11 +3615,13 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
                   style={{
                     padding: '10px 12px',
                     cursor: 'pointer',
-                    borderBottom: index < filteredOptions.length - 1 ? '1px solid var(--table-border)' : 'none',
+                    borderBottom: index < filteredOptions.length - 1 ? (theme === 'dark' ? '1px solid #4a5568' : '1px solid #cbd5e1') : 'none',
                     fontSize: '14px',
                     transition: 'background-color 0.15s',
-                    backgroundColor: isSelected ? 'var(--table-row-selected)' : 'var(--form-input-bg)',
-                    color: 'var(--form-input-text)',
+                    backgroundColor: isSelected
+                      ? (theme === 'dark' ? '#2d4a4f' : '#f1f5f9')
+                      : (theme === 'dark' ? '#1e293b' : '#ffffff'),
+                    color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
                     userSelect: 'none'
                   }}
                 >
@@ -3613,14 +3635,15 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
                 fontSize: '13px',
                 fontStyle: 'italic',
                 textAlign: 'center',
-                backgroundColor: 'var(--form-input-bg)',
-                color: 'var(--muted-text)'
+                backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+                color: theme === 'dark' ? '#a0aec0' : '#64748b'
               }}>
                 No options found
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
