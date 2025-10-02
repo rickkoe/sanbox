@@ -3867,6 +3867,8 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
 const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
   const [localValue, setLocalValue] = useState(value || '');
   const [isEditing, setIsEditing] = useState(false);
+  const [initialTypedChar, setInitialTypedChar] = useState('');
+  const cellRef = useRef(null);
 
   useEffect(() => {
     if (!isEditing) {
@@ -3878,12 +3880,33 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
     setIsEditing(true);
   };
 
+  const handleClick = (e) => {
+    // Focus the cell when clicked so keyboard events work
+    // Use a small timeout to ensure focus is properly set
+    e.preventDefault();
+    setTimeout(() => {
+      if (cellRef.current) {
+        cellRef.current.focus();
+      }
+    }, 0);
+  };
+
   const handleChange = (e) => {
     setLocalValue(e.target.value);
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === 'Tab') {
+  const handleEditKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      commitValue();
+      // After committing, focus back on the cell div for keyboard navigation
+      setTimeout(() => {
+        if (cellRef.current) {
+          cellRef.current.focus();
+        }
+      }, 0);
+    } else if (e.key === 'Tab') {
       e.preventDefault();
       e.stopPropagation();
       commitValue();
@@ -3892,6 +3915,35 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
       e.stopPropagation();
       setLocalValue(value || '');
       setIsEditing(false);
+      // Focus back on the cell div
+      setTimeout(() => {
+        if (cellRef.current) {
+          cellRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  const handleCellKeyDown = (e) => {
+    // Check if it's a printable character (not a modifier or navigation key)
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Start editing with the typed character
+      setInitialTypedChar(e.key);
+      setLocalValue(e.key);
+      setIsEditing(true);
+    } else if (e.key === 'Enter' || e.key === 'F2') {
+      // Enter or F2 also enters edit mode
+      e.preventDefault();
+      e.stopPropagation();
+      setIsEditing(true);
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      // Delete/Backspace clears the cell
+      e.preventDefault();
+      e.stopPropagation();
+      setLocalValue('');
+      updateCellData(rowIndex, columnKey, '');
     }
   };
 
@@ -3901,6 +3953,7 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
 
   const commitValue = () => {
     setIsEditing(false);
+    setInitialTypedChar('');
     if (localValue !== value) {
       updateCellData(rowIndex, columnKey, localValue);
     }
@@ -3912,7 +3965,7 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
         type="text"
         value={localValue}
         onChange={handleChange}
-        onKeyDown={handleKeyDown}
+        onKeyDown={handleEditKeyDown}
         onBlur={handleBlur}
         autoFocus
         style={{
@@ -3932,7 +3985,11 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
 
   return (
     <div
+      ref={cellRef}
+      tabIndex={0}
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
+      onKeyDown={handleCellKeyDown}
       style={{
         display: 'block',
         width: '100%',
@@ -3945,7 +4002,8 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
         lineHeight: '1.4',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
+        whiteSpace: 'nowrap',
+        outline: 'none'
       }}
       title={String(localValue)}
     >
