@@ -491,7 +491,10 @@ const TanStackCRUDTable = forwardRef(({
       const headerName = colHeaders[index] || column.header || column.data || `Column ${index + 1}`;
 
       // Calculate width based on header length
-      const headerWidth = Math.max(120, headerName.length * 10 + 60);
+      // Add extra width if column has a custom header (likely has a plus icon button)
+      const hasCustomHeader = column.customHeader;
+      const customHeaderPadding = hasCustomHeader ? 40 : 0; // Extra space for plus icon
+      const headerWidth = Math.max(120, headerName.length * 10 + 60 + customHeaderPadding);
 
       // Calculate content width by sampling data
       let maxContentWidth = headerWidth;
@@ -982,11 +985,13 @@ const TanStackCRUDTable = forwardRef(({
       // Check if this is a checkbox column
       const actualColumnConfig = columns[index];
       const isCheckboxColumn = accessorKey === 'exists' || actualColumnConfig?.type === 'checkbox';
+      const hasCustomHeader = actualColumnConfig?.customHeader;
 
       return {
         id: accessorKey,
         accessorKey,
-        header: isCheckboxColumn ? ({ table: tableInstance }) => {
+        header: hasCustomHeader ? actualColumnConfig.customHeader.component :
+          isCheckboxColumn ? ({ table: tableInstance }) => {
           // Get current data from table
           const currentData = tableInstance.options.data;
           return (
@@ -1042,13 +1047,16 @@ const TanStackCRUDTable = forwardRef(({
           if (isDropdown) {
             let options = dropdownSource || dropdownSources[accessorKey] || [];
 
+            // Get current table data from table instance (always up-to-date, including unsaved changes)
+            const tableData = table.options.data;
+
             // Handle dynamic dropdown sources (functions)
             if (typeof dropdownSources === 'function') {
-              const dynamicSources = dropdownSources(currentTableData);
+              const dynamicSources = dropdownSources(tableData);
 
               // Check if this column has a dynamic function
               if (dynamicSources.getMemberOptions && accessorKey.startsWith('member_')) {
-                options = dynamicSources.getMemberOptions(rowIndex, accessorKey, currentTableData);
+                options = dynamicSources.getMemberOptions(rowIndex, accessorKey, tableData);
               } else {
                 options = dynamicSources[accessorKey] || [];
               }
@@ -1065,6 +1073,7 @@ const TanStackCRUDTable = forwardRef(({
                 columnKey={accessorKey}
                 updateCellData={updateCellData}
                 rowData={row.original}
+                allTableData={tableData}
                 filterFunction={dropdownFilters?.[accessorKey]}
                 invalidCells={invalidCells}
                 setInvalidCells={setInvalidCells}
@@ -2307,6 +2316,12 @@ const TanStackCRUDTable = forwardRef(({
     clearSelection: () => setSelectedCells(new Set()),
     getSelectedCells: () => selectedCells,
     getTableData: () => currentTableData,
+    setTableData: (data) => {
+      setEditableData(data);
+      setHasChanges(true);
+    },
+    getSorting: () => sorting,
+    setSorting: (sortState) => setSorting(sortState),
     hasChanges,
     autoSizeColumns,
   }));
@@ -3179,7 +3194,7 @@ const TanStackCRUDTable = forwardRef(({
 // Enhanced Cell Components
 
 // Enhanced searchable dropdown cell component
-const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, filterFunction, invalidCells, setInvalidCells }) => {
+const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, allTableData, filterFunction, invalidCells, setInvalidCells }) => {
   const [localValue, setLocalValue] = useState(value || '');
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -3220,7 +3235,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   // Apply filtering function if provided, then search filtering
   let availableOptions = options;
   if (filterFunction && rowData) {
-    availableOptions = filterFunction(options, rowData, columnKey);
+    availableOptions = filterFunction(options, rowData, columnKey, allTableData);
     console.log(`🔍 Filtered ${columnKey} options from ${options.length} to ${availableOptions.length} for row data:`, rowData);
   }
 

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useContext, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useSettings } from "../../context/SettingsContext";
+import { useTheme } from "../../context/ThemeContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 
 // Clean TanStack Table implementation for Zone management
@@ -9,6 +10,7 @@ const ZoneTableTanStackClean = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
     const { settings } = useSettings();
+    const { theme } = useTheme();
 
     const [fabricOptions, setFabricOptions] = useState([]);
     const [fabricsById, setFabricsById] = useState({});
@@ -21,54 +23,134 @@ const ZoneTableTanStackClean = () => {
         allAccess: 2
     });
 
+    // Ref to access table methods
+    const tableRef = useRef(null);
+
     // Functions to add new member columns
-    const addTargetColumn = () => {
+    const addTargetColumn = useCallback(() => {
+        // Preserve current table data and sorting before adding column
+        const currentData = tableRef.current?.getTableData();
+        const currentSorting = tableRef.current?.getSorting();
+        console.log('💾 Preserving table data before adding column:', currentData?.length, 'rows');
+        console.log('💾 Preserving sorting state:', currentSorting);
+
         setMemberColumnCounts(prev => ({
             ...prev,
             targets: prev.targets + 1
         }));
         console.log('➕ Added new target member column');
-    };
 
-    const addInitiatorColumn = () => {
+        // Restore data and sorting after column is added and trigger auto-size for new column
+        if (currentData && currentData.length > 0) {
+            setTimeout(() => {
+                console.log('♻️ Restoring preserved table data and sorting');
+                tableRef.current?.setTableData(currentData);
+                tableRef.current?.setSorting(currentSorting || []);
+                // Auto-size all columns including the new one
+                setTimeout(() => {
+                    console.log('📏 Auto-sizing columns after adding new column');
+                    tableRef.current?.autoSizeColumns();
+                }, 50);
+            }, 100);
+        } else {
+            // Even if no data, auto-size the new column
+            setTimeout(() => {
+                console.log('📏 Auto-sizing columns after adding new column');
+                tableRef.current?.autoSizeColumns();
+            }, 150);
+        }
+    }, []);
+
+    const addInitiatorColumn = useCallback(() => {
+        // Preserve current table data and sorting before adding column
+        const currentData = tableRef.current?.getTableData();
+        const currentSorting = tableRef.current?.getSorting();
+        console.log('💾 Preserving table data before adding column:', currentData?.length, 'rows');
+        console.log('💾 Preserving sorting state:', currentSorting);
+
         setMemberColumnCounts(prev => ({
             ...prev,
             initiators: prev.initiators + 1
         }));
         console.log('➕ Added new initiator member column');
-    };
 
-    const addAllAccessColumn = () => {
+        // Restore data and sorting after column is added and trigger auto-size for new column
+        if (currentData && currentData.length > 0) {
+            setTimeout(() => {
+                console.log('♻️ Restoring preserved table data and sorting');
+                tableRef.current?.setTableData(currentData);
+                tableRef.current?.setSorting(currentSorting || []);
+                // Auto-size all columns including the new one
+                setTimeout(() => {
+                    console.log('📏 Auto-sizing columns after adding new column');
+                    tableRef.current?.autoSizeColumns();
+                }, 50);
+            }, 100);
+        } else {
+            // Even if no data, auto-size the new column
+            setTimeout(() => {
+                console.log('📏 Auto-sizing columns after adding new column');
+                tableRef.current?.autoSizeColumns();
+            }, 150);
+        }
+    }, []);
+
+    const addAllAccessColumn = useCallback(() => {
+        // Preserve current table data and sorting before adding column
+        const currentData = tableRef.current?.getTableData();
+        const currentSorting = tableRef.current?.getSorting();
+        console.log('💾 Preserving table data before adding column:', currentData?.length, 'rows');
+        console.log('💾 Preserving sorting state:', currentSorting);
+
         setMemberColumnCounts(prev => ({
             ...prev,
             allAccess: prev.allAccess + 1
         }));
         console.log('➕ Added new all access member column');
-    };
 
-    // Custom add actions for the table toolbar
-    const customAddActions = {
-        dropdownLabel: "Add Item",
-        actions: [
-            {
-                label: "Add New Zone Row",
-                onClick: "default", // This will trigger the default add row behavior
-                divider: true
-            },
-            {
-                label: "Add Target Member Column",
-                onClick: addTargetColumn
-            },
-            {
-                label: "Add Initiator Member Column",
-                onClick: addInitiatorColumn
-            },
-            {
-                label: "Add All Access Member Column",
-                onClick: addAllAccessColumn
-            }
-        ]
-    };
+        // Restore data and sorting after column is added and trigger auto-size for new column
+        if (currentData && currentData.length > 0) {
+            setTimeout(() => {
+                console.log('♻️ Restoring preserved table data and sorting');
+                tableRef.current?.setTableData(currentData);
+                tableRef.current?.setSorting(currentSorting || []);
+                // Auto-size all columns including the new one
+                setTimeout(() => {
+                    console.log('📏 Auto-sizing columns after adding new column');
+                    tableRef.current?.autoSizeColumns();
+                }, 50);
+            }, 100);
+        } else {
+            // Even if no data, auto-size the new column
+            setTimeout(() => {
+                console.log('📏 Auto-sizing columns after adding new column');
+                tableRef.current?.autoSizeColumns();
+            }, 150);
+        }
+    }, []);
+
+    // Helper function to get plus button styles based on theme
+    const getPlusButtonStyle = useCallback(() => {
+        const isDark = theme === 'dark';
+        return {
+            background: isDark ? '#14b8a6' : '#64748b', // teal for dark, slate for light
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0',
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            color: isDark ? '#000' : '#fff', // black for dark theme, white for light
+            fontSize: '16px',
+            fontWeight: 'bold',
+            lineHeight: '1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.8,
+            transition: 'opacity 0.2s, transform 0.2s'
+        };
+    }, [theme]);
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
@@ -102,33 +184,102 @@ const ZoneTableTanStackClean = () => {
 
         // Target columns first
         for (let i = 1; i <= memberColumnCounts.targets; i++) {
+            const isLastTarget = i === memberColumnCounts.targets;
             columns.push({
                 data: `target_member_${i}`,
                 title: `Target Member ${i}`,
-                type: "dropdown"
+                type: "dropdown",
+                customHeader: isLastTarget ? {
+                    component: () => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>
+                            <span>Target Member {i}</span>
+                            <button
+                                onClick={addTargetColumn}
+                                style={getPlusButtonStyle()}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.opacity = 1;
+                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.opacity = 0.8;
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                                title="Add Target Member Column"
+                            >
+                                +
+                            </button>
+                        </div>
+                    )
+                } : undefined
             });
         }
 
         // Initiator columns next
         for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+            const isLastInitiator = i === memberColumnCounts.initiators;
             columns.push({
                 data: `init_member_${i}`,
                 title: `Initiator Member ${i}`,
-                type: "dropdown"
+                type: "dropdown",
+                customHeader: isLastInitiator ? {
+                    component: () => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>
+                            <span>Initiator Member {i}</span>
+                            <button
+                                onClick={addInitiatorColumn}
+                                style={getPlusButtonStyle()}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.opacity = 1;
+                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.opacity = 0.8;
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                                title="Add Initiator Member Column"
+                            >
+                                +
+                            </button>
+                        </div>
+                    )
+                } : undefined
             });
         }
 
         // All Access columns last
         for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+            const isLastAllAccess = i === memberColumnCounts.allAccess;
             columns.push({
                 data: `all_member_${i}`,
                 title: `All Access Member ${i}`,
-                type: "dropdown"
+                type: "dropdown",
+                customHeader: isLastAllAccess ? {
+                    component: () => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>
+                            <span>All Access Member {i}</span>
+                            <button
+                                onClick={addAllAccessColumn}
+                                style={getPlusButtonStyle()}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.opacity = 1;
+                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.opacity = 0.8;
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                                title="Add All Access Member Column"
+                            >
+                                +
+                            </button>
+                        </div>
+                    )
+                } : undefined
             });
         }
 
         return columns;
-    }, [memberColumnCounts]);
+    }, [memberColumnCounts, addTargetColumn, addInitiatorColumn, addAllAccessColumn, getPlusButtonStyle]);
 
     // All columns (base + member)
     const allColumns = useMemo(() => {
@@ -430,7 +581,14 @@ const ZoneTableTanStackClean = () => {
 
         // Create fabric and use-type based filter for member columns
         allMemberColumns.forEach(memberKey => {
-            filters[memberKey] = (options, rowData, columnKey) => {
+            filters[memberKey] = (options, rowData, columnKey, allTableData) => {
+                console.log(`🎯 Filter function called for ${columnKey}:`, {
+                    optionsCount: options?.length,
+                    hasRowData: !!rowData,
+                    hasAllTableData: !!allTableData,
+                    allTableDataLength: allTableData?.length
+                });
+
                 const zoneFabric = rowData?.fabric;
                 if (!zoneFabric) {
                     console.log(`⚠️ No fabric selected for ${columnKey}, showing no options`);
@@ -450,15 +608,30 @@ const ZoneTableTanStackClean = () => {
                 const aliasMaxZones = settings?.alias_max_zones || 1;
                 const currentValue = rowData?.[columnKey]; // Current value in this cell
 
-                // Get all aliases already used in other member columns of this same zone
-                const usedInThisZone = new Set();
-                allMemberColumns.forEach(memberCol => {
-                    if (memberCol !== columnKey && rowData?.[memberCol]) {
-                        usedInThisZone.add(rowData[memberCol]);
-                    }
-                });
+                // Get all aliases already used across ALL zones in the project
+                const usedAcrossAllZones = new Set();
+                if (allTableData && Array.isArray(allTableData)) {
+                    allTableData.forEach((zone, zoneIndex) => {
+                        allMemberColumns.forEach(memberCol => {
+                            const memberName = zone?.[memberCol];
+                            if (memberName) {
+                                // Don't count the current cell being edited
+                                // Compare by ID if available, otherwise by reference
+                                const isSameZone = (zone.id && rowData?.id)
+                                    ? zone.id === rowData.id
+                                    : zone === rowData;
+                                const isCurrentCell = isSameZone && memberCol === columnKey;
+                                if (!isCurrentCell) {
+                                    usedAcrossAllZones.add(memberName);
+                                }
+                            }
+                        });
+                    });
+                }
 
-                // Filter aliases by fabric, use type, zone count limits, and current zone usage
+                console.log(`🔍 ${columnKey}: Checking zone fabric="${zoneFabric}", found ${usedAcrossAllZones.size} aliases used across all zones:`, Array.from(usedAcrossAllZones));
+
+                // Filter aliases by fabric, use type, zone count limits, and cross-zone usage
                 const filteredAliases = aliasOptions.filter(alias => {
                     // Must match fabric
                     if (alias.fabric !== zoneFabric) return false;
@@ -469,12 +642,12 @@ const ZoneTableTanStackClean = () => {
                     // Must match required use type
                     if (requiredUseType && alias.use !== requiredUseType) return false;
 
-                    // Check if already used in this zone (but allow current value)
+                    // Check if already used in ANY zone (but allow current value)
                     const isCurrentValue = alias.name === currentValue;
-                    const alreadyUsedInThisZone = usedInThisZone.has(alias.name);
+                    const alreadyUsedInAnyZone = usedAcrossAllZones.has(alias.name);
 
-                    if (alreadyUsedInThisZone && !isCurrentValue) {
-                        console.log(`  ❌ Excluded ${alias.name}: already used in this zone`);
+                    if (alreadyUsedInAnyZone && !isCurrentValue) {
+                        console.log(`  ❌ Excluded ${alias.name}: already used in another zone`);
                         return false;
                     }
 
@@ -495,7 +668,7 @@ const ZoneTableTanStackClean = () => {
                 // Only return options that exist in both the original list and pass all filters
                 const result = options.filter(option => filteredNames.includes(option));
 
-                console.log(`🔍 ${columnKey} (${requiredUseType}) filtered from ${options.length} to ${result.length} for fabric ${zoneFabric} (max zones: ${aliasMaxZones}, used in zone: ${usedInThisZone.size})`);
+                console.log(`🔍 ${columnKey} (${requiredUseType}) filtered from ${options.length} to ${result.length} for fabric ${zoneFabric} (max zones: ${aliasMaxZones}, used across all zones: ${usedAcrossAllZones.size})`);
                 return result;
             };
         });
@@ -844,6 +1017,7 @@ const ZoneTableTanStackClean = () => {
     return (
         <div className="modern-table-container">
             <TanStackCRUDTable
+                ref={tableRef}
                 // API Configuration
                 apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}
                 saveUrl={API_ENDPOINTS.zoneSave}
@@ -868,9 +1042,6 @@ const ZoneTableTanStackClean = () => {
                 // Table Settings
                 height="calc(100vh - 200px)"
                 storageKey={`zone-table-${activeProjectId || 'default'}-bytype-t${memberColumnCounts.targets}i${memberColumnCounts.initiators}a${memberColumnCounts.allAccess}`}
-
-                // Custom Actions
-                customAddActions={customAddActions}
 
                 // Event Handlers
                 onSave={(result) => {
