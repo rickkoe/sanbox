@@ -23,6 +23,16 @@ const StorageScriptsPage = () => {
   const [downloadFilename, setDownloadFilename] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // Create settings modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createSettings, setCreateSettings] = useState({ hosts: {} });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastClickedIndex, setLastClickedIndex] = useState({ hosts: null });
+  const [storageFilter, setStorageFilter] = useState("all");
+  const [storageSystems, setStorageSystems] = useState([]);
+  const [searchText, setSearchText] = useState("");
+
   useEffect(() => {
     // Wait until we actually have config loaded
     if (!config || Object.keys(config).length === 0) {
@@ -113,6 +123,152 @@ const StorageScriptsPage = () => {
   const handleOpenDownloadModal = () => {
     setDownloadFilename(getDefaultFilename());
     setShowDownloadModal(true);
+  };
+
+  // Load create settings when modal opens
+  const handleOpenCreateModal = async () => {
+    setShowCreateModal(true);
+
+    try {
+      const projectId = config.active_project?.id;
+      if (!projectId) {
+        console.error("No project ID found");
+        return;
+      }
+
+      console.log("Loading create settings for project:", projectId);
+
+      // Fetch hosts and storage systems with large page size to get all items
+      const customerId = config.customer?.id;
+      const [hostsRes, storageRes] = await Promise.all([
+        axios.get(`/api/san/hosts/project/${projectId}/?page_size=1000&format=table`),
+        axios.get(`/api/storage/?customer=${customerId}`)
+      ]);
+
+      console.log("Hosts response:", hostsRes.data);
+      console.log("Storage systems response:", storageRes.data);
+
+      // Store storage systems for filter
+      const storageList = storageRes.data.results || storageRes.data || [];
+      setStorageSystems(storageList);
+
+      // Create a map of storage system IDs to names for quick lookup
+      const storageMap = {};
+      storageList.forEach(storage => {
+        storageMap[storage.id] = storage.name;
+      });
+
+      console.log("Storage map:", storageMap);
+
+      // Initialize create settings
+      const hosts = {};
+
+      // Handle paginated response (table format returns {results: [...], count: ...})
+      const hostsData = hostsRes.data.results || hostsRes.data || [];
+
+      hostsData.forEach(host => {
+        console.log("Host:", host.name, "storage_system:", host.storage_system, "storage_id:", host.storage_id);
+
+        // Use storage_id (FK) if available, otherwise fall back to storage_system (CharField)
+        const storageIdentifier = host.storage_id || host.storage_system;
+        const storageName = storageMap[host.storage_id] || host.storage_system || "Unknown";
+
+        console.log("Storage identifier:", storageIdentifier, "Mapped name:", storageName);
+
+        hosts[host.id] = {
+          id: host.id,
+          name: host.name,
+          create: host.create || false,
+          storage_system: host.storage_id || host.storage_system,
+          storage_system_name: storageName
+        };
+      });
+
+      setCreateSettings({ hosts });
+      console.log("Create settings loaded:", { hosts });
+    } catch (error) {
+      console.error("Error loading create settings:", error);
+      alert("Failed to load settings. Please try again.");
+    }
+  };
+
+  const handleToggleCreate = (type, id, index, event) => {
+    if (event?.shiftKey && lastClickedIndex[type] !== null) {
+      // Shift-click: select range
+      const items = Object.values(createSettings[type]);
+      const start = Math.min(lastClickedIndex[type], index);
+      const end = Math.max(lastClickedIndex[type], index);
+      const newValue = !createSettings[type][id].create;
+
+      setCreateSettings(prev => {
+        const updated = { ...prev[type] };
+        for (let i = start; i <= end; i++) {
+          const item = items[i];
+          updated[item.id] = { ...updated[item.id], create: newValue };
+        }
+        return { ...prev, [type]: updated };
+      });
+    } else {
+      // Normal click
+      setCreateSettings(prev => ({
+        ...prev,
+        [type]: {
+          ...prev[type],
+          [id]: {
+            ...prev[type][id],
+            create: !prev[type][id].create
+          }
+        }
+      }));
+    }
+    setLastClickedIndex(prev => ({ ...prev, [type]: index }));
+  };
+
+  const handleDragSelect = (type, id, isEntering) => {
+    if (isDragging && isEntering) {
+      setCreateSettings(prev => ({
+        ...prev,
+        [type]: {
+          ...prev[type],
+          [id]: {
+            ...prev[type][id],
+            create: true
+          }
+        }
+      }));
+    }
+  };
+
+  const handleSelectAllCreate = (type, checked) => {
+    setCreateSettings(prev => ({
+      ...prev,
+      [type]: Object.keys(prev[type]).reduce((acc, id) => {
+        acc[id] = { ...prev[type][id], create: checked };
+        return acc;
+      }, {})
+    }));
+  };
+
+  const handleSaveCreateSettings = async () => {
+    try {
+      setIsSavingSettings(true);
+
+      // Prepare data for batch update
+      const hostsToUpdate = Object.values(createSettings.hosts).map(h => ({ id: h.id, create: h.create }));
+
+      // Send updates to backend
+      await axios.post('/api/san/hosts/bulk-update-create/', { hosts: hostsToUpdate });
+
+      setShowCreateModal(false);
+      setIsSavingSettings(false);
+
+      // Reload the page to refresh scripts
+      window.location.reload();
+    } catch (error) {
+      console.error("Error saving create settings:", error);
+      alert("Failed to save settings. Please try again.");
+      setIsSavingSettings(false);
+    }
   };
 
   const handleSelectAll = (checked) => {
@@ -268,6 +424,17 @@ const StorageScriptsPage = () => {
                   Copy
                 </>
               )}
+            </button>
+
+            <button
+              className="script-action-btn script-action-btn-secondary"
+              onClick={handleOpenCreateModal}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              Manage Create
             </button>
 
             <button
@@ -461,6 +628,158 @@ const StorageScriptsPage = () => {
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
                 Download ({Object.values(selectedStorage).filter(Boolean).length})
+              </>
+            )}
+          </button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Create Settings Modal */}
+      <Modal
+        show={showCreateModal}
+        onHide={() => setShowCreateModal(false)}
+        centered
+        size="lg"
+        className={`download-modal theme-${theme}`}
+      >
+        <Modal.Header closeButton className="download-modal-header">
+          <Modal.Title>Manage Create Settings</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="download-modal-body">
+          <p style={{ color: 'var(--secondary-text)', marginBottom: '1.5rem' }}>
+            Control which hosts should be included in storage script generation by toggling their "Create" settings.
+          </p>
+
+          {/* Storage System Filter and Search */}
+          <div className="download-modal-section">
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label className="download-modal-label">Filter by Storage System</label>
+                <select
+                  className="script-selector"
+                  style={{ maxWidth: '100%' }}
+                  value={storageFilter}
+                  onChange={(e) => setStorageFilter(e.target.value)}
+                >
+                  <option value="all">All Storage Systems</option>
+                  {storageSystems.map(storage => (
+                    <option key={storage.id} value={storage.id}>{storage.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="download-modal-label">Search</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="download-filename-input"
+                    placeholder="Search hosts..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    style={{ paddingRight: searchText ? '2.5rem' : '1rem' }}
+                  />
+                  {searchText && (
+                    <button
+                      onClick={() => setSearchText("")}
+                      style={{
+                        position: 'absolute',
+                        right: '0.5rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--muted-text)',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        fontSize: '1.25rem'
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Hosts Section */}
+          <div className="download-modal-section">
+            <div className="select-all-header">
+              <Form.Check
+                type="checkbox"
+                id="select-all-hosts"
+                label="Hosts"
+                checked={Object.keys(createSettings.hosts).length > 0 && Object.values(createSettings.hosts).filter(h => (storageFilter === "all" || String(h.storage_system) === String(storageFilter)) && (searchText === "" || h.name.toLowerCase().includes(searchText.toLowerCase()))).every(h => h.create)}
+                onChange={(e) => handleSelectAllCreate('hosts', e.target.checked)}
+                className="select-all-checkbox"
+              />
+              <span className="selection-count">
+                {Object.values(createSettings.hosts).filter(h => (storageFilter === "all" || String(h.storage_system) === String(storageFilter)) && (searchText === "" || h.name.toLowerCase().includes(searchText.toLowerCase())) && h.create).length} of {Object.values(createSettings.hosts).filter(h => (storageFilter === "all" || String(h.storage_system) === String(storageFilter)) && (searchText === "" || h.name.toLowerCase().includes(searchText.toLowerCase()))).length} selected
+              </span>
+            </div>
+
+            <div
+              className="fabric-list"
+              onMouseDown={() => setIsDragging(true)}
+              onMouseUp={() => setIsDragging(false)}
+              onMouseLeave={() => setIsDragging(false)}
+            >
+              {Object.values(createSettings.hosts)
+                .filter(host => (storageFilter === "all" || String(host.storage_system) === String(storageFilter)) && (searchText === "" || host.name.toLowerCase().includes(searchText.toLowerCase())))
+                .map((host, index) => (
+                <div
+                  key={host.id}
+                  className="fabric-item"
+                  onMouseEnter={() => handleDragSelect('hosts', host.id, true)}
+                >
+                  <Form.Check
+                    type="checkbox"
+                    id={`host-${host.id}`}
+                    checked={host.create}
+                    onChange={(e) => handleToggleCreate('hosts', host.id, index, e)}
+                    className="fabric-checkbox"
+                  />
+                  <label
+                    htmlFor={`host-${host.id}`}
+                    className="fabric-label"
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    <span className="fabric-name">{host.name}</span>
+                    <span className="fabric-tag">{host.storage_system_name}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer className="download-modal-footer">
+          <button
+            className="modal-btn modal-btn-secondary"
+            onClick={() => setShowCreateModal(false)}
+            disabled={isSavingSettings}
+          >
+            Cancel
+          </button>
+          <button
+            className="modal-btn modal-btn-primary"
+            onClick={handleSaveCreateSettings}
+            disabled={isSavingSettings}
+          >
+            {isSavingSettings ? (
+              <>
+                <div className="btn-spinner"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17,21 17,13 7,13 7,21"/>
+                  <polyline points="7,3 7,8 15,8"/>
+                </svg>
+                Save Settings
               </>
             )}
           </button>

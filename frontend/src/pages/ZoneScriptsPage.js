@@ -26,6 +26,16 @@ const ZoneScriptsPage = () => {
   const [downloadFilename, setDownloadFilename] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // Create settings modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createSettings, setCreateSettings] = useState({ zones: {}, aliases: {} });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastClickedIndex, setLastClickedIndex] = useState({ zones: null, aliases: null });
+  const [fabricFilter, setFabricFilter] = useState("all");
+  const [fabrics, setFabrics] = useState([]);
+  const [searchText, setSearchText] = useState("");
+
   useEffect(() => {
     // Wait until we actually have config loaded (assuming that an empty config means it's not loaded yet).
     if (!config || Object.keys(config).length === 0) {
@@ -135,6 +145,154 @@ const ZoneScriptsPage = () => {
   const handleOpenDownloadModal = () => {
     setDownloadFilename(getDefaultFilename());
     setShowDownloadModal(true);
+  };
+
+  // Load create settings when modal opens
+  const handleOpenCreateModal = async () => {
+    setShowCreateModal(true);
+
+    try {
+      const projectId = config.active_project?.id;
+      if (!projectId) {
+        console.error("No project ID found");
+        return;
+      }
+
+      console.log("Loading create settings for project:", projectId);
+
+      // Fetch zones, aliases, and fabrics with large page size to get all items
+      const customerId = config.customer?.id;
+      const [zonesRes, aliasesRes, fabricsRes] = await Promise.all([
+        axios.get(`/api/san/zones/project/${projectId}/?page_size=1000`),
+        axios.get(`/api/san/aliases/project/${projectId}/?page_size=1000`),
+        axios.get(`/api/san/fabrics/?customer_id=${customerId}`)
+      ]);
+
+      console.log("Zones response:", zonesRes.data);
+      console.log("Aliases response:", aliasesRes.data);
+      console.log("Fabrics response:", fabricsRes.data);
+
+      // Store fabrics for filter
+      const fabricsList = fabricsRes.data || [];
+      setFabrics(fabricsList);
+
+      // Initialize create settings
+      const zones = {};
+      const aliases = {};
+
+      // Handle paginated response
+      const zonesData = zonesRes.data.results || zonesRes.data || [];
+      const aliasesData = aliasesRes.data.results || aliasesRes.data || [];
+
+      zonesData.forEach(zone => {
+        zones[zone.id] = {
+          id: zone.id,
+          name: zone.name,
+          create: zone.create || false,
+          fabric: zone.fabric,
+          fabric_name: zone.fabric_details?.name || "Unknown"
+        };
+      });
+
+      aliasesData.forEach(alias => {
+        aliases[alias.id] = {
+          id: alias.id,
+          name: alias.name,
+          create: alias.create || false,
+          fabric: alias.fabric,
+          fabric_name: alias.fabric_details?.name || "Unknown"
+        };
+      });
+
+      setCreateSettings({ zones, aliases });
+      console.log("Create settings loaded:", { zones, aliases });
+    } catch (error) {
+      console.error("Error loading create settings:", error);
+      alert("Failed to load settings. Please try again.");
+    }
+  };
+
+  const handleToggleCreate = (type, id, index, event) => {
+    if (event?.shiftKey && lastClickedIndex[type] !== null) {
+      // Shift-click: select range
+      const items = Object.values(createSettings[type]);
+      const start = Math.min(lastClickedIndex[type], index);
+      const end = Math.max(lastClickedIndex[type], index);
+      const newValue = !createSettings[type][id].create;
+
+      setCreateSettings(prev => {
+        const updated = { ...prev[type] };
+        for (let i = start; i <= end; i++) {
+          const item = items[i];
+          updated[item.id] = { ...updated[item.id], create: newValue };
+        }
+        return { ...prev, [type]: updated };
+      });
+    } else {
+      // Normal click
+      setCreateSettings(prev => ({
+        ...prev,
+        [type]: {
+          ...prev[type],
+          [id]: {
+            ...prev[type][id],
+            create: !prev[type][id].create
+          }
+        }
+      }));
+    }
+    setLastClickedIndex(prev => ({ ...prev, [type]: index }));
+  };
+
+  const handleDragSelect = (type, id, isEntering) => {
+    if (isDragging && isEntering) {
+      setCreateSettings(prev => ({
+        ...prev,
+        [type]: {
+          ...prev[type],
+          [id]: {
+            ...prev[type][id],
+            create: true
+          }
+        }
+      }));
+    }
+  };
+
+  const handleSelectAllCreate = (type, checked) => {
+    setCreateSettings(prev => ({
+      ...prev,
+      [type]: Object.keys(prev[type]).reduce((acc, id) => {
+        acc[id] = { ...prev[type][id], create: checked };
+        return acc;
+      }, {})
+    }));
+  };
+
+  const handleSaveCreateSettings = async () => {
+    try {
+      setIsSavingSettings(true);
+
+      // Prepare data for batch update
+      const zonesToUpdate = Object.values(createSettings.zones).map(z => ({ id: z.id, create: z.create }));
+      const aliasesToUpdate = Object.values(createSettings.aliases).map(a => ({ id: a.id, create: a.create }));
+
+      // Send updates to backend
+      await Promise.all([
+        axios.post('/api/san/zones/bulk-update-create/', { zones: zonesToUpdate }),
+        axios.post('/api/san/aliases/bulk-update-create/', { aliases: aliasesToUpdate })
+      ]);
+
+      setShowCreateModal(false);
+      setIsSavingSettings(false);
+
+      // Reload the page to refresh scripts
+      window.location.reload();
+    } catch (error) {
+      console.error("Error saving create settings:", error);
+      alert("Failed to save settings. Please try again.");
+      setIsSavingSettings(false);
+    }
   };
 
   const handleSelectAll = (checked) => {
@@ -294,6 +452,17 @@ const ZoneScriptsPage = () => {
                   Copy
                 </>
               )}
+            </button>
+
+            <button
+              className="script-action-btn script-action-btn-secondary"
+              onClick={handleOpenCreateModal}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              Manage Create
             </button>
 
             <button
@@ -491,6 +660,208 @@ const ZoneScriptsPage = () => {
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
                 Download ({Object.values(selectedFabrics).filter(Boolean).length})
+              </>
+            )}
+          </button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Create Settings Modal */}
+      <Modal
+        show={showCreateModal}
+        onHide={() => setShowCreateModal(false)}
+        centered
+        size="lg"
+        className={`download-modal theme-${theme}`}
+      >
+        <Modal.Header closeButton className="download-modal-header">
+          <Modal.Title>Manage Create Settings</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="download-modal-body">
+          <p style={{ color: 'var(--secondary-text)', marginBottom: '1.5rem' }}>
+            Control which aliases and zones should be included in script generation by toggling their "Create" settings.
+          </p>
+
+          {/* Fabric Filter and Search */}
+          <div className="download-modal-section">
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label className="download-modal-label">Filter by Fabric</label>
+                <select
+                  className="script-selector"
+                  style={{ maxWidth: '100%' }}
+                  value={fabricFilter}
+                  onChange={(e) => setFabricFilter(e.target.value)}
+                >
+                  <option value="all">All Fabrics</option>
+                  {fabrics.map(fabric => (
+                    <option key={fabric.id} value={fabric.id}>{fabric.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="download-modal-label">Search</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="download-filename-input"
+                    placeholder="Search aliases and zones..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    style={{ paddingRight: searchText ? '2.5rem' : '1rem' }}
+                  />
+                  {searchText && (
+                    <button
+                      onClick={() => setSearchText("")}
+                      style={{
+                        position: 'absolute',
+                        right: '0.5rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--muted-text)',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        fontSize: '1.25rem'
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Aliases Section */}
+          <div className="download-modal-section">
+            <div className="select-all-header">
+              <Form.Check
+                type="checkbox"
+                id="select-all-aliases"
+                label="Aliases"
+                checked={Object.keys(createSettings.aliases).length > 0 && Object.values(createSettings.aliases).filter(a => (fabricFilter === "all" || String(a.fabric) === String(fabricFilter)) && (searchText === "" || a.name.toLowerCase().includes(searchText.toLowerCase()))).every(a => a.create)}
+                onChange={(e) => handleSelectAllCreate('aliases', e.target.checked)}
+                className="select-all-checkbox"
+              />
+              <span className="selection-count">
+                {Object.values(createSettings.aliases).filter(a => (fabricFilter === "all" || String(a.fabric) === String(fabricFilter)) && (searchText === "" || a.name.toLowerCase().includes(searchText.toLowerCase())) && a.create).length} of {Object.values(createSettings.aliases).filter(a => (fabricFilter === "all" || String(a.fabric) === String(fabricFilter)) && (searchText === "" || a.name.toLowerCase().includes(searchText.toLowerCase()))).length} selected
+              </span>
+            </div>
+
+            <div
+              className="fabric-list"
+              onMouseDown={() => setIsDragging(true)}
+              onMouseUp={() => setIsDragging(false)}
+              onMouseLeave={() => setIsDragging(false)}
+            >
+              {Object.values(createSettings.aliases)
+                .filter(alias => (fabricFilter === "all" || String(alias.fabric) === String(fabricFilter)) && (searchText === "" || alias.name.toLowerCase().includes(searchText.toLowerCase())))
+                .map((alias, index) => (
+                <div
+                  key={alias.id}
+                  className="fabric-item"
+                  onMouseEnter={() => handleDragSelect('aliases', alias.id, true)}
+                >
+                  <Form.Check
+                    type="checkbox"
+                    id={`alias-${alias.id}`}
+                    checked={alias.create}
+                    onChange={(e) => handleToggleCreate('aliases', alias.id, index, e)}
+                    className="fabric-checkbox"
+                  />
+                  <label
+                    htmlFor={`alias-${alias.id}`}
+                    className="fabric-label"
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    <span className="fabric-name">{alias.name}</span>
+                    <span className="fabric-tag">{alias.fabric_name}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Zones Section */}
+          <div className="download-modal-section">
+            <div className="select-all-header">
+              <Form.Check
+                type="checkbox"
+                id="select-all-zones"
+                label="Zones"
+                checked={Object.keys(createSettings.zones).length > 0 && Object.values(createSettings.zones).filter(z => (fabricFilter === "all" || String(z.fabric) === String(fabricFilter)) && (searchText === "" || z.name.toLowerCase().includes(searchText.toLowerCase()))).every(z => z.create)}
+                onChange={(e) => handleSelectAllCreate('zones', e.target.checked)}
+                className="select-all-checkbox"
+              />
+              <span className="selection-count">
+                {Object.values(createSettings.zones).filter(z => (fabricFilter === "all" || String(z.fabric) === String(fabricFilter)) && (searchText === "" || z.name.toLowerCase().includes(searchText.toLowerCase())) && z.create).length} of {Object.values(createSettings.zones).filter(z => (fabricFilter === "all" || String(z.fabric) === String(fabricFilter)) && (searchText === "" || z.name.toLowerCase().includes(searchText.toLowerCase()))).length} selected
+              </span>
+            </div>
+
+            <div
+              className="fabric-list"
+              onMouseDown={() => setIsDragging(true)}
+              onMouseUp={() => setIsDragging(false)}
+              onMouseLeave={() => setIsDragging(false)}
+            >
+              {Object.values(createSettings.zones)
+                .filter(zone => (fabricFilter === "all" || String(zone.fabric) === String(fabricFilter)) && (searchText === "" || zone.name.toLowerCase().includes(searchText.toLowerCase())))
+                .map((zone, index) => (
+                <div
+                  key={zone.id}
+                  className="fabric-item"
+                  onMouseEnter={() => handleDragSelect('zones', zone.id, true)}
+                >
+                  <Form.Check
+                    type="checkbox"
+                    id={`zone-${zone.id}`}
+                    checked={zone.create}
+                    onChange={(e) => handleToggleCreate('zones', zone.id, index, e)}
+                    className="fabric-checkbox"
+                  />
+                  <label
+                    htmlFor={`zone-${zone.id}`}
+                    className="fabric-label"
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    <span className="fabric-name">{zone.name}</span>
+                    <span className="fabric-tag">{zone.fabric_name}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer className="download-modal-footer">
+          <button
+            className="modal-btn modal-btn-secondary"
+            onClick={() => setShowCreateModal(false)}
+            disabled={isSavingSettings}
+          >
+            Cancel
+          </button>
+          <button
+            className="modal-btn modal-btn-primary"
+            onClick={handleSaveCreateSettings}
+            disabled={isSavingSettings}
+          >
+            {isSavingSettings ? (
+              <>
+                <div className="btn-spinner"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17,21 17,13 7,13 7,21"/>
+                  <polyline points="7,3 7,8 15,8"/>
+                </svg>
+                Save Settings
               </>
             )}
           </button>

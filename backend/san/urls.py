@@ -24,7 +24,10 @@ from .views import (
     wwpn_prefix_detail_view,
     wwpn_detect_type_view,
     bulk_update_alias_boolean,
-    bulk_update_zone_boolean
+    bulk_update_zone_boolean,
+    bulk_update_zones_create,
+    bulk_update_aliases_create,
+    bulk_update_hosts_create
 )
 
 urlpatterns = [
@@ -59,4 +62,9 @@ urlpatterns = [
     # Bulk boolean update endpoints
     path("aliases/project/<int:project_id>/bulk-boolean/", bulk_update_alias_boolean, name="bulk-update-alias-boolean"),
     path("zones/project/<int:project_id>/bulk-boolean/", bulk_update_zone_boolean, name="bulk-update-zone-boolean"),
+
+    # Bulk create settings update endpoints
+    path("zones/bulk-update-create/", bulk_update_zones_create, name="bulk-update-zones-create"),
+    path("aliases/bulk-update-create/", bulk_update_aliases_create, name="bulk-update-aliases-create"),
+    path("hosts/bulk-update-create/", bulk_update_hosts_create, name="bulk-update-hosts-create"),
 ]

@@ -2400,16 +2400,136 @@ def bulk_update_zone_boolean(request, project_id):
             pass
         
         print(f"✅ Updated {updated_count} zones")
-        
+
         return JsonResponse({
             "message": f"Successfully updated {updated_count} zones",
             "updated_count": updated_count,
             "field": field,
             "value": value
         })
-        
+
     except Exception as e:
         print(f"❌ Error in bulk update: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def bulk_update_zones_create(request):
+    """Bulk update create field for specific zones by ID."""
+    print("🔥 Bulk Update Zones Create")
+
+    try:
+        data = json.loads(request.body)
+        zones = data.get('zones', [])
+
+        if not zones:
+            return JsonResponse({"error": "No zones provided"}, status=400)
+
+        updated_count = 0
+        for zone_data in zones:
+            zone_id = zone_data.get('id')
+            create_value = zone_data.get('create', False)
+
+            try:
+                zone = Zone.objects.get(id=zone_id)
+                zone.create = create_value
+                zone.save()
+                updated_count += 1
+            except Zone.DoesNotExist:
+                print(f"❌ Zone with ID {zone_id} not found")
+                continue
+
+        print(f"✅ Updated {updated_count} zones")
+        return JsonResponse({
+            "message": f"Successfully updated {updated_count} zones",
+            "updated_count": updated_count
+        })
+
+    except Exception as e:
+        print(f"❌ Error in bulk update zones: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def bulk_update_aliases_create(request):
+    """Bulk update create field for specific aliases by ID."""
+    print("🔥 Bulk Update Aliases Create")
+
+    try:
+        data = json.loads(request.body)
+        aliases = data.get('aliases', [])
+
+        if not aliases:
+            return JsonResponse({"error": "No aliases provided"}, status=400)
+
+        updated_count = 0
+        for alias_data in aliases:
+            alias_id = alias_data.get('id')
+            create_value = alias_data.get('create', False)
+
+            try:
+                alias = Alias.objects.get(id=alias_id)
+                alias.create = create_value
+                alias.save()
+                updated_count += 1
+            except Alias.DoesNotExist:
+                print(f"❌ Alias with ID {alias_id} not found")
+                continue
+
+        print(f"✅ Updated {updated_count} aliases")
+        return JsonResponse({
+            "message": f"Successfully updated {updated_count} aliases",
+            "updated_count": updated_count
+        })
+
+    except Exception as e:
+        print(f"❌ Error in bulk update aliases: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def bulk_update_hosts_create(request):
+    """Bulk update create field for specific hosts by ID."""
+    print("🔥 Bulk Update Hosts Create")
+
+    try:
+        data = json.loads(request.body)
+        hosts = data.get('hosts', [])
+
+        if not hosts:
+            return JsonResponse({"error": "No hosts provided"}, status=400)
+
+        updated_count = 0
+        for host_data in hosts:
+            host_id = host_data.get('id')
+            create_value = host_data.get('create', False)
+
+            try:
+                host = Host.objects.get(id=host_id)
+                host.create = create_value
+                host.save()
+                updated_count += 1
+            except Host.DoesNotExist:
+                print(f"❌ Host with ID {host_id} not found")
+                continue
+
+        print(f"✅ Updated {updated_count} hosts")
+        return JsonResponse({
+            "message": f"Successfully updated {updated_count} hosts",
+            "updated_count": updated_count
+        })
+
+    except Exception as e:
+        print(f"❌ Error in bulk update hosts: {e}")
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
