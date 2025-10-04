@@ -29,12 +29,17 @@ import NotFound from "./pages/NotFound";
 import LoadingSpinner from "./components/LoadingSpinner";
 
 // Context Providers
+import { AuthProvider } from "./context/AuthContext";
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
 import { ImportStatusProvider } from "./context/ImportStatusContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { TableControlsProvider } from "./context/TableControlsContext";
 import { ThemeProvider } from "./context/ThemeContext";
+
+// Authentication Components
+import Login from "./components/auth/Login";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 // Lazy-loaded components for better performance
 const SanPage = React.lazy(() => import("./pages/SanPage"));
@@ -72,8 +77,10 @@ const ZoneDeleteScriptsPage = React.lazy(() => import("./pages/ZoneDeleteScripts
 const ImportSwitchConfig = React.lazy(() => import("./components/forms/ImportSwitchConfig"));
 const StorageInsightsImporter = React.lazy(() => import("./pages/StorageInsightsImporter"));
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
-const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
 const CustomNamingPage = React.lazy(() => import("./pages/CustomNamingPage"));
+const TeamManagement = React.lazy(() => import("./pages/TeamManagement"));
+const UserProfile = React.lazy(() => import("./pages/UserProfile"));
+// const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage")); // Temporarily disabled due to JSX syntax error
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -225,7 +232,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
                     <Route path="/test" element={<TestFilters />} />
                     <Route path="/import" element={<div style={{padding: '2rem'}}><h2>Import Data</h2><p>Choose an import type from the Import dropdown in the navbar.</p></div>} />
-                    <Route path="/import/zoning" element={<BulkZoningImportPage />} />
+                    {/* <Route path="/import/zoning" element={<BulkZoningImportPage />} /> */} {/* Temporarily disabled */}
                   <Route
                     path="/import/ibm-storage-insights"
                     element={<StorageInsightsImporter />}
@@ -262,9 +269,18 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
 
 function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/*" element={
+            <ProtectedRoute>
+              <AppContent />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

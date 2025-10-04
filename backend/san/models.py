@@ -21,9 +21,21 @@ class Fabric(models.Model):
     exists = models.BooleanField(default=False)
     notes = models.TextField(null=True, blank=True)
 
+    # Audit fields for tracking modifications
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_fabrics',
+        help_text="User who last modified this fabric"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+
     def __str__(self):
         return f'{self.customer}: {self.name}'
-    
+
     class Meta:
         unique_together = ['customer', 'name']
 

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'authentication',
     'core',
     'customers',
     'san',
@@ -65,7 +66,7 @@ MIDDLEWARE = [
 
 # OR, if you want to allow all origins during development:
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_CREDENTIALS = True  # Required for session authentication
 
 ROOT_URLCONF = 'sanbox.urls'
 
@@ -89,7 +90,12 @@ WSGI_APPLICATION = 'sanbox.wsgi.application'
 
 
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [],  # Allow all by default
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Keep permissive for now, will tighten later
+    ],
 }
 
 # Database
@@ -165,3 +171,15 @@ CELERY_TASK_TIME_LIMIT = 7200  # 2 hours
 
 # Result expiration
 CELERY_RESULT_EXPIRES = 86400  # 24 hours
+
+# Session Configuration
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SESSION_COOKIE_AGE = 86400  # 24 hours
+
+# CSRF Configuration
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript to read it
+CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
+CSRF_TRUSTED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']

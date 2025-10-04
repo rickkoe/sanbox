@@ -4,7 +4,17 @@ from customers.models import Customer
 
 class Project(models.Model):
     name = models.CharField(max_length=200)
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='owned_projects',
+        null=True,  # Temporarily allow null for migration
+        blank=True,
+        help_text="User who owns this project"
+    )
     notes = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)  # null=True for migration
+    updated_at = models.DateTimeField(auto_now=True, null=True)  # null=True for migration
 
     def __str__(self):
         return f"{self.name}"
@@ -42,6 +52,51 @@ class Config(models.Model):
     def get_active_config(cls):
         """Retrieve the active config, if it exists."""
         return cls.objects.filter(is_active=True).first()  # ✅ Returns one active config or None
+
+
+class CustomerMembership(models.Model):
+    """
+    Links users to customers with specific roles (admin/member/viewer).
+    Enables multi-user collaboration with role-based access control.
+    """
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),      # Can modify customer-level resources (Fabrics, Storage)
+        ('member', 'Member'),    # Can create/modify own projects
+        ('viewer', 'Viewer'),    # Read-only access
+    ]
+
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name='memberships',
+        help_text="Customer this membership belongs to"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='customer_memberships',
+        help_text="User who is a member of this customer"
+    )
+    role = models.CharField(
+        max_length=10,
+        choices=ROLE_CHOICES,
+        default='member',
+        help_text="User's role for this customer"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    class Meta:
+        unique_together = ['customer', 'user']
+        verbose_name = "Customer Membership"
+        verbose_name_plural = "Customer Memberships"
+        indexes = [
+            models.Index(fields=['customer', 'user']),
+            models.Index(fields=['user', 'role']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.customer.name} ({self.role})"
 
 
 class TableConfiguration(models.Model):

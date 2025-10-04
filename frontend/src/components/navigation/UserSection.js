@@ -1,21 +1,29 @@
 import React from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Settings, HelpCircle, User, Sliders, Info } from "lucide-react";
+import { Settings, HelpCircle, User, Sliders, Info, Users, LogOut } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
+import { useAuth } from "../../context/AuthContext";
 
 const UserSection = ({ onAboutClick }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const isSettingsActive = location.pathname.startsWith('/settings');
-  
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   return (
     <>
       <ThemeToggle />
-      
+
       <li className="nav-item">
         <Dropdown align="end">
-          <Dropdown.Toggle 
-            as="span" 
+          <Dropdown.Toggle
+            as="span"
             className={`nav-link ${isSettingsActive ? 'active' : ''}`}
             style={{ cursor: "pointer" }}
             title="Settings & Configuration"
@@ -37,9 +45,9 @@ const UserSection = ({ onAboutClick }) => {
 
       <li className="nav-item">
         <Dropdown align="end">
-          <Dropdown.Toggle 
-            as="span" 
-            className="nav-link" 
+          <Dropdown.Toggle
+            as="span"
+            className="nav-link"
             style={{ cursor: "pointer" }}
             title="Help & Admin"
           >
@@ -67,13 +75,45 @@ const UserSection = ({ onAboutClick }) => {
       </li>
 
       <li className="nav-item">
-        <span
-          className="nav-link"
-          style={{ cursor: "pointer" }}
-          title="User Profile"
-        >
-          <User size={18} />
-        </span>
+        <Dropdown align="end">
+          <Dropdown.Toggle
+            as="span"
+            className="nav-link"
+            style={{ cursor: "pointer" }}
+            title={user ? user.username : "User Profile"}
+          >
+            <User size={18} />
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            {user && (
+              <>
+                <Dropdown.Header>
+                  <div className="d-flex align-items-center">
+                    <User size={16} className="me-2" />
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{user.username}</div>
+                      <div style={{ fontSize: '0.85em', opacity: 0.8 }}>{user.email}</div>
+                    </div>
+                  </div>
+                </Dropdown.Header>
+                <Dropdown.Divider />
+                <Dropdown.Item as={NavLink} to="/profile">
+                  <User size={16} className="me-2" />
+                  My Profile
+                </Dropdown.Item>
+                <Dropdown.Item as={NavLink} to="/team">
+                  <Users size={16} className="me-2" />
+                  Team Management
+                </Dropdown.Item>
+                <Dropdown.Divider />
+                <Dropdown.Item onClick={handleLogout}>
+                  <LogOut size={16} className="me-2" />
+                  Logout
+                </Dropdown.Item>
+              </>
+            )}
+          </Dropdown.Menu>
+        </Dropdown>
       </li>
     </>
   );

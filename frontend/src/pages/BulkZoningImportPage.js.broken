@@ -3651,6 +3651,8 @@ const BulkZoningImportPage = () => {
                   })()}
                 </>
               )}
+                </div>
+              )}
               </div>
             </div>
           )}
@@ -3666,7 +3668,6 @@ const BulkZoningImportPage = () => {
         onCancel={() => setShowConflictResolution(false)}
       />
     )}
-    </div>
     </>
   );
 };

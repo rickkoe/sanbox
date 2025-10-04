@@ -116,8 +116,19 @@ class Storage(models.Model):
     volume_groups_count = models.IntegerField(blank=True, null=True)
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)
-
     updated = models.DateTimeField(null=True, blank=True)
+
+    # Audit fields for tracking modifications
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_storage_systems',
+        help_text="User who last modified this storage system"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
 
     @property
     def db_volumes_count(self):
