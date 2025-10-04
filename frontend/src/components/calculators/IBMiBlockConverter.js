@@ -55,7 +55,6 @@ const styles = {
     padding: "20px",
     border: "1px solid #ccc",
     borderRadius: "8px",
-    backgroundColor: "#f9f9f9",
     display: "flex",
     flexDirection: "column",
     gap: "10px",

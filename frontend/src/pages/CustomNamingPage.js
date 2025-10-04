@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useTheme } from "../context/ThemeContext";
+import "../styles/custom-naming.css";
 
 // Editable Pattern Item Component
 const PatternItem = ({ item, index, onEdit, onRemove, onMove, totalItems, tableColumns, customVariables }) => {
@@ -45,7 +47,7 @@ const PatternItem = ({ item, index, onEdit, onRemove, onMove, totalItems, tableC
             <div className="d-inline-flex align-items-center gap-1">
                 <input
                     type="text"
-                    className="form-control form-control-sm"
+                    className="custom-input custom-input-sm"
                     style={{width: '100px'}}
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
@@ -87,7 +89,7 @@ const PatternItem = ({ item, index, onEdit, onRemove, onMove, totalItems, tableC
                 </span>
             ) : item.type === 'column' ? (
                 <select
-                    className="form-select form-select-sm bg-transparent border-0 text-white"
+                    className="custom-select custom-select-sm bg-transparent border-0 text-white"
                     style={{fontSize: '0.8em', padding: '0 1em 0 0'}}
                     value={item.value}
                     onChange={(e) => handleColumnChange(e.target.value)}
@@ -101,7 +103,7 @@ const PatternItem = ({ item, index, onEdit, onRemove, onMove, totalItems, tableC
                 </select>
             ) : (
                 <select
-                    className="form-select form-select-sm bg-transparent border-0 text-white"
+                    className="custom-select custom-select-sm bg-transparent border-0 text-white"
                     style={{fontSize: '0.8em', padding: '0 1em 0 0'}}
                     value={item.value}
                     onChange={(e) => handleVariableChange(e.target.value)}
@@ -143,6 +145,7 @@ const PatternItem = ({ item, index, onEdit, onRemove, onMove, totalItems, tableC
 };
 
 const CustomNamingPage = () => {
+    const { theme } = useTheme();
     const [selectedTable, setSelectedTable] = useState("");
     const [tableColumns, setTableColumns] = useState([]);
     const [customVariables, setCustomVariables] = useState([]);
@@ -497,142 +500,134 @@ const CustomNamingPage = () => {
     };
 
     return (
-        <div className="container-fluid mt-4">
-            <div className="row">
-                <div className="col-12">
-                    <h2>Custom Naming Rules</h2>
-                    <p className="text-muted">
-                        Create custom naming patterns for your tables using text, column values, and custom variables.
-                    </p>
+        <div className={`custom-naming-container theme-${theme}`}>
+            <div className="custom-naming-header">
+                <h1 className="custom-naming-title">Custom Naming Rules</h1>
+                <p className="custom-naming-description">
+                    Create custom naming patterns for your tables using text, column values, and custom variables.
+                </p>
+            </div>
 
-                    {error && (
-                        <div className="alert alert-danger alert-dismissible fade show" role="alert">
-                            {error}
-                            <button type="button" className="btn-close" onClick={() => setError("")}></button>
-                        </div>
-                    )}
+            <div className="custom-naming-content">{/* Alerts */}
 
-                    {success && (
-                        <div className="alert alert-success alert-dismissible fade show" role="alert">
-                            {success}
-                            <button type="button" className="btn-close" onClick={() => setSuccess("")}></button>
-                        </div>
-                    )}
+                {error && (
+                    <div className="custom-alert custom-alert-danger">
+                        {error}
+                        <button type="button" className="custom-alert-close" onClick={() => setError("")}>×</button>
+                    </div>
+                )}
 
-                    {/* Customer Selection */}
-                    <div className="row mb-4">
-                        <div className="col-12">
-                            <div className="card bg-light">
-                                <div className="card-body">
-                                    <div className="row align-items-center">
-                                        <div className="col-md-6">
-                                            <label className="form-label">Select Customer</label>
-                                            <select
-                                                className="form-select"
-                                                value={selectedCustomer}
-                                                onChange={(e) => setSelectedCustomer(e.target.value)}
-                                                disabled={loading}
-                                            >
-                                                <option value="">
-                                                    {loading ? "Loading customers..." : "Choose a customer..."}
-                                                </option>
-                                                {Array.isArray(customers) && customers.map(customer => (
-                                                    <option key={customer.id} value={customer.id}>
-                                                        {customer.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <small className="text-muted">
-                                                Select a customer to manage their custom naming rules and variables.
-                                            </small>
-                                        </div>
-                                    </div>
-                                </div>
+                {success && (
+                    <div className="custom-alert custom-alert-success">
+                        {success}
+                        <button type="button" className="custom-alert-close" onClick={() => setSuccess("")}>×</button>
+                    </div>
+                )}
+
+                {/* Customer Selection */}
+                <div className="customer-selection-card">
+                    <div className="customer-selection-body">
+                        <div className="customer-selection-row">
+                            <div className="customer-selection-col">
+                                <label className="custom-label">Select Customer</label>
+                                <select
+                                    className="custom-select"
+                                    value={selectedCustomer}
+                                    onChange={(e) => setSelectedCustomer(e.target.value)}
+                                    disabled={loading}
+                                >
+                                    <option value="">
+                                        {loading ? "Loading customers..." : "Choose a customer..."}
+                                    </option>
+                                    {Array.isArray(customers) && customers.map(customer => (
+                                        <option key={customer.id} value={customer.id}>
+                                            {customer.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="customer-selection-col">
+                                <small className="custom-help-text">
+                                    Select a customer to manage their custom naming rules and variables.
+                                </small>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
             {!selectedCustomer ? (
-                <div className="row">
-                    <div className="col-12">
-                        <div className="alert alert-info">
-                            <h5>Select a Customer</h5>
-                            <p>
-                                {customers.length === 0 && !loading 
-                                    ? "No customers available. Please create a customer first through the Organization > Customers page."
-                                    : "Please select a customer above to start creating custom naming rules and variables."
-                                }
-                            </p>
-                        </div>
-                    </div>
+                <div className="custom-info-box">
+                    <h5>Select a Customer</h5>
+                    <p>
+                        {customers.length === 0 && !loading
+                            ? "No customers available. Please create a customer first through the Organization > Customers page."
+                            : "Please select a customer above to start creating custom naming rules and variables."
+                        }
+                    </p>
                 </div>
             ) : (
-            <div className="row">
+            <div className="custom-naming-grid">
                 {/* Custom Variables Section */}
-                <div className="col-md-4">
-                    <div className="card">
-                        <div className="card-header">
+                <div className="variables-column">
+                    <div className="custom-card">
+                        <div className="custom-card-header">
                             <h5>Custom Variables</h5>
                         </div>
-                        <div className="card-body">
-                            <div className="mb-3">
-                                <label className="form-label">Variable Name</label>
+                        <div className="custom-card-body">
+                            <div className="form-group">
+                                <label className="custom-label">Variable Name</label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className="custom-input"
                                     value={newVariable.name}
                                     onChange={(e) => setNewVariable({...newVariable, name: e.target.value})}
                                     placeholder="e.g., environment, datacenter"
                                 />
                             </div>
-                            <div className="mb-3">
-                                <label className="form-label">Variable Value</label>
+                            <div className="form-group">
+                                <label className="custom-label">Variable Value</label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className="custom-input"
                                     value={newVariable.value}
                                     onChange={(e) => setNewVariable({...newVariable, value: e.target.value})}
                                     placeholder="e.g., prod, dc1"
                                 />
                             </div>
-                            <div className="mb-3">
-                                <label className="form-label">Description (Optional)</label>
+                            <div className="form-group">
+                                <label className="custom-label">Description (Optional)</label>
                                 <input
                                     type="text"
-                                    className="form-control"
+                                    className="custom-input"
                                     value={newVariable.description}
                                     onChange={(e) => setNewVariable({...newVariable, description: e.target.value})}
                                     placeholder="Description of this variable"
                                 />
                             </div>
                             <button
-                                className="btn btn-primary w-100"
+                                className="custom-btn custom-btn-primary"
                                 onClick={saveCustomVariable}
                                 disabled={loading}
                             >
                                 Add Variable
                             </button>
 
-                            <div className="mt-4">
+                            <div className="variables-list-section">
                                 <h6>Existing Variables</h6>
                                 {customVariables.length === 0 ? (
-                                    <p className="text-muted">No custom variables defined</p>
+                                    <p className="custom-muted-text">No custom variables defined</p>
                                 ) : (
-                                    <div className="list-group">
+                                    <div className="variables-list">
                                         {customVariables.map(variable => (
-                                            <div key={variable.id} className="list-group-item d-flex justify-content-between align-items-center">
+                                            <div key={variable.id} className="variable-item">
                                                 <div>
                                                     <strong>{variable.name}</strong>: {variable.value}
                                                     {variable.description && (
-                                                        <small className="d-block text-muted">{variable.description}</small>
+                                                        <small className="variable-description">{variable.description}</small>
                                                     )}
                                                 </div>
                                                 <button
-                                                    className="btn btn-sm btn-outline-danger"
+                                                    className="custom-btn custom-btn-danger-sm"
                                                     onClick={() => deleteCustomVariable(variable.id)}
                                                 >
                                                     ×
@@ -647,30 +642,30 @@ const CustomNamingPage = () => {
                 </div>
 
                 {/* Naming Rule Builder */}
-                <div className="col-md-8">
-                    <div className="card">
-                        <div className="card-header">
+                <div className="rules-column">
+                    <div className="custom-card">
+                        <div className="custom-card-header">
                             <h5>Create Naming Rule</h5>
                         </div>
-                        <div className="card-body">
-                            <div className="row mb-3">
-                                <div className="col-md-6">
-                                    <label className="form-label">Rule Name (Auto-generated)</label>
+                        <div className="custom-card-body">
+                            <div className="rule-builder-row">
+                                <div className="rule-builder-col">
+                                    <label className="custom-label">Rule Name (Auto-generated)</label>
                                     <input
                                         type="text"
-                                        className="form-control bg-light"
+                                        className="custom-input custom-input-readonly"
                                         value={generateRuleName()}
                                         readOnly
                                         placeholder="Add pattern items below to generate rule name"
                                     />
-                                    <small className="text-muted">
+                                    <small className="custom-muted-text">
                                         The rule name is automatically generated from your pattern
                                     </small>
                                 </div>
-                                <div className="col-md-6">
-                                    <label className="form-label">Table</label>
+                                <div className="rule-builder-col">
+                                    <label className="custom-label">Table</label>
                                     <select
-                                        className="form-select"
+                                        className="custom-select"
                                         value={selectedTable}
                                         onChange={(e) => setSelectedTable(e.target.value)}
                                     >
@@ -685,10 +680,10 @@ const CustomNamingPage = () => {
                             </div>
 
                             {/* Pattern Builder */}
-                            <div className="mb-4">
-                                <label className="form-label">Naming Pattern</label>
-                                <div className="border p-2 rounded mb-3" style={{minHeight: '60px'}}>
-                                    <div className="d-flex flex-wrap gap-1 align-items-center">
+                            <div className="pattern-builder-section">
+                                <label className="custom-label">Naming Pattern</label>
+                                <div className="pattern-builder-area">
+                                    <div className="pattern-items-container">
                                         {currentRule.pattern.map((item, index) => (
                                             <PatternItem
                                                 key={index}
@@ -704,9 +699,8 @@ const CustomNamingPage = () => {
                                         ))}
                                         <input
                                             type="text"
-                                            className="form-control border-0 flex-grow-1"
+                                            className="pattern-text-input"
                                             placeholder={currentRule.pattern.length === 0 ? "Type text here or add columns/variables below..." : "Type more text..."}
-                                            style={{minWidth: '200px', outline: 'none', boxShadow: 'none'}}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && e.target.value.trim()) {
                                                     addPatternItem('text', e.target.value.trim());
@@ -726,17 +720,17 @@ const CustomNamingPage = () => {
 
                                 {/* Preview */}
                                 {currentRule.pattern.length > 0 && (
-                                    <div className="alert alert-info">
+                                    <div className="custom-alert custom-alert-info">
                                         <strong>Preview:</strong> {generatePreview()}
                                     </div>
                                 )}
 
                                 {/* Add Pattern Items */}
-                                <div className="row">
-                                    <div className="col-md-6">
-                                        <h6>Insert Column</h6>
+                                <div className="pattern-insert-row">
+                                    <div className="pattern-insert-col">
+                                        <h6 className="pattern-insert-title">Insert Column</h6>
                                         <select
-                                            className="form-select mb-2"
+                                            className="custom-select"
                                             onChange={(e) => {
                                                 if (e.target.value) {
                                                     const column = tableColumns.find(c => c.name === e.target.value);
@@ -754,10 +748,10 @@ const CustomNamingPage = () => {
                                         </select>
                                     </div>
 
-                                    <div className="col-md-6">
-                                        <h6>Insert Variable</h6>
+                                    <div className="pattern-insert-col">
+                                        <h6 className="pattern-insert-title">Insert Variable</h6>
                                         <select
-                                            className="form-select mb-2"
+                                            className="custom-select"
                                             onChange={(e) => {
                                                 if (e.target.value) {
                                                     const variable = customVariables.find(v => v.name === e.target.value);
@@ -775,10 +769,10 @@ const CustomNamingPage = () => {
                                         </select>
                                     </div>
                                 </div>
-                                
-                                <div className="alert alert-light">
-                                    <small className="text-muted">
-                                        <strong>💡 How to use:</strong><br/>
+
+                                <div className="custom-alert custom-alert-light">
+                                    <small className="usage-instructions">
+                                        <strong>How to use:</strong><br/>
                                         • Type text directly and press Enter to add it<br/>
                                         • Click on gray text badges to edit them inline<br/>
                                         • Use dropdowns in blue/green badges to change columns/variables<br/>
@@ -789,24 +783,24 @@ const CustomNamingPage = () => {
                                 </div>
                             </div>
 
-                            <div className="mb-3">
-                                <div className="form-check">
+                            <div className="active-rule-checkbox">
+                                <div className="custom-checkbox">
                                     <input
-                                        className="form-check-input"
+                                        className="custom-checkbox-input"
                                         type="checkbox"
                                         id="isActive"
                                         checked={currentRule.is_active}
                                         onChange={(e) => setCurrentRule({...currentRule, is_active: e.target.checked})}
                                     />
-                                    <label className="form-check-label" htmlFor="isActive">
+                                    <label className="custom-checkbox-label" htmlFor="isActive">
                                         Active Rule
                                     </label>
                                 </div>
                             </div>
 
-                            <div className="d-flex gap-2">
+                            <div className="rule-actions">
                                 <button
-                                    className="btn btn-primary"
+                                    className="custom-btn custom-btn-primary"
                                     onClick={saveNamingRule}
                                     disabled={loading}
                                 >
@@ -814,7 +808,7 @@ const CustomNamingPage = () => {
                                 </button>
                                 {currentRule.id && (
                                     <button
-                                        className="btn btn-secondary"
+                                        className="custom-btn custom-btn-secondary"
                                         onClick={() => {
                                             setCurrentRule({
                                                 name: "", // This will be auto-generated
@@ -832,16 +826,16 @@ const CustomNamingPage = () => {
                     </div>
 
                     {/* Existing Rules */}
-                    <div className="card mt-4">
-                        <div className="card-header">
+                    <div className="custom-card rules-list-card">
+                        <div className="custom-card-header">
                             <h5>Existing Naming Rules</h5>
                         </div>
-                        <div className="card-body">
+                        <div className="custom-card-body">
                             {namingRules.length === 0 ? (
-                                <p className="text-muted">No naming rules created yet</p>
+                                <p className="custom-muted-text">No naming rules created yet</p>
                             ) : (
                                 <div className="table-responsive">
-                                    <table className="table table-hover">
+                                    <table className="custom-table">
                                         <thead>
                                             <tr>
                                                 <th>Name</th>
@@ -856,12 +850,12 @@ const CustomNamingPage = () => {
                                                 <tr key={rule.id}>
                                                     <td>{rule.name}</td>
                                                     <td>
-                                                        <span className="badge bg-light text-dark">
+                                                        <span className="custom-badge custom-badge-light">
                                                             {availableTables.find(t => t.value === rule.table_name)?.label || rule.table_name}
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        <code>
+                                                        <code className="pattern-code">
                                                             {rule.pattern.map(item => {
                                                                 if (item.type === 'text') return item.value;
                                                                 if (item.type === 'column') return `{${item.value}}`;
@@ -874,20 +868,20 @@ const CustomNamingPage = () => {
                                                         </code>
                                                     </td>
                                                     <td>
-                                                        <span className={`badge ${rule.is_active ? 'bg-success' : 'bg-secondary'}`}>
+                                                        <span className={`custom-badge ${rule.is_active ? 'custom-badge-success' : 'custom-badge-secondary'}`}>
                                                             {rule.is_active ? 'Active' : 'Inactive'}
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        <div className="btn-group btn-group-sm">
+                                                        <div className="custom-btn-group">
                                                             <button
-                                                                className="btn btn-outline-primary"
+                                                                className="custom-btn custom-btn-outline-primary custom-btn-sm"
                                                                 onClick={() => editNamingRule(rule)}
                                                             >
                                                                 Edit
                                                             </button>
                                                             <button
-                                                                className="btn btn-outline-danger"
+                                                                className="custom-btn custom-btn-outline-danger custom-btn-sm"
                                                                 onClick={() => deleteNamingRule(rule.id)}
                                                             >
                                                                 Delete
@@ -905,6 +899,7 @@ const CustomNamingPage = () => {
                 </div>
             </div>
             )}
+            </div>
         </div>
     );
 };

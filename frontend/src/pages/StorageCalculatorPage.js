@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTheme } from "../context/ThemeContext";
 import MainframeStorageCalculator from "../components/calculators/MainframeStorageCalculator";
 import IBMiStorageCalculator from "../components/calculators/IBMiStorageCalculator";
 import IBMiBlockConverter from "../components/calculators/IBMiBlockConverter";
@@ -9,6 +10,7 @@ import DataReplicationCalculator from "../components/calculators/DataReplication
 import "../styles/tools.css";
 
 const StorageCalculatorPage = () => {
+  const { theme } = useTheme();
   const [filters, setFilters] = useState({
     mainframe: true,
     ibmi: true,
@@ -22,12 +24,12 @@ const StorageCalculatorPage = () => {
       setFilters({ mainframe: true, ibmi: true, general: true, replication: true });
       return;
     }
-  
-    const isMultiSelect = event.shiftKey || event.ctrlKey || event.metaKey; // Detect Shift or Ctrl (Cmd on Mac)
-  
+
+    const isMultiSelect = event?.shiftKey || event?.ctrlKey || event?.metaKey; // Detect Shift or Ctrl (Cmd on Mac)
+
     setFilters((prevFilters) => {
       let newState = { ...prevFilters };
-  
+
       if (isMultiSelect) {
         // Toggle only the selected category
         newState[category] = !prevFilters[category];
@@ -37,14 +39,18 @@ const StorageCalculatorPage = () => {
           newState[key] = key === category;
         });
       }
-  
+
       return newState;
     });
   };
 
   return (
-    <div className="tools-container mt-4">
-      <h1 className="text-center mb-4">Storage Calculators</h1>
+    <div className={`tools-container theme-${theme}`}>
+      {/* Page Header */}
+      <div className="tools-page-header">
+        <h1 className="tools-page-title">Storage Calculators</h1>
+        <p className="tools-page-description">Professional storage capacity planning and conversion tools for enterprise environments</p>
+      </div>
 
       {/* Filter Buttons */}
       <div className="filter-buttons">
@@ -66,16 +72,16 @@ const StorageCalculatorPage = () => {
         >
           IBM i
         </button>
-        <button 
-          className={`filter-btn ${filters.general ? "active" : ""}`} 
+        <button
+          className={`filter-btn ${filters.general ? "active" : ""}`}
           onClick={(e) => handleFilterClick("general", e)}
-          >
+        >
           General Storage
         </button>
-        <button 
-          className={`filter-btn ${filters.replication ? "active" : ""}`} 
+        <button
+          className={`filter-btn ${filters.replication ? "active" : ""}`}
           onClick={(e) => handleFilterClick("replication", e)}
-          >
+        >
           Replication
         </button>
       </div>

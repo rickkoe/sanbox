@@ -137,11 +137,10 @@ const DataReplicationCalculator = () => {
       </div>
       
       {/* Results Section */}
-      <div style={{ 
-        backgroundColor: "#f8f9fa", 
-        padding: "15px", 
-        borderRadius: "6px", 
-        marginTop: "10px" 
+      <div style={{
+        padding: "15px",
+        borderRadius: "6px",
+        marginTop: "10px"
       }}>
         <h3 style={{ marginTop: "0", marginBottom: "10px" }}>Estimated Replication Time:</h3>
         {formattedTime ? (
@@ -157,36 +156,36 @@ const DataReplicationCalculator = () => {
               gap: "8px", 
               textAlign: "center" 
             }}>
-              <div style={{ 
-                background: "#e6f2ff", 
-                padding: "8px", 
-                borderRadius: "4px" 
+              <div style={{
+                padding: "8px",
+                borderRadius: "4px",
+                border: "1px solid var(--table-border)"
               }}>
-                <div style={{ fontWeight: "bold", color: "#0066cc" }}>{replicationTime.days}</div>
+                <div style={{ fontWeight: "bold", color: "var(--link-text)" }}>{replicationTime.days}</div>
                 <div>Days</div>
               </div>
-              <div style={{ 
-                background: "#e6f2ff", 
-                padding: "8px", 
-                borderRadius: "4px" 
+              <div style={{
+                padding: "8px",
+                borderRadius: "4px",
+                border: "1px solid var(--table-border)"
               }}>
-                <div style={{ fontWeight: "bold", color: "#0066cc" }}>{replicationTime.hours}</div>
+                <div style={{ fontWeight: "bold", color: "var(--link-text)" }}>{replicationTime.hours}</div>
                 <div>Hours</div>
               </div>
-              <div style={{ 
-                background: "#e6f2ff", 
-                padding: "8px", 
-                borderRadius: "4px" 
+              <div style={{
+                padding: "8px",
+                borderRadius: "4px",
+                border: "1px solid var(--table-border)"
               }}>
-                <div style={{ fontWeight: "bold", color: "#0066cc" }}>{replicationTime.minutes}</div>
+                <div style={{ fontWeight: "bold", color: "var(--link-text)" }}>{replicationTime.minutes}</div>
                 <div>Minutes</div>
               </div>
-              <div style={{ 
-                background: "#e6f2ff", 
-                padding: "8px", 
-                borderRadius: "4px" 
+              <div style={{
+                padding: "8px",
+                borderRadius: "4px",
+                border: "1px solid var(--table-border)"
               }}>
-                <div style={{ fontWeight: "bold", color: "#0066cc" }}>{replicationTime.seconds}</div>
+                <div style={{ fontWeight: "bold", color: "var(--link-text)" }}>{replicationTime.seconds}</div>
                 <div>Seconds</div>
               </div>
             </div>

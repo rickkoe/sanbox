@@ -4,23 +4,13 @@ import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
 import { useImportStatus } from "../context/ImportStatusContext";
 import ImportLogger from "../components/ImportLogger";
-import {
-  Form,
-  Button,
-  Card,
-  Alert,
-  Spinner,
-  Table,
-  Modal,
-  Badge,
-  ProgressBar,
-  Row,
-  Col,
-} from "react-bootstrap";
+import { useTheme } from "../context/ThemeContext";
+import "../styles/storage-insights-importer.css";
 
 const StorageInsightsImporter = () => {
   const navigate = useNavigate();
   const { config } = useContext(ConfigContext);
+  const { theme } = useTheme();
   const { isImportRunning, currentImport, importProgress, startImport: startGlobalImport, cancelImport } = useImportStatus();
   
   // State for the new selective import interface
@@ -269,78 +259,79 @@ const StorageInsightsImporter = () => {
   const selectedOptionsCount = Object.values(importOptions).filter(Boolean).length;
 
   return (
-    <div className="container mt-4">
-      <Card className="shadow-sm">
-        <Card.Header
-          as="h5"
-          className="bg-primary text-white d-flex justify-content-between align-items-center"
-        >
-          <span>IBM Storage Insights Importer</span>
-          <Button variant="outline-light" size="sm" onClick={showImportHistory}>
+    <div className={`storage-importer-container theme-${theme}`}>
+      <div className="storage-importer-content">
+        <div className="storage-importer-header">
+          <div>
+            <h1 className="storage-importer-title">IBM Storage Insights Importer</h1>
+            <p className="storage-importer-description">Import and sync storage data from IBM Storage Insights</p>
+          </div>
+          <button className="importer-btn importer-btn-outline-light importer-btn-sm" onClick={showImportHistory}>
             View Import History
-          </Button>
-        </Card.Header>
-        <Card.Body>
+          </button>
+        </div>
+
+        <div className="importer-card">
+          <div className="importer-card-body">
           {!hasInsightsCredentials ? (
-            <Alert variant="warning">
-              <Alert.Heading>Storage Insights not configured</Alert.Heading>
+            <div className="importer-alert importer-alert-warning">
+              <h5 className="importer-alert-heading">Storage Insights not configured</h5>
               <p>
                 This customer does not have IBM Storage Insights credentials
                 configured. Please add the tenant ID and API key in the customer
                 settings.
               </p>
               <hr />
-              <div className="d-flex justify-content-end">
-                <Button variant="outline-primary" href="/customers">
+              <div className="importer-flex-end">
+                <a className="importer-btn importer-btn-outline-primary" href="/customers">
                   Go to Customer Settings
-                </Button>
+                </a>
               </div>
-            </Alert>
+            </div>
           ) : (
             <>
-              <div className="mb-4 d-flex justify-content-between align-items-center">
+              <div className="importer-info-section">
                 <div>
-                  <p className="mb-1">
+                  <p className="importer-info-text">
                     Import storage data from IBM Storage Insights for:
                     <strong> {config?.customer?.name}</strong>
                   </p>
-                  <small className="text-muted">
+                  <small className="importer-info-muted">
                     Tenant: {config?.customer?.insights_tenant}
                   </small>
                 </div>
                 {config?.customer?.insights_tenant && (
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
+                  <a
+                    className="importer-btn importer-btn-outline-primary importer-btn-sm"
                     href={`https://insights.ibm.com/cui/${config.customer.insights_tenant}/dashboard`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     Go To Storage Insights
-                  </Button>
+                  </a>
                 )}
               </div>
 
-              {error && <Alert variant="danger">{error}</Alert>}
+              {error && <div className="importer-alert importer-alert-danger">{error}</div>}
 
               {/* Current Import Status */}
               {currentImport && (
-                <Card className="mb-3">
-                  <Card.Header className="d-flex justify-content-between align-items-center">
+                <div className="importer-card importer-mb-3">
+                  <div className="importer-card-header">
                     <span>Current Import Status</span>
-                    <Badge bg={getStatusBadge(currentImport.status)}>
+                    <span className={`importer-badge importer-badge-${getStatusBadge(currentImport.status)}`}>
                       {currentImport.status ? currentImport.status.toUpperCase() : 'UNKNOWN'}
-                    </Badge>
-                  </Card.Header>
-                  <Card.Body>
-                    <div className="row">
-                      <div className="col-md-6">
-                        <small className="text-muted">Started:</small><br />
+                    </span>
+                  </div>
+                  <div className="importer-card-body">
+                    <div className="importer-grid-2">
+                      <div>
+                        <small className="importer-text-muted">Started:</small><br />
                         <span>{formatDate(currentImport.started_at)}</span>
                       </div>
                       {currentImport.completed_at && (
-                        <div className="col-md-6">
-                          <small className="text-muted">Completed:</small><br />
+                        <div>
+                          <small className="importer-text-muted">Completed:</small><br />
                           <span>{formatDate(currentImport.completed_at)}</span>
                         </div>
                       )}
@@ -348,102 +339,102 @@ const StorageInsightsImporter = () => {
                     
                     {/* Show progress bar only when import is running */}
                     {(currentImport?.status === 'running' || isImportRunning) && (
-                      <div className="mt-3">
+                      <div className="importer-mt-3">
                         {importProgress ? (
                           <>
-                            <div className="mb-2">
-                              <small className="text-muted">{importProgress.status}</small>
+                            <div className="importer-mb-2">
+                              <small className="importer-text-muted">{importProgress.status}</small>
                             </div>
                             {importProgress.state === 'PENDING' ? (
-                              <ProgressBar 
-                                animated 
-                                striped
-                                variant="info"
-                                now={100} 
-                                label="Waiting to start..."
-                              />
+                              <div className="importer-progress">
+                                <div className="importer-progress-bar animated striped variant-info" style={{ width: '100%' }}>
+                                  Waiting to start...
+                                </div>
+                              </div>
                             ) : (
-                              <ProgressBar 
-                                animated 
-                                now={(importProgress.current / importProgress.total) * 100} 
-                                label={`${Math.round((importProgress.current / importProgress.total) * 100)}%`}
-                              />
+                              <div className="importer-progress">
+                                <div className="importer-progress-bar animated" style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}>
+                                  {Math.round((importProgress.current / importProgress.total) * 100)}%
+                                </div>
+                              </div>
                             )}
                           </>
                         ) : (
-                          <ProgressBar animated now={100} label="Initializing..." />
+                          <div className="importer-progress">
+                            <div className="importer-progress-bar animated" style={{ width: '100%' }}>
+                              Initializing...
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}
                     
-                    <div className="mt-3 d-flex justify-content-between">
-                      <Button 
-                        variant="outline-info" 
-                        size="sm"
+                    <div className="importer-mt-3 importer-flex-between">
+                      <button
+                        className="importer-btn importer-btn-outline-info importer-btn-sm"
                         onClick={() => {
                           setSelectedImport(null);
                           setShowLogsModal(true);
                         }}
                       >
                         View Logs
-                      </Button>
+                      </button>
                       {(currentImport?.status === 'running' || isImportRunning) && (
-                        <Button 
-                          variant="outline-danger" 
-                          size="sm"
+                        <button
+                          className="importer-btn importer-btn-outline-danger importer-btn-sm"
                           onClick={handleCancelImport}
                           disabled={loading}
                         >
                           {loading ? (
                             <>
-                              <Spinner as="span" animation="border" size="sm" role="status" />
-                              <span className="ms-1">Cancelling...</span>
+                              <span className="importer-spinner importer-spinner-sm"></span>
+                              <span>Cancelling...</span>
                             </>
                           ) : (
                             'Cancel Import'
                           )}
-                        </Button>
+                        </button>
                       )}
                     </div>
                     
                     {currentImport.status === 'completed' && (
-                      <div className="mt-3">
-                        <div className="row text-center">
-                          <div className="col">
-                            <strong>{currentImport.storage_systems_imported || 0}</strong><br />
-                            <small className="text-muted">Storage Systems</small>
+                      <div className="importer-mt-3">
+                        <div className="importer-stats">
+                          <div className="importer-stat">
+                            <strong className="importer-stat-value">{currentImport.storage_systems_imported || 0}</strong>
+                            <small className="importer-stat-label">Storage Systems</small>
                           </div>
-                          <div className="col">
-                            <strong>{currentImport.volumes_imported || 0}</strong><br />
-                            <small className="text-muted">Volumes</small>
+                          <div className="importer-stat">
+                            <strong className="importer-stat-value">{currentImport.volumes_imported || 0}</strong>
+                            <small className="importer-stat-label">Volumes</small>
                           </div>
-                          <div className="col">
-                            <strong>{currentImport.hosts_imported || 0}</strong><br />
-                            <small className="text-muted">Hosts</small>
+                          <div className="importer-stat">
+                            <strong className="importer-stat-value">{currentImport.hosts_imported || 0}</strong>
+                            <small className="importer-stat-label">Hosts</small>
                           </div>
-                          <div className="col">
-                            <strong>{currentImport.total_items_imported || 0}</strong><br />
-                            <small className="text-muted">Total Items</small>
+                          <div className="importer-stat">
+                            <strong className="importer-stat-value">{currentImport.total_items_imported || 0}</strong>
+                            <small className="importer-stat-label">Total Items</small>
                           </div>
                         </div>
-                        <div className="text-center mt-3">
-                          <Button
-                            variant="success"
+                        <div className="importer-text-center importer-mt-3">
+                          <button
+                            className="importer-btn importer-btn-success"
                             onClick={() => navigate('/storage/systems')}
                           >
                             View Storage Systems
-                          </Button>
+                          </button>
                         </div>
                       </div>
                     )}
-                    
+
                     {currentImport.status === 'failed' && currentImport.error_message && (
-                      <Alert variant="danger" className="mt-3">
+                      <div className="importer-alert importer-alert-danger importer-mt-3">
                         <strong>Error:</strong> {currentImport.error_message}
-                      </Alert>
+                      </div>
                     )}
-                  </Card.Body>
-                </Card>
+                  </div>
+                </div>
               )}
 
               {/* Main Import Interface */}
@@ -451,52 +442,51 @@ const StorageInsightsImporter = () => {
                 <>
                   {availableStorageSystems.length === 0 ? (
                     // Step 1: Fetch Storage Systems
-                    <Card className="mb-4">
-                      <Card.Header>
-                        <h6 className="mb-0">Step 1: Discover Storage Systems</h6>
-                      </Card.Header>
-                      <Card.Body>
-                        <p className="mb-3">
+                    <div className="importer-card importer-mb-4">
+                      <div className="importer-card-header">
+                        <h6 className="importer-mb-0">Step 1: Discover Storage Systems</h6>
+                      </div>
+                      <div className="importer-card-body">
+                        <p className="importer-mb-3">
                           First, we'll connect to IBM Storage Insights to discover available storage systems.
                         </p>
-                        <Button
-                          variant="primary"
+                        <button
+                          className="importer-btn importer-btn-primary"
                           onClick={fetchStorageSystems}
                           disabled={fetchingStorageSystems}
                         >
                           {fetchingStorageSystems ? (
                             <>
-                              <Spinner as="span" animation="border" size="sm" className="me-2" />
+                              <span className="importer-spinner importer-spinner-sm"></span>
                               Fetching Storage Systems...
                             </>
                           ) : (
                             'Fetch Storage Systems'
                           )}
-                        </Button>
-                      </Card.Body>
-                    </Card>
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     // Step 2: Select Systems and Options
                     <>
-                      <Card className="mb-4">
-                        <Card.Header className="d-flex justify-content-between align-items-center">
-                          <h6 className="mb-0">Step 2: Select Storage Systems ({selectedSystemCount} of {availableStorageSystems.length} selected)</h6>
-                          <Button variant="outline-secondary" size="sm" onClick={resetToFetch}>
+                      <div className="importer-card importer-mb-4">
+                        <div className="importer-card-header">
+                          <h6 className="importer-mb-0">Step 2: Select Storage Systems ({selectedSystemCount} of {availableStorageSystems.length} selected)</h6>
+                          <button className="importer-btn importer-btn-outline-secondary importer-btn-sm" onClick={resetToFetch}>
                             Fetch Different Systems
-                          </Button>
-                        </Card.Header>
-                        <Card.Body>
-                          <div className="mb-3">
-                            <Button 
-                              variant="outline-primary" 
-                              size="sm" 
+                          </button>
+                        </div>
+                        <div className="importer-card-body">
+                          <div className="importer-mb-3">
+                            <button
+                              className="importer-btn importer-btn-outline-primary importer-btn-sm"
                               onClick={toggleAllSystems}
                             >
                               {Object.values(selectedSystems).every(selected => selected) ? 'Deselect All' : 'Select All'}
-                            </Button>
+                            </button>
                           </div>
                           
-                          <Table striped hover responsive>
+                          <table className="importer-table">
                             <thead>
                               <tr>
                                 <th width="50">Select</th>
@@ -510,8 +500,9 @@ const StorageInsightsImporter = () => {
                               {availableStorageSystems.map((system) => (
                                 <tr key={system.serial}>
                                   <td>
-                                    <Form.Check
+                                    <input
                                       type="checkbox"
+                                      className="importer-checkbox-input"
                                       checked={selectedSystems[system.serial] || false}
                                       onChange={() => toggleSystemSelection(system.serial)}
                                     />
@@ -520,87 +511,104 @@ const StorageInsightsImporter = () => {
                                   <td><code>{system.serial}</code></td>
                                   <td>{system.model}</td>
                                   <td>
-                                    <Badge bg={system.status === 'online' ? 'success' : 'warning'}>
+                                    <span className={`importer-badge importer-badge-${system.status === 'online' ? 'success' : 'warning'}`}>
                                       {system.status}
-                                    </Badge>
+                                    </span>
                                   </td>
                                 </tr>
                               ))}
                             </tbody>
-                          </Table>
-                        </Card.Body>
-                      </Card>
+                          </table>
+                        </div>
+                      </div>
 
-                      <Card className="mb-4">
-                        <Card.Header>
-                          <h6 className="mb-0">Step 3: Choose What to Import ({selectedOptionsCount} options selected)</h6>
-                        </Card.Header>
-                        <Card.Body>
-                          <Row>
-                            <Col md={4}>
-                              <Form.Check
-                                type="checkbox"
-                                label="Storage Systems"
-                                checked={importOptions.storage_systems}
-                                onChange={() => toggleImportOption('storage_systems')}
-                              />
-                              <small className="text-muted">Import basic storage system information</small>
-                            </Col>
-                            <Col md={4}>
-                              <Form.Check
-                                type="checkbox"
-                                label="Volumes"
-                                checked={importOptions.volumes}
-                                onChange={() => toggleImportOption('volumes')}
-                              />
-                              <small className="text-muted">Import volume and LUN data</small>
-                            </Col>
-                            <Col md={4}>
-                              <Form.Check
-                                type="checkbox"
-                                label="Hosts"
-                                checked={importOptions.hosts}
-                                onChange={() => toggleImportOption('hosts')}
-                              />
-                              <small className="text-muted">Import host connection information</small>
-                            </Col>
-                          </Row>
-                          
+                      <div className="importer-card importer-mb-4">
+                        <div className="importer-card-header">
+                          <h6 className="importer-mb-0">Step 3: Choose What to Import ({selectedOptionsCount} options selected)</h6>
+                        </div>
+                        <div className="importer-card-body">
+                          <div className="importer-grid-3">
+                            <div>
+                              <div className="importer-checkbox">
+                                <input
+                                  type="checkbox"
+                                  className="importer-checkbox-input"
+                                  id="import-storage-systems"
+                                  checked={importOptions.storage_systems}
+                                  onChange={() => toggleImportOption('storage_systems')}
+                                />
+                                <label className="importer-checkbox-label" htmlFor="import-storage-systems">
+                                  Storage Systems
+                                </label>
+                              </div>
+                              <small className="importer-checkbox-help">Import basic storage system information</small>
+                            </div>
+                            <div>
+                              <div className="importer-checkbox">
+                                <input
+                                  type="checkbox"
+                                  className="importer-checkbox-input"
+                                  id="import-volumes"
+                                  checked={importOptions.volumes}
+                                  onChange={() => toggleImportOption('volumes')}
+                                />
+                                <label className="importer-checkbox-label" htmlFor="import-volumes">
+                                  Volumes
+                                </label>
+                              </div>
+                              <small className="importer-checkbox-help">Import volume and LUN data</small>
+                            </div>
+                            <div>
+                              <div className="importer-checkbox">
+                                <input
+                                  type="checkbox"
+                                  className="importer-checkbox-input"
+                                  id="import-hosts"
+                                  checked={importOptions.hosts}
+                                  onChange={() => toggleImportOption('hosts')}
+                                />
+                                <label className="importer-checkbox-label" htmlFor="import-hosts">
+                                  Hosts
+                                </label>
+                              </div>
+                              <small className="importer-checkbox-help">Import host connection information</small>
+                            </div>
+                          </div>
+
                           {/* Future expansion area */}
-                          <Alert variant="info" className="mt-3 mb-0">
+                          <div className="importer-alert importer-alert-info importer-mt-3 importer-mb-0">
                             <small>
                               <strong>Coming Soon:</strong> Performance data, alerts, capacity forecasting, and more import options will be available in future updates.
                             </small>
-                          </Alert>
-                        </Card.Body>
-                      </Card>
+                          </div>
+                        </div>
+                      </div>
 
-                      <div className="text-center py-3">
-                        <Button
-                          variant="success"
-                          size="lg"
+                      <div className="importer-center">
+                        <button
+                          className="importer-btn importer-btn-success importer-btn-lg"
                           onClick={startSelectiveImport}
                           disabled={selectedSystemCount === 0 || selectedOptionsCount === 0 || loading}
                         >
                           {loading ? (
                             <>
-                              <Spinner as="span" animation="border" size="sm" className="me-2" />
+                              <span className="importer-spinner importer-spinner-sm"></span>
                               Starting Import...
                             </>
                           ) : (
                             `Import ${selectedSystemCount} Storage System${selectedSystemCount !== 1 ? 's' : ''}`
                           )}
-                        </Button>
-                        
+                        </button>
+
                         {selectedSystemCount === 0 && (
-                          <div className="mt-2">
-                            <small className="text-danger">Please select at least one storage system</small>
+                          <div className="importer-mt-2">
+                            <small style={{ color: 'var(--error-text)' }}>Please select at least one storage system</small>
                           </div>
                         )}
-                        
+
                         {selectedOptionsCount === 0 && (
-                          <div className="mt-2">
-                            <small className="text-danger">Please select at least one import option</small>
+                          <div className="importer-mt-2">
+                            <small style={{ color: 'var(--error-text)' }}>Please select at least one import option</small>
                           </div>
                         )}
                       </div>
@@ -611,19 +619,18 @@ const StorageInsightsImporter = () => {
 
               {/* Recent Imports Summary */}
               {importHistory.length > 0 && (
-                <Card>
-                  <Card.Header className="d-flex justify-content-between align-items-center">
+                <div className="importer-card">
+                  <div className="importer-card-header">
                     <span>Recent Imports</span>
-                    <Button 
-                      variant="outline-danger" 
-                      size="sm"
+                    <button
+                      className="importer-btn importer-btn-outline-danger importer-btn-sm"
                       onClick={clearImportHistory}
                     >
                       Clear History
-                    </Button>
-                  </Card.Header>
-                  <Card.Body>
-                    <Table striped bordered hover responsive size="sm">
+                    </button>
+                  </div>
+                  <div className="importer-card-body">
+                    <table className="importer-table">
                       <thead>
                         <tr>
                           <th>Started</th>
@@ -639,50 +646,53 @@ const StorageInsightsImporter = () => {
                           <tr key={importRecord.id}>
                             <td>{formatDate(importRecord.started_at)}</td>
                             <td>
-                              <Badge bg={getStatusBadge(importRecord.status)}>
+                              <span className={`importer-badge importer-badge-${getStatusBadge(importRecord.status)}`}>
                                 {importRecord.status}
-                              </Badge>
+                              </span>
                             </td>
                             <td>{importRecord.storage_systems_imported || 0}</td>
                             <td>{importRecord.volumes_imported || 0}</td>
                             <td>{importRecord.hosts_imported || 0}</td>
                             <td>
-                              <Button 
-                                variant="outline-info" 
-                                size="sm"
+                              <button
+                                className="importer-btn importer-btn-outline-info importer-btn-sm"
                                 onClick={() => {
                                   setSelectedImport(importRecord);
                                   setShowLogsModal(true);
                                 }}
                               >
                                 Logs
-                              </Button>
+                              </button>
                             </td>
                           </tr>
                         ))}
                       </tbody>
-                    </Table>
-                  </Card.Body>
-                </Card>
+                    </table>
+                  </div>
+                </div>
               )}
             </>
           )}
-        </Card.Body>
-      </Card>
+          </div>
+        </div>
+      </div>
 
       {/* Import History Modal */}
       {historyModal.show && (
-        <Modal
-          show
-          onHide={() => setHistoryModal({ show: false, imports: [] })}
-          size="lg"
-        >
-          <Modal.Header closeButton>
-            <Modal.Title>Import History</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
+        <div className="importer-modal-overlay" onClick={() => setHistoryModal({ show: false, imports: [] })}>
+          <div className="importer-modal importer-modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="importer-modal-header">
+              <h5 className="importer-modal-title">Import History</h5>
+              <button
+                className="importer-modal-close"
+                onClick={() => setHistoryModal({ show: false, imports: [] })}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="importer-modal-body">
             {historyModal.imports.length > 0 ? (
-              <Table striped bordered hover responsive size="sm">
+              <table className="importer-table">
                 <thead>
                   <tr>
                     <th>Started</th>
@@ -700,9 +710,9 @@ const StorageInsightsImporter = () => {
                     <tr key={importRecord.id}>
                       <td>{formatDate(importRecord.started_at)}</td>
                       <td>
-                        <Badge bg={getStatusBadge(importRecord.status)}>
+                        <span className={`importer-badge importer-badge-${getStatusBadge(importRecord.status)}`}>
                           {importRecord.status}
-                        </Badge>
+                        </span>
                       </td>
                       <td>{importRecord.duration || '-'}</td>
                       <td>{importRecord.storage_systems_imported || 0}</td>
@@ -710,9 +720,8 @@ const StorageInsightsImporter = () => {
                       <td>{importRecord.hosts_imported || 0}</td>
                       <td><strong>{importRecord.total_items_imported || 0}</strong></td>
                       <td>
-                        <Button 
-                          variant="outline-info" 
-                          size="sm"
+                        <button
+                          className="importer-btn importer-btn-outline-info importer-btn-sm"
                           onClick={() => {
                             setSelectedImport(importRecord);
                             setShowLogsModal(true);
@@ -720,39 +729,40 @@ const StorageInsightsImporter = () => {
                           }}
                         >
                           Logs
-                        </Button>
+                        </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </Table>
+              </table>
             ) : (
-              <div className="text-center py-3 text-muted">
+              <div className="importer-empty-state">
                 <p>No import history found.</p>
               </div>
             )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              variant="outline-danger"
-              onClick={async () => {
-                await clearImportHistory();
-                setHistoryModal({ show: false, imports: [] });
-              }}
-            >
-              Clear History
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setHistoryModal({ show: false, imports: [] })}
-            >
-              Close
-            </Button>
-            <Button variant="primary" onClick={fetchImportHistory}>
-              Refresh
-            </Button>
-          </Modal.Footer>
-        </Modal>
+            </div>
+            <div className="importer-modal-footer">
+              <button
+                className="importer-btn importer-btn-outline-danger"
+                onClick={async () => {
+                  await clearImportHistory();
+                  setHistoryModal({ show: false, imports: [] });
+                }}
+              >
+                Clear History
+              </button>
+              <button
+                className="importer-btn importer-btn-outline-secondary"
+                onClick={() => setHistoryModal({ show: false, imports: [] })}
+              >
+                Close
+              </button>
+              <button className="importer-btn importer-btn-primary" onClick={fetchImportHistory}>
+                Refresh
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Import Logs Modal */}
