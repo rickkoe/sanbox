@@ -12,6 +12,7 @@ A comprehensive full-stack application for managing Storage Area Network (SAN) i
 - [Development Setup](#development-setup)
 - [Production Deployment](#production-deployment)
 - [Database Models & API](#database-models--api)
+- [User Permissions & Access Control](#user-permissions--access-control)
 - [Frontend Components](#frontend-components)
 - [Background Tasks](#background-tasks)
 - [Common Operations](#common-operations)
@@ -386,6 +387,235 @@ All API endpoints are prefixed with `/api/` and organized by app:
 ├── presets/         # Dashboard presets/templates
 └── analytics/       # Dashboard usage analytics
 ```
+
+## User Permissions & Access Control
+
+Sanbox implements a comprehensive role-based access control (RBAC) system that manages user permissions at both the customer and project levels.
+
+### Permission Architecture
+
+All access control in Sanbox is **customer-based** through the `CustomerMembership` model, which links users to customers with specific roles. Projects add a secondary visibility layer on top of these customer-level permissions.
+
+**Key Principles:**
+- Every user must have a `CustomerMembership` to access customer data
+- Three-tier role hierarchy: `admin > member > viewer`
+- No superuser bypass - all users (including Django superusers) follow the same permission rules
+- Permissions are enforced at the API level in `backend/core/permissions.py`
+
+### CustomerMembership Model
+
+```python
+class CustomerMembership(models.Model):
+    """Links users to customers with specific roles."""
+
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),      # Can modify customer-level resources
+        ('member', 'Member'),    # Can create/modify own projects
+        ('viewer', 'Viewer'),    # Read-only access
+    ]
+
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='member')
+```
+
+### Role Capabilities
+
+#### Admin Role
+Admins have full access to customer resources and all projects:
+- **Customer Infrastructure**: Full read/write access to Fabrics, Storage systems, and other infrastructure
+- **Projects**: Can view and modify ANY project in the customer, regardless of ownership
+- **Data Management**: Can create, edit, and delete Zones, Aliases, Hosts, and Volumes in any project
+- **User Management**: Can manage customer memberships and user roles
+- **Configuration**: Can modify customer-wide settings
+
+#### Member Role
+Members can create and manage their own projects:
+- **Customer Infrastructure**: Read-only access to Fabrics and Storage systems
+- **Projects**: Can create new projects and modify projects they own
+- **Data Management**: Can create, edit, and delete data in their own projects only
+- **Other Projects**: Read-only access to public/group projects; no access to others' private projects
+- **Configuration**: Can set their own active project context
+
+#### Viewer Role
+Viewers have read-only access to all customer data:
+- **Customer Infrastructure**: Read-only access to all Fabrics and Storage systems
+- **Projects**: Can view all public projects and group projects they're a member of
+- **Data Management**: Cannot create, edit, or delete any data (Zones, Aliases, Hosts, Volumes)
+- **Configuration**: Can switch their active project context for viewing
+- **Error Handling**: Receives clear "read-only access" messages when attempting modifications
+
+### Project Visibility Layer
+
+Projects have an additional visibility setting that works in combination with customer permissions:
+
+#### Private Projects
+- **Who can view**: Only the project owner and customer admins
+- **Who can modify**: Only the project owner and customer admins
+- **Use case**: Personal projects or sensitive data
+
+#### Public Projects
+- **Who can view**: All customer members (viewer, member, admin roles)
+- **Who can modify**: Only the project owner and customer admins
+- **Use case**: Shared reference data, team resources
+
+#### Group Projects
+- **Who can view**: Project group members, project owner, and customer admins
+- **Who can modify**: Only the project owner and customer admins
+- **Use case**: Team-specific projects with controlled access
+
+### Permission Functions
+
+Located in `backend/core/permissions.py`, these functions enforce access control:
+
+#### Core Permission Checks
+
+```python
+def has_customer_access(user: User, customer: Customer, min_role: str = 'viewer') -> bool:
+    """Check if user has at least the specified role for a customer.
+    Role hierarchy: admin > member > viewer
+
+    Args:
+        user: The user to check
+        customer: The customer to check access for
+        min_role: Minimum required role ('viewer', 'member', or 'admin')
+
+    Returns:
+        True if user has sufficient permissions, False otherwise
+    """
+```
+
+```python
+def can_view_customer(user: User, customer: Customer) -> bool:
+    """Check if user can view customer data (viewer+ access)."""
+    return has_customer_access(user, customer, min_role='viewer')
+
+def can_edit_customer_infrastructure(user: User, customer: Customer) -> bool:
+    """Check if user can edit customer infrastructure (admin only).
+    Applies to Fabrics, Storage systems, and other infrastructure.
+    """
+    return has_customer_access(user, customer, min_role='admin')
+```
+
+#### Project-Specific Permissions
+
+```python
+def can_modify_project(user: User, project: Project) -> bool:
+    """Check if user can modify a project.
+
+    Rules:
+    - Project owner can always modify their project
+    - Customer admins can modify any project in their customer
+
+    Returns:
+        True if user can modify the project, False otherwise
+    """
+
+def can_view_project(user: User, project: Project) -> bool:
+    """Check if user can view a project based on visibility settings.
+
+    Rules:
+    - Private: Only owner and customer admins
+    - Public: All customer members (viewer+)
+    - Group: Group members, owner, and customer admins
+
+    Returns:
+        True if user can view the project, False otherwise
+    """
+
+def can_create_project(user: User, customer: Customer) -> bool:
+    """Check if user can create projects (requires member+ role)."""
+    return has_customer_access(user, customer, min_role='member')
+```
+
+#### Project Filtering
+
+```python
+def get_user_projects(user: User, customer: Optional[Customer] = None):
+    """Get all projects user can access based on visibility and permissions.
+
+    Returns QuerySet containing:
+    - Projects owned by the user
+    - Public projects from user's customers
+    - Group projects where user is a member
+    - All projects from customers where user is admin
+    """
+```
+
+### API Permission Enforcement
+
+Permissions are enforced in Django REST Framework views. Examples from `backend/san/views.py`:
+
+```python
+@api_view(['POST'])
+def save_aliases(request):
+    """Save/update aliases - requires project modification permissions."""
+    project = get_object_or_404(Project, pk=project_id)
+
+    # Check if user can modify this project
+    if not can_modify_project(request.user, project):
+        return Response(
+            {'error': 'You do not have permission to modify this project. '
+                     'Only project owners and customer admins can make changes.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Process the save operation...
+```
+
+### Frontend Permission Handling
+
+The frontend displays appropriate messages and disables controls based on user permissions:
+
+**Permission Check in React**:
+```javascript
+// AuthContext provides role checking
+const { getUserRole } = useAuth();
+const userRole = getUserRole(customerId);
+
+// Conditional rendering based on role
+{userRole === 'admin' && <AdminControls />}
+{userRole === 'viewer' && <ReadOnlyBanner />}
+```
+
+**Error Handling for Viewers**:
+```javascript
+// Show user-friendly messages for permission errors
+if (error.response?.status === 403) {
+  toast.error(
+    'Read-only access: You have viewer permissions for this customer. ' +
+    'Only members and admins can make changes.',
+    { duration: 4000 }
+  );
+}
+```
+
+### Permission Checking Workflow
+
+1. **User Authentication**: User logs in and receives JWT token
+2. **Customer Context**: User selects active customer (must have CustomerMembership)
+3. **Role Determination**: System checks user's role for the selected customer
+4. **Project Selection**: User selects active project (must have view permissions)
+5. **Action Authorization**: Each API request checks permissions before execution
+6. **Error Handling**: Permission errors return HTTP 403 with descriptive messages
+
+### Best Practices
+
+**For Administrators:**
+- Grant 'viewer' role by default for new users
+- Promote to 'member' when users need to create projects
+- Reserve 'admin' role for trusted users who manage infrastructure
+
+**For Developers:**
+- Always use permission functions from `permissions.py` in views
+- Return HTTP 403 with clear messages for permission denials
+- Never bypass permission checks, even for superusers
+- Test all endpoints with different role levels
+
+**For Users:**
+- Understand your role limitations before attempting changes
+- Contact customer admin to request role upgrades if needed
+- Use viewer role for browsing and analysis without modification risk
 
 ## Customizable Dashboard System
 
