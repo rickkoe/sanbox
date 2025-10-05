@@ -5,9 +5,16 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
-from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable
-from customers.models import Customer 
-from .serializers import ConfigSerializer, ProjectSerializer, ActiveConfigSerializer, TableConfigurationSerializer, AppSettingsSerializer, CustomNamingRuleSerializer, CustomVariableSerializer
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import check_password
+from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership
+from customers.models import Customer
+from .serializers import (
+    ConfigSerializer, ProjectSerializer, ActiveConfigSerializer,
+    TableConfigurationSerializer, AppSettingsSerializer,
+    CustomNamingRuleSerializer, CustomVariableSerializer,
+    UserSerializer, CustomerMembershipSerializer
+)
 from customers.serializers import CustomerSerializer 
 
 
@@ -244,17 +251,30 @@ def create_project_for_customer(request):
     Handle projects endpoint - GET for listing all projects, POST for creating new project.
     """
     print(f"🔥 Projects API - Method: {request.method}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
     if request.method == "GET":
         # Return all projects with customer information and counts
         try:
             from san.models import Fabric, Alias, Zone
             from storage.models import Storage, Host
-            
+
             all_projects = []
-            
-            # Get all customers and their projects
-            customers = Customer.objects.prefetch_related('projects').all()
+
+            # Get customers based on user permissions
+            if user and user.is_authenticated:
+                if user.is_superuser:
+                    customers = Customer.objects.prefetch_related('projects').all()
+                else:
+                    # Get customers the user is a member of
+                    customer_ids = CustomerMembership.objects.filter(
+                        user=user
+                    ).values_list('customer_id', flat=True)
+                    customers = Customer.objects.filter(id__in=customer_ids).prefetch_related('projects')
+            else:
+                # Unauthenticated users see no projects
+                customers = Customer.objects.none()
             
             for customer in customers:
                 for project in customer.projects.all():
@@ -282,12 +302,15 @@ def create_project_for_customer(request):
             return JsonResponse({"error": str(e)}, status=500)
     
     elif request.method == "POST":
-        # Create new project (existing logic)
+        # Create new project - requires authentication and membership
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
         try:
             print(f"📝 Parsing request body...")
             data = json.loads(request.body)
             print(f"📝 Request data: {data}")
-            
+
             name = data.get('name')
             customer_id = data.get('customer')
             print(f"📝 Project name: {name}, Customer ID: {customer_id}")
@@ -304,9 +327,25 @@ def create_project_for_customer(request):
                 print(f"❌ Customer not found: {customer_id}")
                 return JsonResponse({"error": "Customer not found."}, status=404)
 
+            # Check if user has permission to create projects for this customer
+            if not user.is_superuser:
+                membership = CustomerMembership.objects.filter(
+                    customer=customer,
+                    user=user
+                ).first()
+                if not membership:
+                    return JsonResponse({"error": "You must be a member of this customer to create projects"}, status=403)
+                # Viewer role can't create projects
+                if membership.role == 'viewer':
+                    return JsonResponse({"error": "Viewers cannot create projects"}, status=403)
+
             print(f"📝 Creating project with name: {name}")
-            # Create the project without referencing customer
-            project = Project.objects.create(name=name, notes=data.get('notes', ''))
+            # Create the project with owner
+            project = Project.objects.create(
+                name=name,
+                notes=data.get('notes', ''),
+                owner=user
+            )
             print(f"📝 Project created with ID: {project.id}")
 
             print(f"📝 Adding project to customer's ManyToMany field...")
@@ -327,7 +366,7 @@ def create_project_for_customer(request):
             return JsonResponse({"error": str(e)}, status=500)
 
 
-@csrf_exempt  
+@csrf_exempt
 @require_http_methods(["PUT"])
 def update_project(request, project_id):
     """
@@ -335,12 +374,37 @@ def update_project(request, project_id):
     PUT /api/core/projects/<id>/
     """
     print(f"🔥 Update Project - Method: {request.method}, Project ID: {project_id}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
             return JsonResponse({"error": "Project not found."}, status=404)
+
+        # Check if user has permission to update this project
+        if not user.is_superuser:
+            # Get the customer that owns this project
+            customer = project.customers.first()
+            if customer:
+                membership = CustomerMembership.objects.filter(
+                    customer=customer,
+                    user=user
+                ).first()
+                # User must be member/admin of customer OR owner of project
+                if not membership and project.owner != user:
+                    return JsonResponse({"error": "Permission denied"}, status=403)
+                # Viewers can't update projects
+                if membership and membership.role == 'viewer' and project.owner != user:
+                    return JsonResponse({"error": "Viewers cannot update projects"}, status=403)
+            else:
+                # No customer, only owner can update
+                if project.owner != user:
+                    return JsonResponse({"error": "Permission denied"}, status=403)
 
         print(f"📝 Parsing request body...")
         data = json.loads(request.body)
@@ -399,12 +463,35 @@ def delete_project(request, project_id):
     DELETE /api/core/projects/<id>/
     """
     print(f"🔥 Delete Project - Method: {request.method}, Project ID: {project_id}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
             return JsonResponse({"error": "Project not found."}, status=404)
+
+        # Check if user has permission to delete this project
+        if not user.is_superuser:
+            # Get the customer that owns this project
+            customer = project.customers.first()
+            if customer:
+                membership = CustomerMembership.objects.filter(
+                    customer=customer,
+                    user=user,
+                    role='admin'  # Only admins can delete projects
+                ).first()
+                # User must be admin of customer OR owner of project
+                if not membership and project.owner != user:
+                    return JsonResponse({"error": "Only admins or project owners can delete projects"}, status=403)
+            else:
+                # No customer, only owner can delete
+                if project.owner != user:
+                    return JsonResponse({"error": "Permission denied"}, status=403)
 
         project_name = project.name
         
@@ -1679,3 +1766,256 @@ def table_columns_list(request):
     except Exception as e:
         print(f"❌ Error in table_columns_list: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ====================
+# USER & TEAM MANAGEMENT API VIEWS
+# ====================
+
+@csrf_exempt
+@require_http_methods(["GET", "PATCH"])
+def user_detail(request, user_id):
+    """
+    Get or update user profile
+    GET /api/core/users/<id>/
+    PATCH /api/core/users/<id>/
+    """
+    print(f"🔥 User Detail - Method: {request.method}, User ID: {user_id}")
+
+    try:
+        user = get_object_or_404(User, id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+
+    if request.method == "GET":
+        try:
+            serializer = UserSerializer(user)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            print(f"❌ Error in user_detail GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == "PATCH":
+        try:
+            data = json.loads(request.body)
+
+            # Only allow updating email and name fields
+            allowed_fields = ['email', 'first_name', 'last_name']
+            for field, value in data.items():
+                if field in allowed_fields:
+                    setattr(user, field, value)
+
+            user.save()
+            serializer = UserSerializer(user)
+            return JsonResponse(serializer.data)
+
+        except Exception as e:
+            print(f"❌ Error in user_detail PATCH: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def user_change_password(request, user_id):
+    """
+    Change user password
+    POST /api/core/users/<id>/change-password/
+    Body: {"current_password": "...", "new_password": "..."}
+    """
+    print(f"🔥 User Change Password - User ID: {user_id}")
+
+    try:
+        user = get_object_or_404(User, id=user_id)
+        data = json.loads(request.body)
+
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+
+        if not current_password or not new_password:
+            return JsonResponse({
+                'error': 'Both current_password and new_password are required'
+            }, status=400)
+
+        # Verify current password
+        if not check_password(current_password, user.password):
+            return JsonResponse({
+                'error': 'Current password is incorrect'
+            }, status=400)
+
+        # Validate new password length
+        if len(new_password) < 8:
+            return JsonResponse({
+                'error': 'New password must be at least 8 characters long'
+            }, status=400)
+
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+
+        return JsonResponse({
+            'message': 'Password changed successfully'
+        })
+
+    except Exception as e:
+        print(f"❌ Error in user_change_password: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def user_customer_memberships(request, user_id):
+    """
+    Get customer memberships for a user
+    GET /api/core/users/<id>/customer-memberships/
+    """
+    print(f"🔥 User Customer Memberships - User ID: {user_id}")
+
+    try:
+        user = get_object_or_404(User, id=user_id)
+        memberships = CustomerMembership.objects.filter(user=user).select_related('customer')
+        serializer = CustomerMembershipSerializer(memberships, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    except Exception as e:
+        print(f"❌ Error in user_customer_memberships: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def customer_memberships_list(request, customer_id):
+    """
+    Get all memberships (team members) for a customer
+    GET /api/core/customers/<id>/memberships/
+    """
+    print(f"🔥 Customer Memberships List - Customer ID: {customer_id}")
+
+    try:
+        customer = get_object_or_404(Customer, id=customer_id)
+        memberships = CustomerMembership.objects.filter(customer=customer).select_related('user')
+        serializer = CustomerMembershipSerializer(memberships, many=True)
+        return JsonResponse(serializer.data, safe=False)
+
+    except Exception as e:
+        print(f"❌ Error in customer_memberships_list: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def customer_invite_user(request, customer_id):
+    """
+    Invite a user to a customer (create or update membership)
+    POST /api/core/customers/<id>/invite/
+    Body: {"email": "user@example.com", "role": "member"}
+    """
+    print(f"🔥 Customer Invite User - Customer ID: {customer_id}")
+
+    try:
+        customer = get_object_or_404(Customer, id=customer_id)
+        data = json.loads(request.body)
+
+        email = data.get('email')
+        role = data.get('role', 'member')
+
+        if not email:
+            return JsonResponse({'error': 'Email is required'}, status=400)
+
+        # Validate role
+        valid_roles = ['admin', 'member', 'viewer']
+        if role not in valid_roles:
+            return JsonResponse({
+                'error': f'Invalid role. Must be one of: {", ".join(valid_roles)}'
+            }, status=400)
+
+        # Find or create user by email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return JsonResponse({
+                'error': f'No user found with email: {email}. User must be registered first.'
+            }, status=404)
+
+        # Check if membership already exists
+        membership, created = CustomerMembership.objects.get_or_create(
+            customer=customer,
+            user=user,
+            defaults={'role': role}
+        )
+
+        if not created:
+            # Update existing membership role
+            membership.role = role
+            membership.save()
+            message = f'Updated role to {role} for {user.username}'
+        else:
+            message = f'Invited {user.username} as {role}'
+
+        serializer = CustomerMembershipSerializer(membership)
+        return JsonResponse({
+            'message': message,
+            'membership': serializer.data
+        }, status=201 if created else 200)
+
+    except Exception as e:
+        print(f"❌ Error in customer_invite_user: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PATCH", "DELETE"])
+def customer_membership_detail(request, membership_id):
+    """
+    Get, update, or delete a customer membership
+    GET /api/core/customer-memberships/<id>/
+    PATCH /api/core/customer-memberships/<id>/
+    DELETE /api/core/customer-memberships/<id>/
+    """
+    print(f"🔥 Customer Membership Detail - Method: {request.method}, Membership ID: {membership_id}")
+
+    try:
+        membership = get_object_or_404(CustomerMembership, id=membership_id)
+    except CustomerMembership.DoesNotExist:
+        return JsonResponse({'error': 'Membership not found'}, status=404)
+
+    if request.method == "GET":
+        try:
+            serializer = CustomerMembershipSerializer(membership)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            print(f"❌ Error in customer_membership_detail GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == "PATCH":
+        try:
+            data = json.loads(request.body)
+
+            # Only allow updating role
+            if 'role' in data:
+                role = data['role']
+                valid_roles = ['admin', 'member', 'viewer']
+                if role not in valid_roles:
+                    return JsonResponse({
+                        'error': f'Invalid role. Must be one of: {", ".join(valid_roles)}'
+                    }, status=400)
+
+                membership.role = role
+                membership.save()
+
+            serializer = CustomerMembershipSerializer(membership)
+            return JsonResponse(serializer.data)
+
+        except Exception as e:
+            print(f"❌ Error in customer_membership_detail PATCH: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == "DELETE":
+        try:
+            user_name = membership.user.username
+            membership.delete()
+            return JsonResponse({
+                'message': f'Removed {user_name} from team'
+            }, status=200)
+        except Exception as e:
+            print(f"❌ Error in customer_membership_detail DELETE: {e}")
+            return JsonResponse({'error': str(e)}, status=500)

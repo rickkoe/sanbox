@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Card, Form, Button, Alert, Badge } from 'react-bootstrap';
-import { User, Mail, Shield, Calendar, Save } from 'lucide-react';
+import { User, Mail, Shield, Calendar, Save, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import './UserProfile.css';
 
 const UserProfile = () => {
   const { user, checkAuth } = useAuth();
@@ -90,179 +90,183 @@ const UserProfile = () => {
 
   if (!user) {
     return (
-      <div className="p-4">
-        <Alert variant="warning">Loading user data...</Alert>
+      <div className="user-profile-container">
+        <div className="user-profile-alert user-profile-alert-warning">
+          Loading user data...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4">
-      <h2 className="mb-4">
-        <User size={28} className="me-2" />
+    <div className="user-profile-container">
+      <h2 className="user-profile-header">
+        <User size={28} style={{ marginRight: '0.5rem' }} />
         My Profile
       </h2>
 
       {error && (
-        <Alert variant="danger" onClose={() => setError('')} dismissible>
+        <div className="user-profile-alert user-profile-alert-danger">
           {error}
-        </Alert>
+          <button className="user-profile-alert-close" onClick={() => setError('')}>
+            <X size={18} />
+          </button>
+        </div>
       )}
 
       {success && (
-        <Alert variant="success" onClose={() => setSuccess('')} dismissible>
+        <div className="user-profile-alert user-profile-alert-success">
           {success}
-        </Alert>
+          <button className="user-profile-alert-close" onClick={() => setSuccess('')}>
+            <X size={18} />
+          </button>
+        </div>
       )}
 
       <div className="row">
         <div className="col-md-4 mb-4">
-          <Card>
-            <Card.Body className="text-center">
-              <div className="mb-3">
-                <div
-                  className="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center"
-                  style={{ width: '100px', height: '100px', fontSize: '2.5rem' }}
-                >
-                  {user.username.charAt(0).toUpperCase()}
-                </div>
+          <div className="user-profile-card">
+            <div className="user-profile-card-body text-center">
+              <div className="user-avatar">
+                {user.username.charAt(0).toUpperCase()}
               </div>
-              <h4>{user.username}</h4>
-              <p className="text-muted">{user.email}</p>
+              <h4 className="user-profile-username">{user.username}</h4>
+              <p className="user-profile-email">{user.email}</p>
 
               {user.is_superuser && (
-                <Badge bg="warning" className="mb-2">
-                  <Shield size={14} className="me-1" />
+                <span className="user-profile-badge user-profile-badge-warning">
+                  <Shield size={14} />
                   Superuser
-                </Badge>
+                </span>
               )}
 
-              <div className="mt-3 pt-3 border-top">
-                <small className="text-muted d-flex align-items-center justify-content-center">
-                  <Calendar size={14} className="me-1" />
+              <div className="user-profile-divider">
+                <div className="user-profile-date">
+                  <Calendar size={14} />
                   Joined {new Date(user.date_joined).toLocaleDateString()}
-                </small>
+                </div>
               </div>
-            </Card.Body>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="mt-3">
-            <Card.Header>
-              <h6 className="mb-0">Customer Memberships</h6>
-            </Card.Header>
-            <Card.Body>
+          <div className="user-profile-card">
+            <div className="user-profile-card-header">
+              <h6>Customer Memberships</h6>
+            </div>
+            <div className="user-profile-card-body">
               {user.customer_memberships && user.customer_memberships.length > 0 ? (
-                <div className="list-group list-group-flush">
+                <div>
                   {user.customer_memberships.map((membership) => (
-                    <div
-                      key={membership.id}
-                      className="list-group-item d-flex justify-content-between align-items-center px-0"
-                    >
+                    <div key={membership.id} className="membership-list-item">
                       <span>{membership.customer_name}</span>
-                      <Badge bg={getRoleBadgeVariant(membership.role)} className="d-flex align-items-center gap-1">
+                      <span className={`user-profile-badge user-profile-badge-${getRoleBadgeVariant(membership.role)}`}>
                         {getRoleIcon(membership.role)}
                         {membership.role}
-                      </Badge>
+                      </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-muted mb-0">No customer memberships yet</p>
+                <p className="membership-empty">No customer memberships yet</p>
               )}
-            </Card.Body>
-          </Card>
+            </div>
+          </div>
         </div>
 
         <div className="col-md-8">
-          <Card className="mb-4">
-            <Card.Header>
-              <h6 className="mb-0">Profile Information</h6>
-            </Card.Header>
-            <Card.Body>
-              <Form onSubmit={handleUpdateProfile}>
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    <User size={16} className="me-1" />
+          <div className="user-profile-card">
+            <div className="user-profile-card-header">
+              <h6>Profile Information</h6>
+            </div>
+            <div className="user-profile-card-body">
+              <form onSubmit={handleUpdateProfile}>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label className="user-profile-form-label">
+                    <User size={16} />
                     Username
-                  </Form.Label>
-                  <Form.Control
+                  </label>
+                  <input
                     type="text"
                     value={user.username}
                     disabled
-                    className="bg-light"
+                    className="user-profile-form-control"
                   />
-                  <Form.Text className="text-muted">
+                  <small className="user-profile-form-text">
                     Username cannot be changed
-                  </Form.Text>
-                </Form.Group>
+                  </small>
+                </div>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>
-                    <Mail size={16} className="me-1" />
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label className="user-profile-form-label">
+                    <Mail size={16} />
                     Email Address
-                  </Form.Label>
-                  <Form.Control
+                  </label>
+                  <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    className="user-profile-form-control"
                   />
-                </Form.Group>
+                </div>
 
-                <Button variant="primary" type="submit" disabled={loading}>
-                  <Save size={16} className="me-1" />
+                <button type="submit" disabled={loading} className="user-profile-button">
+                  <Save size={16} />
                   {loading ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </Form>
-            </Card.Body>
-          </Card>
+                </button>
+              </form>
+            </div>
+          </div>
 
-          <Card>
-            <Card.Header>
-              <h6 className="mb-0">Change Password</h6>
-            </Card.Header>
-            <Card.Body>
-              <Form onSubmit={handleChangePassword}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Current Password</Form.Label>
-                  <Form.Control
+          <div className="user-profile-card">
+            <div className="user-profile-card-header">
+              <h6>Change Password</h6>
+            </div>
+            <div className="user-profile-card-body">
+              <form onSubmit={handleChangePassword}>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label className="user-profile-form-label">Current Password</label>
+                  <input
                     type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     required
+                    className="user-profile-form-control"
                   />
-                </Form.Group>
+                </div>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>New Password</Form.Label>
-                  <Form.Control
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label className="user-profile-form-label">New Password</label>
+                  <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
+                    className="user-profile-form-control"
                   />
-                  <Form.Text className="text-muted">
+                  <small className="user-profile-form-text">
                     Must be at least 8 characters long
-                  </Form.Text>
-                </Form.Group>
+                  </small>
+                </div>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>Confirm New Password</Form.Label>
-                  <Form.Control
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label className="user-profile-form-label">Confirm New Password</label>
+                  <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
+                    className="user-profile-form-control"
                   />
-                </Form.Group>
+                </div>
 
-                <Button variant="primary" type="submit" disabled={loading}>
-                  <Save size={16} className="me-1" />
+                <button type="submit" disabled={loading} className="user-profile-button">
+                  <Save size={16} />
                   {loading ? 'Changing...' : 'Change Password'}
-                </Button>
-              </Form>
-            </Card.Body>
-          </Card>
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -2,9 +2,10 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
 from .models import Customer
 from .serializers import CustomerSerializer
-from core.models import Config
+from core.models import Config, CustomerMembership
 from django.db.models import Q
 from django.core.paginator import Paginator
 from urllib.parse import urlencode
@@ -19,7 +20,10 @@ def customer_management(request, pk=None):
     PUT  /customers/{pk}/    -> update an existing customer
     """
     print(f"🔥 Customer Method: {request.method}, PK: {pk}")
-    
+
+    # Get authenticated user (if logged in)
+    user = request.user if request.user.is_authenticated else None
+
     if request.method == "GET":
         if pk is None:
             # Get query parameters
@@ -27,7 +31,7 @@ def customer_management(request, pk=None):
             page_size = request.GET.get('page_size', 100)
             search = request.GET.get('search', '')
             ordering = request.GET.get('ordering', 'id')
-            
+
             # Convert to integers with defaults
             try:
                 page_number = int(page_number)
@@ -35,9 +39,21 @@ def customer_management(request, pk=None):
             except (ValueError, TypeError):
                 page_number = 1
                 page_size = 100
-            
-            # Build queryset
-            customers = Customer.objects.all()
+
+            # Build queryset - filter by user's customer memberships
+            if user and user.is_authenticated:
+                if user.is_superuser:
+                    # Superusers see all customers
+                    customers = Customer.objects.all()
+                else:
+                    # Regular users only see customers they're members of
+                    customer_ids = CustomerMembership.objects.filter(
+                        user=user
+                    ).values_list('customer_id', flat=True)
+                    customers = Customer.objects.filter(id__in=customer_ids)
+            else:
+                # Unauthenticated users see no customers
+                customers = Customer.objects.none()
             
             # Apply search if provided
             if search:
@@ -105,32 +121,74 @@ def customer_management(request, pk=None):
                 'results': data
             })
             
-        # Single customer GET remains the same
+        # Single customer GET with permission check
         try:
             customer = Customer.objects.get(pk=pk)
+
+            # Check if user has access to this customer
+            if user and user.is_authenticated:
+                if not user.is_superuser:
+                    # Check if user is a member of this customer
+                    has_access = CustomerMembership.objects.filter(
+                        customer=customer,
+                        user=user
+                    ).exists()
+                    if not has_access:
+                        return JsonResponse({"error": "Permission denied"}, status=403)
+            else:
+                return JsonResponse({"error": "Authentication required"}, status=401)
+
             data = CustomerSerializer(customer).data
             return JsonResponse(data)
         except Customer.DoesNotExist:
             return JsonResponse({"error": "Customer not found"}, status=404)
 
-    # POST and PUT methods remain the same
+    # POST - create new customer (requires authentication)
     elif request.method == "POST":
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
         try:
             data = json.loads(request.body)
             serializer = CustomerSerializer(data=data)
             if serializer.is_valid():
                 customer = serializer.save()
                 Config.objects.create(customer=customer)
+
+                # Automatically create admin membership for the creator
+                if not user.is_superuser:
+                    CustomerMembership.objects.create(
+                        customer=customer,
+                        user=user,
+                        role='admin'
+                    )
+
                 return JsonResponse(CustomerSerializer(customer).data, status=201)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
+    # PUT - update existing customer (requires admin role)
     elif request.method == "PUT":
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
         if pk is None:
             return JsonResponse({"error": "Missing customer ID for update"}, status=400)
+
         try:
             customer = Customer.objects.get(pk=pk)
+
+            # Check if user is admin for this customer
+            if not user.is_superuser:
+                membership = CustomerMembership.objects.filter(
+                    customer=customer,
+                    user=user,
+                    role='admin'
+                ).first()
+                if not membership:
+                    return JsonResponse({"error": "Admin permission required"}, status=403)
+
             data = json.loads(request.body)
             serializer = CustomerSerializer(customer, data=data, partial=True)
             if serializer.is_valid():
@@ -146,8 +204,25 @@ def customer_management(request, pk=None):
 @require_http_methods(["DELETE"])
 def customer_delete(request, pk):
     print(f"🔥 Customer Delete: PK: {pk}")
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         customer = Customer.objects.get(pk=pk)
+
+        # Check if user is admin for this customer
+        if not user.is_superuser:
+            membership = CustomerMembership.objects.filter(
+                customer=customer,
+                user=user,
+                role='admin'
+            ).first()
+            if not membership:
+                return JsonResponse({"error": "Admin permission required"}, status=403)
+
         customer.delete()
         return JsonResponse({"message": "Customer deleted successfully"}, status=204)
     except Customer.DoesNotExist:

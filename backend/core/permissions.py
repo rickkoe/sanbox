@@ -232,3 +232,77 @@ def is_customer_member(user: User, customer: Customer) -> bool:
         bool: True if user is a member or admin
     """
     return has_customer_access(user, customer, min_role='member')
+
+
+def get_user_customer_ids(user: User):
+    """
+    Get list of customer IDs that the user has access to.
+
+    Args:
+        user: Django User object
+
+    Returns:
+        list: List of customer IDs, or None if superuser (indicating access to all)
+    """
+    if not user or not user.is_authenticated:
+        return []
+
+    if user.is_superuser:
+        return None  # None = all customers
+
+    return list(CustomerMembership.objects.filter(
+        user=user
+    ).values_list('customer_id', flat=True))
+
+
+def filter_by_customer_access(queryset, user: User, customer_field: str = 'customer'):
+    """
+    Filter a queryset to only include items from customers the user has access to.
+
+    Args:
+        queryset: Django QuerySet to filter
+        user: Django User object
+        customer_field: Name of the field that references Customer (default: 'customer')
+
+    Returns:
+        Filtered QuerySet
+    """
+    customer_ids = get_user_customer_ids(user)
+
+    if customer_ids is None:
+        # Superuser - return all
+        return queryset
+
+    if not customer_ids:
+        # No access - return empty queryset
+        return queryset.none()
+
+    # Filter by accessible customers
+    filter_kwargs = {f'{customer_field}_id__in': customer_ids}
+    return queryset.filter(**filter_kwargs)
+
+
+def filter_by_fabric_customer_access(queryset, user: User):
+    """
+    Filter a queryset to only include items from fabrics belonging to accessible customers.
+    Used for Alias and Zone models which reference Fabric.
+
+    Args:
+        queryset: Django QuerySet to filter (Alias or Zone)
+        user: Django User object
+
+    Returns:
+        Filtered QuerySet
+    """
+    customer_ids = get_user_customer_ids(user)
+
+    if customer_ids is None:
+        # Superuser - return all
+        return queryset
+
+    if not customer_ids:
+        # No access - return empty queryset
+        return queryset.none()
+
+    # Filter by fabrics belonging to accessible customers
+    return queryset.filter(fabric__customer_id__in=customer_ids)

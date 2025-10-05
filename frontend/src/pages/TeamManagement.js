@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Badge, Dropdown, Modal, Form, Alert } from 'react-bootstrap';
-import { Users, UserPlus, Shield, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Users, UserPlus, Shield, Eye, Edit2, Trash2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import './TeamManagement.css';
 
 const TeamManagement = () => {
   const { user } = useAuth();
@@ -15,12 +15,25 @@ const TeamManagement = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
+  const [openDropdownId, setOpenDropdownId] = useState(null);
 
   useEffect(() => {
     if (user) {
       loadCustomerMemberships();
     }
   }, [user]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openDropdownId && !event.target.closest('.team-dropdown')) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openDropdownId]);
 
   const loadCustomerMemberships = async () => {
     try {
@@ -144,83 +157,86 @@ const TeamManagement = () => {
 
   if (loading) {
     return (
-      <div className="p-4">
-        <div className="text-center">
-          <div className="spinner-border" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
+      <div className="team-management-container">
+        <div className="team-loading">
+          <div className="team-spinner"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-          <Users size={28} className="me-2" />
+    <div className="team-management-container">
+      <div className="team-management-header">
+        <h2 className="team-management-title">
+          <Users size={28} />
           Team Management
         </h2>
       </div>
 
       {error && (
-        <Alert variant="danger" onClose={() => setError('')} dismissible>
+        <div className="team-alert team-alert-danger">
           {error}
-        </Alert>
+          <button className="team-alert-close" onClick={() => setError('')}>
+            <X size={18} />
+          </button>
+        </div>
       )}
 
       {success && (
-        <Alert variant="success" onClose={() => setSuccess('')} dismissible>
+        <div className="team-alert team-alert-success">
           {success}
-        </Alert>
+          <button className="team-alert-close" onClick={() => setSuccess('')}>
+            <X size={18} />
+          </button>
+        </div>
       )}
 
       <div className="row">
         <div className="col-md-3 mb-4">
-          <Card>
-            <Card.Header>
-              <h6 className="mb-0">Your Customers</h6>
-            </Card.Header>
-            <Card.Body className="p-0">
-              <div className="list-group list-group-flush">
+          <div className="team-card">
+            <div className="team-card-header">
+              <h6>Your Customers</h6>
+            </div>
+            <div className="team-card-body-no-padding">
+              <div>
                 {customerMemberships.map((membership) => (
                   <button
                     key={membership.id}
-                    className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${
+                    className={`customer-list-item ${
                       selectedCustomer?.id === membership.customer.id ? 'active' : ''
                     }`}
                     onClick={() => selectCustomer(membership.customer)}
                   >
                     <span>{membership.customer.name}</span>
-                    <Badge bg={getRoleBadgeVariant(membership.role)} className="d-flex align-items-center gap-1">
+                    <span className={`team-badge team-badge-${getRoleBadgeVariant(membership.role)}`}>
                       {getRoleIcon(membership.role)}
                       {membership.role}
-                    </Badge>
+                    </span>
                   </button>
                 ))}
               </div>
-            </Card.Body>
-          </Card>
+            </div>
+          </div>
         </div>
 
         <div className="col-md-9">
           {selectedCustomer ? (
-            <Card>
-              <Card.Header className="d-flex justify-content-between align-items-center">
-                <h6 className="mb-0">Team Members - {selectedCustomer.name}</h6>
+            <div className="team-card">
+              <div className="team-card-header">
+                <h6>Team Members - {selectedCustomer.name}</h6>
                 {canManageTeam() && (
-                  <Button
-                    variant="primary"
-                    size="sm"
+                  <button
+                    className="team-button"
                     onClick={() => setShowInviteModal(true)}
                   >
-                    <UserPlus size={16} className="me-1" />
+                    <UserPlus size={16} />
                     Invite User
-                  </Button>
+                  </button>
                 )}
-              </Card.Header>
-              <Card.Body>
-                <Table responsive hover>
+              </div>
+              <div className="team-card-body">
+                <table className="team-table">
                   <thead>
                     <tr>
                       <th>User</th>
@@ -234,123 +250,152 @@ const TeamManagement = () => {
                     {teamMembers.map((membership) => (
                       <tr key={membership.id}>
                         <td>
-                          <div className="d-flex align-items-center">
-                            <Users size={16} className="me-2 text-muted" />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Users size={16} style={{ color: 'var(--secondary-text)' }} />
                             {membership.user.username}
                             {membership.user.id === user.id && (
-                              <Badge bg="info" className="ms-2">You</Badge>
+                              <span className="team-badge team-badge-info" style={{ marginLeft: '0.5rem' }}>You</span>
                             )}
                           </div>
                         </td>
                         <td>{membership.user.email}</td>
                         <td>
-                          <Badge bg={getRoleBadgeVariant(membership.role)} className="d-flex align-items-center gap-1" style={{ width: 'fit-content' }}>
+                          <span className={`team-badge team-badge-${getRoleBadgeVariant(membership.role)}`}>
                             {getRoleIcon(membership.role)}
                             {membership.role}
-                          </Badge>
+                          </span>
                         </td>
                         <td>{new Date(membership.created_at).toLocaleDateString()}</td>
                         {canManageTeam() && (
                           <td>
                             {membership.user.id !== user.id && (
-                              <Dropdown>
-                                <Dropdown.Toggle variant="outline-secondary" size="sm">
+                              <div className="team-dropdown">
+                                <button
+                                  className="team-dropdown-toggle"
+                                  onClick={() => setOpenDropdownId(openDropdownId === membership.id ? null : membership.id)}
+                                >
                                   Actions
-                                </Dropdown.Toggle>
-                                <Dropdown.Menu>
-                                  <Dropdown.Header>Change Role</Dropdown.Header>
-                                  <Dropdown.Item
-                                    onClick={() => handleChangeRole(membership.id, 'admin')}
-                                    disabled={membership.role === 'admin'}
-                                  >
-                                    <Shield size={14} className="me-2" />
-                                    Admin
-                                  </Dropdown.Item>
-                                  <Dropdown.Item
-                                    onClick={() => handleChangeRole(membership.id, 'member')}
-                                    disabled={membership.role === 'member'}
-                                  >
-                                    <Edit2 size={14} className="me-2" />
-                                    Member
-                                  </Dropdown.Item>
-                                  <Dropdown.Item
-                                    onClick={() => handleChangeRole(membership.id, 'viewer')}
-                                    disabled={membership.role === 'viewer'}
-                                  >
-                                    <Eye size={14} className="me-2" />
-                                    Viewer
-                                  </Dropdown.Item>
-                                  <Dropdown.Divider />
-                                  <Dropdown.Item
-                                    onClick={() => handleRemoveMember(membership.id)}
-                                    className="text-danger"
-                                  >
-                                    <Trash2 size={14} className="me-2" />
-                                    Remove
-                                  </Dropdown.Item>
-                                </Dropdown.Menu>
-                              </Dropdown>
+                                </button>
+                                {openDropdownId === membership.id && (
+                                  <div className="team-dropdown-menu">
+                                    <div className="team-dropdown-header">Change Role</div>
+                                    <button
+                                      className="team-dropdown-item"
+                                      onClick={() => {
+                                        handleChangeRole(membership.id, 'admin');
+                                        setOpenDropdownId(null);
+                                      }}
+                                      disabled={membership.role === 'admin'}
+                                    >
+                                      <Shield size={14} />
+                                      Admin
+                                    </button>
+                                    <button
+                                      className="team-dropdown-item"
+                                      onClick={() => {
+                                        handleChangeRole(membership.id, 'member');
+                                        setOpenDropdownId(null);
+                                      }}
+                                      disabled={membership.role === 'member'}
+                                    >
+                                      <Edit2 size={14} />
+                                      Member
+                                    </button>
+                                    <button
+                                      className="team-dropdown-item"
+                                      onClick={() => {
+                                        handleChangeRole(membership.id, 'viewer');
+                                        setOpenDropdownId(null);
+                                      }}
+                                      disabled={membership.role === 'viewer'}
+                                    >
+                                      <Eye size={14} />
+                                      Viewer
+                                    </button>
+                                    <div className="team-dropdown-divider"></div>
+                                    <button
+                                      className="team-dropdown-item danger"
+                                      onClick={() => {
+                                        handleRemoveMember(membership.id);
+                                        setOpenDropdownId(null);
+                                      }}
+                                    >
+                                      <Trash2 size={14} />
+                                      Remove
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </td>
                         )}
                       </tr>
                     ))}
                   </tbody>
-                </Table>
-              </Card.Body>
-            </Card>
+                </table>
+              </div>
+            </div>
           ) : (
-            <Card>
-              <Card.Body className="text-center text-muted py-5">
-                <Users size={48} className="mb-3" />
+            <div className="team-card">
+              <div className="team-card-body team-empty-state">
+                <Users size={48} style={{ marginBottom: '1rem' }} />
                 <p>Select a customer to view team members</p>
-              </Card.Body>
-            </Card>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
       {/* Invite User Modal */}
-      <Modal show={showInviteModal} onHide={() => setShowInviteModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Invite Team Member</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleInviteUser}>
-          <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label>Email Address</Form.Label>
-              <Form.Control
-                type="email"
-                placeholder="user@example.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                required
-              />
-            </Form.Group>
+      {showInviteModal && (
+        <div className="team-modal" onClick={() => setShowInviteModal(false)}>
+          <div className="team-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="team-modal-header">
+              <h5 className="team-modal-title">Invite Team Member</h5>
+              <button className="team-modal-close" onClick={() => setShowInviteModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleInviteUser}>
+              <div className="team-modal-body">
+                <div className="team-form-group">
+                  <label className="team-form-label">Email Address</label>
+                  <input
+                    type="email"
+                    className="team-form-control"
+                    placeholder="user@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    required
+                  />
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Role</Form.Label>
-              <Form.Select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-              >
-                <option value="viewer">Viewer - Read-only access</option>
-                <option value="member">Member - Can create/modify own projects</option>
-                <option value="admin">Admin - Can modify infrastructure</option>
-              </Form.Select>
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowInviteModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              <UserPlus size={16} className="me-1" />
-              Send Invitation
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
+                <div className="team-form-group">
+                  <label className="team-form-label">Role</label>
+                  <select
+                    className="team-form-control"
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value)}
+                  >
+                    <option value="viewer">Viewer - Read-only access</option>
+                    <option value="member">Member - Can create/modify own projects</option>
+                    <option value="admin">Admin - Can modify infrastructure</option>
+                  </select>
+                </div>
+              </div>
+              <div className="team-modal-footer">
+                <button type="button" className="team-button team-button-secondary" onClick={() => setShowInviteModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="team-button">
+                  <UserPlus size={16} />
+                  Send Invitation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

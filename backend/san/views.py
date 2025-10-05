@@ -22,12 +22,23 @@ from core.dashboard_views import clear_dashboard_cache_for_customer
 def fabric_management(request, pk=None):
     """Handle fabric CRUD operations with pagination and filtering."""
     print(f"🔥 Fabric Management - Method: {request.method}, PK: {pk}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
     if request.method == "GET":
         if pk:
             # Get specific fabric
             try:
                 fabric = Fabric.objects.get(pk=pk)
+
+                # Check if user has access to this fabric's customer
+                if user and user.is_authenticated:
+                    from core.permissions import has_customer_access
+                    if not user.is_superuser and not has_customer_access(user, fabric.customer):
+                        return JsonResponse({"error": "Permission denied"}, status=403)
+                else:
+                    return JsonResponse({"error": "Authentication required"}, status=401)
+
                 serializer = FabricSerializer(fabric)
                 return JsonResponse(serializer.data)
             except Fabric.DoesNotExist:
@@ -41,7 +52,7 @@ def fabric_management(request, pk=None):
                 page_size = request.GET.get('page_size', 50)
                 search = request.GET.get('search', '')
                 ordering = request.GET.get('ordering', 'name')
-                
+
                 # Convert to integers with defaults
                 try:
                     page_number = int(page_number)
@@ -49,9 +60,17 @@ def fabric_management(request, pk=None):
                 except (ValueError, TypeError):
                     page_number = 1
                     page_size = 50
-                
+
                 # Build queryset with optimizations
                 fabrics = Fabric.objects.select_related('customer').all()
+
+                # Filter by user's customer access
+                if user and user.is_authenticated:
+                    from core.permissions import filter_by_customer_access
+                    fabrics = filter_by_customer_access(fabrics, user)
+                else:
+                    # Unauthenticated users see nothing
+                    fabrics = Fabric.objects.none()
                 
                 # Filter by customer if provided
                 if customer_id:
@@ -123,19 +142,39 @@ def fabric_management(request, pk=None):
                 return JsonResponse({"error": str(e)}, status=500)
     
     elif request.method == "POST":
-        # Create new fabric
+        # Create new fabric - requires admin role
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
         try:
             data = json.loads(request.body)
+
+            # Check if user can modify infrastructure for this customer
+            customer_id = data.get('customer')
+            if customer_id:
+                from customers.models import Customer
+                from core.permissions import can_edit_customer_infrastructure
+                try:
+                    customer = Customer.objects.get(id=customer_id)
+                    if not user.is_superuser and not can_edit_customer_infrastructure(user, customer):
+                        return JsonResponse({
+                            "error": "Only admins can create fabrics"
+                        }, status=403)
+                except Customer.DoesNotExist:
+                    return JsonResponse({"error": "Customer not found"}, status=404)
+
             serializer = FabricSerializer(data=data)
             if serializer.is_valid():
                 fabric = serializer.save()
+                # Set last_modified_by
+                fabric.last_modified_by = user
                 fabric.imported = timezone.now()
-                fabric.save(update_fields=['imported'] if hasattr(fabric, 'imported') else [])
-                
+                fabric.save(update_fields=['last_modified_by', 'imported'] if hasattr(fabric, 'imported') else ['last_modified_by'])
+
                 # Clear dashboard cache when fabric is created
                 if fabric.customer_id:
                     clear_dashboard_cache_for_customer(fabric.customer_id)
-                
+
                 return JsonResponse({
                     'message': f'Fabric "{fabric.name}" created successfully',
                     'fabric': FabricSerializer(fabric).data
@@ -145,24 +184,54 @@ def fabric_management(request, pk=None):
             return JsonResponse({"error": str(e)}, status=500)
     
     elif request.method in ["PUT", "PATCH"]:
-        # Update existing fabric
+        # Update existing fabric - requires admin role
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
         if not pk:
             return JsonResponse({"error": "Fabric ID required for update"}, status=400)
-        
+
         try:
             fabric = Fabric.objects.get(pk=pk)
+
+            # Check if user can modify infrastructure for this customer
+            from core.permissions import can_edit_customer_infrastructure
+            if not user.is_superuser and not can_edit_customer_infrastructure(user, fabric.customer):
+                return JsonResponse({
+                    "error": "Only admins can update fabrics"
+                }, status=403)
+
             data = json.loads(request.body)
+
+            # Optimistic locking - check version
+            client_version = data.get('version')
+            if client_version is not None:
+                if fabric.version != client_version:
+                    # Version mismatch - someone else modified this fabric
+                    return JsonResponse({
+                        "error": "Conflict",
+                        "message": f"This fabric was modified by {fabric.last_modified_by.username if fabric.last_modified_by else 'another user'}. Please reload and try again.",
+                        "current_version": fabric.version,
+                        "last_modified_by": fabric.last_modified_by.username if fabric.last_modified_by else None,
+                        "last_modified_at": fabric.last_modified_at.isoformat() if fabric.last_modified_at else None
+                    }, status=409)
+
             serializer = FabricSerializer(fabric, data=data, partial=(request.method == "PATCH"))
             if serializer.is_valid():
                 fabric = serializer.save()
+                # Set last_modified_by and increment version
+                fabric.last_modified_by = user
+                fabric.version += 1
                 if hasattr(fabric, 'updated'):
                     fabric.updated = timezone.now()
-                    fabric.save(update_fields=['updated'])
-                
+                    fabric.save(update_fields=['last_modified_by', 'version', 'updated'])
+                else:
+                    fabric.save(update_fields=['last_modified_by', 'version'])
+
                 # Clear dashboard cache when fabric is updated
                 if fabric.customer_id:
                     clear_dashboard_cache_for_customer(fabric.customer_id)
-                
+
                 return JsonResponse({
                     'message': f'Fabric "{fabric.name}" updated successfully',
                     'fabric': FabricSerializer(fabric).data
@@ -174,20 +243,31 @@ def fabric_management(request, pk=None):
             return JsonResponse({"error": str(e)}, status=500)
     
     elif request.method == "DELETE":
-        # Delete fabric
+        # Delete fabric - requires admin role
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
         if not pk:
             return JsonResponse({"error": "Fabric ID required for deletion"}, status=400)
-        
+
         try:
             fabric = Fabric.objects.get(pk=pk)
+
+            # Check if user can modify infrastructure for this customer
+            from core.permissions import can_edit_customer_infrastructure
+            if not user.is_superuser and not can_edit_customer_infrastructure(user, fabric.customer):
+                return JsonResponse({
+                    "error": "Only admins can delete fabrics"
+                }, status=403)
+
             customer_id = fabric.customer_id
             fabric_name = fabric.name
             fabric.delete()
-            
+
             # Clear dashboard cache when fabric is deleted
             if customer_id:
                 clear_dashboard_cache_for_customer(customer_id)
-                
+
             return JsonResponse({
                 "message": f'Fabric "{fabric_name}" deleted successfully'
             }, status=200)

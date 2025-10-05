@@ -1,6 +1,52 @@
 from rest_framework import serializers
-from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable
+from django.contrib.auth.models import User
+from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership
 from customers.models import Customer
+
+
+class UserSerializer(serializers.ModelSerializer):
+    customer_memberships = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name',
+                  'is_superuser', 'date_joined', 'customer_memberships']
+        read_only_fields = ['id', 'username', 'is_superuser', 'date_joined']
+
+    def get_customer_memberships(self, obj):
+        memberships = CustomerMembership.objects.filter(user=obj).select_related('customer')
+        return [{
+            'id': m.id,
+            'customer_id': m.customer.id,
+            'customer_name': m.customer.name,
+            'role': m.role,
+            'created_at': m.created_at
+        } for m in memberships]
+
+
+class CustomerMembershipSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    customer = serializers.SerializerMethodField()
+    user_id = serializers.IntegerField(write_only=True, required=False)
+    customer_id = serializers.IntegerField(write_only=True, required=False)
+
+    class Meta:
+        model = CustomerMembership
+        fields = ['id', 'customer', 'customer_id', 'user', 'user_id',
+                  'role', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_customer(self, obj):
+        return {
+            'id': obj.customer.id,
+            'name': obj.customer.name
+        }
+
+    def validate_role(self, value):
+        if value not in dict(CustomerMembership.ROLE_CHOICES):
+            raise serializers.ValidationError(f"Invalid role: {value}")
+        return value
+
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:

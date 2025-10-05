@@ -117,7 +117,9 @@ function AppContent() {
     '/storage',
     '/scripts',
     '/import',
-    '/tools/custom-naming'
+    '/tools/custom-naming',
+    '/profile',
+    '/team'
   ];
 
   // Check for scrollable routes including dynamic routes
@@ -224,6 +226,8 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/settings" element={<div style={{padding: '2rem'}}><h2>Settings</h2><p>Choose a settings category from the Settings dropdown in the navbar.</p></div>} />
                     <Route path="/settings/project-config" element={<ConfigForm />} />
                     <Route path="/settings/app-settings" element={<SettingsPage />} />
+                    <Route path="/profile" element={<UserProfile />} />
+                    <Route path="/team" element={<TeamManagement />} />
                     <Route path="/tools" element={<ToolsPage />} />
                     <Route path="/scripts" element={<ScriptsPage />} />
                     <Route path="/scripts/zoning" element={<ZoneScriptsPage />} />

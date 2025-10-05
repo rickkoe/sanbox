@@ -147,7 +147,7 @@
   grid-area: main-content;
   position: relative;
   padding: 0;
-  background: #fff;
+  background: var(--content-bg, #fff);
   z-index: 2;
   /* Default: no scrolling (tables handle their own) */
   overflow: visible;

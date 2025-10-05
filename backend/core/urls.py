@@ -1,11 +1,11 @@
 from django.urls import path
 from .views import (
     config_viewset,
-    config_detail, 
-    projects_for_customer, 
-    active_config_view, 
-    config_for_customer, 
-    create_project_for_customer, 
+    config_detail,
+    projects_for_customer,
+    active_config_view,
+    config_for_customer,
+    create_project_for_customer,
     update_project,
     delete_project,
     update_config_view,
@@ -27,6 +27,12 @@ from .views import (
     custom_variables_list,
     custom_variable_detail,
     table_columns_list,
+    user_detail,
+    user_change_password,
+    user_customer_memberships,
+    customer_memberships_list,
+    customer_invite_user,
+    customer_membership_detail,
 )
 
 # Import new dashboard views
@@ -77,7 +83,15 @@ urlpatterns = [
     path("custom-variables/", custom_variables_list, name="custom-variables-list"),
     path("custom-variables/<int:pk>/", custom_variable_detail, name="custom-variable-detail"),
     path("table-columns/", table_columns_list, name="table-columns-list"),
-    
+
+    # User & Team Management endpoints
+    path("users/<int:user_id>/", user_detail, name="user-detail"),
+    path("users/<int:user_id>/change-password/", user_change_password, name="user-change-password"),
+    path("users/<int:user_id>/customer-memberships/", user_customer_memberships, name="user-customer-memberships"),
+    path("customers/<int:customer_id>/memberships/", customer_memberships_list, name="customer-memberships-list"),
+    path("customers/<int:customer_id>/invite/", customer_invite_user, name="customer-invite-user"),
+    path("customer-memberships/<int:membership_id>/", customer_membership_detail, name="customer-membership-detail"),
+
     # ========== CUSTOMIZABLE DASHBOARD ENDPOINTS ==========
     # Dashboard Layout Management
     path("dashboard-v2/layout/", DashboardLayoutView.as_view(), name="dashboard-layout"),
