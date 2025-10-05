@@ -1037,22 +1037,32 @@ def hosts_by_project_view(request, project_id):
 def host_save_view(request):
     """Save or update multiple hosts."""
     print(f"🔥 Host Save - Method: {request.method}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         data = json.loads(request.body)
-        
+
         # Handle single host creation (for AliasTable compatibility)
         if "name" in data and "project_id" in data:
             project_id = data.get("project_id")
             host_name = data.get("name", "").strip()
-            
+
             if not project_id or not host_name:
                 return JsonResponse({"error": "Project ID and host name are required."}, status=400)
-            
+
             try:
                 project = Project.objects.get(id=project_id)
             except Project.DoesNotExist:
                 return JsonResponse({"error": "Project not found."}, status=404)
+
+            # Check if user has permission to modify hosts (must be at least member)
+            from core.permissions import can_modify_project
+            if not can_modify_project(user, project):
+                return JsonResponse({"error": "Only project owners, members, and admins can modify hosts. Viewers have read-only access."}, status=403)
             
             # Check if host already exists in this project
             existing_host = Host.objects.filter(project=project, name=host_name).first()
@@ -1074,15 +1084,20 @@ def host_save_view(request):
         # Handle bulk host operations (for AllHostsTable)
         project_id = data.get("project_id")
         hosts_data = data.get("hosts", [])
-        
-        
+
+
         if not project_id or not hosts_data:
             return JsonResponse({"error": "Project ID and hosts data are required."}, status=400)
-        
+
         try:
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
             return JsonResponse({"error": "Project not found."}, status=404)
+
+        # Check if user has permission to modify hosts (must be at least member)
+        from core.permissions import can_modify_project
+        if not can_modify_project(user, project):
+            return JsonResponse({"error": "Only project owners, members, and admins can modify hosts. Viewers have read-only access."}, status=403)
         
         saved_hosts = []
         errors = []
@@ -1198,13 +1213,24 @@ def host_delete_view(request, pk):
     print(f"🔥 Host Delete - PK: {pk}, Method: {request.method}")
     print(f"🔍 Request path: {request.path}")
     print(f"🔍 Request headers: {dict(request.headers)}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     # Check for force parameter
     force_delete = request.GET.get('force', 'false').lower() == 'true'
     print(f"🔍 Force delete: {force_delete}")
-    
+
     try:
         host = Host.objects.get(pk=pk)
+
+        # Check if user has permission to delete hosts
+        from core.permissions import can_modify_project
+        if not can_modify_project(user, host.project):
+            return JsonResponse({"error": "Only project owners, members, and admins can delete hosts. Viewers have read-only access."}, status=403)
+
         host_name = host.name
         project_id = host.project.id
         
@@ -1394,7 +1420,12 @@ def host_wwpn_reconciliation_view(request, host_id):
 def alias_save_view(request):
     """Save or update aliases for multiple projects."""
     print(f"🔥 Alias Save - Method: {request.method}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         data = json.loads(request.body)
         project_id = data.get("project_id")
@@ -1407,6 +1438,11 @@ def alias_save_view(request):
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
             return JsonResponse({"error": "Project not found."}, status=404)
+
+        # Check if user has permission to modify aliases (must be at least member)
+        from core.permissions import can_modify_project
+        if not can_modify_project(user, project):
+            return JsonResponse({"error": "Only project owners, members, and admins can modify aliases. Viewers have read-only access."}, status=403)
 
         saved_aliases = []
         errors = []
@@ -1483,9 +1519,21 @@ def alias_save_view(request):
 def alias_delete_view(request, pk):
     """Delete an alias."""
     print(f"🔥 Alias Delete - PK: {pk}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         alias = Alias.objects.get(pk=pk)
+
+        # Check permission on the first project this alias belongs to
+        if alias.projects.exists():
+            project = alias.projects.first()
+            from core.permissions import can_modify_project
+            if not can_modify_project(user, project):
+                return JsonResponse({"error": "Only project owners, members, and admins can delete aliases. Viewers have read-only access."}, status=403)
         customer_id = None
         # Get customer ID from any project the alias belongs to
         if alias.projects.exists():
@@ -1716,7 +1764,12 @@ def zone_column_requirements(request, project_id):
 def zone_save_view(request):
     """Save or update zones for multiple projects."""
     print(f"🔥 Zone Save - Method: {request.method}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         data = json.loads(request.body)
         project_id = data.get("project_id")
@@ -1729,6 +1782,11 @@ def zone_save_view(request):
             project = Project.objects.get(id=project_id)
         except Project.DoesNotExist:
             return JsonResponse({"error": "Project not found."}, status=404)
+
+        # Check if user has permission to modify zones (must be at least member)
+        from core.permissions import can_modify_project
+        if not can_modify_project(user, project):
+            return JsonResponse({"error": "Only project owners, members, and admins can modify zones. Viewers have read-only access."}, status=403)
 
         saved_zones = []
         errors = []
@@ -1818,9 +1876,21 @@ def zone_save_view(request):
 def zone_delete_view(request, pk):
     """Delete a zone."""
     print(f"🔥 Zone Delete - PK: {pk}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         zone = Zone.objects.get(pk=pk)
+
+        # Check permission on the first project this zone belongs to
+        if zone.projects.exists():
+            project = zone.projects.first()
+            from core.permissions import can_modify_project
+            if not can_modify_project(user, project):
+                return JsonResponse({"error": "Only project owners, members, and admins can delete zones. Viewers have read-only access."}, status=403)
         customer_id = None
         # Get customer ID from any project the zone belongs to
         if zone.projects.exists():

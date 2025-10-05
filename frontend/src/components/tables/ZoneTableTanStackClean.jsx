@@ -838,9 +838,18 @@ const ZoneTableTanStackClean = () => {
                         console.log(`✅ Deleted zone ${zoneId}`);
                     } catch (error) {
                         console.error(`❌ Failed to delete zone ${zoneId}:`, error);
+
+                        // Check if it's a permission error
+                        if (error.response?.status === 403) {
+                            return {
+                                success: false,
+                                message: error.response?.data?.error || 'You have read-only access to this project. Only members and admins can delete data.'
+                            };
+                        }
+
                         return {
                             success: false,
-                            message: `Failed to delete zone ${zoneId}: ${error.response?.data?.message || error.message}`
+                            message: `Failed to delete zone ${zoneId}: ${error.response?.data?.error || error.response?.data?.message || error.message}`
                         };
                     }
                 }
@@ -1015,9 +1024,18 @@ const ZoneTableTanStackClean = () => {
 
         } catch (error) {
             console.error('❌ Zone save error:', error);
+
+            // Check if it's a permission error
+            if (error.response?.status === 403) {
+                return {
+                    success: false,
+                    message: error.response?.data?.error || 'You have read-only access to this project. Only members and admins can modify data.'
+                };
+            }
+
             return {
                 success: false,
-                message: `Error saving zones: ${error.response?.data?.message || error.message}`
+                message: `Error saving zones: ${error.response?.data?.error || error.response?.data?.message || error.message}`
             };
         }
     };

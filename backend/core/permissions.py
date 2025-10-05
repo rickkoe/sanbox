@@ -45,10 +45,6 @@ def has_customer_access(user: User, customer: Customer, min_role: str = 'viewer'
     if not user or not user.is_authenticated:
         return False
 
-    # Superusers have access to everything
-    if user.is_superuser:
-        return True
-
     role = get_user_role(user, customer)
     if not role:
         return False
@@ -99,7 +95,6 @@ def can_modify_project(user: User, project: Project) -> bool:
     - Project owner can always modify
     - Customer admins can modify all projects in their customers
     - For group projects: group members cannot modify (only owner and admins)
-    - Superusers can modify anything
 
     Args:
         user: The User object
@@ -110,10 +105,6 @@ def can_modify_project(user: User, project: Project) -> bool:
     """
     if not user or not user.is_authenticated:
         return False
-
-    # Superusers can modify anything
-    if user.is_superuser:
-        return True
 
     # Project owner can modify their project
     if project.owner == user:
@@ -137,7 +128,6 @@ def can_view_project(user: User, project: Project) -> bool:
     - Private: Only owner and customer admins can view
     - Public: All customer members can view
     - Group: Group members, owner, and customer admins can view
-    - Superusers can view anything
 
     Args:
         user: The User object
@@ -148,10 +138,6 @@ def can_view_project(user: User, project: Project) -> bool:
     """
     if not user or not user.is_authenticated:
         return False
-
-    # Superusers can view anything
-    if user.is_superuser:
-        return True
 
     # Project owner can always view
     if project.owner == user:
@@ -205,10 +191,6 @@ def get_user_customers(user: User):
     if not user or not user.is_authenticated:
         return Customer.objects.none()
 
-    # Superusers see all customers
-    if user.is_superuser:
-        return Customer.objects.all()
-
     # Get customers through memberships
     customer_ids = CustomerMembership.objects.filter(
         user=user
@@ -226,7 +208,6 @@ def get_user_projects(user: User, customer: Optional[Customer] = None):
     - Private: Only owner can see
     - Public: All users with customer membership can see
     - Group: Only group members and owner can see
-    - Superusers see all projects
     - Customer admins see all projects in their customers
 
     Args:
@@ -240,12 +221,6 @@ def get_user_projects(user: User, customer: Optional[Customer] = None):
 
     if not user or not user.is_authenticated:
         return Project.objects.none()
-
-    # Superusers see all projects
-    if user.is_superuser:
-        if customer:
-            return Project.objects.filter(customers=customer)
-        return Project.objects.all()
 
     # Build query for projects user can access
     query = Q()
@@ -325,13 +300,10 @@ def get_user_customer_ids(user: User):
         user: Django User object
 
     Returns:
-        list: List of customer IDs, or None if superuser (indicating access to all)
+        list: List of customer IDs
     """
     if not user or not user.is_authenticated:
         return []
-
-    if user.is_superuser:
-        return None  # None = all customers
 
     return list(CustomerMembership.objects.filter(
         user=user
@@ -351,10 +323,6 @@ def filter_by_customer_access(queryset, user: User, customer_field: str = 'custo
         Filtered QuerySet
     """
     customer_ids = get_user_customer_ids(user)
-
-    if customer_ids is None:
-        # Superuser - return all
-        return queryset
 
     if not customer_ids:
         # No access - return empty queryset
@@ -378,10 +346,6 @@ def filter_by_fabric_customer_access(queryset, user: User):
         Filtered QuerySet
     """
     customer_ids = get_user_customer_ids(user)
-
-    if customer_ids is None:
-        # Superuser - return all
-        return queryset
 
     if not customer_ids:
         # No access - return empty queryset

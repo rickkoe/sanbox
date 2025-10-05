@@ -197,10 +197,12 @@ def projects_for_customer(request, customer_id):
     try:
         customer = Customer.objects.get(id=customer_id)
 
-        # Get projects user has access to, filtered by customer and visibility
-        from core.permissions import get_user_projects
-        if user and user.is_authenticated:
-            accessible_projects = get_user_projects(user, customer=customer)
+        # For config selection, show all projects if user is a member of the customer
+        # (even viewers need to see all projects to select which one to work in)
+        from core.permissions import can_view_customer
+        if user and user.is_authenticated and can_view_customer(user, customer):
+            # User is a member (viewer/member/admin) - show all projects for this customer
+            accessible_projects = Project.objects.filter(customers=customer)
         else:
             accessible_projects = Project.objects.none()
 
@@ -240,16 +242,26 @@ def config_for_customer(request, customer_id):
 def update_config_view(request, customer_id):
     """Update config for a specific customer"""
     print(f"🔥 Update Config - Customer ID: {customer_id}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user or not user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         config = Config.objects.get(customer=customer_id)
     except Config.DoesNotExist:
         return JsonResponse({"error": "Config not found"}, status=404)
-    
+
+    # Check if user has permission to update config (all customer members can change active project)
+    from core.permissions import can_view_customer
+    if not can_view_customer(user, config.customer):
+        return JsonResponse({"error": "You must be a member of this customer to update configuration"}, status=403)
+
     try:
         data = json.loads(request.body)
         data['is_active'] = True
-        
+
         serializer = ConfigSerializer(config, data=data, partial=True)
         if serializer.is_valid():
             updated = serializer.save()
@@ -348,16 +360,15 @@ def create_project_for_customer(request):
                 return JsonResponse({"error": "Customer not found."}, status=404)
 
             # Check if user has permission to create projects for this customer
-            if not user.is_superuser:
-                membership = CustomerMembership.objects.filter(
-                    customer=customer,
-                    user=user
-                ).first()
-                if not membership:
-                    return JsonResponse({"error": "You must be a member of this customer to create projects"}, status=403)
-                # Viewer role can't create projects
-                if membership.role == 'viewer':
-                    return JsonResponse({"error": "Viewers cannot create projects"}, status=403)
+            membership = CustomerMembership.objects.filter(
+                customer=customer,
+                user=user
+            ).first()
+            if not membership:
+                return JsonResponse({"error": "You must be a member of this customer to create projects"}, status=403)
+            # Viewer role can't create projects
+            if membership.role == 'viewer':
+                return JsonResponse({"error": "Viewers cannot create projects"}, status=403)
 
             print(f"📝 Creating project with name: {name}")
 
