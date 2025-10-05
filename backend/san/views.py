@@ -34,7 +34,7 @@ def fabric_management(request, pk=None):
                 # Check if user has access to this fabric's customer
                 if user and user.is_authenticated:
                     from core.permissions import has_customer_access
-                    if not user.is_superuser and not has_customer_access(user, fabric.customer):
+                    if not has_customer_access(user, fabric.customer):
                         return JsonResponse({"error": "Permission denied"}, status=403)
                 else:
                     return JsonResponse({"error": "Authentication required"}, status=401)
@@ -156,9 +156,9 @@ def fabric_management(request, pk=None):
                 from core.permissions import can_edit_customer_infrastructure
                 try:
                     customer = Customer.objects.get(id=customer_id)
-                    if not user.is_superuser and not can_edit_customer_infrastructure(user, customer):
+                    if not can_edit_customer_infrastructure(user, customer):
                         return JsonResponse({
-                            "error": "Only admins can create fabrics"
+                            "error": "You do not have permission to create fabrics. Only members and admins can modify infrastructure."
                         }, status=403)
                 except Customer.DoesNotExist:
                     return JsonResponse({"error": "Customer not found"}, status=404)
@@ -196,9 +196,9 @@ def fabric_management(request, pk=None):
 
             # Check if user can modify infrastructure for this customer
             from core.permissions import can_edit_customer_infrastructure
-            if not user.is_superuser and not can_edit_customer_infrastructure(user, fabric.customer):
+            if not can_edit_customer_infrastructure(user, fabric.customer):
                 return JsonResponse({
-                    "error": "Only admins can update fabrics"
+                    "error": "You do not have permission to update fabrics. Only members and admins can modify infrastructure."
                 }, status=403)
 
             data = json.loads(request.body)
@@ -255,9 +255,9 @@ def fabric_management(request, pk=None):
 
             # Check if user can modify infrastructure for this customer
             from core.permissions import can_edit_customer_infrastructure
-            if not user.is_superuser and not can_edit_customer_infrastructure(user, fabric.customer):
+            if not can_edit_customer_infrastructure(user, fabric.customer):
                 return JsonResponse({
-                    "error": "Only admins can delete fabrics"
+                    "error": "You do not have permission to delete fabrics. Only members and admins can modify infrastructure."
                 }, status=403)
 
             customer_id = fabric.customer_id

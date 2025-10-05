@@ -75,16 +75,16 @@ def can_view_customer(user: User, customer: Customer) -> bool:
 def can_edit_customer_infrastructure(user: User, customer: Customer) -> bool:
     """
     Check if user can edit customer-level infrastructure (Fabrics, Storage).
-    Only admins can modify customer-level resources.
+    Members and admins can modify customer-level resources.
 
     Args:
         user: The User object
         customer: The Customer object
 
     Returns:
-        bool: True if user is an admin for this customer
+        bool: True if user is a member or admin for this customer
     """
-    return has_customer_access(user, customer, min_role='admin')
+    return has_customer_access(user, customer, min_role='member')
 
 
 def can_modify_project(user: User, project: Project) -> bool:

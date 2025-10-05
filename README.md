@@ -430,8 +430,8 @@ Admins have full access to customer resources and all projects:
 - **Configuration**: Can modify customer-wide settings
 
 #### Member Role
-Members can create and manage their own projects:
-- **Customer Infrastructure**: Read-only access to Fabrics and Storage systems
+Members can create and manage their own projects and infrastructure:
+- **Customer Infrastructure**: Full read/write access to Fabrics and Storage systems (same as admins)
 - **Projects**: Can create new projects and modify projects they own
 - **Data Management**: Can create, edit, and delete data in their own projects only
 - **Other Projects**: Read-only access to public/group projects; no access to others' private projects
@@ -491,10 +491,11 @@ def can_view_customer(user: User, customer: Customer) -> bool:
     return has_customer_access(user, customer, min_role='viewer')
 
 def can_edit_customer_infrastructure(user: User, customer: Customer) -> bool:
-    """Check if user can edit customer infrastructure (admin only).
+    """Check if user can edit customer infrastructure (member+ access).
     Applies to Fabrics, Storage systems, and other infrastructure.
+    Members and admins can both modify customer-level resources.
     """
-    return has_customer_access(user, customer, min_role='admin')
+    return has_customer_access(user, customer, min_role='member')
 ```
 
 #### Project-Specific Permissions
@@ -603,8 +604,8 @@ if (error.response?.status === 403) {
 
 **For Administrators:**
 - Grant 'viewer' role by default for new users
-- Promote to 'member' when users need to create projects
-- Reserve 'admin' role for trusted users who manage infrastructure
+- Promote to 'member' when users need to create projects and manage infrastructure
+- Reserve 'admin' role for trusted users who need to manage all projects and user permissions
 
 **For Developers:**
 - Always use permission functions from `permissions.py` in views

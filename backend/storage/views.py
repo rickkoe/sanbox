@@ -176,9 +176,9 @@ def storage_list(request):
                 from core.permissions import can_edit_customer_infrastructure
                 try:
                     customer = Customer.objects.get(id=customer_id)
-                    if not user.is_superuser and not can_edit_customer_infrastructure(user, customer):
+                    if not can_edit_customer_infrastructure(user, customer):
                         return JsonResponse({
-                            "error": "Only admins can create/update storage systems"
+                            "error": "You do not have permission to create/update storage systems. Only members and admins can modify infrastructure."
                         }, status=403)
                 except Customer.DoesNotExist:
                     return JsonResponse({"error": "Customer not found"}, status=404)
@@ -223,7 +223,7 @@ def storage_detail(request, pk):
         # Check if user has access to this storage's customer
         if user and user.is_authenticated:
             from core.permissions import has_customer_access
-            if storage.customer and not user.is_superuser and not has_customer_access(user, storage.customer):
+            if storage.customer and not has_customer_access(user, storage.customer):
                 return JsonResponse({"error": "Permission denied"}, status=403)
         else:
             return JsonResponse({"error": "Authentication required"}, status=401)
@@ -241,9 +241,9 @@ def storage_detail(request, pk):
 
         # Check if user can modify infrastructure for this customer
         from core.permissions import can_edit_customer_infrastructure
-        if storage.customer and not user.is_superuser and not can_edit_customer_infrastructure(user, storage.customer):
+        if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
             return JsonResponse({
-                "error": "Only admins can update storage systems"
+                "error": "You do not have permission to update storage systems. Only members and admins can modify infrastructure."
             }, status=403)
 
         try:
@@ -287,9 +287,9 @@ def storage_detail(request, pk):
 
         # Check if user can modify infrastructure for this customer
         from core.permissions import can_edit_customer_infrastructure
-        if storage.customer and not user.is_superuser and not can_edit_customer_infrastructure(user, storage.customer):
+        if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
             return JsonResponse({
-                "error": "Only admins can delete storage systems"
+                "error": "You do not have permission to delete storage systems. Only members and admins can modify infrastructure."
             }, status=403)
 
         try:
