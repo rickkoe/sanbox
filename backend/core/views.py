@@ -7,10 +7,10 @@ from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password
-from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership
+from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership
 from customers.models import Customer
 from .serializers import (
-    ConfigSerializer, ProjectSerializer, ActiveConfigSerializer,
+    ConfigSerializer, ProjectSerializer, ProjectGroupSerializer, ActiveConfigSerializer,
     TableConfigurationSerializer, AppSettingsSerializer,
     CustomNamingRuleSerializer, CustomVariableSerializer,
     UserSerializer, CustomerMembershipSerializer
@@ -189,13 +189,28 @@ def customer_list(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def projects_for_customer(request, customer_id):
-    """Fetch projects for a selected customer"""
+    """Fetch projects for a selected customer that the user has access to"""
     print(f"🔥 Projects for Customer - Customer ID: {customer_id}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
     try:
         customer = Customer.objects.get(id=customer_id)
-        projects = customer.projects.all()  # Correct way to access ManyToManyField
-        project_data = [{"id": project.id, "name": project.name} for project in projects]
+
+        # Get projects user has access to, filtered by customer and visibility
+        from core.permissions import get_user_projects
+        if user and user.is_authenticated:
+            accessible_projects = get_user_projects(user, customer=customer)
+        else:
+            accessible_projects = Project.objects.none()
+
+        project_data = [{
+            "id": project.id,
+            "name": project.name,
+            "visibility": project.visibility,
+            "owner": project.owner.username if project.owner else None
+        } for project in accessible_projects]
+
         return JsonResponse(project_data, safe=False)
     except Customer.DoesNotExist:
         return JsonResponse({"error": "Customer not found"}, status=404)
@@ -256,47 +271,52 @@ def create_project_for_customer(request):
 
     if request.method == "GET":
         # Return all projects with customer information and counts
+        # Now uses visibility-based filtering from permissions.py
         try:
             from san.models import Fabric, Alias, Zone
             from storage.models import Storage, Host
+            from core.permissions import get_user_projects
 
             all_projects = []
 
-            # Get customers based on user permissions
+            # Get projects the user has access to (respects visibility settings)
             if user and user.is_authenticated:
-                if user.is_superuser:
-                    customers = Customer.objects.prefetch_related('projects').all()
-                else:
-                    # Get customers the user is a member of
-                    customer_ids = CustomerMembership.objects.filter(
-                        user=user
-                    ).values_list('customer_id', flat=True)
-                    customers = Customer.objects.filter(id__in=customer_ids).prefetch_related('projects')
+                # Use the permission helper that handles visibility filtering
+                accessible_projects = get_user_projects(user)
             else:
                 # Unauthenticated users see no projects
-                customers = Customer.objects.none()
-            
-            for customer in customers:
-                for project in customer.projects.all():
-                    # Calculate counts for each project
-                    fabric_count = Fabric.objects.filter(customer__projects=project).count()
-                    alias_count = project.alias_projects.count()  # Direct ManyToMany
-                    zone_count = project.zone_projects.count()    # Direct ManyToMany  
-                    storage_system_count = Storage.objects.filter(customer__projects=project).count()
-                    host_count = Host.objects.filter(project=project).count()  # Direct ForeignKey
-                    
-                    all_projects.append({
-                        'id': project.id,
-                        'name': project.name,
-                        'notes': project.notes or '',
-                        'customer': customer.name,
-                        'fabric_count': fabric_count,
-                        'alias_count': alias_count,
-                        'zone_count': zone_count,
-                        'storage_system_count': storage_system_count,
-                        'host_count': host_count
-                    })
-            
+                accessible_projects = Project.objects.none()
+
+            for project in accessible_projects:
+                # Get the customer for this project
+                customer = project.customers.first()
+
+                # Calculate counts for each project
+                fabric_count = Fabric.objects.filter(customer__projects=project).count()
+                alias_count = project.alias_projects.count()  # Direct ManyToMany
+                zone_count = project.zone_projects.count()    # Direct ManyToMany
+                storage_system_count = Storage.objects.filter(customer__projects=project).count()
+                host_count = Host.objects.filter(project=project).count()  # Direct ForeignKey
+
+                all_projects.append({
+                    'id': project.id,
+                    'name': project.name,
+                    'notes': project.notes or '',
+                    'owner': project.owner.username if project.owner else None,
+                    'visibility': project.visibility,
+                    'group': {
+                        'id': project.group.id,
+                        'name': project.group.name
+                    } if project.group else None,
+                    'customer': customer.name if customer else None,
+                    'customer_id': customer.id if customer else None,
+                    'fabric_count': fabric_count,
+                    'alias_count': alias_count,
+                    'zone_count': zone_count,
+                    'storage_system_count': storage_system_count,
+                    'host_count': host_count
+                })
+
             return JsonResponse(all_projects, safe=False)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
@@ -340,13 +360,42 @@ def create_project_for_customer(request):
                     return JsonResponse({"error": "Viewers cannot create projects"}, status=403)
 
             print(f"📝 Creating project with name: {name}")
-            # Create the project with owner
+
+            # Get visibility and group from request (default to private)
+            visibility = data.get('visibility', 'private')
+            group_id = data.get('group_id', None)
+
+            # Validate visibility choice
+            valid_visibilities = ['private', 'public', 'group']
+            if visibility not in valid_visibilities:
+                return JsonResponse({
+                    "error": f"Invalid visibility. Must be one of: {', '.join(valid_visibilities)}"
+                }, status=400)
+
+            # If visibility is 'group', ensure group_id is provided and valid
+            group = None
+            if visibility == 'group':
+                if not group_id:
+                    return JsonResponse({
+                        "error": "group_id is required when visibility is 'group'"
+                    }, status=400)
+
+                try:
+                    group = ProjectGroup.objects.get(id=group_id, customer=customer)
+                except ProjectGroup.DoesNotExist:
+                    return JsonResponse({
+                        "error": "Project group not found or does not belong to this customer"
+                    }, status=404)
+
+            # Create the project with owner and visibility settings
             project = Project.objects.create(
                 name=name,
                 notes=data.get('notes', ''),
-                owner=user
+                owner=user,
+                visibility=visibility,
+                group=group
             )
-            print(f"📝 Project created with ID: {project.id}")
+            print(f"📝 Project created with ID: {project.id}, visibility: {visibility}")
 
             print(f"📝 Adding project to customer's ManyToMany field...")
             # Add it to the customer's ManyToMany field
@@ -387,38 +436,57 @@ def update_project(request, project_id):
             return JsonResponse({"error": "Project not found."}, status=404)
 
         # Check if user has permission to update this project
-        if not user.is_superuser:
-            # Get the customer that owns this project
-            customer = project.customers.first()
-            if customer:
-                membership = CustomerMembership.objects.filter(
-                    customer=customer,
-                    user=user
-                ).first()
-                # User must be member/admin of customer OR owner of project
-                if not membership and project.owner != user:
-                    return JsonResponse({"error": "Permission denied"}, status=403)
-                # Viewers can't update projects
-                if membership and membership.role == 'viewer' and project.owner != user:
-                    return JsonResponse({"error": "Viewers cannot update projects"}, status=403)
-            else:
-                # No customer, only owner can update
-                if project.owner != user:
-                    return JsonResponse({"error": "Permission denied"}, status=403)
+        from core.permissions import can_modify_project
+        if not can_modify_project(user, project):
+            return JsonResponse({"error": "Permission denied"}, status=403)
 
         print(f"📝 Parsing request body...")
         data = json.loads(request.body)
         print(f"📝 Update data: {data}")
-        
+
+        # Get customer for validation
+        customer = project.customers.first()
+
         # Update project fields
         if 'name' in data:
             project.name = data['name'].strip()
             print(f"📝 Updated name to: {project.name}")
-            
+
         if 'notes' in data:
             project.notes = data['notes'] or ''
             print(f"📝 Updated notes to: {project.notes}")
-        
+
+        # Handle visibility update
+        if 'visibility' in data:
+            visibility = data['visibility']
+            valid_visibilities = ['private', 'public', 'group']
+            if visibility not in valid_visibilities:
+                return JsonResponse({
+                    "error": f"Invalid visibility. Must be one of: {', '.join(valid_visibilities)}"
+                }, status=400)
+            project.visibility = visibility
+            print(f"📝 Updated visibility to: {visibility}")
+
+        # Handle group update
+        if 'group_id' in data:
+            group_id = data['group_id']
+            if group_id:
+                # Validate group exists and belongs to customer
+                try:
+                    group = ProjectGroup.objects.get(id=group_id)
+                    if customer and group.customer != customer:
+                        return JsonResponse({
+                            "error": "Group does not belong to this project's customer"
+                        }, status=400)
+                    project.group = group
+                    print(f"📝 Updated group to: {group.name}")
+                except ProjectGroup.DoesNotExist:
+                    return JsonResponse({"error": "Project group not found"}, status=404)
+            else:
+                # Remove group
+                project.group = None
+                print(f"📝 Removed group from project")
+
         project.save()
         print(f"📝 Project saved successfully")
         
@@ -2019,3 +2087,357 @@ def customer_membership_detail(request, membership_id):
         except Exception as e:
             print(f"❌ Error in customer_membership_detail DELETE: {e}")
             return JsonResponse({'error': str(e)}, status=500)
+
+# ==================== PROJECT GROUPS ====================
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def project_groups_list(request, customer_id):
+    """
+    List or create project groups for a customer
+    GET /api/core/customers/<customer_id>/project-groups/
+    POST /api/core/customers/<customer_id>/project-groups/
+    """
+    print(f"🔥 Project Groups List - Method: {request.method}, Customer ID: {customer_id}")
+    
+    user = request.user if request.user.is_authenticated else None
+    
+    try:
+        customer = get_object_or_404(Customer, id=customer_id)
+    except Customer.DoesNotExist:
+        return JsonResponse({'error': 'Customer not found'}, status=404)
+    
+    # Check if user has access to this customer
+    from core.permissions import has_customer_access
+    if not user or not has_customer_access(user, customer, min_role='viewer'):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    if request.method == "GET":
+        try:
+            groups = ProjectGroup.objects.filter(customer=customer)
+            serializer = ProjectGroupSerializer(groups, many=True)
+            return JsonResponse(serializer.data, safe=False)
+        except Exception as e:
+            print(f"❌ Error in project_groups_list GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "POST":
+        # Only admins and members can create groups
+        if not has_customer_access(user, customer, min_role='member'):
+            return JsonResponse({'error': 'Only members and admins can create project groups'}, status=403)
+        
+        try:
+            data = json.loads(request.body)
+            
+            # Set customer and created_by
+            data['customer'] = customer.id
+            
+            serializer = ProjectGroupSerializer(data=data)
+            if serializer.is_valid():
+                group = serializer.save(
+                    customer=customer,
+                    created_by=user
+                )
+                return JsonResponse(
+                    ProjectGroupSerializer(group).data,
+                    status=201
+                )
+            else:
+                return JsonResponse({'errors': serializer.errors}, status=400)
+        
+        except Exception as e:
+            print(f"❌ Error in project_groups_list POST: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PATCH", "DELETE"])
+def project_group_detail(request, group_id):
+    """
+    Get, update, or delete a project group
+    GET /api/core/project-groups/<id>/
+    PATCH /api/core/project-groups/<id>/
+    DELETE /api/core/project-groups/<id>/
+    """
+    print(f"🔥 Project Group Detail - Method: {request.method}, Group ID: {group_id}")
+    
+    user = request.user if request.user.is_authenticated else None
+    
+    try:
+        group = get_object_or_404(ProjectGroup, id=group_id)
+    except ProjectGroup.DoesNotExist:
+        return JsonResponse({'error': 'Project group not found'}, status=404)
+    
+    # Check if user has access to this customer
+    from core.permissions import has_customer_access
+    if not user or not has_customer_access(user, group.customer, min_role='viewer'):
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+    
+    if request.method == "GET":
+        try:
+            serializer = ProjectGroupSerializer(group)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            print(f"❌ Error in project_group_detail GET: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "PATCH":
+        # Only group creator and customer admins can modify
+        is_creator = group.created_by == user
+        is_admin = has_customer_access(user, group.customer, min_role='admin')
+        
+        if not (is_creator or is_admin):
+            return JsonResponse({
+                'error': 'Only the group creator or customer admins can modify this group'
+            }, status=403)
+        
+        try:
+            data = json.loads(request.body)
+            serializer = ProjectGroupSerializer(group, data=data, partial=True)
+            
+            if serializer.is_valid():
+                serializer.save()
+                return JsonResponse(serializer.data)
+            else:
+                return JsonResponse({'errors': serializer.errors}, status=400)
+        
+        except Exception as e:
+            print(f"❌ Error in project_group_detail PATCH: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    elif request.method == "DELETE":
+        # Only group creator and customer admins can delete
+        is_creator = group.created_by == user
+        is_admin = has_customer_access(user, group.customer, min_role='admin')
+        
+        if not (is_creator or is_admin):
+            return JsonResponse({
+                'error': 'Only the group creator or customer admins can delete this group'
+            }, status=403)
+        
+        try:
+            # Check if any projects are using this group
+            project_count = group.projects.count()
+            if project_count > 0:
+                return JsonResponse({
+                    'error': f'Cannot delete group: {project_count} project(s) are using this group. '
+                            'Please reassign or delete those projects first.'
+                }, status=400)
+            
+            group_name = group.name
+            group.delete()
+            return JsonResponse({
+                'message': f'Project group "{group_name}" deleted successfully'
+            }, status=200)
+        
+        except Exception as e:
+            print(f"❌ Error in project_group_detail DELETE: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST", "DELETE"])
+def project_group_members(request, group_id):
+    """
+    Add or remove members from a project group
+    POST /api/core/project-groups/<id>/members/
+        Body: {"user_id": 123}
+    DELETE /api/core/project-groups/<id>/members/<user_id>/
+    """
+    print(f"🔥 Project Group Members - Method: {request.method}, Group ID: {group_id}")
+    
+    user = request.user if request.user.is_authenticated else None
+    
+    try:
+        group = get_object_or_404(ProjectGroup, id=group_id)
+    except ProjectGroup.DoesNotExist:
+        return JsonResponse({'error': 'Project group not found'}, status=404)
+    
+    # Check permissions
+    from core.permissions import has_customer_access
+    is_creator = group.created_by == user
+    is_admin = user and has_customer_access(user, group.customer, min_role='admin')
+    
+    if not (is_creator or is_admin):
+        return JsonResponse({
+            'error': 'Only the group creator or customer admins can manage members'
+        }, status=403)
+    
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            user_id = data.get('user_id')
+            
+            if not user_id:
+                return JsonResponse({'error': 'user_id is required'}, status=400)
+            
+            try:
+                member = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return JsonResponse({'error': 'User not found'}, status=404)
+            
+            # Add member to group
+            group.members.add(member)
+            
+            serializer = ProjectGroupSerializer(group)
+            return JsonResponse(serializer.data)
+        
+        except Exception as e:
+            print(f"❌ Error in project_group_members POST: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def project_group_member_remove(request, group_id, user_id):
+    """
+    Remove a member from a project group
+    DELETE /api/core/project-groups/<group_id>/members/<user_id>/
+    """
+    print(f"🔥 Project Group Member Remove - Group ID: {group_id}, User ID: {user_id}")
+    
+    user = request.user if request.user.is_authenticated else None
+    
+    try:
+        group = get_object_or_404(ProjectGroup, id=group_id)
+    except ProjectGroup.DoesNotExist:
+        return JsonResponse({'error': 'Project group not found'}, status=404)
+    
+    # Check permissions
+    from core.permissions import has_customer_access
+    is_creator = group.created_by == user
+    is_admin = user and has_customer_access(user, group.customer, min_role='admin')
+    
+    if not (is_creator or is_admin):
+        return JsonResponse({
+            'error': 'Only the group creator or customer admins can manage members'
+        }, status=403)
+    
+    try:
+        try:
+            member = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+        
+        # Remove member from group
+        group.members.remove(member)
+        
+        return JsonResponse({
+            'message': f'Removed {member.username} from group "{group.name}"'
+        }, status=200)
+    
+    except Exception as e:
+        print(f"❌ Error in project_group_member_remove: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def users_list(request):
+    """
+    List all users in the system (for adding to customers)
+    GET /api/core/users/
+    """
+    print(f"🔥 Users List - Method: {request.method}")
+    
+    user = request.user if request.user.is_authenticated else None
+    
+    # Only authenticated users can see user list
+    if not user or not user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    
+    try:
+        # Get all users (admins can see all, regular users see all in their customers)
+        users = User.objects.all().order_by('username')
+        
+        user_list = [{
+            'id': u.id,
+            'username': u.username,
+            'email': u.email,
+            'first_name': u.first_name,
+            'last_name': u.last_name,
+            'full_name': f"{u.first_name} {u.last_name}".strip() or u.username,
+            'is_superuser': u.is_superuser
+        } for u in users]
+        
+        return JsonResponse(user_list, safe=False)
+        
+    except Exception as e:
+        print(f"❌ Error in users_list: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def customer_add_member(request, customer_id):
+    """
+    Add an existing user to a customer
+    POST /api/core/customers/<id>/add-member/
+    Body: {"user_id": 123, "role": "member"}
+    """
+    print(f"🔥 Customer Add Member - Customer ID: {customer_id}")
+
+    user = request.user if request.user.is_authenticated else None
+    
+    # Check authentication
+    if not user or not user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
+    try:
+        customer = get_object_or_404(Customer, id=customer_id)
+        
+        # Check if user is admin of this customer
+        from core.permissions import is_customer_admin
+        if not user.is_superuser and not is_customer_admin(user, customer):
+            return JsonResponse({'error': 'Only customer admins can add members'}, status=403)
+        
+        data = json.loads(request.body)
+
+        user_id = data.get('user_id')
+        role = data.get('role', 'member')
+
+        if not user_id:
+            return JsonResponse({'error': 'user_id is required'}, status=400)
+
+        # Validate role
+        valid_roles = ['admin', 'member', 'viewer']
+        if role not in valid_roles:
+            return JsonResponse({
+                'error': f'Invalid role. Must be one of: {", ".join(valid_roles)}'
+            }, status=400)
+
+        # Find user by ID
+        try:
+            member_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({
+                'error': f'User not found'
+            }, status=404)
+
+        # Check if membership already exists
+        membership, created = CustomerMembership.objects.get_or_create(
+            customer=customer,
+            user=member_user,
+            defaults={'role': role}
+        )
+
+        if not created:
+            # Membership already exists
+            return JsonResponse({
+                'error': f'{member_user.username} is already a member of {customer.name}',
+                'existing_role': membership.role
+            }, status=409)
+
+        message = f'Added {member_user.username} as {role}'
+
+        serializer = CustomerMembershipSerializer(membership)
+        return JsonResponse({
+            'message': message,
+            'membership': serializer.data
+        }, status=201)
+
+    except Exception as e:
+        print(f"❌ Error in customer_add_member: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)

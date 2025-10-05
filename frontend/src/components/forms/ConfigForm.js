@@ -1,14 +1,13 @@
 import React, { useContext, useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import "../../styles/configform.css"
 import { Modal, Button, Form as BootstrapForm } from "react-bootstrap";
 
 const ConfigForm = () => {
-    const API_URL = process.env.REACT_APP_API_URL || '';
-    const customersApiUrl = `${API_URL}/api/customers/`;
-    const projectsApiUrl = `${API_URL}/api/core/projects/`;
-    const updateCustomerUrl = `${API_URL}/api/core/config/update/`;
+    const customersApiUrl = `/customers/`;
+    const projectsApiUrl = `/core/projects/`;
+    const updateCustomerUrl = `/core/config/update/`;
 
     const { config, refreshConfig } = useContext(ConfigContext);
     const [customers, setCustomers] = useState([]);
@@ -23,7 +22,7 @@ const ConfigForm = () => {
     const handleAddCustomer = async () => {
         try {
             console.log("Adding new customer:", newCustomerName);
-            const response = await axios.post(customersApiUrl, {
+            const response = await api.post(customersApiUrl, {
                 name: newCustomerName
             });
             const newCustomer = response.data;
@@ -44,7 +43,7 @@ const ConfigForm = () => {
     };
     const handleAddProject = async () => {
         try {
-            const response = await axios.post(projectsApiUrl, {
+            const response = await api.post(projectsApiUrl, {
                 name: newProjectName,
                 customer: parseInt(unsavedConfig.customer)
             });
@@ -88,7 +87,7 @@ const ConfigForm = () => {
     const fetchCustomers = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(customersApiUrl);
+            const response = await api.get(customersApiUrl);
             // Ensure response.data is an array
             const customersData = Array.isArray(response.data) ? response.data : 
                                  response.data.results ? response.data.results : [];
@@ -104,7 +103,7 @@ const ConfigForm = () => {
     const fetchProjects = async (customerId) => {
         if (!customerId) return;
         try {
-            const response = await axios.get(`${projectsApiUrl}${customerId}/`);
+            const response = await api.get(`${projectsApiUrl}${customerId}/`);
             // Ensure response.data is an array
             const projectsData = Array.isArray(response.data) ? response.data : 
                                 response.data.results ? response.data.results : [];
@@ -118,8 +117,8 @@ const ConfigForm = () => {
     const fetchConfigForCustomer = async (customerId) => {
         console.log("Fetching config for customer:", customerId);
         try {
-            const url = `${API_URL}/api/core/config/customer/${customerId}/`;
-            const response = await axios.get(url);
+            const url = `/core/config/customer/${customerId}/`;
+            const response = await api.get(url);
             console.log("Response from fetchConfigForCustomer:", response.data);
             if (response.data && Object.keys(response.data).length > 0) {
                 const configForCustomer = response.data;
@@ -179,9 +178,8 @@ const ConfigForm = () => {
             
             console.log("📦 PAYLOAD:", payload);
             console.log("🌐 API URL:", `${updateCustomerUrl}${customer}/`);
-            console.log("🔧 Full API_URL env var:", process.env.REACT_APP_API_URL);
-            
-            const response = await axios.put(`${updateCustomerUrl}${customer}/`, payload);
+
+            const response = await api.put(`${updateCustomerUrl}${customer}/`, payload);
             console.log("✅ Save response:", response.data);
             
             setSaveStatus("Configuration saved successfully! ✅");

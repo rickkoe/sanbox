@@ -3,6 +3,12 @@ from django.contrib.auth.models import User
 from customers.models import Customer
 
 class Project(models.Model):
+    VISIBILITY_CHOICES = [
+        ('private', 'Private'),   # Only owner can see
+        ('public', 'Public'),     # All users in customer can see
+        ('group', 'Group'),       # Only group members can see
+    ]
+
     name = models.CharField(max_length=200)
     owner = models.ForeignKey(
         User,
@@ -12,12 +18,73 @@ class Project(models.Model):
         blank=True,
         help_text="User who owns this project"
     )
+    visibility = models.CharField(
+        max_length=10,
+        choices=VISIBILITY_CHOICES,
+        default='private',
+        help_text="Project visibility: private (owner only), public (all customer users), or group (group members)"
+    )
+    group = models.ForeignKey(
+        'ProjectGroup',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='projects',
+        help_text="Group that has access to this project (only used when visibility='group')"
+    )
     notes = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)  # null=True for migration
     updated_at = models.DateTimeField(auto_now=True, null=True)  # null=True for migration
 
     def __str__(self):
         return f"{self.name}"
+
+
+class ProjectGroup(models.Model):
+    """
+    Groups for sharing projects with multiple users.
+    Allows fine-grained project access control beyond customer-level permissions.
+    """
+    name = models.CharField(
+        max_length=200,
+        help_text="Name of the project group"
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name='project_groups',
+        help_text="Customer this group belongs to"
+    )
+    members = models.ManyToManyField(
+        User,
+        related_name='project_groups',
+        blank=True,
+        help_text="Users who are members of this group"
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_project_groups',
+        help_text="User who created this group"
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional description of the group's purpose"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['customer', 'name']
+        verbose_name = "Project Group"
+        verbose_name_plural = "Project Groups"
+        indexes = [
+            models.Index(fields=['customer', 'name']),
+        ]
+
+    def __str__(self):
+        return f"{self.customer.name} - {self.name}"
 
 
 class Config(models.Model):

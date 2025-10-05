@@ -42,15 +42,11 @@ def customer_management(request, pk=None):
 
             # Build queryset - filter by user's customer memberships
             if user and user.is_authenticated:
-                if user.is_superuser:
-                    # Superusers see all customers
-                    customers = Customer.objects.all()
-                else:
-                    # Regular users only see customers they're members of
-                    customer_ids = CustomerMembership.objects.filter(
-                        user=user
-                    ).values_list('customer_id', flat=True)
-                    customers = Customer.objects.filter(id__in=customer_ids)
+                # All users (including superusers) only see customers they're members of
+                customer_ids = CustomerMembership.objects.filter(
+                    user=user
+                ).values_list('customer_id', flat=True)
+                customers = Customer.objects.filter(id__in=customer_ids)
             else:
                 # Unauthenticated users see no customers
                 customers = Customer.objects.none()
@@ -127,14 +123,13 @@ def customer_management(request, pk=None):
 
             # Check if user has access to this customer
             if user and user.is_authenticated:
-                if not user.is_superuser:
-                    # Check if user is a member of this customer
-                    has_access = CustomerMembership.objects.filter(
-                        customer=customer,
-                        user=user
-                    ).exists()
-                    if not has_access:
-                        return JsonResponse({"error": "Permission denied"}, status=403)
+                # All users (including superusers) must be members
+                has_access = CustomerMembership.objects.filter(
+                    customer=customer,
+                    user=user
+                ).exists()
+                if not has_access:
+                    return JsonResponse({"error": "Permission denied"}, status=403)
             else:
                 return JsonResponse({"error": "Authentication required"}, status=401)
 
@@ -155,13 +150,12 @@ def customer_management(request, pk=None):
                 customer = serializer.save()
                 Config.objects.create(customer=customer)
 
-                # Automatically create admin membership for the creator
-                if not user.is_superuser:
-                    CustomerMembership.objects.create(
-                        customer=customer,
-                        user=user,
-                        role='admin'
-                    )
+                # Automatically create admin membership for the creator (including superusers)
+                CustomerMembership.objects.create(
+                    customer=customer,
+                    user=user,
+                    role='admin'
+                )
 
                 return JsonResponse(CustomerSerializer(customer).data, status=201)
             return JsonResponse(serializer.errors, status=400)
@@ -179,15 +173,14 @@ def customer_management(request, pk=None):
         try:
             customer = Customer.objects.get(pk=pk)
 
-            # Check if user is admin for this customer
-            if not user.is_superuser:
-                membership = CustomerMembership.objects.filter(
-                    customer=customer,
-                    user=user,
-                    role='admin'
-                ).first()
-                if not membership:
-                    return JsonResponse({"error": "Admin permission required"}, status=403)
+            # Check if user is admin for this customer (all users including superusers)
+            membership = CustomerMembership.objects.filter(
+                customer=customer,
+                user=user,
+                role='admin'
+            ).first()
+            if not membership:
+                return JsonResponse({"error": "Admin permission required"}, status=403)
 
             data = json.loads(request.body)
             serializer = CustomerSerializer(customer, data=data, partial=True)
@@ -213,15 +206,14 @@ def customer_delete(request, pk):
     try:
         customer = Customer.objects.get(pk=pk)
 
-        # Check if user is admin for this customer
-        if not user.is_superuser:
-            membership = CustomerMembership.objects.filter(
-                customer=customer,
-                user=user,
-                role='admin'
-            ).first()
-            if not membership:
-                return JsonResponse({"error": "Admin permission required"}, status=403)
+        # Check if user is admin for this customer (all users including superusers)
+        membership = CustomerMembership.objects.filter(
+            customer=customer,
+            user=user,
+            role='admin'
+        ).first()
+        if not membership:
+            return JsonResponse({"error": "Admin permission required"}, status=403)
 
         customer.delete()
         return JsonResponse({"message": "Customer deleted successfully"}, status=204)

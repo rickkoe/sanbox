@@ -93,8 +93,13 @@ def can_edit_customer_infrastructure(user: User, customer: Customer) -> bool:
 
 def can_modify_project(user: User, project: Project) -> bool:
     """
-    Check if user can modify a project.
-    Users can modify their own projects, or any project if they're a customer admin.
+    Check if user can modify a project based on visibility settings.
+
+    Modification rules:
+    - Project owner can always modify
+    - Customer admins can modify all projects in their customers
+    - For group projects: group members cannot modify (only owner and admins)
+    - Superusers can modify anything
 
     Args:
         user: The User object
@@ -119,6 +124,54 @@ def can_modify_project(user: User, project: Project) -> bool:
     customers = project.customers.all()
     for customer in customers:
         if has_customer_access(user, customer, min_role='admin'):
+            return True
+
+    return False
+
+
+def can_view_project(user: User, project: Project) -> bool:
+    """
+    Check if user can view a project based on visibility settings.
+
+    View rules:
+    - Private: Only owner and customer admins can view
+    - Public: All customer members can view
+    - Group: Group members, owner, and customer admins can view
+    - Superusers can view anything
+
+    Args:
+        user: The User object
+        project: The Project object
+
+    Returns:
+        bool: True if user can view the project
+    """
+    if not user or not user.is_authenticated:
+        return False
+
+    # Superusers can view anything
+    if user.is_superuser:
+        return True
+
+    # Project owner can always view
+    if project.owner == user:
+        return True
+
+    # Check customer admin access
+    customers = project.customers.all()
+    for customer in customers:
+        if has_customer_access(user, customer, min_role='admin'):
+            return True
+
+    # Check visibility-based access
+    if project.visibility == 'public':
+        # Public: check if user is a member of any customer
+        for customer in customers:
+            if has_customer_access(user, customer, min_role='viewer'):
+                return True
+    elif project.visibility == 'group':
+        # Group: check if user is in the project's group
+        if project.group and project.group.members.filter(id=user.id).exists():
             return True
 
     return False
@@ -166,8 +219,15 @@ def get_user_customers(user: User):
 
 def get_user_projects(user: User, customer: Optional[Customer] = None):
     """
-    Get all projects the user has access to.
+    Get all projects the user has access to based on visibility settings.
     If customer is specified, filter to that customer.
+
+    Access rules:
+    - Private: Only owner can see
+    - Public: All users with customer membership can see
+    - Group: Only group members and owner can see
+    - Superusers see all projects
+    - Customer admins see all projects in their customers
 
     Args:
         user: The User object
@@ -176,6 +236,8 @@ def get_user_projects(user: User, customer: Optional[Customer] = None):
     Returns:
         QuerySet: Project objects the user can access
     """
+    from django.db.models import Q
+
     if not user or not user.is_authenticated:
         return Project.objects.none()
 
@@ -185,19 +247,40 @@ def get_user_projects(user: User, customer: Optional[Customer] = None):
             return Project.objects.filter(customers=customer)
         return Project.objects.all()
 
-    # Get projects owned by user
-    owned_projects = Project.objects.filter(owner=user)
+    # Build query for projects user can access
+    query = Q()
 
-    # Get projects from customers where user is admin
+    # 1. Projects owned by user (regardless of visibility)
+    query |= Q(owner=user)
+
+    # 2. Public projects from customers where user is a member
+    customer_ids = CustomerMembership.objects.filter(
+        user=user
+    ).values_list('customer_id', flat=True)
+
+    if customer_ids:
+        query |= Q(visibility='public', customers__id__in=customer_ids)
+
+    # 3. Group projects where user is a group member
+    from core.models import ProjectGroup
+    user_group_ids = ProjectGroup.objects.filter(
+        members=user
+    ).values_list('id', flat=True)
+
+    if user_group_ids:
+        query |= Q(visibility='group', group_id__in=user_group_ids)
+
+    # 4. All projects from customers where user is admin
     admin_customer_ids = CustomerMembership.objects.filter(
         user=user,
         role='admin'
     ).values_list('customer_id', flat=True)
 
-    admin_projects = Project.objects.filter(customers__id__in=admin_customer_ids)
+    if admin_customer_ids:
+        query |= Q(customers__id__in=admin_customer_ids)
 
-    # Combine owned and admin projects
-    projects = (owned_projects | admin_projects).distinct()
+    # Apply the combined query
+    projects = Project.objects.filter(query).distinct()
 
     # Filter by customer if specified
     if customer:

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership
+from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership
 from customers.models import Customer
 
 
@@ -55,12 +55,89 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 class ProjectSerializer(serializers.ModelSerializer):
     customers = CustomerSerializer(many=True, read_only=True)  # Show all customers this project belongs to
-    
+    group_details = serializers.SerializerMethodField()
+
     class Meta:
         model = Project
-        fields = "__all__" 
+        fields = "__all__"
 
-        
+    def get_group_details(self, obj):
+        """Return group details if project has a group"""
+        if obj.group:
+            return {
+                'id': obj.group.id,
+                'name': obj.group.name,
+                'member_count': obj.group.members.count()
+            }
+        return None
+
+
+class ProjectGroupSerializer(serializers.ModelSerializer):
+    """Serializer for ProjectGroup"""
+    members = UserSerializer(many=True, read_only=True)
+    created_by = UserSerializer(read_only=True)
+    customer = serializers.SerializerMethodField()
+    member_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        help_text="List of user IDs to add as members"
+    )
+    project_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectGroup
+        fields = ['id', 'name', 'customer', 'members', 'member_ids',
+                  'created_by', 'description', 'project_count',
+                  'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+    def get_customer(self, obj):
+        return {
+            'id': obj.customer.id,
+            'name': obj.customer.name
+        }
+
+    def get_project_count(self, obj):
+        """Return count of projects using this group"""
+        return obj.projects.count()
+
+    def validate_member_ids(self, value):
+        """Validate that all member IDs exist"""
+        if value:
+            existing_users = User.objects.filter(id__in=value)
+            if existing_users.count() != len(value):
+                raise serializers.ValidationError("One or more user IDs are invalid")
+        return value
+
+    def create(self, validated_data):
+        """Create group and add members"""
+        member_ids = validated_data.pop('member_ids', [])
+        group = ProjectGroup.objects.create(**validated_data)
+
+        if member_ids:
+            members = User.objects.filter(id__in=member_ids)
+            group.members.set(members)
+
+        return group
+
+    def update(self, instance, validated_data):
+        """Update group and members"""
+        member_ids = validated_data.pop('member_ids', None)
+
+        # Update basic fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update members if provided
+        if member_ids is not None:
+            members = User.objects.filter(id__in=member_ids)
+            instance.members.set(members)
+
+        return instance
+
+
 class ActiveConfigSerializer(serializers.Serializer):
     """Serializer that queries and returns the active config."""
     def to_representation(self, instance):

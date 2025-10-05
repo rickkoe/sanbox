@@ -13,6 +13,9 @@ const TeamManagement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [modalTab, setModalTab] = useState('existing'); // 'existing' or 'invite'
+  const [allUsers, setAllUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('member');
   const [openDropdownId, setOpenDropdownId] = useState(null);
@@ -20,8 +23,18 @@ const TeamManagement = () => {
   useEffect(() => {
     if (user) {
       loadCustomerMemberships();
+      loadAllUsers();
     }
   }, [user]);
+
+  const loadAllUsers = async () => {
+    try {
+      const response = await api.get('/core/users/');
+      setAllUsers(response.data);
+    } catch (err) {
+      console.error('Failed to load users:', err);
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -75,6 +88,35 @@ const TeamManagement = () => {
   const canManageTeam = () => {
     if (!selectedCustomer) return false;
     return getUserRole(selectedCustomer.id) === 'admin';
+  };
+
+  const handleAddExistingUser = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!selectedUserId) {
+      setError('Please select a user');
+      return;
+    }
+
+    try {
+      const response = await api.post(`/core/customers/${selectedCustomer.id}/add-member/`, {
+        user_id: parseInt(selectedUserId),
+        role: inviteRole
+      });
+      setSuccess(response.data.message);
+      setShowInviteModal(false);
+      setSelectedUserId('');
+      setInviteRole('member');
+      selectCustomer(selectedCustomer); // Reload team members
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setError(err.response.data.error);
+      } else {
+        setError(err.response?.data?.error || 'Failed to add user');
+      }
+    }
   };
 
   const handleInviteUser = async (e) => {
@@ -228,10 +270,13 @@ const TeamManagement = () => {
                 {canManageTeam() && (
                   <button
                     className="team-button"
-                    onClick={() => setShowInviteModal(true)}
+                    onClick={() => {
+                      setShowInviteModal(true);
+                      setModalTab('existing');
+                    }}
                   >
                     <UserPlus size={16} />
-                    Invite User
+                    Add Member
                   </button>
                 )}
               </div>
@@ -346,53 +391,129 @@ const TeamManagement = () => {
         </div>
       </div>
 
-      {/* Invite User Modal */}
+      {/* Add/Invite User Modal */}
       {showInviteModal && (
         <div className="team-modal" onClick={() => setShowInviteModal(false)}>
           <div className="team-modal-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="team-modal-header">
-              <h5 className="team-modal-title">Invite Team Member</h5>
+              <h5 className="team-modal-title">Add Team Member</h5>
               <button className="team-modal-close" onClick={() => setShowInviteModal(false)}>
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleInviteUser}>
-              <div className="team-modal-body">
-                <div className="team-form-group">
-                  <label className="team-form-label">Email Address</label>
-                  <input
-                    type="email"
-                    className="team-form-control"
-                    placeholder="user@example.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    required
-                  />
-                </div>
 
-                <div className="team-form-group">
-                  <label className="team-form-label">Role</label>
-                  <select
-                    className="team-form-control"
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value)}
-                  >
-                    <option value="viewer">Viewer - Read-only access</option>
-                    <option value="member">Member - Can create/modify own projects</option>
-                    <option value="admin">Admin - Can modify infrastructure</option>
-                  </select>
+            {/* Tab Navigation */}
+            <div className="team-modal-tabs">
+              <button
+                className={`team-modal-tab ${modalTab === 'existing' ? 'active' : ''}`}
+                onClick={() => setModalTab('existing')}
+              >
+                <Users size={16} />
+                Add Existing User
+              </button>
+              <button
+                className={`team-modal-tab ${modalTab === 'invite' ? 'active' : ''}`}
+                onClick={() => setModalTab('invite')}
+              >
+                <UserPlus size={16} />
+                Invite by Email
+              </button>
+            </div>
+
+            {/* Tab Content - Add Existing User */}
+            {modalTab === 'existing' && (
+              <form onSubmit={handleAddExistingUser}>
+                <div className="team-modal-body">
+                  <div className="team-form-group">
+                    <label className="team-form-label">Select User</label>
+                    <select
+                      className="team-form-control"
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Select a user --</option>
+                      {allUsers
+                        .filter(u => !teamMembers.some(m => m.user.id === u.id))
+                        .map(u => (
+                          <option key={u.id} value={u.id}>
+                            {u.full_name} ({u.username}) - {u.email}
+                          </option>
+                        ))}
+                    </select>
+                    <small style={{ color: 'var(--secondary-text)', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                      Only users not already in this team are shown
+                    </small>
+                  </div>
+
+                  <div className="team-form-group">
+                    <label className="team-form-label">Role</label>
+                    <select
+                      className="team-form-control"
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                    >
+                      <option value="viewer">Viewer - Read-only access</option>
+                      <option value="member">Member - Can create/modify own projects</option>
+                      <option value="admin">Admin - Can modify infrastructure</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
-              <div className="team-modal-footer">
-                <button type="button" className="team-button team-button-secondary" onClick={() => setShowInviteModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="team-button">
-                  <UserPlus size={16} />
-                  Send Invitation
-                </button>
-              </div>
-            </form>
+                <div className="team-modal-footer">
+                  <button type="button" className="team-button team-button-secondary" onClick={() => setShowInviteModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="team-button">
+                    <UserPlus size={16} />
+                    Add User
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Tab Content - Invite by Email */}
+            {modalTab === 'invite' && (
+              <form onSubmit={handleInviteUser}>
+                <div className="team-modal-body">
+                  <div className="team-form-group">
+                    <label className="team-form-label">Email Address</label>
+                    <input
+                      type="email"
+                      className="team-form-control"
+                      placeholder="user@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      required
+                    />
+                    <small style={{ color: 'var(--secondary-text)', fontSize: '0.875rem', marginTop: '0.25rem', display: 'block' }}>
+                      User must already have an account with this email
+                    </small>
+                  </div>
+
+                  <div className="team-form-group">
+                    <label className="team-form-label">Role</label>
+                    <select
+                      className="team-form-control"
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                    >
+                      <option value="viewer">Viewer - Read-only access</option>
+                      <option value="member">Member - Can create/modify own projects</option>
+                      <option value="admin">Admin - Can modify infrastructure</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="team-modal-footer">
+                  <button type="button" className="team-button team-button-secondary" onClick={() => setShowInviteModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="team-button">
+                    <UserPlus size={16} />
+                    Send Invitation
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

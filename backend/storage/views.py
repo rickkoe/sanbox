@@ -29,7 +29,9 @@ os.makedirs(TOKEN_CACHE_DIR, exist_ok=True)
 def storage_list(request):
     """Handle storage list operations with pagination"""
     print(f"🔥 Storage List - Method: {request.method}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
     if request.method == "GET":
         try:
             # Get query parameters
@@ -38,7 +40,7 @@ def storage_list(request):
             page_size = request.GET.get('page_size', 100)
             search = request.GET.get('search', '')
             ordering = request.GET.get('ordering', 'id')
-            
+
             # Convert to integers with defaults
             try:
                 page_number = int(page_number)
@@ -46,9 +48,17 @@ def storage_list(request):
             except (ValueError, TypeError):
                 page_number = 1
                 page_size = 100
-            
+
             # Build queryset with optimizations
             storages = Storage.objects.select_related('customer').all()
+
+            # Filter by user's customer access
+            if user and user.is_authenticated:
+                from core.permissions import filter_by_customer_access
+                storages = filter_by_customer_access(storages, user)
+            else:
+                # Unauthenticated users see nothing
+                storages = Storage.objects.none()
             
             # Filter by customer if provided
             if customer_id:
@@ -151,26 +161,45 @@ def storage_list(request):
             return JsonResponse({"error": str(e)}, status=500)
     
     elif request.method == "POST":
+        # Create/update storage - requires admin role
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
         try:
             data = json.loads(request.body)
-            customer = data.get("customer")
+            customer_id = data.get("customer")
             name = data.get("name")
-            
+
+            # Check if user can modify infrastructure for this customer
+            if customer_id:
+                from customers.models import Customer
+                from core.permissions import can_edit_customer_infrastructure
+                try:
+                    customer = Customer.objects.get(id=customer_id)
+                    if not user.is_superuser and not can_edit_customer_infrastructure(user, customer):
+                        return JsonResponse({
+                            "error": "Only admins can create/update storage systems"
+                        }, status=403)
+                except Customer.DoesNotExist:
+                    return JsonResponse({"error": "Customer not found"}, status=404)
+
             try:
-                storage = Storage.objects.get(customer=customer, name=name)
+                storage = Storage.objects.get(customer=customer_id, name=name)
                 serializer = StorageSerializer(storage, data=data)
             except Storage.DoesNotExist:
                 serializer = StorageSerializer(data=data)
-            
+
             if serializer.is_valid():
                 storage_instance = serializer.save()
+                # Set last_modified_by
+                storage_instance.last_modified_by = user
                 storage_instance.imported = timezone.now()
-                storage_instance.save(update_fields=['imported'])
-                
+                storage_instance.save(update_fields=['last_modified_by', 'imported'])
+
                 # Clear dashboard cache when storage is created/updated
                 if storage_instance.customer_id:
                     clear_dashboard_cache_for_customer(storage_instance.customer_id)
-                
+
                 return JsonResponse(serializer.data, status=201)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
@@ -182,46 +211,95 @@ def storage_list(request):
 def storage_detail(request, pk):
     """Handle storage detail operations"""
     print(f"🔥 Storage Detail - Method: {request.method}, PK: {pk}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
     try:
         storage = Storage.objects.get(pk=pk)
     except Storage.DoesNotExist:
         return JsonResponse({"error": "Storage not found"}, status=404)
-    
+
     if request.method == "GET":
+        # Check if user has access to this storage's customer
+        if user and user.is_authenticated:
+            from core.permissions import has_customer_access
+            if storage.customer and not user.is_superuser and not has_customer_access(user, storage.customer):
+                return JsonResponse({"error": "Permission denied"}, status=403)
+        else:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
         try:
             serializer = StorageSerializer(storage)
             return JsonResponse(serializer.data)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-    
+
     elif request.method in ["PUT", "PATCH"]:
+        # Update storage - requires admin role
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
+        # Check if user can modify infrastructure for this customer
+        from core.permissions import can_edit_customer_infrastructure
+        if storage.customer and not user.is_superuser and not can_edit_customer_infrastructure(user, storage.customer):
+            return JsonResponse({
+                "error": "Only admins can update storage systems"
+            }, status=403)
+
         try:
             data = json.loads(request.body)
+
+            # Optimistic locking - check version
+            client_version = data.get('version')
+            if client_version is not None:
+                if storage.version != client_version:
+                    # Version mismatch - someone else modified this storage
+                    return JsonResponse({
+                        "error": "Conflict",
+                        "message": f"This storage system was modified by {storage.last_modified_by.username if storage.last_modified_by else 'another user'}. Please reload and try again.",
+                        "current_version": storage.version,
+                        "last_modified_by": storage.last_modified_by.username if storage.last_modified_by else None,
+                        "last_modified_at": storage.last_modified_at.isoformat() if storage.last_modified_at else None
+                    }, status=409)
+
             serializer = StorageSerializer(storage, data=data, partial=(request.method == "PATCH"))
             if serializer.is_valid():
                 storage_instance = serializer.save()
+                # Set last_modified_by and increment version
+                storage_instance.last_modified_by = user
+                storage_instance.version += 1
                 storage_instance.updated = timezone.now()
-                storage_instance.save(update_fields=['updated'])
-                
+                storage_instance.save(update_fields=['last_modified_by', 'version', 'updated'])
+
                 # Clear dashboard cache when storage is updated
                 if storage_instance.customer_id:
                     clear_dashboard_cache_for_customer(storage_instance.customer_id)
-                
+
                 return JsonResponse(serializer.data)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-    
+
     elif request.method == "DELETE":
+        # Delete storage - requires admin role
+        if not user or not user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
+        # Check if user can modify infrastructure for this customer
+        from core.permissions import can_edit_customer_infrastructure
+        if storage.customer and not user.is_superuser and not can_edit_customer_infrastructure(user, storage.customer):
+            return JsonResponse({
+                "error": "Only admins can delete storage systems"
+            }, status=403)
+
         try:
             customer_id = storage.customer_id
             storage.delete()
-            
+
             # Clear dashboard cache when storage is deleted
             if customer_id:
                 clear_dashboard_cache_for_customer(customer_id)
-                
+
             return JsonResponse({"message": "Storage deleted successfully"}, status=204)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
