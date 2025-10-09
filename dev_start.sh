@@ -194,10 +194,8 @@ main() {
     start_celery_worker
     start_celery_beat
     start_django
-    
-    # Optional: Start React (uncomment if you want it to start automatically)
-    # start_react
-    
+    start_react
+
     # Test connections
     test_celery
     
@@ -209,22 +207,22 @@ main() {
     echo "📊 Services status:"
     echo "   ✅ Redis: Running"
     echo "   ✅ Django: http://localhost:8000"
+    echo "   ✅ React: http://localhost:3000"
     echo "   ✅ Celery Worker: Running"
     echo "   ✅ Celery Beat: Running"
     echo ""
     echo "📋 Log files:"
-    echo "   Django:      $LOGS_DIR/django.log"
+    echo "   Django:        $LOGS_DIR/django.log"
+    echo "   React:         $LOGS_DIR/react.log"
     echo "   Celery Worker: $LOGS_DIR/celery-worker.log"
     echo "   Celery Beat:   $LOGS_DIR/celery-beat.log"
-    echo ""
-    echo "🔧 To start React frontend:"
-    echo "   cd frontend && npm start"
     echo ""
     echo "🛑 To stop all services:"
     echo "   ./dev_stop.sh"
     echo ""
     echo "📊 To monitor logs:"
     echo "   tail -f $LOGS_DIR/django.log"
+    echo "   tail -f $LOGS_DIR/react.log"
     echo "   tail -f $LOGS_DIR/celery-worker.log"
     echo "   tail -f $LOGS_DIR/celery-beat.log"
     echo ""

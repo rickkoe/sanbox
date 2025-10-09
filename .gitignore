@@ -121,7 +121,7 @@ ipython_config.py
 __pypackages__/
 
 # Celery stuff
-celerybeat-schedule
+celerybeat-schedule*
 celerybeat.pid
 
 # SageMath parsed files
@@ -204,4 +204,3 @@ backend/core/migrations/*
 backend/san/migrations/*
 backend/storage/migrations/*
 backend/.DS_Store
-backend/celerybeat-schedule-wal

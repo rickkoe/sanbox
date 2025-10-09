@@ -105,10 +105,10 @@
 .login-button {
   width: 100%;
   padding: 1rem;
-  background-color: var(--button-bg);
-  border: 1px solid var(--button-border);
+  background-color: #64ffda;
+  border: 1px solid #64ffda;
   border-radius: 8px;
-  color: var(--primary-text);
+  color: #0f0f23;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -118,10 +118,10 @@
 }
 
 .login-button:hover:not(:disabled) {
-  background-color: var(--button-hover);
-  color: var(--table-bg);
+  background-color: #4fd1c7;
+  color: #0f0f23;
   transform: translateY(-1px);
-  box-shadow: var(--shadow-light);
+  box-shadow: 0 4px 12px rgba(100, 255, 218, 0.4);
 }
 
 .login-button:active:not(:disabled) {
