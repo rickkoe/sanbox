@@ -60,6 +60,7 @@ const TanStackCRUDTable = forwardRef(({
   // Table Settings
   height = '600px',
   storageKey,
+  readOnly = false,
 
   // Event Handlers
   onSave,
@@ -2641,47 +2642,24 @@ const TanStackCRUDTable = forwardRef(({
         color: 'var(--table-toolbar-text)',
         minHeight: '64px'
       }}>
-        {/* Save Button */}
-        <button
-          onClick={saveChanges}
-          disabled={!hasChanges || isLoading}
-          style={{
-            padding: '10px 18px',
-            backgroundColor: hasChanges && !isLoading
-              ? 'var(--table-pagination-button-active)'
-              : 'var(--table-pagination-button-bg)',
-            color: hasChanges && !isLoading
-              ? 'var(--content-bg)'
-              : 'var(--table-toolbar-text)',
-            border: '1px solid var(--table-pagination-button-border)',
-            borderRadius: '6px',
-            cursor: hasChanges && !isLoading ? 'pointer' : 'not-allowed',
-            fontSize: '14px',
-            fontWeight: '500',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-        >
-          {isLoading ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
-        </button>
-
-        {/* Action Buttons */}
-        {/* Conditional rendering for Add Actions */}
-        {customAddActions ? (
-          <div className="dropdown">
+        {/* Show Save and Add buttons only when not readOnly */}
+        {!readOnly && (
+          <>
+            {/* Save Button */}
             <button
-              type="button"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
+              onClick={saveChanges}
+              disabled={!hasChanges || isLoading}
               style={{
                 padding: '10px 18px',
-                backgroundColor: 'var(--table-pagination-button-bg)',
-                color: 'var(--table-toolbar-text)',
+                backgroundColor: hasChanges && !isLoading
+                  ? 'var(--table-pagination-button-active)'
+                  : 'var(--table-pagination-button-bg)',
+                color: hasChanges && !isLoading
+                  ? 'var(--content-bg)'
+                  : 'var(--table-toolbar-text)',
                 border: '1px solid var(--table-pagination-button-border)',
                 borderRadius: '6px',
-                cursor: 'pointer',
+                cursor: hasChanges && !isLoading ? 'pointer' : 'not-allowed',
                 fontSize: '14px',
                 fontWeight: '500',
                 transition: 'all 0.2s ease',
@@ -2690,51 +2668,79 @@ const TanStackCRUDTable = forwardRef(({
                 gap: '6px'
               }}
             >
-              {customAddActions.dropdownLabel || "Add Item"}
+              {isLoading ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
             </button>
-            <ul className="dropdown-menu">
-              {customAddActions.actions?.map((action, index) => (
-                <React.Fragment key={index}>
-                  <li>
-                    <button
-                      className="dropdown-item"
-                      type="button"
-                      onClick={() => {
-                        if (action.onClick === "default") {
-                          addNewRow();
-                        } else if (typeof action.onClick === 'function') {
-                          action.onClick();
-                        }
-                      }}
-                    >
-                      {action.label}
-                    </button>
-                  </li>
-                  {action.divider && <li><hr className="dropdown-divider" /></li>}
-                </React.Fragment>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <button
-            onClick={addNewRow}
-            style={{
-              padding: '10px 18px',
-              backgroundColor: 'var(--table-pagination-button-bg)',
-              color: 'var(--table-toolbar-text)',
-              border: '1px solid var(--table-pagination-button-border)',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '500',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            Add Row
-          </button>
+
+            {/* Action Buttons */}
+            {/* Conditional rendering for Add Actions */}
+            {customAddActions ? (
+              <div className="dropdown">
+                <button
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  style={{
+                    padding: '10px 18px',
+                    backgroundColor: 'var(--table-pagination-button-bg)',
+                    color: 'var(--table-toolbar-text)',
+                    border: '1px solid var(--table-pagination-button-border)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {customAddActions.dropdownLabel || "Add Item"}
+                </button>
+                <ul className="dropdown-menu">
+                  {customAddActions.actions?.map((action, index) => (
+                    <React.Fragment key={index}>
+                      <li>
+                        <button
+                          className="dropdown-item"
+                          type="button"
+                          onClick={() => {
+                            if (action.onClick === "default") {
+                              addNewRow();
+                            } else if (typeof action.onClick === 'function') {
+                              action.onClick();
+                            }
+                          }}
+                        >
+                          {action.label}
+                        </button>
+                      </li>
+                      {action.divider && <li><hr className="dropdown-divider" /></li>}
+                    </React.Fragment>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <button
+                onClick={addNewRow}
+                style={{
+                  padding: '10px 18px',
+                  backgroundColor: 'var(--table-pagination-button-bg)',
+                  color: 'var(--table-toolbar-text)',
+                  border: '1px solid var(--table-pagination-button-border)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                Add Row
+              </button>
+            )}
+          </>
         )}
 
 {/* Auto-size columns button */}

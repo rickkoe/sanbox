@@ -2,15 +2,22 @@ import React, { useState, useEffect, useContext, useMemo, useCallback } from "re
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 
 // Clean TanStack Table implementation for Storage management
 const StorageTableTanStackClean = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
+    const { getUserRole } = useAuth();
     const navigate = useNavigate();
 
     const activeCustomerId = config?.customer?.id;
+
+    // Check if user can edit infrastructure (members and admins only)
+    const userRole = getUserRole(activeCustomerId);
+    const canEditInfrastructure = userRole === 'member' || userRole === 'admin';
+    const isReadOnly = !canEditInfrastructure;
 
     // API endpoints
     const API_ENDPOINTS = {
@@ -186,6 +193,11 @@ const StorageTableTanStackClean = () => {
 
     return (
         <div className="modern-table-container">
+            {isReadOnly && (
+                <div className="alert alert-info mb-3" role="alert">
+                    <strong>Read-only access:</strong> You have viewer permissions for this customer. Only members and admins can modify infrastructure (Fabrics and Storage).
+                </div>
+            )}
             <TanStackCRUDTable
                 // API Configuration
                 apiUrl={`${API_ENDPOINTS.storage}?customer=${activeCustomerId}`}
@@ -193,6 +205,7 @@ const StorageTableTanStackClean = () => {
                 deleteUrl={API_ENDPOINTS.storage}
                 customerId={activeCustomerId}
                 tableName="storage"
+                readOnly={isReadOnly}
 
                 // Column Configuration
                 columns={columns}

@@ -1,12 +1,19 @@
 import React, { useContext } from "react";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 
 // Clean TanStack Table implementation for Fabric management
 const FabricTableTanStackClean = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config, loading: configLoading } = useContext(ConfigContext);
+    const { getUserRole } = useAuth();
     const customerId = config?.customer?.id;
+
+    // Check if user can edit infrastructure (members and admins only)
+    const userRole = getUserRole(customerId);
+    const canEditInfrastructure = userRole === 'member' || userRole === 'admin';
+    const isReadOnly = !canEditInfrastructure;
 
     // Vendor mapping (same as original FabricTable)
     const vendorOptions = [
@@ -83,6 +90,11 @@ const FabricTableTanStackClean = () => {
 
     return (
         <div className="modern-table-container">
+            {isReadOnly && (
+                <div className="alert alert-info mb-3" role="alert">
+                    <strong>Read-only access:</strong> You have viewer permissions for this customer. Only members and admins can modify infrastructure (Fabrics and Storage).
+                </div>
+            )}
             <TanStackCRUDTable
                 // API Configuration
                 apiUrl={`${API_URL}/api/san/fabrics/`}
@@ -105,6 +117,7 @@ const FabricTableTanStackClean = () => {
                 // Table Settings
                 height="calc(100vh - 200px)"
                 storageKey={`fabric-table-${customerId || 'default'}`}
+                readOnly={isReadOnly}
 
                 // Event Handlers
                 onSave={(result) => {

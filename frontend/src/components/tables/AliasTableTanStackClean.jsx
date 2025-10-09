@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useContext, useMemo } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 
 // Clean TanStack Table implementation for Alias management
 const AliasTableTanStackClean = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
+    const { user, getUserRole } = useAuth();
 
     const [fabricOptions, setFabricOptions] = useState([]);
     const [hostOptions, setHostOptions] = useState([]);
@@ -16,6 +18,18 @@ const AliasTableTanStackClean = () => {
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
+
+    // Check permissions for modifying project data
+    const userRole = getUserRole(activeCustomerId);
+    const projectOwner = config?.active_project?.owner;
+
+    // Determine if user can modify this project
+    const isViewer = userRole === 'viewer';
+    const isProjectOwner = user && projectOwner && user.id === projectOwner;
+    const isAdmin = userRole === 'admin';
+
+    const canModifyProject = !isViewer && (isProjectOwner || isAdmin);
+    const isReadOnly = !canModifyProject;
 
     // API endpoints
     const API_ENDPOINTS = {
@@ -416,8 +430,24 @@ const AliasTableTanStackClean = () => {
         );
     }
 
+    // Generate read-only message based on user role and project ownership
+    const getReadOnlyMessage = () => {
+        if (isViewer) {
+            return "Read-only access: You have viewer permissions for this customer. Only members and admins can modify project data.";
+        } else if (!isProjectOwner && !isAdmin) {
+            const ownerName = config?.active_project?.owner_username || 'another user';
+            return `Read-only access: You can only modify projects you own. This project is owned by ${ownerName}.`;
+        }
+        return "";
+    };
+
     return (
         <div className="modern-table-container">
+            {isReadOnly && (
+                <div className="alert alert-info mb-3" role="alert">
+                    <strong>Read-only access:</strong> {getReadOnlyMessage().replace('Read-only access: ', '')}
+                </div>
+            )}
             <TanStackCRUDTable
                 // API Configuration - uses custom save endpoint
                 apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}
@@ -440,6 +470,7 @@ const AliasTableTanStackClean = () => {
                 // Table Settings
                 height="calc(100vh - 200px)"
                 storageKey={`alias-table-${activeProjectId || 'default'}`}
+                readOnly={isReadOnly}
 
                 // Custom save handler - bypass default CRUD and use bulk save
                 customSaveHandler={handleAliasSave}

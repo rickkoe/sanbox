@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useAuth } from "../../context/AuthContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useTheme } from "../../context/ThemeContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
@@ -9,6 +10,7 @@ import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 const ZoneTableTanStackClean = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
+    const { user, getUserRole } = useAuth();
     const { settings } = useSettings();
     const { theme } = useTheme();
 
@@ -154,6 +156,18 @@ const ZoneTableTanStackClean = () => {
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
+
+    // Check permissions for modifying project data
+    const userRole = getUserRole(activeCustomerId);
+    const projectOwner = config?.active_project?.owner;
+
+    // Determine if user can modify this project
+    const isViewer = userRole === 'viewer';
+    const isProjectOwner = user && projectOwner && user.id === projectOwner;
+    const isAdmin = userRole === 'admin';
+
+    const canModifyProject = !isViewer && (isProjectOwner || isAdmin);
+    const isReadOnly = !canModifyProject;
 
     // API endpoints
     const API_ENDPOINTS = {
@@ -1056,8 +1070,24 @@ const ZoneTableTanStackClean = () => {
         );
     }
 
+    // Generate read-only message based on user role and project ownership
+    const getReadOnlyMessage = () => {
+        if (isViewer) {
+            return "You have viewer permissions for this customer. Only members and admins can modify project data.";
+        } else if (!isProjectOwner && !isAdmin) {
+            const ownerName = config?.active_project?.owner_username || 'another user';
+            return `You can only modify projects you own. This project is owned by ${ownerName}.`;
+        }
+        return "";
+    };
+
     return (
         <div className="modern-table-container">
+            {isReadOnly && (
+                <div className="alert alert-info mb-3" role="alert">
+                    <strong>Read-only access:</strong> {getReadOnlyMessage()}
+                </div>
+            )}
             <TanStackCRUDTable
                 ref={tableRef}
                 // API Configuration
@@ -1084,6 +1114,7 @@ const ZoneTableTanStackClean = () => {
                 // Table Settings
                 height="calc(100vh - 200px)"
                 storageKey={`zone-table-${activeProjectId || 'default'}-bytype-t${memberColumnCounts.targets}i${memberColumnCounts.initiators}a${memberColumnCounts.allAccess}`}
+                readOnly={isReadOnly}
 
                 // Event Handlers
                 onSave={(result) => {
