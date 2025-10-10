@@ -224,3 +224,4 @@ backend/core/migrations/*
 backend/san/migrations/*
 backend/storage/migrations/*
 backend/.DS_Store
+dev_logs/*
