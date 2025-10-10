@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import axios from "axios";
+import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 
@@ -43,7 +43,7 @@ const ProjectTableTanStackClean = () => {
     useEffect(() => {
         const loadCustomers = async () => {
             try {
-                const response = await axios.get(`${API_URL}/api/customers/`);
+                const response = await api.get('/customers/');
                 const customers = response.data.results || response.data || [];
                 setCustomerOptions(customers.map(customer => customer.name));
 
@@ -96,7 +96,7 @@ const ProjectTableTanStackClean = () => {
     const handleDelete = async (projectId) => {
         try {
             // Delete the project
-            await axios.delete(`${API_URL}/api/core/projects/delete/${projectId}/`);
+            await api.delete(`/core/projects/delete/${projectId}/`);
 
             // Check if the deleted project was the active project
             const activeProjectId = config?.active_project?.id;

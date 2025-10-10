@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import axios from 'axios';
+import api from '../../../../../api';
 import { generateServerFilters } from '../../utils/serverFilterUtils';
 
 /**
@@ -89,7 +89,7 @@ export function useServerPagination({
 
       console.log('🌐 Fetching server data:', { url: apiUrl, params });
 
-      const response = await axios.get(apiUrl, {
+      const response = await api.get(apiUrl, {
         params,
         signal: abortControllerRef.current.signal,
       });

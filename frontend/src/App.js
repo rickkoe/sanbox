@@ -2,7 +2,6 @@
 import React, { useState, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { useTheme } from "./context/ThemeContext";
-import { useTableControls } from "./context/TableControlsContext";
 
 // Custom Styles
 import "./App.css";
@@ -10,8 +9,6 @@ import "./styles/navbar.css";
 import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
 import "./styles/generictable.css";
-import "./components/tables/GenericTable/components/TableToolbar.css";
-import "./components/tables/GenericTable/components/TableLoadingOverlay.css";
 import "./styles/pages.css";
 import "./styles/themes.css";
 // Navbar styles are now consolidated in styles/navbar.css (imported elsewhere)
@@ -20,7 +17,6 @@ import "./styles/themes.css";
 import Navbar from "./components/navigation/Navbar";
 import Sidebar from "./components/navigation/Sidebar";
 import Breadcrumbs from "./components/navigation/Breadcrumbs";
-import TableToolbar from "./components/tables/GenericTable/components/TableToolbar";
 import { BreadcrumbContext } from "./context/BreadcrumbContext";
 
 // Critical pages (loaded immediately)
@@ -49,22 +45,15 @@ const StorageCalculatorPage = React.lazy(() => import("./pages/StorageCalculator
 const StoragePage = React.lazy(() => import("./pages/StoragePage"));
 const StorageLandingPage = React.lazy(() => import("./pages/StorageLandingPage"));
 const ScriptsPage = React.lazy(() => import("./pages/ScriptsPage"));
-const CustomerTable = React.lazy(() => import("./components/tables/CustomerTable"));
-const CustomerTableTanStack = React.lazy(() => import("./components/tables/CustomerTableTanStackClean"));
-const ProjectTable = React.lazy(() => import("./components/tables/ProjectTable"));
-const ProjectTableTanStack = React.lazy(() => import("./components/tables/ProjectTableTanStackClean"));
+const CustomerTable = React.lazy(() => import("./components/tables/CustomerTableTanStackClean"));
+const ProjectTable = React.lazy(() => import("./components/tables/ProjectTableTanStackClean"));
 const FabricTable = React.lazy(() => import("./components/tables/FabricTableTanStackClean"));
-const FabricTableOriginal = React.lazy(() => import("./components/tables/FabricTable"));
-const AliasTable = React.lazy(() => import("./components/tables/AliasTable"));
-const AliasTableTanStack = React.lazy(() => import("./components/tables/AliasTableTanStackClean"));
-const ZoneTable = React.lazy(() => import("./components/tables/ZoneTable"));
-const ZoneTableTanStack = React.lazy(() => import("./components/tables/ZoneTableTanStackClean"));
-const StorageTable = React.lazy(() => import("./components/tables/StorageTable"));
-const StorageTableTanStackClean = React.lazy(() => import("./components/tables/StorageTableTanStackClean"));
+const AliasTable = React.lazy(() => import("./components/tables/AliasTableTanStackClean"));
+const ZoneTable = React.lazy(() => import("./components/tables/ZoneTableTanStackClean"));
+const StorageTable = React.lazy(() => import("./components/tables/StorageTableTanStackClean"));
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
-const HostTable = React.lazy(() => import("./components/tables/HostTable"));
-const HostTableTanStackClean = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
+const HostTable = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
 const ConfigForm = React.lazy(() => import("./components/forms/ConfigForm"));
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const WWPNFormatterTable = React.lazy(() => import("./components/tools/WWPNColonizer"));
@@ -178,8 +167,6 @@ function ThemedAppLayout({ breadcrumbMap, setBreadcrumbMap, isSidebarCollapsed, 
 
 // Component that can use TableControlsProvider
 function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCollapsed, getMainContentClass }) {
-  const { tableControlsProps } = useTableControls();
-  
   return (
     <div className={`app-layout theme-${theme} ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <header className="navbar-header">
@@ -194,35 +181,23 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
       <div className="topbar">
         <Breadcrumbs />
       </div>
-      {tableControlsProps && (
-        <div className="table-toolbar-area">
-          <TableToolbar tableControlsProps={tableControlsProps} />
-        </div>
-      )}
       <main className={getMainContentClass()}>
                 <Suspense fallback={<LoadingSpinner message="Loading page..." />}>
                   <Routes>
                     <Route path="/" element={<CustomizableDashboard />} />
-                    <Route path="/customers" element={<CustomerTableTanStack />} />
-                    <Route path="/customers-original" element={<CustomerTable />} />
-                    <Route path="/projects" element={<ProjectTableTanStack />} />
-                    <Route path="/projects-original" element={<ProjectTable />} />
+                    <Route path="/customers" element={<CustomerTable />} />
+                    <Route path="/projects" element={<ProjectTable />} />
                     <Route path="/san" element={<SanPage />} />
                     <Route path="/insights" element={<InsightsPage />} />
-                    <Route path="/san/aliases" element={<AliasTableTanStack />} />
-                    <Route path="/san/aliases-original" element={<AliasTable />} />
-                    <Route path="/san/zones" element={<ZoneTableTanStack />} />
-                    <Route path="/san/zones-original" element={<ZoneTable />} />
+                    <Route path="/san/aliases" element={<AliasTable />} />
+                    <Route path="/san/zones" element={<ZoneTable />} />
                     <Route path="/storage" element={<StorageLandingPage />} />
-                    <Route path="/storage/systems" element={<StorageTableTanStackClean />} />
-                    <Route path="/storage/systems-original" element={<StorageTable />} />
-                    <Route path="/storage/hosts" element={<HostTableTanStackClean />} />
-                    <Route path="/storage/hosts-original" element={<HostTable />} />
+                    <Route path="/storage/systems" element={<StorageTable />} />
+                    <Route path="/storage/hosts" element={<HostTable />} />
                     <Route path="/storage/:id" element={<StoragePage />} />
                     <Route path="/storage/:id/volumes" element={<StorageVolumesPage />} />
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
-                    <Route path="/san/fabrics-original" element={<FabricTableOriginal />} />
                     <Route path="/settings" element={<div style={{padding: '2rem'}}><h2>Settings</h2><p>Choose a settings category from the Settings dropdown in the navbar.</p></div>} />
                     <Route path="/settings/project-config" element={<ConfigForm />} />
                     <Route path="/settings/app-settings" element={<SettingsPage />} />

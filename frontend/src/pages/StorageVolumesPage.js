@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom";
-import VolumeTable from "../components/tables/VolumeTable";
+// VolumeTable has been removed - need to implement VolumeTableTanStackClean
+// For now, show a placeholder
+const VolumeTable = () => <div>Volume Table - TanStack version coming soon</div>;
 import Breadcrumbs from "../components/navigation/Breadcrumbs";
 import axios from "axios";
 import { BreadcrumbContext } from "../context/BreadcrumbContext";

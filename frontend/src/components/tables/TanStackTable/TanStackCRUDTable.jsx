@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, forwardRef, useEffect, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import axios from 'axios';
+import api from '../../../api';
 import {
   useReactTable,
   getCoreRowModel,
@@ -222,7 +222,7 @@ const TanStackCRUDTable = forwardRef(({
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || '';
-      const response = await axios.get(`${API_URL}/api/core/table-config/`, {
+      const response = await api.get(`${API_URL}/api/core/table-config/`, {
         params: {
           customer: customerId,
           table_name: tableName
@@ -280,11 +280,11 @@ const TanStackCRUDTable = forwardRef(({
 
       if (tableConfig?.id) {
         // Update existing config
-        await axios.put(`${API_URL}/api/core/table-config/${tableConfig.id}/`, configData);
+        await api.put(`${API_URL}/api/core/table-config/${tableConfig.id}/`, configData);
         console.log('✅ Updated existing table configuration');
       } else {
         // Create new config
-        const response = await axios.post(`${API_URL}/api/core/table-config/`, configData);
+        const response = await api.post(`${API_URL}/api/core/table-config/`, configData);
         setTableConfig(response.data);
         console.log('✅ Created new table configuration:', response.data);
       }
@@ -341,7 +341,7 @@ const TanStackCRUDTable = forwardRef(({
 
     try {
       console.log(`🔄 Loading page ${currentPage} (size: ${pageSize}) from:`, url);
-      const response = await axios.get(url);
+      const response = await api.get(url);
 
       // Handle paginated response
       let dataList = response.data.results || response.data;
@@ -392,7 +392,7 @@ const TanStackCRUDTable = forwardRef(({
       const url = buildApiUrl(1, 10000, '', {});
       console.log('🔍 Loading complete dataset for filtering from:', url);
 
-      const response = await axios.get(url);
+      const response = await api.get(url);
       let dataList = response.data.results || response.data;
 
       // Process data if preprocessing function provided
@@ -829,7 +829,7 @@ const TanStackCRUDTable = forwardRef(({
           console.log('✅ Custom delete result:', deleteResult);
         } else {
           // Use default axios delete
-          const response = await axios.delete(getDeleteUrl(deletedId));
+          const response = await api.delete(getDeleteUrl(deletedId));
           console.log('✅ Deleted record response:', response.data);
         }
       }
@@ -852,7 +852,7 @@ const TanStackCRUDTable = forwardRef(({
         }
 
         console.log('📤 Creating new record:', rowData);
-        const response = await axios.post(saveUrl || apiUrl, rowData);
+        const response = await api.post(saveUrl || apiUrl, rowData);
         console.log('✅ Created record with ID:', response.data.id);
       }
 
@@ -882,7 +882,7 @@ const TanStackCRUDTable = forwardRef(({
         }
 
         console.log('📤 PUT URL:', putUrl);
-        const response = await axios.put(putUrl, rowData);
+        const response = await api.put(putUrl, rowData);
         console.log('✅ Updated record response:', response.data);
       }
 
