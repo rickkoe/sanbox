@@ -43,8 +43,8 @@ const Login = () => {
     <div className="login-container theme-dark">
       <div className="login-card">
         <div className="login-header">
-          <h1 className="login-title">Sanbox</h1>
-          <p className="login-subtitle">SAN Infrastructure Management</p>
+          <h1 className="login-title">Welcome to Sanbox</h1>
+          <p className="login-subtitle">Enterprise Storage Area Network Management Platform</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -99,7 +99,7 @@ const Login = () => {
 
         <div className="login-footer">
           <p className="login-footer-text">
-            Authorized users only • Secure connection required
+            Secure Enterprise Access • Authorized Personnel Only
           </p>
         </div>
       </div>
