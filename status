@@ -1,0 +1,10 @@
+#!/bin/bash
+# Show status of development containers
+echo "========================================="
+echo "📊 Sanbox Container Status"
+echo "========================================="
+echo ""
+docker-compose -f docker-compose.dev.yml ps
+echo ""
+echo "📋 Resource Usage:"
+docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" $(docker-compose -f docker-compose.dev.yml ps -q) 2>/dev/null || echo "No containers running"

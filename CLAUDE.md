@@ -7,45 +7,113 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Sanbox is a full-stack application for managing SAN (Storage Area Network) infrastructure, storage systems, and enterprise data management. The application provides tools for SAN zoning, storage calculations, data import/export, and system monitoring.
 
 **Architecture**: React frontend (port 3000) + Django REST API backend (port 8000)
+**Deployment**: Docker containers for development and production
 
-## Development Commands
+## Development Commands (Container-Based)
 
-### Frontend (React)
+### Quick Start
+
 ```bash
-cd frontend
-npm install --legacy-peer-deps  # Install dependencies
-npm start                       # Start development server
-npm run build                   # Build for production
-npm test                        # Run tests
+# Start all services (PostgreSQL, Redis, Django, Celery, React)
+./start           # or ./dev-up.sh
+
+# Stop all services
+./stop            # or ./dev-down.sh
+
+# View container status
+./status
+
+# View logs
+./logs            # All services
+./logs backend    # Just backend
+./logs frontend   # Just frontend
 ```
 
-### Backend (Django)
+**What happens when you start**:
+- PostgreSQL database starts
+- Redis cache/broker starts
+- Django backend starts with hot-reload
+- Celery worker and beat start
+- React frontend starts with hot-reload
+
+**Edit code normally** - changes auto-reload!
+- Backend: Edit files in `./backend/` - Django auto-reloads
+- Frontend: Edit files in `./frontend/src/` - React auto-reloads
+
+### Django Commands (via Docker)
+
 ```bash
-cd backend
-python -m venv venv            # Create virtual environment
-source venv/bin/activate       # Activate virtual environment (Linux/Mac)
-pip install -r requirements.txt # Install dependencies
-python manage.py migrate       # Run database migrations
-python manage.py runserver     # Start development server
-python manage.py collectstatic # Collect static files for production
-python manage.py createsuperuser # Create admin user
+# Run migrations
+docker-compose -f docker-compose.dev.yml exec backend python manage.py migrate
+
+# Create migrations
+docker-compose -f docker-compose.dev.yml exec backend python manage.py makemigrations
+
+# Create superuser
+docker-compose -f docker-compose.dev.yml exec backend python manage.py createsuperuser
+
+# Django shell
+./shell           # or docker-compose -f docker-compose.dev.yml exec backend python manage.py shell
+
+# Run tests
+docker-compose -f docker-compose.dev.yml exec backend python manage.py test
+
+# Any Django command
+docker-compose -f docker-compose.dev.yml exec backend python manage.py <command>
+```
+
+### Frontend Commands (via Docker)
+
+```bash
+# Install new package
+docker-compose -f docker-compose.dev.yml exec frontend npm install <package-name> --legacy-peer-deps
+
+# Run frontend tests
+docker-compose -f docker-compose.dev.yml exec frontend npm test
+
+# Build production
+docker-compose -f docker-compose.dev.yml exec frontend npm run build
+```
+
+### Database Access
+
+```bash
+# PostgreSQL shell
+docker-compose -f docker-compose.dev.yml exec postgres psql -U sanbox_dev -d sanbox_dev
+
+# Backup database
+docker-compose -f docker-compose.dev.yml exec postgres pg_dump -U sanbox_dev sanbox_dev > backup.sql
+
+# Restore database
+cat backup.sql | docker-compose -f docker-compose.dev.yml exec -T postgres psql -U sanbox_dev -d sanbox_dev
 ```
 
 ### Production Deployment
+
 ```bash
-./deploy.sh                    # Full deployment script (see README.md)
+# Deploy specific version (pulls from GitHub)
+./deploy-container.sh v1.2.3
+
+# Deploy latest from main branch
+./deploy-container.sh
+
+# Rollback to previous version
+./rollback.sh v1.2.2
 ```
 
 ## Application Architecture
 
 ### Backend Structure
 - **Django Project**: `sanbox/` - Main Django project configuration
+  - `settings.py` - Local development (non-container, legacy)
+  - `settings_docker.py` - Container-based configuration (primary)
+  - `settings_production.py` - Legacy production settings
 - **Django Apps**:
   - `core/` - Core application utilities and base models
   - `customers/` - Customer management
   - `san/` - SAN zoning, aliases, fabrics, and WWN management
   - `storage/` - Storage system management and volume tracking
-  - `insights_importer/` - Data import functionality with Celery tasks
+  - `importer/` - Data import functionality with Celery tasks
 
 ### Frontend Structure
 - **Components**:
@@ -61,8 +129,8 @@ python manage.py createsuperuser # Create admin user
 ### Key Technologies
 - **Frontend**: React 18, React Router, Bootstrap, Handsontable, Axios
 - **Backend**: Django 5.1.6, Django REST Framework, Celery, Redis
-- **Database**: SQLite (development), PostgreSQL (production)
-- **Deployment**: PM2, Nginx, RHEL 9
+- **Database**: PostgreSQL 16 (in containers)
+- **Deployment**: Docker, Docker Compose, Gunicorn, Nginx
 
 ## Database Models
 
@@ -70,7 +138,7 @@ The application uses five main Django apps with their respective models:
 - **customers**: Customer and organization data
 - **san**: SAN fabric, zone, alias, and device management
 - **storage**: Storage system, volume, and capacity tracking
-- **insights_importer**: Data import jobs and status tracking
+- **importer**: Data import jobs and status tracking
 - **core**: Base models and utilities
 
 ## Important Development Notes
@@ -92,24 +160,29 @@ All API endpoints are prefixed with `/api/` and organized by app:
 - `/api/insights/` - Data import operations
 
 ### Testing
-- Use `npm test` for frontend React tests
-- Use `python manage.py test` for backend Django tests
+- Frontend: `docker-compose -f docker-compose.dev.yml exec frontend npm test`
+- Backend: `docker-compose -f docker-compose.dev.yml exec backend python manage.py test`
 - Always test table operations with the GenericTable component
 
-### Production Considerations
-- Frontend proxy configuration points to Django backend at `http://127.0.0.1:8000`
-- Production uses settings_production.py for Django configuration
-- Static files are served through Nginx in production
-- Celery handles background tasks for data imports
+### Container Development
+- **Hot-reload enabled**: Changes to code auto-reload in containers
+- **Source mounts**: Local code directories are mounted into containers
+- **Persistent data**: Database data persists in Docker volumes
+- **Port mappings**:
+  - Frontend: http://localhost:3000
+  - Backend: http://localhost:8000
+  - PostgreSQL: localhost:5432 (accessible for direct connections)
+  - Redis: localhost:6379
 
 ## Key Files and Configurations
 
 - `frontend/src/components/tables/GenericTable/GenericTable.jsx` - Main table component
-- `backend/sanbox/settings.py` - Django development settings
-- `backend/sanbox/settings_production.py` - Production Django settings
+- `backend/sanbox/settings_docker.py` - Container Django settings (primary)
 - `backend/sanbox/urls.py` - Main URL routing
-- `ecosystem.config.js` - PM2 process management configuration
-- `deploy.sh` - Production deployment script
+- `docker-compose.dev.yml` - Development orchestration
+- `docker-compose.yml` - Production orchestration
+- `deploy-container.sh` - Container deployment script
+- `.env.dev` - Development environment variables
 
 ## Context and State Management
 
@@ -121,6 +194,45 @@ The application uses React Context for global state:
 ## Common Tasks
 
 1. **Adding a new table**: Create a new page component that uses GenericTable with appropriate API endpoints
+
 2. **Adding new API endpoints**: Create views in the relevant Django app and update urls.py
-3. **Database changes**: Create migrations with `python manage.py makemigrations` then `python manage.py migrate`
+
+3. **Database changes**:
+   ```bash
+   # Create migrations
+   docker-compose -f docker-compose.dev.yml exec backend python manage.py makemigrations
+
+   # Apply migrations
+   docker-compose -f docker-compose.dev.yml exec backend python manage.py migrate
+   ```
+
 4. **Adding new calculators**: Create components in `components/calculators/` and add routes in App.js
+
+5. **Debugging backend**:
+   - View logs: `./logs backend`
+   - Django shell: `./shell`
+   - Interactive debugging: Set breakpoint in code and attach with `docker attach sanbox_dev_backend`
+
+6. **Debugging frontend**:
+   - View logs: `./logs frontend`
+   - Browser DevTools work normally
+   - React DevTools extension works
+
+## Accessing Services
+
+When containers are running:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000/api/
+- **Django Admin**: http://localhost:8000/admin/
+- **PostgreSQL**: `localhost:5432` (user: sanbox_dev, db: sanbox_dev)
+- **Redis**: `localhost:6379`
+
+## Legacy Files (Archived)
+
+The following files are archived with `.backup` extension and should not be used:
+- `OLD_dev_start.sh.backup` - Legacy non-container startup
+- `OLD_dev_stop.sh.backup` - Legacy non-container shutdown
+- `OLD_deploy.sh.backup` - Legacy non-container deployment
+- `OLD_ecosystem.config.js.backup` - Legacy PM2 configuration
+
+Use container-based scripts instead: `./start`, `./stop`, `./deploy-container.sh`

@@ -140,9 +140,21 @@ venv.bak/
 
 # Docker
 docker-compose.override.yml
+build-manifest-*.json
 
 # OpenShift secrets
 openshift/secrets.yaml
+
+# Deployment backups
+backup_*.sql
+
+# Archived/legacy scripts
+OLD_*.backup
+*.backup
+
+# Legacy database (SQLite - not used in containers)
+db.sqlite3
+backend/db.sqlite3
 
 # Spyder project settings
 .spyderproject

@@ -50,7 +50,41 @@ docker-compose -f docker-compose.dev.yml exec frontend npm install <package-name
 
 ## 🐳 Production Deployment (Docker)
 
-### Setup
+### Option 1: Git-Based Deployment (Recommended)
+
+**Maintains your existing workflow** - deploy by git tag just like `./deploy.sh v1.2.3`
+
+```bash
+# On production server
+
+# 1. First time: Edit deploy-container.sh with your GitHub repo URL
+nano deploy-container.sh  # Set REPO_URL
+
+# 2. Deploy specific version
+./deploy-container.sh v1.2.3
+
+# OR deploy latest from main
+./deploy-container.sh
+
+# 3. Rollback if needed
+./rollback.sh v1.2.2
+```
+
+### Option 2: Registry-Based Deployment
+
+**For CI/CD** - build once, deploy to multiple servers
+
+```bash
+# On dev machine: Build and push
+./build-and-push.sh v1.2.3 ghcr.io/your-org/sanbox
+
+# On production server: Deploy from registry
+./deploy-container-remote.sh v1.2.3 ghcr.io/your-org/sanbox
+```
+
+### Option 3: Local Build
+
+**Simple approach** - build and deploy locally
 
 ```bash
 # 1. Configure environment
@@ -82,6 +116,9 @@ docker-compose restart backend
 
 # Stop all
 docker-compose down
+
+# Check deployed version
+cat /var/www/sanbox/deployment-info.txt
 ```
 
 ## ☸️ OpenShift Deployment

@@ -51,9 +51,11 @@ services:
 
   # Django Backend (Production Mode with Gunicorn)
   backend:
-    build:
-      context: ./backend
-      target: production
+    image: sanbox-backend:${VERSION:-latest}
+    # Uncomment 'build' section if building locally instead of using pre-built images
+    # build:
+    #   context: ./backend
+    #   target: production
     container_name: sanbox_backend
     env_file:
       - .env
@@ -92,9 +94,11 @@ services:
 
   # Celery Worker
   celery-worker:
-    build:
-      context: ./backend
-      target: production
+    image: sanbox-backend:${VERSION:-latest}
+    # Uncomment 'build' section if building locally instead of using pre-built images
+    # build:
+    #   context: ./backend
+    #   target: production
     container_name: sanbox_celery_worker
     env_file:
       - .env
@@ -128,9 +132,11 @@ services:
 
   # Celery Beat (Scheduler)
   celery-beat:
-    build:
-      context: ./backend
-      target: production
+    image: sanbox-backend:${VERSION:-latest}
+    # Uncomment 'build' section if building locally instead of using pre-built images
+    # build:
+    #   context: ./backend
+    #   target: production
     container_name: sanbox_celery_beat
     env_file:
       - .env
@@ -161,9 +167,11 @@ services:
 
   # React Frontend (Production Build served by Nginx)
   frontend:
-    build:
-      context: ./frontend
-      target: production
+    image: sanbox-frontend:${VERSION:-latest}
+    # Uncomment 'build' section if building locally instead of using pre-built images
+    # build:
+    #   context: ./frontend
+    #   target: production
     container_name: sanbox_frontend
     restart: unless-stopped
     networks:
@@ -176,8 +184,10 @@ services:
 
   # Nginx Reverse Proxy
   nginx:
-    build:
-      context: ./nginx
+    image: sanbox-nginx:${VERSION:-latest}
+    # Uncomment 'build' section if building locally instead of using pre-built images
+    # build:
+    #   context: ./nginx
     container_name: sanbox_nginx
     ports:
       - "80:8080"

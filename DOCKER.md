@@ -245,6 +245,108 @@ docker attach sanbox_dev_backend
 
 ## Production Deployment
 
+Sanbox supports multiple production deployment strategies to match your workflow.
+
+### Strategy 1: Git-Based Deployment (Recommended)
+
+**Maintains your existing workflow**: Pull code from GitHub and deploy specific versions by tag.
+
+#### Deploy from GitHub Repository
+
+```bash
+# On production server - deploy specific version
+./deploy-container.sh v1.2.3
+
+# Or deploy latest from main branch
+./deploy-container.sh
+```
+
+This script will:
+1. Pull specified version/tag from GitHub
+2. Build Docker images on the server
+3. Stop old containers gracefully
+4. Start new containers with version labels
+5. Run database migrations
+6. Verify deployment health
+
+**First time setup**:
+Edit `deploy-container.sh` and update:
+```bash
+REPO_URL="https://github.com/your-org/sanbox.git"  # Your GitHub repo
+```
+
+**Usage examples**:
+```bash
+# Deploy production release
+./deploy-container.sh v1.2.3
+
+# Deploy latest development
+./deploy-container.sh
+
+# View deployment info
+cat /var/www/sanbox/deployment-info.txt
+```
+
+#### Rollback to Previous Version
+
+```bash
+# Interactive mode - shows available versions
+./rollback.sh
+
+# Direct rollback to specific version
+./rollback.sh v1.2.2
+```
+
+The rollback script will:
+- Optionally backup database before rollback
+- Switch containers to previous version
+- Run migrations (if needed)
+- Verify health
+
+### Strategy 2: Registry-Based Deployment
+
+**For CI/CD pipelines**: Build once, deploy everywhere.
+
+#### On Development Machine
+
+```bash
+# Build and push to registry
+./build-and-push.sh v1.2.3 ghcr.io/your-org/sanbox
+
+# This will:
+# 1. Checkout git tag v1.2.3
+# 2. Build all images
+# 3. Push to GitHub Container Registry (or Docker Hub, etc.)
+```
+
+#### On Production Server
+
+```bash
+# Pull and deploy from registry
+./deploy-container-remote.sh v1.2.3 ghcr.io/your-org/sanbox
+```
+
+**Registry Options**:
+- GitHub Container Registry: `ghcr.io/your-org/sanbox`
+- Docker Hub: `docker.io/your-org/sanbox`
+- Private Registry: `registry.yourcompany.com/sanbox`
+
+**Authentication**:
+```bash
+# GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+
+# Docker Hub
+docker login
+
+# Private registry
+docker login registry.yourcompany.com
+```
+
+### Strategy 3: Local Build Deployment
+
+**Simple approach**: Build locally without git integration.
+
 ### Building for Production
 
 ```bash

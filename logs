@@ -1,0 +1,14 @@
+#!/bin/bash
+# View container logs
+# Usage: ./logs [service-name]
+#   ./logs          # All services
+#   ./logs backend  # Just backend
+#   ./logs frontend # Just frontend
+
+if [ -z "$1" ]; then
+    echo "📋 Showing logs for all services (Ctrl+C to exit)..."
+    docker-compose -f docker-compose.dev.yml logs -f
+else
+    echo "📋 Showing logs for $1 (Ctrl+C to exit)..."
+    docker-compose -f docker-compose.dev.yml logs -f "$@"
+fi
