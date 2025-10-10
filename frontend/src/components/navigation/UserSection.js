@@ -61,7 +61,7 @@ const UserSection = ({ onAboutClick }) => {
             <Dropdown.Divider />
             <Dropdown.Item
               as="a"
-              href="http://127.0.0.1:8000/admin/"
+              href="/admin/"
               target="_blank"
               rel="noopener noreferrer"
             >

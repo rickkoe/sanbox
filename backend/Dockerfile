@@ -57,6 +57,10 @@ RUN pip install --no-cache-dir watchdog
 ENV DJANGO_SETTINGS_MODULE=sanbox.settings_docker \
     DEBUG=True
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Copy application code
 COPY --chown=appuser:appuser . .
 
@@ -69,6 +73,9 @@ USER appuser
 
 # Expose Django development server port
 EXPOSE 8000
+
+# Set entrypoint
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Run Django development server
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
@@ -83,6 +90,10 @@ RUN pip install --no-cache-dir gunicorn
 ENV DJANGO_SETTINGS_MODULE=sanbox.settings_docker \
     DEBUG=False
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Copy application code
 COPY --chown=appuser:appuser . .
 
@@ -90,14 +101,14 @@ COPY --chown=appuser:appuser . .
 RUN mkdir -p /app/logs /app/static /app/media && \
     chown -R appuser:appuser /app
 
-# Collect static files
-RUN python manage.py collectstatic --noinput || true
-
 # Switch to non-root user
 USER appuser
 
 # Expose Gunicorn port
 EXPOSE 8000
+
+# Set entrypoint
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Run Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "sanbox.wsgi:application"]

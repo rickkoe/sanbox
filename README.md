@@ -187,13 +187,36 @@ sanbox/
 
 ## Development Setup
 
-### Prerequisites
+### 🐳 Quick Start with Docker (Recommended)
+
+The easiest way to get started is using Docker containers:
+
+```bash
+# Start development environment
+./start
+
+# Access the application
+# Frontend: http://localhost:3000
+# Backend:  http://localhost:8000
+# Admin:    http://localhost:8000/admin/ (login: admin/admin)
+```
+
+**Default Superuser:**
+- Username: `admin`
+- Password: `admin`
+- ⚠️ Change this password in production!
+
+See [CONTAINER_QUICKSTART.md](CONTAINER_QUICKSTART.md) for detailed container documentation.
+
+### 💻 Traditional Setup (Without Docker)
+
+#### Prerequisites
 - Python 3.11+
 - Node.js 18+
 - Redis server
 - PostgreSQL (for production-like setup)
 
-### Backend Setup
+#### Backend Setup
 
 ```bash
 # Navigate to backend directory
@@ -216,7 +239,7 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-### Frontend Setup
+#### Frontend Setup
 
 ```bash
 # Navigate to frontend directory

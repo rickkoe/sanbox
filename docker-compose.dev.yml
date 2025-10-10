@@ -4,7 +4,6 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    pull_policy: never
     container_name: sanbox_dev_postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sanbox_dev}
@@ -25,7 +24,6 @@ services:
   # Redis Cache and Message Broker
   redis:
     image: redis:7-alpine
-    pull_policy: never
     container_name: sanbox_dev_redis
     command: redis-server --appendonly yes
     volumes:

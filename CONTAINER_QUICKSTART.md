@@ -24,14 +24,17 @@ See [DOCKER_INSTALLATION.md](DOCKER_INSTALLATION.md) for detailed installation i
 # 1. Start development environment
 ./dev-up.sh
 
-# 2. Create superuser when prompted
-# (or later: docker-compose -f docker-compose.dev.yml exec backend python manage.py createsuperuser)
+# 2. Default superuser is auto-created on first run
+# Username: admin
+# Password: admin
 
 # 3. Access the application
 # Frontend: http://localhost:3000
 # Backend: http://localhost:8000
-# Admin: http://localhost:8000/admin/
+# Admin: http://localhost:8000/admin/ (login with admin/admin)
 ```
+
+**⚠️ Important**: Change the default admin password in production!
 
 ### Daily Development
 
