@@ -41,7 +41,7 @@ kill_process "celery.*worker" "Celery worker"
 kill_process "celery.*beat" "Celery beat"
 
 # Stop React development server (if running)
-kill_process "react-scripts start" "React development server"
+kill_process "react-scripts/scripts/start.js" "React development server"
 
 # Stop Redis (optional - you may want to keep it running for other projects)
 echo "🔍 Checking Redis..."
@@ -70,15 +70,16 @@ echo "✅ Development environment stopped!"
 echo "========================================="
 
 # Show any remaining processes (for debugging)
-remaining_processes=$(pgrep -f "(celery|manage.py|react-scripts)" || true)
+remaining_processes=$(pgrep -f "(celery|manage.py|react-scripts|node.*frontend)" || true)
 if [ -n "$remaining_processes" ]; then
     echo ""
     echo "⚠️  Some processes may still be running:"
-    ps aux | grep -E "(celery|manage.py|react-scripts)" | grep -v grep || true
+    ps aux | grep -E "(celery|manage.py|react-scripts|node.*frontend)" | grep -v grep || true
     echo ""
     echo "If needed, you can force kill them with:"
     echo "   sudo pkill -9 -f celery"
     echo "   sudo pkill -9 -f manage.py"
+    echo "   sudo pkill -9 -f react-scripts"
 fi
 
 echo ""
