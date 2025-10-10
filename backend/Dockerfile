@@ -1,33 +1,51 @@
-# Multi-stage Dockerfile for Django backend
+# Multi-stage Dockerfile for Django backend using Alpine (faster, smaller)
 # Supports both development and production modes
 
-# Base stage - common dependencies
-FROM python:3.13-slim as base
+# Builder stage - compile Python packages
+FROM python:3.12-alpine as builder
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies (Alpine packages are tiny and fast)
+RUN apk add --no-cache \
     gcc \
-    postgresql-client \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    musl-dev \
+    postgresql-dev \
+    linux-headers
 
-# Create non-root user for OpenShift compatibility
-RUN useradd -m -u 1001 -s /bin/bash appuser
-
-# Set working directory
 WORKDIR /app
 
-# Copy requirements first for better layer caching
+# Build Python wheels
 COPY requirements.txt .
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Base stage - runtime environment
+FROM python:3.12-alpine as base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install only runtime libraries (minimal)
+RUN apk add --no-cache \
+    postgresql-client \
+    libpq \
+    bash
+
+# Create non-root user for OpenShift compatibility
+RUN adduser -D -u 1001 -s /bin/bash appuser
+
+WORKDIR /app
+
+# Install Python packages from pre-built wheels
+COPY --from=builder /wheels /wheels
+COPY requirements.txt .
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt && \
+    rm -rf /wheels
 
 # Development stage
 FROM base as development

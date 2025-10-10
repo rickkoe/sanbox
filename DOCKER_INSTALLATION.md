@@ -29,13 +29,15 @@ Complete guide for installing Docker on Mac, Windows, and Linux for Sanbox devel
 
 ## macOS Installation
 
-### Method 1: Docker Desktop (Recommended)
+### Method 1: Direct Download (Recommended)
+
+This is the **most reliable method**, especially for beta or pre-release macOS versions.
 
 #### 1. Download Docker Desktop
 
 Visit: https://www.docker.com/products/docker-desktop
 
-- **Apple Silicon (M1/M2)**: Download "Mac with Apple chip"
+- **Apple Silicon (M1/M2/M3)**: Download "Mac with Apple chip"
 - **Intel Mac**: Download "Mac with Intel chip"
 
 #### 2. Install Docker Desktop
@@ -76,7 +78,9 @@ docker-compose --version
 docker run hello-world
 ```
 
-### Method 2: Homebrew
+### Method 2: Homebrew (Alternative)
+
+⚠️ **Note**: Homebrew may not support beta/pre-release macOS versions. If you encounter errors about unsupported macOS versions, use Method 1 (Direct Download) instead.
 
 ```bash
 # Install Homebrew if you don't have it
@@ -91,10 +95,18 @@ open /Applications/Docker.app
 
 ### Troubleshooting macOS
 
+**Homebrew error: "unknown or unsupported macOS version"**:
+```bash
+# This occurs with beta/pre-release macOS versions
+# Solution: Use Method 1 (Direct Download) instead
+# Visit: https://www.docker.com/products/docker-desktop
+# Download and install manually
+```
+
 **Docker won't start**:
 ```bash
-# Check System Preferences → Security & Privacy
-# You may need to allow Docker in the General tab
+# Check System Settings → Privacy & Security
+# You may need to allow Docker in the Security section
 
 # Check if virtualization is enabled
 sysctl kern.hv_support
