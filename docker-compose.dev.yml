@@ -1,0 +1,167 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sanbox_dev_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sanbox_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-sanbox_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sanbox_dev_password}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sanbox_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sanbox_dev_network
+
+  # Redis Cache and Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: sanbox_dev_redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data_dev:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sanbox_dev_network
+
+  # Django Backend (Development Mode with Hot-Reload)
+  backend:
+    build:
+      context: ./backend
+      target: development
+    container_name: sanbox_dev_backend
+    env_file:
+      - .env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=sanbox.settings_docker
+      - DEBUG=True
+    volumes:
+      # Mount source code for hot-reload
+      - ./backend:/app
+      # Persist logs
+      - ./dev_logs:/app/logs
+      # Persist media files
+      - media_files_dev:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python manage.py runserver 0.0.0.0:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - sanbox_dev_network
+    stdin_open: true
+    tty: true
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ./backend
+      target: development
+    container_name: sanbox_dev_celery_worker
+    env_file:
+      - .env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=sanbox.settings_docker
+      - DEBUG=True
+    volumes:
+      # Mount source code for hot-reload
+      - ./backend:/app
+      # Persist logs
+      - ./dev_logs:/app/logs
+      # Share media files
+      - media_files_dev:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: watchmedo auto-restart --directory=/app --pattern=*.py --recursive -- celery -A sanbox worker --loglevel=info
+    networks:
+      - sanbox_dev_network
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      context: ./backend
+      target: development
+    container_name: sanbox_dev_celery_beat
+    env_file:
+      - .env.dev
+    environment:
+      - DJANGO_SETTINGS_MODULE=sanbox.settings_docker
+      - DEBUG=True
+    volumes:
+      # Mount source code for hot-reload
+      - ./backend:/app
+      # Persist logs
+      - ./dev_logs:/app/logs
+      # Share media files
+      - media_files_dev:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A sanbox beat --loglevel=info
+    networks:
+      - sanbox_dev_network
+
+  # React Frontend (Development Mode with Hot-Reload)
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: sanbox_dev_frontend
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WDS_SOCKET_PORT=0
+      - REACT_APP_API_URL=http://localhost:8000
+    volumes:
+      # Mount source code for hot-reload
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      # Don't mount node_modules
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    stdin_open: true
+    tty: true
+    networks:
+      - sanbox_dev_network
+
+networks:
+  sanbox_dev_network:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:
+    driver: local
+  redis_data_dev:
+    driver: local
+  media_files_dev:
+    driver: local

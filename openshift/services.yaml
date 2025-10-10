@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: List
+metadata:
+  name: sanbox-services
+items:
+  # PostgreSQL Service
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: postgres
+      labels:
+        app: sanbox
+        component: database
+    spec:
+      ports:
+        - port: 5432
+          targetPort: 5432
+          protocol: TCP
+          name: postgres
+      selector:
+        app: sanbox
+        component: database
+      type: ClusterIP
+      sessionAffinity: None
+
+  # Redis Service
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: redis
+      labels:
+        app: sanbox
+        component: cache
+    spec:
+      ports:
+        - port: 6379
+          targetPort: 6379
+          protocol: TCP
+          name: redis
+      selector:
+        app: sanbox
+        component: cache
+      type: ClusterIP
+
+  # Backend Service
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: backend
+      labels:
+        app: sanbox
+        component: backend
+    spec:
+      ports:
+        - port: 8000
+          targetPort: 8000
+          protocol: TCP
+          name: http
+      selector:
+        app: sanbox
+        component: backend
+      type: ClusterIP
+      sessionAffinity: ClientIP
+
+  # Nginx Frontend Service
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: nginx
+      labels:
+        app: sanbox
+        component: nginx
+    spec:
+      ports:
+        - port: 8080
+          targetPort: 8080
+          protocol: TCP
+          name: http
+      selector:
+        app: sanbox
+        component: nginx
+      type: ClusterIP
+      sessionAffinity: ClientIP

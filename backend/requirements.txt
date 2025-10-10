@@ -26,3 +26,12 @@ tzdata==2025.2
 urllib3==2.4.0
 vine==5.1.0
 wcwidth==0.2.13
+
+# Production server
+gunicorn==23.0.0
+
+# PostgreSQL adapter
+psycopg2-binary==2.9.10
+
+# Development dependencies (optional, for hot-reload in containers)
+watchdog==6.0.0

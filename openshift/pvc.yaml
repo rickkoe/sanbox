@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: List
+metadata:
+  name: sanbox-pvcs
+items:
+  # Persistent Volume Claim for Redis data
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: redis-data
+      labels:
+        app: sanbox
+        component: cache
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+      storageClassName: ""  # Use default storage class or specify one
+
+  # Persistent Volume Claim for media files (shared between backend and celery)
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: media-files
+      labels:
+        app: sanbox
+        component: backend
+    spec:
+      accessModes:
+        - ReadWriteMany  # Shared between multiple pods
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: ""  # Use default storage class or specify one that supports ReadWriteMany
+
+# Note: PostgreSQL PVC is created automatically by StatefulSet volumeClaimTemplate
+# See deployment.yaml for PostgreSQL storage configuration

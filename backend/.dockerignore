@@ -1,0 +1,63 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Database files
+*.sqlite3
+db.sqlite3
+db.sqlite3-journal
+
+# Celery
+celerybeat-schedule*
+celerybeat.pid
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.pid
+
+# Static and media files (will be collected in container)
+static/
+staticfiles/
+media/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Token cache
+token_cache/
+
+# Migration backups
+*/migrations/*.py.bak
+
+# Frontend build (if accidentally in backend)
+frontend/
+node_modules/
