@@ -3,6 +3,24 @@
 **Date**: October 10, 2025
 **Status**: ✅ COMPLETE - Sanbox is now 100% container-based
 
+## ⚠️ Prerequisites
+
+Before starting, ensure Docker is installed:
+
+**Quick Install**:
+- **Mac**: https://www.docker.com/products/docker-desktop or `brew install --cask docker`
+- **Windows**: https://www.docker.com/products/docker-desktop (requires WSL 2)
+- **Linux**: `curl -fsSL https://get.docker.com | sudo sh`
+
+**Verify Installation**:
+```bash
+docker --version
+docker-compose --version
+docker run hello-world
+```
+
+**Need Help?** See [DOCKER_INSTALLATION.md](DOCKER_INSTALLATION.md) for detailed instructions.
+
 ## What Changed
 
 Your Sanbox application is now **fully containerized** for both development and production. No more virtualenvs, no more local Redis, no more manual dependency management!

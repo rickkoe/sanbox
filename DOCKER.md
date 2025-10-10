@@ -27,26 +27,74 @@ This guide covers running Sanbox in Docker containers for development and produc
 
 ### Installation
 
+See [DOCKER_INSTALLATION.md](DOCKER_INSTALLATION.md) for detailed installation instructions.
+
+#### Quick Install
+
 **macOS**:
 ```bash
-# Install Docker Desktop from https://www.docker.com/products/docker-desktop
-# Or use Homebrew:
+# Option 1: Download Docker Desktop (Recommended)
+# Visit: https://www.docker.com/products/docker-desktop
+# Download .dmg file and install
+
+# Option 2: Homebrew (if you have Homebrew installed)
 brew install --cask docker
+
+# Start Docker Desktop from Applications folder
+open /Applications/Docker.app
 ```
 
-**Linux**:
+**Windows**:
+```powershell
+# 1. Download Docker Desktop for Windows
+# Visit: https://www.docker.com/products/docker-desktop
+
+# 2. Run installer (Docker Desktop Installer.exe)
+
+# 3. Restart computer when prompted
+
+# 4. Start Docker Desktop from Start menu
+```
+
+**Linux (Ubuntu/Debian)**:
 ```bash
 # Install Docker Engine
 curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
+sudo sh get-docker.sh
+
+# Add your user to docker group (no sudo needed)
+sudo usermod -aG docker $USER
+newgrp docker
 
 # Install Docker Compose
 sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
+
+# Start Docker
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Verify installation
+docker --version
+docker-compose --version
 ```
 
-**Windows**:
-- Download and install Docker Desktop from https://www.docker.com/products/docker-desktop
+**Verify Docker is Running**:
+```bash
+# Check Docker version
+docker --version
+
+# Check Docker Compose version
+docker-compose --version
+
+# Test Docker
+docker run hello-world
+```
+
+**Troubleshooting**:
+- Mac: If Docker Desktop doesn't start, check System Preferences → Security & Privacy
+- Windows: Enable WSL 2 and virtualization in BIOS if prompted
+- Linux: If permission denied, ensure you're in the docker group and logged out/in
 
 ## Quick Start - Development
 

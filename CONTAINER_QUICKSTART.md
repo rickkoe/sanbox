@@ -1,5 +1,21 @@
 # Container Quick Start Guide
 
+## 📋 Prerequisites
+
+### Install Docker
+
+**Required**: Docker Desktop (Mac/Windows) or Docker Engine (Linux)
+
+**Quick Install**:
+
+- **Mac**: Download from https://www.docker.com/products/docker-desktop or `brew install --cask docker`
+- **Windows**: Download from https://www.docker.com/products/docker-desktop (requires WSL 2)
+- **Linux**: `curl -fsSL https://get.docker.com | sudo sh`
+
+**Verify**: `docker --version && docker-compose --version`
+
+See [DOCKER_INSTALLATION.md](DOCKER_INSTALLATION.md) for detailed installation instructions.
+
 ## 🚀 Development on Mac (Current Setup)
 
 ### First Time Setup
