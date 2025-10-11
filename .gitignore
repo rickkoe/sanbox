@@ -196,32 +196,10 @@ backend/.DS_Store
 *.sqlite3
 db.sqlite3
 
-# Migration files (optional - some prefer to track migrations)
-*/migrations/00*.py
-
 # Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-# Database files
-*.sqlite3
-db.sqlite3
-
-# Migration files (optional - some prefer to track migrations)
-*/migrations/00*.py
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.DS_Store
-backend/.DS_Store
-backend/customers/migrations/*
-backend/importer/migrations/*
-backend/core/migrations/*
-backend/san/migrations/*
-backend/storage/migrations/*
 backend/.DS_Store
 dev_logs/*
