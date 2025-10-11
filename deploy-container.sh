@@ -154,8 +154,8 @@ else
     fi
 fi
 
-# Create logs directory
-mkdir -p "$APP_DIR/logs"
+# Create logs directory (silently ignore if exists)
+mkdir -p "$APP_DIR/logs" 2>/dev/null || true
 
 # Navigate to app directory for deployment
 cd "$APP_DIR"
