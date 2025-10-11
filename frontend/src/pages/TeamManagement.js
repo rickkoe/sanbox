@@ -29,7 +29,7 @@ const TeamManagement = () => {
 
   const loadAllUsers = async () => {
     try {
-      const response = await api.get('/core/users/');
+      const response = await api.get('/api/core/users/');
       setAllUsers(response.data);
     } catch (err) {
       console.error('Failed to load users:', err);
@@ -52,7 +52,7 @@ const TeamManagement = () => {
     try {
       setLoading(true);
       // Get user's customer memberships
-      const response = await api.get(`/core/users/${user.id}/customer-memberships/`);
+      const response = await api.get(`/api/core/users/${user.id}/customer-memberships/`);
       setCustomerMemberships(response.data);
 
       // Select first customer with admin role by default
@@ -73,7 +73,7 @@ const TeamManagement = () => {
     setSelectedCustomer(customer);
     try {
       // Load team members for this customer
-      const response = await api.get(`/core/customers/${customer.id}/memberships/`);
+      const response = await api.get(`/api/core/customers/${customer.id}/memberships/`);
       setTeamMembers(response.data);
     } catch (err) {
       setError('Failed to load team members');
@@ -101,7 +101,7 @@ const TeamManagement = () => {
     }
 
     try {
-      const response = await api.post(`/core/customers/${selectedCustomer.id}/add-member/`, {
+      const response = await api.post(`/api/core/customers/${selectedCustomer.id}/add-member/`, {
         user_id: parseInt(selectedUserId),
         role: inviteRole
       });
@@ -125,7 +125,7 @@ const TeamManagement = () => {
     setSuccess('');
 
     try {
-      await api.post(`/core/customers/${selectedCustomer.id}/invite/`, {
+      await api.post(`/api/core/customers/${selectedCustomer.id}/invite/`, {
         email: inviteEmail,
         role: inviteRole
       });
@@ -144,7 +144,7 @@ const TeamManagement = () => {
     setSuccess('');
 
     try {
-      await api.patch(`/core/customer-memberships/${membershipId}/`, {
+      await api.patch(`/api/core/customer-memberships/${membershipId}/`, {
         role: newRole
       });
       setSuccess('Role updated successfully');
@@ -163,7 +163,7 @@ const TeamManagement = () => {
     setSuccess('');
 
     try {
-      await api.delete(`/core/customer-memberships/${membershipId}/`);
+      await api.delete(`/api/core/customer-memberships/${membershipId}/`);
       setSuccess('Team member removed successfully');
       selectCustomer(selectedCustomer); // Reload team members
     } catch (err) {
