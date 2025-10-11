@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "/api/", // Django API base URL
+  baseURL: "/", // Use root since all URLs already include /api/
   timeout: 5000, // Optional: Set timeout
   headers: {
     "Content-Type": "application/json",
