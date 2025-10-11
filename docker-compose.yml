@@ -165,7 +165,7 @@ services:
           cpus: '0.5'
           memory: 512M
 
-  # React Frontend (Production Build served by Nginx)
+  # React Frontend (Production Build served by Nginx - acts as reverse proxy)
   frontend:
     image: sanbox-frontend:${VERSION:-latest}
     # Uncomment 'build' section if building locally instead of using pre-built images
@@ -173,22 +173,6 @@ services:
     #   context: ./frontend
     #   target: production
     container_name: sanbox_frontend
-    restart: unless-stopped
-    networks:
-      - sanbox_network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-
-  # Nginx Reverse Proxy
-  nginx:
-    image: sanbox-nginx:${VERSION:-latest}
-    # Uncomment 'build' section if building locally instead of using pre-built images
-    # build:
-    #   context: ./nginx
-    container_name: sanbox_nginx
     ports:
       - "80:8080"
       - "443:8443"
@@ -197,11 +181,9 @@ services:
       - static_files:/app/static:ro
       # Share media files from backend
       - media_files:/app/media:ro
-      # Copy frontend build from frontend container
-      - frontend_build:/usr/share/nginx/html:ro
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -228,6 +210,4 @@ volumes:
   media_files:
     driver: local
   static_files:
-    driver: local
-  frontend_build:
     driver: local
