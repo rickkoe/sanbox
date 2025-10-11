@@ -34,7 +34,8 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apk add --no-cache \
     postgresql-client \
     libpq \
-    bash
+    bash \
+    curl
 
 # Create non-root user for OpenShift compatibility
 RUN adduser -D -u 1001 -s /bin/bash appuser
