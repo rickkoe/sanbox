@@ -201,5 +201,10 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Migration files (auto-generated per environment)
+backend/*/migrations/[0-9]*.py
+
+# Development logs
 backend/.DS_Store
 dev_logs/*

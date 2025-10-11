@@ -198,7 +198,11 @@ until docker-compose exec -T postgres pg_isready -U ${POSTGRES_USER:-sanbox_user
 done
 echo "✅ Database is ready"
 
-# Run database migrations
+# Create and run database migrations
+echo ""
+echo "🗄️  Creating database migrations..."
+docker-compose exec -T backend python manage.py makemigrations --noinput
+
 echo ""
 echo "🗄️  Running database migrations..."
 docker-compose exec -T backend python manage.py migrate --noinput
