@@ -142,16 +142,27 @@ fi
 
 # Copy docker-compose and env files
 cp docker-compose.yml "$APP_DIR/"
-if [ -f .env ]; then
-    echo "  → Using existing .env file"
+
+# Handle .env file
+if [ -f "$APP_DIR/.env" ]; then
+    echo "  → .env already exists in $APP_DIR"
 else
-    if [ -f "$APP_DIR/.env" ]; then
-        echo "  → .env already exists in $APP_DIR"
-    else
-        echo "  → Creating .env from example"
-        cp .env.example "$APP_DIR/.env"
-        echo "⚠️  WARNING: Please update $APP_DIR/.env with production values!"
+    echo "  → Creating .env from example"
+    cp .env.example "$APP_DIR/.env"
+
+    # Auto-configure hostname if possible
+    HOSTNAME=$(hostname -f 2>/dev/null || hostname)
+    if [ ! -z "$HOSTNAME" ] && [ "$HOSTNAME" != "localhost" ]; then
+        echo "  → Auto-configuring for hostname: $HOSTNAME"
+        sed -i "s|CORS_ALLOWED_ORIGINS=.*|CORS_ALLOWED_ORIGINS=http://$HOSTNAME,http://localhost:3000|g" "$APP_DIR/.env"
+        sed -i "s|CSRF_TRUSTED_ORIGINS=.*|CSRF_TRUSTED_ORIGINS=http://$HOSTNAME,http://localhost:3000|g" "$APP_DIR/.env"
+        sed -i "s|ALLOWED_HOSTS=.*|ALLOWED_HOSTS=$HOSTNAME,localhost,127.0.0.1|g" "$APP_DIR/.env"
     fi
+
+    echo "⚠️  IMPORTANT: Please review and update $APP_DIR/.env with:"
+    echo "     - DJANGO_SECRET_KEY (generate a random key)"
+    echo "     - POSTGRES_PASSWORD (set a strong password)"
+    echo "     - Domain/hostname settings if auto-config is incorrect"
 fi
 
 # Create directories with correct permissions for container user (UID 1001)
