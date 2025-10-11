@@ -7,7 +7,7 @@ set -e
 #   ./deploy-container.sh v1.2.3    # Deploy specific version
 #   ./deploy-container.sh           # Deploy latest from main branch
 
-REPO_URL="https://github.com/your-org/sanbox.git"  # UPDATE THIS
+REPO_URL="https://github.com/rickkoe/sanbox.git"  # UPDATE THIS
 APP_DIR="/var/www/sanbox"
 BUILD_DIR="${APP_DIR}_build"
 BRANCH="main"
@@ -154,8 +154,11 @@ else
     fi
 fi
 
-# Create logs directory (silently ignore if exists)
-mkdir -p "$APP_DIR/logs" 2>/dev/null || true
+# Create directories with correct permissions for container user (UID 1001)
+echo "  → Creating directories with correct permissions..."
+mkdir -p "$APP_DIR/logs" "$APP_DIR/media" "$APP_DIR/static" 2>/dev/null || true
+chown -R 1001:1001 "$APP_DIR/logs" "$APP_DIR/media" "$APP_DIR/static" 2>/dev/null || true
+chmod -R 755 "$APP_DIR/logs" "$APP_DIR/media" "$APP_DIR/static" 2>/dev/null || true
 
 # Navigate to app directory for deployment
 cd "$APP_DIR"
