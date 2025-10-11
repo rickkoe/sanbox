@@ -5,9 +5,9 @@ import "../../styles/configform.css"
 import { Modal, Button, Form as BootstrapForm } from "react-bootstrap";
 
 const ConfigForm = () => {
-    const customersApiUrl = `/customers/`;
-    const projectsApiUrl = `/core/projects/`;
-    const updateCustomerUrl = `/core/config/update/`;
+    const customersApiUrl = `/api/customers/`;
+    const projectsApiUrl = `/api/core/projects/`;
+    const updateCustomerUrl = `/api/core/config/update/`;
 
     const { config, refreshConfig } = useContext(ConfigContext);
     const [customers, setCustomers] = useState([]);
