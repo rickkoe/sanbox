@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import APICredentials, StorageImport
+from .models import APICredentials, StorageImport, ImportLog
 
 
 @admin.register(APICredentials)
@@ -26,7 +26,7 @@ class StorageImportAdmin(admin.ModelAdmin):
     list_filter = ('status', 'started_at', 'customer')
     search_fields = ('customer__name',)
     readonly_fields = ('started_at', 'completed_at', 'duration', 'total_items_imported')
-    
+
     fieldsets = (
         (None, {
             'fields': ('customer', 'status')
@@ -46,7 +46,32 @@ class StorageImportAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
+
     def has_add_permission(self, request):
         # Imports should only be created through the API
+        return False
+
+
+@admin.register(ImportLog)
+class ImportLogAdmin(admin.ModelAdmin):
+    list_display = ('storage_import', 'log_level', 'message', 'timestamp')
+    list_filter = ('log_level', 'timestamp', 'storage_import__customer')
+    search_fields = ('message', 'storage_import__customer__name')
+    readonly_fields = ('timestamp',)
+
+    fieldsets = (
+        ('Log Information', {
+            'fields': ('storage_import', 'log_level', 'message')
+        }),
+        ('Details', {
+            'fields': ('details',),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('timestamp',)
+        }),
+    )
+
+    def has_add_permission(self, request):
+        # Log entries should only be created programmatically
         return False
