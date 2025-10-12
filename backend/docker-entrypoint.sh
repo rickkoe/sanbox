@@ -32,9 +32,6 @@ print("Database is not available after maximum attempts!")
 sys.exit(1)
 END
 
-echo "Creating database migrations..."
-python manage.py makemigrations --noinput
-
 echo "Running database migrations..."
 python manage.py migrate --noinput
 
