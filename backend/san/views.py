@@ -165,14 +165,14 @@ def fabric_management(request, pk=None):
 
             serializer = FabricSerializer(data=data)
             if serializer.is_valid():
-                fabric = serializer.save()
-                # Set last_modified_by
-                fabric.last_modified_by = user
-                fabric.save(update_fields=['last_modified_by'])
+                fabric = serializer.save(last_modified_by=user)
 
                 # Clear dashboard cache when fabric is created
                 if fabric.customer_id:
                     clear_dashboard_cache_for_customer(fabric.customer_id)
+
+                # Reload fabric from database to get all related fields
+                fabric = Fabric.objects.select_related('customer', 'last_modified_by').get(pk=fabric.pk)
 
                 return JsonResponse({
                     'message': f'Fabric "{fabric.name}" created successfully',
@@ -180,6 +180,9 @@ def fabric_management(request, pk=None):
                 }, status=201)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
+            import traceback
+            print(f"❌ Error creating fabric: {str(e)}")
+            print(f"❌ Traceback:\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     
     elif request.method in ["PUT", "PATCH"]:
