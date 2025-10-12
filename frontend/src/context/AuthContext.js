@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      const response = await api.get('/auth/user/');
+      const response = await api.get('/api/auth/user/');
       setUser(response.data);
       setIsAuthenticated(true);
     } catch (error) {
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await api.post('/auth/login/', {
+      const response = await api.post('/api/auth/login/', {
         username,
         password,
       });
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout/');
+      await api.post('/api/auth/logout/');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await api.post('/auth/register/', userData);
+      const response = await api.post('/api/auth/register/', userData);
 
       setUser(response.data.user);
       setIsAuthenticated(true);
