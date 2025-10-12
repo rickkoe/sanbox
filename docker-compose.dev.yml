@@ -81,6 +81,7 @@ services:
       context: ./backend
       target: development
     container_name: sanbox_dev_celery_worker
+    entrypoint: []  # Skip docker-entrypoint.sh
     env_file:
       - .env.dev
     environment:
@@ -98,6 +99,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     command: watchmedo auto-restart --directory=/app --pattern=*.py --recursive -- celery -A sanbox worker --loglevel=info
     networks:
       - sanbox_dev_network
@@ -108,6 +111,7 @@ services:
       context: ./backend
       target: development
     container_name: sanbox_dev_celery_beat
+    entrypoint: []  # Skip docker-entrypoint.sh
     env_file:
       - .env.dev
     environment:
@@ -125,6 +129,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     command: celery -A sanbox beat --loglevel=info
     networks:
       - sanbox_dev_network
