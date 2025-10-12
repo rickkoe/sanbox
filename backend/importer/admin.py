@@ -54,14 +54,14 @@ class StorageImportAdmin(admin.ModelAdmin):
 
 @admin.register(ImportLog)
 class ImportLogAdmin(admin.ModelAdmin):
-    list_display = ('storage_import', 'log_level', 'message', 'timestamp')
-    list_filter = ('log_level', 'timestamp', 'storage_import__customer')
-    search_fields = ('message', 'storage_import__customer__name')
+    list_display = ('import_record', 'level', 'message', 'timestamp')
+    list_filter = ('level', 'timestamp', 'import_record__customer')
+    search_fields = ('message', 'import_record__customer__name')
     readonly_fields = ('timestamp',)
 
     fieldsets = (
         ('Log Information', {
-            'fields': ('storage_import', 'log_level', 'message')
+            'fields': ('import_record', 'level', 'message')
         }),
         ('Details', {
             'fields': ('details',),
