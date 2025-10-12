@@ -168,8 +168,7 @@ def fabric_management(request, pk=None):
                 fabric = serializer.save()
                 # Set last_modified_by
                 fabric.last_modified_by = user
-                fabric.imported = timezone.now()
-                fabric.save(update_fields=['last_modified_by', 'imported'] if hasattr(fabric, 'imported') else ['last_modified_by'])
+                fabric.save(update_fields=['last_modified_by'])
 
                 # Clear dashboard cache when fabric is created
                 if fabric.customer_id:
