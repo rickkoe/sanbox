@@ -16,11 +16,15 @@ def clear_dashboard_cache_for_customer(customer_id):
     try:
         customer = Customer.objects.get(id=customer_id)
         projects = customer.projects.all()
-        
+
         for project in projects:
             cache_key = f"dashboard_stats_{customer_id}_{project.id}"
-            cache.delete(cache_key)
-            
+            try:
+                cache.delete(cache_key)
+            except Exception as cache_error:
+                # Silently fail if cache is unavailable
+                print(f"Warning: Could not clear cache for {cache_key}: {cache_error}")
+
     except Customer.DoesNotExist:
         pass
 

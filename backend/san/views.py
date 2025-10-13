@@ -143,11 +143,14 @@ def fabric_management(request, pk=None):
     
     elif request.method == "POST":
         # Create new fabric - requires admin role
+        print("🔥 POST handler started")
         if not user or not user.is_authenticated:
             return JsonResponse({"error": "Authentication required"}, status=401)
 
         try:
+            print("🔥 Loading request body")
             data = json.loads(request.body)
+            print(f"🔥 Request data: {data}")
 
             # Check if user can modify infrastructure for this customer
             customer_id = data.get('customer')
@@ -155,6 +158,7 @@ def fabric_management(request, pk=None):
                 from customers.models import Customer
                 from core.permissions import can_edit_customer_infrastructure
                 try:
+                    print(f"🔥 Checking permissions for customer {customer_id}")
                     customer = Customer.objects.get(id=customer_id)
                     if not can_edit_customer_infrastructure(user, customer):
                         return JsonResponse({
@@ -163,21 +167,41 @@ def fabric_management(request, pk=None):
                 except Customer.DoesNotExist:
                     return JsonResponse({"error": "Customer not found"}, status=404)
 
+            print("🔥 Creating serializer")
             serializer = FabricSerializer(data=data)
+            print("🔥 Validating serializer")
             if serializer.is_valid():
-                fabric = serializer.save(last_modified_by=user)
+                print("🔥 Serializer is valid!")
+                try:
+                    print("✅ Step 1: Saving fabric...")
+                    fabric = serializer.save(last_modified_by=user)
+                    print(f"✅ Step 2: Fabric saved with ID: {fabric.pk}")
 
-                # Clear dashboard cache when fabric is created
-                if fabric.customer_id:
-                    clear_dashboard_cache_for_customer(fabric.customer_id)
+                    # Clear dashboard cache when fabric is created
+                    if fabric.customer_id:
+                        print(f"✅ Step 3: Clearing cache for customer {fabric.customer_id}...")
+                        clear_dashboard_cache_for_customer(fabric.customer_id)
+                        print("✅ Step 4: Cache cleared")
 
-                # Reload fabric from database to get all related fields
-                fabric = Fabric.objects.select_related('customer', 'last_modified_by').get(pk=fabric.pk)
+                    # Reload fabric from database to get all related fields
+                    print("✅ Step 5: Reloading fabric from database...")
+                    fabric = Fabric.objects.select_related('customer', 'last_modified_by').get(pk=fabric.pk)
+                    print("✅ Step 6: Fabric reloaded")
 
-                return JsonResponse({
-                    'message': f'Fabric "{fabric.name}" created successfully',
-                    'fabric': FabricSerializer(fabric).data
-                }, status=201)
+                    print("✅ Step 7: Serializing response...")
+                    response_data = {
+                        'message': f'Fabric "{fabric.name}" created successfully',
+                        'fabric': FabricSerializer(fabric).data
+                    }
+                    print("✅ Step 8: Response data created, returning...")
+                    return JsonResponse(response_data, status=201)
+                except Exception as inner_e:
+                    import traceback
+                    print(f"❌ Error in fabric creation process: {str(inner_e)}")
+                    print(f"❌ Traceback:\n{traceback.format_exc()}")
+                    raise
+            else:
+                print(f"❌ Serializer validation failed: {serializer.errors}")
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
             import traceback
@@ -2014,20 +2038,28 @@ def fabric_management(request, pk=None):
     elif request.method == "POST":
         try:
             data = json.loads(request.body)
+            print(f"🔥 POST Data received: {data}")
             serializer = FabricSerializer(data=data)
             if serializer.is_valid():
                 fabric = serializer.save()
-                
+
                 # Clear dashboard cache when fabric is created
                 if fabric.customer_id:
                     clear_dashboard_cache_for_customer(fabric.customer_id)
-                    
+
+                # Reload fabric to ensure all relations are loaded
+                fabric = Fabric.objects.select_related('customer', 'last_modified_by').get(pk=fabric.pk)
+
                 return JsonResponse({
                     "message": "Fabric created successfully!",
                     "fabric": FabricSerializer(fabric).data
                 }, status=201)
+            print(f"❌ Validation errors: {serializer.errors}")
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
+            import traceback
+            print(f"❌ Error creating fabric: {str(e)}")
+            print(f"❌ Traceback:\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     
     # PUT method
