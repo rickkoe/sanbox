@@ -1,8 +1,9 @@
 import React, { useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
-import "../../styles/configform.css"
-import { Modal, Button, Form as BootstrapForm } from "react-bootstrap";
+import { useTheme } from "../../context/ThemeContext";
+import "../../styles/configform.css";
 
 const ConfigForm = () => {
     const customersApiUrl = `/api/customers/`;
@@ -10,10 +11,11 @@ const ConfigForm = () => {
     const updateCustomerUrl = `/api/core/config/update/`;
 
     const { config, refreshConfig } = useContext(ConfigContext);
+    const { theme } = useTheme();
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
     const [unsavedConfig, setUnsavedConfig] = useState(null);
-    const [saveStatus, setSaveStatus] = useState(""); 
+    const [saveStatus, setSaveStatus] = useState("");
     const [loading, setLoading] = useState(true);
     const [showProjectModal, setShowProjectModal] = useState(false);
     const [newProjectName, setNewProjectName] = useState("");
@@ -424,48 +426,75 @@ const ConfigForm = () => {
                         </div>
                     </div>
 
-                    {/* Modals */}
-                    <Modal show={showProjectModal} onHide={() => setShowProjectModal(false)}>
-                        <Modal.Header closeButton>
-                            <Modal.Title>Add New Project</Modal.Title>
-                        </Modal.Header>
-                        <Modal.Body>
-                            <BootstrapForm.Group>
-                                <BootstrapForm.Label>Project Name</BootstrapForm.Label>
-                                <BootstrapForm.Control
-                                    type="text"
-                                    value={newProjectName}
-                                    onChange={(e) => setNewProjectName(e.target.value)}
-                                    placeholder="Enter project name"
-                                />
-                            </BootstrapForm.Group>
-                        </Modal.Body>
-                        <Modal.Footer>
-                            <Button variant="secondary" onClick={() => setShowProjectModal(false)}>Cancel</Button>
-                            <Button variant="primary" onClick={handleAddProject}>Add Project</Button>
-                        </Modal.Footer>
-                    </Modal>
+                    {/* Customer Modal */}
+                    {showCustomerModal && createPortal(
+                        <div className={`config-modal-overlay theme-${theme}`} onClick={() => setShowCustomerModal(false)}>
+                            <div className="config-modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="config-modal-header">
+                                    <h3>Add New Customer</h3>
+                                    <button className="config-modal-close" onClick={() => setShowCustomerModal(false)}>×</button>
+                                </div>
+                                <div className="config-modal-body">
+                                    <div className="config-form-group">
+                                        <label className="config-form-label">Customer Name</label>
+                                        <input
+                                            type="text"
+                                            value={newCustomerName}
+                                            onChange={(e) => setNewCustomerName(e.target.value)}
+                                            placeholder="Enter customer name"
+                                            className="config-form-input"
+                                            autoFocus
+                                            onKeyPress={(e) => e.key === 'Enter' && handleAddCustomer()}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="config-modal-footer">
+                                    <button className="config-modal-btn config-modal-btn-secondary" onClick={() => setShowCustomerModal(false)}>
+                                        Cancel
+                                    </button>
+                                    <button className="config-modal-btn config-modal-btn-primary" onClick={handleAddCustomer}>
+                                        Add Customer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>,
+                        document.body
+                    )}
 
-                    <Modal show={showCustomerModal} onHide={() => setShowCustomerModal(false)}>
-                        <Modal.Header closeButton>
-                            <Modal.Title>Add New Customer</Modal.Title>
-                        </Modal.Header>
-                        <Modal.Body>
-                            <BootstrapForm.Group>
-                                <BootstrapForm.Label>Customer Name</BootstrapForm.Label>
-                                <BootstrapForm.Control
-                                    type="text"
-                                    value={newCustomerName}
-                                    onChange={(e) => setNewCustomerName(e.target.value)}
-                                    placeholder="Enter customer name"
-                                />
-                            </BootstrapForm.Group>
-                        </Modal.Body>
-                        <Modal.Footer>
-                            <Button variant="secondary" onClick={() => setShowCustomerModal(false)}>Cancel</Button>
-                            <Button variant="primary" onClick={handleAddCustomer}>Add Customer</Button>
-                        </Modal.Footer>
-                    </Modal>
+                    {/* Project Modal */}
+                    {showProjectModal && createPortal(
+                        <div className={`config-modal-overlay theme-${theme}`} onClick={() => setShowProjectModal(false)}>
+                            <div className="config-modal-content" onClick={(e) => e.stopPropagation()}>
+                                <div className="config-modal-header">
+                                    <h3>Add New Project</h3>
+                                    <button className="config-modal-close" onClick={() => setShowProjectModal(false)}>×</button>
+                                </div>
+                                <div className="config-modal-body">
+                                    <div className="config-form-group">
+                                        <label className="config-form-label">Project Name</label>
+                                        <input
+                                            type="text"
+                                            value={newProjectName}
+                                            onChange={(e) => setNewProjectName(e.target.value)}
+                                            placeholder="Enter project name"
+                                            className="config-form-input"
+                                            autoFocus
+                                            onKeyPress={(e) => e.key === 'Enter' && handleAddProject()}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="config-modal-footer">
+                                    <button className="config-modal-btn config-modal-btn-secondary" onClick={() => setShowProjectModal(false)}>
+                                        Cancel
+                                    </button>
+                                    <button className="config-modal-btn config-modal-btn-primary" onClick={handleAddProject}>
+                                        Add Project
+                                    </button>
+                                </div>
+                            </div>
+                        </div>,
+                        document.body
+                    )}
                 </div>
             )}
         </div>
