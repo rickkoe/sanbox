@@ -1001,71 +1001,100 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     border-style: solid;
 }
 
-/* Light themes (Modern, Minimal, Light) */
+/* Light themes (Modern, Minimal, Light) - Animated gradient */
 .navbar.theme-modern .context-empty,
 .navbar.theme-minimal .context-empty,
 .navbar.theme-light .context-empty {
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    border-color: #42a5f5;
-    color: #1565c0;
+    background: linear-gradient(270deg, #ffd54f, #ffb300, #ff6f00, #ffb300, #ffd54f);
+    background-size: 400% 400%;
+    animation: gradient-shift 4s ease infinite, pulse-glow 2s ease-in-out infinite;
+    border-color: #ff8f00;
+    color: #bf360c;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
 }
 
 .navbar.theme-modern .context-empty:hover,
 .navbar.theme-minimal .context-empty:hover,
 .navbar.theme-light .context-empty:hover {
-    background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%);
-    color: #0d47a1;
+    animation: gradient-shift 2s ease infinite, pulse-glow 2s ease-in-out infinite;
+    color: #bf360c;
     text-decoration: none;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(66, 165, 245, 0.3);
+    box-shadow: 0 4px 12px rgba(255, 143, 0, 0.5);
 }
 
-/* Dark theme */
+/* Dark theme - Animated gradient */
 .navbar.theme-dark .context-empty {
-    background: linear-gradient(135deg, #1e3a52 0%, #2a4a62 100%);
-    border-color: #4a9eff;
-    color: #4a9eff;
+    background: linear-gradient(270deg, #ff6b6b, #ee5a6f, #c44569, #ee5a6f, #ff6b6b);
+    background-size: 400% 400%;
+    animation: gradient-shift 4s ease infinite, pulse-glow 2s ease-in-out infinite;
+    border-color: #ff8787;
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .navbar.theme-dark .context-empty:hover {
-    background: linear-gradient(135deg, #2a4a62 0%, #3a5a72 100%);
-    color: #7eb8ff;
+    animation: gradient-shift 2s ease infinite, pulse-glow 2s ease-in-out infinite;
+    color: #ffffff;
     text-decoration: none;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(74, 158, 255, 0.4);
+    box-shadow: 0 4px 16px rgba(255, 107, 107, 0.6);
 }
 
-/* Corporate theme */
+/* Corporate theme - Animated gradient */
 .navbar.theme-corporate .context-empty {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.25) 100%);
-    border-color: rgba(255, 255, 255, 0.6);
+    background: linear-gradient(270deg, #ffd700, #ffa500, #ff8c00, #ffa500, #ffd700);
+    background-size: 400% 400%;
+    animation: gradient-shift 4s ease infinite, pulse-glow 2s ease-in-out infinite;
+    border-color: #ffb732;
     color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .navbar.theme-corporate .context-empty:hover {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.35) 100%);
+    animation: gradient-shift 2s ease infinite, pulse-glow 2s ease-in-out infinite;
     color: #ffffff;
     text-decoration: none;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(255, 183, 50, 0.5);
 }
 
-/* Colorful theme */
+/* Colorful theme - Animated gradient */
 .navbar.theme-colorful .context-empty {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+    background: linear-gradient(270deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ff6b6b);
+    background-size: 400% 400%;
+    animation: gradient-shift 4s ease infinite, pulse-glow 2s ease-in-out infinite;
     border-color: #e17055;
-    color: #d63031;
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .navbar.theme-colorful .context-empty:hover {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 1) 100%);
-    color: #b33939;
+    animation: gradient-shift 2s ease infinite, pulse-glow 2s ease-in-out infinite;
+    color: #ffffff;
     text-decoration: none;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(225, 112, 85, 0.3);
+    box-shadow: 0 4px 12px rgba(225, 112, 85, 0.5);
 }
 
-/* Attention-grabbing animation for Setup Required button */
+/* Gradient animation keyframes */
+@keyframes gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* Pulse animation for Setup Required button */
 @keyframes pulse-glow {
     0%, 100% {
         transform: scale(1);
@@ -1074,74 +1103,6 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     50% {
         transform: scale(1.05);
         opacity: 0.9;
-    }
-}
-
-@keyframes border-pulse {
-    0%, 100% {
-        border-color: currentColor;
-    }
-    50% {
-        border-color: transparent;
-    }
-}
-
-.context-empty {
-    animation: pulse-glow 2s ease-in-out infinite;
-}
-
-/* Light themes - add subtle glow animation */
-.navbar.theme-modern .context-empty,
-.navbar.theme-minimal .context-empty,
-.navbar.theme-light .context-empty {
-    animation: pulse-glow 2s ease-in-out infinite;
-    position: relative;
-}
-
-.navbar.theme-modern .context-empty::before,
-.navbar.theme-minimal .context-empty::before,
-.navbar.theme-light .context-empty::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    border-radius: 6px;
-    padding: 2px;
-    background: linear-gradient(45deg, #42a5f5, #1e88e5, #42a5f5);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    animation: border-rotate 3s linear infinite;
-    opacity: 0.6;
-    z-index: -1;
-}
-
-/* Dark theme - enhanced glow */
-.navbar.theme-dark .context-empty {
-    animation: pulse-glow 2s ease-in-out infinite;
-    position: relative;
-}
-
-.navbar.theme-dark .context-empty::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    border-radius: 6px;
-    padding: 2px;
-    background: linear-gradient(45deg, #4a9eff, #7eb8ff, #4a9eff);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    animation: border-rotate 3s linear infinite;
-    opacity: 0.8;
-    z-index: -1;
-}
-
-@keyframes border-rotate {
-    0% {
-        filter: hue-rotate(0deg);
-    }
-    100% {
-        filter: hue-rotate(360deg);
     }
 }
 

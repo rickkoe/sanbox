@@ -5,7 +5,7 @@ import { useAuth } from "./AuthContext";
 export const ConfigContext = createContext();
 
 export const ConfigProvider = ({ children }) => {
-  const { user, getUserRole, isCustomerAdmin, isCustomerMember, canViewCustomer } = useAuth();
+  const { user, getUserRole, isCustomerAdmin, isCustomerMember, canViewCustomer, checkAuth } = useAuth();
   const [config, setConfig] = useState(null);
   const [activeStorageSystem, setActiveStorageSystem] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -113,6 +113,9 @@ export const ConfigProvider = ({ children }) => {
         };
         setConfig(customerConfig);
       }
+
+      // Refresh user data to get updated memberships
+      await checkAuth();
 
       return { success: true };
     } catch (err) {
