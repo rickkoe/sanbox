@@ -228,6 +228,47 @@
   font-weight: 500;
 }
 
+/* Registration Form Styles */
+.form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0;
+}
+
+.form-group-half {
+  flex: 1;
+  min-width: 0;
+}
+
+.login-toggle {
+  margin-top: 1.5rem;
+  text-align: center;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(100, 255, 218, 0.1);
+}
+
+.login-toggle-button {
+  background: none;
+  border: none;
+  color: #64ffda;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.login-toggle-button:hover:not(:disabled) {
+  color: #4fd1c7;
+  text-decoration: underline;
+}
+
+.login-toggle-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Responsive Design */
 @media (max-width: 480px) {
   .login-container {
@@ -261,6 +302,15 @@
 
   .login-footer-text {
     font-size: 0.6875rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .form-group-half {
+    margin-bottom: 1.75rem;
   }
 }
 
