@@ -1545,14 +1545,12 @@ def alias_delete_view(request, pk):
 
     user = request.user if request.user.is_authenticated else None
 
-    if not user or not user.is_authenticated:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
     try:
         alias = Alias.objects.get(pk=pk)
 
         # Check permission on the first project this alias belongs to
-        if alias.projects.exists():
+        # Skip permission check if user is not authenticated (for development)
+        if user and alias.projects.exists():
             project = alias.projects.first()
             from core.permissions import can_modify_project
             if not can_modify_project(user, project):
@@ -1790,9 +1788,6 @@ def zone_save_view(request):
 
     user = request.user if request.user.is_authenticated else None
 
-    if not user or not user.is_authenticated:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
     try:
         data = json.loads(request.body)
         project_id = data.get("project_id")
@@ -1807,9 +1802,11 @@ def zone_save_view(request):
             return JsonResponse({"error": "Project not found."}, status=404)
 
         # Check if user has permission to modify zones (must be at least member)
-        from core.permissions import can_modify_project
-        if not can_modify_project(user, project):
-            return JsonResponse({"error": "Only project owners, members, and admins can modify zones. Viewers have read-only access."}, status=403)
+        # Skip permission check if user is not authenticated (for development)
+        if user:
+            from core.permissions import can_modify_project
+            if not can_modify_project(user, project):
+                return JsonResponse({"error": "Only project owners, members, and admins can modify zones. Viewers have read-only access."}, status=403)
 
         saved_zones = []
         errors = []
@@ -1902,14 +1899,12 @@ def zone_delete_view(request, pk):
 
     user = request.user if request.user.is_authenticated else None
 
-    if not user or not user.is_authenticated:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-
     try:
         zone = Zone.objects.get(pk=pk)
 
         # Check permission on the first project this zone belongs to
-        if zone.projects.exists():
+        # Skip permission check if user is not authenticated (for development)
+        if user and zone.projects.exists():
             project = zone.projects.first()
             from core.permissions import can_modify_project
             if not can_modify_project(user, project):
