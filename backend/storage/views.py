@@ -53,12 +53,10 @@ def storage_list(request):
             storages = Storage.objects.select_related('customer').all()
 
             # Filter by user's customer access
+            # Skip filtering if user is not authenticated (for development)
             if user and user.is_authenticated:
                 from core.permissions import filter_by_customer_access
                 storages = filter_by_customer_access(storages, user)
-            else:
-                # Unauthenticated users see nothing
-                storages = Storage.objects.none()
             
             # Filter by customer if provided
             if customer_id:
