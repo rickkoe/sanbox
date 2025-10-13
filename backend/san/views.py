@@ -1947,7 +1947,6 @@ def fabric_management(request, pk=None):
     POST /fabrics/                -> Create a new fabric (requires customer_id in payload)
     PUT  /fabrics/{pk}/           -> Update an existing fabric
     """
-    print(f"🔥 Fabric Management - Method: {request.method}, PK: {pk}")
     
     if request.method == "GET":
         if pk:
@@ -2038,7 +2037,6 @@ def fabric_management(request, pk=None):
     elif request.method == "POST":
         try:
             data = json.loads(request.body)
-            print(f"🔥 POST Data received: {data}")
             serializer = FabricSerializer(data=data)
             if serializer.is_valid():
                 fabric = serializer.save()
@@ -2054,12 +2052,8 @@ def fabric_management(request, pk=None):
                     "message": "Fabric created successfully!",
                     "fabric": FabricSerializer(fabric).data
                 }, status=201)
-            print(f"❌ Validation errors: {serializer.errors}")
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
-            import traceback
-            print(f"❌ Error creating fabric: {str(e)}")
-            print(f"❌ Traceback:\n{traceback.format_exc()}")
             return JsonResponse({"error": str(e)}, status=500)
     
     # PUT method
