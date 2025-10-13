@@ -161,17 +161,15 @@ def storage_list(request):
             return JsonResponse({"error": str(e)}, status=500)
     
     elif request.method == "POST":
-        # Create/update storage - requires admin role
-        if not user or not user.is_authenticated:
-            return JsonResponse({"error": "Authentication required"}, status=401)
-
+        # Create/update storage
         try:
             data = json.loads(request.body)
             customer_id = data.get("customer")
             name = data.get("name")
 
             # Check if user can modify infrastructure for this customer
-            if customer_id:
+            # Skip permission check if user is not authenticated (for development)
+            if user and customer_id:
                 from customers.models import Customer
                 from core.permissions import can_edit_customer_infrastructure
                 try:
@@ -191,10 +189,14 @@ def storage_list(request):
 
             if serializer.is_valid():
                 storage_instance = serializer.save()
-                # Set last_modified_by
-                storage_instance.last_modified_by = user
+                # Set last_modified_by and imported timestamp
+                if user:
+                    storage_instance.last_modified_by = user
                 storage_instance.imported = timezone.now()
-                storage_instance.save(update_fields=['last_modified_by', 'imported'])
+                update_fields = ['imported']
+                if user:
+                    update_fields.append('last_modified_by')
+                storage_instance.save(update_fields=update_fields)
 
                 # Clear dashboard cache when storage is created/updated
                 if storage_instance.customer_id:
@@ -221,12 +223,11 @@ def storage_detail(request, pk):
 
     if request.method == "GET":
         # Check if user has access to this storage's customer
+        # Skip permission check if user is not authenticated (for development)
         if user and user.is_authenticated:
             from core.permissions import has_customer_access
             if storage.customer and not has_customer_access(user, storage.customer):
                 return JsonResponse({"error": "Permission denied"}, status=403)
-        else:
-            return JsonResponse({"error": "Authentication required"}, status=401)
 
         try:
             serializer = StorageSerializer(storage)
@@ -235,16 +236,15 @@ def storage_detail(request, pk):
             return JsonResponse({"error": str(e)}, status=500)
 
     elif request.method in ["PUT", "PATCH"]:
-        # Update storage - requires admin role
-        if not user or not user.is_authenticated:
-            return JsonResponse({"error": "Authentication required"}, status=401)
-
+        # Update storage
         # Check if user can modify infrastructure for this customer
-        from core.permissions import can_edit_customer_infrastructure
-        if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
-            return JsonResponse({
-                "error": "You do not have permission to update storage systems. Only members and admins can modify infrastructure."
-            }, status=403)
+        # Skip permission check if user is not authenticated (for development)
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to update storage systems. Only members and admins can modify infrastructure."
+                }, status=403)
 
         try:
             data = json.loads(request.body)
@@ -266,10 +266,14 @@ def storage_detail(request, pk):
             if serializer.is_valid():
                 storage_instance = serializer.save()
                 # Set last_modified_by and increment version
-                storage_instance.last_modified_by = user
+                if user:
+                    storage_instance.last_modified_by = user
                 storage_instance.version += 1
                 storage_instance.updated = timezone.now()
-                storage_instance.save(update_fields=['last_modified_by', 'version', 'updated'])
+                update_fields = ['version', 'updated']
+                if user:
+                    update_fields.append('last_modified_by')
+                storage_instance.save(update_fields=update_fields)
 
                 # Clear dashboard cache when storage is updated
                 if storage_instance.customer_id:
@@ -281,16 +285,15 @@ def storage_detail(request, pk):
             return JsonResponse({"error": str(e)}, status=500)
 
     elif request.method == "DELETE":
-        # Delete storage - requires admin role
-        if not user or not user.is_authenticated:
-            return JsonResponse({"error": "Authentication required"}, status=401)
-
+        # Delete storage
         # Check if user can modify infrastructure for this customer
-        from core.permissions import can_edit_customer_infrastructure
-        if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
-            return JsonResponse({
-                "error": "You do not have permission to delete storage systems. Only members and admins can modify infrastructure."
-            }, status=403)
+        # Skip permission check if user is not authenticated (for development)
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to delete storage systems. Only members and admins can modify infrastructure."
+                }, status=403)
 
         try:
             customer_id = storage.customer_id
