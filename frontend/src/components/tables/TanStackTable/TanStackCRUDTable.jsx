@@ -3857,6 +3857,7 @@ const CheckboxHeaderCell = ({ columnKey, headerName, editableData, setEditableDa
 // Enhanced checkbox cell component
 const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
   const [checked, setChecked] = useState(Boolean(value));
+  const containerRef = useRef(null);
 
   useEffect(() => {
     setChecked(Boolean(value));
@@ -3868,14 +3869,30 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
     updateCellData(rowIndex, columnKey, newValue);
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      e.stopPropagation();
+      const newValue = !checked;
+      setChecked(newValue);
+      updateCellData(rowIndex, columnKey, newValue);
+    }
+  };
+
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100%',
-      padding: '4px'
-    }}>
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100%',
+        padding: '4px',
+        outline: 'none'
+      }}
+    >
       <label style={{
         display: 'flex',
         alignItems: 'center',
@@ -3889,6 +3906,7 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
           type="checkbox"
           checked={checked}
           onChange={handleChange}
+          tabIndex={-1}
           style={{
             cursor: 'pointer',
             transform: 'scale(1.3)',
@@ -3938,16 +3956,36 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
       e.preventDefault();
       e.stopPropagation();
       commitValue();
-      // After committing, focus back on the cell div for keyboard navigation
+      // After committing, trigger navigation down by simulating ArrowDown
       setTimeout(() => {
         if (cellRef.current) {
           cellRef.current.focus();
+          // Dispatch ArrowDown to trigger navigation
+          const downEvent = new KeyboardEvent('keydown', {
+            key: 'ArrowDown',
+            bubbles: true,
+            cancelable: true
+          });
+          cellRef.current.dispatchEvent(downEvent);
         }
       }, 0);
     } else if (e.key === 'Tab') {
       e.preventDefault();
       e.stopPropagation();
       commitValue();
+      // After committing, trigger navigation right by simulating ArrowRight or allowing Tab
+      setTimeout(() => {
+        if (cellRef.current) {
+          cellRef.current.focus();
+          // Dispatch ArrowRight to trigger navigation
+          const rightEvent = new KeyboardEvent('keydown', {
+            key: 'ArrowRight',
+            bubbles: true,
+            cancelable: true
+          });
+          cellRef.current.dispatchEvent(rightEvent);
+        }
+      }, 0);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -3971,8 +4009,8 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
       setInitialTypedChar(e.key);
       setLocalValue(e.key);
       setIsEditing(true);
-    } else if (e.key === 'Enter' || e.key === 'F2') {
-      // Enter or F2 also enters edit mode
+    } else if (e.key === 'F2') {
+      // F2 enters edit mode without clearing (for appending)
       e.preventDefault();
       e.stopPropagation();
       setIsEditing(true);
@@ -3983,6 +4021,7 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
       setLocalValue('');
       updateCellData(rowIndex, columnKey, '');
     }
+    // Note: Tab and Enter are handled by the global keyboard handler for navigation
   };
 
   const handleBlur = () => {
