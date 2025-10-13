@@ -40,6 +40,15 @@ def customer_management(request, pk=None):
                 page_number = 1
                 page_size = 100
 
+            # Debug logging
+            print(f"🔍 User: {user}, Authenticated: {user.is_authenticated if user else False}")
+            print(f"🔍 Session key: {request.session.session_key}")
+            if not request.COOKIES:
+                origin = request.headers.get('Origin', 'Unknown')
+                print(f"⚠️  NO COOKIES SENT! Origin: {origin}")
+                print(f"⚠️  If origin uses 127.0.0.1 but API uses localhost (or vice versa), cookies won't be sent")
+                print(f"⚠️  Solution: Access frontend at http://localhost:3000 instead of http://127.0.0.1:3000")
+
             # Build queryset - filter by user's customer memberships
             if user and user.is_authenticated:
                 # All users (including superusers) only see customers they're members of
