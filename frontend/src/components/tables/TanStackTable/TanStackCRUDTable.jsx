@@ -721,7 +721,7 @@ const TanStackCRUDTable = forwardRef(({
   // Add new row (following original FabricTable pattern)
   const addNewRow = useCallback(() => {
     const newRow = {
-      ...newRowTemplate,
+      ...JSON.parse(JSON.stringify(newRowTemplate)),  // Deep copy to avoid shared object references
       id: null  // Use null for new rows like original FabricTable
     };
 
@@ -1673,7 +1673,7 @@ const TanStackCRUDTable = forwardRef(({
       if (neededRows > 0) {
         console.log(`➕ Auto-extending table with ${neededRows} new rows`);
         const newRows = Array.from({ length: neededRows }, () => ({
-          ...newRowTemplate,
+          ...JSON.parse(JSON.stringify(newRowTemplate)),  // Deep copy to avoid shared object references
           id: null  // Use null for new rows like original FabricTable
         }));
 
