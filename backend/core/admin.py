@@ -2,7 +2,8 @@ from django.contrib import admin
 from .models import (
     Project, Config, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable,
     CustomerMembership, ProjectGroup, DashboardAnalytics, DashboardLayout,
-    DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType
+    DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType,
+    UserConfig
 )
 
 @admin.register(Project)
@@ -22,6 +23,30 @@ class ConfigAdmin(admin.ModelAdmin):
         if obj.is_active:
             Config.objects.exclude(pk=obj.pk).update(is_active=False)
         super().save_model(request, obj, form, change)
+
+@admin.register(UserConfig)
+class UserConfigAdmin(admin.ModelAdmin):
+    list_display = ("user", "preferred_language", "receive_notifications", "updated_at")
+    list_filter = ("preferred_language", "receive_notifications", "updated_at")
+    search_fields = ("user__username",)
+    readonly_fields = ("created_at", "updated_at")
+    
+    fieldsets = (
+        ("User", {
+            "fields": ("user",)
+        }),
+        ("Preferences", {
+            "fields": ("preferred_language", "receive_notifications")
+        }),
+        ("Metadata", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        })
+    )
+    
+    def get_queryset(self, request):
+        """Optimize queries with select_related"""
+        return super().get_queryset(request).select_related('user')
 
 
 @admin.register(TableConfiguration)
