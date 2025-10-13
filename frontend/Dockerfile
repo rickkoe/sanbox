@@ -33,13 +33,25 @@ CMD ["npm", "start"]
 # Builder stage - create production build
 FROM base as builder
 
+# Build arguments for version info
+ARG REACT_APP_VERSION=dev
+ARG REACT_APP_BUILD_DATE=unknown
+ARG REACT_APP_COMMIT_HASH=unknown
+ARG REACT_APP_BRANCH=main
+
+# Set as environment variables for the build
+ENV REACT_APP_VERSION=${REACT_APP_VERSION} \
+    REACT_APP_BUILD_DATE=${REACT_APP_BUILD_DATE} \
+    REACT_APP_COMMIT_HASH=${REACT_APP_COMMIT_HASH} \
+    REACT_APP_BRANCH=${REACT_APP_BRANCH}
+
 # Install dependencies
 RUN npm install --legacy-peer-deps
 
 # Copy application source
 COPY . .
 
-# Build React app
+# Build React app with version info
 RUN npm run build
 
 # Production stage - serve with nginx

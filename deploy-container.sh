@@ -121,6 +121,7 @@ docker build \
     --build-arg REACT_APP_VERSION="${BUILD_VERSION}" \
     --build-arg REACT_APP_BUILD_DATE="${BUILD_DATE}" \
     --build-arg REACT_APP_COMMIT_HASH="${COMMIT_HASH}" \
+    --build-arg REACT_APP_BRANCH="${BRANCH}" \
     -f frontend/Dockerfile \
     frontend/
 
