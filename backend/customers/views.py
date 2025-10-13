@@ -5,7 +5,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
 from .models import Customer
 from .serializers import CustomerSerializer
-from core.models import Config, CustomerMembership
+from core.models import Config, CustomerMembership, UserConfig
 from django.db.models import Q
 from django.core.paginator import Paginator
 from urllib.parse import urlencode
@@ -165,6 +165,13 @@ def customer_management(request, pk=None):
                     user=user,
                     role='admin'
                 )
+
+                # Auto-activate this customer for the user if they have no active customer
+                user_config = UserConfig.get_or_create_for_user(user)
+                if not user_config.active_customer:
+                    user_config.active_customer = customer
+                    user_config.save()
+                    print(f"✅ Auto-activated customer '{customer.name}' for user '{user.username}'")
 
                 return JsonResponse(CustomerSerializer(customer).data, status=201)
             return JsonResponse(serializer.errors, status=400)

@@ -26,27 +26,27 @@ class ConfigAdmin(admin.ModelAdmin):
 
 @admin.register(UserConfig)
 class UserConfigAdmin(admin.ModelAdmin):
-    list_display = ("user", "preferred_language", "receive_notifications", "updated_at")
-    list_filter = ("preferred_language", "receive_notifications", "updated_at")
-    search_fields = ("user__username",)
+    list_display = ("user", "active_customer", "active_project", "updated_at")
+    list_filter = ("active_customer", "updated_at")
+    search_fields = ("user__username", "active_customer__name", "active_project__name")
     readonly_fields = ("created_at", "updated_at")
-    
+
     fieldsets = (
         ("User", {
             "fields": ("user",)
         }),
-        ("Preferences", {
-            "fields": ("preferred_language", "receive_notifications")
+        ("Active Configuration", {
+            "fields": ("active_customer", "active_project")
         }),
         ("Metadata", {
             "fields": ("created_at", "updated_at"),
             "classes": ("collapse",)
         })
     )
-    
+
     def get_queryset(self, request):
         """Optimize queries with select_related"""
-        return super().get_queryset(request).select_related('user')
+        return super().get_queryset(request).select_related('user', 'active_customer', 'active_project')
 
 
 @admin.register(TableConfiguration)

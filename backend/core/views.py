@@ -472,10 +472,18 @@ def create_project_for_customer(request):
             customer.projects.add(project)
             print(f"📝 Project added to customer successfully")
 
+            # Auto-activate this project for the user if they have no active project
+            user_config = UserConfig.get_or_create_for_user(user)
+            if not user_config.active_project:
+                user_config.active_customer = customer
+                user_config.active_project = project
+                user_config.save()
+                print(f"✅ Auto-activated project '{project.name}' and customer '{customer.name}' for user '{user.username}'")
+
             print(f"📝 Serializing project...")
             serializer = ProjectSerializer(project)
             print(f"📝 Serialized data: {serializer.data}")
-            
+
             return JsonResponse(serializer.data, status=201)
         
         except Exception as e:

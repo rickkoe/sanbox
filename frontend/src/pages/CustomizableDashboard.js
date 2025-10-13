@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { 
+import {
   FaPlus, FaCog, FaGripVertical, FaTimes, FaExpand, FaCompress,
   FaDownload, FaUpload, FaRedo, FaEye, FaEyeSlash,
   FaLayerGroup, FaStore, FaWrench, FaChartLine, FaDatabase,
@@ -330,22 +331,26 @@ const DashboardSkeleton = () => (
 );
 
 // Welcome Screen Component
-const WelcomeScreen = () => (
-  <div className="welcome-screen">
-    <div className="welcome-content">
-      <FaGlobe className="welcome-icon" />
-      <h1>Welcome to Sanbox Dashboard</h1>
-      <p>Create your personalized SAN management experience</p>
-      <div className="welcome-actions">
-        <button className="btn btn-primary">
-          <FaCog /> Configure Project
-        </button>
-        <button className="btn btn-outline-primary">
-          <FaUsers /> Manage Customers
-        </button>
+const WelcomeScreen = () => {
+  const navigate = useNavigate();
+
+  return (
+    <div className="welcome-screen">
+      <div className="welcome-content">
+        <FaGlobe className="welcome-icon" />
+        <h1>Welcome to SANBox Dashboard</h1>
+        <p>Next level Script Automation</p>
+        <div className="welcome-actions">
+          <button className="btn btn-primary" onClick={() => navigate('/settings/project-config')}>
+            <FaCog /> Configure Project
+          </button>
+          <button className="btn btn-outline-primary" onClick={() => navigate('/customers')}>
+            <FaUsers /> Manage Customers
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default CustomizableDashboard;

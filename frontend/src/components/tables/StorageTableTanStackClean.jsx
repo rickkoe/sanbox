@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
+import EmptyConfigMessage from "../common/EmptyConfigMessage";
 
 // Clean TanStack Table implementation for Storage management
 const StorageTableTanStackClean = () => {
@@ -177,18 +178,9 @@ const StorageTableTanStackClean = () => {
         });
     }, [activeCustomerId]);
 
-    // Show loading while customer loads
-    if (!activeCustomerId) {
-        return (
-            <div className="modern-table-container">
-                <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
-                    <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                    </div>
-                    <span className="ms-2">Please select a customer to view storage systems</span>
-                </div>
-            </div>
-        );
+    // Show empty config message if no active customer
+    if (!config || !activeCustomerId) {
+        return <EmptyConfigMessage entityName="storage systems" />;
     }
 
     return (

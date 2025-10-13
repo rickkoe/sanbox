@@ -987,24 +987,162 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     50% { opacity: 1; }
 }
 
+/* Setup Required context indicator - Theme aware */
 .context-empty {
     display: flex;
     align-items: center;
-    padding: 0.5rem 0.75rem;
-    background: rgba(255, 193, 7, 0.2);
-    border: 1px solid rgba(255, 193, 7, 0.4);
-    border-radius: 0.5rem;
-    color: #ffc107;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
     text-decoration: none;
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     transition: all 0.2s ease;
+    border-width: 1.5px;
+    border-style: solid;
 }
 
-.context-empty:hover {
-    background: rgba(255, 193, 7, 0.3);
-    color: #ffca2c;
+/* Light themes (Modern, Minimal, Light) */
+.navbar.theme-modern .context-empty,
+.navbar.theme-minimal .context-empty,
+.navbar.theme-light .context-empty {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-color: #42a5f5;
+    color: #1565c0;
+}
+
+.navbar.theme-modern .context-empty:hover,
+.navbar.theme-minimal .context-empty:hover,
+.navbar.theme-light .context-empty:hover {
+    background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%);
+    color: #0d47a1;
     text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(66, 165, 245, 0.3);
+}
+
+/* Dark theme */
+.navbar.theme-dark .context-empty {
+    background: linear-gradient(135deg, #1e3a52 0%, #2a4a62 100%);
+    border-color: #4a9eff;
+    color: #4a9eff;
+}
+
+.navbar.theme-dark .context-empty:hover {
+    background: linear-gradient(135deg, #2a4a62 0%, #3a5a72 100%);
+    color: #7eb8ff;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(74, 158, 255, 0.4);
+}
+
+/* Corporate theme */
+.navbar.theme-corporate .context-empty {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.25) 100%);
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #ffffff;
+}
+
+.navbar.theme-corporate .context-empty:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.35) 100%);
+    color: #ffffff;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.2);
+}
+
+/* Colorful theme */
+.navbar.theme-colorful .context-empty {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+    border-color: #e17055;
+    color: #d63031;
+}
+
+.navbar.theme-colorful .context-empty:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 1) 100%);
+    color: #b33939;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(225, 112, 85, 0.3);
+}
+
+/* Attention-grabbing animation for Setup Required button */
+@keyframes pulse-glow {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+    }
+}
+
+@keyframes border-pulse {
+    0%, 100% {
+        border-color: currentColor;
+    }
+    50% {
+        border-color: transparent;
+    }
+}
+
+.context-empty {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Light themes - add subtle glow animation */
+.navbar.theme-modern .context-empty,
+.navbar.theme-minimal .context-empty,
+.navbar.theme-light .context-empty {
+    animation: pulse-glow 2s ease-in-out infinite;
+    position: relative;
+}
+
+.navbar.theme-modern .context-empty::before,
+.navbar.theme-minimal .context-empty::before,
+.navbar.theme-light .context-empty::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 6px;
+    padding: 2px;
+    background: linear-gradient(45deg, #42a5f5, #1e88e5, #42a5f5);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: border-rotate 3s linear infinite;
+    opacity: 0.6;
+    z-index: -1;
+}
+
+/* Dark theme - enhanced glow */
+.navbar.theme-dark .context-empty {
+    animation: pulse-glow 2s ease-in-out infinite;
+    position: relative;
+}
+
+.navbar.theme-dark .context-empty::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 6px;
+    padding: 2px;
+    background: linear-gradient(45deg, #4a9eff, #7eb8ff, #4a9eff);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: border-rotate 3s linear infinite;
+    opacity: 0.8;
+    z-index: -1;
+}
+
+@keyframes border-rotate {
+    0% {
+        filter: hue-rotate(0deg);
+    }
+    100% {
+        filter: hue-rotate(360deg);
+    }
 }
 
 /* Context Dropdown Menu - Base styles with high specificity */

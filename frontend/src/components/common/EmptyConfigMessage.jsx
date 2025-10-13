@@ -1,11 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import './EmptyConfigMessage.css';
 
 const EmptyConfigMessage = ({ entityName = "data" }) => {
     return (
         <div className="modern-table-container">
-            <div className="alert alert-warning" role="alert">
-                <h4 className="alert-heading">Setup Required</h4>
+            <div className="empty-config-alert" role="alert">
+                <div className="empty-config-heading">
+                    <span className="empty-config-icon">⚙️</span>
+                    <h4 className="mb-0">Setup Required</h4>
+                </div>
                 <p>To view and manage {entityName}, you need to set up your configuration first.</p>
                 <hr />
                 <ol className="mb-0">
@@ -15,7 +19,7 @@ const EmptyConfigMessage = ({ entityName = "data" }) => {
                     <li>Save your configuration</li>
                 </ol>
                 <div className="mt-3">
-                    <Link to="/settings/project-config" className="btn btn-primary">
+                    <Link to="/settings/project-config" className="btn btn-primary btn-lg">
                         Go to Configuration
                     </Link>
                 </div>
