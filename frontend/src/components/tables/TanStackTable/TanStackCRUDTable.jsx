@@ -1623,6 +1623,18 @@ const TanStackCRUDTable = forwardRef(({
   // Enhanced Paste functionality for Excel compatibility
   const handlePaste = useCallback(async () => {
     try {
+      // Check if Clipboard API is available (requires HTTPS in production)
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        console.warn('⚠️ Clipboard API not available. Use Ctrl+V or Cmd+V to paste, or ensure site is served over HTTPS.');
+        setFillPreview({
+          operation: 'Paste Not Available',
+          sourceValue: 'Use Ctrl+V or enable HTTPS',
+          count: 0
+        });
+        setTimeout(() => setFillPreview(null), 3000);
+        return;
+      }
+
       const clipboardText = await navigator.clipboard.readText();
       if (!clipboardText.trim()) {
         console.log('📋 Clipboard is empty');
