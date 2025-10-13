@@ -4,6 +4,7 @@ from .views import (
     config_detail,
     projects_for_customer,
     active_config_view,
+    user_config_view,
     config_for_customer,
     create_project_for_customer,
     update_project,
@@ -51,7 +52,8 @@ from .dashboard_views import (
 urlpatterns = [
     path("config/", config_detail, name="config-detail"),  # Function-based view
     path("projects/<int:customer_id>/", projects_for_customer, name="projects-for-customer"),  # Get projects by customer
-    path("active-config/", active_config_view, name="active-config"), 
+    path("active-config/", active_config_view, name="active-config"),  # DEPRECATED - use user-config instead
+    path("user-config/", user_config_view, name="user-config"),  # NEW: Per-user active config
     path("config/customer/<int:customer_id>/", config_for_customer, name="config-for-customer"),
     path("config/update/<int:customer_id>/", update_config_view, name="update-config"),
     path('projects/', create_project_for_customer, name='create_project_for_customer'),

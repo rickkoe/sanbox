@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
+import EmptyConfigMessage from "../common/EmptyConfigMessage";
 
 // Clean TanStack Table implementation for Fabric management
 const FabricTableTanStackClean = () => {
@@ -86,6 +87,11 @@ const FabricTableTanStackClean = () => {
                 </div>
             </div>
         );
+    }
+
+    // Show message if no active customer/project is configured
+    if (!config || !customerId) {
+        return <EmptyConfigMessage entityName="fabrics" />;
     }
 
     return (

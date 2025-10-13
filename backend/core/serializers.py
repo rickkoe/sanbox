@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership
+from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership, UserConfig
 from customers.models import Customer
 
 
@@ -164,12 +164,38 @@ class ConfigSerializer(serializers.ModelSerializer):
         # Handle active_project updates
         if "active_project" in validated_data:
             instance.active_project = validated_data.get("active_project", instance.active_project)
-        
+
         # Update is_active if provided
         instance.is_active = validated_data.get("is_active", instance.is_active)
-        
+
         instance.save()
         return instance
+
+
+class UserConfigSerializer(serializers.ModelSerializer):
+    """Serializer for per-user configuration"""
+    active_customer = CustomerSerializer(read_only=True)
+    active_project = ProjectSerializer(read_only=True)
+    active_customer_id = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.all(),
+        source="active_customer",
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+    active_project_id = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.all(),
+        source="active_project",
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
+
+    class Meta:
+        model = UserConfig
+        fields = ['id', 'user', 'active_customer', 'active_customer_id',
+                  'active_project', 'active_project_id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
 
 class TableConfigurationSerializer(serializers.ModelSerializer):

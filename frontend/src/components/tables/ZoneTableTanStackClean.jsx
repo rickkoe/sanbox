@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useTheme } from "../../context/ThemeContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
+import EmptyConfigMessage from "../common/EmptyConfigMessage";
 
 // Clean TanStack Table implementation for Zone management
 const ZoneTableTanStackClean = () => {
@@ -1054,17 +1055,20 @@ const ZoneTableTanStackClean = () => {
         }
     };
 
+    // Show empty config message if no active customer/project
+    if (!config || !activeCustomerId || !activeProjectId) {
+        return <EmptyConfigMessage entityName="zones" />;
+    }
+
     // Show loading while data loads
-    if (loading || !activeProjectId) {
+    if (loading) {
         return (
             <div className="modern-table-container">
                 <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
                     <div className="spinner-border text-primary" role="status">
                         <span className="visually-hidden">Loading...</span>
                     </div>
-                    <span className="ms-2">
-                        {loading ? "Loading zone data..." : "Please select a project to view zones"}
-                    </span>
+                    <span className="ms-2">Loading zone data...</span>
                 </div>
             </div>
         );

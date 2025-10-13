@@ -88,6 +88,10 @@ class ProjectGroup(models.Model):
 
 
 class Config(models.Model):
+    """
+    Customer-level configuration container.
+    Note: Active customer/project is now tracked per-user via UserConfig model.
+    """
     customer = models.OneToOneField(
         Customer, related_name="config", on_delete=models.CASCADE, db_index=True
     )
@@ -97,19 +101,21 @@ class Config(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text="The currently active project for this customer's config.",
+        help_text="Legacy field - active project is now tracked in UserConfig per-user.",
     )
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(
+        default=False,
+        help_text="DEPRECATED: Active config is now tracked per-user in UserConfig model."
+    )
 
     def __str__(self):
         return f"Config for {self.customer.name}"
 
     def save(self, *args, **kwargs):
-        """Ensure only one config is active at a time per customer."""
-        if self.is_active:
-            Config.objects.exclude(pk=self.pk).update(is_active=False)
-
-        # Ensure active_project belongs to the customer
+        """
+        Save config. Note: Global is_active enforcement removed - use UserConfig instead.
+        """
+        # Ensure active_project belongs to the customer if set
         if self.active_project and self.active_project not in self.customer.projects.all():
             raise ValueError("The active project must belong to the customer.")
 
@@ -117,8 +123,76 @@ class Config(models.Model):
 
     @classmethod
     def get_active_config(cls):
-        """Retrieve the active config, if it exists."""
-        return cls.objects.filter(is_active=True).first()  # ✅ Returns one active config or None
+        """
+        DEPRECATED: Use UserConfig to get user-specific active configuration.
+        This method is kept for backward compatibility.
+        """
+        return cls.objects.filter(is_active=True).first()
+
+
+class UserConfig(models.Model):
+    """
+    Per-user configuration tracking active customer and project.
+    Each user can have their own active context independent of other users.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='user_config',
+        help_text="User this configuration belongs to"
+    )
+    active_customer = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='active_for_users',
+        help_text="Currently active customer for this user"
+    )
+    active_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='active_for_users',
+        help_text="Currently active project for this user"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "User Configuration"
+        verbose_name_plural = "User Configurations"
+        indexes = [
+            models.Index(fields=['user', 'active_customer']),
+            models.Index(fields=['user', 'active_project']),
+        ]
+
+    def __str__(self):
+        customer_name = self.active_customer.name if self.active_customer else "None"
+        project_name = self.active_project.name if self.active_project else "None"
+        return f"{self.user.username}: {customer_name} / {project_name}"
+
+    def save(self, *args, **kwargs):
+        """Validate that active_project belongs to active_customer"""
+        if self.active_project and self.active_customer:
+            if self.active_project not in self.active_customer.projects.all():
+                raise ValueError("The active project must belong to the active customer.")
+
+        # If project is set but customer is not, clear the project
+        if self.active_project and not self.active_customer:
+            self.active_project = None
+
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_or_create_for_user(cls, user):
+        """Get or create UserConfig for a user"""
+        user_config, created = cls.objects.get_or_create(
+            user=user,
+            defaults={'active_customer': None, 'active_project': None}
+        )
+        return user_config
 
 
 class CustomerMembership(models.Model):

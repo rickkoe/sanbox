@@ -10,7 +10,7 @@ const ConfigForm = () => {
     const projectsApiUrl = `/api/core/projects/`;
     const updateCustomerUrl = `/api/core/config/update/`;
 
-    const { config, refreshConfig } = useContext(ConfigContext);
+    const { config, refreshConfig, updateUserConfig } = useContext(ConfigContext);
     const { theme } = useTheme();
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -157,38 +157,36 @@ const ConfigForm = () => {
     const handleSave = async () => {
         console.log("🚀 Starting save process...");
         console.log("Current unsavedConfig:", unsavedConfig);
-        
+
         setSaveStatus("Saving...");
         try {
             const { customer, project, active_project_id } = unsavedConfig;
-            
+
             console.log("Extracted values:", { customer, project, active_project_id });
-            
+
             // Validate required fields
             if (!customer || !project) {
                 console.log("❌ Validation failed - missing customer or project");
                 setSaveStatus("⚠️ Please select both customer and project.");
                 return;
             }
-            
-            const payload = { 
-                customer: String(customer),
-                project: String(project),
-                active_project_id: String(active_project_id || project),
-                is_active: true
-            };
-            
-            console.log("📦 PAYLOAD:", payload);
-            console.log("🌐 API URL:", `${updateCustomerUrl}${customer}/`);
 
-            const response = await api.put(`${updateCustomerUrl}${customer}/`, payload);
-            console.log("✅ Save response:", response.data);
-            
-            setSaveStatus("Configuration saved successfully! ✅");
-            refreshConfig();
-            
-            // Clear status after 3 seconds
-            setTimeout(() => setSaveStatus(""), 3000);
+            // Use new user-config endpoint
+            const result = await updateUserConfig(
+                parseInt(customer),
+                parseInt(active_project_id || project)
+            );
+
+            if (result.success) {
+                console.log("✅ User config updated successfully");
+                setSaveStatus("Configuration saved successfully! ✅");
+
+                // Clear status after 3 seconds
+                setTimeout(() => setSaveStatus(""), 3000);
+            } else {
+                console.error("❌ Failed to update user config:", result.error);
+                setSaveStatus(`⚠️ Error: ${result.error}`);
+            }
             
         } catch (error) {
             console.error("❌ FULL ERROR OBJECT:", error);

@@ -3,6 +3,7 @@ import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
+import EmptyConfigMessage from "../common/EmptyConfigMessage";
 
 // Clean TanStack Table implementation for Alias management
 const AliasTableTanStackClean = () => {
@@ -414,17 +415,20 @@ const AliasTableTanStackClean = () => {
     // Transform data for saving - not used since we have custom save handler
     const saveTransform = (rows) => rows;
 
+    // Show empty config message if no active customer/project
+    if (!config || !activeCustomerId || !activeProjectId) {
+        return <EmptyConfigMessage entityName="aliases" />;
+    }
+
     // Show loading while data loads
-    if (loading || !activeProjectId) {
+    if (loading) {
         return (
             <div className="modern-table-container">
                 <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
                     <div className="spinner-border text-primary" role="status">
                         <span className="visually-hidden">Loading...</span>
                     </div>
-                    <span className="ms-2">
-                        {loading ? "Loading alias data..." : "Please select a project to view aliases"}
-                    </span>
+                    <span className="ms-2">Loading alias data...</span>
                 </div>
             </div>
         );

@@ -10,27 +10,45 @@ export const ConfigProvider = ({ children }) => {
   const [activeStorageSystem, setActiveStorageSystem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const activeConfigApiUrl = "/api/core/active-config/";
+  const userConfigApiUrl = "/api/core/user-config/";
 
   useEffect(() => {
-    fetchActiveConfig();
-  }, []);
+    if (user) {
+      fetchActiveConfig();
+    } else {
+      setConfig(null);
+      setLoading(false);
+    }
+  }, [user]);
 
   const fetchActiveConfig = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await axios.get(activeConfigApiUrl);
+      const response = await axios.get(userConfigApiUrl);
 
-      if (Object.keys(response.data).length > 0) {
-        setConfig(response.data);
+      // New user-config endpoint returns user's active customer and project
+      if (response.data && response.data.active_customer) {
+        // Convert user-config format to old config format for compatibility
+        const customerConfig = {
+          id: response.data.id,
+          customer: response.data.active_customer,
+          active_project: response.data.active_project,
+          is_active: true // For compatibility
+        };
+        setConfig(customerConfig);
       } else {
-        setConfig(null);  // ✅ No active config found
+        setConfig(null);  // ✅ User has no active config (new user)
       }
     } catch (err) {
-      console.error("❌ Error fetching active config:", err);
-      setError("Failed to load configuration");
+      console.error("❌ Error fetching user config:", err);
+      if (err.response?.status === 401) {
+        // Not authenticated
+        setConfig(null);
+      } else {
+        setError("Failed to load configuration");
+      }
     } finally {
       setLoading(false);
     }
@@ -78,12 +96,38 @@ export const ConfigProvider = ({ children }) => {
     return currentLevel >= requiredLevel;
   };
 
+  const updateUserConfig = async (customerId, projectId) => {
+    try {
+      const response = await axios.put(userConfigApiUrl, {
+        active_customer_id: customerId,
+        active_project_id: projectId
+      });
+
+      // Update local state
+      if (response.data && response.data.active_customer) {
+        const customerConfig = {
+          id: response.data.id,
+          customer: response.data.active_customer,
+          active_project: response.data.active_project,
+          is_active: true
+        };
+        setConfig(customerConfig);
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error("❌ Error updating user config:", err);
+      return { success: false, error: err.message };
+    }
+  };
+
   return (
     <ConfigContext.Provider value={{
       config,
       loading,
       error,
       refreshConfig: fetchActiveConfig,
+      updateUserConfig,
       activeStorageSystem,
       setActiveStorageSystem,
       // Permission helpers

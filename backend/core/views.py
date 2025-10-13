@@ -7,13 +7,13 @@ from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password
-from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership
+from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership, UserConfig
 from customers.models import Customer
 from .serializers import (
     ConfigSerializer, ProjectSerializer, ProjectGroupSerializer, ActiveConfigSerializer,
     TableConfigurationSerializer, AppSettingsSerializer,
     CustomNamingRuleSerializer, CustomVariableSerializer,
-    UserSerializer, CustomerMembershipSerializer
+    UserSerializer, CustomerMembershipSerializer, UserConfigSerializer
 )
 from customers.serializers import CustomerSerializer 
 
@@ -98,22 +98,81 @@ def config_viewset(request, pk=None):
 @csrf_exempt
 @require_http_methods(["GET"])
 def active_config_view(request):
-    """View to return the active config, optionally filtered by customer"""
-    print(f"🔥 Active Config View - Method: {request.method}")
-    
+    """
+    DEPRECATED: View to return the active config. Use user_config_view instead.
+    Kept for backward compatibility.
+    """
+    print(f"🔥 Active Config View - Method: {request.method} (DEPRECATED)")
+
     try:
         customer_id = request.GET.get('customer')
         if customer_id:
             config = Config.objects.filter(customer_id=customer_id, is_active=True).first()
         else:
             config = Config.objects.filter(is_active=True).first()
-        
+
         if config:
             serializer = ConfigSerializer(config)
             return JsonResponse(serializer.data)
         else:
             return JsonResponse({}, status=404)
     except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT"])
+def user_config_view(request):
+    """
+    Get or update the current user's active configuration (customer and project).
+
+    GET: Returns user's active customer and project
+    PUT: Updates user's active customer and/or project
+
+    Body (PUT): {
+        "active_customer_id": <customer_id>,  # optional
+        "active_project_id": <project_id>      # optional
+    }
+    """
+    print(f"🔥 User Config View - Method: {request.method}")
+
+    # Require authentication
+    user = request.user if request.user.is_authenticated else None
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        if request.method == "GET":
+            # Get or create user config
+            user_config = UserConfig.get_or_create_for_user(user)
+
+            # If no active customer/project, return empty structure
+            if not user_config.active_customer:
+                return JsonResponse({
+                    'id': user_config.id,
+                    'user': user.id,
+                    'active_customer': None,
+                    'active_project': None,
+                    'created_at': user_config.created_at,
+                    'updated_at': user_config.updated_at
+                })
+
+            serializer = UserConfigSerializer(user_config)
+            return JsonResponse(serializer.data)
+
+        elif request.method == "PUT":
+            # Update user config
+            user_config = UserConfig.get_or_create_for_user(user)
+            data = json.loads(request.body)
+
+            serializer = UserConfigSerializer(user_config, data=data, partial=True)
+            if serializer.is_valid():
+                updated = serializer.save()
+                return JsonResponse(UserConfigSerializer(updated).data)
+            return JsonResponse(serializer.errors, status=400)
+
+    except Exception as e:
+        print(f"❌ Error in user_config_view: {e}")
         return JsonResponse({"error": str(e)}, status=500)
 
 
