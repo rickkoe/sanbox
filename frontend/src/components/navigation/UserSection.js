@@ -61,7 +61,7 @@ const UserSection = ({ onAboutClick }) => {
             <Dropdown.Divider />
             <Dropdown.Item
               as="a"
-              href={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/admin/`}
+              href="/admin/"
               target="_blank"
               rel="noopener noreferrer"
             >
