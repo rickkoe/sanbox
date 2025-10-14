@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useContext, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Button, Form, Alert, Card, Spinner, Badge, Tab, Tabs, Modal, Table } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { ConfigContext } from "../context/ConfigContext";
+import { useTheme } from "../context/ThemeContext";
 import "handsontable/dist/handsontable.full.css";
+import "../styles/bulk-zoning-import.css";
 
 // Smart detection function for WWPN type
 const detectWwpnType = async (wwpn) => {
@@ -21,6 +24,7 @@ const detectWwpnType = async (wwpn) => {
 // Duplicate Conflict Resolver Component
 const DuplicateConflictResolver = ({ conflicts, onResolve, onCancel }) => {
   const [resolutions, setResolutions] = useState(new Map());
+  const { theme } = useTheme();
 
   const handleChoice = (wwpnKey, chosenItemId) => {
     const newResolutions = new Map(resolutions);
@@ -28,42 +32,96 @@ const DuplicateConflictResolver = ({ conflicts, onResolve, onCancel }) => {
     setResolutions(newResolutions);
   };
 
+  const handleSelectAllByType = (aliasType) => {
+    const newResolutions = new Map(resolutions);
+
+    conflicts.forEach(conflict => {
+      // Find the first item of the specified type
+      const itemOfType = conflict.items.find(item => item.cisco_alias === aliasType);
+      if (itemOfType) {
+        const itemId = itemOfType.name + '|' + itemOfType.cisco_alias;
+        newResolutions.set(conflict.wwpnKey, itemId);
+      }
+    });
+
+    setResolutions(newResolutions);
+  };
+
   const handleResolveAll = () => {
     // Check if all conflicts have been resolved
     const unresolvedConflicts = conflicts.filter(conflict => !resolutions.has(conflict.wwpnKey));
-    
+
     if (unresolvedConflicts.length > 0) {
       alert(`Please resolve all conflicts. ${unresolvedConflicts.length} conflicts still need resolution.`);
       return;
     }
-    
+
     onResolve(resolutions);
   };
 
-  return (
-    <Modal show={true} size="xl" onHide={onCancel}>
-      <Modal.Header closeButton>
-        <Modal.Title>Resolve WWPN Conflicts</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Alert variant="info">
-          <strong>{conflicts.length}</strong> WWPNs appear in multiple aliases with different names or types. 
-          Please choose which alias to keep for each WWPN.
-        </Alert>
-        
+  // Check which types exist in conflicts
+  const hasDeviceAlias = conflicts.some(conflict =>
+    conflict.items.some(item => item.cisco_alias === 'device-alias')
+  );
+  const hasFcalias = conflicts.some(conflict =>
+    conflict.items.some(item => item.cisco_alias === 'fcalias')
+  );
+
+  // Debug: Log conflict items to see structure
+  useEffect(() => {
+    if (conflicts.length > 0) {
+      console.log('🔍 Conflict items structure:', conflicts[0].items);
+      console.log('🔍 First item cisco_alias:', conflicts[0].items[0].cisco_alias);
+      console.log('🔍 All item properties:', Object.keys(conflicts[0].items[0]));
+    }
+  }, [conflicts]);
+
+  return createPortal(
+    <div className={`custom-modal-overlay theme-${theme}`} onClick={onCancel}>
+      <div className="custom-modal custom-modal-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="custom-modal-header">
+          <h3 className="custom-modal-title">Resolve WWPN Conflicts</h3>
+          <button className="custom-modal-close" onClick={onCancel}>&times;</button>
+        </div>
+        <div className="custom-modal-body">
+        <div className="custom-alert custom-alert-info">
+          <div>
+            <strong>{conflicts.length}</strong> WWPNs appear in multiple aliases with different names or types.
+            Please choose which alias to keep for each WWPN.
+          </div>
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {hasDeviceAlias && (
+              <button
+                className="btn btn-sm btn-outline-primary"
+                onClick={() => handleSelectAllByType('device-alias')}
+              >
+                Select All device-alias
+              </button>
+            )}
+            {hasFcalias && (
+              <button
+                className="btn btn-sm btn-outline-primary"
+                onClick={() => handleSelectAllByType('fcalias')}
+              >
+                Select All fcalias
+              </button>
+            )}
+          </div>
+        </div>
+
         <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
           {conflicts.map((conflict, index) => (
-            <Card key={conflict.wwpnKey} className="mb-3">
-              <Card.Header>
+            <div key={conflict.wwpnKey} className="custom-card mb-3">
+              <div className="custom-card-header">
                 <h6 className="mb-0">
                   Conflict #{index + 1}: WWPN <code>{conflict.wwpn}</code>
-                  <Badge variant="secondary" className="ml-2">
+                  <span className="custom-badge custom-badge-secondary ml-2">
                     {conflict.conflictType === 'name' ? 'Different Names' : 'Different Types'}
-                  </Badge>
+                  </span>
                 </h6>
-              </Card.Header>
-              <Card.Body>
-                <Table striped bordered hover size="sm">
+              </div>
+              <div className="custom-card-body">
+                <table className="custom-table custom-table-sm">
                   <thead>
                     <tr>
                       <th width="50">Choose</th>
@@ -77,22 +135,23 @@ const DuplicateConflictResolver = ({ conflicts, onResolve, onCancel }) => {
                     {conflict.items.map((item, itemIndex) => {
                       const itemId = item.name + '|' + item.cisco_alias;
                       const isSelected = resolutions.get(conflict.wwpnKey) === itemId;
-                      
+
                       return (
-                        <tr key={itemIndex} className={isSelected ? 'table-success' : ''}>
+                        <tr key={itemIndex} className={isSelected ? 'selected' : ''}>
                           <td>
-                            <Form.Check
+                            <input
                               type="radio"
                               name={`conflict-${conflict.wwpnKey}`}
                               checked={isSelected}
                               onChange={() => handleChoice(conflict.wwpnKey, itemId)}
+                              className="form-check-input"
                             />
                           </td>
                           <td><code>{item.name}</code></td>
                           <td>
-                            <Badge variant={item.cisco_alias === 'device-alias' ? 'primary' : 'secondary'}>
-                              {item.cisco_alias}
-                            </Badge>
+                            <span className={`custom-badge ${item.cisco_alias === 'device-alias' ? 'custom-badge-primary' : 'custom-badge-secondary'}`}>
+                              {item.cisco_alias || 'N/A'}
+                            </span>
                           </td>
                           <td>{item.vsan || 'N/A'}</td>
                           <td><small>{item.notes || ''}</small></td>
@@ -100,21 +159,23 @@ const DuplicateConflictResolver = ({ conflicts, onResolve, onCancel }) => {
                       );
                     })}
                   </tbody>
-                </Table>
-              </Card.Body>
-            </Card>
+                </table>
+              </div>
+            </div>
           ))}
         </div>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel Import
-        </Button>
-        <Button variant="primary" onClick={handleResolveAll}>
-          Continue with Selected Choices ({resolutions.size}/{conflicts.length} resolved)
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        </div>
+        <div className="custom-modal-footer">
+          <button className="btn btn-secondary" onClick={onCancel}>
+            Cancel Import
+          </button>
+          <button className="btn btn-primary" onClick={handleResolveAll}>
+            Continue with Selected Choices ({resolutions.size}/{conflicts.length} resolved)
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 };
 
@@ -2803,65 +2864,17 @@ const BulkZoningImportPage = () => {
       <div className="container-fluid mt-4" style={{ maxHeight: "calc(100vh - 120px)", overflowY: "auto", paddingBottom: "20px" }}>
       {/* Full-screen parsing overlay */}
       {parsing && (
-        <div className="importing-overlay" style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          width: '100%', 
-          height: '100%', 
-          background: 'rgba(0, 0, 0, 0.8)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          zIndex: 9999 
-        }}>
-          <div className="importing-content" style={{
-            textAlign: 'center',
-            background: 'white',
-            padding: '3rem 2rem',
-            borderRadius: '15px',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-            maxWidth: '400px',
-            width: '90%'
-          }}>
+        <div className="loading-overlay">
+          <div className="loading-content">
             <div className="importing-spinner">
-              <div className="spinner-border text-info" style={{ width: '4rem', height: '4rem' }} role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
+              <div className="custom-spinner custom-spinner-lg" style={{ color: 'var(--link-text)' }}></div>
             </div>
-            <h3 className="mt-3 text-info">Processing Files...</h3>
-            <p className="text-muted">Please wait while we parse your data</p>
-            <div className="importing-dots" style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '8px',
-              marginTop: '1rem'
-            }}>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                background: '#17a2b8',
-                borderRadius: '50%',
-                animation: 'importing-pulse 1.5s infinite ease-in-out',
-                animationDelay: '-0.3s'
-              }}></span>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                background: '#17a2b8',
-                borderRadius: '50%',
-                animation: 'importing-pulse 1.5s infinite ease-in-out',
-                animationDelay: '-0.15s'
-              }}></span>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                background: '#17a2b8',
-                borderRadius: '50%',
-                animation: 'importing-pulse 1.5s infinite ease-in-out',
-                animationDelay: '0s'
-              }}></span>
+            <h3 className="loading-title">Processing Files...</h3>
+            <p className="loading-text">Please wait while we parse your data</p>
+            <div className="loading-dots">
+              <div className="loading-dot"></div>
+              <div className="loading-dot"></div>
+              <div className="loading-dot"></div>
             </div>
           </div>
         </div>
@@ -2869,65 +2882,17 @@ const BulkZoningImportPage = () => {
 
       {/* Full-screen importing overlay */}
       {importing && (
-        <div className="importing-overlay" style={{ 
-          position: 'fixed', 
-          top: 0, 
-          left: 0, 
-          width: '100%', 
-          height: '100%', 
-          background: 'rgba(0, 0, 0, 0.8)', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          zIndex: 9999 
-        }}>
-          <div className="importing-content" style={{
-            textAlign: 'center',
-            background: 'white',
-            padding: '3rem 2rem',
-            borderRadius: '15px',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
-            maxWidth: '400px',
-            width: '90%'
-          }}>
+        <div className="loading-overlay">
+          <div className="loading-content">
             <div className="importing-spinner">
-              <div className="spinner-border text-success" style={{ width: '4rem', height: '4rem' }} role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
+              <div className="custom-spinner custom-spinner-lg" style={{ color: 'var(--success-text)' }}></div>
             </div>
-            <h3 className="mt-3 text-success">Importing Data...</h3>
-            <p className="text-muted">Please wait while we save your data to the database</p>
-            <div className="importing-dots" style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '8px',
-              marginTop: '1rem'
-            }}>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                background: '#28a745',
-                borderRadius: '50%',
-                animation: 'importing-pulse 1.5s infinite ease-in-out',
-                animationDelay: '-0.3s'
-              }}></span>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                background: '#28a745',
-                borderRadius: '50%',
-                animation: 'importing-pulse 1.5s infinite ease-in-out',
-                animationDelay: '-0.15s'
-              }}></span>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                background: '#28a745',
-                borderRadius: '50%',
-                animation: 'importing-pulse 1.5s infinite ease-in-out',
-                animationDelay: '0s'
-              }}></span>
+            <h3 className="loading-title" style={{ color: 'var(--success-text)' }}>Importing Data...</h3>
+            <p className="loading-text">Please wait while we save your data to the database</p>
+            <div className="loading-dots">
+              <div className="loading-dot" style={{ background: 'var(--success-text)' }}></div>
+              <div className="loading-dot" style={{ background: 'var(--success-text)' }}></div>
+              <div className="loading-dot" style={{ background: 'var(--success-text)' }}></div>
             </div>
           </div>
         </div>
