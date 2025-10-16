@@ -103,21 +103,25 @@ cat backup.sql | docker-compose -f docker-compose.dev.yml exec -T postgres psql 
 
 ### HTTPS/SSL Setup (Production)
 
-To enable HTTPS for secure clipboard operations and general security:
+Two options available depending on your deployment:
+
+#### Option 1: Let's Encrypt SSL (For Public/Internet-Accessible Servers)
+
+For servers with a public IP accessible from the internet:
 
 ```bash
-# 1. Ensure your domain points to the server's IP address
+# 1. Ensure your domain points to the server's PUBLIC IP address
 # 2. Make sure ports 80 and 443 are open in your firewall
 
 # 3. Run the SSL setup script (requires root/sudo)
 sudo ./setup-ssl.sh your-domain.com your-email@example.com
 
 # Example:
-sudo ./setup-ssl.sh sanbox.esilabs.com admin@esilabs.com
+sudo ./setup-ssl.sh sanbox.example.com admin@example.com
 ```
 
 **What the SSL setup does**:
-1. Installs Certbot (if not already installed)
+1. Installs Certbot (if not already installed) - supports RHEL 8/9, CentOS, Debian, Ubuntu
 2. Generates Let's Encrypt SSL certificates for your domain
 3. Configures nginx to use HTTPS with automatic HTTP→HTTPS redirect
 4. Sets up automatic certificate renewal (runs twice daily)
@@ -135,9 +139,41 @@ sudo ./setup-ssl.sh sanbox.esilabs.com admin@esilabs.com
 sudo /usr/local/bin/renew-sanbox-ssl.sh
 ```
 
+#### Option 2: Self-Signed Certificate (For Internal/VPN-Only Servers)
+
+For internal servers accessed only via VPN or private networks:
+
+```bash
+# Run the self-signed SSL setup script (requires root/sudo)
+sudo ./setup-ssl-selfsigned.sh your-internal-domain.com
+
+# Example:
+sudo ./setup-ssl-selfsigned.sh ibmdev03.esilabs.com
+```
+
+**What the self-signed setup does**:
+1. Generates a self-signed SSL certificate (valid for 365 days)
+2. Configures nginx to use HTTPS with automatic HTTP→HTTPS redirect
+3. Updates environment variables for HTTPS
+4. No auto-renewal (manual renewal required before expiration)
+
+**Post-SSL Setup**:
+- Your app will be accessible at `https://your-domain.com`
+- Clipboard API will work properly (requires secure context)
+- **Browsers will show security warnings** (normal for self-signed certs)
+  - Chrome/Edge: Click 'Advanced' → 'Proceed to site (unsafe)'
+  - Firefox: Click 'Advanced' → 'Accept the Risk and Continue'
+  - Safari: Click 'Show Details' → 'visit this website'
+
+**Certificate Renewal** (before 365 days):
+```bash
+# Re-run the setup script to generate a new certificate
+sudo ./setup-ssl-selfsigned.sh your-domain.com
+```
+
 **Troubleshooting HTTPS**:
 - Verify domain DNS: `nslookup your-domain.com`
-- Check certificate: `certbot certificates`
+- Check certificate: `openssl x509 -in /etc/ssl/sanbox/fullchain.pem -text -noout`
 - View nginx logs: `./logs frontend`
 - Ensure `.env` has HTTPS URLs in CORS_ALLOWED_ORIGINS and CSRF_TRUSTED_ORIGINS
 
