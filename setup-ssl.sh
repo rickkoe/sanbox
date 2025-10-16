@@ -60,9 +60,23 @@ if ! command -v certbot &> /dev/null; then
 
     # Detect OS and install certbot
     if [ -f /etc/redhat-release ]; then
-        # RHEL/CentOS
-        yum install -y epel-release
-        yum install -y certbot
+        # RHEL/CentOS - detect version
+        if grep -q "release 8" /etc/redhat-release; then
+            # RHEL 8
+            echo "  → Detected RHEL 8, installing EPEL..."
+            dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+            dnf install -y certbot
+        elif grep -q "release 9" /etc/redhat-release; then
+            # RHEL 9
+            echo "  → Detected RHEL 9, installing EPEL..."
+            dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+            dnf install -y certbot
+        else
+            # Older RHEL/CentOS (6, 7)
+            echo "  → Detected older RHEL/CentOS, using yum..."
+            yum install -y epel-release
+            yum install -y certbot
+        fi
     elif [ -f /etc/debian_version ]; then
         # Debian/Ubuntu
         apt-get update
