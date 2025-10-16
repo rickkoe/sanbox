@@ -247,15 +247,13 @@ if [ -f "$APP_DIR/.env" ]; then
     # Backup .env
     cp "$APP_DIR/.env" "$APP_DIR/.env.backup-$(date +%Y%m%d-%H%M%S)"
 
-    # Check if HTTPS URLs already exist
-    if grep -q "https://$DOMAIN" "$APP_DIR/.env"; then
-        echo "  → HTTPS URLs already configured in .env"
-    else
-        # Add HTTPS to CORS and CSRF settings
-        sed -i "s|CORS_ALLOWED_ORIGINS=.*|CORS_ALLOWED_ORIGINS=https://$DOMAIN,http://$DOMAIN|g" "$APP_DIR/.env"
-        sed -i "s|CSRF_TRUSTED_ORIGINS=.*|CSRF_TRUSTED_ORIGINS=https://$DOMAIN,http://$DOMAIN|g" "$APP_DIR/.env"
-        echo "  → Updated CORS and CSRF settings for HTTPS"
-    fi
+    # Update CORS and CSRF settings to include the domain with HTTPS
+    # Keep existing localhost entries and add the new domain
+    sed -i "s|CORS_ALLOWED_ORIGINS=.*|CORS_ALLOWED_ORIGINS=https://$DOMAIN,http://$DOMAIN,http://localhost:3000,http://127.0.0.1:3000|g" "$APP_DIR/.env"
+    sed -i "s|CSRF_TRUSTED_ORIGINS=.*|CSRF_TRUSTED_ORIGINS=https://$DOMAIN,http://$DOMAIN,http://localhost:3000,http://127.0.0.1:3000|g" "$APP_DIR/.env"
+    echo "  → Updated CORS and CSRF settings for HTTPS with domain: $DOMAIN"
+else
+    echo "  → .env file not found (this is okay - defaults will be used)"
 fi
 echo "✅ Environment configuration updated"
 

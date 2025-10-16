@@ -128,9 +128,8 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+# NOTE: .env is committed for lab environment (no sensitive data)
 .env.local
-.env.production
 .venv
 env/
 venv/
