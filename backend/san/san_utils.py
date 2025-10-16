@@ -63,8 +63,13 @@ def generate_alias_deletion_commands(aliases, config):
     # Sort by fabric names and return
     return dict(sorted(device_alias_delete_dict.items()))
 
-def generate_alias_deletion_only_commands(delete_aliases, config):
-    """Generate only alias deletion commands (separate from creation commands)"""
+def generate_alias_deletion_only_commands(delete_aliases, project):
+    """
+    Generate only alias deletion commands (separate from creation commands).
+    Args:
+        delete_aliases: QuerySet of aliases to delete
+        project: Project instance (not used directly, but kept for consistency)
+    """
     device_alias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     fcalias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     brocade_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
@@ -136,12 +141,19 @@ def generate_alias_deletion_only_commands(delete_aliases, config):
     # Sort by fabric names
     return dict(sorted(result.items()))
 
-def generate_alias_commands(create_aliases, delete_aliases, config):
+def generate_alias_commands(create_aliases, delete_aliases, project):
+    """
+    Generate alias commands for the given project.
+    Args:
+        create_aliases: QuerySet of aliases to create
+        delete_aliases: QuerySet of aliases to delete
+        project: Project instance (not used directly, but kept for consistency)
+    """
     # Create separate dictionaries for creation and deletion commands
     device_alias_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     fcalias_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     brocade_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
-    
+
     device_alias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     fcalias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     brocade_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
@@ -275,16 +287,23 @@ def generate_alias_commands(create_aliases, delete_aliases, config):
     # Sort by fabric names
     return dict(sorted(result.items()))
 
-def generate_zone_commands(create_zones, delete_zones, config):
-    create_aliases = Alias.objects.filter(create=True, projects=config.active_project)
-    delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
+def generate_zone_commands(create_zones, delete_zones, project):
+    """
+    Generate zone commands for the given project.
+    Args:
+        create_zones: QuerySet of zones to create
+        delete_zones: QuerySet of zones to delete
+        project: Project instance to generate commands for
+    """
+    create_aliases = Alias.objects.filter(create=True, projects=project)
+    delete_aliases = Alias.objects.filter(delete=True, projects=project)
     alias_command_dict = defaultdict(list)
     zone_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     zoneset_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     zone_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
-    
+
     # Get alias commands in new format
-    alias_commands = generate_alias_commands(create_aliases, delete_aliases, config)
+    alias_commands = generate_alias_commands(create_aliases, delete_aliases, project)
     
     # Create Zone Commands
     all_zones = create_zones.select_related('fabric').prefetch_related('members').order_by('id')
@@ -455,13 +474,18 @@ def generate_zone_commands(create_zones, delete_zones, config):
     sorted_result = dict(sorted(result.items()))
     return sorted_result
 
-def generate_zone_deletion_commands(delete_zones, config):
-    """Generate comprehensive zone deletion scripts in reverse order: zoneset -> zones -> aliases -> activate"""
+def generate_zone_deletion_commands(delete_zones, project):
+    """
+    Generate comprehensive zone deletion scripts in reverse order: zoneset -> zones -> aliases -> activate.
+    Args:
+        delete_zones: QuerySet of zones to delete
+        project: Project instance to generate commands for
+    """
     print(f"🔍 Starting generate_zone_deletion_commands with {delete_zones.count()} zones")
-    
+
     try:
         # Get aliases that should be deleted
-        delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
+        delete_aliases = Alias.objects.filter(delete=True, projects=project)
         print(f"🔍 Found {delete_aliases.count()} aliases to delete")
         
         # Group everything by fabric
@@ -597,13 +621,18 @@ def generate_zone_deletion_commands(delete_zones, config):
         traceback.print_exc()
         raise
 
-def generate_zone_creation_commands(create_zones, config):
-    """Generate zone creation scripts with aliases included in the specified format"""
+def generate_zone_creation_commands(create_zones, project):
+    """
+    Generate zone creation scripts with aliases included in the specified format.
+    Args:
+        create_zones: QuerySet of zones to create
+        project: Project instance to generate commands for
+    """
     print(f"🔍 Starting generate_zone_creation_commands with {create_zones.count()} zones")
-    
+
     try:
         # Get aliases that should be created
-        create_aliases = Alias.objects.filter(create=True, projects=config.active_project)
+        create_aliases = Alias.objects.filter(create=True, projects=project)
         print(f"🔍 Found {create_aliases.count()} aliases to create")
         
         # Group everything by fabric

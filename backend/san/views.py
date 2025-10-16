@@ -2105,22 +2105,27 @@ def fabric_delete_view(request, pk):
 def generate_alias_scripts(request, project_id):
     """Generate alias scripts for a project."""
     print(f"🔥 Generate Alias Scripts - Project ID: {project_id}")
-    
+
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
-    
-    config = Config.get_active_config()
-    if not config:
-        return JsonResponse({"error": "Configuration is missing."}, status=500)
-    
+
+    # Get the project directly from the project_id parameter
     try:
-        create_aliases = Alias.objects.filter(create=True, projects=config.active_project)
-        delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
+
+    # Filter aliases by the actual project_id passed in the URL
+    try:
+        create_aliases = Alias.objects.filter(create=True, projects=project)
+        delete_aliases = Alias.objects.filter(delete=True, projects=project)
+        print(f"🔍 Found {create_aliases.count()} aliases with create=True for project {project_id}")
+        print(f"🔍 Found {delete_aliases.count()} aliases with delete=True for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
-    command_data = generate_alias_commands(create_aliases, delete_aliases, config)
-    
+    command_data = generate_alias_commands(create_aliases, delete_aliases, project)
+
     # Transform the new structure to maintain backward compatibility
     result = {}
     for fabric_name, fabric_data in command_data.items():
@@ -2128,7 +2133,8 @@ def generate_alias_scripts(request, project_id):
             "commands": fabric_data["commands"],
             "fabric_info": fabric_data["fabric_info"]
         }
-    
+
+    print(f"🔍 Generated alias scripts for {len(result)} fabrics")
     return JsonResponse({"alias_scripts": result}, safe=False)
 
 
@@ -2138,21 +2144,66 @@ def generate_alias_scripts(request, project_id):
 def generate_zone_scripts(request, project_id):
     """Generate zone scripts for a project."""
     print(f"🔥 Generate Zone Scripts - Project ID: {project_id}")
-    
+
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
-    
-    config = Config.get_active_config()
-    if not config:
-        return JsonResponse({"error": "Configuration is missing."}, status=500)
+
+    # Get the project directly from the project_id parameter
     try:
-        create_zones = Zone.objects.filter(create=True, projects=config.active_project)
-        delete_zones = Zone.objects.filter(delete=True, projects=config.active_project)
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
+
+    # Filter zones by the actual project_id passed in the URL
+    try:
+        create_zones = Zone.objects.filter(create=True, projects=project)
+        delete_zones = Zone.objects.filter(delete=True, projects=project)
+        print(f"🔍 Found {create_zones.count()} zones with create=True for project {project_id}")
+        print(f"🔍 Found {delete_zones.count()} zones with delete=True for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
-    command_data = generate_zone_commands(create_zones, delete_zones, config)
-    return JsonResponse({"zone_scripts": command_data}, safe=False)
+    # Check for aliases with create=True that are missing cisco_alias for Cisco fabrics
+    warnings = []
+    try:
+        create_aliases = Alias.objects.filter(create=True, projects=project).select_related('fabric')
+        invalid_cisco_aliases = [
+            alias for alias in create_aliases
+            if alias.fabric and alias.fabric.san_vendor == 'CI' and not alias.cisco_alias
+        ]
+
+        if invalid_cisco_aliases:
+            fabric_groups = {}
+            for alias in invalid_cisco_aliases:
+                fabric_name = alias.fabric.name if alias.fabric else "Unknown"
+                if fabric_name not in fabric_groups:
+                    fabric_groups[fabric_name] = []
+                fabric_groups[fabric_name].append(alias.name)
+
+            warning_message = "Some Cisco aliases have 'create' checked but are missing the 'cisco_alias' field. "
+            warning_message += "These aliases will NOT be included in scripts. Please set cisco_alias to 'device-alias' or 'fcalias'. "
+            warning_message += f"Affected aliases ({len(invalid_cisco_aliases)} total): "
+
+            fabric_details = []
+            for fabric_name, alias_names in fabric_groups.items():
+                fabric_details.append(f"{fabric_name}: {', '.join(alias_names[:5])}" +
+                                    (f" (and {len(alias_names)-5} more)" if len(alias_names) > 5 else ""))
+
+            warning_message += "; ".join(fabric_details)
+            warnings.append(warning_message)
+            print(f"⚠️  Found {len(invalid_cisco_aliases)} Cisco aliases missing cisco_alias field")
+    except Exception as e:
+        print(f"⚠️  Error checking for invalid aliases: {e}")
+
+    # Pass project instead of config to the command generation
+    command_data = generate_zone_commands(create_zones, delete_zones, project)
+    print(f"🔍 Generated scripts for {len(command_data)} fabrics")
+
+    response_data = {
+        "zone_scripts": command_data,
+        "warnings": warnings
+    }
+    return JsonResponse(response_data, safe=False)
 
 
 @csrf_exempt
@@ -2160,21 +2211,25 @@ def generate_zone_scripts(request, project_id):
 def generate_alias_deletion_scripts(request, project_id):
     """Generate alias deletion scripts for a project."""
     print(f"🔥 Generate Alias Deletion Scripts - Project ID: {project_id}")
-    
+
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
-    
-    config = Config.get_active_config()
-    if not config:
-        return JsonResponse({"error": "Configuration is missing."}, status=500)
-    
+
+    # Get the project directly from the project_id parameter
     try:
-        delete_aliases = Alias.objects.filter(delete=True, projects=config.active_project)
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
+
+    # Filter aliases by the actual project_id passed in the URL
+    try:
+        delete_aliases = Alias.objects.filter(delete=True, projects=project)
+        print(f"🔍 Found {delete_aliases.count()} aliases with delete=True for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
-    command_data = generate_alias_deletion_only_commands(delete_aliases, config)
-    
+    command_data = generate_alias_deletion_only_commands(delete_aliases, project)
+
     # Transform the new structure to maintain backward compatibility
     result = {}
     for fabric_name, fabric_data in command_data.items():
@@ -2182,7 +2237,8 @@ def generate_alias_deletion_scripts(request, project_id):
             "commands": fabric_data["commands"],
             "fabric_info": fabric_data["fabric_info"]
         }
-    
+
+    print(f"🔍 Generated alias deletion scripts for {len(result)} fabrics")
     return JsonResponse({"alias_scripts": result}, safe=False)
 
 
@@ -2191,20 +2247,25 @@ def generate_alias_deletion_scripts(request, project_id):
 def generate_zone_deletion_scripts(request, project_id):
     """Generate zone deletion scripts for a project."""
     print(f"🔥 Generate Zone Deletion Scripts - Project ID: {project_id}")
-    
+
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
-    
-    config = Config.get_active_config()
-    if not config:
-        return JsonResponse({"error": "Configuration is missing."}, status=500)
-    
+
+    # Get the project directly from the project_id parameter
     try:
-        delete_zones = Zone.objects.filter(delete=True, projects=config.active_project)
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
+
+    # Filter zones by the actual project_id passed in the URL
+    try:
+        delete_zones = Zone.objects.filter(delete=True, projects=project)
+        print(f"🔍 Found {delete_zones.count()} zones with delete=True for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
-    command_data = generate_zone_deletion_commands(delete_zones, config)
+    command_data = generate_zone_deletion_commands(delete_zones, project)
+    print(f"🔍 Generated zone deletion scripts for {len(command_data)} fabrics")
     return JsonResponse({"zone_scripts": command_data}, safe=False)
 
 
@@ -2392,30 +2453,33 @@ def wwpn_detect_type_view(request):
 def generate_zone_creation_scripts(request, project_id):
     """Generate combined zone creation scripts with aliases in the specified format."""
     print(f"🔥 Generate Zone Creation Scripts - Project ID: {project_id}")
-    
+
     if not project_id:
         return JsonResponse({"error": "Missing project_id in query parameters."}, status=400)
-    
-    config = Config.get_active_config()
-    if not config:
-        return JsonResponse({"error": "Configuration is missing."}, status=500)
-    
+
+    # Get the project directly from the project_id parameter
     try:
-        create_zones = Zone.objects.filter(create=True, projects=config.active_project)
-        print(f"🔍 Found {create_zones.count()} zones to create")
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
+
+    # Filter zones by the actual project_id passed in the URL
+    try:
+        create_zones = Zone.objects.filter(create=True, projects=project)
+        print(f"🔍 Found {create_zones.count()} zones with create=True for project {project_id}")
     except Exception as e:
         print(f"❌ Error fetching zones: {e}")
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
-    
+
     try:
-        command_data = generate_zone_creation_commands(create_zones, config)
-        print(f"✅ Generated scripts for {len(command_data)} fabrics")
+        command_data = generate_zone_creation_commands(create_zones, project)
+        print(f"✅ Generated zone creation scripts for {len(command_data)} fabrics")
     except Exception as e:
         print(f"❌ Error generating scripts: {e}")
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": "Error generating scripts.", "details": str(e)}, status=500)
-    
+
     return JsonResponse({"zone_scripts": command_data}, safe=False)
 
 

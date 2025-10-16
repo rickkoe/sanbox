@@ -101,6 +101,46 @@ cat backup.sql | docker-compose -f docker-compose.dev.yml exec -T postgres psql 
 ./rollback.sh v1.2.2
 ```
 
+### HTTPS/SSL Setup (Production)
+
+To enable HTTPS for secure clipboard operations and general security:
+
+```bash
+# 1. Ensure your domain points to the server's IP address
+# 2. Make sure ports 80 and 443 are open in your firewall
+
+# 3. Run the SSL setup script (requires root/sudo)
+sudo ./setup-ssl.sh your-domain.com your-email@example.com
+
+# Example:
+sudo ./setup-ssl.sh sanbox.esilabs.com admin@esilabs.com
+```
+
+**What the SSL setup does**:
+1. Installs Certbot (if not already installed)
+2. Generates Let's Encrypt SSL certificates for your domain
+3. Configures nginx to use HTTPS with automatic HTTP→HTTPS redirect
+4. Sets up automatic certificate renewal (runs twice daily)
+5. Updates environment variables for HTTPS
+
+**Post-SSL Setup**:
+- Your app will be accessible at `https://your-domain.com`
+- Clipboard API will work properly (requires secure context)
+- Certificates auto-renew before expiration
+- Check renewal log: `/var/log/sanbox-ssl-renewal.log`
+- Test renewal: `certbot renew --dry-run`
+
+**Manual Certificate Renewal** (if needed):
+```bash
+sudo /usr/local/bin/renew-sanbox-ssl.sh
+```
+
+**Troubleshooting HTTPS**:
+- Verify domain DNS: `nslookup your-domain.com`
+- Check certificate: `certbot certificates`
+- View nginx logs: `./logs frontend`
+- Ensure `.env` has HTTPS URLs in CORS_ALLOWED_ORIGINS and CSRF_TRUSTED_ORIGINS
+
 ## Application Architecture
 
 ### Backend Structure

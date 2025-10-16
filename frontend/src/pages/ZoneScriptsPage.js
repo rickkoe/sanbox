@@ -35,6 +35,7 @@ const ZoneScriptsPage = () => {
   const [fabricFilter, setFabricFilter] = useState("all");
   const [fabrics, setFabrics] = useState([]);
   const [searchText, setSearchText] = useState("");
+  const [warnings, setWarnings] = useState([]);
 
   useEffect(() => {
     // Wait until we actually have config loaded (assuming that an empty config means it's not loaded yet).
@@ -48,25 +49,43 @@ const ZoneScriptsPage = () => {
       return;
     }
 
-    const fetchScripts = async () => {
+    const fetchScriptsAndFabrics = async () => {
       try {
-        const response = await axios.get(
-          `/api/san/zone-scripts/${config.active_project.id}/?vendor=${sanVendor}`
-        );
+        const projectId = config.active_project.id;
+        const customerId = config.customer?.id;
 
-        // Process the response based on its structure
+        console.log("Fetching zone scripts and fabrics...", { projectId, customerId, sanVendor });
+
+        // Fetch both scripts and fabrics in parallel
+        const [scriptsResponse, fabricsResponse] = await Promise.all([
+          axios.get(`/api/san/zone-scripts/${projectId}/?vendor=${sanVendor}`),
+          customerId ? axios.get(`/api/san/fabrics/?customer_id=${customerId}`) : Promise.resolve({ data: [] })
+        ]);
+
+        console.log("Scripts API response:", scriptsResponse.data);
+        console.log("Fabrics API response:", fabricsResponse.data);
+
+        // Check for warnings from the backend
+        if (scriptsResponse.data.warnings && scriptsResponse.data.warnings.length > 0) {
+          console.warn("⚠️ API returned warnings:", scriptsResponse.data.warnings);
+          setWarnings(scriptsResponse.data.warnings);
+        } else {
+          setWarnings([]);
+        }
+
+        // Process the scripts response based on its structure
         let processedScripts = {};
 
-        if (response.data.zone_scripts) {
+        if (scriptsResponse.data.zone_scripts) {
           if (
-            typeof Object.values(response.data.zone_scripts)[0] === "object"
+            typeof Object.values(scriptsResponse.data.zone_scripts)[0] === "object"
           ) {
             // New format with fabric_info
-            processedScripts = response.data.zone_scripts;
+            processedScripts = scriptsResponse.data.zone_scripts;
           } else {
             // Old format (array of commands)
             processedScripts = Object.entries(
-              response.data.zone_scripts
+              scriptsResponse.data.zone_scripts
             ).reduce((acc, [key, value]) => {
               acc[key] = {
                 commands: value,
@@ -77,7 +96,12 @@ const ZoneScriptsPage = () => {
           }
         }
 
+        console.log("Processed scripts:", processedScripts);
+        console.log("Number of fabrics with scripts:", Object.keys(processedScripts).length);
+
         setScripts(processedScripts);
+        setFabrics(fabricsResponse.data || []);
+
         if (!activeTab && Object.keys(processedScripts).length > 0) {
           setActiveTab(Object.keys(processedScripts)[0]);
         }
@@ -88,15 +112,21 @@ const ZoneScriptsPage = () => {
           initialSelection[key] = true;
         });
         setSelectedFabrics(initialSelection);
+
+        // If no scripts were returned, provide a helpful message
+        if (Object.keys(processedScripts).length === 0) {
+          console.warn("No zone scripts returned. Check if zones have 'create' flag set to true.");
+        }
       } catch (err) {
-        console.error("Error fetching zone scripts:", err);
-        setError("Error fetching zone scripts");
+        console.error("Error fetching zone scripts or fabrics:", err);
+        console.error("Error details:", err.response?.data || err.message);
+        setError(`Error loading data: ${err.response?.data?.detail || err.message || "Unknown error"}`);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchScripts();
+    fetchScriptsAndFabrics();
   }, [config, sanVendor]);
 
   const handleCopyToClipboard = () => {
@@ -155,26 +185,38 @@ const ZoneScriptsPage = () => {
       const projectId = config.active_project?.id;
       if (!projectId) {
         console.error("No project ID found");
+        alert("No active project found. Please select a project first.");
         return;
       }
 
       console.log("Loading create settings for project:", projectId);
 
-      // Fetch zones, aliases, and fabrics with large page size to get all items
+      // Fetch zones and aliases (fabrics already loaded on page load)
+      // If fabrics haven't been loaded yet, fetch them too
       const customerId = config.customer?.id;
-      const [zonesRes, aliasesRes, fabricsRes] = await Promise.all([
+      const fetchPromises = [
         axios.get(`/api/san/zones/project/${projectId}/?page_size=1000`),
-        axios.get(`/api/san/aliases/project/${projectId}/?page_size=1000`),
-        axios.get(`/api/san/fabrics/?customer_id=${customerId}`)
-      ]);
+        axios.get(`/api/san/aliases/project/${projectId}/?page_size=1000`)
+      ];
+
+      // Only fetch fabrics if they haven't been loaded yet
+      if (fabrics.length === 0 && customerId) {
+        fetchPromises.push(axios.get(`/api/san/fabrics/?customer_id=${customerId}`));
+      }
+
+      const responses = await Promise.all(fetchPromises);
+      const zonesRes = responses[0];
+      const aliasesRes = responses[1];
+      const fabricsRes = responses[2]; // May be undefined if already loaded
 
       console.log("Zones response:", zonesRes.data);
       console.log("Aliases response:", aliasesRes.data);
-      console.log("Fabrics response:", fabricsRes.data);
 
-      // Store fabrics for filter
-      const fabricsList = fabricsRes.data || [];
-      setFabrics(fabricsList);
+      // Update fabrics if we just fetched them
+      if (fabricsRes) {
+        console.log("Fabrics response:", fabricsRes.data);
+        setFabrics(fabricsRes.data || []);
+      }
 
       // Initialize create settings
       const zones = {};
@@ -183,6 +225,8 @@ const ZoneScriptsPage = () => {
       // Handle paginated response
       const zonesData = zonesRes.data.results || zonesRes.data || [];
       const aliasesData = aliasesRes.data.results || aliasesRes.data || [];
+
+      console.log(`Processing ${zonesData.length} zones and ${aliasesData.length} aliases`);
 
       zonesData.forEach(zone => {
         zones[zone.id] = {
@@ -205,10 +249,14 @@ const ZoneScriptsPage = () => {
       });
 
       setCreateSettings({ zones, aliases });
-      console.log("Create settings loaded:", { zones, aliases });
+      console.log("Create settings loaded:", {
+        zoneCount: Object.keys(zones).length,
+        aliasCount: Object.keys(aliases).length
+      });
     } catch (error) {
       console.error("Error loading create settings:", error);
-      alert("Failed to load settings. Please try again.");
+      console.error("Error details:", error.response?.data || error.message);
+      alert(`Failed to load settings: ${error.response?.data?.detail || error.message || "Unknown error"}. Please try again.`);
     }
   };
 
@@ -483,6 +531,26 @@ const ZoneScriptsPage = () => {
 
       {/* Main Content */}
       <div className="scripts-content">
+        {/* Warnings */}
+        {warnings && warnings.length > 0 && (
+          <div style={{ marginBottom: "1rem" }}>
+            {warnings.map((warning, index) => (
+              <Alert key={index} variant="warning" style={{ marginBottom: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: "2px" }}>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  <div>
+                    <strong>Warning:</strong> {warning}
+                  </div>
+                </div>
+              </Alert>
+            ))}
+          </div>
+        )}
+
         {scripts && Object.keys(scripts).length > 0 ? (
           <>
             {/* Fabric Selector */}
