@@ -8,27 +8,40 @@ import time
 import psycopg2
 import os
 
-max_attempts = 30
+# Database connection parameters
+db_params = {
+    'dbname': os.environ.get('POSTGRES_DB', 'sanbox_db'),
+    'user': os.environ.get('POSTGRES_USER', 'sanbox_user'),
+    'password': os.environ.get('POSTGRES_PASSWORD', 'sanbox_lab_password_2024'),
+    'host': os.environ.get('POSTGRES_HOST', 'postgres'),
+    'port': os.environ.get('POSTGRES_PORT', '5432')
+}
+
+print(f"Connecting to PostgreSQL:")
+print(f"  Host: {db_params['host']}:{db_params['port']}")
+print(f"  Database: {db_params['dbname']}")
+print(f"  User: {db_params['user']}")
+
+max_attempts = 60  # Increased from 30 to 60 seconds
 attempt = 0
 
 while attempt < max_attempts:
     try:
-        conn = psycopg2.connect(
-            dbname=os.environ.get('POSTGRES_DB', 'sanbox_dev'),
-            user=os.environ.get('POSTGRES_USER', 'sanbox_dev'),
-            password=os.environ.get('POSTGRES_PASSWORD', 'sanbox_dev_password'),
-            host=os.environ.get('POSTGRES_HOST', 'postgres'),
-            port=os.environ.get('POSTGRES_PORT', '5432')
-        )
+        conn = psycopg2.connect(**db_params)
         conn.close()
-        print("Database is ready!")
+        print("✅ Database is ready!")
         sys.exit(0)
-    except psycopg2.OperationalError:
+    except psycopg2.OperationalError as e:
         attempt += 1
-        print(f"Database not ready yet. Attempt {attempt}/{max_attempts}...")
+        if attempt % 10 == 0:  # Print detailed error every 10 attempts
+            print(f"Database not ready yet. Attempt {attempt}/{max_attempts}...")
+            print(f"  Error: {e}")
+        else:
+            print(f"Database not ready yet. Attempt {attempt}/{max_attempts}...")
         time.sleep(1)
 
-print("Database is not available after maximum attempts!")
+print("❌ Database is not available after maximum attempts!")
+print(f"Final connection attempt with: {db_params['user']}@{db_params['host']}:{db_params['port']}/{db_params['dbname']}")
 sys.exit(1)
 END
 
