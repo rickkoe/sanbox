@@ -101,9 +101,10 @@ else
     exit 1
 fi
 
-# Set correct permissions
+# Set correct permissions (644 so nginx container can read them)
+chmod 755 "$CERT_DIR"
 chmod 644 "$CERT_DIR/fullchain.pem"
-chmod 600 "$CERT_DIR/privkey.pem"
+chmod 644 "$CERT_DIR/privkey.pem"
 echo "✅ Permissions set correctly"
 
 # Create nginx SSL configuration
@@ -132,7 +133,7 @@ server {
 
 # HTTPS server
 server {
-    listen 443 ssl http2;
+    listen 8443 ssl http2;
     server_name _;
     client_max_body_size 100M;
 
@@ -233,9 +234,9 @@ else
     echo "  → Adding SSL configuration to docker-compose.yml"
 
     # Uncomment SSL lines in docker-compose.yml
-    sed -i 's|# - "443:8443"|      - "443:8443"|g' docker-compose.yml
-    sed -i 's|# - /etc/ssl/sanbox:/etc/ssl/sanbox:ro|      - /etc/ssl/sanbox:/etc/ssl/sanbox:ro|g' docker-compose.yml
-    sed -i 's|# - ./nginx/nginx-ssl-selfsigned.conf:/etc/nginx/conf.d/default.conf:ro|      - ./nginx/nginx-ssl-selfsigned.conf:/etc/nginx/conf.d/default.conf:ro|g' docker-compose.yml
+    sed -i 's|^      # - "443:8443"|      - "443:8443"|g' docker-compose.yml
+    sed -i 's|^      # - /etc/ssl/sanbox:/etc/ssl/sanbox:ro|      - /etc/ssl/sanbox:/etc/ssl/sanbox:ro|g' docker-compose.yml
+    sed -i 's|^      # - ./nginx/nginx-ssl-selfsigned.conf:/etc/nginx/conf.d/default.conf:ro|      - ./nginx/nginx-ssl-selfsigned.conf:/etc/nginx/conf.d/default.conf:ro|g' docker-compose.yml
 fi
 
 echo "✅ Docker Compose configuration updated"
