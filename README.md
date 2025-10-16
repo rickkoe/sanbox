@@ -288,14 +288,220 @@ celery -A sanbox beat --loglevel=info
 
 ## Production Deployment
 
-### Quick Deployment
+### 🚀 Lab Deployment Guide (Docker-Based)
+
+This guide covers deploying Sanbox on a new lab server with **fully automated setup**. The deployment uses Docker containers and includes optional HTTPS configuration for internal VPN access.
+
+#### Prerequisites
+- RHEL 8/9 or compatible Linux distribution
+- Root or sudo access
+- Internet connectivity for Docker image pulls
+- Git installed
+- (Optional) Domain name or hostname for HTTPS setup
+
+#### Step 1: Install Docker and Docker Compose
+
 ```bash
-# On production server
-cd /var/www/sanbox
-./deploy.sh
+# Install Docker (RHEL 8/9)
+sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Start Docker service
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Verify installation
+docker --version
+docker compose version
 ```
 
-### Initial Production Setup
+#### Step 2: Clone Repository and Initial Setup
+
+```bash
+# Clone the repository
+cd /var/www
+sudo git clone https://github.com/rickkoe/sanbox.git
+cd sanbox
+
+# Make scripts executable
+sudo chmod +x start stop status logs shell deploy-container.sh setup-ssl-selfsigned.sh
+```
+
+#### Step 3: Environment Configuration
+
+The `.env` file is **pre-configured and committed to the repository** for lab environments. Default settings include:
+
+```bash
+# View current configuration (optional)
+cat .env
+
+# Default lab credentials:
+# Database: sanbox_db / sanbox_user / sanbox_lab_password_2024
+# Django Secret: lab-environment-secret-key-not-for-production-use-only
+# Debug: False (production mode)
+```
+
+**Note**: These credentials are safe for lab environments but should be changed for production deployments outside the lab.
+
+#### Step 4: Deploy Application (HTTP Only)
+
+For internal lab deployments without HTTPS:
+
+```bash
+# Start all services
+sudo docker compose up -d
+
+# Check status
+sudo docker compose ps
+
+# View logs if needed
+sudo docker compose logs -f
+
+# Access the application
+# HTTP: http://<server-hostname-or-ip>
+# Example: http://ibmdev03.esilabs.com or http://172.22.17.92
+```
+
+**Default Login Credentials:**
+- Username: `admin`
+- Password: `admin`
+- ⚠️ Change these credentials after first login
+
+#### Step 5: Enable HTTPS (Optional - For VPN/Internal Access)
+
+For internal servers accessed via VPN, use self-signed certificates:
+
+```bash
+# Run the self-signed SSL setup script
+sudo ./setup-ssl-selfsigned.sh
+
+# Follow the prompts:
+# 1. Enter your domain/hostname (e.g., ibmdev03.esilabs.com)
+# 2. Script will:
+#    - Generate self-signed SSL certificate (valid 365 days)
+#    - Create nginx SSL configuration
+#    - Update docker-compose.yml to enable HTTPS
+#    - Update .env with HTTPS URLs
+#    - Restart containers with HTTPS enabled
+
+# Check that containers are running
+sudo docker compose ps
+
+# Access via HTTPS
+# HTTPS: https://<your-domain>
+```
+
+**Certificate Trust for VPN Access:**
+
+Users accessing the application will see a browser warning because the certificate is self-signed. To add permanent trust:
+
+**Chrome/Edge:**
+1. Visit `https://<your-domain>`
+2. Click "Advanced" → "Proceed to site"
+3. Click the lock icon → "Connection is not secure" → "Certificate is not valid"
+4. Click "Details" tab → "Export"
+5. Open Chrome Settings → "Privacy and Security" → "Security" → "Manage certificates"
+6. Click "Trusted Root Certification Authorities" → "Import"
+7. Select the exported certificate
+
+**Firefox:**
+1. Visit `https://<your-domain>`
+2. Click "Advanced" → "Accept the Risk and Continue"
+3. Or: Settings → "Privacy & Security" → "View Certificates" → "Authorities" → "Import"
+
+**macOS System-Wide:**
+```bash
+# On your Mac (not the server)
+# Copy the certificate from server
+scp root@<server-ip>:/etc/ssl/sanbox/fullchain.pem ~/Downloads/sanbox-cert.pem
+
+# Add to system keychain
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/Downloads/sanbox-cert.pem
+```
+
+#### Step 6: Verify Deployment
+
+```bash
+# Check all containers are running
+sudo docker compose ps
+# Expected: backend, frontend, postgres, redis, celery_worker, celery_beat all "Up"
+
+# Test HTTP endpoint
+curl -I http://localhost
+
+# Test HTTPS endpoint (if configured)
+curl -k -I https://localhost
+
+# View application logs
+sudo docker compose logs frontend --tail 50
+sudo docker compose logs backend --tail 50
+
+# Check Django admin access
+# Navigate to: http(s)://<your-domain>/admin/
+# Login: admin / admin
+```
+
+#### Complete Deployment Commands (Quick Reference)
+
+**HTTP Deployment:**
+```bash
+cd /var/www
+sudo git clone https://github.com/rickkoe/sanbox.git
+cd sanbox
+sudo chmod +x start stop setup-ssl-selfsigned.sh
+sudo docker compose up -d
+```
+
+**HTTPS Deployment (Self-Signed for VPN):**
+```bash
+cd /var/www/sanbox
+sudo ./setup-ssl-selfsigned.sh
+# Enter domain name when prompted
+# Application will be available at https://<domain>
+```
+
+#### Troubleshooting Deployment
+
+**Frontend container restarting:**
+```bash
+# Check logs
+sudo docker compose logs frontend --tail 100
+
+# Common issues:
+# 1. Port already in use
+sudo lsof -i :80 -i :443
+
+# 2. SSL certificate permissions
+sudo chmod 755 /etc/ssl/sanbox
+sudo chmod 644 /etc/ssl/sanbox/*.pem
+```
+
+**Backend database connection errors:**
+```bash
+# Check database container
+sudo docker compose logs postgres
+
+# Recreate database (DESTRUCTIVE - only for fresh installs)
+sudo docker compose down -v
+sudo docker compose up -d
+```
+
+**Cannot access application:**
+```bash
+# Check firewall
+sudo firewall-cmd --list-all
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
+
+# Check SELinux (if enabled)
+sudo setenforce 0  # Temporarily disable for testing
+# If this fixes it, configure proper SELinux contexts instead
+```
+
+### Traditional Deployment (Non-Docker)
+
+For non-containerized deployments (not recommended for new deployments):
 
 1. **System Dependencies**
 ```bash
@@ -328,6 +534,47 @@ cd sanbox
 
 ### Production Services Management
 
+#### Docker Container Management (Recommended)
+
+```bash
+# Check container status
+sudo docker compose ps
+
+# View logs
+sudo docker compose logs -f                    # All services
+sudo docker compose logs frontend --tail 100   # Frontend only
+sudo docker compose logs backend --tail 100    # Backend only
+sudo docker compose logs postgres --tail 50    # Database
+
+# Restart services
+sudo docker compose restart frontend           # Restart frontend
+sudo docker compose restart backend            # Restart backend
+sudo docker compose restart celery_worker      # Restart Celery worker
+sudo docker compose down && sudo docker compose up -d  # Full restart
+
+# Stop services
+sudo docker compose stop                       # Stop all services
+sudo docker compose stop frontend              # Stop specific service
+
+# Start services
+sudo docker compose up -d                      # Start all services in background
+sudo docker compose up frontend                # Start specific service with logs
+
+# Access container shell
+sudo docker compose exec backend bash          # Backend shell
+sudo docker compose exec frontend sh           # Frontend shell
+sudo docker compose exec postgres psql -U sanbox_user -d sanbox_db  # Database shell
+
+# Update application (pull latest code)
+cd /var/www/sanbox
+sudo git pull origin main
+sudo docker compose down
+sudo docker compose build                      # Rebuild images
+sudo docker compose up -d                      # Start with new images
+```
+
+#### Traditional Services Management (PM2/Non-Docker)
+
 ```bash
 # PM2 Commands
 pm2 status                    # Check all services
@@ -340,6 +587,31 @@ sudo systemctl status nginx
 sudo systemctl reload nginx
 sudo systemctl status postgresql
 sudo systemctl status redis
+```
+
+#### Useful Maintenance Commands
+
+```bash
+# Clean up Docker resources
+sudo docker system prune -a                    # Remove unused images/containers
+sudo docker volume prune                       # Remove unused volumes (CAUTION)
+
+# Check resource usage
+sudo docker stats                              # Real-time container resource usage
+
+# Export/Import database
+sudo docker compose exec postgres pg_dump -U sanbox_user sanbox_db > backup.sql
+cat backup.sql | sudo docker compose exec -T postgres psql -U sanbox_user sanbox_db
+
+# Check disk space
+df -h
+sudo du -sh /var/lib/docker                    # Docker storage usage
+
+# Firewall management
+sudo firewall-cmd --list-all
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
 ```
 
 ## Database Models & API
