@@ -127,110 +127,110 @@
   --success-border: rgba(52, 211, 153, 0.3);
 }
 
-/* ========== LIGHT THEME (MONOCHROME & EDGY) ========== */
+/* ========== LIGHT THEME (MODERN & REFINED) ========== */
 .theme-light {
-  /* Background Colors - Pure white */
-  --primary-bg: #ffffff;
-  --secondary-bg: #ffffff;
-  --accent-bg: #ffffff;
+  /* Background Colors - Soft gradients and subtle depth */
+  --primary-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --secondary-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  --accent-bg: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
 
-  /* Text Colors - High contrast monochrome */
+  /* Text Colors - Rich contrast with blue accents */
   --primary-text: #0f172a;
-  --secondary-text: #1e293b;
+  --secondary-text: #334155;
   --muted-text: #64748b;
-  --link-text: #334155;
-  --link-hover: #0f172a;
+  --link-text: #3b82f6;
+  --link-hover: #2563eb;
 
-  /* Interactive Colors - Subtle grays with sharp edges */
+  /* Interactive Colors - Blue accents with soft backgrounds */
   --button-bg: #ffffff;
-  --button-hover: #0f172a;
-  --button-active: #334155;
-  --button-border: #cbd5e1;
+  --button-hover: #3b82f6;
+  --button-active: #2563eb;
+  --button-border: #e2e8f0;
 
-  /* Status Colors - Monochrome with subtle gray tones */
-  --success-color: #475569;
-  --error-color: #1e293b;
-  --warning-color: #64748b;
-  --info-color: #334155;
+  /* Status Colors - Colorful and meaningful */
+  --success-color: #10b981;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
+  --info-color: #3b82f6;
 
   /* Component Specific */
-  --navbar-bg: #ffffff;
+  --navbar-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   --navbar-text: var(--primary-text);
   --navbar-text-hover: var(--link-text);
   --navbar-border: none;
-  --navbar-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --navbar-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
   --navbar-button-bg: var(--button-bg);
   --navbar-button-hover: var(--button-hover);
   --navbar-brand-color: var(--link-text);
 
-  --sidebar-bg: var(--primary-bg);
+  --sidebar-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   --sidebar-text: var(--primary-text);
   --sidebar-text-hover: var(--link-text);
-  --sidebar-border: var(--button-border);
-  --sidebar-shadow: none;
+  --sidebar-border: #e2e8f0;
+  --sidebar-shadow: 2px 0 12px rgba(59, 130, 246, 0.06);
   --sidebar-button-bg: var(--button-bg);
   --sidebar-button-hover: var(--button-hover);
   --sidebar-header-color: var(--link-text);
-  --sidebar-active-bg: rgba(15, 23, 42, 0.08);
+  --sidebar-active-bg: rgba(59, 130, 246, 0.1);
   --sidebar-active-border: var(--link-text);
 
   /* Content and Layout */
-  --content-bg: #ffffff;
+  --content-bg: #f9fafb;
   --content-text: var(--primary-text);
-  --breadcrumb-bg: #ffffff;
-  --breadcrumb-border: rgba(51, 65, 85, 0.2);
+  --breadcrumb-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  --breadcrumb-border: rgba(59, 130, 246, 0.15);
   --breadcrumb-text: var(--secondary-text);
   --breadcrumb-link: var(--link-text);
   --breadcrumb-link-hover: var(--link-hover);
 
-  /* Tables - Sharp monochrome design */
+  /* Tables - Modern design with subtle depth */
   --table-bg: #ffffff;
-  --table-header-bg: #ffffff;
+  --table-header-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   --table-header-text: var(--primary-text);
-  --table-border: #cbd5e1;
-  --table-row-hover: rgba(15, 23, 42, 0.04);
-  --table-row-selected: rgba(15, 23, 42, 0.08);
+  --table-border: #e2e8f0;
+  --table-row-hover: rgba(59, 130, 246, 0.05);
+  --table-row-selected: rgba(59, 130, 246, 0.1);
   --table-cell-text: var(--primary-text);
 
   /* Table Toolbar */
-  --table-toolbar-bg: #ffffff;
-  --table-toolbar-border: #cbd5e1;
+  --table-toolbar-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  --table-toolbar-border: #e2e8f0;
   --table-toolbar-text: var(--primary-text);
 
   /* Table Pagination */
   --table-pagination-bg: #ffffff;
-  --table-pagination-border: #cbd5e1;
+  --table-pagination-border: #e2e8f0;
   --table-pagination-text: var(--primary-text);
   --table-pagination-button-bg: #ffffff;
   --table-pagination-button-hover: var(--button-hover);
-  --table-pagination-button-active: #334155;
-  --table-pagination-button-border: #cbd5e1;
+  --table-pagination-button-active: #3b82f6;
+  --table-pagination-button-border: #e2e8f0;
 
   /* Form Controls */
   --form-input-bg: #ffffff;
-  --form-input-border: #cbd5e1;
+  --form-input-border: #e2e8f0;
   --form-input-text: var(--primary-text);
   --form-input-placeholder: var(--muted-text);
-  --form-input-focus-border: #334155;
-  --form-input-focus-shadow: rgba(51, 65, 85, 0.1);
+  --form-input-focus-border: #3b82f6;
+  --form-input-focus-shadow: rgba(59, 130, 246, 0.1);
 
   /* Code Blocks */
-  --code-bg: #ffffff;
+  --code-bg: #f8fafc;
   --code-text: #0f172a;
 
-  /* Alert Colors - Monochrome with intensity variations */
-  --warning-bg: #ffffff;
-  --warning-text: #475569;
-  --warning-border: #cbd5e1;
-  --error-bg: #ffffff;
-  --error-text: #1e293b;
-  --error-border: #94a3b8;
-  --info-bg: #ffffff;
-  --info-text: #334155;
-  --info-border: #cbd5e1;
-  --success-bg: #ffffff;
-  --success-text: #475569;
-  --success-border: #cbd5e1;
+  /* Alert Colors - Colorful and meaningful */
+  --warning-bg: #fffbeb;
+  --warning-text: #d97706;
+  --warning-border: #fcd34d;
+  --error-bg: #fef2f2;
+  --error-text: #dc2626;
+  --error-border: #fca5a5;
+  --info-bg: #eff6ff;
+  --info-text: #2563eb;
+  --info-border: #93c5fd;
+  --success-bg: #f0fdf4;
+  --success-text: #16a34a;
+  --success-border: #86efac;
 }
 
 
