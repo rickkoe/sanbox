@@ -1299,8 +1299,22 @@ const TanStackCRUDTable = forwardRef(({
       });
     }
 
-    // Focus the table container for keyboard events
-    event.currentTarget.closest('.table-wrapper')?.focus();
+    // Focus the inner editable element within the clicked cell
+    // This ensures typing works immediately even when clicking the outer cell area
+    // Capture the element references before setTimeout (React synthetic events are reused)
+    const tdElement = event.currentTarget;
+    const tableWrapper = tdElement?.closest('.table-wrapper');
+
+    setTimeout(() => {
+      // Look for focusable elements within the cell (div with tabIndex, input, select, etc.)
+      const focusableElement = tdElement?.querySelector('[tabindex="0"], input, select, textarea');
+      if (focusableElement) {
+        focusableElement.focus();
+      } else if (tableWrapper) {
+        // Fallback: focus the table wrapper for keyboard events
+        tableWrapper.focus();
+      }
+    }, 0);
   }, [selectedCells, selectionRange]);
 
   // Context menu handlers
@@ -3948,15 +3962,9 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
     setIsEditing(true);
   };
 
-  const handleClick = (e) => {
-    // Focus the cell when clicked so keyboard events work
-    // Use a small timeout to ensure focus is properly set
-    e.preventDefault();
-    setTimeout(() => {
-      if (cellRef.current) {
-        cellRef.current.focus();
-      }
-    }, 0);
+  const handleClick = () => {
+    // Parent handleCellClick will focus this element
+    // No need to prevent default or manually focus
   };
 
   const handleChange = (e) => {
