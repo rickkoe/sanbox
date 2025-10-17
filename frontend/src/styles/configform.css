@@ -120,6 +120,23 @@
     margin: 0;
 }
 
+/* Force light theme text visibility */
+.theme-light .card-title {
+    color: #0f172a !important;
+}
+
+.theme-light .card-subtitle {
+    color: #334155 !important;
+}
+
+.theme-light .settings-title {
+    color: #0f172a !important;
+}
+
+.theme-light .settings-description {
+    color: #334155 !important;
+}
+
 .coming-soon-badge {
     display: inline-flex;
     align-items: center;
@@ -180,8 +197,19 @@
     font-size: 0.9375rem;
 }
 
+/* Force light theme form label visibility */
+.theme-light .form-label {
+    color: #0f172a !important;
+}
+
 .label-icon {
     font-size: 1.125rem;
+}
+
+/* Force light theme label icon visibility */
+.theme-light .label-icon {
+    opacity: 1;
+    filter: none;
 }
 
 .required {

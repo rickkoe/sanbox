@@ -3,11 +3,11 @@
 /* Theme Selection Styles */
 .settings-icon {
   margin-right: 0.5rem;
-  color: #667eea;
+  color: var(--link-text, #3b82f6);
 }
 
 .settings-description {
-  color: #6c757d;
+  color: var(--muted-text, #64748b);
   font-size: 0.95rem;
   margin-bottom: 1.5rem;
   margin-top: 0.5rem;
@@ -21,12 +21,12 @@
 }
 
 .theme-option-card {
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--table-border, #e2e8f0);
   border-radius: 12px;
   padding: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: #fff;
+  background: var(--table-bg, #ffffff);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -50,15 +50,15 @@
 }
 
 .theme-option-card:hover {
-  border-color: #667eea;
+  border-color: var(--link-text, #3b82f6);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
 }
 
 .theme-option-card.active {
-  border-color: #667eea;
-  background: rgba(102, 126, 234, 0.05);
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+  border-color: var(--link-text, #3b82f6);
+  background: var(--sidebar-active-bg, rgba(59, 130, 246, 0.08));
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
 }
 
 .theme-preview-area {
@@ -107,7 +107,7 @@
   position: absolute;
   top: -5px;
   right: -5px;
-  background: #667eea;
+  background: var(--link-text, #3b82f6);
   color: white;
   border-radius: 50%;
   width: 20px;
@@ -126,13 +126,13 @@
 .theme-option-name {
   font-size: 1rem;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--primary-text, #0f172a);
   margin: 0 0 0.25rem 0;
 }
 
 .theme-option-description {
   font-size: 0.85rem;
-  color: #6c757d;
+  color: var(--muted-text, #64748b);
   margin: 0;
   line-height: 1.4;
 }
@@ -165,21 +165,22 @@
 .settings-header h1 {
   font-size: 2.5rem;
   font-weight: 600;
-  color: #333;
+  color: var(--primary-text, #0f172a);
   margin-bottom: 0.5rem;
 }
 
 .settings-header p {
   font-size: 1.1rem;
-  color: #666;
+  color: var(--secondary-text, #334155);
   margin: 0;
 }
 
 .settings-form-card {
-  background: #fff;
+  background: var(--table-bg, #ffffff);
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 2rem;
+  border: 1px solid var(--table-border, #e2e8f0);
 }
 
 .settings-form {
@@ -201,7 +202,7 @@
 .settings-section h3 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #333;
+  color: var(--primary-text, #0f172a);
   margin-bottom: 1.5rem;
   display: flex;
   align-items: center;
@@ -221,24 +222,25 @@
 }
 
 .form-label {
-  font-weight: 500;
-  color: #333;
+  font-weight: 600;
+  color: var(--primary-text, #0f172a);
   font-size: 0.95rem;
 }
 
 .form-select {
   padding: 0.75rem;
-  border: 2px solid #e9ecef;
+  border: 2px solid var(--form-input-border, #e2e8f0);
   border-radius: 8px;
   font-size: 1rem;
-  background-color: #fff;
+  background-color: var(--form-input-bg, #ffffff);
+  color: var(--form-input-text, #0f172a);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-select:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  border-color: var(--form-input-focus-border, #3b82f6);
+  box-shadow: 0 0 0 3px var(--form-input-focus-shadow, rgba(59, 130, 246, 0.1));
 }
 
 .checkbox-group {
@@ -253,7 +255,7 @@
   gap: 0.75rem;
   cursor: pointer;
   font-weight: 500;
-  color: #333;
+  color: var(--primary-text, #0f172a);
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -261,7 +263,7 @@
   height: 18px;
   margin: 0;
   cursor: pointer;
-  accent-color: #007bff;
+  accent-color: var(--link-text, #3b82f6);
 }
 
 .checkbox-text {
@@ -270,7 +272,7 @@
 }
 
 .form-help {
-  color: #666;
+  color: var(--muted-text, #64748b);
   font-size: 0.85rem;
   font-style: italic;
   margin-top: 0.25rem;
@@ -320,7 +322,7 @@
 
 .auto-save-notice {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--muted-text, #64748b);
   font-style: italic;
   display: flex;
   align-items: center;
@@ -357,16 +359,21 @@
   align-items: center;
   gap: 1rem;
   padding: 3rem;
-  color: #666;
+  color: var(--secondary-text, #334155);
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #e9ecef;
-  border-top: 3px solid #007bff;
+  border: 3px solid var(--table-border, #e2e8f0);
+  border-top: 3px solid var(--link-text, #3b82f6);
   border-radius: 50%;
   animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Mobile responsiveness */

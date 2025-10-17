@@ -41,8 +41,9 @@ nav.navbar.navbar-expand-lg.theme-minimal,
 nav.navbar.navbar-expand-lg.theme-light,
 .navbar.theme-light,
 .theme-light .navbar {
-  background: #ffffff !important;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
   background-color: #ffffff !important; /* Fallback */
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08) !important;
 }
 
 nav.navbar.navbar-expand-lg.theme-corporate,
@@ -433,7 +434,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-light .nav-item .nav-link.active,
 .navbar.theme-light .nav-item .nav-link.active .nav-label,
 .navbar.theme-light .nav-item .nav-link.active svg {
-  color: #475569 !important; /* Dark gray when active */
+  color: #3b82f6 !important; /* Blue when active */
 }
 
 /* ========== THEME-SPECIFIC ACTIVE BACKGROUNDS ========== */
@@ -487,9 +488,10 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-light .nav-link.active,
 .navbar.theme-light .navbar-nav .nav-item .nav-link.active,
 .navbar.theme-light .dropdown-toggle.active {
-  background: rgba(71, 85, 105, 0.15) !important;
-  color: #475569 !important;
-  border-color: #475569 !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+  color: #3b82f6 !important;
+  border-color: #3b82f6 !important;
+  font-weight: 600 !important;
 }
 
 /* ========== HIDE DROPDOWN INDICATORS ========== */
@@ -921,6 +923,15 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     height: 24px !important;
 }
 
+/* Light theme - make context icon darker */
+.navbar.theme-light .context-icon {
+    opacity: 1;
+}
+
+.navbar.theme-light .context-icon svg {
+    color: #0f172a !important;
+}
+
 /* Dark theme - make context icon lighter */
 .navbar.theme-dark .context-icon {
     opacity: 1;
@@ -1156,7 +1167,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 /* Modern Theme Context Indicator */
 .navbar.theme-modern .context-customer,
 .navbar.theme-modern .context-project {
-    color: #2d3748 !important;
+    color: #0f172a !important;
 }
 
 /* Dark Theme Context Indicator */
@@ -1165,10 +1176,26 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     color: #e2e8f0 !important;
 }
 
+/* Light Theme Context Indicator */
+.navbar.theme-light .context-customer,
+.navbar.theme-light .context-project {
+    color: #0f172a !important;
+}
+
+.navbar.theme-light .context-project {
+    font-weight: 700 !important;
+    color: #0f172a !important;
+}
+
+.navbar.theme-light .context-customer {
+    color: #334155 !important;
+    opacity: 1 !important;
+}
+
 /* Minimal Theme Context Indicator */
 .navbar.theme-minimal .context-customer,
 .navbar.theme-minimal .context-project {
-    color: #1f2937 !important;
+    color: #0f172a !important;
 }
 
 /* Corporate Theme Context Indicator */
@@ -1425,7 +1452,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 
 .navbar.theme-light .navbar-nav .nav-item.active::after {
   width: 80%;
-  background: #475569;
+  background: #3b82f6;
 }
 
 /* Default fallback */
