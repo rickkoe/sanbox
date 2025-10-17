@@ -151,6 +151,13 @@ class Storage(models.Model):
         """
         return self.aliases.count()
 
+    @property
+    def db_ports_count(self):
+        """
+        Returns the count of Port records related to this Storage in the database.
+        """
+        return self.ports.count()
+
 
     def storage_image(self):
         storage_image = f'IBM.2107-{self.serial_number[:-1] + "1"}'
@@ -251,6 +258,74 @@ class HostWwpn(models.Model):
 
 
 # Volume model
+class Port(models.Model):
+    """
+    Model for storage system ports (Fibre Channel and Ethernet).
+    Tracks physical port configuration and connectivity.
+    """
+    PORT_TYPE_CHOICES = [
+        ('fc', 'Fibre Channel'),
+        ('ethernet', 'Ethernet'),
+    ]
+
+    USE_CHOICES = [
+        ('host', 'Host'),
+        ('replication', 'Replication'),
+    ]
+
+    # Speed choices - validated based on port type in the view
+    FC_SPEED_CHOICES = [8, 16, 32, 64]
+    ETHERNET_SPEED_CHOICES = [1, 10, 25, 100]
+
+    # Protocol choices - validated based on port type AND storage type
+    # FC + DS8000: FICON, SCSI FCP
+    # FC + FlashSystem: SCSI FCP, NVMe FCP
+    # Ethernet: TCP/IP, iSCSI, RDMA
+    PROTOCOL_CHOICES = [
+        ('FICON', 'FICON'),
+        ('SCSI FCP', 'SCSI FCP'),
+        ('NVMe FCP', 'NVMe FCP'),
+        ('TCP/IP', 'TCP/IP'),
+        ('iSCSI', 'iSCSI'),
+        ('RDMA', 'RDMA'),
+    ]
+
+    storage = models.ForeignKey(Storage, related_name='ports', on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    type = models.CharField(max_length=10, choices=PORT_TYPE_CHOICES)
+    speed_gbps = models.IntegerField(help_text="Port speed in Gbps")
+    location = models.CharField(max_length=200, blank=True, null=True)
+    frame = models.IntegerField(blank=True, null=True)
+    io_enclosure = models.IntegerField(blank=True, null=True)
+    fabric = models.ForeignKey('san.Fabric', on_delete=models.SET_NULL, null=True, blank=True, related_name='ports')
+    alias = models.ForeignKey('san.Alias', on_delete=models.SET_NULL, null=True, blank=True, related_name='ports')
+    protocol = models.CharField(max_length=20, choices=PROTOCOL_CHOICES, blank=True, null=True)
+    use = models.CharField(max_length=20, choices=USE_CHOICES, blank=True, null=True)
+    project = models.ForeignKey('core.Project', related_name='ports', on_delete=models.CASCADE, null=True, blank=True)
+
+    # Audit fields for tracking modifications
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_ports',
+        help_text="User who last modified this port"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['storage', 'name']
+        ordering = ['storage', 'name']
+
+    def __str__(self):
+        return f'{self.storage.name}: {self.name}'
+
+
 class Volume(models.Model):
     storage = models.ForeignKey(Storage, related_name='volumes', on_delete=models.CASCADE)
     name = models.CharField(max_length=100)

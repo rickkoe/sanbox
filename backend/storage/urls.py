@@ -1,16 +1,18 @@
 from django.urls import path
 from .views import (
-    storage_list, 
-    storage_detail, 
+    storage_list,
+    storage_detail,
     volume_list,
     host_list,
-    storage_insights_auth, 
-    storage_insights_systems, 
+    storage_insights_auth,
+    storage_insights_systems,
     storage_insights_volumes,
     storage_insights_host_connections,
     mkhost_scripts_view,
     host_wwpns_view,
-    check_wwpn_conflicts_view
+    check_wwpn_conflicts_view,
+    port_list,
+    port_detail
 )
 
 urlpatterns = [
@@ -25,4 +27,6 @@ urlpatterns = [
     path("hosts/<int:host_id>/wwpns/", host_wwpns_view, name="host-wwpns"),
     path("check-wwpn-conflicts/", check_wwpn_conflicts_view, name="check-wwpn-conflicts"),
     path("mkhost-scripts/<int:customer_id>/", mkhost_scripts_view, name="mkhost-scripts"),
+    path("ports/", port_list, name="port-list"),
+    path("ports/<int:pk>/", port_detail, name="port-detail"),
 ]

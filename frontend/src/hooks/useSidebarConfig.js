@@ -51,6 +51,11 @@ const getSidebarLinks = (pathname) => {
             label: "Hosts",
             icon: Monitor,
           },
+          {
+            path: `/storage/${storageIdMatch[1]}/ports`,
+            label: "Ports",
+            icon: Cable,
+          },
         ],
       };
     }
@@ -85,13 +90,14 @@ const getSidebarLinks = (pathname) => {
           { path: "/san/zones", label: "Zones", icon: Layers },
         ]
       },
-      { 
-        label: "Storage", 
-        icon: HardDrive, 
+      {
+        label: "Storage",
+        icon: HardDrive,
         expandable: true,
         subLinks: [
           { path: "/storage/systems", label: "Systems", icon: Server },
           { path: "/storage/hosts", label: "Hosts", icon: Monitor },
+          { path: "/storage/ports", label: "Ports", icon: Cable },
         ]
       },
       { 

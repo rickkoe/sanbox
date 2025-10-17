@@ -7,8 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils import timezone
-from .models import Storage, Volume, Host, HostWwpn
-from .serializers import StorageSerializer, VolumeSerializer, HostSerializer
+from .models import Storage, Volume, Host, HostWwpn, Port
+from .serializers import StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer
 import logging
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -941,3 +941,270 @@ def check_wwpn_conflicts_view(request):
         return JsonResponse({"error": "Invalid JSON data."}, status=400)
     except Exception as e:
         return JsonResponse({"error": f"Error checking conflicts: {str(e)}"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def port_list(request):
+    """Handle port list operations with pagination and filtering"""
+    print(f"🔥 Port List - Method: {request.method}")
+
+    user = request.user if request.user.is_authenticated else None
+
+    if request.method == "GET":
+        try:
+            # Get query parameters
+            storage_id = request.GET.get('storage_id')
+            project_id = request.GET.get('project')
+            customer_id = request.GET.get('customer')
+            page_number = request.GET.get('page', 1)
+            page_size = request.GET.get('page_size', 100)
+            search = request.GET.get('search', '')
+            ordering = request.GET.get('ordering', 'id')
+
+            # Convert to integers with defaults
+            try:
+                page_number = int(page_number)
+                page_size = int(page_size) if page_size != 'All' else None
+            except (ValueError, TypeError):
+                page_number = 1
+                page_size = 100
+
+            # Build queryset with optimizations
+            ports = Port.objects.select_related('storage', 'fabric', 'alias', 'project').all()
+
+            # Filter by user's project access
+            if user and user.is_authenticated:
+                from core.permissions import filter_by_project_access
+                ports = filter_by_project_access(ports, user)
+
+            # Filter by customer if provided (via storage relationship)
+            if customer_id:
+                ports = ports.filter(storage__customer_id=customer_id)
+
+            # Filter by storage if provided
+            if storage_id:
+                ports = ports.filter(storage_id=storage_id)
+
+            # Filter by project if provided
+            if project_id:
+                ports = ports.filter(project_id=project_id)
+
+            # Apply search if provided
+            if search:
+                ports = ports.filter(
+                    Q(name__icontains=search) |
+                    Q(storage__name__icontains=search) |
+                    Q(location__icontains=search) |
+                    Q(fabric__name__icontains=search) |
+                    Q(alias__name__icontains=search) |
+                    Q(protocol__icontains=search)
+                )
+
+            # Apply field-specific filters
+            filter_params = {}
+            for param, value in request.GET.items():
+                if param.startswith((
+                    'name__', 'storage__', 'type__', 'speed_gbps__', 'location__',
+                    'frame__', 'io_enclosure__', 'fabric__', 'alias__', 'protocol__', 'use__'
+                )):
+                    filter_params[param] = value
+
+            # Apply the filters
+            if filter_params:
+                ports = ports.filter(**filter_params)
+
+            # Apply ordering
+            if ordering:
+                ports = ports.order_by(ordering)
+
+            # Get total count before pagination
+            total_count = ports.count()
+
+            # Handle "All" page size
+            if page_size is None:
+                serializer = PortSerializer(ports, many=True)
+                return JsonResponse({
+                    'count': total_count,
+                    'next': None,
+                    'previous': None,
+                    'results': serializer.data
+                })
+
+            # Create paginator
+            paginator = Paginator(ports, page_size)
+
+            # Get the requested page
+            try:
+                page_obj = paginator.get_page(page_number)
+            except:
+                page_obj = paginator.get_page(1)
+
+            # Serialize the page data
+            serializer = PortSerializer(page_obj.object_list, many=True)
+
+            # Build next/previous URLs
+            base_url = request.build_absolute_uri(request.path)
+
+            # Build query parameters for next/prev links
+            query_params = {}
+            if storage_id:
+                query_params['storage_id'] = storage_id
+            if project_id:
+                query_params['project'] = project_id
+            if search:
+                query_params['search'] = search
+            if ordering:
+                query_params['ordering'] = ordering
+            query_params['page_size'] = page_size
+
+            next_url = None
+            if page_obj.has_next():
+                query_params['page'] = page_obj.next_page_number()
+                next_url = f"{base_url}?{urlencode(query_params)}"
+
+            previous_url = None
+            if page_obj.has_previous():
+                query_params['page'] = page_obj.previous_page_number()
+                previous_url = f"{base_url}?{urlencode(query_params)}"
+
+            return JsonResponse({
+                'results': serializer.data,
+                'count': total_count,
+                'num_pages': paginator.num_pages,
+                'current_page': page_number,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous(),
+                'next': next_url,
+                'previous': previous_url
+            })
+
+        except Exception as e:
+            logger.exception("Error fetching port list")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "POST":
+        # Create/update port
+        try:
+            data = json.loads(request.body)
+            storage_id = data.get("storage")
+            name = data.get("name")
+
+            # Check if user can modify infrastructure
+            if user:
+                from storage.models import Storage
+                from core.permissions import can_edit_customer_infrastructure
+                try:
+                    storage = Storage.objects.get(id=storage_id)
+                    if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
+                        return JsonResponse({
+                            "error": "You do not have permission to create/update ports. Only members and admins can modify infrastructure."
+                        }, status=403)
+                except Storage.DoesNotExist:
+                    return JsonResponse({"error": "Storage system not found"}, status=404)
+
+            try:
+                port = Port.objects.get(storage_id=storage_id, name=name)
+                serializer = PortSerializer(port, data=data)
+            except Port.DoesNotExist:
+                serializer = PortSerializer(data=data)
+
+            if serializer.is_valid():
+                port_instance = serializer.save()
+                # Set last_modified_by
+                if user:
+                    port_instance.last_modified_by = user
+                    port_instance.save(update_fields=['last_modified_by'])
+
+                return JsonResponse(serializer.data, status=201)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            logger.exception("Error creating/updating port")
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
+def port_detail(request, pk):
+    """Handle port detail operations"""
+    print(f"🔥 Port Detail - Method: {request.method}, PK: {pk}")
+
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        port = Port.objects.select_related('storage', 'fabric', 'alias', 'project').get(pk=pk)
+    except Port.DoesNotExist:
+        return JsonResponse({"error": "Port not found"}, status=404)
+
+    if request.method == "GET":
+        # Check if user has access to this port's project
+        if user and user.is_authenticated:
+            from core.permissions import has_project_access
+            if port.project and not has_project_access(user, port.project):
+                return JsonResponse({"error": "Permission denied"}, status=403)
+
+        try:
+            serializer = PortSerializer(port)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            logger.exception("Error fetching port detail")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method in ["PUT", "PATCH"]:
+        # Update port
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if port.storage.customer and not can_edit_customer_infrastructure(user, port.storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to update ports. Only members and admins can modify infrastructure."
+                }, status=403)
+
+        try:
+            data = json.loads(request.body)
+
+            # Optimistic locking - check version
+            client_version = data.get('version')
+            if client_version is not None:
+                if port.version != client_version:
+                    return JsonResponse({
+                        "error": "Conflict",
+                        "message": f"This port was modified by {port.last_modified_by.username if port.last_modified_by else 'another user'}. Please reload and try again.",
+                        "current_version": port.version,
+                        "last_modified_by": port.last_modified_by.username if port.last_modified_by else None,
+                        "last_modified_at": port.last_modified_at.isoformat() if port.last_modified_at else None
+                    }, status=409)
+
+            serializer = PortSerializer(port, data=data, partial=(request.method == "PATCH"))
+            if serializer.is_valid():
+                port_instance = serializer.save()
+                # Set last_modified_by and increment version
+                if user:
+                    port_instance.last_modified_by = user
+                port_instance.version += 1
+                update_fields = ['version']
+                if user:
+                    update_fields.append('last_modified_by')
+                port_instance.save(update_fields=update_fields)
+
+                return JsonResponse(serializer.data)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            logger.exception("Error updating port")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "DELETE":
+        # Delete port
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if port.storage.customer and not can_edit_customer_infrastructure(user, port.storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to delete ports. Only members and admins can modify infrastructure."
+                }, status=403)
+
+        try:
+            port.delete()
+            return JsonResponse({"message": "Port deleted successfully"}, status=204)
+        except Exception as e:
+            logger.exception("Error deleting port")
+            return JsonResponse({"error": str(e)}, status=500)

@@ -53,6 +53,8 @@ const ZoneTable = React.lazy(() => import("./components/tables/ZoneTableTanStack
 const StorageTable = React.lazy(() => import("./components/tables/StorageTableTanStackClean"));
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
+const StoragePortsPage = React.lazy(() => import("./pages/StoragePortsPage"));
+const PortTable = React.lazy(() => import("./components/tables/PortTableTanStackClean"));
 const HostTable = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
 const ConfigForm = React.lazy(() => import("./components/forms/ConfigForm"));
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
@@ -86,6 +88,7 @@ function AppContent() {
     '/san/fabrics',
     '/storage/systems',
     '/storage/hosts',
+    '/storage/ports',
     '/tools/wwpn-colonizer',
     '/test'
   ];
@@ -93,7 +96,8 @@ function AppContent() {
   // Check for table routes including dynamic routes
   const isTablePage = tableRoutes.some(route => location.pathname === route) ||
                      location.pathname.match(/^\/storage\/\d+\/volumes$/) ||
-                     location.pathname.match(/^\/storage\/\d+\/hosts$/);
+                     location.pathname.match(/^\/storage\/\d+\/hosts$/) ||
+                     location.pathname.match(/^\/storage\/\d+\/ports$/);
 
   // Define routes that should scroll normally (non-table pages)
   const scrollableRoutes = [
@@ -194,9 +198,11 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage" element={<StorageLandingPage />} />
                     <Route path="/storage/systems" element={<StorageTable />} />
                     <Route path="/storage/hosts" element={<HostTable />} />
+                    <Route path="/storage/ports" element={<PortTable />} />
                     <Route path="/storage/:id" element={<StoragePage />} />
                     <Route path="/storage/:id/volumes" element={<StorageVolumesPage />} />
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
+                    <Route path="/storage/:id/ports" element={<StoragePortsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
                     <Route path="/settings" element={<div style={{padding: '2rem'}}><h2>Settings</h2><p>Choose a settings category from the Settings dropdown in the navbar.</p></div>} />
                     <Route path="/settings/project-config" element={<ConfigForm />} />
