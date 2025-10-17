@@ -1353,18 +1353,21 @@ def table_configuration_list(request):
             customer_id = request.GET.get('customer')
             table_name = request.GET.get('table_name')
             user_id = request.GET.get('user')
-            
+
             if not customer_id or not table_name:
                 return JsonResponse({
                     'error': 'customer and table_name parameters are required'
                 }, status=400)
-            
+
             customer = get_object_or_404(Customer, id=customer_id)
-            user = None
+
+            # Default to authenticated user if no user_id provided
             if user_id:
                 from django.contrib.auth.models import User
                 user = get_object_or_404(User, id=user_id)
-            
+            else:
+                user = request.user if request.user.is_authenticated else None
+
             # Get configuration using the model's helper method
             config = TableConfiguration.get_config(customer, table_name, user)
             
@@ -1392,19 +1395,22 @@ def table_configuration_list(request):
     elif request.method == "POST":
         try:
             data = json.loads(request.body)
-            
+
             # Validate required fields
             if not data.get('customer') or not data.get('table_name'):
                 return JsonResponse({
                     'error': 'customer and table_name are required'
                 }, status=400)
-            
+
             customer = get_object_or_404(Customer, id=data['customer'])
-            user = None
+
+            # Default to authenticated user if no user provided
             if data.get('user'):
                 from django.contrib.auth.models import User
                 user = get_object_or_404(User, id=data['user'])
-            
+            else:
+                user = request.user if request.user.is_authenticated else None
+
             # Use the model's helper method to save configuration
             config_data = {
                 'visible_columns': data.get('visible_columns', []),
@@ -1414,7 +1420,7 @@ def table_configuration_list(request):
                 'page_size': data.get('page_size', 25),
                 'additional_settings': data.get('additional_settings', {})
             }
-            
+
             config = TableConfiguration.save_config(
                 customer=customer,
                 table_name=data['table_name'],
@@ -1493,18 +1499,21 @@ def reset_table_configuration(request):
         customer_id = data.get('customer')
         table_name = data.get('table_name')
         user_id = data.get('user')
-        
+
         if not customer_id or not table_name:
             return JsonResponse({
                 'error': 'customer and table_name are required'
             }, status=400)
-        
+
         customer = get_object_or_404(Customer, id=customer_id)
-        user = None
+
+        # Default to authenticated user if no user_id provided
         if user_id:
             from django.contrib.auth.models import User
             user = get_object_or_404(User, id=user_id)
-        
+        else:
+            user = request.user if request.user.is_authenticated else None
+
         # Delete existing configuration
         deleted_count = TableConfiguration.objects.filter(
             customer=customer,

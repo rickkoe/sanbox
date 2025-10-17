@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
+import { useAuth } from '../../../context/AuthContext';
 import FilterDropdown from './components/FilterDropdown';
 import StatsContainer from './components/StatsContainer';
 import {
@@ -78,6 +79,9 @@ const TanStackCRUDTable = forwardRef(({
   // Theme context
   const { theme } = useTheme();
 
+  // Auth context for user ID
+  const { user } = useAuth();
+
   // Core state
   const [fabricData, setFabricData] = useState([]);
   const [editableData, setEditableData] = useState([]);
@@ -117,14 +121,14 @@ const TanStackCRUDTable = forwardRef(({
   // Client-side pagination state (for when we load all data)
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: parseInt(pageSize) || 25,
+    pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 25),
   });
 
   // Update pagination pageSize when pageSize prop changes
   useEffect(() => {
     setPagination(prev => ({
       ...prev,
-      pageSize: parseInt(pageSize) || 25
+      pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 25)
     }));
   }, [pageSize]);
   const [tableConfig, setTableConfig] = useState(null);
@@ -219,14 +223,15 @@ const TanStackCRUDTable = forwardRef(({
 
   // Table configuration API functions
   const loadTableConfig = useCallback(async () => {
-    if (!tableName || !customerId) return;
+    if (!tableName || !customerId || !user) return;
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || '';
       const response = await api.get(`${API_URL}/api/core/table-config/`, {
         params: {
           customer: customerId,
-          table_name: tableName
+          table_name: tableName,
+          user: user.id
         }
       });
 
@@ -256,11 +261,11 @@ const TanStackCRUDTable = forwardRef(({
       setConfigLoaded(true);
       console.log('📊 Table configuration loading completed');
     }
-  }, [tableName, customerId]);
+  }, [tableName, customerId, user]);
 
   const saveTableConfig = useCallback(async (configUpdate) => {
-    if (!tableName || !customerId) {
-      console.log('⚠️ Cannot save table config: missing tableName or customerId', { tableName, customerId });
+    if (!tableName || !customerId || !user) {
+      console.log('⚠️ Cannot save table config: missing tableName, customerId, or user', { tableName, customerId, user: user?.id });
       return;
     }
 
@@ -269,6 +274,7 @@ const TanStackCRUDTable = forwardRef(({
       const configData = {
         customer: customerId,
         table_name: tableName,
+        user: user.id,
         column_widths: configUpdate.column_widths || columnSizing,
         ...configUpdate
       };
@@ -294,7 +300,7 @@ const TanStackCRUDTable = forwardRef(({
       console.error('❌ Error response:', error.response?.data);
       console.error('❌ Error status:', error.response?.status);
     }
-  }, [tableName, customerId, tableConfig, columnSizing]);
+  }, [tableName, customerId, user, tableConfig, columnSizing]);
 
   // Determine if we need client-side pagination (memoized for consistency)
   const hasActiveClientFilters = useMemo(() => {
@@ -430,10 +436,10 @@ const TanStackCRUDTable = forwardRef(({
 
   // Load table configuration on mount
   useEffect(() => {
-    if (tableName && customerId) {
+    if (tableName && customerId && user) {
       loadTableConfig();
     }
-  }, [tableName, customerId]);
+  }, [tableName, customerId, user, loadTableConfig]);
 
   // Save column widths when they change
   useEffect(() => {
@@ -456,8 +462,11 @@ const TanStackCRUDTable = forwardRef(({
         // Merge with existing additional_settings to avoid overwriting other settings
         const existingAdditionalSettings = tableConfig?.additional_settings || {};
 
+        // Handle "All" as a special string value, otherwise parse as integer
+        const pageSizeToSave = pageSize === 'All' ? 'All' : (parseInt(pageSize) || 25);
+
         saveTableConfig({
-          page_size: parseInt(pageSize) || 25,
+          page_size: pageSizeToSave,
           additional_settings: {
             ...existingAdditionalSettings,
             current_page: currentPage
@@ -1003,7 +1012,7 @@ const TanStackCRUDTable = forwardRef(({
     setCurrentPage(1);
     setPagination(prev => ({
       pageIndex: 0,
-      pageSize: parseInt(pageSize) || 25  // Sync with current pageSize state
+      pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 25)  // Sync with current pageSize state
     }));
 
     // The useEffect for loadData will automatically trigger when activeFilters and globalFilter change

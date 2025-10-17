@@ -257,9 +257,9 @@ class TableConfiguration(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name='table_configurations',
-        null=True,
-        blank=True,
-        help_text="User this configuration belongs to (optional for global settings)"
+        null=False,
+        blank=False,
+        help_text="User this configuration belongs to"
     )
     table_name = models.CharField(
         max_length=100,
@@ -287,9 +287,10 @@ class TableConfiguration(models.Model):
         blank=True,
         help_text="Sorting configuration (column, direction)"
     )
-    page_size = models.IntegerField(
-        default=25,
-        help_text="Number of rows per page"
+    page_size = models.CharField(
+        max_length=10,
+        default='25',
+        help_text="Number of rows per page (numeric value or 'All')"
     )
     additional_settings = models.JSONField(
         default=dict,
@@ -311,39 +312,34 @@ class TableConfiguration(models.Model):
         verbose_name_plural = "Table Configurations"
     
     def __str__(self):
-        user_part = f" (User: {self.user.username})" if self.user else " (Global)"
-        return f"{self.customer.name} - {self.table_name}{user_part}"
-    
+        return f"{self.customer.name} - {self.table_name} (User: {self.user.username})"
+
     @classmethod
-    def get_config(cls, customer, table_name, user=None):
+    def get_config(cls, customer, table_name, user):
         """
         Get table configuration for a customer/table/user combination.
-        Falls back to customer-level config if user-specific config doesn't exist.
+        User parameter is now required.
         """
-        # Try to get user-specific config first
-        if user:
-            config = cls.objects.filter(
-                customer=customer,
-                table_name=table_name,
-                user=user
-            ).first()
-            if config:
-                return config
-        
-        # Fall back to customer-level config
+        if not user:
+            return None
+
         config = cls.objects.filter(
             customer=customer,
             table_name=table_name,
-            user__isnull=True
+            user=user
         ).first()
-        
+
         return config
-    
+
     @classmethod
-    def save_config(cls, customer, table_name, config_data, user=None):
+    def save_config(cls, customer, table_name, config_data, user):
         """
         Save or update table configuration.
+        User parameter is now required.
         """
+        if not user:
+            raise ValueError("User is required for saving table configuration")
+
         config, created = cls.objects.update_or_create(
             customer=customer,
             table_name=table_name,
