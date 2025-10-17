@@ -2660,7 +2660,9 @@ def bulk_update_zones_create(request):
         zones = data.get('zones', [])
 
         if not zones:
-            return JsonResponse({"error": "No zones provided"}, status=400)
+            return JsonResponse({
+            "message": f"Skipping... No zones exist"
+            })
 
         updated_count = 0
         for zone_data in zones:
@@ -2700,7 +2702,9 @@ def bulk_update_aliases_create(request):
         aliases = data.get('aliases', [])
 
         if not aliases:
-            return JsonResponse({"error": "No aliases provided"}, status=400)
+            return JsonResponse({
+            "message": f"Skipping... No aliases exist"
+            })
 
         updated_count = 0
         for alias_data in aliases:
