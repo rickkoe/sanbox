@@ -12,11 +12,11 @@
     backdrop-filter: var(--backdrop-blur, blur(10px));
 }
 
-/* Light theme gradient background with subtle border */
+/* Light theme - colored background like dark theme */
 .theme-light .breadcrumb-container {
-    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
-    border-bottom: 1px solid rgba(59, 130, 246, 0.1) !important;
-    box-shadow: 0 1px 3px rgba(59, 130, 246, 0.05) !important;
+    background: linear-gradient(135deg, #e8eef5 0%, #dce4ed 100%) !important;
+    border-bottom: 1px solid rgba(30, 58, 82, 0.3) !important;
+    box-shadow: 0 1px 3px rgba(30, 58, 82, 0.08) !important;
 }
 
 .breadcrumb-nav {
@@ -84,8 +84,8 @@
 }
 
 .breadcrumb-link:hover {
-    color: var(--breadcrumb-link-hover, #5b7c99);
-    background-color: rgba(91, 124, 153, 0.1);
+    color: var(--breadcrumb-link-hover, #1e3a52);
+    background-color: rgba(30, 58, 82, 0.1);
     text-decoration: none;
     transform: translateY(-1px);
 }
@@ -122,10 +122,10 @@
 
 /* Light theme breadcrumb active state */
 .theme-light .breadcrumb-item.active .breadcrumb-current {
-    background: linear-gradient(135deg, #5b7c99 0%, #4a6b85 100%);
+    background: linear-gradient(135deg, #1e3a52 0%, #152d44 100%);
     color: white;
     border-radius: 0.375rem;
-    box-shadow: 0 2px 4px rgba(91, 124, 153, 0.3);
+    box-shadow: 0 2px 4px rgba(30, 58, 82, 0.3);
 }
 
 /* Dark theme breadcrumb active state */

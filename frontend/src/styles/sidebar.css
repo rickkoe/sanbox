@@ -50,12 +50,13 @@
 
 .modern-sidebar.theme-light {
   --sidebar-text: #334155;
-  --sidebar-text-hover: #5b7c99;
-  --sidebar-header-color: #5b7c99;
-  --sidebar-active-bg: rgba(91, 124, 153, 0.1);
-  --sidebar-active-border: #5b7c99;
+  --sidebar-text-hover: #1e3a52;
+  --sidebar-header-color: #1e3a52;
+  --sidebar-active-bg: rgba(30, 58, 82, 0.12);
+  --sidebar-active-border: #1e3a52;
   --sidebar-section-text: #334155;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e8eef5 100%) !important;
+  border-right: 1px solid #d1dce6 !important;
 }
 
 /* Match exact navbar gradient for seamless blending */
@@ -637,14 +638,14 @@
 /* Fix light theme active states */
 .modern-sidebar.theme-light .sidebar-link.active,
 .modern-sidebar.theme-light .sidebar-sublink.active {
-  background: rgba(91, 124, 153, 0.1) !important;
-  color: #5b7c99 !important;
-  border-left: 3px solid #5b7c99;
+  background: rgba(30, 58, 82, 0.12) !important;
+  color: #1e3a52 !important;
+  border-left: 3px solid #1e3a52;
 }
 
 .modern-sidebar.theme-light .sidebar-link.active .sidebar-link-text,
 .modern-sidebar.theme-light .sidebar-sublink.active .sidebar-sublink-text {
-  color: #5b7c99 !important;
+  color: #1e3a52 !important;
   font-weight: 600;
 }
 

@@ -135,24 +135,24 @@
   --secondary-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   --accent-bg: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
 
-  /* Text Colors - Rich contrast with muted blue accents */
+  /* Text Colors - Rich contrast with dark navy blue accents */
   --primary-text: #0f172a;
   --secondary-text: #334155;
   --muted-text: #64748b;
-  --link-text: #5b7c99;
-  --link-hover: #4a6b85;
+  --link-text: #1e3a52;
+  --link-hover: #152d44;
 
-  /* Interactive Colors - Muted blue accents with soft backgrounds */
+  /* Interactive Colors - Dark navy blue accents */
   --button-bg: #ffffff;
-  --button-hover: #5b7c99;
-  --button-active: #4a6b85;
+  --button-hover: #1e3a52;
+  --button-active: #152d44;
   --button-border: #e2e8f0;
 
   /* Status Colors - Colorful and meaningful */
   --success-color: #10b981;
   --error-color: #ef4444;
   --warning-color: #f59e0b;
-  --info-color: #5b7c99;
+  --info-color: #1e3a52;
 
   /* Component Specific */
   --navbar-bg: linear-gradient(135deg, #0a0e1a 0%, #111827 100%);
@@ -164,34 +164,34 @@
   --navbar-button-hover: #7c9fb8;
   --navbar-brand-color: #ffffff;
 
-  --sidebar-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --sidebar-bg: linear-gradient(135deg, #f1f5f9 0%, #e8eef5 100%);
   --sidebar-text: var(--primary-text);
   --sidebar-text-hover: var(--link-text);
-  --sidebar-border: #e2e8f0;
-  --sidebar-shadow: 2px 0 12px rgba(91, 124, 153, 0.06);
+  --sidebar-border: #d1dce6;
+  --sidebar-shadow: 2px 0 12px rgba(30, 58, 82, 0.08);
   --sidebar-button-bg: var(--button-bg);
   --sidebar-button-hover: var(--button-hover);
   --sidebar-header-color: var(--link-text);
-  --sidebar-active-bg: rgba(91, 124, 153, 0.1);
+  --sidebar-active-bg: rgba(30, 58, 82, 0.12);
   --sidebar-active-border: var(--link-text);
 
   /* Content and Layout */
   --content-bg: #f9fafb;
   --content-text: var(--primary-text);
-  --breadcrumb-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  --breadcrumb-border: rgba(91, 124, 153, 0.15);
+  --breadcrumb-bg: linear-gradient(135deg, #e8eef5 0%, #dce4ed 100%);
+  --breadcrumb-border: rgba(30, 58, 82, 0.3);
   --breadcrumb-text: var(--secondary-text);
   --breadcrumb-link: var(--link-text);
   --breadcrumb-link-hover: var(--link-hover);
 
   /* Tables - Modern design with subtle depth */
   --table-bg: #ffffff;
-  --table-header-bg: linear-gradient(135deg, #e8eef5 0%, #dde6f0 100%);
+  --table-header-bg: #f8fafc;
   --table-header-text: var(--primary-text);
-  --table-border: #e2e8f0;
-  --table-bottom-border: #7c9fb8;
-  --table-row-hover: rgba(91, 124, 153, 0.05);
-  --table-row-selected: rgba(91, 124, 153, 0.1);
+  --table-border: #e5e9ef;
+  --table-bottom-border: #1e3a52;
+  --table-row-hover: rgba(30, 58, 82, 0.04);
+  --table-row-selected: rgba(30, 58, 82, 0.08);
   --table-cell-text: var(--primary-text);
 
   /* Table Toolbar */
@@ -201,20 +201,20 @@
 
   /* Table Pagination */
   --table-pagination-bg: #ffffff;
-  --table-pagination-border: #e2e8f0;
+  --table-pagination-border: #d1dce6;
   --table-pagination-text: var(--primary-text);
   --table-pagination-button-bg: #ffffff;
   --table-pagination-button-hover: var(--button-hover);
-  --table-pagination-button-active: #5b7c99;
-  --table-pagination-button-border: #e2e8f0;
+  --table-pagination-button-active: #1e3a52;
+  --table-pagination-button-border: #d1dce6;
 
   /* Form Controls */
   --form-input-bg: #ffffff;
-  --form-input-border: #e2e8f0;
+  --form-input-border: #d1dce6;
   --form-input-text: var(--primary-text);
   --form-input-placeholder: var(--muted-text);
-  --form-input-focus-border: #5b7c99;
-  --form-input-focus-shadow: rgba(91, 124, 153, 0.15);
+  --form-input-focus-border: #1e3a52;
+  --form-input-focus-shadow: rgba(30, 58, 82, 0.2);
 
   /* Code Blocks */
   --code-bg: #f8fafc;
@@ -227,9 +227,9 @@
   --error-bg: #fef2f2;
   --error-text: #dc2626;
   --error-border: #fca5a5;
-  --info-bg: #eff6ff;
-  --info-text: #2563eb;
-  --info-border: #93c5fd;
+  --info-bg: #e8f0f7;
+  --info-text: #1e3a52;
+  --info-border: #b0c7d9;
   --success-bg: #f0fdf4;
   --success-text: #16a34a;
   --success-border: #86efac;

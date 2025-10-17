@@ -2920,8 +2920,8 @@ const TanStackCRUDTable = forwardRef(({
                   const isNameColumn = header.id === 'name' || columnConfig?.data === 'name';
 
                   // Define solid background colors for column groups (no transparency)
-                  // Default header: light theme uses soft slate-blue, dark theme uses gradient
-                  let headerBg = theme === 'dark' ? 'var(--table-header-bg)' : '#e8eef5';
+                  // Default header: subtle difference from table background (like dark theme)
+                  let headerBg = theme === 'dark' ? 'var(--table-header-bg)' : '#f8fafc';
 
                   if (columnGroup === 'target') {
                     // Blue tint - solid color
