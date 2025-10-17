@@ -88,6 +88,9 @@ const StoragePage = () => {
   const [searchText, setSearchText] = useState("");
   const [loadingPreferences, setLoadingPreferences] = useState(false);
 
+  // Collapsible category state
+  const [collapsedCategories, setCollapsedCategories] = useState({});
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -214,6 +217,27 @@ const StoragePage = () => {
     return visibleFields.filter(field =>
       getFieldLabel(field).toLowerCase().includes(searchText.toLowerCase())
     );
+  };
+
+  const toggleCategory = (category) => {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  const getFieldsByCategory = () => {
+    const categorizedFields = {};
+
+    // Group visible fields by their categories
+    Object.entries(FIELD_CATEGORIES).forEach(([category, fields]) => {
+      const visibleInCategory = fields.filter(field => visibleFields.includes(field));
+      if (visibleInCategory.length > 0) {
+        categorizedFields[category] = visibleInCategory;
+      }
+    });
+
+    return categorizedFields;
   };
 
   if (loading) return (
@@ -375,46 +399,77 @@ const StoragePage = () => {
           </div>
         </div>
 
-        {/* Properties Display */}
+        {/* Properties Display - Grouped by Category */}
         <div className="storage-properties-section">
           <h2 className="properties-section-title">
             Storage Properties
             <span className="fields-count">({filteredFields.length} fields visible)</span>
           </h2>
 
-          <div className="properties-grid">
-            {filteredFields.map((key) => {
-              const value = formData[key];
-              const isReadOnly = key === "id" || key.startsWith("db_");
-              const isBoolean = typeof value === "boolean";
+          {Object.entries(getFieldsByCategory()).map(([category, fields]) => {
+            const isCollapsed = collapsedCategories[category];
 
-              return (
-                <div key={key} className="property-item">
-                  <label className="property-label">{getFieldLabel(key)}</label>
-                  {isBoolean ? (
-                    <div className="property-value">
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        checked={!!formData[key]}
-                        onChange={(e) => handleChange(key, e.target.checked)}
-                        disabled={isReadOnly}
-                      />
-                    </div>
-                  ) : (
-                    <input
-                      type="text"
-                      className={`property-input ${isReadOnly ? 'property-input-readonly' : ''}`}
-                      value={formData[key] !== null && formData[key] !== undefined ? formData[key] : ""}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      readOnly={isReadOnly}
-                      placeholder={formatValue(key, value)}
-                    />
-                  )}
+            return (
+              <div key={category} className="property-category">
+                <div
+                  className="property-category-header"
+                  onClick={() => toggleCategory(category)}
+                >
+                  <div className="category-header-content">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className={`category-chevron ${isCollapsed ? 'collapsed' : ''}`}
+                    >
+                      <polyline points="6,9 12,15 18,9"/>
+                    </svg>
+                    <h3 className="category-title">{category}</h3>
+                    <span className="category-count">({fields.length} fields)</span>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+
+                {!isCollapsed && (
+                  <div className="properties-grid">
+                    {fields.map((key) => {
+                      const value = formData[key];
+                      const isReadOnly = key === "id" || key.startsWith("db_");
+                      const isBoolean = typeof value === "boolean";
+
+                      return (
+                        <div key={key} className="property-item">
+                          <label className="property-label">{getFieldLabel(key)}</label>
+                          {isBoolean ? (
+                            <div className="property-value">
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                checked={!!formData[key]}
+                                onChange={(e) => handleChange(key, e.target.checked)}
+                                disabled={isReadOnly}
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              className={`property-input ${isReadOnly ? 'property-input-readonly' : ''}`}
+                              value={formData[key] !== null && formData[key] !== undefined ? formData[key] : ""}
+                              onChange={(e) => handleChange(key, e.target.value)}
+                              readOnly={isReadOnly}
+                              placeholder={formatValue(key, value)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

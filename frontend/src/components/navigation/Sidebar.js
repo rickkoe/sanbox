@@ -12,7 +12,7 @@ const Sidebar = ({ isCollapsed, onCollapseChange }) => {
   const navigate = useNavigate();
   const { config } = useContext(ConfigContext);
   const { theme } = useTheme();
-  const { icon, links, dynamicHeader, showBackButton, backPath } = useSidebarConfig();
+  const { icon, links, dynamicHeader, showBackButton, backPath, showHeaderInNav } = useSidebarConfig();
 
   const handleToggle = useCallback(() => {
     if (onCollapseChange) {
@@ -27,7 +27,7 @@ const Sidebar = ({ isCollapsed, onCollapseChange }) => {
 
       <SidebarHeader
         icon={icon}
-        title={dynamicHeader}
+        title={showHeaderInNav ? "" : dynamicHeader}
         isCollapsed={isCollapsed}
         onToggle={handleToggle}
         showBackButton={showBackButton}
@@ -35,9 +35,10 @@ const Sidebar = ({ isCollapsed, onCollapseChange }) => {
       />
 
       <div className="sidebar-navigation">
-        <SidebarNavigation 
-          links={links} 
-          isCollapsed={isCollapsed} 
+        <SidebarNavigation
+          links={links}
+          isCollapsed={isCollapsed}
+          headerTitle={showHeaderInNav ? dynamicHeader : null}
         />
       </div>
     </div>

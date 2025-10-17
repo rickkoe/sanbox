@@ -4,7 +4,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { createPortal } from "react-dom";
 
-const SidebarNavigation = ({ links, isCollapsed }) => {
+const SidebarNavigation = ({ links, isCollapsed, headerTitle }) => {
   const location = useLocation();
   const popoverRef = useRef(null);
   
@@ -186,6 +186,12 @@ const SidebarNavigation = ({ links, isCollapsed }) => {
   return (
     <>
       <nav className="sidebar-nav">
+        {/* Display storage system name at the top if provided */}
+        {headerTitle && !isCollapsed && (
+          <div className="sidebar-nav-header">
+            <h3 className="sidebar-nav-header-title">{headerTitle}</h3>
+          </div>
+        )}
         <ul className="sidebar-menu">
           {links.map((link, index) => {
             if (link.expandable) {
@@ -258,6 +264,7 @@ SidebarNavigation.propTypes = {
     })
   ).isRequired,
   isCollapsed: PropTypes.bool.isRequired,
+  headerTitle: PropTypes.string,
 };
 
 export default SidebarNavigation;

@@ -33,10 +33,11 @@ const getSidebarLinks = (pathname) => {
     if (storageIdMatch) {
       return {
         header: "Storage System",
-        icon: Server,
+        icon: Menu,
         storageId: storageIdMatch[1],
         showBackButton: true,
         backPath: "/storage/systems",
+        showHeaderInNav: true, // Show the dynamic header at the top of nav links
         links: [
           {
             path: `/storage/${storageIdMatch[1]}`,

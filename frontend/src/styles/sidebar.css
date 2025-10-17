@@ -71,7 +71,7 @@
   padding: 0 1rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   background: transparent;
   position: relative;
   z-index: 1;
@@ -207,6 +207,24 @@
   scroll-behavior: smooth;
   position: relative;
   z-index: 2;
+}
+
+/* Navigation Header (for storage system name, etc.) */
+.sidebar-nav-header {
+  padding: 1rem 1rem 0.75rem 1rem;
+  border-bottom: 1px solid var(--sidebar-border, rgba(255, 255, 255, 0.1));
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-nav-header-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--sidebar-text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 .sidebar-nav {

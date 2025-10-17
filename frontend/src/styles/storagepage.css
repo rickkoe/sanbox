@@ -117,10 +117,80 @@
   color: var(--secondary-text);
 }
 
+/* Property Categories */
+.property-category {
+  margin-bottom: 1.5rem;
+  border-radius: 10px;
+  background: var(--category-bg);
+  border: 1px solid var(--category-border);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.property-category:last-child {
+  margin-bottom: 0;
+}
+
+.property-category-header {
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  background: var(--category-header-bg);
+  border-bottom: 1px solid var(--category-border);
+}
+
+.property-category-header:hover {
+  background: var(--category-header-hover-bg);
+}
+
+.category-header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.category-chevron {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+  color: var(--secondary-text);
+}
+
+.category-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.category-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  margin: 0;
+  flex: 1;
+}
+
+.category-count {
+  font-size: 0.875rem;
+  color: var(--secondary-text);
+  font-weight: 400;
+}
+
 .properties-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1rem;
+  padding: 1.25rem;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .property-item {
@@ -179,6 +249,12 @@
   --stat-icon-color: #64ffda;
   --stat-arrow-color: #64ffda;
 
+  /* Categories - Dark Theme */
+  --category-bg: rgba(15, 23, 42, 0.3);
+  --category-border: rgba(255, 255, 255, 0.1);
+  --category-header-bg: rgba(30, 41, 59, 0.5);
+  --category-header-hover-bg: rgba(30, 41, 59, 0.7);
+
   /* Inputs - Dark Theme */
   --input-border: rgba(255, 255, 255, 0.2);
   --input-border-focus: #64ffda;
@@ -203,6 +279,12 @@
   --stat-icon-bg: rgba(91, 124, 153, 0.1);
   --stat-icon-color: #5b7c99;
   --stat-arrow-color: #5b7c99;
+
+  /* Categories - Light Theme */
+  --category-bg: #f8fafc;
+  --category-border: #e2e8f0;
+  --category-header-bg: #ffffff;
+  --category-header-hover-bg: #f1f5f9;
 
   /* Inputs - Light Theme */
   --input-border: #cbd5e1;
