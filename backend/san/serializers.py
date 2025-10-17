@@ -46,10 +46,53 @@ class AliasSerializer(serializers.ModelSerializer):
         return None
 
     def get_storage_details(self, obj):
-        """Return storage name for display"""
-        if obj.storage:
-            return {"id": obj.storage.id, "name": obj.storage.name}
-        return None
+        """
+        Return storage name by looking up the port with matching WWPN.
+        Lookup chain: Alias.wwpn → Port.wwpn → Port.storage → Storage.name
+        """
+        if not obj.wwpn:
+            return None
+
+        # Get customer_id from context (passed from the view)
+        customer_id = self.context.get('customer_id')
+
+        if not customer_id:
+            # Fallback: try to get customer from fabric relationship
+            if obj.fabric and hasattr(obj.fabric, 'customer_id'):
+                customer_id = obj.fabric.customer_id
+
+        try:
+            from storage.models import Port
+
+            # Normalize WWPN for comparison (remove colons, uppercase)
+            alias_wwpn_normalized = obj.wwpn.replace(':', '').upper()
+
+            # Look up port with matching WWPN for the customer
+            query = Port.objects.select_related('storage').filter(
+                wwpn__isnull=False
+            )
+
+            # Filter by customer if available
+            if customer_id:
+                query = query.filter(storage__customer_id=customer_id)
+
+            # Find matching port by normalized WWPN
+            for port in query:
+                if port.wwpn:
+                    port_wwpn_normalized = port.wwpn.replace(':', '').upper()
+                    if port_wwpn_normalized == alias_wwpn_normalized:
+                        # Found matching port with storage
+                        if port.storage:
+                            return {"id": port.storage.id, "name": port.storage.name}
+                        break
+
+            # No matching port found
+            return None
+
+        except Exception as e:
+            # Log the error but don't break the API
+            print(f"Error looking up storage for alias {obj.name} via port WWPN: {e}")
+            return None
 
     def get_zoned_count(self, obj):
         """Count how many zones in the current project contain this alias"""

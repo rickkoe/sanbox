@@ -395,7 +395,7 @@ def get_unique_values_for_zones(request, project, field_name):
 def get_unique_values_for_aliases(request, project, field_name):
     """Get unique values for a specific field from aliases in a project."""
     print(f"🔍 Getting unique values for field: {field_name} in project {project.id}")
-    
+
     try:
         # Handle calculated field - zoned_count
         if field_name == 'zoned_count':
@@ -405,23 +405,62 @@ def get_unique_values_for_aliases(request, project, field_name):
             )
             unique_values = aliases_queryset.values_list('_zoned_count', flat=True).distinct().order_by('_zoned_count')
             actual_field = '_zoned_count'  # Set actual_field for consistency
+        # Handle storage_details.name - looked up via Port.wwpn
+        elif field_name in ['storage_details.name', 'storage__name']:
+            from storage.models import Port
+
+            # Get customer_id from project
+            customer_id = project.customers.first().id if project.customers.exists() else None
+
+            # Get all aliases in this project with WWPNs (normalized for comparison)
+            aliases = Alias.objects.filter(projects=project, wwpn__isnull=False).exclude(wwpn='')
+            alias_wwpns = set()
+            for alias in aliases:
+                if alias.wwpn:
+                    # Normalize WWPN (remove colons, uppercase)
+                    normalized = alias.wwpn.replace(':', '').upper()
+                    alias_wwpns.add(normalized)
+
+            # Get all ports for the customer with WWPNs
+            ports_query = Port.objects.select_related('storage').filter(
+                wwpn__isnull=False,
+                storage__isnull=False
+            )
+
+            # Filter by customer if available
+            if customer_id:
+                ports_query = ports_query.filter(storage__customer_id=customer_id)
+
+            # Collect unique storage names from matching ports
+            storage_names = set()
+            for port in ports_query:
+                if port.wwpn:
+                    # Normalize port WWPN
+                    port_wwpn_normalized = port.wwpn.replace(':', '').upper()
+                    # Check if this port's WWPN matches any alias WWPN
+                    if port_wwpn_normalized in alias_wwpns:
+                        if port.storage and port.storage.name:
+                            storage_names.add(port.storage.name)
+
+            unique_values = sorted(list(storage_names))
+            actual_field = 'storage_details.name'
         else:
             # Base queryset for aliases in the project
             aliases_queryset = Alias.objects.select_related('fabric').filter(projects=project)
-            
+
             # Map field names to actual model fields
             field_mapping = {
                 'create': 'create',
-                'include_in_zoning': 'include_in_zoning', 
+                'include_in_zoning': 'include_in_zoning',
                 'fabric__name': 'fabric__name',
                 'use': 'use',
                 'cisco_alias': 'cisco_alias',
                 'notes': 'notes'
             }
-            
+
             # Get the actual field name
             actual_field = field_mapping.get(field_name, field_name)
-            
+
             # Get unique values for the field
             unique_values = aliases_queryset.values_list(actual_field, flat=True).distinct().order_by(actual_field)
         
@@ -502,7 +541,14 @@ def alias_list_view(request, project_id):
     
     # Apply field-specific filters
     filter_params = {}
+    storage_filter_value = None  # Track storage filtering separately
+
     for param, value in request.GET.items():
+        # Handle storage_details.name filtering (computed field via Port.wwpn lookup)
+        if param.startswith(('storage_details.name__', 'storage__name__')) or param in ['storage_details.name', 'storage__name']:
+            storage_filter_value = (param, value)
+            continue  # Skip adding to filter_params, will handle separately
+
         if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'host__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__', 'logged_in__', 'delete__', 'zoned_count__')) or param in ['zoned_count', 'fabric__name', 'host__name', 'use', 'cisco_alias', 'create', 'include_in_zoning', 'logged_in', 'delete']:
             # Handle boolean field filtering - convert string representations back to actual booleans
             if any(param.startswith(f'{bool_field}__') for bool_field in ['create', 'delete', 'include_in_zoning', 'logged_in']):
@@ -561,7 +607,62 @@ def alias_list_view(request, project_id):
         print(f"🔍 Applying filters: {filter_params}")
         aliases_queryset = aliases_queryset.filter(**filter_params)
         print(f"📊 Filter result count: {aliases_queryset.count()}")
-    
+
+    # Apply storage filter if present (must be done via Port.wwpn lookup)
+    if storage_filter_value:
+        from storage.models import Port
+
+        param, value = storage_filter_value
+        print(f"🔍 Applying storage filter: {param} = {value}")
+
+        # Get customer_id from project
+        customer_id = project.customers.first().id if project.customers.exists() else None
+
+        # Determine the filter operation
+        if param.endswith('__icontains'):
+            # Contains filter
+            storage_names = Port.objects.filter(
+                storage__isnull=False,
+                storage__customer_id=customer_id if customer_id else None,
+                storage__name__icontains=value
+            ).values_list('storage__name', flat=True).distinct()
+        elif param.endswith('__in'):
+            # Multi-select filter (comma-separated values)
+            storage_list = [v.strip() for v in value.split(',')]
+            storage_names = storage_list
+        else:
+            # Exact match
+            storage_names = [value]
+
+        # Get ports with matching storage names
+        ports_query = Port.objects.select_related('storage').filter(
+            wwpn__isnull=False,
+            storage__isnull=False,
+            storage__name__in=storage_names
+        )
+
+        # Filter by customer if available
+        if customer_id:
+            ports_query = ports_query.filter(storage__customer_id=customer_id)
+
+        # Get WWPNs from matching ports (normalized)
+        port_wwpns = set()
+        for port in ports_query:
+            if port.wwpn:
+                port_wwpns.add(port.wwpn.replace(':', '').upper())
+
+        # Filter aliases to those with matching WWPNs
+        matching_alias_ids = []
+        for alias in aliases_queryset:
+            if alias.wwpn:
+                alias_wwpn_normalized = alias.wwpn.replace(':', '').upper()
+                if alias_wwpn_normalized in port_wwpns:
+                    matching_alias_ids.append(alias.id)
+
+        # Apply the filter
+        aliases_queryset = aliases_queryset.filter(id__in=matching_alias_ids)
+        print(f"📊 Storage filter result count: {aliases_queryset.count()}")
+
     # Apply ordering
     if ordering:
         aliases_queryset = aliases_queryset.order_by(ordering)
@@ -578,10 +679,13 @@ def alias_list_view(request, project_id):
     page_obj = paginator.get_page(page)
     
     # Serialize paginated results
+    # Get customer_id from project
+    customer_id = project.customers.first().id if project.customers.exists() else None
+
     serializer = AliasSerializer(
         page_obj,
         many=True,
-        context={'project_id': project_id}
+        context={'project_id': project_id, 'customer_id': customer_id}
     )
     
     # Return paginated response with metadata

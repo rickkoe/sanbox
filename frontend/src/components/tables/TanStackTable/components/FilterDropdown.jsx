@@ -42,13 +42,21 @@ const FilterDropdown = ({
     { value: 'is_not_empty', label: 'Is not empty', icon: '∄' }
   ];
 
+  // Helper function to get nested property value
+  const getNestedValue = (obj, path) => {
+    if (!path) return undefined;
+    const keys = path.split('.');
+    return keys.reduce((current, key) => current?.[key], obj);
+  };
+
   // Get unique values for selected column
   const columnValues = useMemo(() => {
     if (!selectedColumn || !data.length) return [];
 
     const values = data
       .map(row => {
-        const value = row[selectedColumn];
+        // Handle nested properties like "storage_details.name"
+        const value = getNestedValue(row, selectedColumn);
         return value === null || value === undefined ? '' : String(value);
       })
       .filter((value, index, array) => array.indexOf(value) === index)

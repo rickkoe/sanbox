@@ -13,7 +13,6 @@ const AliasTableTanStackClean = () => {
 
     const [fabricOptions, setFabricOptions] = useState([]);
     const [hostOptions, setHostOptions] = useState([]);
-    const [storageOptions, setStorageOptions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [errorModal, setErrorModal] = useState({ show: false, message: '', errors: null });
 
@@ -37,7 +36,6 @@ const AliasTableTanStackClean = () => {
         aliases: `${API_URL}/api/san/aliases/project/`,
         fabrics: `${API_URL}/api/san/fabrics/`,
         hosts: `${API_URL}/api/san/hosts/project/`,
-        storages: `${API_URL}/api/storage/`,
         aliasSave: `${API_URL}/api/san/aliases/save/`,
         aliasDelete: `${API_URL}/api/san/aliases/delete/`
     };
@@ -49,7 +47,7 @@ const AliasTableTanStackClean = () => {
         { data: "use", title: "Use", type: "dropdown" },
         { data: "fabric_details.name", title: "Fabric", type: "dropdown" },
         { data: "host_details.name", title: "Host", type: "dropdown" },
-        { data: "storage_details.name", title: "Storage System", type: "dropdown" },
+        { data: "storage_details.name", title: "Storage System", readOnly: true },
         { data: "cisco_alias", title: "Alias Type", type: "dropdown" },
         { data: "create", title: "Create", type: "checkbox" },
         { data: "delete", title: "Delete", type: "checkbox" },
@@ -99,7 +97,7 @@ const AliasTableTanStackClean = () => {
         return cleanValue.length <= 16 && /^[0-9a-fA-F]*$/.test(cleanValue);
     };
 
-    // Load fabrics, hosts, and storage systems
+    // Load fabrics and hosts (storage is now read-only, looked up via WWPN)
     useEffect(() => {
         const loadData = async () => {
             if (activeCustomerId && activeProjectId) {
@@ -107,10 +105,9 @@ const AliasTableTanStackClean = () => {
                     setLoading(true);
                     console.log('Loading dropdown data for alias table...');
 
-                    const [fabricResponse, hostResponse, storageResponse] = await Promise.all([
+                    const [fabricResponse, hostResponse] = await Promise.all([
                         axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
-                        axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`),
-                        axios.get(`${API_ENDPOINTS.storages}?customer=${activeCustomerId}`)
+                        axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`)
                     ]);
 
                     // Handle paginated response structure
@@ -118,9 +115,6 @@ const AliasTableTanStackClean = () => {
                     setFabricOptions(fabricsArray.map(f => ({ id: f.id, name: f.name })));
 
                     setHostOptions(hostResponse.data.map(h => ({ id: h.id, name: h.name })));
-
-                    const storageArray = storageResponse.data.results || storageResponse.data;
-                    setStorageOptions(storageArray.map(s => ({ id: s.id, name: s.name })));
 
                     console.log('✅ Dropdown data loaded successfully');
                     setLoading(false);
@@ -134,14 +128,13 @@ const AliasTableTanStackClean = () => {
         loadData();
     }, [activeCustomerId, activeProjectId]);
 
-    // Dynamic dropdown sources
+    // Dynamic dropdown sources (storage removed - now read-only lookup via WWPN)
     const dropdownSources = useMemo(() => ({
         use: ["init", "target", "both"],
         "fabric_details.name": fabricOptions.map(f => f.name),
         "host_details.name": hostOptions.map(h => h.name), // Note: Should be conditional based on use=init
-        "storage_details.name": storageOptions.map(s => s.name),
         cisco_alias: ["device-alias", "fcalias", "wwpn"],
-    }), [fabricOptions, hostOptions, storageOptions]);
+    }), [fabricOptions, hostOptions]);
 
     // Custom renderers for WWPN formatting
     const customRenderers = {
@@ -161,6 +154,8 @@ const AliasTableTanStackClean = () => {
             fabric_details: alias.fabric_details || { name: "" },
             host_details: alias.host_details || { name: "" },
             storage_details: alias.storage_details || { name: "" },
+            // Add flattened version for easier filtering (helps FilterDropdown extract values)
+            'storage_details.name': alias.storage_details?.name || '',
             // Ensure zoned_count defaults to 0 if not set
             zoned_count: alias.zoned_count || 0
         }));
@@ -220,15 +215,6 @@ const AliasTableTanStackClean = () => {
                 };
             }
 
-            // Validate that storage system is not set for initiators
-            const invalidStorageRows = allTableData.filter((alias) => {
-                if (!alias.name || alias.name.trim() === "") return false;
-                const hasStorage = (alias.storage_details?.name && alias.storage_details.name.trim() !== '') ||
-                                 alias['storage_details.name'] ||
-                                 alias.storage;
-                return hasStorage && alias.use === 'init';
-            });
-
             // Validate that host is not set for targets
             const invalidHostRows = allTableData.filter((alias) => {
                 if (!alias.name || alias.name.trim() === "") return false;
@@ -239,17 +225,8 @@ const AliasTableTanStackClean = () => {
             });
 
             // Build validation error message if there are issues
-            if (invalidStorageRows.length > 0 || invalidHostRows.length > 0) {
+            if (invalidHostRows.length > 0) {
                 const errors = [];
-
-                if (invalidStorageRows.length > 0) {
-                    errors.push({
-                        type: 'Storage System on Initiators',
-                        description: 'The following aliases have Use set to "init" (initiator) but have a Storage System selected. Initiators cannot have storage systems.',
-                        solution: 'Change Use to "target" or "both", or remove the Storage System.',
-                        rows: invalidStorageRows.map(r => r.name)
-                    });
-                }
 
                 if (invalidHostRows.length > 0) {
                     errors.push({
@@ -289,33 +266,17 @@ const AliasTableTanStackClean = () => {
                     let hostName = (row.host_details?.name && row.host_details.name.trim() !== '')
                         ? row.host_details.name
                         : (row['host_details.name'] || row.host);
-                    let storageName = (row.storage_details?.name && row.storage_details.name.trim() !== '')
-                        ? row.storage_details.name
-                        : (row['storage_details.name'] || row.storage);
-
-                    console.log('🔍 Name extraction:', {
-                        'row.storage_details': row.storage_details,
-                        'row.storage_details?.name': row.storage_details?.name,
-                        'row["storage_details.name"]': row['storage_details.name'],
-                        'row.storage': row.storage,
-                        'Final storageName': storageName,
-                        'row.use': row.use
-                    });
 
                     const fabric = fabricOptions.find(f => f.name === fabricName);
                     const host = hostOptions.find(h => h.name === hostName);
-                    const storage = storageOptions.find(s => s.name === storageName);
 
                     console.log('🎯 Found references:', {
                         fabricName: fabricName,
                         fabric: fabric,
                         hostName: hostName,
                         host: host,
-                        storageName: storageName,
-                        storage: storage,
                         'row.use': row.use,
-                        'Will set host?': (row.host_details?.name && (row.use === 'init' || row.use === 'both') && host),
-                        'Will set storage?': (row.storage_details?.name && (row.use === 'target' || row.use === 'both') && storage)
+                        'Will set host?': (row.host_details?.name && (row.use === 'init' || row.use === 'both') && host)
                     });
 
                     if (!fabric) {
@@ -350,18 +311,13 @@ const AliasTableTanStackClean = () => {
                         ...cleanRow,
                         projects: [activeProjectId],
                         fabric: parseInt(fabric.id),
-                        host: null,
-                        storage: null
+                        host: null
+                        // Note: storage is no longer sent - it's a read-only lookup via Port.wwpn
                     };
 
                     // Handle host assignment (for initiators and both)
                     if (row.host_details?.name && (row.use === 'init' || row.use === 'both') && host) {
                         result.host = parseInt(host.id);
-                    }
-
-                    // Handle storage assignment (for targets and both)
-                    if (row.storage_details?.name && (row.use === 'target' || row.use === 'both') && storage) {
-                        result.storage = parseInt(storage.id);
                     }
 
                     return result;
