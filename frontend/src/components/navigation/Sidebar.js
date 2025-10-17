@@ -12,7 +12,7 @@ const Sidebar = ({ isCollapsed, onCollapseChange }) => {
   const navigate = useNavigate();
   const { config } = useContext(ConfigContext);
   const { theme } = useTheme();
-  const { icon, links, dynamicHeader } = useSidebarConfig();
+  const { icon, links, dynamicHeader, showBackButton, backPath } = useSidebarConfig();
 
   const handleToggle = useCallback(() => {
     if (onCollapseChange) {
@@ -21,15 +21,17 @@ const Sidebar = ({ isCollapsed, onCollapseChange }) => {
   }, [isCollapsed, onCollapseChange]);
 
   console.log('Sidebar theme class:', `modern-sidebar theme-${theme} ${isCollapsed ? 'collapsed' : ''}`);
-  
+
   return (
     <div className={`modern-sidebar theme-${theme} ${isCollapsed ? 'collapsed' : ''}`}>
-      
-      <SidebarHeader 
-        icon={icon} 
-        title={dynamicHeader} 
+
+      <SidebarHeader
+        icon={icon}
+        title={dynamicHeader}
         isCollapsed={isCollapsed}
         onToggle={handleToggle}
+        showBackButton={showBackButton}
+        backPath={backPath}
       />
 
       <div className="sidebar-navigation">

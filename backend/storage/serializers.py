@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Storage, Volume, Host, HostWwpn, Port
 from customers.serializers import CustomerSerializer
+from core.models import TableConfiguration
 
 class StorageSerializer(serializers.ModelSerializer):
     # expose the calculated counts
@@ -96,3 +97,47 @@ class PortSerializer(serializers.ModelSerializer):
                 "name": obj.project.name
             }
         return None
+
+
+class StorageFieldPreferenceSerializer(serializers.Serializer):
+    """Serializer for storage detail field preferences"""
+    visible_columns = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+        help_text="List of visible field names for storage detail view"
+    )
+
+    def save(self, customer, user):
+        """Save field preferences to TableConfiguration"""
+        visible_columns = self.validated_data.get('visible_columns', [])
+
+        config, created = TableConfiguration.objects.update_or_create(
+            customer=customer,
+            user=user,
+            table_name='storage_detail',
+            defaults={'visible_columns': visible_columns}
+        )
+
+        return config
+
+    @staticmethod
+    def get_preferences(customer, user):
+        """Get field preferences from TableConfiguration"""
+        config = TableConfiguration.objects.filter(
+            customer=customer,
+            user=user,
+            table_name='storage_detail'
+        ).first()
+
+        if config and config.visible_columns:
+            return {'visible_columns': config.visible_columns}
+
+        # Return default fields if no preferences found
+        return {
+            'visible_columns': [
+                'name', 'storage_type', 'vendor', 'serial_number',
+                'location', 'firmware_level', 'condition',
+                'capacity_bytes', 'used_capacity_percent', 'available_capacity_bytes'
+            ]
+        }

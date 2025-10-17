@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils import timezone
 from .models import Storage, Volume, Host, HostWwpn, Port
-from .serializers import StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer
+from .serializers import StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer, StorageFieldPreferenceSerializer
 import logging
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -302,6 +302,54 @@ def storage_detail(request, pk):
                 clear_dashboard_cache_for_customer(customer_id)
 
             return JsonResponse({"message": "Storage deleted successfully"}, status=204)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def storage_field_preferences(request, pk):
+    """Handle storage detail field preferences for a specific storage system"""
+    print(f"🔥 Storage Field Preferences - Method: {request.method}, Storage PK: {pk}")
+
+    user = request.user if request.user.is_authenticated else None
+
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    try:
+        storage = Storage.objects.get(pk=pk)
+    except Storage.DoesNotExist:
+        return JsonResponse({"error": "Storage not found"}, status=404)
+
+    # Check if user has access to this storage's customer
+    from core.permissions import has_customer_access
+    if storage.customer and not has_customer_access(user, storage.customer):
+        return JsonResponse({"error": "Permission denied"}, status=403)
+
+    customer = storage.customer
+
+    if request.method == "GET":
+        # Get field preferences for this user and customer
+        try:
+            preferences = StorageFieldPreferenceSerializer.get_preferences(customer, user)
+            return JsonResponse(preferences)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "POST":
+        # Save field preferences for this user and customer
+        try:
+            data = json.loads(request.body)
+            serializer = StorageFieldPreferenceSerializer(data=data)
+
+            if serializer.is_valid():
+                config = serializer.save(customer, user)
+                return JsonResponse({
+                    "message": "Preferences saved successfully",
+                    "visible_columns": config.visible_columns
+                })
+            return JsonResponse(serializer.errors, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 

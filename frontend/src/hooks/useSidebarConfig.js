@@ -35,6 +35,8 @@ const getSidebarLinks = (pathname) => {
         header: "Storage System",
         icon: Server,
         storageId: storageIdMatch[1],
+        showBackButton: true,
+        backPath: "/storage/systems",
         links: [
           {
             path: `/storage/${storageIdMatch[1]}`,
