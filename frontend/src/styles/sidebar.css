@@ -50,10 +50,10 @@
 
 .modern-sidebar.theme-light {
   --sidebar-text: #334155;
-  --sidebar-text-hover: #3b82f6;
-  --sidebar-header-color: #3b82f6;
-  --sidebar-active-bg: rgba(59, 130, 246, 0.1);
-  --sidebar-active-border: #3b82f6;
+  --sidebar-text-hover: #5b7c99;
+  --sidebar-header-color: #5b7c99;
+  --sidebar-active-bg: rgba(91, 124, 153, 0.1);
+  --sidebar-active-border: #5b7c99;
   --sidebar-section-text: #334155;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
 }
@@ -581,14 +581,14 @@
 /* Fix light theme active states */
 .modern-sidebar.theme-light .sidebar-link.active,
 .modern-sidebar.theme-light .sidebar-sublink.active {
-  background: rgba(59, 130, 246, 0.1) !important;
-  color: #3b82f6 !important;
-  border-left: 3px solid #3b82f6;
+  background: rgba(91, 124, 153, 0.1) !important;
+  color: #5b7c99 !important;
+  border-left: 3px solid #5b7c99;
 }
 
 .modern-sidebar.theme-light .sidebar-link.active .sidebar-link-text,
 .modern-sidebar.theme-light .sidebar-sublink.active .sidebar-sublink-text {
-  color: #3b82f6 !important;
+  color: #5b7c99 !important;
   font-weight: 600;
 }
 

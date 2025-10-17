@@ -82,6 +82,7 @@
   --table-header-bg: #2d3748;
   --table-header-text: #ffffff;
   --table-border: rgba(255, 255, 255, 0.2);
+  --table-bottom-border: rgba(255, 255, 255, 0.2);
   --table-row-hover: rgba(100, 255, 218, 0.08);
   --table-row-selected: rgba(100, 255, 218, 0.15);
   --table-cell-text: #e2e8f0;
@@ -134,62 +135,63 @@
   --secondary-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   --accent-bg: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
 
-  /* Text Colors - Rich contrast with blue accents */
+  /* Text Colors - Rich contrast with muted blue accents */
   --primary-text: #0f172a;
   --secondary-text: #334155;
   --muted-text: #64748b;
-  --link-text: #3b82f6;
-  --link-hover: #2563eb;
+  --link-text: #5b7c99;
+  --link-hover: #4a6b85;
 
-  /* Interactive Colors - Blue accents with soft backgrounds */
+  /* Interactive Colors - Muted blue accents with soft backgrounds */
   --button-bg: #ffffff;
-  --button-hover: #3b82f6;
-  --button-active: #2563eb;
+  --button-hover: #5b7c99;
+  --button-active: #4a6b85;
   --button-border: #e2e8f0;
 
   /* Status Colors - Colorful and meaningful */
   --success-color: #10b981;
   --error-color: #ef4444;
   --warning-color: #f59e0b;
-  --info-color: #3b82f6;
+  --info-color: #5b7c99;
 
   /* Component Specific */
-  --navbar-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  --navbar-text: var(--primary-text);
-  --navbar-text-hover: var(--link-text);
+  --navbar-bg: linear-gradient(135deg, #0a0e1a 0%, #111827 100%);
+  --navbar-text: #ffffff;
+  --navbar-text-hover: #7c9fb8;
   --navbar-border: none;
-  --navbar-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
-  --navbar-button-bg: var(--button-bg);
-  --navbar-button-hover: var(--button-hover);
-  --navbar-brand-color: var(--link-text);
+  --navbar-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --navbar-button-bg: rgba(255, 255, 255, 0.1);
+  --navbar-button-hover: #7c9fb8;
+  --navbar-brand-color: #ffffff;
 
   --sidebar-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   --sidebar-text: var(--primary-text);
   --sidebar-text-hover: var(--link-text);
   --sidebar-border: #e2e8f0;
-  --sidebar-shadow: 2px 0 12px rgba(59, 130, 246, 0.06);
+  --sidebar-shadow: 2px 0 12px rgba(91, 124, 153, 0.06);
   --sidebar-button-bg: var(--button-bg);
   --sidebar-button-hover: var(--button-hover);
   --sidebar-header-color: var(--link-text);
-  --sidebar-active-bg: rgba(59, 130, 246, 0.1);
+  --sidebar-active-bg: rgba(91, 124, 153, 0.1);
   --sidebar-active-border: var(--link-text);
 
   /* Content and Layout */
   --content-bg: #f9fafb;
   --content-text: var(--primary-text);
   --breadcrumb-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  --breadcrumb-border: rgba(59, 130, 246, 0.15);
+  --breadcrumb-border: rgba(91, 124, 153, 0.15);
   --breadcrumb-text: var(--secondary-text);
   --breadcrumb-link: var(--link-text);
   --breadcrumb-link-hover: var(--link-hover);
 
   /* Tables - Modern design with subtle depth */
   --table-bg: #ffffff;
-  --table-header-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --table-header-bg: linear-gradient(135deg, #e8eef5 0%, #dde6f0 100%);
   --table-header-text: var(--primary-text);
   --table-border: #e2e8f0;
-  --table-row-hover: rgba(59, 130, 246, 0.05);
-  --table-row-selected: rgba(59, 130, 246, 0.1);
+  --table-bottom-border: #7c9fb8;
+  --table-row-hover: rgba(91, 124, 153, 0.05);
+  --table-row-selected: rgba(91, 124, 153, 0.1);
   --table-cell-text: var(--primary-text);
 
   /* Table Toolbar */
@@ -203,7 +205,7 @@
   --table-pagination-text: var(--primary-text);
   --table-pagination-button-bg: #ffffff;
   --table-pagination-button-hover: var(--button-hover);
-  --table-pagination-button-active: #3b82f6;
+  --table-pagination-button-active: #5b7c99;
   --table-pagination-button-border: #e2e8f0;
 
   /* Form Controls */
@@ -211,8 +213,8 @@
   --form-input-border: #e2e8f0;
   --form-input-text: var(--primary-text);
   --form-input-placeholder: var(--muted-text);
-  --form-input-focus-border: #3b82f6;
-  --form-input-focus-shadow: rgba(59, 130, 246, 0.1);
+  --form-input-focus-border: #5b7c99;
+  --form-input-focus-shadow: rgba(91, 124, 153, 0.15);
 
   /* Code Blocks */
   --code-bg: #f8fafc;

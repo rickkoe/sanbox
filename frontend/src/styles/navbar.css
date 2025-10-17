@@ -41,9 +41,10 @@ nav.navbar.navbar-expand-lg.theme-minimal,
 nav.navbar.navbar-expand-lg.theme-light,
 .navbar.theme-light,
 .theme-light .navbar {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
-  background-color: #ffffff !important; /* Fallback */
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08) !important;
+  background: linear-gradient(135deg, #0a0e1a 0%, #111827 100%) !important;
+  background-color: #0a0e1a !important; /* Fallback */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 nav.navbar.navbar-expand-lg.theme-corporate,
@@ -240,15 +241,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 }
 
 /* Force theme text colors with maximum specificity - Override Bootstrap */
-.navbar.theme-modern .nav-link,
-.navbar.theme-modern .navbar-nav .nav-link,
-.navbar.theme-modern .navbar-brand,
-.navbar.theme-modern .navbar-nav .nav-link:hover,
-.navbar.theme-modern .navbar-nav .nav-link:focus,
-.navbar.theme-modern .navbar-brand:hover,
-.navbar.theme-modern .navbar-brand:focus {
-  color: #2d3748 !important;
-}
+
 
 .navbar.theme-dark .nav-link,
 .navbar.theme-dark .navbar-nav .nav-link,
@@ -260,64 +253,9 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   color: #e2e8f0 !important;
 }
 
-.navbar.theme-minimal .nav-link,
-.navbar.theme-minimal .navbar-nav .nav-link,
-.navbar.theme-minimal .navbar-brand,
-.navbar.theme-minimal .navbar-nav .nav-link:hover,
-.navbar.theme-minimal .navbar-nav .nav-link:focus,
-.navbar.theme-minimal .navbar-brand:hover,
-.navbar.theme-minimal .navbar-brand:focus {
-  color: #1f2937 !important;
-}
-
-.navbar.theme-corporate .nav-link,
-.navbar.theme-corporate .navbar-nav .nav-link,
-.navbar.theme-corporate .navbar-brand,
-.navbar.theme-corporate .navbar-nav .nav-link:hover,
-.navbar.theme-corporate .navbar-nav .nav-link:focus,
-.navbar.theme-corporate .navbar-brand:hover,
-.navbar.theme-corporate .navbar-brand:focus {
-  color: #ffffff !important;
-}
-
-.navbar.theme-colorful .nav-link,
-.navbar.theme-colorful .navbar-nav .nav-link,
-.navbar.theme-colorful .navbar-brand,
-.navbar.theme-colorful .navbar-nav .nav-link:hover,
-.navbar.theme-colorful .navbar-nav .nav-link:focus,
-.navbar.theme-colorful .navbar-brand:hover,
-.navbar.theme-colorful .navbar-brand:focus {
-  color: #2d3436 !important;
-}
 
 /* ========== FORCE THEME COLORS FOR ALL NAVBAR ELEMENTS ========== */
-
-/* Modern Theme */
-.navbar.theme-modern .nav-link,
-.navbar.theme-modern .navbar-nav .nav-item .nav-link,
-.navbar.theme-modern .dropdown-toggle,
-.navbar.theme-modern .nav-label,
-.navbar.theme-modern .user-profile {
-  color: #2d3748 !important;
-}
-
-.navbar.theme-modern .nav-link:hover,
-.navbar.theme-modern .navbar-nav .nav-item .nav-link:hover,
-.navbar.theme-modern .dropdown-toggle:hover,
-.navbar.theme-modern .nav-item .nav-link:hover,
-.navbar.theme-modern .nav-item .nav-link:hover .nav-label,
-.navbar.theme-modern .nav-item .nav-link:hover svg {
-  color: #ffffff !important; /* White text on hover for readability */
-}
-
-.navbar.theme-modern .nav-link.active,
-.navbar.theme-modern .navbar-nav .nav-item .nav-link.active,
-.navbar.theme-modern .dropdown-toggle.active,
-.navbar.theme-modern .nav-item .nav-link.active,
-.navbar.theme-modern .nav-item .nav-link.active .nav-label,
-.navbar.theme-modern .nav-item .nav-link.active svg {
-  color: #ffffff !important; /* White text when active */
-}
+\
 
 /* Dark Theme */
 .navbar.theme-dark .nav-link,
@@ -346,86 +284,6 @@ nav.navbar.navbar-expand-lg.theme-colorful,
   color: #e2e8f0 !important; /* Light gray when active */
 }
 
-/* Minimal Theme */
-.navbar.theme-minimal .nav-link,
-.navbar.theme-minimal .navbar-nav .nav-item .nav-link,
-.navbar.theme-minimal .dropdown-toggle,
-.navbar.theme-minimal .nav-label,
-.navbar.theme-minimal .user-profile {
-  color: #1f2937 !important;
-}
-
-.navbar.theme-minimal .nav-link:hover,
-.navbar.theme-minimal .navbar-nav .nav-item .nav-link:hover,
-.navbar.theme-minimal .dropdown-toggle:hover,
-.navbar.theme-minimal .nav-item .nav-link:hover,
-.navbar.theme-minimal .nav-item .nav-link:hover .nav-label,
-.navbar.theme-minimal .nav-item .nav-link:hover svg {
-  color: #ffffff !important; /* White text on hover for readability */
-}
-
-.navbar.theme-minimal .nav-link.active,
-.navbar.theme-minimal .navbar-nav .nav-item .nav-link.active,
-.navbar.theme-minimal .dropdown-toggle.active,
-.navbar.theme-minimal .nav-item .nav-link.active,
-.navbar.theme-minimal .nav-item .nav-link.active .nav-label,
-.navbar.theme-minimal .nav-item .nav-link.active svg {
-  color: #ffffff !important; /* White text when active */
-}
-
-/* Corporate Theme */
-.navbar.theme-corporate .nav-link,
-.navbar.theme-corporate .navbar-nav .nav-item .nav-link,
-.navbar.theme-corporate .dropdown-toggle,
-.navbar.theme-corporate .nav-label,
-.navbar.theme-corporate .user-profile {
-  color: #ffffff !important;
-}
-
-.navbar.theme-corporate .nav-link:hover,
-.navbar.theme-corporate .navbar-nav .nav-item .nav-link:hover,
-.navbar.theme-corporate .dropdown-toggle:hover,
-.navbar.theme-corporate .nav-item .nav-link:hover,
-.navbar.theme-corporate .nav-item .nav-link:hover .nav-label,
-.navbar.theme-corporate .nav-item .nav-link:hover svg {
-  color: #1e3c72 !important; /* Dark blue text on hover for readability */
-}
-
-.navbar.theme-corporate .nav-link.active,
-.navbar.theme-corporate .navbar-nav .nav-item .nav-link.active,
-.navbar.theme-corporate .dropdown-toggle.active,
-.navbar.theme-corporate .nav-item .nav-link.active,
-.navbar.theme-corporate .nav-item .nav-link.active .nav-label,
-.navbar.theme-corporate .nav-item .nav-link.active svg {
-  color: #1e3c72 !important; /* Dark blue text when active */
-}
-
-/* Colorful Theme */
-.navbar.theme-colorful .nav-link,
-.navbar.theme-colorful .navbar-nav .nav-item .nav-link,
-.navbar.theme-colorful .dropdown-toggle,
-.navbar.theme-colorful .nav-label,
-.navbar.theme-colorful .user-profile {
-  color: #2d3436 !important;
-}
-
-.navbar.theme-colorful .nav-link:hover,
-.navbar.theme-colorful .navbar-nav .nav-item .nav-link:hover,
-.navbar.theme-colorful .dropdown-toggle:hover,
-.navbar.theme-colorful .nav-item .nav-link:hover,
-.navbar.theme-colorful .nav-item .nav-link:hover .nav-label,
-.navbar.theme-colorful .nav-item .nav-link:hover svg {
-  color: #ffffff !important; /* White text on hover for readability */
-}
-
-.navbar.theme-colorful .nav-link.active,
-.navbar.theme-colorful .navbar-nav .nav-item .nav-link.active,
-.navbar.theme-colorful .dropdown-toggle.active,
-.navbar.theme-colorful .nav-item .nav-link.active,
-.navbar.theme-colorful .nav-item .nav-link.active .nav-label,
-.navbar.theme-colorful .nav-item .nav-link.active svg {
-  color: #ffffff !important; /* White text when active */
-}
 
 /* Light Theme Active Text/Icons */
 .navbar.theme-light .nav-link.active,
@@ -434,7 +292,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-light .nav-item .nav-link.active,
 .navbar.theme-light .nav-item .nav-link.active .nav-label,
 .navbar.theme-light .nav-item .nav-link.active svg {
-  color: #3b82f6 !important; /* Blue when active */
+  color: #7c9fb8 !important; /* Muted blue when active */
 }
 
 /* ========== THEME-SPECIFIC ACTIVE BACKGROUNDS ========== */
@@ -488,9 +346,9 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 .navbar.theme-light .nav-link.active,
 .navbar.theme-light .navbar-nav .nav-item .nav-link.active,
 .navbar.theme-light .dropdown-toggle.active {
-  background: rgba(59, 130, 246, 0.1) !important;
-  color: #3b82f6 !important;
-  border-color: #3b82f6 !important;
+  background: rgba(124, 159, 184, 0.2) !important;
+  color: #7c9fb8 !important;
+  border-color: rgba(124, 159, 184, 0.4) !important;
   font-weight: 600 !important;
 }
 
@@ -902,6 +760,17 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* Light theme - remove background and border from context indicator */
+.navbar.theme-light .context-indicator {
+    background: transparent !important;
+    border: none !important;
+}
+
+.navbar.theme-light .context-indicator:hover {
+    background: transparent !important;
+    border: none !important;
+}
+
 /* Dark theme - remove background and border from context indicator */
 .navbar.theme-dark .context-indicator {
     background: transparent !important;
@@ -923,13 +792,13 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     height: 24px !important;
 }
 
-/* Light theme - make context icon darker */
+/* Light theme - make context icon lighter for dark navbar */
 .navbar.theme-light .context-icon {
     opacity: 1;
 }
 
 .navbar.theme-light .context-icon svg {
-    color: #0f172a !important;
+    color: rgba(255, 255, 255, 0.9) !important;
 }
 
 /* Dark theme - make context icon lighter */
@@ -1163,11 +1032,24 @@ nav.navbar.navbar-expand-lg.theme-colorful,
     line-height: 1.2;
 }
 
-/* Context indicator theming for navbar */
-/* Modern Theme Context Indicator */
-.navbar.theme-modern .context-customer,
-.navbar.theme-modern .context-project {
-    color: #0f172a !important;
+
+
+/* Light theme navbar text colors - override defaults */
+.navbar.theme-light .nav-link,
+.navbar.theme-light .navbar-nav .nav-item .nav-link,
+.navbar.theme-light .navbar-brand,
+.navbar.theme-light .dropdown-toggle,
+.navbar.theme-light .nav-label,
+.navbar.theme-light .user-profile {
+    color: #ffffff !important;
+}
+
+.navbar.theme-light .nav-link:hover,
+.navbar.theme-light .navbar-nav .nav-item .nav-link:hover,
+.navbar.theme-light .dropdown-toggle:hover,
+.navbar.theme-light .nav-item .nav-link:hover .nav-label,
+.navbar.theme-light .nav-item .nav-link:hover svg {
+    color: #7c9fb8 !important;
 }
 
 /* Dark Theme Context Indicator */
@@ -1179,36 +1061,20 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 /* Light Theme Context Indicator */
 .navbar.theme-light .context-customer,
 .navbar.theme-light .context-project {
-    color: #0f172a !important;
+    color: #ffffff !important;
 }
 
 .navbar.theme-light .context-project {
     font-weight: 700 !important;
-    color: #0f172a !important;
-}
-
-.navbar.theme-light .context-customer {
-    color: #334155 !important;
-    opacity: 1 !important;
-}
-
-/* Minimal Theme Context Indicator */
-.navbar.theme-minimal .context-customer,
-.navbar.theme-minimal .context-project {
-    color: #0f172a !important;
-}
-
-/* Corporate Theme Context Indicator */
-.navbar.theme-corporate .context-customer,
-.navbar.theme-corporate .context-project {
     color: #ffffff !important;
 }
 
-/* Colorful Theme Context Indicator */
-.navbar.theme-colorful .context-customer,
-.navbar.theme-colorful .context-project {
-    color: #2d3436 !important;
+.navbar.theme-light .context-customer {
+    color: rgba(255, 255, 255, 0.7) !important;
+    opacity: 1 !important;
 }
+
+
 
 /* Text-muted theming for context dropdown */
 .navbar .context-menu .text-muted,
@@ -1452,7 +1318,7 @@ nav.navbar.navbar-expand-lg.theme-colorful,
 
 .navbar.theme-light .navbar-nav .nav-item.active::after {
   width: 80%;
-  background: #3b82f6;
+  background: #7c9fb8;
 }
 
 /* Default fallback */

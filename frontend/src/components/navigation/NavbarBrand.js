@@ -5,9 +5,9 @@ import { useTheme } from "../../context/ThemeContext";
 const NavbarBrand = () => {
   const { theme } = useTheme();
 
-  // Use dark logo for light themes (modern, minimal, colorful) and light logo for dark themes (dark, corporate)
-  const logoSrc = theme === 'dark' || theme === 'corporate' 
-    ? "/images/logo-light.png" 
+  // Use light logo for dark navbars (dark, light, corporate) and dark logo for light navbars (modern, minimal, colorful)
+  const logoSrc = theme === 'dark' || theme === 'light' || theme === 'corporate'
+    ? "/images/logo-light.png"
     : "/images/logo-dark.png";
 
   return (

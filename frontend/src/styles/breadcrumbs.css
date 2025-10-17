@@ -84,8 +84,8 @@
 }
 
 .breadcrumb-link:hover {
-    color: var(--breadcrumb-link-hover, #3b82f6);
-    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--breadcrumb-link-hover, #5b7c99);
+    background-color: rgba(91, 124, 153, 0.1);
     text-decoration: none;
     transform: translateY(-1px);
 }
@@ -122,10 +122,10 @@
 
 /* Light theme breadcrumb active state */
 .theme-light .breadcrumb-item.active .breadcrumb-current {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    background: linear-gradient(135deg, #5b7c99 0%, #4a6b85 100%);
     color: white;
     border-radius: 0.375rem;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 2px 4px rgba(91, 124, 153, 0.3);
 }
 
 /* Dark theme breadcrumb active state */

@@ -2847,7 +2847,9 @@ const TanStackCRUDTable = forwardRef(({
                   const isNameColumn = header.id === 'name' || columnConfig?.data === 'name';
 
                   // Define solid background colors for column groups (no transparency)
-                  let headerBg = 'var(--table-header-bg)';
+                  // Default header: light theme uses soft slate-blue, dark theme uses gradient
+                  let headerBg = theme === 'dark' ? 'var(--table-header-bg)' : '#e8eef5';
+
                   if (columnGroup === 'target') {
                     // Blue tint - solid color
                     headerBg = theme === 'dark' ? '#232f3e' : '#e1effe';
@@ -2865,7 +2867,7 @@ const TanStackCRUDTable = forwardRef(({
                       style={{
                         padding: '14px 12px',
                         textAlign: 'left',
-                        borderBottom: '2px solid var(--table-border)',
+                        borderBottom: '2px solid var(--table-bottom-border)',
                         borderRight: '1px solid var(--table-border)',
                         backgroundColor: headerBg,
                         height: '50px', // Consistent header height

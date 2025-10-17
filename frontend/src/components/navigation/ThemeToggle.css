@@ -74,32 +74,32 @@
 
 /* ========== THEME-SPECIFIC STYLES ========== */
 
-/* Light Theme */
+/* Light Theme - Now with dark navbar */
 .navbar.theme-light .theme-toggle-track {
-  background: rgba(0, 0, 0, 0.1);
-  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .navbar.theme-light .theme-toggle-btn:hover .theme-toggle-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .navbar.theme-light .theme-toggle-thumb {
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .navbar.theme-light .theme-icon {
-  color: #475569;
+  color: #7c9fb8;
 }
 
 .navbar.theme-light .theme-toggle-btn:hover {
-  background: rgba(0, 0, 0, 0.03) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .navbar.theme-light .theme-toggle-btn:focus {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
 }
 
 /* Dark Theme */
