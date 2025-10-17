@@ -51,14 +51,14 @@ const StorageHostsPage = () => {
   }
 
   return (
-    <div className="main-content table-page" style={{ paddingBottom: "50px" }}>
+    <>
       {/* Use the centralized HostTableTanStackClean component with storage filter */}
       {/* Hide the Storage System column since we're already filtering by storage */}
       <HostTableTanStackClean
         storageId={parseInt(id)}
         hideColumns={['storage_system']}
       />
-    </div>
+    </>
   );
 };
 
