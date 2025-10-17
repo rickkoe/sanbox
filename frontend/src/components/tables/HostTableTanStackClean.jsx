@@ -6,7 +6,10 @@ import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
 
 // Clean TanStack Table implementation for Host management
-const HostTableTanStackClean = ({ storage }) => {
+// Props:
+// - storageId (optional): Filter hosts to only show those from a specific storage system
+// - hideColumns (optional): Array of column names to hide (e.g., ['storage_system'])
+const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
     const { user, getUserRole } = useAuth();
@@ -37,8 +40,8 @@ const HostTableTanStackClean = ({ storage }) => {
         storage: `${API_URL}/api/storage/`
     };
 
-    // Host columns
-    const columns = [
+    // All available host columns
+    const allColumns = [
         { data: "name", title: "Host Name", required: true },
         { data: "storage_system", title: "Storage System", type: "dropdown" },
         { data: "wwpns", title: "WWPNs" },
@@ -58,28 +61,42 @@ const HostTableTanStackClean = ({ storage }) => {
         { data: "updated", title: "Updated", readOnly: true }
     ];
 
+    // Filter columns based on hideColumns prop
+    const columns = allColumns.filter(col => !hideColumns.includes(col.data));
+
     const colHeaders = columns.map(col => col.title);
 
-    const NEW_HOST_TEMPLATE = {
-        id: null,
-        name: "",
-        storage_system: "",
-        wwpns: "",
-        wwpn_status: "",
-        status: "",
-        host_type: "",
-        aliases_count: 0,
-        vols_count: 0,
-        fc_ports_count: 0,
-        associated_resource: "",
-        volume_group: "",
-        acknowledged: "",
-        last_data_collection: null,
-        natural_key: "",
-        create: false,
-        imported: null,
-        updated: null
-    };
+    // Dynamic template - pre-populate storage system if storageId is provided
+    const NEW_HOST_TEMPLATE = useMemo(() => {
+        let storageSystemName = "";
+        if (storageId) {
+            const storageSystem = storageOptions.find(s => s.id === storageId);
+            if (storageSystem) {
+                storageSystemName = storageSystem.name;
+            }
+        }
+
+        return {
+            id: null,
+            name: "",
+            storage_system: storageSystemName,
+            wwpns: "",
+            wwpn_status: "",
+            status: "",
+            host_type: "",
+            aliases_count: 0,
+            vols_count: 0,
+            fc_ports_count: 0,
+            associated_resource: "",
+            volume_group: "",
+            acknowledged: "",
+            last_data_collection: null,
+            natural_key: "",
+            create: false,
+            imported: null,
+            updated: null
+        };
+    }, [storageId, storageOptions]);
 
     // Load storage systems for dropdown
     useEffect(() => {
@@ -133,11 +150,21 @@ const HostTableTanStackClean = ({ storage }) => {
 
     // Process data for display
     const preprocessData = useCallback((data) => {
-        return data.map(host => ({
+        let processedData = data.map(host => ({
             ...host,
             saved: !!host.id
         }));
-    }, []);
+
+        // Filter by storage system if storageId is provided
+        if (storageId) {
+            const storageSystem = storageOptions.find(s => s.id === storageId);
+            if (storageSystem) {
+                processedData = processedData.filter(host => host.storage_system === storageSystem.name);
+            }
+        }
+
+        return processedData;
+    }, [storageId, storageOptions]);
 
     // Custom save handler for bulk host operations
     const handleHostSave = async (allTableData, hasChanges, deletedRows = []) => {

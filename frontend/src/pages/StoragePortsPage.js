@@ -52,12 +52,7 @@ const StoragePortsPage = () => {
     }
 
     return (
-        <div className="container-fluid mt-4">
-            <h2 className="mb-3">Ports - {storageSystem.name}</h2>
-            <p className="text-muted mb-4">
-                Manage ports for {storageSystem.name} ({storageSystem.storage_type})
-            </p>
-
+        <div className="main-content table-page" style={{ paddingBottom: "50px" }}>
             {/* Use the centralized PortTableTanStackClean component with storage filter */}
             {/* Hide the Storage System column since we're already filtering by storage */}
             <PortTableTanStackClean
