@@ -67,6 +67,7 @@ const TanStackCRUDTable = forwardRef(({
   onDelete,
   onDataChange,
   customSaveHandler,
+  afterChange, // Handsontable-like callback for cell changes
 
   // Custom Actions
   customAddActions,
@@ -653,8 +654,15 @@ const TanStackCRUDTable = forwardRef(({
 
   // Update cell data function - supports both flat and nested properties
   const updateCellData = useCallback((rowIndex, columnKey, newValue) => {
+    let oldValue;
+
     setEditableData(currentData => {
       const newData = [...currentData];
+
+      // Get old value for the callback
+      oldValue = columnKey.includes('.')
+        ? getNestedValue(newData[rowIndex], columnKey)
+        : newData[rowIndex][columnKey];
 
       // Check if this is a nested property (contains a dot)
       if (columnKey.includes('.')) {
@@ -672,8 +680,32 @@ const TanStackCRUDTable = forwardRef(({
 
       return newData;
     });
+
+    // Call afterChange callback if provided (after state update)
+    if (afterChange && typeof afterChange === 'function') {
+      // Use setTimeout to ensure state is updated first and to allow
+      // the callback to trigger additional state updates
+      setTimeout(() => {
+        // Create a mock Handsontable instance with setDataAtRowProp
+        const hotInstance = {
+          setDataAtRowProp: (row, prop, value) => {
+            setEditableData(currentData => {
+              const newData = [...currentData];
+              if (newData[row]) {
+                newData[row][prop] = value;
+                console.log(`📝 afterChange callback updated ${prop} for row ${row} to: "${value}"`);
+              }
+              return newData;
+            });
+          }
+        };
+
+        afterChange([[rowIndex, columnKey, oldValue, newValue]], 'edit', hotInstance);
+      }, 0);
+    }
+
     setHasChanges(true);
-  }, [setNestedValue]);
+  }, [setNestedValue, getNestedValue, afterChange]);
 
   // Navigation functions for floating panel
   const scrollToTop = useCallback(() => {
@@ -861,10 +893,14 @@ const TanStackCRUDTable = forwardRef(({
         let rowData = { ...existingRow };
 
         // Apply transform if provided
+        console.log('🔍 saveTransform exists?', !!saveTransform, 'type:', typeof saveTransform);
         if (saveTransform) {
+          console.log('🔧 Calling saveTransform for row:', rowData.id);
           const transformed = saveTransform([rowData]);
+          console.log('🔧 Transform result:', transformed);
           if (transformed.length > 0) {
             rowData = transformed[0];
+            console.log('🔧 Using transformed row:', rowData);
           }
         }
 
@@ -1779,6 +1815,43 @@ const TanStackCRUDTable = forwardRef(({
       // Update invalid cells state
       setInvalidCells(newInvalidCells);
 
+      // Call afterChange callback if provided (after paste completes)
+      if (afterChange && typeof afterChange === 'function') {
+        setTimeout(() => {
+          // Collect all changes made by the paste
+          const changes = [];
+          for (let targetRowIndex = targetStartRow; targetRowIndex <= targetEndRow && targetRowIndex < editableData.length; targetRowIndex++) {
+            for (let targetColIndex = targetStartCol; targetColIndex <= targetEndCol && targetColIndex < columnDefs.length; targetColIndex++) {
+              const rowOffset = (targetRowIndex - targetStartRow) % pasteRowCount;
+              const colOffset = (targetColIndex - targetStartCol) % pasteColCount;
+              const rowData = pasteData[rowOffset];
+              const cellValue = rowData?.[colOffset] || '';
+              const columnKey = columnDefs[targetColIndex]?.accessorKey;
+
+              if (columnKey) {
+                changes.push([targetRowIndex, columnKey, null, cellValue]);
+              }
+            }
+          }
+
+          // Create a mock Handsontable instance
+          const hotInstance = {
+            setDataAtRowProp: (row, prop, value) => {
+              setEditableData(currentData => {
+                const newData = [...currentData];
+                if (newData[row]) {
+                  newData[row][prop] = value;
+                  console.log(`📝 afterChange callback updated ${prop} for row ${row} to: "${value}"`);
+                }
+                return newData;
+              });
+            }
+          };
+
+          afterChange(changes, 'paste', hotInstance);
+        }, 0);
+      }
+
       // Update selection to show the pasted area
       const pastedCells = new Set();
       for (let r = targetStartRow; r <= targetEndRow; r++) {
@@ -1826,7 +1899,7 @@ const TanStackCRUDTable = forwardRef(({
 
       setTimeout(() => setFillPreview(null), 3000);
     }
-  }, [currentCell, editableData, newRowTemplate, columnDefs]);
+  }, [currentCell, editableData, newRowTemplate, columnDefs, afterChange, dropdownSources, setNestedValue]);
 
   // Clear cell contents (set to empty string)
   const clearCellContents = useCallback(() => {

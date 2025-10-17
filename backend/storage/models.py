@@ -292,8 +292,9 @@ class Port(models.Model):
 
     storage = models.ForeignKey(Storage, related_name='ports', on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
+    wwpn = models.CharField(max_length=23, unique=True, blank=True, null=True, help_text="World Wide Port Name (with or without colons)")
     type = models.CharField(max_length=10, choices=PORT_TYPE_CHOICES)
-    speed_gbps = models.IntegerField(help_text="Port speed in Gbps")
+    speed_gbps = models.IntegerField(blank=True, null=True, help_text="Port speed in Gbps (optional)")
     location = models.CharField(max_length=200, blank=True, null=True)
     frame = models.IntegerField(blank=True, null=True)
     io_enclosure = models.IntegerField(blank=True, null=True)
@@ -319,11 +320,10 @@ class Port(models.Model):
     updated = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ['storage', 'name']
         ordering = ['storage', 'name']
 
     def __str__(self):
-        return f'{self.storage.name}: {self.name}'
+        return f'{self.storage.name}: {self.name} ({self.wwpn})'
 
 
 class Volume(models.Model):

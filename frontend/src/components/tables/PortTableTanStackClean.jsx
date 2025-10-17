@@ -6,13 +6,16 @@ import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
 
 // Clean TanStack Table implementation for Port management
-const PortTableTanStackClean = () => {
+// Props:
+// - storageId (optional): Filter ports to only show those from a specific storage system
+// - hideColumns (optional): Array of column names to hide (e.g., ['storage'])
+const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
     const { getUserRole } = useAuth();
 
     const activeCustomerId = config?.customer?.id;
-    const activeProjectId = config?.project?.id;
+    const activeProjectId = config?.active_project?.id;
 
     // Check if user can edit infrastructure (members and admins only)
     const userRole = getUserRole(activeCustomerId);
@@ -89,28 +92,42 @@ const PortTableTanStackClean = () => {
         fetchStorageSystems();
     }, [activeCustomerId, API_ENDPOINTS.storage]);
 
-    // Fetch all aliases (will be filtered dynamically per row)
+    // Fetch all aliases for the active project
+    // Aliases are project-specific, so we fetch them by project ID
     useEffect(() => {
         const fetchAliases = async () => {
-            if (!activeCustomerId) return;
+            if (!activeProjectId) return;
             try {
-                // Fetch aliases for customer, will filter by project in the dropdown provider
-                const params = activeProjectId
-                    ? `?customer=${activeCustomerId}&project=${activeProjectId}&page_size=All`
-                    : `?customer=${activeCustomerId}&page_size=All`;
-                const response = await axios.get(`${API_ENDPOINTS.aliases}${params}`);
-                const aliases = response.data.results || [];
+                // Use the project-specific alias endpoint
+                const response = await axios.get(`${API_URL}/api/san/aliases/project/${activeProjectId}/`);
+                // API returns { results: [...] } format
+                const aliases = response.data.results || response.data || [];
+                console.log(`Fetched ${aliases.length} aliases for project ${activeProjectId}`);
                 setAliasOptions(aliases);
             } catch (error) {
                 console.error("Failed to fetch aliases:", error);
+                setAliasOptions([]);
             }
         };
         fetchAliases();
-    }, [activeCustomerId, activeProjectId, API_ENDPOINTS.aliases]);
+    }, [activeProjectId, API_URL]);
 
-    // Core port columns
-    const columns = [
-        { data: "id", title: "ID", readOnly: true, width: 80 },
+    // WWPN formatting utilities (same as AliasTable)
+    const formatWWPN = useCallback((value) => {
+        if (!value) return "";
+        const cleanValue = value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+        if (cleanValue.length !== 16) return value;
+        return cleanValue.match(/.{2}/g).join(':');
+    }, []);
+
+    const isValidWWPNFormat = useCallback((value) => {
+        if (!value) return true;
+        const cleanValue = value.replace(/[^0-9a-fA-F]/g, '');
+        return cleanValue.length <= 16 && /^[0-9a-fA-F]*$/.test(cleanValue);
+    }, []);
+
+    // Core port columns - all available columns
+    const allColumns = [
         { data: "name", title: "Name", required: true, width: 150 },
         {
             data: "storage",
@@ -119,6 +136,7 @@ const PortTableTanStackClean = () => {
             required: true,
             width: 200
         },
+        { data: "wwpn", title: "WWPN", width: 180 },
         {
             data: "type",
             title: "Type",
@@ -130,7 +148,6 @@ const PortTableTanStackClean = () => {
             data: "speed_gbps",
             title: "Speed (Gbps)",
             type: "dropdown",
-            required: true,
             width: 120
         },
         {
@@ -151,23 +168,27 @@ const PortTableTanStackClean = () => {
         {
             data: "fabric",
             title: "Fabric",
-            type: "dropdown",
+            readOnly: true,
             width: 150
         },
         {
             data: "alias",
             title: "Alias",
-            type: "dropdown",
+            readOnly: true,
             width: 150
         },
     ];
+
+    // Filter columns based on hideColumns prop
+    const columns = allColumns.filter(col => !hideColumns.includes(col.data));
 
     const colHeaders = columns.map(col => col.title);
 
     const NEW_PORT_TEMPLATE = {
         id: null,
         name: "",
-        storage: null,
+        storage: storageId || null, // Pre-populate storage if filtering by storage system
+        wwpn: "",
         type: "Fibre Channel", // Display value, will be converted to 'fc' on save
         type_value: "fc", // Internal value
         speed_gbps: null,
@@ -177,27 +198,26 @@ const PortTableTanStackClean = () => {
         frame: null,
         io_enclosure: null,
         fabric: null,
-        alias: null,
-        project: activeProjectId
+        alias: null
+        // Note: Port belongs to storage system (customer-level), not project
+        // Alias lookup happens via active project based on WWPN matching
     };
 
-    // Dropdown sources with all options (TanStackCRUDTable doesn't support fully dynamic dropdowns yet)
+    // Dropdown sources with all options (fabric and alias are read-only, auto-populated from WWPN)
     const dropdownSources = useMemo(() => {
         const sources = {
             type: ["Fibre Channel", "Ethernet"],
             use: ["Host", "Replication"],
             storage: storageOptions.map(opt => opt.label),
-            fabric: fabricOptions.map(opt => opt.label),
             // Include all possible speed options (FC + Ethernet)
             speed_gbps: ["1", "8", "10", "16", "25", "32", "64", "100"],
             // Include all possible protocol options
-            protocol: ["FICON", "SCSI FCP", "NVMe FCP", "TCP/IP", "iSCSI", "RDMA"],
-            // Aliases will be all available aliases
-            alias: aliasOptions.map(a => a.name)
+            protocol: ["FICON", "SCSI FCP", "NVMe FCP", "TCP/IP", "iSCSI", "RDMA"]
+            // fabric and alias are NOT in dropdowns - they're read-only and auto-populated
         };
 
         return sources;
-    }, [storageOptions, fabricOptions, aliasOptions]);
+    }, [storageOptions]);
 
     // Dynamic dropdown provider for speed, protocol, and aliases
     const dynamicDropdownProvider = useCallback((row, col, data) => {
@@ -263,8 +283,14 @@ const PortTableTanStackClean = () => {
     const customRenderers = useMemo(() => ({
         name: (rowData, td, row, col, prop, value) => {
             return value || "";
+        },
+        wwpn: (rowData, td, row, col, prop, value) => {
+            if (value && isValidWWPNFormat(value)) {
+                return formatWWPN(value);
+            }
+            return value || "";
         }
-    }), []);
+    }), [formatWWPN, isValidWWPNFormat]);
 
     // Process data for display - convert IDs to labels
     const preprocessData = useCallback((data) => {
@@ -281,13 +307,39 @@ const PortTableTanStackClean = () => {
             const storageObj = storageOptions.find(s => s.value === port.storage);
             const storageDisplay = storageObj ? storageObj.label : '';
 
-            // Get fabric name
+            // Get fabric name (from alias lookup if available)
             const fabricObj = fabricOptions.find(f => f.value === port.fabric);
             const fabricDisplay = fabricObj ? fabricObj.label : '';
 
-            // Get alias name
+            // Get alias name (from WWPN lookup if available)
             const aliasObj = aliasOptions.find(a => a.id === port.alias);
             const aliasDisplay = aliasObj ? aliasObj.name : '';
+
+            // Also check if we can auto-populate from WWPN
+            let autoAlias = aliasDisplay;
+            let autoFabric = fabricDisplay;
+
+            if (port.wwpn) {
+                const matchingAlias = aliasOptions.find(a => {
+                    const aliasWWPN = formatWWPN(a.wwpn || '');
+                    const portWWPN = formatWWPN(port.wwpn);
+                    return aliasWWPN === portWWPN;
+                });
+
+                if (matchingAlias) {
+                    autoAlias = matchingAlias.name;
+
+                    // Get fabric from alias - use fabric_details if available, otherwise lookup by ID
+                    if (matchingAlias.fabric_details && matchingAlias.fabric_details.name) {
+                        autoFabric = matchingAlias.fabric_details.name;
+                    } else if (matchingAlias.fabric) {
+                        const matchingFabric = fabricOptions.find(f => f.value === matchingAlias.fabric);
+                        if (matchingFabric) {
+                            autoFabric = matchingFabric.label;
+                        }
+                    }
+                }
+            }
 
             return {
                 ...port,
@@ -299,13 +351,13 @@ const PortTableTanStackClean = () => {
                 use_value: port.use, // Keep original value
                 use: useDisplay, // Display value
                 fabric_id: port.fabric, // Keep original fabric ID
-                fabric: fabricDisplay, // Display name
+                fabric: autoFabric, // Display name (auto-populated from WWPN)
                 alias_id: port.alias, // Keep original alias ID
-                alias: aliasDisplay, // Display name
+                alias: autoAlias, // Display name (auto-populated from WWPN)
                 saved: !!port.id
             };
         });
-    }, [storageOptions, fabricOptions, aliasOptions]);
+    }, [storageOptions, fabricOptions, aliasOptions, formatWWPN]);
 
     // Transform data for saving - convert labels back to IDs/values
     const saveTransform = useCallback((rows) => {
@@ -319,6 +371,27 @@ const PortTableTanStackClean = () => {
             delete payload.fabric_details;
             delete payload.alias_details;
             delete payload.project_details;
+
+            // Format WWPN before saving
+            if (payload.wwpn) {
+                payload.wwpn = formatWWPN(payload.wwpn);
+
+                // Look up alias by WWPN and auto-populate alias and fabric
+                const matchingAlias = aliasOptions.find(a => {
+                    const aliasWWPN = formatWWPN(a.wwpn || '');
+                    const portWWPN = formatWWPN(payload.wwpn);
+                    return aliasWWPN === portWWPN;
+                });
+
+                if (matchingAlias) {
+                    // Auto-populate alias
+                    payload.alias = matchingAlias.id;
+                    // Auto-populate fabric from the alias
+                    if (matchingAlias.fabric) {
+                        payload.fabric = matchingAlias.fabric;
+                    }
+                }
+            }
 
             // Convert type display back to value
             if (payload.type === 'Fibre Channel') payload.type = 'fc';
@@ -338,23 +411,27 @@ const PortTableTanStackClean = () => {
             }
 
             // Use fabric_id if available, otherwise convert label to ID
-            if (payload.fabric_id) {
+            // (Only if not already set by WWPN lookup)
+            if (!payload.fabric && payload.fabric_id) {
                 payload.fabric = payload.fabric_id;
                 delete payload.fabric_id;
-            } else if (payload.fabric && typeof payload.fabric === 'string') {
+            } else if (!payload.fabric && payload.fabric && typeof payload.fabric === 'string') {
                 const fabric = fabricOptions.find(f => f.label === payload.fabric);
                 payload.fabric = fabric ? fabric.value : null;
             }
+            delete payload.fabric_id; // Clean up
 
             // Use alias_id if available, otherwise convert label to ID
-            if (payload.alias_id) {
+            // (Only if not already set by WWPN lookup)
+            if (!payload.alias && payload.alias_id) {
                 payload.alias = payload.alias_id;
                 delete payload.alias_id;
-            } else if (payload.alias && typeof payload.alias === 'string') {
+            } else if (!payload.alias && typeof payload.alias === 'string') {
                 const aliasName = payload.alias.replace(' (used)', '');
                 const alias = aliasOptions.find(a => a.name === aliasName);
                 payload.alias = alias ? alias.id : null;
             }
+            delete payload.alias_id; // Clean up
 
             // Convert speed to integer
             if (payload.speed_gbps && typeof payload.speed_gbps === 'string') {
@@ -370,13 +447,9 @@ const PortTableTanStackClean = () => {
                 payload.type = "fc";
             }
 
-            // Add the project ID if available (it's optional)
-            if (activeProjectId) {
-                payload.project = activeProjectId;
-            } else {
-                // Project is optional, so we can leave it as null
-                payload.project = null;
-            }
+            // Note: Ports belong to storage systems (customer-level), not projects
+            // Remove project field if it exists (legacy)
+            delete payload.project;
 
             // Convert empty strings to null for optional fields
             Object.keys(payload).forEach(key => {
@@ -387,7 +460,7 @@ const PortTableTanStackClean = () => {
 
             return payload;
         });
-    }, [storageOptions, fabricOptions, aliasOptions, activeProjectId]);
+    }, [storageOptions, fabricOptions, aliasOptions, activeProjectId, formatWWPN]);
 
     // Show empty config message if no active customer
     if (!config || !activeCustomerId) {
@@ -403,7 +476,13 @@ const PortTableTanStackClean = () => {
             )}
             <TanStackCRUDTable
                 // API Configuration
-                apiUrl={activeProjectId ? `${API_ENDPOINTS.ports}?project=${activeProjectId}` : `${API_ENDPOINTS.ports}?customer=${activeCustomerId}`}
+                // Ports belong to storage systems (customer-level), so we filter by customer
+                // Optionally filter by specific storage system if storageId prop is provided
+                // Alias lookup happens client-side using the active project
+                apiUrl={storageId
+                    ? `${API_ENDPOINTS.ports}?customer=${activeCustomerId}&storage_id=${storageId}`
+                    : `${API_ENDPOINTS.ports}?customer=${activeCustomerId}`
+                }
                 saveUrl={API_ENDPOINTS.ports}
                 deleteUrl={API_ENDPOINTS.ports}
                 customerId={activeCustomerId}

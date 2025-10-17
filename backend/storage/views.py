@@ -1089,7 +1089,7 @@ def port_list(request):
         try:
             data = json.loads(request.body)
             storage_id = data.get("storage")
-            name = data.get("name")
+            wwpn = data.get("wwpn")
 
             # Check if user can modify infrastructure
             if user:
@@ -1104,10 +1104,14 @@ def port_list(request):
                 except Storage.DoesNotExist:
                     return JsonResponse({"error": "Storage system not found"}, status=404)
 
-            try:
-                port = Port.objects.get(storage_id=storage_id, name=name)
-                serializer = PortSerializer(port, data=data)
-            except Port.DoesNotExist:
+            # Look up by WWPN if provided, otherwise create new
+            if wwpn:
+                try:
+                    port = Port.objects.get(wwpn=wwpn)
+                    serializer = PortSerializer(port, data=data)
+                except Port.DoesNotExist:
+                    serializer = PortSerializer(data=data)
+            else:
                 serializer = PortSerializer(data=data)
 
             if serializer.is_valid():
