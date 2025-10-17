@@ -133,6 +133,7 @@ const TanStackCRUDTable = forwardRef(({
   }, [pageSize]);
   const [tableConfig, setTableConfig] = useState(null);
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [filtersInitialized, setFiltersInitialized] = useState(false);
   const [resizeState, setResizeState] = useState({ isResizing: false, startX: 0, currentX: 0, columnId: null });
 
   // Floating navigation panel state
@@ -245,6 +246,12 @@ const TanStackCRUDTable = forwardRef(({
         if (response.data.page_size) {
           console.log('📊 Loading saved page size:', response.data.page_size);
           setPageSize(response.data.page_size);
+        }
+
+        // Load filters from config
+        if (response.data.filters && Object.keys(response.data.filters).length > 0) {
+          console.log('📊 Loading saved filters:', response.data.filters);
+          setActiveFilters(response.data.filters);
         }
 
         // Load current_page from additional_settings
@@ -477,6 +484,46 @@ const TanStackCRUDTable = forwardRef(({
 
     return () => clearTimeout(debounceTimer);
   }, [currentPage, pageSize, saveTableConfig, tableName, customerId, tableConfig]);
+
+  // Sync activeFilters to columnFilters when filters are loaded from config
+  useEffect(() => {
+    if (configLoaded && !filtersInitialized && activeFilters && Object.keys(activeFilters).length > 0) {
+      // Convert activeFilters to columnFilters format for TanStack Table
+      const newColumnFilters = Object.keys(activeFilters)
+        .filter(columnId => activeFilters[columnId].active)
+        .map(columnId => ({
+          id: columnId,
+          value: activeFilters[columnId]
+        }));
+
+      if (newColumnFilters.length > 0) {
+        console.log('📊 Applying loaded filters to table:', newColumnFilters);
+        setColumnFilters(newColumnFilters);
+        setFiltersInitialized(true);
+      }
+    }
+  }, [configLoaded, filtersInitialized, activeFilters]);
+
+  // Save filters when they change (but not on initial load)
+  useEffect(() => {
+    // Only save if filters have been initialized (prevents saving on initial load)
+    if (!filtersInitialized && Object.keys(activeFilters).length === 0) {
+      // No filters loaded and none set, mark as initialized
+      setFiltersInitialized(true);
+      return;
+    }
+
+    const debounceTimer = setTimeout(() => {
+      if (tableName && customerId && user && configLoaded && filtersInitialized) {
+        console.log('💾 Saving filters:', activeFilters);
+        saveTableConfig({
+          filters: activeFilters
+        });
+      }
+    }, 500); // Debounce to avoid excessive saves
+
+    return () => clearTimeout(debounceTimer);
+  }, [activeFilters, saveTableConfig, tableName, customerId, user, configLoaded, filtersInitialized]);
 
   // Current table data (server-side pagination means we show what we loaded)
   const currentTableData = useMemo(() => {
