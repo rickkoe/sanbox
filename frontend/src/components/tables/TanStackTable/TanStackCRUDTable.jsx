@@ -1420,11 +1420,36 @@ const TanStackCRUDTable = forwardRef(({
       setCurrentCell({ row: rowIndex, col: colIndex });
     }
 
-    // Show context menu at mouse position
+    // Calculate context menu position to prevent overflow
+    // Estimate menu dimensions (height based on number of items, width is fixed)
+    const menuWidth = 150;
+    const menuHeight = 280; // Approximate height with all menu items
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Calculate position, adjusting if menu would overflow viewport
+    let menuX = event.clientX;
+    let menuY = event.clientY;
+
+    // Adjust horizontal position if menu would overflow right edge
+    if (menuX + menuWidth > viewportWidth) {
+      menuX = viewportWidth - menuWidth - 10; // 10px padding from edge
+    }
+
+    // Adjust vertical position if menu would overflow bottom edge
+    if (menuY + menuHeight > viewportHeight) {
+      menuY = viewportHeight - menuHeight - 10; // 10px padding from edge
+    }
+
+    // Ensure menu doesn't go off top or left edges
+    menuX = Math.max(10, menuX);
+    menuY = Math.max(10, menuY);
+
+    // Show context menu at calculated position
     setContextMenu({
       visible: true,
-      x: event.clientX,
-      y: event.clientY,
+      x: menuX,
+      y: menuY,
       cellKey: cellKey
     });
   }, [selectedCells]);
