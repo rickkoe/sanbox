@@ -22,4 +22,9 @@ urlpatterns = [
     # Selective import endpoints
     path('fetch-systems/', views.fetch_storage_systems, name='fetch_storage_systems'),
     path('start-selective/', views.start_selective_import, name='start_selective_import'),
+
+    # Universal Importer endpoints
+    path('parse-preview/', views.parse_preview, name='parse_preview'),
+    path('import-san-config/', views.import_san_config, name='import_san_config'),
+    path('import-progress/<int:import_id>/', views.import_progress, name='import_progress'),
 ]

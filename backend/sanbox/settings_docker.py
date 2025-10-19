@@ -15,6 +15,10 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 # Allowed hosts from environment
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
+# File upload settings - Allow large tech-support files (up to 100MB)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
+FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
+
 # Database - Use PostgreSQL in containers
 DATABASES = {
     'default': {

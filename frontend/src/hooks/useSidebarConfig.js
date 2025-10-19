@@ -112,11 +112,12 @@ const getSidebarLinks = (pathname) => {
           { path: "/scripts/storage", label: "Storage Scripts", icon: Terminal },
         ]
       },
-      { 
-        label: "Data Import", 
-        icon: Upload, 
+      {
+        label: "Data Import",
+        icon: Upload,
         expandable: true,
         subLinks: [
+          { path: "/import/universal", label: "Universal Importer", icon: Upload },
           { path: "/import/ibm-storage-insights", label: "IBM Storage Insights", icon: Database },
           { path: "/import/zoning", label: "SAN Zoning Import", icon: Network },
         ]

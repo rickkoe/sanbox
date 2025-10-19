@@ -469,15 +469,15 @@ def start_selective_import(request):
         customer_id = data.get('customer_id')
         selected_systems = data.get('selected_systems', [])
         import_options = data.get('import_options', {})
-        
+
         if not customer_id:
             return JsonResponse({'error': 'customer_id required'}, status=400)
-        
+
         if not selected_systems:
             return JsonResponse({'error': 'selected_systems required'}, status=400)
-        
+
         customer = get_object_or_404(Customer, id=customer_id)
-        
+
         # Create import record with selective options stored for future use
         import_record = StorageImport.objects.create(
             customer=customer,
@@ -489,18 +489,18 @@ def start_selective_import(request):
                 'note': 'Selective import - currently imports all data but options stored for future implementation'
             }
         )
-        
+
         # For now, use the existing import task
         # TODO: Create a new selective import task that respects the selective options
         from .tasks import run_simple_import_task
-        
+
         task = run_simple_import_task.delay(import_record.id)
-        
+
         # Update import record with task ID
         import_record.celery_task_id = task.id
         import_record.status = 'running'
         import_record.save()
-        
+
         return JsonResponse({
             'message': 'Selective import started successfully',
             'import_id': import_record.id,
@@ -508,6 +508,138 @@ def start_selective_import(request):
             'selected_systems_count': len(selected_systems),
             'import_options': import_options
         }, status=201)
-        
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ===== Universal Importer Endpoints =====
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def parse_preview(request):
+    """Parse and preview SAN configuration data without committing to database"""
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        config_data = data.get('data')
+        check_conflicts = data.get('check_conflicts', False)
+
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+
+        if not config_data:
+            return JsonResponse({'error': 'data required'}, status=400)
+
+        customer = get_object_or_404(Customer, id=customer_id)
+
+        # Use orchestrator to preview
+        from .import_orchestrator import ImportOrchestrator
+        orchestrator = ImportOrchestrator(customer)
+
+        preview = orchestrator.preview_import(config_data, check_conflicts=check_conflicts)
+
+        return JsonResponse(preview)
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def import_san_config(request):
+    """Import SAN configuration (Cisco/Brocade) into database"""
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('customer_id')
+        config_data = data.get('data')
+        fabric_id = data.get('fabric_id')  # ID of existing fabric to use
+        fabric_name = data.get('fabric_name')  # Name for new fabric
+        create_new_fabric = data.get('create_new_fabric', False)
+        project_id = data.get('project_id')  # Optional project assignment
+
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+
+        if not config_data:
+            return JsonResponse({'error': 'data required'}, status=400)
+
+        customer = get_object_or_404(Customer, id=customer_id)
+
+        # Create import record to track this
+        import_record = StorageImport.objects.create(
+            customer=customer,
+            status='pending'
+        )
+
+        # Start background task for import
+        from .tasks import run_san_import_task
+        task = run_san_import_task.delay(
+            import_record.id,
+            config_data,
+            fabric_id,
+            fabric_name,
+            create_new_fabric,
+            project_id
+        )
+
+        # Update import record
+        import_record.celery_task_id = task.id
+        import_record.status = 'running'
+        import_record.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'SAN import started',
+            'import_id': import_record.id,
+            'task_id': task.id
+        }, status=201)
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['GET'])
+def import_progress(request, import_id):
+    """Get detailed progress of an import job"""
+    try:
+        import_record = get_object_or_404(StorageImport, id=import_id)
+
+        progress_data = {
+            'import_id': import_record.id,
+            'status': import_record.status,
+            'started_at': import_record.started_at.isoformat() if import_record.started_at else None,
+            'completed_at': import_record.completed_at.isoformat() if import_record.completed_at else None,
+            'duration': str(import_record.duration) if import_record.duration else None,
+            'error_message': import_record.error_message,
+        }
+
+        # If task is running, get Celery task progress
+        if import_record.status == 'running' and import_record.celery_task_id:
+            from celery.result import AsyncResult
+            result = AsyncResult(import_record.celery_task_id)
+
+            if result.state == 'PROGRESS':
+                progress_data['progress'] = {
+                    'current': result.info.get('current', 0),
+                    'total': result.info.get('total', 100),
+                    'message': result.info.get('status', 'Processing...')
+                }
+            elif result.state == 'PENDING':
+                progress_data['progress'] = {
+                    'current': 0,
+                    'total': 100,
+                    'message': 'Waiting to start...'
+                }
+
+        return JsonResponse(progress_data)
+
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

@@ -1,3 +1,4 @@
 Fabric Name,Fabric Principal Switch,Total Switches,Total Ports,Unlicensed Ports,Unused Ports,ISL Ports,IFL Ports,Trunk Masters,Trunk Slaves,Total Devices,Hosts,Disks,Tapes,Appliances,Gateways,Device Ports,Active Zone Config,Zone Aliases,Average Members per Alias,Max Members per Alias,Hanging Aliases,Zones,Average Members per Zone,Max Members per Zone,Hanging Zones,Number of Zone Configs,Average Members per Config,Max Members per Config,Hanging Configs,Max Zone DB Size,Zone DB Used,Zone DB Proportion Used
-eng-p-sanswa,10:00:88:94:71:57:ed:28,1,64,16,13,0,0,0,0,68,13,39,0,0,16,35,swa,46,1.74,12,25,36,3.22,6,31,1,36,36,20,16777216,6849,0% of  16777216B
+Fabric A,10:00:00:05:33:9e:b5:67,3,152,65,25,12,0,2,0,99,62,27,3,0,7,50,fabA_config_051125,177,1.31,2,159,26,8.96,64,72,6,18,22,69,16777216,19569,1.9% of  1045274B
+Fabric B,10:00:38:ba:b0:7d:78:60,3,152,61,25,10,0,2,0,102,64,27,5,0,6,56,fabB_config_051125,177,1.31,2,161,20,10.25,65,63,10,13.7,18,69,16777216,19915,1.9% of  1045274B
 

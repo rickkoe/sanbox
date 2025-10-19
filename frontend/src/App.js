@@ -72,6 +72,7 @@ const CustomNamingPage = React.lazy(() => import("./pages/CustomNamingPage"));
 const TeamManagement = React.lazy(() => import("./pages/TeamManagement"));
 const UserProfile = React.lazy(() => import("./pages/UserProfile"));
 const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
+const UniversalImporter = React.lazy(() => import("./pages/UniversalImporter"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -217,6 +218,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/scripts/flashsystem" element={<FlashsystemscriptsPage />} />
                     <Route path="/test" element={<TestFilters />} />
                     <Route path="/import" element={<div style={{padding: '2rem'}}><h2>Import Data</h2><p>Choose an import type from the Import dropdown in the navbar.</p></div>} />
+                    <Route path="/import/universal" element={<UniversalImporter />} />
                     <Route path="/import/zoning" element={<BulkZoningImportPage />} />
                   <Route
                     path="/import/ibm-storage-insights"

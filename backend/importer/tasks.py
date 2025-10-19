@@ -143,13 +143,107 @@ def cleanup_old_imports():
     Periodic task to clean up old import records
     """
     from datetime import timedelta
-    
+
     # Delete import records older than 30 days
     cutoff_date = timezone.now() - timedelta(days=30)
     old_imports = StorageImport.objects.filter(started_at__lt=cutoff_date)
-    
+
     deleted_count = old_imports.count()
     old_imports.delete()
-    
+
     logger.info(f"Cleaned up {deleted_count} old import records")
     return {'deleted_imports': deleted_count}
+
+
+@shared_task(bind=True)
+def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_name=None, create_new_fabric=False, project_id=None):
+    """
+    Async task to import SAN configuration (Cisco/Brocade) in the background
+    """
+    try:
+        # Get the import record
+        import_record = StorageImport.objects.get(id=import_id)
+
+        # Initialize logging
+        import_logger = ImportLogger(import_record)
+        import_logger.info(f'Starting SAN import task {self.request.id} for customer {import_record.customer.name}')
+
+        if project_id:
+            import_logger.info(f'Zones will be assigned to project ID: {project_id}')
+
+        if fabric_id:
+            import_logger.info(f'Using existing fabric ID: {fabric_id}')
+        elif create_new_fabric:
+            import_logger.info(f'Creating new fabric: {fabric_name}')
+
+        # Update status
+        import_record.celery_task_id = self.request.id
+        import_record.status = 'running'
+        import_record.save()
+
+        # Progress callback
+        def progress_callback(current, total, message):
+            import_logger.info(message)
+            self.update_state(
+                state='PROGRESS',
+                meta={
+                    'current': current,
+                    'total': total,
+                    'status': message,
+                    'import_id': import_record.id
+                }
+            )
+
+        # Run the import
+        from .import_orchestrator import ImportOrchestrator
+        orchestrator = ImportOrchestrator(import_record.customer, progress_callback, project_id=project_id)
+
+        import_logger.info('Starting SAN configuration import...')
+        result = orchestrator.import_from_text(
+            config_data,
+            fabric_id,
+            fabric_name,
+            create_new_fabric
+        )
+
+        # Update import record with results
+        import_record.status = 'completed'
+        import_record.completed_at = timezone.now()
+        import_record.api_response_summary = {
+            'import_type': 'san_config',
+            'stats': result['stats'],
+            'metadata': result['metadata']
+        }
+        import_record.save()
+
+        import_logger.info(f'SAN import completed successfully - {result["stats"]["zones_created"]} zones, {result["stats"]["aliases_created"]} aliases created')
+
+        return {
+            'import_id': import_record.id,
+            'status': 'completed',
+            'stats': result['stats']
+        }
+
+    except StorageImport.DoesNotExist:
+        logger.error(f"Import record {import_id} not found")
+        raise
+
+    except Exception as e:
+        logger.error(f"SAN import task failed: {str(e)}")
+        logger.error(traceback.format_exc())
+
+        # Update import record status
+        try:
+            import_record = StorageImport.objects.get(id=import_id)
+            import_logger = ImportLogger(import_record)
+            import_logger.error(f'SAN import failed: {str(e)}', {'error': str(e), 'traceback': traceback.format_exc()})
+
+            import_record.status = 'failed'
+            import_record.error_message = str(e)
+            import_record.completed_at = timezone.now()
+            import_record.save()
+
+        except Exception as log_error:
+            logger.error(f"Failed to log error: {log_error}")
+
+        raise

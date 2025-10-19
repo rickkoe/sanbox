@@ -206,3 +206,4 @@ backend/*/migrations/[0-9]*.py
 # Development logs
 backend/.DS_Store
 dev_logs/*
+.DS_Store
