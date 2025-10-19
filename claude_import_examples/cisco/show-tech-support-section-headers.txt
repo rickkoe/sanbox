@@ -1,0 +1,666 @@
+`show switchname`
+`show interface mgmt0`
+`show version`
+`show module`
+`show module internal exceptionlog`
+ `show environment`
+`show sprom backplane 1`
+`show sprom backplane 2`
+`show clock`
+`show callhome`
+`show tech-support snmp`
+`show snmp community`
+`show snmp engineID`
+`show snmp group`
+`show snmp host`
+`show snmp sessions`
+`show snmp trap`
+`show snmp user`
+`show system internal snmp event-history msgs`
+`show system internal snmp event-history pktdump`
+`show system internal snmp mem-stats detail`
+`show snmp internal climib loaded`
+`show snmp internal climib trace`
+`show snmp nms-statistics`
+`show snmp oid-statistics`
+`show snmp trace-buffer memory`
+`show snmp trace-buffer mts-queue`
+`show snmp trace-buffer slow-oid`
+`show snmp internal oid registered`
+`show snmp internal loaded mibs`
+`show running-config snmp`
+`show port-group-monitor`
+`show hardware`
+`show interface brief`
+`show interface`
+`show interface counters`
+`show interface counters brief`
+`show interface transceiver details`
+`show tech-support im`
+`show running-config`
+`show startup-config`
+`show snmp`
+`show accounting log`
+`show processes`
+`show processes cpu`
+`show processes memory`
+`show processes log details`
+`show processes cpu history`
+`show logging log`
+`show license host-id`
+`show license `
+`show license usage`
+`show system reset-reason`
+`show logging nvram`
+`show cores`
+`show system uptime`
+`show module int all`
+`show module internal event-history module 1`
+`show module internal exceptionlog module 1`
+ `show system reset-reason module 1`
+`show module internal activity module 1`
+`show module internal event-history msgs`
+`show module internal mem-stats detail`
+`show module internal event-history errors`
+`show tech-support ha`
+`show system internal aipc event-history errors`
+`show system internal aipc event-history msgs`
+`show system internal ipconf internal event-history errors`
+`show system internal ipconf internal event-history msgs`
+`show hardware internal eobc stats`
+`show hardware internal mgmt0 stats`
+`show system internal fcfwd pcmap`
+`show system internal mts sup state current`
+`show system internal mts sup state history`
+`show system internal mts event-history errors`
+`show system internal mts memory`
+`show system internal mts buffer summary`
+`show system internal mts buffer detail`
+`show system internal fcfwd idxmap interface`
+`show system internal kernel aipc`
+`show system internal kernel aipc-mcast`
+`show hardware internal sup-fc0 swcounters`
+`show hardware internal version`
+`show system internal feature-mgr feature state`
+`show system internal flash`
+`show system internal urifs`
+`show version | begin CMP | exclude "CMP Hardware"`
+`show version | begin "CMP Hardware"`
+`show redundancy status`
+`show system internal redundancy status`
+`show system internal redundancy event-history`
+`show inventory`
+`show system internal crdcfg logs`
+`show system internal crdcfg msgs`
+`show system internal crdcfg events`
+`show system internal crdcfg cb`
+`show tech-support cli`
+`show role`
+`show system internal vshd config-info`
+`show system internal ascii-cfg runtime info`
+`show system internal ascii-cfg event-history`
+2024 Feb 08 14:48:34.733381: E_ACFG_MSG  [acfg_copy_chkpoint_dir_zip_format : 474 : 4039 : acfg_copy_chkpoint_dir_zip_format started ]`show system internal clis errors`
+`show system internal clis feature`
+`show system internal clis running-config`
+`show system internal clis startup-config`
+`show processes memory clis shared`
+`show cli alias`
+`show cli variables`
+`show cli dynamic integers`
+`show cli dynamic strings`
+`show cli internal ctags`
+`show cli internal pss`
+`show cli internal pss startup`
+`show debug logfile assert-backtrace`
+`show tech-support cdp`
+`show cdp all`
+`show cdp global`
+`show cdp neighbors`
+`show cdp neighbors detail`
+`show cdp internal mem-stats detail`
+`show cdp internal event-history msgs`
+`show cdp internal event-history errors`
+`show cdp internal event-history debugs`
+`show cdp internal runtime-contexts`
+`show cdp internal global-info`
+`show system internal platform all`
+`show install all status`
+`show system internal log install history`
+`show system internal log install`
+`show system internal log install details`
+`show system internal log sysmgr rtdbctrl`
+`show system internal log install issu-failure-reason`
+`show system internal log issu-helper`
+`show install all failure-reason`
+`show tech-support issu`
+`show system internal sysmgr event-history msgs`
+`show system internal sysmgr event-history errors`
+`show system internal sysmgr state`
+`show system internal sysmgr service all`
+`show system internal sysmgr service all details`
+`show system internal sysmgr service local details`
+`show system internal log sysmgr sup-reset`
+`show system internal log sysmgr failed-standby`
+`show system internal log sysmgr gsyncctrl`
+`show system internal log sysmgr infra-convert`
+`show system internal log sysmgr cfgctrl`
+`show system internal log sysmgr standby-sup-reset`
+`show system internal log sysmgr warm-swover`
+`show system internal log sysmgr verctrl`
+`show system internal log sysmgr core-dump`
+`show system internal fs-daemon event-history errors`
+`show system internal fs-daemon event-history msgs`
+`show system internal fs-daemon mount-unmount-history`
+`show system internal sysmgr bootupstats`
+`show system internal sysmgr gsyncstats`
+`show system internal sysmgr swoverstats`
+`show system internal sysmgr startup-config locks`
+`show system internal plugin event-history errors`
+`show system internal plugin event-history msgs`
+`show system internal plugin info`
+`show system internal plugin event-history fsm load`
+`show system internal plugin event-history fsm unload`
+`show system exception-info`
+`show system internal sysmgr startup-config state`
+`show system internal mts event-history msgs`
+`show system standby manual-boot`
+`show system internal log boot kickstart`
+`show system internal log boot system`
+`show system redundancy ha status`
+`show system redundancy status`
+`show system internal log install summary`
+`show system internal utaker`
+`show system internal confcheck event-history msgs`
+`show system internal confcheck event-history errors`
+`show system internal bootvar log`
+`show system internal kernel nvram-messages previous`
+`show system internal kernel nvram-messages current`
+`show logging logfile`
+`show system internal sysmgr nvram-data`
+`show system internal log sysmgr show-tech-ha-failed-standby`
+`show tech-support clis`
+`show system internal clis event-history client`
+`show system internal clis event-history errors`
+`show system internal clis event-history ha`
+`show system internal clis event-history nvdb`
+`show system internal clis event-history parser`
+`show system internal clis event-history cli`
+`show running-config all`
+`show system internal clis running-configuration`
+`show system internal clis startup-configuration`
+`show cli internal mem-stats detail`
+`show cli internal sdb`
+`show cli internal pid`
+`show cli internal sdwrap`
+`show cli internal server`
+`show tech-support pltfm-config`
+`show tech-support flogi`
+`show flogi auto-area-list`
+`show flogi database details`
+`show flogi internal event-history debugs`
+`show flogi internal event-history errors`
+`show flogi internal event-history msgs`
+`show flogi internal mem-stats detail`
+`show port internal event-history debug`
+`show port internal event-history msgs`
+`show port internal info all`
+`show tech-support pfstat`
+`show system internal kernel messages`
+`show system internal nxos-config if-globals`
+`show system internal epld logging`
+`show fc2 internal event-history msgs`
+`show fc2 internal event-history errors`
+`show fc2 internal event-history log_errors`
+`show fc2 port brief`
+`show fc2 socket`
+`show fc2 bind`
+`show fc2 exchange`
+`show fc2 exchresp`
+`show tech-support vrrp`
+`show tech-support span`
+`show span session brief`
+`show span session`
+`show span internal info session all`
+`show span internal event-history errors`
+`show span internal event-history msgs`
+`show span internal info global-info`
+`show span internal event-history global`
+`show span internal event-history session 1`
+`show system health statistics`
+`show topology`
+`show topology isl`
+`show system health`
+`show system health internal all`
+`show system health internal errors`
+`show system health internal database`
+`show system health internal event-history`
+`show system health internal messages`
+`show system health internal plog`
+`show system health internal plog asic-stats`
+`show system health internal system-info`
+`show logging level`
+`show port internal event-history debugs`
+`show port internal event-history errors`
+`show port internal event-history interface fc1/1`
+`show port internal event-history interface fc1/2`
+`show port internal event-history interface fc1/3`
+`show port internal event-history interface fc1/4`
+`show port internal event-history interface fc1/5`
+`show port internal event-history interface fc1/6`
+`show port internal event-history interface fc1/7`
+`show port internal event-history interface fc1/8`
+`show port internal event-history interface fc1/9`
+`show port internal event-history interface fc1/10`
+`show port internal event-history interface fc1/11`
+`show port internal event-history interface fc1/12`
+`show port internal event-history interface fc1/13`
+`show port internal event-history interface fc1/14`
+`show port internal event-history interface fc1/15`
+`show port internal event-history interface fc1/16`
+`show port internal event-history interface fc1/17`
+`show port internal event-history interface fc1/18`
+`show port internal event-history interface fc1/19`
+`show port internal event-history interface fc1/20`
+`show port internal event-history interface fc1/21`
+`show port internal event-history interface fc1/22`
+`show port internal event-history interface fc1/23`
+`show port internal event-history interface fc1/24`
+`show port internal event-history interface fc1/25`
+`show port internal event-history interface fc1/26`
+`show port internal event-history interface fc1/27`
+`show port internal event-history interface fc1/28`
+`show port internal event-history interface fc1/29`
+`show port internal event-history interface fc1/30`
+`show port internal event-history interface fc1/31`
+`show port internal event-history interface fc1/32`
+`show port internal event-history interface fc1/33`
+`show port internal event-history interface fc1/34`
+`show port internal event-history interface fc1/35`
+`show port internal event-history interface fc1/36`
+`show port internal event-history interface fc1/37`
+`show port internal event-history interface fc1/38`
+`show port internal event-history interface fc1/39`
+`show port internal event-history interface fc1/40`
+`show port internal event-history interface fc1/41`
+`show port internal event-history interface fc1/42`
+`show port internal event-history interface fc1/43`
+`show port internal event-history interface fc1/44`
+`show port internal event-history interface fc1/45`
+`show port internal event-history interface fc1/46`
+`show port internal event-history interface fc1/47`
+`show port internal event-history interface fc1/48`
+`show port internal event-history interface fc1/49`
+`show port internal event-history interface fc1/50`
+`show port internal event-history interface fc1/51`
+`show port internal event-history interface fc1/52`
+`show port internal event-history interface fc1/53`
+`show port internal event-history interface fc1/54`
+`show port internal event-history interface fc1/55`
+`show port internal event-history interface fc1/56`
+`show port internal event-history interface fc1/57`
+`show port internal event-history interface fc1/58`
+`show port internal event-history interface fc1/59`
+`show port internal event-history interface fc1/60`
+`show port internal event-history interface fc1/61`
+`show port internal event-history interface fc1/62`
+`show port internal event-history interface fc1/63`
+`show port internal event-history interface fc1/64`
+`show port internal event-history interface fc1/65`
+`show port internal event-history interface fc1/66`
+`show port internal event-history interface fc1/67`
+`show port internal event-history interface fc1/68`
+`show port internal event-history interface fc1/69`
+`show port internal event-history interface fc1/70`
+`show port internal event-history interface fc1/71`
+`show port internal event-history interface fc1/72`
+`show port internal event-history interface fc1/73`
+`show port internal event-history interface fc1/74`
+`show port internal event-history interface fc1/75`
+`show port internal event-history interface fc1/76`
+`show port internal event-history interface fc1/77`
+`show port internal event-history interface fc1/78`
+`show port internal event-history interface fc1/79`
+`show port internal event-history interface fc1/80`
+`show port internal event-history interface fc1/81`
+`show port internal event-history interface fc1/82`
+`show port internal event-history interface fc1/83`
+`show port internal event-history interface fc1/84`
+`show port internal event-history interface fc1/85`
+`show port internal event-history interface fc1/86`
+`show port internal event-history interface fc1/87`
+`show port internal event-history interface fc1/88`
+`show port internal event-history interface fc1/89`
+`show port internal event-history interface fc1/90`
+`show port internal event-history interface fc1/91`
+`show port internal event-history interface fc1/92`
+`show port internal event-history interface fc1/93`
+`show port internal event-history interface fc1/94`
+`show port internal event-history interface fc1/95`
+`show port internal event-history interface fc1/96`
+`show tech-support fcdomain`
+`show fcdomain status`
+`show fcdomain session-status`
+`show fcdomain`
+`show fcdomain domain-list`
+`show fcdomain allowed`
+`show fcdomain pending-diff`
+`show fcdomain address-allocation`
+`show fcdomain address-allocation cache`
+`show fcdomain fcid persistent`
+`show fcdomain internal event-history`
+`show fcdomain internal event-history fcid`
+        VSAN 75 FCID FSM History`show fcdomain internal event-history msgs`
+`show fcdomain internal mem-stats detail`
+`show fcdomain statistics`
+`show fcdomain internal info mts`
+`show fcdomain internal info fcidp-tbl range 0-599`
+`show tech-support fcns`
+`show fcns database vsan 1-4093`
+`show fcns database detail vsan 1-4093`
+`show fcns database local vsan 1-4093`
+`show fcns database local detail vsan 1-4093`
+`show fcns statistics vsan 1-4093`
+`show fcns statistics detail vsan 1-4093`
+`show fcns internal info vsan 1-4093`
+`show fcns internal event-history`
+`show fcns internal errors`
+`show fcns internal incidents nsdb-update`
+`show fcns internal incidents rscn`
+`show fcns internal incidents timer`
+`show fcns internal incidents sdb-update`
+`show fcns internal incidents db-count`
+`show fcns internal reject-log vsan 1-4093`
+`show fcns internal debug-info`
+`show fcns internal mem-stats detail`
+`show fcns internal shared-db vsan 1-4093`
+`show fcns internal info global`
+`show tech-support scsi-target`
+`show scsi-target auto-poll`
+`show scsi-target custom-list`
+`show scsi-target pwwn`
+`show scsi-target status`
+`show fcroute unicast`
+`show fctimer`
+`show flogi database`
+`show flogi internal info`
+`show tech-support fspf`
+`show fspf`
+`show fspf database`
+`show fspf interface`
+`show fspf internal info`
+`show fspf internal event-history events`
+`show fspf internal event-history msgs`
+`show fspf internal route vsan 1-4093`
+`show tech-support rscn`
+`show rscn internal vsan 1-4093`
+`show rscn internal event-history`
+`show rscn internal sent-log`
+`show rscn internal received-log`
+`show rscn internal mem-stats detail`
+`show rscn internal session-history vsan 1-4093`
+`show rscn internal merge-history vsan 1-4093`
+`show rscn statistics detail vsan 1-4093`
+`show rscn scr-table vsan 1-4093`
+`show rscn session status vsan 1-4093`
+`show vsan`
+`show vsan membership`
+`show tech-support fcs`
+`show fcs ie`
+`show fcs database`
+`show fcs statistics`
+`show fcs internal info`
+`show fcs internal ess-info`
+`show fcs internal mem-stats detail`
+`show fcs internal event-history`
+`show fabric switch information`
+`show tech-support zone`
+`show zone status vsan 1-4093`
+`show zoneset active vsan 1-4093`
+`show zoneset vsan 1-4093`
+`show zone vsan 1-4093`
+`show fcalias vsan 1-4093`
+`show zone-attribute-group vsan 1-4093`
+`show zone policy vsan 1-4093`
+`show zoneset pending active vsan 1-4093`
+`show zoneset pending vsan 1-4093`
+`show zone pending vsan 1-4093`
+`show zone pending active vsan 1-4093`
+`show fcalias pending vsan 1-4093`
+`show zone-attribute-group pending vsan 1-4093`
+`show zone policy pending vsan 1-4093`
+`show zone pending-diff vsan 1-4093`
+`show zone analysis active vsan 1-4093`
+`show zone analysis vsan 1-4093`
+`show zone ess vsan 1-4093`
+`show zone internal vsan 1-4093`
+`show zone internal change event-history vsan 1-4093`
+`show zone internal change log events`
+`show zone internal change log packets`
+`show zone internal ifindex-table vsan 1-4093`
+`show zone internal merge event-history vsan 1-4093`
+`show zone internal merge log events`
+`show zone internal merge log packets`
+`show zone internal fcoe log events`
+`show zone internal fcoe log errors`
+`show zone internal event-history`
+`show zone internal event-history errors`
+`show zone internal tcam event-history vsan 1-4093`
+`show zone statistics vsan 1-4093`
+`show system default zone`
+`show zone internal global-info`
+`show zone internal ddas-table`
+`show zone internal rcs-info`
+`show zone internal sdv-table vsan 1-4093`
+`show zone internal mem-stats`
+`show zone internal mem-stats detail`
+`show zone internal throttle`
+`show zone internal transit-table received vsan 1-4093`
+`show zone internal transit-table forwarded vsan 1-4093`
+`show zone internal transit-table rejected vsan 1-4093`
+`show zone internal transit-table discarded vsan 1-4093`
+`show zone internal rscn acl-table current vsan 1-4093`
+`show zone internal rscn acl-table previous vsan 1-4093`
+`show zone internal rscn affected-fcid-list vsan 1-4093`
+`show zone internal rscn log events`
+`show zone smart-zoning auto-conv status vsan 1-4093`
+`show zone smart-zoning auto-conv log errors`
+`show zone internal smart-zoning log errors`
+`show zone internal active shared-db vsan 1-4093`
+`show zone internal change log active shared-db`
+`show zone internal shared-db app snmp`
+`show zone internal change log distribution diffs-only`
+`show tech-support acl detail`
+`show system internal acl errors`
+`show system internal acl event-history`
+`show system internal acl info`
+`show system internal acl mem-stats`
+`show system internal acl mem-stats detail`
+`show system internal acl tcam-usage`
+`show system internal acl region-info`
+`show hardware internal packet-flow dropped`
+`show hardware internal statistics pktflow dropped`
+`show process acltcam fwd-engine 0 input`
+`show process acltcam fwd-engine 0 output`
+`show process acltcam fwd-engine 0 input software`
+`show process acltcam fwd-engine 0 output software`
+`show process acltcam fwd-engine 1 input`
+`show process acltcam fwd-engine 1 output`
+`show process acltcam fwd-engine 1 input software`
+`show process acltcam fwd-engine 1 output software`
+`show process acltcam fwd-engine 2 input`
+`show process acltcam fwd-engine 2 output`
+`show process acltcam fwd-engine 2 input software`
+`show process acltcam fwd-engine 3 input`
+`show process acltcam fwd-engine 3 output`
+`show process acltcam fwd-engine 3 input software`
+`show process acltcam fwd-engine 3 output software`
+`show process acltcam fwd-engine 4 input`
+`show process acltcam fwd-engine 4 output`
+`show process acltcam fwd-engine 4 input software`
+`show process acltcam fwd-engine 4 output software`
+`show process acltcam fwd-engine 5 input`
+`show process acltcam fwd-engine 5 output`
+`show process acltcam fwd-engine 5 input software`
+`show process acltcam fwd-engine 5 output software`
+`show process acltcam fwd-engine 6 input`
+`show process acltcam fwd-engine 6 output`
+`show process acltcam fwd-engine 6 input software`
+`show process acltcam fwd-engine 6 output software`
+`show process acltcam fwd-engine 7 input`
+`show process acltcam fwd-engine 7 output`
+`show process acltcam fwd-engine 7 input software`
+`show process acltcam fwd-engine 7 output software`
+`show process acltcam fwd-engine 8 input`
+`show process acltcam fwd-engine 8 output`
+`show process acltcam fwd-engine 8 input software`
+`show process acltcam fwd-engine 8 output software`
+`show process acltcam fwd-engine 9 input`
+`show process acltcam fwd-engine 9 output`
+`show process acltcam fwd-engine 9 input software`
+`show process acltcam fwd-engine 9 output software`
+`show process acltcam fwd-engine 10 input`
+`show process acltcam fwd-engine 10 output`
+`show process acltcam fwd-engine 10 input software`
+`show process acltcam fwd-engine 10 output software`
+`show process acltcam fwd-engine 11 input`
+`show process acltcam fwd-engine 11 output`
+`show process acltcam fwd-engine 11 input software`
+`show process acltcam fwd-engine 11 output software`
+`show process acltcam drop-statistics all`
+`show process acltcam internal fwd-engine 0`
+`show process acltcam internal fwd-engine 0 input lmt`
+`show process acltcam internal fwd-engine 0 output lmt`
+`show process acltcam internal fwd-engine 0 search-idx`
+`show process acltcam internal fwd-engine 1`
+`show process acltcam internal fwd-engine 1 input lmt`
+`show process acltcam internal fwd-engine 1 output lmt`
+`show process acltcam internal fwd-engine 1 search-idx`
+`show process acltcam internal fwd-engine 2`
+`show process acltcam internal fwd-engine 2 input lmt`
+`show process acltcam internal fwd-engine 2 output lmt`
+`show process acltcam internal fwd-engine 2 search-idx`
+`show process acltcam internal fwd-engine 3`
+`show process acltcam internal fwd-engine 3 search-idx`
+`show process acltcam internal fwd-engine 4`
+`show process acltcam internal fwd-engine 4 input lmt`
+`show process acltcam internal fwd-engine 4 output lmt`
+`show process acltcam internal fwd-engine 4 search-idx`
+`show process acltcam internal fwd-engine 5`
+`show process acltcam internal fwd-engine 5 input lmt`
+`show process acltcam internal fwd-engine 5 output lmt`
+`show process acltcam internal fwd-engine 5 search-idx`
+`show process acltcam internal fwd-engine 6`
+`show process acltcam internal fwd-engine 6 input lmt`
+`show process acltcam internal fwd-engine 6 output lmt`
+`show process acltcam internal fwd-engine 6 search-idx`
+`show process acltcam internal fwd-engine 7`
+`show process acltcam internal fwd-engine 7 input lmt`
+`show process acltcam internal fwd-engine 7 output lmt`
+`show process acltcam internal fwd-engine 7 search-idx`
+`show process acltcam internal fwd-engine 8`
+`show process acltcam internal fwd-engine 8 input lmt`
+`show process acltcam internal fwd-engine 8 output lmt`
+`show process acltcam internal fwd-engine 8 search-idx`
+`show process acltcam internal fwd-engine 9 input lmt`
+`show process acltcam internal fwd-engine 9 output lmt`
+`show process acltcam internal fwd-engine 9 search-idx`
+`show process acltcam internal fwd-engine 10`
+`show process acltcam internal fwd-engine 10 input lmt`
+`show process acltcam internal fwd-engine 10 output lmt`
+`show process acltcam internal fwd-engine 10 search-idx`
+`show process acltcam internal fwd-engine 11`
+`show process acltcam internal fwd-engine 11 input lmt`
+`show process acltcam internal fwd-engine 11 output lmt`
+`show process acltcam internal fwd-engine 11 search-idx`
+`show process acltcam internal errors`
+`show process acltcam internal event-history`
+`show process acltcam internal tcamwrap`
+`show process acltcam internal mem-stats detail`
+`show process acltcam internal local-domain-info`
+`show process acltcam internal prio-region-map`
+`show process acltcam internal vsan-attr`
+`show process acltcam internal route-tbl`
+`show tech-support device-alias`
+`show device-alias database`
+`show device-alias pending`
+`show device-alias pending-diff`
+`show device-alias status`
+`show device-alias session rejected`
+`show device-alias session status`
+`show device-alias merge status`
+`show device-alias statistics`
+`show device-alias internal info`
+`show device-alias internal peer-info`
+`show device-alias internal validation-info`
+`show device-alias internal event-history session-fsm`
+`show device-alias internal errors`
+`show device-alias internal mem-stats detail`
+`show device-alias internal msgs`
+`show tech-support fc-management`
+`show fc-management status`
+`show fc-management database`
+`show fc-management shared-db`
+`show scsi-target internal event-history msgs`
+`show scsi-target internal event-history errors`
+`show system internal rib domain`
+`show system internal rib internal event-history errors`
+`show system internal rib internal event-history msgs`
+`show system internal rib internal memory-pool-usage`
+`show system internal rib multicast`
+`show system internal rib summary`
+`show system internal rib sync-log label`
+`show system internal rib sync-log multicast`
+`show system internal rib sync-log unicast`
+`show system internal rib unicast`
+`show system internal rib vsan-attributes`
+`show system internal liod liod_db`
+`show tech-support port-channel`
+`show port-channel internal event-history all`
+`show port-channel internal event-history errors`
+`show port-channel internal event-history debugs`
+`show port-channel internal event-history msgs`
+`show port-channel internal event-history lock`
+`show port-channel internal mem-stats detail`
+`show port-channel usage`
+`show port-channel summary`
+`show system internal sysmgr service name eth_port_channel`
+`show port-channel consistency`
+`show port-channel consistency detail`
+`show port-channel internal info all`
+`show port-channel database`
+`show system internal fcfwd pcmap`
+`show system internal nxos-config if-globals`
+`show tech-support fib-all`
+`show cfs status`
+`show cfs peers`
+`show cfs application`
+`show cfs internal application`
+`show cfs lock`
+`show cfs internal event-history errors`
+`show cfs internal event-history msgs`
+`show cfs internal event-history init`
+`show cfs internal event-history init transmission`
+`show cfs internal event-history init ip`
+`show cfs internal ip database`
+`show cfs internal vsan database`
+`show cfs internal mem-stats detail`
+`show cfs internal remote application`
+`show cfs regions`
+`show cfs regions brief`
+`show cfs static peers`
+`show cfs internal static-peers info`
+`show cfs internal static-peers log`
+`show port-license`
+`show tech-support epp`
+`show system internal epp internal event-history errors`
+`show system internal epp internal event-history msgs`
+`show system internal epp internal info`
+`show system internal epp internal mem-stats detail`
+`show system internal epp internal event-history all`
+`show system internal epp internal event-history errors`
+`show trunk protocol`
+`show port internal info global`
+`show port internal mem-stats detail`
+`show port index-allocation`
+`show port index-allocation startup`
+`show port-resource module 1`
