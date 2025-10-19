@@ -375,7 +375,8 @@ const ZoneTableTanStackClean = () => {
                         typeCounts.targets++;
                     } else if (useType === 'init') {
                         typeCounts.initiators++;
-                    } else if (useType === 'both') {
+                    } else if (useType === 'both' || !useType || useType === '') {
+                        // Members with 'both', empty, or no use type go to all access
                         typeCounts.allAccess++;
                     }
                 });
@@ -506,7 +507,7 @@ const ZoneTableTanStackClean = () => {
         } else if (columnKey.startsWith('init_member_')) {
             requiredUseType = 'init';
         } else if (columnKey.startsWith('all_member_')) {
-            requiredUseType = 'both';
+            requiredUseType = 'both_or_empty';  // Special flag for both or empty
         }
 
         console.log(`🎯 Column ${columnKey} requires use type: ${requiredUseType}`);
@@ -516,7 +517,14 @@ const ZoneTableTanStackClean = () => {
             const matchesFabric = alias.fabric === zoneFabric;
             const includeInZoning = alias.include_in_zoning;
             const hasRoom = (alias.zoned_count || 0) < aliasMaxZones;
-            const matchesUseType = requiredUseType ? alias.use === requiredUseType : true;
+
+            let matchesUseType = true;
+            if (requiredUseType === 'both_or_empty') {
+                // All access columns accept 'both' or empty/null use types
+                matchesUseType = alias.use === 'both' || !alias.use || alias.use === '';
+            } else if (requiredUseType) {
+                matchesUseType = alias.use === requiredUseType;
+            }
 
             const result = matchesFabric && includeInZoning && hasRoom && matchesUseType;
             if (!result && alias.name) {
@@ -599,9 +607,11 @@ const ZoneTableTanStackClean = () => {
             sources[`init_member_${i}`] = availableAliases.filter(alias => alias.use === 'init').map(alias => alias.name);
         }
 
-        // Add all access member columns
+        // Add all access member columns (includes 'both' and empty/null use types)
         for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
-            sources[`all_member_${i}`] = availableAliases.filter(alias => alias.use === 'both').map(alias => alias.name);
+            sources[`all_member_${i}`] = availableAliases.filter(alias =>
+                alias.use === 'both' || !alias.use || alias.use === ''
+            ).map(alias => alias.name);
         }
 
         return sources;
@@ -641,7 +651,7 @@ const ZoneTableTanStackClean = () => {
                 } else if (columnKey.startsWith('init_member_')) {
                     requiredUseType = 'init';
                 } else if (columnKey.startsWith('all_member_')) {
-                    requiredUseType = 'both';
+                    requiredUseType = 'both_or_empty';  // Special flag for both or empty
                 }
 
                 const aliasMaxZones = settings?.alias_max_zones || 1;
@@ -679,7 +689,12 @@ const ZoneTableTanStackClean = () => {
                     if (!alias.include_in_zoning) return false;
 
                     // Must match required use type
-                    if (requiredUseType && alias.use !== requiredUseType) return false;
+                    if (requiredUseType === 'both_or_empty') {
+                        // All access columns accept 'both' or empty/null use types
+                        if (!(alias.use === 'both' || !alias.use || alias.use === '')) return false;
+                    } else if (requiredUseType) {
+                        if (alias.use !== requiredUseType) return false;
+                    }
 
                     // Check if already used in ANY zone (but allow current value)
                     const isCurrentValue = alias.name === currentValue;
@@ -789,7 +804,8 @@ const ZoneTableTanStackClean = () => {
                         membersByType.targets.push(member);
                     } else if (useType === 'init') {
                         membersByType.initiators.push(member);
-                    } else if (useType === 'both') {
+                    } else if (useType === 'both' || !useType || useType === '') {
+                        // Members with 'both', empty, or no use type go to all access
                         membersByType.allAccess.push(member);
                     } else {
                         console.log(`⚠️ Unknown use type for member ${member.name}: ${useType} (member data:`, member, ')')
