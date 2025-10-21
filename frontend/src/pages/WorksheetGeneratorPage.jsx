@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Form, Button, Card, Row, Col, Alert, Spinner } from 'react-bootstrap';
-import { FaFileExcel, FaPlus, FaTrash } from 'react-icons/fa';
+import React, { useState, useEffect, useContext } from 'react';
+import { Form, Button, Card, Row, Col, Alert, Spinner, Modal } from 'react-bootstrap';
+import { FaFileExcel, FaPlus, FaTrash, FaUserPlus } from 'react-icons/fa';
 import api from '../api';
+import { ConfigContext } from '../context/ConfigContext';
 import '../styles/worksheet-generator.css';
 
 const WorksheetGeneratorPage = () => {
+  const { config } = useContext(ConfigContext);
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,13 +17,33 @@ const WorksheetGeneratorPage = () => {
   // Form state
   const [customerName, setCustomerName] = useState('');
   const [projectName, setProjectName] = useState('');
-  const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedContactId, setSelectedContactId] = useState('');
   const [selectedEquipment, setSelectedEquipment] = useState({});
 
-  // Load equipment types on mount
+  // Contact creation modal
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [newContact, setNewContact] = useState({
+    name: '',
+    email: '',
+    phone_number: '',
+    title: ''
+  });
+
+  // Load equipment types and prefill on mount
   useEffect(() => {
     loadEquipmentTypes();
+    loadContacts();
+    prefillFromConfig();
   }, []);
+
+  const prefillFromConfig = () => {
+    if (config?.customer?.name) {
+      setCustomerName(config.customer.name);
+    }
+    if (config?.active_project?.name) {
+      setProjectName(config.active_project.name);
+    }
+  };
 
   const loadEquipmentTypes = async () => {
     try {
@@ -32,6 +54,23 @@ const WorksheetGeneratorPage = () => {
       setError('Failed to load equipment types: ' + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadContacts = async () => {
+    if (!config?.customer?.id) return;
+
+    try {
+      const response = await api.get(`/api/customers/contact-info/?customer=${config.customer.id}`);
+      setContacts(response.data);
+
+      // Auto-select default contact if available
+      const defaultContact = response.data.find(c => c.is_default);
+      if (defaultContact) {
+        setSelectedContactId(defaultContact.id.toString());
+      }
+    } catch (err) {
+      console.error('Failed to load contacts:', err);
     }
   };
 
@@ -188,15 +227,24 @@ const WorksheetGeneratorPage = () => {
         items: data.items
       }));
 
+      // Get selected contact data
+      const selectedContact = contacts.find(c => c.id === parseInt(selectedContactId));
+      const contactPayload = selectedContact ? {
+        name: selectedContact.name,
+        email: selectedContact.email,
+        phone: selectedContact.phone_number || '',
+        title: selectedContact.title || ''
+      } : {
+        name: '',
+        email: '',
+        phone: '',
+        title: ''
+      };
+
       const payload = {
         customer_name: customerName,
         project_name: projectName,
-        contact: selectedContact || {
-          name: '',
-          email: '',
-          phone: '',
-          title: ''
-        },
+        contact: contactPayload,
         equipment: equipment
       };
 
