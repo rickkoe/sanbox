@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
+import { Dropdown } from 'react-bootstrap';
 import {
   Settings,
   Plus,
   Server,
   AlertCircle,
   Info,
-  ChevronDown,
   Search,
   Check
 } from 'lucide-react';
@@ -25,7 +25,6 @@ const ConfigurationPanel = ({
   detectedVendor,
   theme
 }) => {
-  const [showDropdown, setShowDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Group fabrics by vendor
@@ -49,7 +48,6 @@ const ConfigurationPanel = ({
   // Handle fabric selection
   const handleFabricSelect = (fabricId) => {
     onFabricSelect(fabricId);
-    setShowDropdown(false);
     setSearchTerm('');
   };
 
@@ -84,108 +82,91 @@ const ConfigurationPanel = ({
         )}
       </h3>
 
-      <div style={{ position: 'relative', zIndex: 1000 }}>
-          {/* Custom Dropdown */}
-          <div className="custom-dropdown">
-            <button
-              className="dropdown-trigger"
-              onClick={() => setShowDropdown(!showDropdown)}
-            >
-              <span className="dropdown-value">{getSelectedFabricName()}</span>
-              <ChevronDown size={18} className={showDropdown ? 'rotated' : ''} />
-            </button>
+      <Dropdown className="fabric-dropdown-wrapper">
+        <Dropdown.Toggle variant="outline-secondary" style={{ minWidth: '300px', textAlign: 'left' }}>
+          {getSelectedFabricName()}
+        </Dropdown.Toggle>
 
-            {showDropdown && (
-              <div className="dropdown-menu">
-                {/* Search Box */}
-                <div className="dropdown-search">
-                  <Search size={16} />
-                  <input
-                    type="text"
-                    placeholder="Search fabrics..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-
-                {/* Create New Option */}
-                <div
-                  className={`dropdown-item create-new ${selectedFabricId === 'new' ? 'selected' : ''}`}
-                  onClick={() => handleFabricSelect('new')}
-                >
-                  <Plus size={16} />
-                  <span>Create New Fabric</span>
-                  {selectedFabricId === 'new' && <Check size={16} className="check-icon" />}
-                </div>
-
-                <div className="dropdown-divider" />
-
-                {/* Existing Fabrics */}
-                {Object.entries(groupedFabrics).map(([vendor, fabrics]) => {
-                  const vendorFabrics = searchTerm
-                    ? fabrics.filter(f => filteredFabrics.includes(f))
-                    : fabrics;
-
-                  if (vendorFabrics.length === 0) return null;
-
-                  return (
-                    <div key={vendor} className="dropdown-group">
-                      <div className="dropdown-group-label">{vendor}</div>
-                      {vendorFabrics.map(fabric => (
-                        <div
-                          key={fabric.id}
-                          className={`dropdown-item ${selectedFabricId === fabric.id ? 'selected' : ''}`}
-                          onClick={() => handleFabricSelect(fabric.id)}
-                        >
-                          <Server size={16} />
-                          <div className="dropdown-item-content">
-                            <span className="fabric-name">{fabric.name}</span>
-                            {fabric.vsan && <span className="fabric-vsan">VSAN {fabric.vsan}</span>}
-                          </div>
-                          {selectedFabricId === fabric.id && <Check size={16} className="check-icon" />}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-
-                {filteredFabrics.length === 0 && searchTerm && (
-                  <div className="dropdown-empty">No fabrics found</div>
-                )}
-
-                {filteredFabrics.length === 0 && !searchTerm && existingFabrics.length === 0 && (
-                  <div className="dropdown-empty">
-                    No {detectedVendor === 'CI' ? 'Cisco' : detectedVendor === 'BR' ? 'Brocade' : ''} fabrics found for this customer
-                  </div>
-                )}
-              </div>
-            )}
+        <Dropdown.Menu className="fabric-dropdown-menu" style={{ maxHeight: '400px', overflow: 'auto', minWidth: '300px' }}>
+          {/* Search */}
+          <div style={{ padding: '8px' }}>
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Search fabrics..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
 
-          {/* New Fabric Name Input */}
-          {selectedFabricId === 'new' && (
-            <div style={{ marginTop: '1rem' }}>
-              <input
-                type="text"
-                placeholder="Enter new fabric name..."
-                value={fabricName}
-                onChange={(e) => onFabricNameChange(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem 1rem',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '1rem'
-                }}
-              />
-              <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
-                <Info size={14} style={{ display: 'inline', marginRight: '0.5rem' }} />
-                This will create a new fabric in your system
+          <Dropdown.Divider />
+
+          {/* Create New Option */}
+          <Dropdown.Item onClick={() => handleFabricSelect('new')}>
+            <Plus size={16} style={{ marginRight: '8px' }} />
+            Create New Fabric
+            {selectedFabricId === 'new' && <Check size={16} style={{ marginLeft: 'auto' }} />}
+          </Dropdown.Item>
+
+          <Dropdown.Divider />
+
+          {/* Existing Fabrics */}
+          {Object.entries(groupedFabrics).map(([vendor, fabrics]) => {
+            const vendorFabrics = searchTerm
+              ? fabrics.filter(f => filteredFabrics.includes(f))
+              : fabrics;
+
+            if (vendorFabrics.length === 0) return null;
+
+            return (
+              <div key={vendor}>
+                <Dropdown.Header>{vendor}</Dropdown.Header>
+                {vendorFabrics.map(fabric => (
+                  <Dropdown.Item
+                    key={fabric.id}
+                    onClick={() => handleFabricSelect(fabric.id)}
+                    active={selectedFabricId === fabric.id}
+                  >
+                    <Server size={16} style={{ marginRight: '8px' }} />
+                    {fabric.name}
+                    {fabric.vsan && <span style={{ marginLeft: '8px', color: '#6c757d' }}>VSAN {fabric.vsan}</span>}
+                  </Dropdown.Item>
+                ))}
               </div>
-            </div>
+            );
+          })}
+
+          {filteredFabrics.length === 0 && existingFabrics.length === 0 && (
+            <Dropdown.ItemText>
+              No {detectedVendor === 'CI' ? 'Cisco' : detectedVendor === 'BR' ? 'Brocade' : ''} fabrics found
+            </Dropdown.ItemText>
           )}
+        </Dropdown.Menu>
+      </Dropdown>
+
+      {/* New Fabric Name Input */}
+      {selectedFabricId === 'new' && (
+        <div style={{ marginTop: '1rem' }}>
+          <input
+            type="text"
+            placeholder="Enter new fabric name..."
+            value={fabricName}
+            onChange={(e) => onFabricNameChange(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem 1rem',
+              border: '2px solid #e5e7eb',
+              borderRadius: '8px',
+              fontSize: '1rem'
+            }}
+          />
+          <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
+            <Info size={14} style={{ display: 'inline', marginRight: '0.5rem' }} />
+            This will create a new fabric in your system
+          </div>
         </div>
+      )}
 
       {/* Conflict Resolution */}
       {conflicts && conflicts.zones && conflicts.zones.length > 0 && (

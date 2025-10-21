@@ -611,20 +611,23 @@ const UniversalImporter = () => {
         {/* Navigation Buttons */}
         {step < 4 && (
           <div className="navigation-buttons">
-            <button
-              className="nav-button secondary"
-              onClick={handleBack}
-              disabled={step === 1}
-            >
-              Back
-            </button>
-            <button
-              className="nav-button primary"
-              onClick={handleNext}
-              disabled={!canProceed() || loading}
-            >
-              {loading ? 'Processing...' : step === 3 ? 'Start Import' : 'Next'}
-            </button>
+            <div></div> {/* Empty div for spacing */}
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                className="nav-button secondary"
+                onClick={handleBack}
+                disabled={step === 1}
+              >
+                Back
+              </button>
+              <button
+                className="nav-button primary"
+                onClick={handleNext}
+                disabled={!canProceed() || loading}
+              >
+                {loading ? 'Processing...' : step === 3 ? 'Start Import' : 'Next'}
+              </button>
+            </div>
           </div>
         )}
       </div>

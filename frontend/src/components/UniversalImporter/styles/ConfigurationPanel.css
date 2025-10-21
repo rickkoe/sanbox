@@ -3,6 +3,16 @@
   width: 100%;
 }
 
+/* Fabric Dropdown - Force on top */
+.fabric-dropdown-wrapper {
+  position: relative;
+  z-index: 9999 !important;
+}
+
+.fabric-dropdown-menu {
+  z-index: 9999 !important;
+}
+
 /* Config Header */
 .config-header {
   display: flex;
