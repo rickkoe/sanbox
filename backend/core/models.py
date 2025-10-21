@@ -835,3 +835,140 @@ class DashboardAnalytics(models.Model):
             models.Index(fields=['layout', 'event_type', 'timestamp']),
             models.Index(fields=['widget', 'event_type', 'timestamp']),
         ]
+
+
+# ========== WORKSHEET GENERATOR MODELS ==========
+
+class EquipmentType(models.Model):
+    """
+    Universal equipment type model for worksheet generation.
+    Allows dynamic addition of equipment types with custom fields.
+    """
+    CATEGORY_CHOICES = [
+        ('storage', 'Storage'),
+        ('network', 'Network'),
+        ('compute', 'Compute'),
+        ('backup', 'Backup'),
+        ('other', 'Other'),
+    ]
+
+    name = models.CharField(
+        max_length=200,
+        unique=True,
+        help_text="Equipment type name (e.g., 'SAN Switch', 'FlashSystem')"
+    )
+    category = models.CharField(
+        max_length=50,
+        choices=CATEGORY_CHOICES,
+        help_text="Equipment category for grouping"
+    )
+    vendor = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        help_text="Primary vendor for this equipment type (optional)"
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Description of this equipment type"
+    )
+    fields_schema = models.JSONField(
+        default=list,
+        help_text="""Dynamic fields for this equipment type. Format:
+        [{"name": "field_name", "label": "Field Label", "type": "text|number|select|date",
+          "required": true/false, "options": [] (for select type)}]"""
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this equipment type is available for selection"
+    )
+    icon_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Icon name from react-icons (e.g., 'FaServer', 'FaHdd')"
+    )
+    display_order = models.IntegerField(
+        default=0,
+        help_text="Display order in the equipment selector"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['category', 'display_order', 'name']
+        verbose_name = "Equipment Type"
+        verbose_name_plural = "Equipment Types"
+        indexes = [
+            models.Index(fields=['category', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.category})"
+
+
+class WorksheetTemplate(models.Model):
+    """
+    Worksheet template model for saving reusable worksheet configurations.
+    Allows users to create and reuse worksheet templates.
+    """
+    name = models.CharField(
+        max_length=200,
+        help_text="Template name"
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name='worksheet_templates',
+        null=True,
+        blank=True,
+        help_text="Customer this template belongs to (null for global templates)"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='worksheet_templates',
+        null=True,
+        blank=True,
+        help_text="User who created this template (null for global templates)"
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Description of this template"
+    )
+    equipment_types = models.ManyToManyField(
+        EquipmentType,
+        related_name='worksheet_templates',
+        help_text="Equipment types included in this template"
+    )
+    template_config = models.JSONField(
+        default=dict,
+        help_text="""Template configuration including equipment quantities and field values.
+        Format: {"equipment": [{"type_id": 1, "quantity": 2, "fields": {...}}]}"""
+    )
+    is_default = models.BooleanField(
+        default=False,
+        help_text="Default template for this customer/user"
+    )
+    is_global = models.BooleanField(
+        default=False,
+        help_text="Available to all users (admin-created templates)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_default', '-is_global', 'name']
+        verbose_name = "Worksheet Template"
+        verbose_name_plural = "Worksheet Templates"
+        indexes = [
+            models.Index(fields=['customer', 'user']),
+            models.Index(fields=['is_global', 'is_default']),
+        ]
+
+    def __str__(self):
+        prefix = "Global: " if self.is_global else ""
+        customer_part = f" ({self.customer.name})" if self.customer else ""
+        return f"{prefix}{self.name}{customer_part}"

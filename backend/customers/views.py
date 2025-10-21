@@ -3,8 +3,12 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
-from .models import Customer
-from .serializers import CustomerSerializer
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import Customer, ContactInfo
+from .serializers import CustomerSerializer, ContactInfoSerializer
 from core.models import Config, CustomerMembership, UserConfig
 from django.db.models import Q
 from django.core.paginator import Paginator
@@ -237,3 +241,96 @@ def customer_delete(request, pk):
         return JsonResponse({"error": "Customer not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+# ========== CONTACT INFO VIEWSET ==========
+
+class ContactInfoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing contact information.
+    Provides CRUD operations for contact info with customer filtering.
+    """
+    serializer_class = ContactInfoSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Filter contacts by customer membership"""
+        user = self.request.user
+
+        # Get customer IDs the user has access to
+        customer_ids = CustomerMembership.objects.filter(
+            user=user
+        ).values_list('customer_id', flat=True)
+
+        queryset = ContactInfo.objects.filter(customer_id__in=customer_ids)
+
+        # Optional filtering by customer
+        customer_id = self.request.query_params.get('customer', None)
+        if customer_id:
+            queryset = queryset.filter(customer_id=customer_id)
+
+        return queryset.select_related('customer').order_by('-is_default', 'name')
+
+    def perform_create(self, serializer):
+        """Create contact info with permission check"""
+        customer = serializer.validated_data.get('customer')
+
+        # Verify user has access to this customer
+        if not CustomerMembership.objects.filter(
+            customer=customer,
+            user=self.request.user
+        ).exists():
+            raise PermissionError("You don't have access to this customer")
+
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """Update contact info with permission check"""
+        customer = serializer.validated_data.get('customer', serializer.instance.customer)
+
+        # Verify user has access to this customer
+        if not CustomerMembership.objects.filter(
+            customer=customer,
+            user=self.request.user
+        ).exists():
+            raise PermissionError("You don't have access to this customer")
+
+        serializer.save()
+
+    @action(detail=False, methods=['get'])
+    def by_customer(self, request):
+        """Get all contact info for a specific customer"""
+        customer_id = request.query_params.get('customer_id')
+        if not customer_id:
+            return Response({"error": "customer_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check user has access to this customer
+        if not CustomerMembership.objects.filter(
+            customer_id=customer_id,
+            user=request.user
+        ).exists():
+            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+
+        contacts = ContactInfo.objects.filter(customer_id=customer_id).order_by('-is_default', 'name')
+        serializer = self.get_serializer(contacts, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def default(self, request):
+        """Get default contact for a customer"""
+        customer_id = request.query_params.get('customer_id')
+        if not customer_id:
+            return Response({"error": "customer_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check user has access to this customer
+        if not CustomerMembership.objects.filter(
+            customer_id=customer_id,
+            user=request.user
+        ).exists():
+            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+
+        contact = ContactInfo.objects.filter(customer_id=customer_id, is_default=True).first()
+        if contact:
+            serializer = self.get_serializer(contact)
+            return Response(serializer.data)
+        return Response({"message": "No default contact found"}, status=status.HTTP_404_NOT_FOUND)

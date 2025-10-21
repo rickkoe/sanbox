@@ -1,0 +1,127 @@
+/* Worksheet Generator Styles */
+
+.worksheet-generator-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.section-card {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.section-card .card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  padding: 1rem 1.25rem;
+}
+
+.equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.equipment-card {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.equipment-card:hover {
+  border-color: #0066CC;
+  box-shadow: 0 4px 8px rgba(0, 102, 204, 0.2);
+  transform: translateY(-2px);
+}
+
+.equipment-card.selected {
+  border-color: #0066CC;
+  background: #f0f7ff;
+}
+
+.equipment-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.equipment-item {
+  padding: 1.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background: #f8f9fa;
+}
+
+.equipment-item h6 {
+  color: #495057;
+  font-weight: 600;
+}
+
+/* Dark theme support */
+.theme-dark .worksheet-generator-container {
+  color: #f8f9fa;
+}
+
+.theme-dark .section-card {
+  background: #343a40;
+  border-color: #495057;
+}
+
+.theme-dark .section-card .card-header {
+  background-color: #495057;
+  border-bottom-color: #6c757d;
+  color: #f8f9fa;
+}
+
+.theme-dark .equipment-card {
+  background: #343a40;
+  border-color: #495057;
+  color: #f8f9fa;
+}
+
+.theme-dark .equipment-card:hover {
+  border-color: #0066CC;
+  background: #3a4149;
+}
+
+.theme-dark .equipment-card.selected {
+  background: #2d3e50;
+}
+
+.theme-dark .equipment-item {
+  background: #2d3238;
+  border-color: #495057;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .worksheet-generator-container {
+    padding: 1rem;
+  }
+
+  .equipment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+}

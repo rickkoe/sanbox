@@ -1,4 +1,5 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
     config_viewset,
     config_detail,
@@ -48,6 +49,17 @@ from .dashboard_views import (
     dashboard_themes_view, dashboard_presets_view, DashboardPresetApplyView,
     DashboardTemplateSaveView
 )
+
+# Import worksheet views
+from .worksheet_views import (
+    EquipmentTypeViewSet,
+    WorksheetTemplateViewSet
+)
+
+# Create router for ViewSets
+router = DefaultRouter()
+router.register(r'equipment-types', EquipmentTypeViewSet, basename='equipment-type')
+router.register(r'worksheet-templates', WorksheetTemplateViewSet, basename='worksheet-template')
 
 urlpatterns = [
     path("config/", config_detail, name="config-detail"),  # Function-based view
@@ -124,4 +136,7 @@ urlpatterns = [
     path("dashboard-v2/presets/", dashboard_presets_view, name="dashboard-presets"),
     path("dashboard-v2/presets/apply/", DashboardPresetApplyView.as_view(), name="dashboard-preset-apply"),
     path("dashboard-v2/templates/save/", DashboardTemplateSaveView.as_view(), name="dashboard-template-save"),
+
+    # Include router URLs for worksheet generator
+    path('', include(router.urls)),
 ]

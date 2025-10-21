@@ -23,6 +23,7 @@ import {
   Layout,
   Terminal,
   Upload,
+  FileSpreadsheet,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -122,14 +123,15 @@ const getSidebarLinks = (pathname) => {
           { path: "/import/zoning", label: "SAN Zoning Import", icon: Network },
         ]
       },
-      { 
-        label: "Tools", 
-        icon: Wrench, 
+      {
+        label: "Tools",
+        icon: Wrench,
         expandable: true,
         subLinks: [
           { path: "/tools/custom-naming", label: "Custom Naming", icon: Type },
           { path: "/tools/wwpn-colonizer", label: "WWPN Colonizer", icon: Cable },
           { path: "/tools/ibm-storage-calculator", label: "Storage Calculators", icon: Calculator },
+          { path: "/tools/worksheet-generator", label: "Worksheet Generator", icon: FileSpreadsheet },
         ]
       },
     ],

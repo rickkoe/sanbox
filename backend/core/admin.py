@@ -3,7 +3,7 @@ from .models import (
     Project, Config, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable,
     CustomerMembership, ProjectGroup, DashboardAnalytics, DashboardLayout,
     DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType,
-    UserConfig
+    UserConfig, EquipmentType, WorksheetTemplate
 )
 
 @admin.register(Project)
@@ -402,3 +402,68 @@ class DashboardAnalyticsAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         # Analytics should only be created programmatically
         return False
+
+
+# ========== WORKSHEET GENERATOR ADMIN ==========
+
+@admin.register(EquipmentType)
+class EquipmentTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "category", "vendor", "is_active", "display_order", "created_at")
+    list_filter = ("category", "is_active", "vendor", "created_at")
+    search_fields = ("name", "vendor", "description")
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("category", "display_order", "name")
+
+    fieldsets = (
+        ("Equipment Type Information", {
+            "fields": ("name", "category", "vendor", "description")
+        }),
+        ("Field Schema", {
+            "fields": ("fields_schema",),
+            "description": "JSON array defining the dynamic fields for this equipment type"
+        }),
+        ("Display Settings", {
+            "fields": ("icon_name", "display_order", "is_active")
+        }),
+        ("Metadata", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        })
+    )
+
+
+@admin.register(WorksheetTemplate)
+class WorksheetTemplateAdmin(admin.ModelAdmin):
+    list_display = ("name", "customer", "user", "is_default", "is_global", "created_at")
+    list_filter = ("is_default", "is_global", "customer", "created_at")
+    search_fields = ("name", "description", "customer__name", "user__username")
+    readonly_fields = ("created_at", "updated_at")
+    filter_horizontal = ("equipment_types",)
+
+    fieldsets = (
+        ("Template Information", {
+            "fields": ("name", "description")
+        }),
+        ("Owner", {
+            "fields": ("customer", "user")
+        }),
+        ("Equipment Types", {
+            "fields": ("equipment_types",)
+        }),
+        ("Template Configuration", {
+            "fields": ("template_config",),
+            "description": "JSON object storing template configuration",
+            "classes": ("collapse",)
+        }),
+        ("Settings", {
+            "fields": ("is_default", "is_global")
+        }),
+        ("Metadata", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",)
+        })
+    )
+
+    def get_queryset(self, request):
+        """Optimize queries with select_related and prefetch_related"""
+        return super().get_queryset(request).select_related('customer', 'user').prefetch_related('equipment_types')

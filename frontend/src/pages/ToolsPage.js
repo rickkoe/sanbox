@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { FaServer, FaCalculator, FaTag } from "react-icons/fa";
+import { FaServer, FaCalculator, FaTag, FaFileExcel } from "react-icons/fa";
 import "../styles/tools.css";
 
 const ToolsPage = () => {
@@ -35,6 +35,16 @@ const ToolsPage = () => {
               <FaCalculator size={48} className="home-icon mb-3" />
               <h5 className="card-title">Storage Calculators</h5>
               <p className="card-text">Access calculators for your storage configurations.</p>
+            </div>
+          </NavLink>
+        </div>
+        {/* Worksheet Generator Tool */}
+        <div className="col-md-4 mb-4">
+          <NavLink to="/tools/worksheet-generator" className="home-card card text-center h-100">
+            <div className="card-body">
+              <FaFileExcel size={48} className="home-icon mb-3" />
+              <h5 className="card-title">Worksheet Generator</h5>
+              <p className="card-text">Generate professional implementation worksheets for equipment deployments.</p>
             </div>
           </NavLink>
         </div>

@@ -73,6 +73,7 @@ const TeamManagement = React.lazy(() => import("./pages/TeamManagement"));
 const UserProfile = React.lazy(() => import("./pages/UserProfile"));
 const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
 const UniversalImporter = React.lazy(() => import("./pages/UniversalImporter"));
+const WorksheetGeneratorPage = React.lazy(() => import("./pages/WorksheetGeneratorPage"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -121,6 +122,7 @@ function AppContent() {
                           location.pathname.match(/^\/storage\/\d+$/) || // Storage detail pages
                           location.pathname.startsWith('/scripts/') ||
                           location.pathname.startsWith('/tools/ibm-storage-calculator') ||
+                          location.pathname.startsWith('/tools/worksheet-generator') ||
                           location.pathname.startsWith('/import/') ||
                           location.pathname.startsWith('/settings/');
 
@@ -231,6 +233,10 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                   <Route
                     path="/tools/ibm-storage-calculator"
                     element={<StorageCalculatorPage />}
+                  />
+                  <Route
+                    path="/tools/worksheet-generator"
+                    element={<WorksheetGeneratorPage />}
                   />
                   <Route
                     path="/san/zones/zone-scripts"

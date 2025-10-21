@@ -33,5 +33,9 @@ gunicorn==23.0.0
 # PostgreSQL adapter
 psycopg2-binary==2.9.10
 
+# Excel generation
+openpyxl==3.1.5
+Pillow==10.4.0  # Required for image support in Excel files
+
 # Development dependencies (optional, for hot-reload in containers)
 watchdog==6.0.0

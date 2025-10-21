@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership, UserConfig
+from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership, UserConfig, EquipmentType, WorksheetTemplate
 from customers.models import Customer
 
 
@@ -354,4 +354,99 @@ class CustomVariableSerializer(serializers.ModelSerializer):
         """Ensure variable name is valid identifier"""
         if not value.isidentifier():
             raise serializers.ValidationError("Variable name must be a valid identifier (letters, numbers, underscore, no spaces)")
+        return value
+
+
+# ========== WORKSHEET GENERATOR SERIALIZERS ==========
+
+class EquipmentTypeSerializer(serializers.ModelSerializer):
+    """Serializer for equipment types"""
+
+    class Meta:
+        model = EquipmentType
+        fields = [
+            'id',
+            'name',
+            'category',
+            'vendor',
+            'description',
+            'fields_schema',
+            'is_active',
+            'icon_name',
+            'display_order',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_fields_schema(self, value):
+        """Validate fields_schema structure"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("fields_schema must be a list")
+
+        for field in value:
+            if not isinstance(field, dict):
+                raise serializers.ValidationError("Each field in fields_schema must be an object")
+
+            required_keys = ['name', 'label', 'type']
+            for key in required_keys:
+                if key not in field:
+                    raise serializers.ValidationError(f"Each field must have '{key}' property")
+
+            valid_types = ['text', 'number', 'select', 'date', 'textarea']
+            if field['type'] not in valid_types:
+                raise serializers.ValidationError(f"Field type must be one of: {', '.join(valid_types)}")
+
+            # If type is select, options must be provided
+            if field['type'] == 'select' and 'options' not in field:
+                raise serializers.ValidationError("Select fields must have 'options' property")
+
+        return value
+
+
+class WorksheetTemplateSerializer(serializers.ModelSerializer):
+    """Serializer for worksheet templates"""
+    equipment_types_details = EquipmentTypeSerializer(source='equipment_types', many=True, read_only=True)
+    customer_name = serializers.CharField(source='customer.name', read_only=True)
+    user_name = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = WorksheetTemplate
+        fields = [
+            'id',
+            'name',
+            'customer',
+            'customer_name',
+            'user',
+            'user_name',
+            'description',
+            'equipment_types',
+            'equipment_types_details',
+            'template_config',
+            'is_default',
+            'is_global',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_template_config(self, value):
+        """Validate template_config structure"""
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("template_config must be a dictionary")
+
+        # Validate equipment list if present
+        if 'equipment' in value:
+            if not isinstance(value['equipment'], list):
+                raise serializers.ValidationError("template_config.equipment must be a list")
+
+            for equip in value['equipment']:
+                if not isinstance(equip, dict):
+                    raise serializers.ValidationError("Each equipment item must be an object")
+
+                required_keys = ['type_id', 'quantity']
+                for key in required_keys:
+                    if key not in equip:
+                        raise serializers.ValidationError(f"Each equipment item must have '{key}' property")
+
         return value
