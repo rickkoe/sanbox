@@ -523,7 +523,13 @@ const UniversalImporter = () => {
         );
         // Check that at least something is selected to import
         const hasSelections = selectedAliases.size > 0 || selectedZones.size > 0 || selectedFabrics.size > 0;
-        return hasFabric && hasSelections;
+
+        // Check that all conflicts are resolved
+        const totalConflicts = (conflicts?.zones?.length || 0) + (conflicts?.aliases?.length || 0);
+        const resolvedConflicts = Object.keys(conflictResolutions).length;
+        const allConflictsResolved = totalConflicts === 0 || resolvedConflicts >= totalConflicts;
+
+        return hasFabric && hasSelections && allConflictsResolved;
       default:
         return false;
     }
@@ -532,12 +538,6 @@ const UniversalImporter = () => {
   return (
     <div className={`universal-importer theme-${theme}`}>
       <div className="importer-container">
-        {/* Header */}
-        <div className="importer-header">
-          <h1>Universal Data Importer</h1>
-          <p>Import and manage your infrastructure data with ease</p>
-        </div>
-
         {/* Step Indicator */}
         <StepIndicator currentStep={step} theme={theme} />
 
@@ -609,6 +609,8 @@ const UniversalImporter = () => {
                 onConflictResolve={handleConflictResolve}
                 detectedVendor={detectedVendor}
                 theme={theme}
+                onStartImport={handleImport}
+                canStartImport={canProceed() && !loading}
               />
             </>
           )}

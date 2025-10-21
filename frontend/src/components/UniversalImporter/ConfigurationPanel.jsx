@@ -29,7 +29,9 @@ const ConfigurationPanel = ({
   conflictResolutions,
   onConflictResolve,
   detectedVendor,
-  theme
+  theme,
+  onStartImport,
+  canStartImport = false
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedConflictSections, setExpandedConflictSections] = useState({
@@ -245,7 +247,20 @@ const ConfigurationPanel = ({
             borderRadius: '8px',
             border: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`
           }}>
-            <div style={{ marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.9rem' }}>Apply to All:</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>Apply to All:</div>
+              <div style={{
+                fontSize: '0.85rem',
+                fontWeight: '500',
+                color: theme === 'dark' ? '#10b981' : '#059669',
+                backgroundColor: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(5, 150, 105, 0.1)',
+                padding: '0.25rem 0.75rem',
+                borderRadius: '6px',
+                border: `1px solid ${theme === 'dark' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(5, 150, 105, 0.3)'}`
+              }}>
+                {Object.keys(conflictResolutions).length} of {(conflicts.zones?.length || 0) + (conflicts.aliases?.length || 0)} conflicts resolved
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
               <button
                 className="btn btn-sm btn-secondary"
@@ -286,7 +301,7 @@ const ConfigurationPanel = ({
             </div>
 
             {/* Rename Suffix Input */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: '500', minWidth: 'fit-content' }}>
                 Duplicate Suffix:
               </label>
@@ -304,6 +319,24 @@ const ConfigurationPanel = ({
                 </span>
               )}
             </div>
+
+            {/* Start Import Button */}
+            {onStartImport && (
+              <div style={{ borderTop: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`, paddingTop: '0.75rem' }}>
+                <button
+                  className="btn btn-success"
+                  onClick={onStartImport}
+                  disabled={!canStartImport}
+                  style={{
+                    width: '100%',
+                    fontWeight: '600',
+                    padding: '0.5rem 1rem'
+                  }}
+                >
+                  Start Import
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Alias Conflicts */}
