@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Dropdown } from 'react-bootstrap';
 import {
   Database,
   Server,
@@ -6,13 +7,15 @@ import {
   Check,
   Lock,
   TrendingUp,
-  Zap,
   Shield,
-  Clock
+  Clock,
+  ChevronDown
 } from 'lucide-react';
 import './styles/ImportTypeSelector.css';
 
 const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   const importTypes = [
     {
       id: 'san',
@@ -22,15 +25,14 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
       color: 'primary',
       available: true,
       features: [
-        { icon: Check, text: 'Cisco MDS Support' },
-        { icon: Check, text: 'Brocade Support' },
-        { icon: Check, text: 'Zone & Alias Import' },
-        { icon: Shield, text: 'Conflict Detection' }
+        'Cisco MDS Support',
+        'Brocade Support',
+        'Zone & Alias Import',
+        'Conflict Detection'
       ],
-      stats: {
-        icon: TrendingUp,
-        value: '10K+',
-        label: 'Zones Imported'
+      badge: {
+        text: 'Popular',
+        color: '#10b981'
       }
     },
     {
@@ -42,15 +44,14 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
       available: false,
       comingSoon: true,
       features: [
-        { icon: Clock, text: 'EMC VMAX/PowerMax' },
-        { icon: Clock, text: 'NetApp Arrays' },
-        { icon: Clock, text: 'Pure Storage' },
-        { icon: Clock, text: 'Volume Mapping' }
+        'IBM FlashSystem',
+        'IBM DS8000',
+        'Volume Management',
+        'Storage Replication'
       ],
-      stats: {
-        icon: Clock,
-        value: 'Q1 2025',
-        label: 'Coming Soon'
+      badge: {
+        text: 'Coming Q4 2025',
+        color: '#f59e0b'
       }
     },
     {
@@ -62,128 +63,116 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
       available: false,
       comingSoon: true,
       features: [
-        { icon: Clock, text: 'VMware vCenter' },
-        { icon: Clock, text: 'Physical Servers' },
-        { icon: Clock, text: 'HBA Configuration' },
-        { icon: Clock, text: 'Multipath Settings' }
+        'Power & IBMi',
+        'Physical Servers',
+        'HBA Configuration',
+        'Multipath Settings'
       ],
-      stats: {
-        icon: Clock,
-        value: 'Q2 2025',
-        label: 'Coming Soon'
+      badge: {
+        text: 'Coming Q1 2026',
+        color: '#f59e0b'
       }
     }
   ];
 
+  const selectedTypeObj = importTypes.find(t => t.id === selectedType);
+
+  const handleSelect = (typeId) => {
+    const type = importTypes.find(t => t.id === typeId);
+    if (type.available) {
+      onTypeSelect(typeId);
+      setIsOpen(false);
+    }
+  };
+
   return (
     <div className={`import-type-selector theme-${theme}`}>
-      <div className="selector-grid">
-        {importTypes.map((type) => (
-          <div
-            key={type.id}
-            className={`import-card ${selectedType === type.id ? 'selected' : ''} ${
-              !type.available ? 'disabled' : ''
-            } color-${type.color}`}
-            onClick={() => type.available && onTypeSelect(type.id)}
-          >
-            {/* Coming Soon Ribbon */}
-            {type.comingSoon && (
-              <div className="coming-soon-ribbon">
-                <span>Coming Soon</span>
-              </div>
+      <div className="selector-label">
+        <Database size={20} />
+        <span>Select Import Type</span>
+      </div>
+
+      <Dropdown
+        show={isOpen}
+        onToggle={setIsOpen}
+        className="import-type-dropdown-wrapper"
+      >
+        <Dropdown.Toggle
+          variant="outline-secondary"
+          className="import-type-dropdown-toggle"
+        >
+          <div className="dropdown-selected-content">
+            {selectedTypeObj ? (
+              <>
+                <selectedTypeObj.icon size={24} />
+                <div className="selected-text">
+                  <div className="selected-title">{selectedTypeObj.title}</div>
+                  <div className="selected-description">{selectedTypeObj.description}</div>
+                </div>
+              </>
+            ) : (
+              <span className="placeholder-text">Choose an import type...</span>
             )}
+          </div>
+          <ChevronDown size={20} className={`chevron-icon ${isOpen ? 'rotated' : ''}`} />
+        </Dropdown.Toggle>
 
-            {/* Card Background Effects */}
-            <div className="card-bg-gradient" />
-            <div className="card-bg-pattern" />
-            <div className="card-glow" />
-
-            {/* Card Content */}
-            <div className="card-content">
-              {/* Header */}
-              <div className="card-header">
-                <div className="icon-container">
-                  <div className="icon-bg">
-                    <type.icon size={32} strokeWidth={1.5} />
+        <Dropdown.Menu className="import-type-dropdown-menu">
+          {importTypes.map((type) => (
+            <Dropdown.Item
+              key={type.id}
+              onClick={() => handleSelect(type.id)}
+              className={`import-type-option ${!type.available ? 'disabled' : ''} ${selectedType === type.id ? 'selected' : ''}`}
+              disabled={!type.available}
+            >
+              <div className="option-content">
+                <div className="option-header">
+                  <div className="option-icon-container">
+                    <type.icon size={28} strokeWidth={1.5} />
                   </div>
-                  {type.available && (
-                    <div className="icon-badge">
-                      <Zap size={14} />
+                  <div className="option-main">
+                    <div className="option-title-row">
+                      <h4>{type.title}</h4>
+                      {type.badge && (
+                        <span
+                          className="option-badge"
+                          style={{
+                            backgroundColor: `${type.badge.color}20`,
+                            color: type.badge.color,
+                            borderColor: `${type.badge.color}40`
+                          }}
+                        >
+                          {type.badge.text}
+                        </span>
+                      )}
+                    </div>
+                    <p className="option-description">{type.description}</p>
+                  </div>
+                  {selectedType === type.id && type.available && (
+                    <div className="option-selected-indicator">
+                      <Check size={20} />
+                    </div>
+                  )}
+                  {!type.available && (
+                    <div className="option-locked-indicator">
+                      <Lock size={20} />
                     </div>
                   )}
                 </div>
-                <div className="card-titles">
-                  <h3>{type.title}</h3>
-                  <p>{type.description}</p>
+
+                <div className="option-features">
+                  {type.features.map((feature, idx) => (
+                    <div key={idx} className="feature-tag">
+                      {type.available ? <Check size={14} /> : <Clock size={14} />}
+                      <span>{feature}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              {/* Features List */}
-              <div className="card-features">
-                {type.features.map((feature, idx) => (
-                  <div key={idx} className="feature-item">
-                    <feature.icon size={16} />
-                    <span>{feature.text}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Stats/Status */}
-              <div className="card-footer">
-                <div className="stats-container">
-                  <type.stats.icon size={18} />
-                  <div className="stats-content">
-                    <div className="stats-value">{type.stats.value}</div>
-                    <div className="stats-label">{type.stats.label}</div>
-                  </div>
-                </div>
-
-                {type.available ? (
-                  <button className="select-button">
-                    <span>Select</span>
-                    <svg
-                      className="button-arrow"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                    >
-                      <path
-                        d="M5 12H19M19 12L12 5M19 12L12 19"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                ) : (
-                  <div className="locked-indicator">
-                    <Lock size={20} />
-                  </div>
-                )}
-              </div>
-
-              {/* Selection Indicator */}
-              {selectedType === type.id && type.available && (
-                <div className="selection-indicator">
-                  <Check size={20} />
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Feature Comparison Table (Optional) */}
-      <div className="comparison-hint">
-        <div className="hint-content">
-          <span className="hint-icon">💡</span>
-          <span className="hint-text">
-            Select the type of data you want to import. More import types coming soon!
-          </span>
-        </div>
-      </div>
+            </Dropdown.Item>
+          ))}
+        </Dropdown.Menu>
+      </Dropdown>
     </div>
   );
 };
