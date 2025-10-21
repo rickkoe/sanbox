@@ -161,10 +161,12 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
 
             header_font = Font(name='Calibri', size=14, bold=True, color='FFFFFF')
             header_fill = PatternFill(start_color='505050', end_color='505050', fill_type='solid')  # Dark Gray
-            subheader_font = Font(name='Calibri', size=12, bold=True, color='303030')  # Darker Gray text for better readability
-            subheader_fill = PatternFill(start_color='B3B3B3', end_color='B3B3B3', fill_type='solid')  # Light Gray
-            accent_green_fill = PatternFill(start_color='A2CA62', end_color='A2CA62', fill_type='solid')  # Green
-            accent_blue_fill = PatternFill(start_color='64CAE6', end_color='64CAE6', fill_type='solid')  # Blue
+            # Section headers: dark background with white text
+            subheader_font = Font(name='Calibri', size=12, bold=True, color='FFFFFF')  # White text
+            subheader_fill = PatternFill(start_color='505050', end_color='505050', fill_type='solid')  # Dark Gray background
+            # Equipment detail headers: light gray (old subheader color)
+            detail_header_font = Font(name='Calibri', size=11, bold=True, color='303030')  # Dark gray text
+            detail_header_fill = PatternFill(start_color='B3B3B3', end_color='B3B3B3', fill_type='solid')  # Light Gray
             normal_font = Font(name='Calibri', size=11, color='505050')  # Dark Gray
             bold_font = Font(name='Calibri', size=11, bold=True, color='505050')  # Dark Gray
             light_gray_fill = PatternFill(start_color='E8E8E8', end_color='E8E8E8', fill_type='solid')  # Light gray for field labels
@@ -451,7 +453,7 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                             'default_gateway': 'Default Gateway'
                         }
 
-                        # Column labels row - Blue accent
+                        # Column labels row - Light gray (old subheader color)
                         for col_idx, field in enumerate(fields, start=1):
                             cell = ws.cell(row=current_row, column=col_idx)
                             # Use override label if available, otherwise convert snake_case to Title Case
@@ -460,9 +462,9 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                             else:
                                 label = field.replace('_', ' ').title()
                             cell.value = label
-                            cell.font = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
-                            cell.fill = accent_blue_fill  # Blue accent for data headers
-                            cell.alignment = center_alignment
+                            cell.font = detail_header_font  # Dark gray text
+                            cell.fill = detail_header_fill  # Light gray background
+                            cell.alignment = left_alignment  # Left-aligned to match data below
                             cell.border = thin_border
                         current_row += 1
 
@@ -496,10 +498,20 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 # Add footer section
                 current_row += 2  # Add some space
 
-                # Green accent row before footer separator
+                # Blue-to-green gradient row before footer separator
                 for col in range(1, max_col + 1):
                     cell = ws.cell(row=current_row, column=col)
-                    cell.fill = accent_green_fill
+                    # Create gradient effect by transitioning from blue to green across columns
+                    # Calculate color based on column position
+                    progress = (col - 1) / max(max_col - 1, 1)  # 0.0 to 1.0
+                    # Interpolate between blue (64CAE6) and green (A2CA62)
+                    blue_r, blue_g, blue_b = 0x64, 0xCA, 0xE6
+                    green_r, green_g, green_b = 0xA2, 0xCA, 0x62
+                    r = int(blue_r + (green_r - blue_r) * progress)
+                    g = int(blue_g + (green_g - blue_g) * progress)
+                    b = int(blue_b + (green_b - blue_b) * progress)
+                    color_hex = f"{r:02X}{g:02X}{b:02X}"
+                    cell.fill = PatternFill(start_color=color_hex, end_color=color_hex, fill_type='solid')
                 current_row += 1
 
                 footer_start_row = current_row
