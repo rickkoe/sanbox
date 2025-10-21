@@ -1,8 +1,33 @@
 from django.contrib import admin
 from .models import Customer, ContactInfo
 
-# Register your models here.
-admin.site.register(Customer)
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'implementation_company_status', 'insights_tenant')
+    list_filter = ('is_implementation_company',)
+    search_fields = ('name', 'notes', 'insights_tenant')
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'notes')
+        }),
+        ('Implementation Company', {
+            'fields': ('is_implementation_company',),
+            'description': 'Mark this as your implementation company. Only one customer can be the implementation company at a time.'
+        }),
+        ('Insights Configuration', {
+            'fields': ('insights_api_key', 'insights_tenant'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def implementation_company_status(self, obj):
+        """Display implementation company status with a visual indicator"""
+        if obj.is_implementation_company:
+            return '✓ Implementation Company'
+        return '-'
+    implementation_company_status.short_description = 'Implementation Company'
 
 
 @admin.register(ContactInfo)

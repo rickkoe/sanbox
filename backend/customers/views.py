@@ -275,12 +275,13 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
         """Create contact info with permission check"""
         customer = serializer.validated_data.get('customer')
 
-        # Verify user has access to this customer
-        if not CustomerMembership.objects.filter(
-            customer=customer,
-            user=self.request.user
-        ).exists():
-            raise PermissionError("You don't have access to this customer")
+        # Verify user has access to this customer (skip check for global contacts)
+        if customer is not None:
+            if not CustomerMembership.objects.filter(
+                customer=customer,
+                user=self.request.user
+            ).exists():
+                raise PermissionError("You don't have access to this customer")
 
         serializer.save()
 
@@ -288,12 +289,13 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
         """Update contact info with permission check"""
         customer = serializer.validated_data.get('customer', serializer.instance.customer)
 
-        # Verify user has access to this customer
-        if not CustomerMembership.objects.filter(
-            customer=customer,
-            user=self.request.user
-        ).exists():
-            raise PermissionError("You don't have access to this customer")
+        # Verify user has access to this customer (skip check for global contacts)
+        if customer is not None:
+            if not CustomerMembership.objects.filter(
+                customer=customer,
+                user=self.request.user
+            ).exists():
+                raise PermissionError("You don't have access to this customer")
 
         serializer.save()
 

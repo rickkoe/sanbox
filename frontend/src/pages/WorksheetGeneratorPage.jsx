@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
-import { Form, Button, Card, Row, Col, Alert, Spinner, Modal } from 'react-bootstrap';
-import { FaFileExcel, FaPlus, FaTrash, FaUserPlus, FaSave } from 'react-icons/fa';
+import { Form, Button, Card, Row, Col, Alert, Spinner, Modal, Nav, Tab } from 'react-bootstrap';
+import { FaFileExcel, FaPlus, FaTrash, FaUserPlus, FaSave, FaTimes } from 'react-icons/fa';
 import api from '../api';
 import { ConfigContext } from '../context/ConfigContext';
 import '../styles/worksheet-generator.css';
@@ -9,6 +9,7 @@ const WorksheetGeneratorPage = () => {
   const { config } = useContext(ConfigContext);
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [contacts, setContacts] = useState([]);
+  const [implementationCompany, setImplementationCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
@@ -17,8 +18,35 @@ const WorksheetGeneratorPage = () => {
   // Form state
   const [customerName, setCustomerName] = useState('');
   const [projectName, setProjectName] = useState('');
-  const [selectedContactId, setSelectedContactId] = useState('');
-  const [selectedEquipment, setSelectedEquipment] = useState({});
+  const [sites, setSites] = useState([
+    {
+      id: 1,
+      name: 'Site 1',
+      // Site Contact Information
+      siteContactName: '',
+      siteContactEmail: '',
+      siteContactPhone: '',
+      siteContactAltPhone: '',
+      siteStreetAddress: '',
+      siteCity: '',
+      siteState: '',
+      siteZip: '',
+      siteNotes: '',
+      // Infrastructure
+      dnsServer1: '',
+      dnsServer2: '',
+      ntpServer: '',
+      smtpServer: '',
+      smtpPort: '',
+      // Network defaults for equipment
+      defaultSubnetMask: '',
+      defaultGateway: '',
+      // Implementation team contacts (multiple)
+      implementationContacts: [],
+      equipment: {}
+    }
+  ]);
+  const [activeSiteIndex, setActiveSiteIndex] = useState(0);
 
   // Contact creation modal
   const [showContactModal, setShowContactModal] = useState(false);
@@ -46,11 +74,11 @@ const WorksheetGeneratorPage = () => {
     loadTemplates();
   }, []);
 
-  // Load contacts when config changes
+  // Load contacts on mount (global implementation team)
   useEffect(() => {
     loadContacts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config?.customer?.id]);
+  }, []);
 
   // Prefill from config when it becomes available
   useEffect(() => {
@@ -94,16 +122,22 @@ const WorksheetGeneratorPage = () => {
   };
 
   const loadContacts = async () => {
-    if (!config?.customer?.id) return;
-
     try {
-      const response = await api.get(`/api/customers/contact-info/?customer=${config.customer.id}`);
-      setContacts(response.data);
+      // First, find the implementation company
+      const customersResponse = await api.get('/api/customers/?page_size=All');
+      const customers = customersResponse.data.results || customersResponse.data;
+      const implCompany = customers.find(c => c.is_implementation_company === true);
 
-      // Auto-select default contact if available
-      const defaultContact = response.data.find(c => c.is_default);
-      if (defaultContact) {
-        setSelectedContactId(defaultContact.id.toString());
+      if (implCompany) {
+        setImplementationCompany(implCompany);
+
+        // Load contacts for the implementation company
+        const response = await api.get(`/api/customers/contact-info/?customer=${implCompany.id}`);
+        setContacts(response.data);
+      } else {
+        // No implementation company set yet
+        setImplementationCompany(null);
+        setContacts([]);
       }
     } catch (err) {
       console.error('Failed to load contacts:', err);
@@ -125,16 +159,21 @@ const WorksheetGeneratorPage = () => {
       return;
     }
 
-    if (Object.keys(selectedEquipment).length === 0) {
+    // Check if any site has equipment
+    const hasEquipment = sites.some(site => Object.keys(site.equipment).length > 0);
+    if (!hasEquipment) {
       setError('Please select at least one equipment type before saving a template');
       return;
     }
 
     try {
+      // Save the first site's equipment configuration as template
+      const firstSiteWithEquipment = sites.find(site => Object.keys(site.equipment).length > 0);
+
       const template_config = {
         customer_name: customerName,
         project_name: projectName,
-        equipment: Object.entries(selectedEquipment).map(([id, data]) => ({
+        equipment: Object.entries(firstSiteWithEquipment.equipment).map(([id, data]) => ({
           type_id: parseInt(id),
           type_name: data.type.name,
           quantity: data.items.length,
@@ -147,7 +186,7 @@ const WorksheetGeneratorPage = () => {
         description: templateDescription,
         template_config: template_config,
         customer: config?.customer?.id || null,
-        equipment_types: Object.keys(selectedEquipment).map(id => parseInt(id))
+        equipment_types: Object.keys(firstSiteWithEquipment.equipment).map(id => parseInt(id))
       };
 
       await api.post('/api/core/worksheet-templates/', templateData);
@@ -178,7 +217,7 @@ const WorksheetGeneratorPage = () => {
         setAutoFilledProject(false);
       }
 
-      // Load equipment from template
+      // Load equipment from template into the active site
       if (template.template_config?.equipment) {
         const newSelectedEquipment = {};
 
@@ -189,16 +228,20 @@ const WorksheetGeneratorPage = () => {
             const items = [];
             for (let i = 0; i < equipmentConfig.quantity; i++) {
               const item = {};
-              // Initialize with template fields or empty
+              // Initialize with template fields or empty (skip site_address)
               if (i === 0 && equipmentConfig.fields) {
                 // First item gets template values
                 Object.keys(equipmentConfig.fields).forEach(key => {
-                  item[key] = equipmentConfig.fields[key];
+                  if (key !== 'site_address') {
+                    item[key] = equipmentConfig.fields[key];
+                  }
                 });
               } else {
                 // Additional items start empty
                 equipmentType.fields_schema.forEach(field => {
-                  item[field.name] = '';
+                  if (field.name !== 'site_address') {
+                    item[field.name] = '';
+                  }
                 });
               }
               items.push(item);
@@ -211,30 +254,98 @@ const WorksheetGeneratorPage = () => {
           }
         }
 
-        setSelectedEquipment(newSelectedEquipment);
+        // Update the active site's equipment
+        updateSiteEquipment(activeSiteIndex, newSelectedEquipment);
       }
 
-      setSuccess('Template loaded successfully!');
+      setSuccess('Template loaded successfully into active site!');
     } catch (err) {
       setError('Failed to load template: ' + (err.response?.data?.error || err.message));
     }
   };
 
+  const addSite = () => {
+    const newSite = {
+      id: Date.now(),
+      name: `Site ${sites.length + 1}`,
+      // Site Contact Information
+      siteContactName: '',
+      siteContactEmail: '',
+      siteContactPhone: '',
+      siteContactAltPhone: '',
+      siteStreetAddress: '',
+      siteCity: '',
+      siteState: '',
+      siteZip: '',
+      siteNotes: '',
+      // Infrastructure
+      dnsServer1: '',
+      dnsServer2: '',
+      ntpServer: '',
+      smtpServer: '',
+      smtpPort: '',
+      // Network defaults
+      defaultSubnetMask: '',
+      defaultGateway: '',
+      // Implementation team contacts
+      implementationContacts: [],
+      equipment: {}
+    };
+    setSites([...sites, newSite]);
+    setActiveSiteIndex(sites.length);
+  };
+
+  const removeSite = (index) => {
+    if (sites.length === 1) {
+      setError('You must have at least one site');
+      return;
+    }
+    const newSites = sites.filter((_, i) => i !== index);
+    setSites(newSites);
+    if (activeSiteIndex >= newSites.length) {
+      setActiveSiteIndex(newSites.length - 1);
+    }
+  };
+
+  const updateSite = (index, field, value) => {
+    const newSites = [...sites];
+    newSites[index][field] = value;
+    setSites(newSites);
+  };
+
+  const updateSiteEquipment = (index, equipment) => {
+    const newSites = [...sites];
+    newSites[index].equipment = equipment;
+    setSites(newSites);
+  };
+
   const handleEquipmentToggle = (equipmentType) => {
     const id = equipmentType.id;
-    if (selectedEquipment[id]) {
+    const site = sites[activeSiteIndex];
+    const currentEquipment = site.equipment;
+
+    if (currentEquipment[id]) {
       // Remove equipment
-      const newSelected = { ...selectedEquipment };
+      const newSelected = { ...currentEquipment };
       delete newSelected[id];
-      setSelectedEquipment(newSelected);
+      updateSiteEquipment(activeSiteIndex, newSelected);
     } else {
-      // Add equipment with one empty item
+      // Add equipment with one empty item (without site_address field)
       const emptyItem = {};
       equipmentType.fields_schema.forEach(field => {
-        emptyItem[field.name] = '';
+        // Skip site_address as it's now at site level
+        if (field.name !== 'site_address') {
+          emptyItem[field.name] = '';
+        }
       });
-      setSelectedEquipment({
-        ...selectedEquipment,
+
+      // Add standard network fields for all equipment
+      emptyItem['subnet_mask'] = site.defaultSubnetMask || '';
+      emptyItem['default_gateway'] = site.defaultGateway || '';
+      emptyItem['vlan'] = '';
+
+      updateSiteEquipment(activeSiteIndex, {
+        ...currentEquipment,
         [id]: {
           type: equipmentType,
           items: [emptyItem]
@@ -244,14 +355,25 @@ const WorksheetGeneratorPage = () => {
   };
 
   const handleAddItem = (equipmentTypeId) => {
-    const equipment = selectedEquipment[equipmentTypeId];
+    const currentEquipment = sites[activeSiteIndex].equipment;
+    const equipment = currentEquipment[equipmentTypeId];
+    const site = sites[activeSiteIndex];
     const emptyItem = {};
+
     equipment.type.fields_schema.forEach(field => {
-      emptyItem[field.name] = '';
+      // Skip site_address as it's now at site level
+      if (field.name !== 'site_address') {
+        emptyItem[field.name] = '';
+      }
     });
 
-    setSelectedEquipment({
-      ...selectedEquipment,
+    // Add standard network fields for all equipment
+    emptyItem['subnet_mask'] = site.defaultSubnetMask || '';
+    emptyItem['default_gateway'] = site.defaultGateway || '';
+    emptyItem['vlan'] = '';
+
+    updateSiteEquipment(activeSiteIndex, {
+      ...currentEquipment,
       [equipmentTypeId]: {
         ...equipment,
         items: [...equipment.items, emptyItem]
@@ -260,17 +382,18 @@ const WorksheetGeneratorPage = () => {
   };
 
   const handleRemoveItem = (equipmentTypeId, itemIndex) => {
-    const equipment = selectedEquipment[equipmentTypeId];
+    const currentEquipment = sites[activeSiteIndex].equipment;
+    const equipment = currentEquipment[equipmentTypeId];
     const newItems = equipment.items.filter((_, idx) => idx !== itemIndex);
 
     if (newItems.length === 0) {
       // Remove equipment type entirely
-      const newSelected = { ...selectedEquipment };
+      const newSelected = { ...currentEquipment };
       delete newSelected[equipmentTypeId];
-      setSelectedEquipment(newSelected);
+      updateSiteEquipment(activeSiteIndex, newSelected);
     } else {
-      setSelectedEquipment({
-        ...selectedEquipment,
+      updateSiteEquipment(activeSiteIndex, {
+        ...currentEquipment,
         [equipmentTypeId]: {
           ...equipment,
           items: newItems
@@ -280,12 +403,13 @@ const WorksheetGeneratorPage = () => {
   };
 
   const handleFieldChange = (equipmentTypeId, itemIndex, fieldName, value) => {
-    const equipment = selectedEquipment[equipmentTypeId];
+    const currentEquipment = sites[activeSiteIndex].equipment;
+    const equipment = currentEquipment[equipmentTypeId];
     const newItems = [...equipment.items];
     newItems[itemIndex][fieldName] = value;
 
-    setSelectedEquipment({
-      ...selectedEquipment,
+    updateSiteEquipment(activeSiteIndex, {
+      ...currentEquipment,
       [equipmentTypeId]: {
         ...equipment,
         items: newItems
@@ -344,11 +468,6 @@ const WorksheetGeneratorPage = () => {
   };
 
   const handleCreateContact = async () => {
-    if (!config?.customer?.id) {
-      setError('No customer selected. Please select a customer in the configuration.');
-      return;
-    }
-
     // Validate required fields
     if (!newContact.name || !newContact.email) {
       setError('Contact name and email are required');
@@ -356,17 +475,44 @@ const WorksheetGeneratorPage = () => {
     }
 
     try {
+      // Find or create the implementation company customer
+      let implementationCompanyId = null;
+      try {
+        // Look up customer with is_implementation_company = true
+        const customersResponse = await api.get('/api/customers/?page_size=All');
+        const customers = customersResponse.data.results || customersResponse.data;
+        const implementationCompany = customers.find(c => c.is_implementation_company === true);
+
+        if (implementationCompany) {
+          implementationCompanyId = implementationCompany.id;
+        } else {
+          // No implementation company exists, create one (default: "Evolving Solutions")
+          const createCustomerResponse = await api.post('/api/customers/', {
+            name: 'Evolving Solutions',
+            notes: 'Implementation team company',
+            is_implementation_company: true
+          });
+          implementationCompanyId = createCustomerResponse.data.id;
+        }
+      } catch (customerErr) {
+        console.error('Error handling implementation company customer:', customerErr);
+        // If we can't create/find the customer, create contact without customer
+      }
+
+      // Create contact assigned to implementation company
       const contactData = {
         ...newContact,
-        customer: config.customer.id
+        customer: implementationCompanyId
       };
 
-      const response = await api.post('/api/customers/contact-info/', contactData);
-      setContacts([...contacts, response.data]);
-      setSelectedContactId(response.data.id.toString());
+      await api.post('/api/customers/contact-info/', contactData);
+
+      // Reload contacts to get the updated list
+      await loadContacts();
+
       setShowContactModal(false);
       setNewContact({ name: '', email: '', phone_number: '', title: '' });
-      setSuccess('Contact created successfully!');
+      setSuccess('Implementation team contact created successfully!');
     } catch (err) {
       setError('Failed to create contact: ' + (err.response?.data?.error || err.message));
     }
@@ -378,39 +524,66 @@ const WorksheetGeneratorPage = () => {
       setError(null);
       setSuccess(null);
 
-      // Validate at least one equipment type is selected
-      if (Object.keys(selectedEquipment).length === 0) {
-        setError('Please select at least one equipment type');
+      // Validate at least one site has equipment
+      const hasEquipment = sites.some(site => Object.keys(site.equipment).length > 0);
+      if (!hasEquipment) {
+        setError('Please select at least one equipment type for at least one site');
         return;
       }
 
-      // Build payload
-      const equipment = Object.entries(selectedEquipment).map(([id, data]) => ({
-        type_id: parseInt(id),
-        type_name: data.type.name,
-        quantity: data.items.length,
-        items: data.items
-      }));
+      // Build sites payload
+      const sitesPayload = sites.map(site => {
+        // Get implementation team contacts for this site
+        const implementationTeam = site.implementationContacts.map(contactId => {
+          const contact = contacts.find(c => c.id === parseInt(contactId));
+          return contact ? {
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone_number || '',
+            title: contact.title || ''
+          } : null;
+        }).filter(c => c !== null);
 
-      // Get selected contact data
-      const selectedContact = contacts.find(c => c.id === parseInt(selectedContactId));
-      const contactPayload = selectedContact ? {
-        name: selectedContact.name,
-        email: selectedContact.email,
-        phone: selectedContact.phone_number || '',
-        title: selectedContact.title || ''
-      } : {
-        name: '',
-        email: '',
-        phone: '',
-        title: ''
-      };
+        // Build equipment list for this site (with subnet/gateway from site defaults)
+        const equipment = Object.entries(site.equipment).map(([id, data]) => ({
+          type_id: parseInt(id),
+          type_name: data.type.name,
+          quantity: data.items.length,
+          items: data.items.map(item => ({
+            ...item,
+            subnet_mask: item.subnet_mask || site.defaultSubnetMask || '',
+            default_gateway: item.default_gateway || site.defaultGateway || ''
+          }))
+        }));
+
+        return {
+          name: site.name,
+          // Site Information
+          siteContactName: site.siteContactName,
+          siteContactEmail: site.siteContactEmail,
+          siteContactPhone: site.siteContactPhone,
+          siteContactAltPhone: site.siteContactAltPhone,
+          siteStreetAddress: site.siteStreetAddress,
+          siteCity: site.siteCity,
+          siteState: site.siteState,
+          siteZip: site.siteZip,
+          siteNotes: site.siteNotes,
+          // Infrastructure
+          dnsServer1: site.dnsServer1,
+          dnsServer2: site.dnsServer2,
+          ntpServer: site.ntpServer,
+          smtpServer: site.smtpServer,
+          smtpPort: site.smtpPort,
+          // Implementation Team
+          implementationTeam: implementationTeam,
+          equipment: equipment
+        };
+      });
 
       const payload = {
         customer_name: customerName,
         project_name: projectName,
-        contact: contactPayload,
-        equipment: equipment
+        sites: sitesPayload
       };
 
       // Generate worksheet
@@ -420,11 +593,22 @@ const WorksheetGeneratorPage = () => {
         { responseType: 'blob' }
       );
 
-      // Download file
+      // Download file with descriptive name
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `implementation_worksheet_${Date.now()}.xlsx`);
+
+      // Build filename: {Implementation Company} {Customer} {Project} Implemenation Worksheets {MMDDYY}.xlsx
+      const today = new Date();
+      const mmddyy = `${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
+
+      const implCompanyName = implementationCompany?.name || 'Company';
+      const custName = customerName || 'Customer';
+      const projName = projectName || 'Project';
+
+      const filename = `${implCompanyName} ${custName} ${projName} Implementation Worksheets ${mmddyy}.xlsx`;
+
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -536,7 +720,7 @@ const WorksheetGeneratorPage = () => {
                 variant="outline-success"
                 className="w-100"
                 onClick={() => setShowSaveTemplateModal(true)}
-                disabled={Object.keys(selectedEquipment).length === 0}
+                disabled={!sites.some(site => Object.keys(site.equipment).length > 0)}
               >
                 <FaSave className="me-2" />
                 Save as Template
@@ -546,76 +730,319 @@ const WorksheetGeneratorPage = () => {
         </Card.Body>
       </Card>
 
-      {/* Contact Information Section */}
+      {/* Sites Section with Tabs */}
       <Card className="section-card mb-3">
-        <Card.Header><strong>Contact Information (Optional)</strong></Card.Header>
+        <Card.Header className="d-flex justify-content-between align-items-center">
+          <strong>Sites & Equipment</strong>
+          <Button size="sm" variant="outline-primary" onClick={addSite}>
+            <FaPlus className="me-1" /> Add Site
+          </Button>
+        </Card.Header>
         <Card.Body>
-          <Row>
-            <Col md={8}>
-              <Form.Group className="mb-3">
-                <Form.Label>Select Contact</Form.Label>
-                <Form.Select
-                  value={selectedContactId}
-                  onChange={(e) => setSelectedContactId(e.target.value)}
-                >
-                  <option value="">No contact (leave blank)</option>
-                  {contacts.map(contact => (
-                    <option key={contact.id} value={contact.id}>
-                      {contact.name} - {contact.email}
-                      {contact.is_default && ' (Default)'}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Label>&nbsp;</Form.Label>
-              <Button
-                variant="outline-primary"
-                className="w-100"
-                onClick={() => setShowContactModal(true)}
-              >
-                <FaUserPlus className="me-2" />
-                Create New Contact
-              </Button>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
+          <Tab.Container activeKey={activeSiteIndex} onSelect={(k) => setActiveSiteIndex(parseInt(k))}>
+            <Nav variant="tabs" className="mb-3">
+              {sites.map((site, index) => (
+                <Nav.Item key={site.id}>
+                  <Nav.Link eventKey={index} className="d-flex align-items-center">
+                    {site.name}
+                    {sites.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="link"
+                        className="text-danger p-0 ms-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSite(index);
+                        }}
+                      >
+                        <FaTimes />
+                      </Button>
+                    )}
+                  </Nav.Link>
+                </Nav.Item>
+              ))}
+            </Nav>
 
-      {/* Equipment Selection */}
-      <Card className="section-card mb-3">
-        <Card.Header><strong>Select Equipment Types</strong></Card.Header>
-        <Card.Body>
-          <div className="equipment-grid">
-            {equipmentTypes.map(equipmentType => (
-              <div
-                key={equipmentType.id}
-                className={`equipment-card ${selectedEquipment[equipmentType.id] ? 'selected' : ''}`}
-                onClick={() => handleEquipmentToggle(equipmentType)}
-              >
-                <div className="equipment-card-header">
-                  <strong>{equipmentType.name}</strong>
-                  <span className="badge bg-secondary">{equipmentType.category}</span>
-                </div>
-                {equipmentType.vendor && (
-                  <div className="text-muted small">{equipmentType.vendor}</div>
-                )}
-                {selectedEquipment[equipmentType.id] && (
-                  <div className="mt-2">
-                    <span className="badge bg-primary">
-                      {selectedEquipment[equipmentType.id].items.length} selected
-                    </span>
+            <Tab.Content>
+              {sites.map((site, siteIndex) => (
+                <Tab.Pane key={site.id} eventKey={siteIndex}>
+                  {/* Site Name */}
+                  <Row className="mb-3">
+                    <Col md={12}>
+                      <Form.Group>
+                        <Form.Label><strong>Site Name</strong></Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.name}
+                          onChange={(e) => updateSite(siteIndex, 'name', e.target.value)}
+                          placeholder="e.g., Primary Data Center"
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  {/* Site Information Header */}
+                  <h6 className="mb-3 mt-4"><strong>Site Information</strong></h6>
+
+                  {/* Site Contact */}
+                  <Row className="mb-3">
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label>Site Contact Name</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.siteContactName}
+                          onChange={(e) => updateSite(siteIndex, 'siteContactName', e.target.value)}
+                          placeholder="Contact name"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={4}>
+                      <Form.Group>
+                        <Form.Label>Email Address</Form.Label>
+                        <Form.Control
+                          type="email"
+                          value={site.siteContactEmail}
+                          onChange={(e) => updateSite(siteIndex, 'siteContactEmail', e.target.value)}
+                          placeholder="email@example.com"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={2}>
+                      <Form.Group>
+                        <Form.Label>Phone Number</Form.Label>
+                        <Form.Control
+                          type="tel"
+                          value={site.siteContactPhone}
+                          onChange={(e) => updateSite(siteIndex, 'siteContactPhone', e.target.value)}
+                          placeholder="555-1234"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={2}>
+                      <Form.Group>
+                        <Form.Label>Alt. Phone</Form.Label>
+                        <Form.Control
+                          type="tel"
+                          value={site.siteContactAltPhone}
+                          onChange={(e) => updateSite(siteIndex, 'siteContactAltPhone', e.target.value)}
+                          placeholder="555-5678"
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  {/* Site Address */}
+                  <Row className="mb-3">
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Street Address</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.siteStreetAddress}
+                          onChange={(e) => updateSite(siteIndex, 'siteStreetAddress', e.target.value)}
+                          placeholder="123 Main St"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={3}>
+                      <Form.Group>
+                        <Form.Label>City</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.siteCity}
+                          onChange={(e) => updateSite(siteIndex, 'siteCity', e.target.value)}
+                          placeholder="City"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={1}>
+                      <Form.Group>
+                        <Form.Label>State</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.siteState}
+                          onChange={(e) => updateSite(siteIndex, 'siteState', e.target.value)}
+                          placeholder="MN"
+                          maxLength="2"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={2}>
+                      <Form.Group>
+                        <Form.Label>Zip</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.siteZip}
+                          onChange={(e) => updateSite(siteIndex, 'siteZip', e.target.value)}
+                          placeholder="55401"
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  {/* Site Notes */}
+                  <Row className="mb-3">
+                    <Col md={12}>
+                      <Form.Group>
+                        <Form.Label>Notes (room, rack, location, etc.)</Form.Label>
+                        <Form.Control
+                          as="textarea"
+                          rows={2}
+                          value={site.siteNotes}
+                          onChange={(e) => updateSite(siteIndex, 'siteNotes', e.target.value)}
+                          placeholder="Building 2, Server Room A, Rack 5..."
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  {/* Infrastructure Settings */}
+                  <Row className="mb-3">
+                    <Col md={3}>
+                      <Form.Group>
+                        <Form.Label>DNS Server IP 1</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.dnsServer1}
+                          onChange={(e) => updateSite(siteIndex, 'dnsServer1', e.target.value)}
+                          placeholder="8.8.8.8"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={3}>
+                      <Form.Group>
+                        <Form.Label>DNS Server IP 2</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.dnsServer2}
+                          onChange={(e) => updateSite(siteIndex, 'dnsServer2', e.target.value)}
+                          placeholder="8.8.4.4"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={3}>
+                      <Form.Group>
+                        <Form.Label>NTP Server</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.ntpServer}
+                          onChange={(e) => updateSite(siteIndex, 'ntpServer', e.target.value)}
+                          placeholder="time.google.com"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={2}>
+                      <Form.Group>
+                        <Form.Label>SMTP Server</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.smtpServer}
+                          onChange={(e) => updateSite(siteIndex, 'smtpServer', e.target.value)}
+                          placeholder="smtp.example.com"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={1}>
+                      <Form.Group>
+                        <Form.Label>SMTP Port</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.smtpPort}
+                          onChange={(e) => updateSite(siteIndex, 'smtpPort', e.target.value)}
+                          placeholder="25"
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  {/* Network Defaults for Equipment */}
+                  <Row className="mb-3">
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Default Subnet Mask (for equipment)</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.defaultSubnetMask}
+                          onChange={(e) => updateSite(siteIndex, 'defaultSubnetMask', e.target.value)}
+                          placeholder="255.255.255.0"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Default Gateway (for equipment)</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={site.defaultGateway}
+                          onChange={(e) => updateSite(siteIndex, 'defaultGateway', e.target.value)}
+                          placeholder="10.0.0.1"
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  {/* Implementation Team Contacts */}
+                  <Row className="mb-3">
+                    <Col md={12}>
+                      <Form.Group>
+                        <Form.Label>
+                          <strong>Implementation Team Contacts</strong>
+                          {implementationCompany && ` (${implementationCompany.name})`}
+                        </Form.Label>
+                        <Form.Select
+                          multiple
+                          value={site.implementationContacts}
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.selectedOptions, option => option.value);
+                            updateSite(siteIndex, 'implementationContacts', selected);
+                          }}
+                          style={{ minHeight: '100px' }}
+                        >
+                          {contacts.map(contact => (
+                            <option key={contact.id} value={contact.id}>
+                              {contact.name} - {contact.email} {contact.phone_number ? `- ${contact.phone_number}` : ''}
+                            </option>
+                          ))}
+                        </Form.Select>
+                        <Form.Text className="text-muted">
+                          Hold Ctrl/Cmd to select multiple contacts. <Button size="sm" variant="link" onClick={() => setShowContactModal(true)}>Add New Contact</Button>
+                        </Form.Text>
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  <hr />
+
+                  {/* Equipment Selection for this Site */}
+                  <h6 className="mb-3">Select Equipment Types</h6>
+                  <div className="equipment-grid mb-3">
+                    {equipmentTypes.map(equipmentType => (
+                      <div
+                        key={equipmentType.id}
+                        className={`equipment-card ${site.equipment[equipmentType.id] ? 'selected' : ''}`}
+                        onClick={() => handleEquipmentToggle(equipmentType)}
+                      >
+                        <div className="equipment-card-header">
+                          <strong>{equipmentType.name}</strong>
+                          <span className="badge bg-secondary">{equipmentType.category}</span>
+                        </div>
+                        {equipmentType.vendor && (
+                          <div className="text-muted small">{equipmentType.vendor}</div>
+                        )}
+                        {site.equipment[equipmentType.id] && (
+                          <div className="mt-2">
+                            <span className="badge bg-primary">
+                              {site.equipment[equipmentType.id].items.length} selected
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card.Body>
-      </Card>
 
-      {/* Equipment Details */}
-      {Object.entries(selectedEquipment).map(([equipmentTypeId, data]) => (
+                  {/* Equipment Details for this Site */}
+                  {Object.entries(site.equipment).map(([equipmentTypeId, data]) => (
         <Card key={equipmentTypeId} className="section-card mb-3">
           <Card.Header className="d-flex justify-content-between align-items-center">
             <strong>{data.type.name} Details</strong>
@@ -641,20 +1068,22 @@ const WorksheetGeneratorPage = () => {
                   </Button>
                 </div>
                 <Row>
-                  {data.type.fields_schema.map(field => (
-                    <Col md={6} key={field.name}>
-                      <Form.Group className="mb-3">
-                        <Form.Label>
-                          {field.label}
-                        </Form.Label>
-                        {renderField(
-                          field,
-                          item[field.name] || '',
-                          (value) => handleFieldChange(equipmentTypeId, itemIndex, field.name, value)
-                        )}
-                      </Form.Group>
-                    </Col>
-                  ))}
+                  {data.type.fields_schema
+                    .filter(field => field.name !== 'site_address') // Filter out site_address
+                    .map(field => (
+                      <Col md={6} key={field.name}>
+                        <Form.Group className="mb-3">
+                          <Form.Label>
+                            {field.label}
+                          </Form.Label>
+                          {renderField(
+                            field,
+                            item[field.name] || '',
+                            (value) => handleFieldChange(equipmentTypeId, itemIndex, field.name, value)
+                          )}
+                        </Form.Group>
+                      </Col>
+                    ))}
                 </Row>
                 {itemIndex < data.items.length - 1 && <hr />}
               </div>
@@ -662,6 +1091,12 @@ const WorksheetGeneratorPage = () => {
           </Card.Body>
         </Card>
       ))}
+                </Tab.Pane>
+              ))}
+            </Tab.Content>
+          </Tab.Container>
+        </Card.Body>
+      </Card>
 
       {/* Generate Button */}
       <div className="text-center mt-4 mb-5">
@@ -669,7 +1104,7 @@ const WorksheetGeneratorPage = () => {
           variant="primary"
           size="lg"
           onClick={handleGenerate}
-          disabled={generating || Object.keys(selectedEquipment).length === 0}
+          disabled={generating || !sites.some(site => Object.keys(site.equipment).length > 0)}
         >
           {generating ? (
             <>
