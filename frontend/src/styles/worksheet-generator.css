@@ -206,6 +206,23 @@
   color: #ffffff;
 }
 
+.worksheet-generator-container .btn-outline-success {
+  color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+.worksheet-generator-container .btn-outline-success:hover {
+  background-color: var(--success-color);
+  border-color: var(--success-color);
+  color: #ffffff;
+}
+
+.worksheet-generator-container .btn-outline-success:disabled {
+  color: var(--muted-text);
+  border-color: var(--table-border);
+  opacity: 0.5;
+}
+
 /* Spinner text */
 .worksheet-generator-container .spinner-border + .mt-3 {
   color: var(--primary-text);

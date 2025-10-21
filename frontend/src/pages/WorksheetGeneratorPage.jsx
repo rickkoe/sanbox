@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Form, Button, Card, Row, Col, Alert, Spinner, Modal } from 'react-bootstrap';
-import { FaFileExcel, FaPlus, FaTrash, FaUserPlus } from 'react-icons/fa';
+import { FaFileExcel, FaPlus, FaTrash, FaUserPlus, FaSave } from 'react-icons/fa';
 import api from '../api';
 import { ConfigContext } from '../context/ConfigContext';
 import '../styles/worksheet-generator.css';
@@ -29,13 +29,21 @@ const WorksheetGeneratorPage = () => {
     title: ''
   });
 
+  // Template management
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+
   // Track if fields were auto-filled
   const [autoFilledCustomer, setAutoFilledCustomer] = useState(false);
   const [autoFilledProject, setAutoFilledProject] = useState(false);
 
-  // Load equipment types on mount
+  // Load equipment types and templates on mount
   useEffect(() => {
     loadEquipmentTypes();
+    loadTemplates();
   }, []);
 
   // Load contacts when config changes
@@ -99,6 +107,116 @@ const WorksheetGeneratorPage = () => {
       }
     } catch (err) {
       console.error('Failed to load contacts:', err);
+    }
+  };
+
+  const loadTemplates = async () => {
+    try {
+      const response = await api.get('/api/core/worksheet-templates/');
+      setTemplates(response.data);
+    } catch (err) {
+      console.error('Failed to load templates:', err);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateName) {
+      setError('Template name is required');
+      return;
+    }
+
+    if (Object.keys(selectedEquipment).length === 0) {
+      setError('Please select at least one equipment type before saving a template');
+      return;
+    }
+
+    try {
+      const template_config = {
+        customer_name: customerName,
+        project_name: projectName,
+        equipment: Object.entries(selectedEquipment).map(([id, data]) => ({
+          type_id: parseInt(id),
+          type_name: data.type.name,
+          quantity: data.items.length,
+          fields: data.items[0] // Save first item as template
+        }))
+      };
+
+      const templateData = {
+        name: templateName,
+        description: templateDescription,
+        template_config: template_config,
+        customer: config?.customer?.id || null,
+        equipment_types: Object.keys(selectedEquipment).map(id => parseInt(id))
+      };
+
+      await api.post('/api/core/worksheet-templates/', templateData);
+      setShowSaveTemplateModal(false);
+      setTemplateName('');
+      setTemplateDescription('');
+      loadTemplates();
+      setSuccess('Template saved successfully!');
+    } catch (err) {
+      setError('Failed to save template: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleLoadTemplate = async (templateId) => {
+    if (!templateId) return;
+
+    try {
+      const response = await api.get(`/api/core/worksheet-templates/${templateId}/`);
+      const template = response.data;
+
+      // Prefill customer and project names from template
+      if (template.template_config?.customer_name) {
+        setCustomerName(template.template_config.customer_name);
+        setAutoFilledCustomer(false); // Don't show auto-fill text for template loads
+      }
+      if (template.template_config?.project_name) {
+        setProjectName(template.template_config.project_name);
+        setAutoFilledProject(false);
+      }
+
+      // Load equipment from template
+      if (template.template_config?.equipment) {
+        const newSelectedEquipment = {};
+
+        for (const equipmentConfig of template.template_config.equipment) {
+          const equipmentType = equipmentTypes.find(et => et.id === equipmentConfig.type_id);
+          if (equipmentType) {
+            // Create the specified number of items with template field values
+            const items = [];
+            for (let i = 0; i < equipmentConfig.quantity; i++) {
+              const item = {};
+              // Initialize with template fields or empty
+              if (i === 0 && equipmentConfig.fields) {
+                // First item gets template values
+                Object.keys(equipmentConfig.fields).forEach(key => {
+                  item[key] = equipmentConfig.fields[key];
+                });
+              } else {
+                // Additional items start empty
+                equipmentType.fields_schema.forEach(field => {
+                  item[field.name] = '';
+                });
+              }
+              items.push(item);
+            }
+
+            newSelectedEquipment[equipmentConfig.type_id] = {
+              type: equipmentType,
+              items: items
+            };
+          }
+        }
+
+        setSelectedEquipment(newSelectedEquipment);
+      }
+
+      setSuccess('Template loaded successfully!');
+    } catch (err) {
+      setError('Failed to load template: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -382,6 +500,52 @@ const WorksheetGeneratorPage = () => {
         </Card.Body>
       </Card>
 
+      {/* Template Section */}
+      <Card className="section-card mb-3">
+        <Card.Header><strong>Templates (Optional)</strong></Card.Header>
+        <Card.Body>
+          <Row>
+            <Col md={8}>
+              <Form.Group className="mb-3">
+                <Form.Label>Load from Template</Form.Label>
+                <Form.Select
+                  value={selectedTemplateId}
+                  onChange={(e) => {
+                    setSelectedTemplateId(e.target.value);
+                    if (e.target.value) handleLoadTemplate(e.target.value);
+                  }}
+                >
+                  <option value="">-- Select a template --</option>
+                  {templates.map(template => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                      {template.is_global && ' (Global)'}
+                    </option>
+                  ))}
+                </Form.Select>
+                {templates.length > 0 && selectedTemplateId && (
+                  <Form.Text className="text-muted">
+                    {templates.find(t => t.id === parseInt(selectedTemplateId))?.description || ''}
+                  </Form.Text>
+                )}
+              </Form.Group>
+            </Col>
+            <Col md={4}>
+              <Form.Label>&nbsp;</Form.Label>
+              <Button
+                variant="outline-success"
+                className="w-100"
+                onClick={() => setShowSaveTemplateModal(true)}
+                disabled={Object.keys(selectedEquipment).length === 0}
+              >
+                <FaSave className="me-2" />
+                Save as Template
+              </Button>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
       {/* Contact Information Section */}
       <Card className="section-card mb-3">
         <Card.Header><strong>Contact Information (Optional)</strong></Card.Header>
@@ -576,6 +740,53 @@ const WorksheetGeneratorPage = () => {
             disabled={!newContact.name || !newContact.email}
           >
             Create Contact
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Save Template Modal */}
+      <Modal show={showSaveTemplateModal} onHide={() => setShowSaveTemplateModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Save as Template</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>Template Name *</Form.Label>
+            <Form.Control
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="e.g., Standard SAN Deployment"
+              required
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Description</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              value={templateDescription}
+              onChange={(e) => setTemplateDescription(e.target.value)}
+              placeholder="Optional description of what this template is for..."
+            />
+          </Form.Group>
+          <Alert variant="info" className="mb-0">
+            <small>
+              This template will save your current configuration including selected equipment types
+              and the first item's field values as defaults.
+            </small>
+          </Alert>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowSaveTemplateModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleSaveTemplate}
+            disabled={!templateName}
+          >
+            Save Template
           </Button>
         </Modal.Footer>
       </Modal>
