@@ -323,6 +323,46 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
 
                     current_row += 1  # Blank row between equipment types
 
+            # Add footer section
+            current_row += 2  # Add some space
+
+            # Footer separator
+            ws.merge_cells(f'A{current_row}:D{current_row}')
+            cell = ws[f'A{current_row}']
+            cell.value = ""
+            cell.border = Border(top=Side(style='thick', color='505050'))
+            current_row += 1
+
+            # Contact info footer (if contact was provided)
+            contact = data.get('contact', {})
+            if contact and contact.get('name'):
+                ws.merge_cells(f'A{current_row}:D{current_row}')
+                cell = ws[f'A{current_row}']
+                cell.value = "Contact Information"
+                cell.font = Font(name='Calibri', size=10, bold=True, color='505050')
+                current_row += 1
+
+                ws.merge_cells(f'A{current_row}:D{current_row}')
+                cell = ws[f'A{current_row}']
+                footer_text = f"{contact.get('name', '')}"
+                if contact.get('title'):
+                    footer_text += f" - {contact.get('title', '')}"
+                if contact.get('email'):
+                    footer_text += f" | {contact.get('email', '')}"
+                if contact.get('phone'):
+                    footer_text += f" | {contact.get('phone', '')}"
+                cell.value = footer_text
+                cell.font = Font(name='Calibri', size=9, color='505050')
+                cell.alignment = center_alignment
+                current_row += 1
+
+            # Generated timestamp
+            ws.merge_cells(f'A{current_row}:D{current_row}')
+            cell = ws[f'A{current_row}']
+            cell.value = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M')}"
+            cell.font = Font(name='Calibri', size=8, italic=True, color='B3B3B3')
+            cell.alignment = center_alignment
+
             # Auto-adjust column widths
             for column in ws.columns:
                 max_length = 0

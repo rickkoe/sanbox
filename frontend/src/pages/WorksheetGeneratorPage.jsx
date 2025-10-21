@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Form, Button, Card, Row, Col, Alert, Spinner, Modal } from 'react-bootstrap';
 import { FaFileExcel, FaPlus, FaTrash, FaUserPlus } from 'react-icons/fa';
 import api from '../api';
@@ -29,19 +29,47 @@ const WorksheetGeneratorPage = () => {
     title: ''
   });
 
-  // Load equipment types and prefill on mount
+  // Track if fields were auto-filled
+  const [autoFilledCustomer, setAutoFilledCustomer] = useState(false);
+  const [autoFilledProject, setAutoFilledProject] = useState(false);
+
+  // Load equipment types on mount
   useEffect(() => {
     loadEquipmentTypes();
-    loadContacts();
-    prefillFromConfig();
   }, []);
 
-  const prefillFromConfig = () => {
-    if (config?.customer?.name) {
+  // Load contacts when config changes
+  useEffect(() => {
+    loadContacts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.customer?.id]);
+
+  // Prefill from config when it becomes available
+  useEffect(() => {
+    if (config?.customer?.name && !customerName && !autoFilledCustomer) {
       setCustomerName(config.customer.name);
+      setAutoFilledCustomer(true);
     }
-    if (config?.active_project?.name) {
+    if (config?.active_project?.name && !projectName && !autoFilledProject) {
       setProjectName(config.active_project.name);
+      setAutoFilledProject(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.customer?.name, config?.active_project?.name]);
+
+  const handleCustomerNameChange = (value) => {
+    setCustomerName(value);
+    // Hide helper text if user modifies the auto-filled value
+    if (autoFilledCustomer && value !== config?.customer?.name) {
+      setAutoFilledCustomer(false);
+    }
+  };
+
+  const handleProjectNameChange = (value) => {
+    setProjectName(value);
+    // Hide helper text if user modifies the auto-filled value
+    if (autoFilledProject && value !== config?.active_project?.name) {
+      setAutoFilledProject(false);
     }
   };
 
@@ -156,7 +184,6 @@ const WorksheetGeneratorPage = () => {
             rows={3}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            required={field.required}
           />
         );
       case 'number':
@@ -165,7 +192,6 @@ const WorksheetGeneratorPage = () => {
             type="number"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            required={field.required}
           />
         );
       case 'select':
@@ -173,7 +199,6 @@ const WorksheetGeneratorPage = () => {
           <Form.Select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            required={field.required}
           >
             <option value="">Select...</option>
             {field.options?.map(option => (
@@ -187,7 +212,6 @@ const WorksheetGeneratorPage = () => {
             type="date"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            required={field.required}
           />
         );
       default: // text
@@ -196,9 +220,37 @@ const WorksheetGeneratorPage = () => {
             type="text"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            required={field.required}
           />
         );
+    }
+  };
+
+  const handleCreateContact = async () => {
+    if (!config?.customer?.id) {
+      setError('No customer selected. Please select a customer in the configuration.');
+      return;
+    }
+
+    // Validate required fields
+    if (!newContact.name || !newContact.email) {
+      setError('Contact name and email are required');
+      return;
+    }
+
+    try {
+      const contactData = {
+        ...newContact,
+        customer: config.customer.id
+      };
+
+      const response = await api.post('/api/customers/contact-info/', contactData);
+      setContacts([...contacts, response.data]);
+      setSelectedContactId(response.data.id.toString());
+      setShowContactModal(false);
+      setNewContact({ name: '', email: '', phone_number: '', title: '' });
+      setSuccess('Contact created successfully!');
+    } catch (err) {
+      setError('Failed to create contact: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -208,12 +260,7 @@ const WorksheetGeneratorPage = () => {
       setError(null);
       setSuccess(null);
 
-      // Validate required fields
-      if (!customerName || !projectName) {
-        setError('Please enter customer and project names');
-        return;
-      }
-
+      // Validate at least one equipment type is selected
       if (Object.keys(selectedEquipment).length === 0) {
         setError('Please select at least one equipment type');
         return;
@@ -301,27 +348,72 @@ const WorksheetGeneratorPage = () => {
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Customer Name *</Form.Label>
+                <Form.Label>Customer Name</Form.Label>
                 <Form.Control
                   type="text"
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Enter customer name"
-                  required
+                  onChange={(e) => handleCustomerNameChange(e.target.value)}
+                  placeholder="Enter customer name (optional)"
                 />
+                {autoFilledCustomer && (
+                  <Form.Text className="text-muted">
+                    Auto-filled from active customer
+                  </Form.Text>
+                )}
               </Form.Group>
             </Col>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Project Name *</Form.Label>
+                <Form.Label>Project Name</Form.Label>
                 <Form.Control
                   type="text"
                   value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="Enter project name"
-                  required
+                  onChange={(e) => handleProjectNameChange(e.target.value)}
+                  placeholder="Enter project name (optional)"
                 />
+                {autoFilledProject && (
+                  <Form.Text className="text-muted">
+                    Auto-filled from active project
+                  </Form.Text>
+                )}
               </Form.Group>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
+      {/* Contact Information Section */}
+      <Card className="section-card mb-3">
+        <Card.Header><strong>Contact Information (Optional)</strong></Card.Header>
+        <Card.Body>
+          <Row>
+            <Col md={8}>
+              <Form.Group className="mb-3">
+                <Form.Label>Select Contact</Form.Label>
+                <Form.Select
+                  value={selectedContactId}
+                  onChange={(e) => setSelectedContactId(e.target.value)}
+                >
+                  <option value="">No contact (leave blank)</option>
+                  {contacts.map(contact => (
+                    <option key={contact.id} value={contact.id}>
+                      {contact.name} - {contact.email}
+                      {contact.is_default && ' (Default)'}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={4}>
+              <Form.Label>&nbsp;</Form.Label>
+              <Button
+                variant="outline-primary"
+                className="w-100"
+                onClick={() => setShowContactModal(true)}
+              >
+                <FaUserPlus className="me-2" />
+                Create New Contact
+              </Button>
             </Col>
           </Row>
         </Card.Body>
@@ -389,7 +481,7 @@ const WorksheetGeneratorPage = () => {
                     <Col md={6} key={field.name}>
                       <Form.Group className="mb-3">
                         <Form.Label>
-                          {field.label} {field.required && <span className="text-danger">*</span>}
+                          {field.label}
                         </Form.Label>
                         {renderField(
                           field,
@@ -428,6 +520,65 @@ const WorksheetGeneratorPage = () => {
           )}
         </Button>
       </div>
+
+      {/* Contact Creation Modal */}
+      <Modal show={showContactModal} onHide={() => setShowContactModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Create New Contact</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>Name *</Form.Label>
+            <Form.Control
+              type="text"
+              value={newContact.name}
+              onChange={(e) => setNewContact({...newContact, name: e.target.value})}
+              placeholder="Enter contact name"
+              required
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Email *</Form.Label>
+            <Form.Control
+              type="email"
+              value={newContact.email}
+              onChange={(e) => setNewContact({...newContact, email: e.target.value})}
+              placeholder="contact@example.com"
+              required
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Phone Number</Form.Label>
+            <Form.Control
+              type="tel"
+              value={newContact.phone_number}
+              onChange={(e) => setNewContact({...newContact, phone_number: e.target.value})}
+              placeholder="555-123-4567"
+            />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Title</Form.Label>
+            <Form.Control
+              type="text"
+              value={newContact.title}
+              onChange={(e) => setNewContact({...newContact, title: e.target.value})}
+              placeholder="e.g., IT Manager"
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowContactModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleCreateContact}
+            disabled={!newContact.name || !newContact.email}
+          >
+            Create Contact
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

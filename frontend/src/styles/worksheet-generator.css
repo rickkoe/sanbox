@@ -4,6 +4,7 @@
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  color: var(--primary-text);
 }
 
 .page-header {
@@ -16,20 +17,34 @@
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
+  color: var(--primary-text);
 }
 
+.page-header .text-muted {
+  color: var(--muted-text) !important;
+}
+
+/* Section Cards */
 .section-card {
-  border: 1px solid #dee2e6;
+  background: var(--table-bg);
+  border: 1px solid var(--table-border);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .section-card .card-header {
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  background: var(--table-header-bg);
+  border-bottom: 1px solid var(--table-border);
   padding: 1rem 1.25rem;
+  color: var(--table-header-text);
 }
 
+.section-card .card-body {
+  background: var(--table-bg);
+  color: var(--primary-text);
+}
+
+/* Equipment Grid */
 .equipment-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -37,23 +52,24 @@
 }
 
 .equipment-card {
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--table-border);
   border-radius: 8px;
   padding: 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: white;
+  background: var(--table-bg);
+  color: var(--primary-text);
 }
 
 .equipment-card:hover {
-  border-color: #0066CC;
-  box-shadow: 0 4px 8px rgba(0, 102, 204, 0.2);
+  border-color: var(--link-text);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
 }
 
 .equipment-card.selected {
-  border-color: #0066CC;
-  background: #f0f7ff;
+  border-color: var(--link-text);
+  background: var(--table-row-selected);
 }
 
 .equipment-card-header {
@@ -63,52 +79,136 @@
   margin-bottom: 0.5rem;
 }
 
+.equipment-card-header strong {
+  color: var(--primary-text);
+}
+
+.equipment-card .badge {
+  opacity: 0.9;
+}
+
+.equipment-card .text-muted {
+  color: var(--muted-text) !important;
+}
+
+/* Equipment Details */
 .equipment-item {
   padding: 1.5rem;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--table-border);
   border-radius: 6px;
-  background: #f8f9fa;
+  background: var(--table-header-bg);
+  margin-bottom: 1rem;
 }
 
 .equipment-item h6 {
-  color: #495057;
+  color: var(--primary-text);
   font-weight: 600;
 }
 
-/* Dark theme support */
-.theme-dark .worksheet-generator-container {
-  color: #f8f9fa;
+/* Form Controls Override */
+.worksheet-generator-container .form-control,
+.worksheet-generator-container .form-select {
+  background-color: var(--form-input-bg);
+  border-color: var(--form-input-border);
+  color: var(--form-input-text);
 }
 
-.theme-dark .section-card {
-  background: #343a40;
-  border-color: #495057;
+.worksheet-generator-container .form-control:focus,
+.worksheet-generator-container .form-select:focus {
+  background-color: var(--form-input-bg);
+  border-color: var(--form-input-focus-border);
+  color: var(--form-input-text);
+  box-shadow: 0 0 0 0.2rem var(--form-input-focus-shadow);
 }
 
-.theme-dark .section-card .card-header {
-  background-color: #495057;
-  border-bottom-color: #6c757d;
-  color: #f8f9fa;
+.worksheet-generator-container .form-control::placeholder {
+  color: var(--form-input-placeholder);
+  opacity: 0.7;
 }
 
-.theme-dark .equipment-card {
-  background: #343a40;
-  border-color: #495057;
-  color: #f8f9fa;
+.worksheet-generator-container .form-label {
+  color: var(--primary-text);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
 }
 
-.theme-dark .equipment-card:hover {
-  border-color: #0066CC;
-  background: #3a4149;
+.worksheet-generator-container .form-text {
+  color: var(--muted-text) !important;
 }
 
-.theme-dark .equipment-card.selected {
-  background: #2d3e50;
+/* Override Bootstrap's .text-muted in both themes */
+.worksheet-generator-container .text-muted,
+.worksheet-generator-container .form-text.text-muted {
+  color: var(--muted-text) !important;
 }
 
-.theme-dark .equipment-item {
-  background: #2d3238;
-  border-color: #495057;
+/* Modal Override for Dark Theme */
+.theme-dark .modal-content {
+  background-color: var(--table-bg);
+  color: var(--primary-text);
+  border: 1px solid var(--table-border);
+}
+
+.theme-dark .modal-header {
+  background-color: var(--table-header-bg);
+  border-bottom: 1px solid var(--table-border);
+}
+
+.theme-dark .modal-header .modal-title {
+  color: var(--primary-text);
+}
+
+.theme-dark .modal-header .btn-close {
+  filter: invert(1);
+}
+
+.theme-dark .modal-footer {
+  border-top: 1px solid var(--table-border);
+}
+
+.theme-dark .modal-body {
+  background-color: var(--table-bg);
+}
+
+/* Alert Override */
+.worksheet-generator-container .alert-danger {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border-color: var(--error-border);
+}
+
+.worksheet-generator-container .alert-success {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-border);
+}
+
+/* Button Overrides */
+.worksheet-generator-container .btn-outline-primary {
+  color: var(--link-text);
+  border-color: var(--link-text);
+}
+
+.worksheet-generator-container .btn-outline-primary:hover {
+  background-color: var(--link-text);
+  border-color: var(--link-text);
+  color: #ffffff;
+}
+
+.worksheet-generator-container .btn-outline-danger {
+  color: var(--error-color);
+  border-color: var(--error-color);
+}
+
+.worksheet-generator-container .btn-outline-danger:hover {
+  background-color: var(--error-color);
+  border-color: var(--error-color);
+  color: #ffffff;
+}
+
+/* Spinner text */
+.worksheet-generator-container .spinner-border + .mt-3 {
+  color: var(--primary-text);
 }
 
 /* Responsive */
