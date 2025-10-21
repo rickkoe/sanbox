@@ -58,7 +58,8 @@ class ImportOrchestrator:
         fabric_name_override: Optional[str] = None,
         zoneset_name_override: Optional[str] = None,
         vsan_override: Optional[str] = None,
-        create_new_fabric: bool = False
+        create_new_fabric: bool = False,
+        conflict_resolutions: Optional[dict] = None
     ) -> Dict:
         """
         Import SAN configuration from text data (CLI output, CSV, etc.).
@@ -70,6 +71,7 @@ class ImportOrchestrator:
             zoneset_name_override: Optional zoneset name to use when creating new fabric
             vsan_override: Optional VSAN to use when creating new fabric
             create_new_fabric: If True, create new fabric; if False, use existing
+            conflict_resolutions: Dict mapping item names to resolution action (skip/replace/rename)
 
         Returns:
             Dict with import statistics
@@ -109,7 +111,8 @@ class ImportOrchestrator:
             fabric_name_override,
             zoneset_name_override,
             vsan_override,
-            create_new_fabric
+            create_new_fabric,
+            conflict_resolutions or {}
         )
 
     def preview_import(self, data: str, check_conflicts: bool = False) -> Dict:
@@ -329,10 +332,12 @@ class ImportOrchestrator:
         fabric_name_override: Optional[str] = None,
         zoneset_name_override: Optional[str] = None,
         vsan_override: Optional[str] = None,
-        create_new_fabric: bool = False
+        create_new_fabric: bool = False,
+        conflict_resolutions: Optional[dict] = None
     ) -> Dict:
         """Import parsed data into database within a transaction"""
 
+        conflict_resolutions = conflict_resolutions or {}
         self._report_progress(40, 100, "Determining target fabric...")
 
         # If user selected existing fabric, use it for everything
@@ -385,13 +390,13 @@ class ImportOrchestrator:
         # Import aliases
         logger.info(f"Starting alias import: {len(parse_result.aliases)} aliases to import")
         logger.info(f"Fabric map: {list(fabric_map.keys())}")
-        alias_map = self._import_aliases(parse_result.aliases, fabric_map)
+        alias_map = self._import_aliases(parse_result.aliases, fabric_map, conflict_resolutions)
         logger.info(f"Alias import complete: {self.stats['aliases_created']} created, {self.stats['aliases_updated']} updated")
 
         self._report_progress(75, 100, "Importing zones...")
 
         # Import zones
-        self._import_zones(parse_result.zones, fabric_map, alias_map)
+        self._import_zones(parse_result.zones, fabric_map, alias_map, conflict_resolutions)
 
         self._report_progress(100, 100, "Import complete!")
 
@@ -472,15 +477,22 @@ class ImportOrchestrator:
     def _import_aliases(
         self,
         parsed_aliases: List[ParsedAlias],
-        fabric_map: Dict[str, Fabric]
+        fabric_map: Dict[str, Fabric],
+        conflict_resolutions: dict = None
     ) -> Dict[str, Alias]:
         """
-        Import aliases into database.
+        Import aliases into database with conflict resolution.
+
+        Args:
+            parsed_aliases: List of aliases to import
+            fabric_map: Mapping of fabric names to Fabric instances
+            conflict_resolutions: Dict mapping alias names to resolution actions (skip/replace/rename)
 
         Returns:
             Dict mapping alias name to Alias instance
         """
         alias_map = {}
+        conflict_resolutions = conflict_resolutions or {}
 
         logger.info(f"_import_aliases called with {len(parsed_aliases)} aliases and {len(fabric_map)} fabrics")
         if not parsed_aliases:
@@ -496,6 +508,45 @@ class ImportOrchestrator:
                 self._report_progress(progress, 100, f"Importing aliases ({i}/{len(parsed_aliases)})...")
 
             try:
+                alias_name = parsed_alias.name
+                resolution = conflict_resolutions.get(alias_name)
+
+                # Handle skip - don't import this alias
+                if resolution == 'skip':
+                    logger.info(f"Skipping alias {alias_name} per conflict resolution")
+                    self.stats['aliases_skipped'] = self.stats.get('aliases_skipped', 0) + 1
+                    continue
+
+                # Handle replace - delete existing aliases with same name first
+                if resolution == 'replace':
+                    deleted_count = Alias.objects.filter(
+                        fabric__customer=self.customer,
+                        name=alias_name
+                    ).delete()[0]
+                    if deleted_count > 0:
+                        logger.info(f"Deleted {deleted_count} existing alias(es) named {alias_name}")
+                        self.stats['aliases_replaced'] = self.stats.get('aliases_replaced', 0) + deleted_count
+
+                # Handle rename - append custom suffix to avoid conflicts
+                # Resolution can be 'rename' (legacy) or {'action': 'rename', 'suffix': '...'} (new)
+                rename_suffix = '_copy'  # default
+                if isinstance(resolution, dict) and resolution.get('action') == 'rename':
+                    rename_suffix = resolution.get('suffix', '_copy')
+                    resolution = 'rename'
+
+                if resolution == 'rename':
+                    original_name = alias_name
+                    # Try with just the suffix first
+                    alias_name = f"{original_name}{rename_suffix}"
+                    # If that exists, append counter
+                    if Alias.objects.filter(fabric__customer=self.customer, name=alias_name).exists():
+                        counter = 1
+                        while Alias.objects.filter(fabric__customer=self.customer, name=alias_name).exists():
+                            alias_name = f"{original_name}{rename_suffix}_{counter}"
+                            counter += 1
+                    logger.info(f"Renamed alias {original_name} to {alias_name}")
+                    parsed_alias.name = alias_name  # Update the parsed alias name
+
                 # Get fabric - when user selects a fabric, fabric_map has only one entry
                 if not fabric_map:
                     self.stats['warnings'].append(f"No fabric available for alias {parsed_alias.name}, skipping")
@@ -555,9 +606,12 @@ class ImportOrchestrator:
         self,
         parsed_zones: List[ParsedZone],
         fabric_map: Dict[str, Fabric],
-        alias_map: Dict[str, Alias]
+        alias_map: Dict[str, Alias],
+        conflict_resolutions: dict = None
     ):
-        """Import zones into database"""
+        """Import zones into database with conflict resolution"""
+
+        conflict_resolutions = conflict_resolutions or {}
 
         for i, parsed_zone in enumerate(parsed_zones):
             if i % 25 == 0:  # Update progress every 25 zones
@@ -565,6 +619,45 @@ class ImportOrchestrator:
                 self._report_progress(progress, 100, f"Importing zones ({i}/{len(parsed_zones)})...")
 
             try:
+                zone_name = parsed_zone.name
+                resolution = conflict_resolutions.get(zone_name)
+
+                # Handle skip - don't import this zone
+                if resolution == 'skip':
+                    logger.info(f"Skipping zone {zone_name} per conflict resolution")
+                    self.stats['zones_skipped'] = self.stats.get('zones_skipped', 0) + 1
+                    continue
+
+                # Handle replace - delete existing zones with same name first
+                if resolution == 'replace':
+                    deleted_count = Zone.objects.filter(
+                        fabric__customer=self.customer,
+                        name=zone_name
+                    ).delete()[0]
+                    if deleted_count > 0:
+                        logger.info(f"Deleted {deleted_count} existing zone(s) named {zone_name}")
+                        self.stats['zones_replaced'] = self.stats.get('zones_replaced', 0) + deleted_count
+
+                # Handle rename - append custom suffix to avoid conflicts
+                # Resolution can be 'rename' (legacy) or {'action': 'rename', 'suffix': '...'} (new)
+                rename_suffix = '_copy'  # default
+                if isinstance(resolution, dict) and resolution.get('action') == 'rename':
+                    rename_suffix = resolution.get('suffix', '_copy')
+                    resolution = 'rename'
+
+                if resolution == 'rename':
+                    original_name = zone_name
+                    # Try with just the suffix first
+                    zone_name = f"{original_name}{rename_suffix}"
+                    # If that exists, append counter
+                    if Zone.objects.filter(fabric__customer=self.customer, name=zone_name).exists():
+                        counter = 1
+                        while Zone.objects.filter(fabric__customer=self.customer, name=zone_name).exists():
+                            zone_name = f"{original_name}{rename_suffix}_{counter}"
+                            counter += 1
+                    logger.info(f"Renamed zone {original_name} to {zone_name}")
+                    parsed_zone.name = zone_name  # Update the parsed zone name
+
                 # Get fabric - when user selects a fabric, fabric_map has only one entry
                 if not fabric_map:
                     self.stats['warnings'].append(f"No fabric available for zone {parsed_zone.name}, skipping")

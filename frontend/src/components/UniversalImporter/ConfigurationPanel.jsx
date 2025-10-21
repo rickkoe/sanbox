@@ -36,12 +36,23 @@ const ConfigurationPanel = ({
     aliases: true,
     zones: true
   });
+  const [renameSuffix, setRenameSuffix] = useState('_copy');
 
   const toggleConflictSection = (section) => {
     setExpandedConflictSections(prev => ({
       ...prev,
       [section]: !prev[section]
     }));
+  };
+
+  // Get first conflict name for preview
+  const getFirstConflictName = () => {
+    if (conflicts?.aliases?.length > 0) {
+      return conflicts.aliases[0].name;
+    } else if (conflicts?.zones?.length > 0) {
+      return conflicts.zones[0].name;
+    }
+    return null;
   };
 
   // Group fabrics by vendor
@@ -235,7 +246,7 @@ const ConfigurationPanel = ({
             border: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`
           }}>
             <div style={{ marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.9rem' }}>Apply to All:</div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
               <button
                 className="btn btn-sm btn-secondary"
                 onClick={() => {
@@ -267,11 +278,31 @@ const ConfigurationPanel = ({
                     ...(conflicts.zones || []).map(z => z.name),
                     ...(conflicts.aliases || []).map(a => a.name)
                   ];
-                  allConflicts.forEach(name => onConflictResolve(name, 'rename'));
+                  allConflicts.forEach(name => onConflictResolve(name, 'rename', renameSuffix));
                 }}
               >
-                Rename All
+                Import Duplicate for All
               </button>
+            </div>
+
+            {/* Rename Suffix Input */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: '500', minWidth: 'fit-content' }}>
+                Duplicate Suffix:
+              </label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                value={renameSuffix}
+                onChange={(e) => setRenameSuffix(e.target.value)}
+                placeholder="_copy"
+                style={{ maxWidth: '150px' }}
+              />
+              {getFirstConflictName() && (
+                <span style={{ fontSize: '0.85rem', color: '#6c757d', fontStyle: 'italic' }}>
+                  Preview: {getFirstConflictName()}{renameSuffix}
+                </span>
+              )}
             </div>
           </div>
 
@@ -344,11 +375,11 @@ const ConfigurationPanel = ({
                           name={`alias-conflict-${index}`}
                           value="rename"
                           checked={conflictResolutions[conflict.name] === 'rename'}
-                          onChange={() => onConflictResolve(conflict.name, 'rename')}
+                          onChange={() => onConflictResolve(conflict.name, 'rename', renameSuffix)}
                         />
                         <div className="option-content">
-                          <span className="option-title">Rename</span>
-                          <span className="option-desc">Import with new name</span>
+                          <span className="option-title">Import Duplicate</span>
+                          <span className="option-desc">Import as {conflict.name}{renameSuffix}</span>
                         </div>
                       </label>
                     </div>
@@ -424,11 +455,11 @@ const ConfigurationPanel = ({
                       name={`conflict-${index}`}
                       value="rename"
                       checked={conflictResolutions[conflict.name] === 'rename'}
-                      onChange={() => onConflictResolve(conflict.name, 'rename')}
+                      onChange={() => onConflictResolve(conflict.name, 'rename', renameSuffix)}
                     />
                     <div className="option-content">
-                      <span className="option-title">Rename</span>
-                      <span className="option-desc">Import with new name</span>
+                      <span className="option-title">Import Duplicate</span>
+                      <span className="option-desc">Import as {conflict.name}{renameSuffix}</span>
                     </div>
                   </label>
                 </div>

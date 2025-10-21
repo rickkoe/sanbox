@@ -248,10 +248,10 @@ const UniversalImporter = () => {
   };
 
   // Handle conflict resolution
-  const handleConflictResolve = useCallback((conflictName, resolution) => {
+  const handleConflictResolve = useCallback((conflictName, resolution, suffix = '_copy') => {
     setConflictResolutions(prev => ({
       ...prev,
-      [conflictName]: resolution
+      [conflictName]: resolution === 'rename' ? { action: 'rename', suffix } : resolution
     }));
   }, []);
 
