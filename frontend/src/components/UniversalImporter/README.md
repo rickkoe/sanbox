@@ -449,6 +449,58 @@ Each card includes:
 />
 ```
 
+### 7. ImportCompletionModal
+
+A success modal that automatically appears when import completes successfully.
+
+**Purpose**: Provide clear feedback when import finishes with detailed statistics
+
+**Features:**
+- Auto-popup on successful import completion
+- Displays comprehensive import statistics
+- Fully themed for light/dark modes
+- Action buttons for post-import navigation
+- Responsive grid layout for stats display
+
+**Statistics Displayed:**
+- **Fabrics**: Number created or updated
+- **Aliases**: Total imported count
+- **Zones**: Total created count
+- **Duration**: Time taken in seconds
+
+**Props (Managed internally by UniversalImporter):**
+```jsx
+{
+  show: boolean,              // Controls modal visibility
+  onHide: () => void,        // Close modal handler
+  completionStats: {         // Import statistics object
+    fabrics: number,
+    aliases: number,
+    zones: number,
+    duration: number
+  },
+  theme: 'light' | 'dark'   // Current theme
+}
+```
+
+**Implementation Details:**
+```jsx
+// The modal is automatically triggered when:
+if (importStatus === 'COMPLETED' && importProgress?.status === 'success') {
+  setShowCompletionModal(true);
+  setCompletionStats(successProgress.stats);
+}
+```
+
+**Action Buttons:**
+- **View Fabrics**: Navigates to `/san/fabrics` to see imported data
+- **Import More Data**: Resets the importer for another import
+- **Close**: Simply closes the modal
+
+**Theme Support:**
+- Dark mode: Dark green gradient header, dark background, cyan accents
+- Light mode: Bright green gradient header, white background, blue accents
+
 ---
 
 ## Styling System

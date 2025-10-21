@@ -621,6 +621,23 @@ def import_progress(request, import_id):
             'error_message': import_record.error_message,
         }
 
+        # Include import stats if available (for completed imports)
+        if import_record.api_response_summary:
+            # Check if this is a SAN import
+            if import_record.api_response_summary.get('import_type') == 'san_config':
+                stats = import_record.api_response_summary.get('stats', {})
+                progress_data['aliases_imported'] = stats.get('aliases_created', 0)
+                progress_data['zones_imported'] = stats.get('zones_created', 0)
+                progress_data['fabrics_created'] = stats.get('fabrics_created', 0) or stats.get('fabrics_updated', 1)
+
+                # Also include the raw stats for backward compatibility
+                progress_data['stats'] = stats
+            # For storage imports
+            else:
+                progress_data['storage_systems_imported'] = import_record.storage_systems_imported
+                progress_data['volumes_imported'] = import_record.volumes_imported
+                progress_data['hosts_imported'] = import_record.hosts_imported
+
         # If task is running, get Celery task progress
         if import_record.status == 'running' and import_record.celery_task_id:
             from celery.result import AsyncResult

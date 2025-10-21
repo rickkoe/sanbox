@@ -8,7 +8,7 @@ import {
   ArrowRight,
   RefreshCw,
   Home,
-  Terminal,
+  SquareTerminal,
   Activity,
   Zap,
   AlertTriangle
@@ -27,18 +27,51 @@ const ImportProgress = ({
   const [animatedProgress, setAnimatedProgress] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
 
+  // Helper function to safely render values that might be objects
+  const safeRender = (value, fallback = '') => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return value.toString();
+    if (typeof value === 'object') {
+      // If it has a message property, use that
+      if (value.message !== undefined) return safeRender(value.message, fallback);
+      // If it has a total property (for stats), use that
+      if (value.total !== undefined) return safeRender(value.total, fallback);
+      // If it has a current property (for progress), use that
+      if (value.current !== undefined) return safeRender(value.current, fallback);
+      // Otherwise stringify it
+      return JSON.stringify(value);
+    }
+    return fallback;
+  };
+
   // Animate progress bar
   useEffect(() => {
-    if (importProgress?.progress) {
+    // Force progress to 100 when completed
+    if (importStatus === 'COMPLETED') {
+      setAnimatedProgress(100);
+    } else if (importProgress?.progress) {
       const timer = setTimeout(() => {
-        setAnimatedProgress(importProgress.progress);
+        // Handle both number and object formats for progress
+        const progressValue = typeof importProgress.progress === 'number'
+          ? importProgress.progress
+          : (importProgress.progress?.current && importProgress.progress?.total
+              ? Math.round((importProgress.progress.current / importProgress.progress.total) * 100)
+              : 0);
+        setAnimatedProgress(progressValue);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [importProgress]);
+  }, [importProgress, importStatus]);
 
   // Show confetti on success
   useEffect(() => {
+    console.log('Confetti check:', {
+      importStatus,
+      progressStatus: importProgress?.status,
+      condition: importStatus === 'COMPLETED' && importProgress?.status === 'success'
+    });
+
     if (importStatus === 'COMPLETED' && importProgress?.status === 'success') {
       setShowConfetti(true);
       const timer = setTimeout(() => setShowConfetti(false), 5000);
@@ -61,7 +94,7 @@ const ImportProgress = ({
           icon: Loader,
           color: 'primary',
           title: 'Import in Progress',
-          description: importProgress?.message || 'Processing your data...'
+          description: safeRender(importProgress?.message, 'Processing your data...')
         };
       case 'COMPLETED':
         return importProgress?.status === 'success' ? {
@@ -73,14 +106,14 @@ const ImportProgress = ({
           icon: XCircle,
           color: 'error',
           title: 'Import Failed',
-          description: importProgress?.error || 'An error occurred during import'
+          description: safeRender(importProgress?.error, 'An error occurred during import')
         };
       case 'FAILED':
         return {
           icon: XCircle,
           color: 'error',
           title: 'Import Failed',
-          description: importProgress?.error || 'The import process encountered an error'
+          description: safeRender(importProgress?.error, 'The import process encountered an error')
         };
       default:
         return {
@@ -98,8 +131,22 @@ const ImportProgress = ({
   // Parse import stats
   const stats = importProgress?.stats || {};
 
+  // Debug rendering state
+  console.log('ImportProgress rendering:', {
+    importStatus,
+    progressStatus: importProgress?.status,
+    showingProgressBar: importStatus === 'RUNNING',
+    showingSuccessStats: importStatus === 'COMPLETED' && importProgress?.status === 'success',
+    showingSuccessButtons: importStatus === 'COMPLETED' && importProgress?.status === 'success',
+    statusTitle: statusConfig.title,
+    statusColor: statusConfig.color,
+    importProgressFull: importProgress,
+    stats: stats
+  });
+
   return (
     <div className={`import-progress theme-${theme}`}>
+
       {/* Confetti Animation */}
       {showConfetti && (
         <div className="confetti-container">
@@ -128,7 +175,7 @@ const ImportProgress = ({
         </div>
       </div>
 
-      {/* Progress Bar (for running state) */}
+      {/* Progress Bar (for running state) OR Success Message */}
       {importStatus === 'RUNNING' && (
         <div className="progress-section">
           <div className="progress-header">
@@ -145,10 +192,27 @@ const ImportProgress = ({
           </div>
           {importProgress?.current_item && (
             <div className="progress-details">
-              <Terminal size={14} />
-              <span>Processing: {importProgress.current_item}</span>
+              <SquareTerminal size={14} />
+              <span>Processing: {safeRender(importProgress.current_item, 'Processing...')}</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Success Message for completed imports */}
+      {importStatus === 'COMPLETED' && importProgress?.status === 'success' && (
+        <div className="success-message" style={{
+          padding: '2rem',
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          color: 'white',
+          borderRadius: '12px',
+          textAlign: 'center',
+          fontSize: '1.2rem',
+          fontWeight: 'bold',
+          marginTop: '1rem',
+          marginBottom: '1rem'
+        }}>
+          ✨ Import Completed Successfully! ✨
         </div>
       )}
 
@@ -161,7 +225,7 @@ const ImportProgress = ({
                 <div className="stat-icon">
                   <Zap size={20} />
                 </div>
-                <div className="stat-value">{stats.aliases}</div>
+                <div className="stat-value">{safeRender(stats.aliases, '0')}</div>
                 <div className="stat-label">Aliases Imported</div>
               </div>
             )}
@@ -170,7 +234,7 @@ const ImportProgress = ({
                 <div className="stat-icon">
                   <Activity size={20} />
                 </div>
-                <div className="stat-value">{stats.zones}</div>
+                <div className="stat-value">{safeRender(stats.zones, '0')}</div>
                 <div className="stat-label">Zones Created</div>
               </div>
             )}
@@ -179,7 +243,7 @@ const ImportProgress = ({
                 <div className="stat-icon">
                   <FileText size={20} />
                 </div>
-                <div className="stat-value">{stats.fabrics}</div>
+                <div className="stat-value">{safeRender(stats.fabrics, '0')}</div>
                 <div className="stat-label">Fabrics Updated</div>
               </div>
             )}
@@ -188,7 +252,7 @@ const ImportProgress = ({
                 <div className="stat-icon">
                   <Clock size={20} />
                 </div>
-                <div className="stat-value">{stats.duration}s</div>
+                <div className="stat-value">{safeRender(stats.duration, '0')}s</div>
                 <div className="stat-label">Time Taken</div>
               </div>
             )}
@@ -204,7 +268,7 @@ const ImportProgress = ({
             <span>Error Details</span>
           </div>
           <div className="error-content">
-            <code>{importProgress?.error || 'Unknown error occurred'}</code>
+            <code>{safeRender(importProgress?.error, 'Unknown error occurred')}</code>
           </div>
           {importProgress?.details && (
             <div className="error-details">
@@ -218,7 +282,7 @@ const ImportProgress = ({
       <div className="action-section">
         {importStatus === 'RUNNING' && (
           <button className="action-button secondary" onClick={onViewLogs}>
-            <Terminal size={18} />
+            <SquareTerminal size={18} />
             <span>View Logs</span>
           </button>
         )}
@@ -234,7 +298,7 @@ const ImportProgress = ({
               <span>Import More Data</span>
             </button>
             <button className="action-button outline" onClick={onViewLogs}>
-              <Terminal size={18} />
+              <SquareTerminal size={18} />
               <span>View Logs</span>
             </button>
           </>
@@ -247,7 +311,7 @@ const ImportProgress = ({
               <span>Try Again</span>
             </button>
             <button className="action-button secondary" onClick={onViewLogs}>
-              <Terminal size={18} />
+              <SquareTerminal size={18} />
               <span>View Error Logs</span>
             </button>
             <button className="action-button outline" onClick={onImportMore}>
@@ -267,8 +331,8 @@ const ImportProgress = ({
               <div key={index} className={`timeline-item ${event.status}`}>
                 <div className="timeline-marker" />
                 <div className="timeline-content">
-                  <div className="timeline-time">{event.time}</div>
-                  <div className="timeline-message">{event.message}</div>
+                  <div className="timeline-time">{safeRender(event.time)}</div>
+                  <div className="timeline-message">{safeRender(event.message)}</div>
                 </div>
               </div>
             ))}

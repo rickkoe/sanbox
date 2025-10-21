@@ -12,7 +12,7 @@ import {
 import './styles/ConfigurationPanel.css';
 
 const ConfigurationPanel = ({
-  existingFabrics,
+  existingFabrics = [],  // Default to empty array
   selectedFabricId,
   onFabricSelect,
   createNewFabric,
@@ -22,6 +22,7 @@ const ConfigurationPanel = ({
   conflicts,
   conflictResolutions,
   onConflictResolve,
+  detectedVendor,
   theme
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -29,9 +30,13 @@ const ConfigurationPanel = ({
 
   // Group fabrics by vendor
   const groupedFabrics = existingFabrics.reduce((acc, fabric) => {
-    const vendor = fabric.vendor || 'Other';
-    if (!acc[vendor]) acc[vendor] = [];
-    acc[vendor].push(fabric);
+    // Use san_vendor field and map to display name
+    const vendorCode = fabric.san_vendor || 'Other';
+    const vendorName = vendorCode === 'CI' ? 'Cisco' :
+                       vendorCode === 'BR' ? 'Brocade' :
+                       'Other';
+    if (!acc[vendorName]) acc[vendorName] = [];
+    acc[vendorName].push(fabric);
     return acc;
   }, {});
 
@@ -54,30 +59,32 @@ const ConfigurationPanel = ({
       return createNewFabric ? 'Create New Fabric' : 'Select a Fabric';
     }
     const fabric = existingFabrics.find(f => f.id === selectedFabricId);
-    return fabric ? `${fabric.name} (VSAN ${fabric.vsan})` : 'Select a Fabric';
+    if (fabric) {
+      return fabric.vsan ? `${fabric.name} (VSAN ${fabric.vsan})` : fabric.name;
+    }
+    return 'Select a Fabric';
   };
 
   return (
     <div className={`configuration-panel theme-${theme}`}>
-      <div className="config-header">
-        <div className="config-icon">
-          <Settings size={24} />
-        </div>
-        <div className="config-title">
-          <h3>Import Configuration</h3>
-          <p>Configure how the data will be imported into your system</p>
-        </div>
-      </div>
+      <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <Server size={24} />
+        Select Target Fabric
+        {detectedVendor && (
+          <span style={{
+            padding: '0.25rem 0.75rem',
+            backgroundColor: '#e0f2fe',
+            color: '#0369a1',
+            borderRadius: '6px',
+            fontSize: '0.875rem',
+            fontWeight: '500'
+          }}>
+            {detectedVendor === 'CI' ? 'Cisco' : 'Brocade'}
+          </span>
+        )}
+      </h3>
 
-      {/* Fabric Selection */}
-      <div className="config-section">
-        <div className="section-label">
-          <Server size={18} />
-          <span>Target Fabric</span>
-          <div className="required-badge">Required</div>
-        </div>
-
-        <div className="fabric-selector">
+      <div style={{ position: 'relative', zIndex: 1000 }}>
           {/* Custom Dropdown */}
           <div className="custom-dropdown">
             <button
@@ -134,7 +141,7 @@ const ConfigurationPanel = ({
                           <Server size={16} />
                           <div className="dropdown-item-content">
                             <span className="fabric-name">{fabric.name}</span>
-                            <span className="fabric-vsan">VSAN {fabric.vsan}</span>
+                            {fabric.vsan && <span className="fabric-vsan">VSAN {fabric.vsan}</span>}
                           </div>
                           {selectedFabricId === fabric.id && <Check size={16} className="check-icon" />}
                         </div>
@@ -146,31 +153,43 @@ const ConfigurationPanel = ({
                 {filteredFabrics.length === 0 && searchTerm && (
                   <div className="dropdown-empty">No fabrics found</div>
                 )}
+
+                {filteredFabrics.length === 0 && !searchTerm && existingFabrics.length === 0 && (
+                  <div className="dropdown-empty">
+                    No {detectedVendor === 'CI' ? 'Cisco' : detectedVendor === 'BR' ? 'Brocade' : ''} fabrics found for this customer
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* New Fabric Name Input */}
           {selectedFabricId === 'new' && (
-            <div className="new-fabric-input">
+            <div style={{ marginTop: '1rem' }}>
               <input
                 type="text"
                 placeholder="Enter new fabric name..."
                 value={fabricName}
                 onChange={(e) => onFabricNameChange(e.target.value)}
-                className="fabric-name-input"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '1rem'
+                }}
               />
-              <div className="input-hint">
-                <Info size={14} />
-                <span>This will create a new fabric in your system</span>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
+                <Info size={14} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                This will create a new fabric in your system
               </div>
             </div>
           )}
         </div>
-      </div>
 
       {/* Conflict Resolution */}
       {conflicts && conflicts.zones && conflicts.zones.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
         <div className="config-section">
           <div className="section-label">
             <AlertCircle size={18} className="warning-icon" />
@@ -243,41 +262,8 @@ const ConfigurationPanel = ({
             </span>
           </div>
         </div>
+        </div>
       )}
-
-      {/* Import Options */}
-      <div className="config-section">
-        <div className="section-label">
-          <Settings size={18} />
-          <span>Import Options</span>
-        </div>
-
-        <div className="import-options">
-          <label className="option-checkbox">
-            <input type="checkbox" defaultChecked />
-            <div className="checkbox-content">
-              <span className="checkbox-label">Validate WWPNs</span>
-              <span className="checkbox-desc">Ensure all WWPNs are in valid format</span>
-            </div>
-          </label>
-
-          <label className="option-checkbox">
-            <input type="checkbox" defaultChecked />
-            <div className="checkbox-content">
-              <span className="checkbox-label">Auto-create aliases</span>
-              <span className="checkbox-desc">Create aliases for unrecognized WWPNs</span>
-            </div>
-          </label>
-
-          <label className="option-checkbox">
-            <input type="checkbox" />
-            <div className="checkbox-content">
-              <span className="checkbox-label">Dry run</span>
-              <span className="checkbox-desc">Preview changes without importing</span>
-            </div>
-          </label>
-        </div>
-      </div>
     </div>
   );
 };

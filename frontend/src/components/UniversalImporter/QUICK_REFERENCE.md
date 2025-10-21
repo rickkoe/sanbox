@@ -157,6 +157,31 @@ All components accept:
 
 ---
 
+## Import Completion Modal
+
+**Trigger**: Automatically shows when `importStatus === 'COMPLETED'` and `importProgress.status === 'success'`
+
+**Stats Available**:
+```javascript
+completionStats: {
+  aliases: number,    // Number of aliases imported
+  zones: number,      // Number of zones created
+  fabrics: number,    // Number of fabrics created/updated
+  duration: number    // Time in seconds
+}
+```
+
+**Modal Actions**:
+- **View Fabrics** → Navigate to `/san/fabrics`
+- **Import More Data** → Reset importer to step 1
+- **Close** → Just close modal, stay on current page
+
+**Theme Classes**:
+- `.theme-dark` - Dark mode styling
+- `.theme-light` - Light mode styling
+
+---
+
 ## API Endpoints
 
 ### Parse Preview
@@ -183,6 +208,23 @@ Returns: { status, progress, message, stats }
 ```
 GET /api/importer/logs/{import_id}/?limit=100&since=timestamp
 Returns: { logs: [...] }
+```
+
+---
+
+## Icon Library Updates (October 2024)
+
+**Important**: lucide-react has renamed some icons
+- ❌ `Terminal` → ✅ `SquareTerminal`
+- All other icons remain the same
+
+**Import Example**:
+```jsx
+// Correct
+import { SquareTerminal, CheckCircle, XCircle } from 'lucide-react';
+
+// Wrong (will cause "Terminal is not defined" error)
+import { Terminal } from 'lucide-react';
 ```
 
 ---

@@ -98,7 +98,7 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   position: relative;
-  overflow: hidden;
+  overflow: visible;  /* Changed from hidden to visible to allow dropdowns */
   animation: slideIn 0.5s ease;
 }
 

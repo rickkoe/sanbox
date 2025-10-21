@@ -1,6 +1,7 @@
 import React, { useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Modal, Button } from 'react-bootstrap';
 import { ConfigContext } from '../context/ConfigContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -41,6 +42,7 @@ const UniversalImporter = () => {
   const [createNewFabric, setCreateNewFabric] = useState(false);
   const [selectedFabricId, setSelectedFabricId] = useState('new');
   const [existingFabrics, setExistingFabrics] = useState([]);
+  const [detectedVendor, setDetectedVendor] = useState(null); // 'CI' for Cisco, 'BR' for Brocade
 
   // Selection state for checkboxes
   const [selectedAliases, setSelectedAliases] = useState(new Set());
@@ -57,14 +59,35 @@ const UniversalImporter = () => {
   const [importProgress, setImportProgress] = useState(null);
   const [importStatus, setImportStatus] = useState('PENDING');
   const [showLogsModal, setShowLogsModal] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionStats, setCompletionStats] = useState(null);
 
   // Fetch existing fabrics for dropdown
-  const fetchExistingFabrics = async () => {
+  const fetchExistingFabrics = async (vendorFilter = null) => {
     try {
-      const response = await axios.get(`/api/san/fabrics/?customer=${config.customer.id}`);
-      setExistingFabrics(response.data || []);
+      let url = '/api/san/fabrics/';
+
+      // If we have a customer in config, filter by it
+      if (config && config.customer && config.customer.id) {
+        url += `?customer_id=${config.customer.id}`;
+      } else {
+        console.warn('[UniversalImporter] Config or customer not available');
+        return;
+      }
+
+      const response = await axios.get(url);
+
+      // Handle both array response and paginated response
+      let fabrics = Array.isArray(response.data) ? response.data : (response.data.results || []);
+
+      // If vendor filter provided, filter on frontend as well
+      if (vendorFilter) {
+        fabrics = fabrics.filter(f => f.san_vendor === vendorFilter);
+      }
+
+      setExistingFabrics(fabrics);
     } catch (err) {
-      console.error('Failed to fetch fabrics:', err);
+      console.error('[UniversalImporter] Failed to fetch fabrics:', err);
     }
   };
 
@@ -164,6 +187,25 @@ const UniversalImporter = () => {
       setPreviewData(response.data);
       setConflicts(response.data.conflicts || null);
 
+      // Detect vendor from parsed data and re-fetch fabrics with filter
+      let vendorCode = null;
+      if (response.data.detected_type) {
+        // If explicitly provided in response
+        vendorCode = response.data.detected_type === 'cisco' ? 'CI' :
+                     response.data.detected_type === 'brocade' ? 'BR' : null;
+      } else if (response.data.fabrics && response.data.fabrics.length > 0) {
+        // Infer from fabric vendor in parsed data
+        vendorCode = response.data.fabrics[0].san_vendor;
+      }
+
+      // Set the detected vendor in state
+      setDetectedVendor(vendorCode);
+
+      // Re-fetch fabrics filtered by detected vendor
+      if (vendorCode) {
+        await fetchExistingFabrics(vendorCode);
+      }
+
       // Auto-select all items by default
       if (response.data.aliases) {
         const allAliasKeys = response.data.aliases.map(alias =>
@@ -255,19 +297,134 @@ const UniversalImporter = () => {
 
   // Poll for import progress
   const startProgressPolling = (importId) => {
+    let intervalCleared = false;
+
     const interval = setInterval(async () => {
+      if (intervalCleared) return;
+
       try {
         const response = await axios.get(`/api/importer/import-progress/${importId}/`);
-        setImportProgress(response.data);
 
-        if (response.data.status === 'completed') {
+        // Check for various completion status strings
+        const status = response.data.status?.toLowerCase();
+        const hasCompletedAt = response.data.completed_at !== null;
+        const progressIs100 = response.data.progress === 100 ||
+                             (response.data.progress?.current === response.data.progress?.total);
+
+        console.log('Poll response:', {
+          status,
+          hasCompletedAt,
+          progressIs100,
+          fullResponse: response.data
+        });
+
+        // Check multiple conditions for completion
+        if (status === 'completed' || status === 'complete' || status === 'success' ||
+            (hasCompletedAt && progressIs100)) {
+          console.log('IMPORT COMPLETED DETECTED!');
+          console.log('Full response data:', response.data);
+          intervalCleared = true;
           clearInterval(interval);
-          setImportRunning(false);
+
+          // Check multiple possible locations for stats
+          const extractStats = (data) => {
+            // Log what we're working with
+            console.log('Extracting stats from:', {
+              direct: {
+                aliases_imported: data.aliases_imported,
+                zones_imported: data.zones_imported,
+                fabrics_created: data.fabrics_created,
+                aliases_count: data.aliases_count,
+                zones_count: data.zones_count,
+                fabrics_count: data.fabrics_count
+              },
+              stats: data.stats,
+              result: data.result,
+              summary: data.summary
+            });
+
+            return {
+              aliases: data.aliases_imported || data.aliases_count ||
+                      data.stats?.aliases || data.stats?.aliases_imported ||
+                      data.stats?.aliases_created || data.result?.aliases_imported ||
+                      data.summary?.aliases || 0,
+              zones: data.zones_imported || data.zones_count ||
+                    data.stats?.zones || data.stats?.zones_imported ||
+                    data.stats?.zones_created || data.result?.zones_imported ||
+                    data.summary?.zones || 0,
+              fabrics: data.fabrics_created || data.fabrics_count ||
+                      data.stats?.fabrics || data.stats?.fabrics_created ||
+                      data.stats?.fabrics_updated || data.result?.fabrics_created ||
+                      data.summary?.fabrics || 0,
+              duration: (() => {
+                if (!data.duration) return 0;
+                if (typeof data.duration === 'number') return Math.round(data.duration);
+                if (typeof data.duration === 'string') {
+                  // Handle format like "0:00:03.123456" or just "3.123456"
+                  const parts = data.duration.split(':');
+                  if (parts.length === 3) {
+                    // HH:MM:SS.ms format
+                    const hours = parseInt(parts[0]) || 0;
+                    const minutes = parseInt(parts[1]) || 0;
+                    const seconds = parseFloat(parts[2]) || 0;
+                    return Math.round(hours * 3600 + minutes * 60 + seconds);
+                  } else if (parts.length === 2) {
+                    // MM:SS.ms format
+                    const minutes = parseInt(parts[0]) || 0;
+                    const seconds = parseFloat(parts[1]) || 0;
+                    return Math.round(minutes * 60 + seconds);
+                  } else {
+                    // Just seconds
+                    return Math.round(parseFloat(data.duration) || 0);
+                  }
+                }
+                return 0;
+              })()
+            };
+          };
+
+          const stats = extractStats(response.data);
+          console.log('Extracted stats:', stats);
+
+          // Create a proper success progress object
+          const successProgress = {
+            ...response.data,
+            status: 'success',  // This is critical for the UI
+            progress: 100,
+            stats: stats
+          };
+
+          // Set both states together to ensure they're in sync
+          console.log('Setting COMPLETED state with success progress:', successProgress);
+          setImportProgress(successProgress);
           setImportStatus('COMPLETED');
-        } else if (response.data.status === 'failed') {
-          clearInterval(interval);
           setImportRunning(false);
+
+          // Show completion modal with stats
+          setCompletionStats(successProgress.stats);
+          setShowCompletionModal(true);
+          console.log('States set to COMPLETED - showing completion modal');
+        } else if (status === 'failed' || status === 'error') {
+          intervalCleared = true;
+          clearInterval(interval);
+
+          // Set error status in progress for the UI
+          setImportProgress({
+            ...response.data,
+            status: 'error',
+            error: response.data.error_message || response.data.error || 'Import failed'
+          });
           setImportStatus('FAILED');
+          setImportRunning(false);
+        } else {
+          // Still running - update progress but don't overwrite if we already set success
+          setImportProgress(prev => {
+            // Don't overwrite success status
+            if (prev?.status === 'success') {
+              return prev;
+            }
+            return response.data;
+          });
         }
       } catch (err) {
         console.error('Failed to fetch progress:', err);
@@ -316,6 +473,13 @@ const UniversalImporter = () => {
     setSelectedFabrics(new Set());
     setConflicts(null);
     setConflictResolutions({});
+    setShowCompletionModal(false);
+    setCompletionStats(null);
+    setDetectedVendor(null);
+    // Reset fabrics to show all for customer
+    if (config && config.customer) {
+      fetchExistingFabrics();
+    }
   };
 
   const handleViewFabrics = () => {
@@ -416,6 +580,7 @@ const UniversalImporter = () => {
                 conflicts={conflicts}
                 conflictResolutions={conflictResolutions}
                 onConflictResolve={handleConflictResolve}
+                detectedVendor={detectedVendor}
                 theme={theme}
               />
             </>
@@ -426,6 +591,7 @@ const UniversalImporter = () => {
             <>
               <h2>Import Status</h2>
               <ImportProgress
+                key={`${importStatus}-${importProgress?.status}`} // Force re-render on status change
                 importStatus={importStatus}
                 importProgress={importProgress}
                 onViewLogs={handleViewLogs}
@@ -472,6 +638,206 @@ const UniversalImporter = () => {
           onHide={() => setShowLogsModal(false)}
         />
       )}
+
+      {/* Import Completion Modal */}
+      <Modal
+        show={showCompletionModal}
+        onHide={() => setShowCompletionModal(false)}
+        size="lg"
+        centered
+        className={`theme-${theme}`}
+      >
+        <Modal.Header
+          closeButton
+          style={{
+            background: theme === 'dark'
+              ? 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)'
+              : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            color: 'white',
+            borderBottom: 'none'
+          }}
+        >
+          <Modal.Title>
+            <h4 style={{ margin: 0 }}>🎉 Import Completed Successfully!</h4>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body
+          style={{
+            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+            color: theme === 'dark' ? '#e2e8f0' : '#1e3a52'
+          }}
+        >
+          <div style={{ padding: '20px', textAlign: 'center' }}>
+            <h3 style={{
+              color: theme === 'dark' ? '#68d391' : '#10b981',
+              marginBottom: '30px'
+            }}>
+              ✅ Your data has been imported successfully!
+            </h3>
+
+            {completionStats && (
+              <div style={{
+                backgroundColor: theme === 'dark' ? 'rgba(30, 30, 60, 0.5)' : '#f8fafc',
+                borderRadius: '12px',
+                padding: '25px',
+                marginBottom: '20px',
+                border: theme === 'dark' ? '1px solid rgba(100, 255, 218, 0.2)' : '1px solid #e2e8f0'
+              }}>
+                <h5 style={{
+                  marginBottom: '25px',
+                  color: theme === 'dark' ? '#64ffda' : '#1e3a52',
+                  fontSize: '1.3rem',
+                  fontWeight: '600'
+                }}>
+                  📊 Import Summary
+                </h5>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: '20px',
+                  textAlign: 'center'
+                }}>
+                  {completionStats.fabrics !== undefined && (
+                    <div style={{
+                      padding: '15px',
+                      backgroundColor: theme === 'dark' ? 'rgba(100, 255, 218, 0.1)' : '#f0fdf4',
+                      borderRadius: '8px',
+                      border: theme === 'dark' ? '1px solid rgba(100, 255, 218, 0.3)' : '1px solid #86efac'
+                    }}>
+                      <div style={{
+                        fontSize: '2.5em',
+                        fontWeight: 'bold',
+                        color: theme === 'dark' ? '#64ffda' : '#10b981'
+                      }}>
+                        {completionStats.fabrics || 0}
+                      </div>
+                      <div style={{
+                        marginTop: '5px',
+                        fontSize: '0.9rem',
+                        color: theme === 'dark' ? '#cbd5e0' : '#475569'
+                      }}>
+                        Fabric{completionStats.fabrics === 1 ? '' : 's'} {createNewFabric ? 'Created' : 'Updated'}
+                      </div>
+                    </div>
+                  )}
+                  {completionStats.aliases !== undefined && (
+                    <div style={{
+                      padding: '15px',
+                      backgroundColor: theme === 'dark' ? 'rgba(99, 179, 237, 0.1)' : '#e8f0f7',
+                      borderRadius: '8px',
+                      border: theme === 'dark' ? '1px solid rgba(99, 179, 237, 0.3)' : '1px solid #b0c7d9'
+                    }}>
+                      <div style={{
+                        fontSize: '2.5em',
+                        fontWeight: 'bold',
+                        color: theme === 'dark' ? '#63b3ed' : '#1e3a52'
+                      }}>
+                        {completionStats.aliases || 0}
+                      </div>
+                      <div style={{
+                        marginTop: '5px',
+                        fontSize: '0.9rem',
+                        color: theme === 'dark' ? '#cbd5e0' : '#475569'
+                      }}>
+                        Alias{completionStats.aliases === 1 ? '' : 'es'} Imported
+                      </div>
+                    </div>
+                  )}
+                  {completionStats.zones !== undefined && (
+                    <div style={{
+                      padding: '15px',
+                      backgroundColor: theme === 'dark' ? 'rgba(246, 173, 85, 0.1)' : '#fffbeb',
+                      borderRadius: '8px',
+                      border: theme === 'dark' ? '1px solid rgba(246, 173, 85, 0.3)' : '1px solid #fcd34d'
+                    }}>
+                      <div style={{
+                        fontSize: '2.5em',
+                        fontWeight: 'bold',
+                        color: theme === 'dark' ? '#f6ad55' : '#f59e0b'
+                      }}>
+                        {completionStats.zones || 0}
+                      </div>
+                      <div style={{
+                        marginTop: '5px',
+                        fontSize: '0.9rem',
+                        color: theme === 'dark' ? '#cbd5e0' : '#475569'
+                      }}>
+                        Zone{completionStats.zones === 1 ? '' : 's'} Created
+                      </div>
+                    </div>
+                  )}
+                  {completionStats.duration !== undefined && (
+                    <div style={{
+                      padding: '15px',
+                      backgroundColor: theme === 'dark' ? 'rgba(160, 174, 192, 0.1)' : '#f1f5f9',
+                      borderRadius: '8px',
+                      border: theme === 'dark' ? '1px solid rgba(160, 174, 192, 0.3)' : '1px solid #cbd5e0'
+                    }}>
+                      <div style={{
+                        fontSize: '2.5em',
+                        fontWeight: 'bold',
+                        color: theme === 'dark' ? '#a0aec0' : '#64748b'
+                      }}>
+                        {completionStats.duration || 0}s
+                      </div>
+                      <div style={{
+                        marginTop: '5px',
+                        fontSize: '0.9rem',
+                        color: theme === 'dark' ? '#cbd5e0' : '#475569'
+                      }}>
+                        Time Taken
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer
+          style={{
+            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+            borderTop: theme === 'dark' ? '1px solid rgba(100, 255, 218, 0.2)' : '1px solid #e2e8f0'
+          }}
+        >
+          <Button
+            variant="success"
+            onClick={() => {
+              setShowCompletionModal(false);
+              navigate('/san/fabrics');
+            }}
+            style={{
+              backgroundColor: theme === 'dark' ? '#064e3b' : '#10b981',
+              borderColor: theme === 'dark' ? '#064e3b' : '#10b981'
+            }}
+          >
+            View Fabrics
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setShowCompletionModal(false);
+              handleReset();
+            }}
+            style={{
+              backgroundColor: theme === 'dark' ? '#1e3a52' : '#3b82f6',
+              borderColor: theme === 'dark' ? '#1e3a52' : '#3b82f6'
+            }}
+          >
+            Import More Data
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCompletionModal(false)}
+            style={{
+              backgroundColor: theme === 'dark' ? '#374151' : '#6b7280',
+              borderColor: theme === 'dark' ? '#374151' : '#6b7280'
+            }}
+          >
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

@@ -7,7 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.0] - 2025-01-XX - Complete UI Redesign
+## [2.0.1] - 2024-10-20 - Bug Fixes and Enhancements
+
+### 🐛 Fixed
+
+#### **Icon Library Compatibility**
+- Fixed `Terminal is not defined` error by updating to `SquareTerminal`
+- Updated all lucide-react icon imports in ImportProgress component
+- Affected 4 icon references in action buttons
+
+#### **Import Statistics Display**
+- Fixed incorrect statistics showing in completion modal
+- Backend now properly returns:
+  - `aliases_imported`: Actual count of imported aliases
+  - `zones_imported`: Actual count of created zones
+  - `fabrics_created`: Count of fabrics created/updated
+- Updated frontend stats extraction to check multiple field names
+- Fixed duration parsing for HH:MM:SS.microseconds format
+
+#### **Import Completion Issues**
+- Fixed import progress UI stuck on "running" after completion
+- Added automatic completion modal popup when import succeeds
+- Resolved state synchronization between polling and UI updates
+
+### ✨ Added
+
+#### **Import Completion Modal**
+- New modal automatically appears on successful import
+- Displays comprehensive import statistics:
+  - Number of fabrics created/updated
+  - Number of aliases imported
+  - Number of zones created
+  - Time taken in seconds
+- Three action buttons:
+  - View Fabrics: Navigate to fabric list
+  - Import More Data: Reset for new import
+  - Close: Dismiss modal
+- Full theme support (light/dark modes)
+- Responsive grid layout for statistics
+- Proper pluralization (1 Alias vs 2 Aliases)
+
+### 🔧 Changed
+
+#### **Backend API Improvements**
+- Enhanced `/api/importer/import-progress/<id>/` endpoint
+- Now includes SAN import statistics from `api_response_summary`
+- Maintains backward compatibility with storage imports
+
+#### **Frontend Polling Logic**
+- Added comprehensive logging for debugging
+- Enhanced stats extraction with multiple fallback fields
+- Improved error handling and status detection
+
+### 📝 Updated
+- Documentation now includes completion modal
+- Added troubleshooting guide for common issues
+- Updated Quick Reference with icon changes
+
+---
+
+## [2.0.0] - 2025-01-18 - Complete UI Redesign
 
 ### 🎉 Major Release - Complete Redesign
 
