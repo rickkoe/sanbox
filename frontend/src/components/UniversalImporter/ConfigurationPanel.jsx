@@ -7,7 +7,9 @@ import {
   AlertCircle,
   Info,
   Search,
-  Check
+  Check,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import './styles/ConfigurationPanel.css';
 
@@ -19,6 +21,10 @@ const ConfigurationPanel = ({
   onCreateNewToggle,
   fabricName,
   onFabricNameChange,
+  zonesetName,
+  onZonesetNameChange,
+  vsan,
+  onVsanChange,
   conflicts,
   conflictResolutions,
   onConflictResolve,
@@ -26,6 +32,17 @@ const ConfigurationPanel = ({
   theme
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedConflictSections, setExpandedConflictSections] = useState({
+    aliases: true,
+    zones: true
+  });
+
+  const toggleConflictSection = (section) => {
+    setExpandedConflictSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   // Group fabrics by vendor
   const groupedFabrics = existingFabrics.reduce((acc, fabric) => {
@@ -145,40 +162,223 @@ const ConfigurationPanel = ({
         </Dropdown.Menu>
       </Dropdown>
 
-      {/* New Fabric Name Input */}
+      {/* New Fabric Inputs */}
       {selectedFabricId === 'new' && (
-        <div style={{ marginTop: '1rem' }}>
-          <input
-            type="text"
-            placeholder="Enter new fabric name..."
-            value={fabricName}
-            onChange={(e) => onFabricNameChange(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.75rem 1rem',
-              border: '2px solid #e5e7eb',
-              borderRadius: '8px',
-              fontSize: '1rem'
-            }}
-          />
-          <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>
-            <Info size={14} style={{ display: 'inline', marginRight: '0.5rem' }} />
-            This will create a new fabric in your system
+        <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+              Fabric Name <span style={{ color: 'red' }}>*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Enter fabric name..."
+              value={fabricName}
+              onChange={(e) => onFabricNameChange(e.target.value)}
+              className="form-control"
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+              Zoneset Name <span style={{ color: 'red' }}>*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="Enter zoneset name..."
+              value={zonesetName}
+              onChange={(e) => onZonesetNameChange(e.target.value)}
+              className="form-control"
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+              VSAN
+            </label>
+            <input
+              type="text"
+              placeholder="Auto-populated from import data"
+              value={vsan || ''}
+              onChange={(e) => onVsanChange(e.target.value)}
+              className="form-control"
+              readOnly={!!vsan}
+              style={{ backgroundColor: vsan ? '#f3f4f6' : 'white' }}
+            />
+            {vsan && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                <Info size={14} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                Auto-populated from imported data
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Conflict Resolution */}
-      {conflicts && conflicts.zones && conflicts.zones.length > 0 && (
+      {conflicts && ((conflicts.zones && conflicts.zones.length > 0) || (conflicts.aliases && conflicts.aliases.length > 0)) && (
         <div style={{ marginTop: '2rem' }}>
         <div className="config-section">
           <div className="section-label">
             <AlertCircle size={18} className="warning-icon" />
             <span>Conflict Resolution</span>
-            <div className="conflict-count">{conflicts.zones.length} conflicts</div>
+            <div className="conflict-count">
+              {(conflicts.zones?.length || 0) + (conflicts.aliases?.length || 0)} conflicts
+            </div>
           </div>
 
-          <div className="conflict-list">
+          {/* Bulk Actions */}
+          <div className="bulk-actions" style={{
+            marginBottom: '1rem',
+            padding: '1rem',
+            backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+            borderRadius: '8px',
+            border: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`
+          }}>
+            <div style={{ marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.9rem' }}>Apply to All:</div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={() => {
+                  const allConflicts = [
+                    ...(conflicts.zones || []).map(z => z.name),
+                    ...(conflicts.aliases || []).map(a => a.name)
+                  ];
+                  allConflicts.forEach(name => onConflictResolve(name, 'skip'));
+                }}
+              >
+                Skip All
+              </button>
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  const allConflicts = [
+                    ...(conflicts.zones || []).map(z => z.name),
+                    ...(conflicts.aliases || []).map(a => a.name)
+                  ];
+                  allConflicts.forEach(name => onConflictResolve(name, 'replace'));
+                }}
+              >
+                Replace All
+              </button>
+              <button
+                className="btn btn-sm btn-warning"
+                onClick={() => {
+                  const allConflicts = [
+                    ...(conflicts.zones || []).map(z => z.name),
+                    ...(conflicts.aliases || []).map(a => a.name)
+                  ];
+                  allConflicts.forEach(name => onConflictResolve(name, 'rename'));
+                }}
+              >
+                Rename All
+              </button>
+            </div>
+          </div>
+
+          {/* Alias Conflicts */}
+          {conflicts.aliases && conflicts.aliases.length > 0 && (
+            <>
+              <div
+                onClick={() => toggleConflictSection('aliases')}
+                style={{
+                  fontWeight: '600',
+                  marginBottom: '0.5rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                {expandedConflictSections.aliases ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                Alias Conflicts ({conflicts.aliases.length})
+              </div>
+              {expandedConflictSections.aliases && (
+              <div className="conflict-list">
+                {conflicts.aliases.map((conflict, index) => (
+                  <div key={`alias-${index}`} className="conflict-item">
+                    <div className="conflict-header">
+                      <div className="conflict-name">
+                        <span className="conflict-label">Alias:</span>
+                        <code>{conflict.name}</code>
+                      </div>
+                      <div className="conflict-type">Duplicate Found</div>
+                    </div>
+
+                    <div className="conflict-details" style={{ fontSize: '0.85rem', color: '#6c757d', marginBottom: '0.5rem' }}>
+                      <div>Existing: {conflict.existing_wwpn} in {conflict.existing_fabric} {conflict.existing_use && `[${conflict.existing_use}]`}</div>
+                      <div>New: {conflict.new_wwpn} in {conflict.new_fabric} {conflict.new_use && `[${conflict.new_use}]`}</div>
+                    </div>
+
+                    <div className="conflict-options">
+                      <label className="conflict-option">
+                        <input
+                          type="radio"
+                          name={`alias-conflict-${index}`}
+                          value="skip"
+                          checked={conflictResolutions[conflict.name] === 'skip'}
+                          onChange={() => onConflictResolve(conflict.name, 'skip')}
+                        />
+                        <div className="option-content">
+                          <span className="option-title">Skip</span>
+                          <span className="option-desc">Don't import this alias</span>
+                        </div>
+                      </label>
+
+                      <label className="conflict-option">
+                        <input
+                          type="radio"
+                          name={`alias-conflict-${index}`}
+                          value="replace"
+                          checked={conflictResolutions[conflict.name] === 'replace'}
+                          onChange={() => onConflictResolve(conflict.name, 'replace')}
+                        />
+                        <div className="option-content">
+                          <span className="option-title">Replace</span>
+                          <span className="option-desc">Overwrite existing alias</span>
+                        </div>
+                      </label>
+
+                      <label className="conflict-option">
+                        <input
+                          type="radio"
+                          name={`alias-conflict-${index}`}
+                          value="rename"
+                          checked={conflictResolutions[conflict.name] === 'rename'}
+                          onChange={() => onConflictResolve(conflict.name, 'rename')}
+                        />
+                        <div className="option-content">
+                          <span className="option-title">Rename</span>
+                          <span className="option-desc">Import with new name</span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              )}
+            </>
+          )}
+
+          {/* Zone Conflicts */}
+          {conflicts.zones && conflicts.zones.length > 0 && (
+            <>
+              <div
+                onClick={() => toggleConflictSection('zones')}
+                style={{
+                  fontWeight: '600',
+                  marginTop: '1rem',
+                  marginBottom: '0.5rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                {expandedConflictSections.zones ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                Zone Conflicts ({conflicts.zones.length})
+              </div>
+              {expandedConflictSections.zones && (
+              <div className="conflict-list">
             {conflicts.zones.map((conflict, index) => (
               <div key={index} className="conflict-item">
                 <div className="conflict-header">
@@ -234,12 +434,15 @@ const ConfigurationPanel = ({
                 </div>
               </div>
             ))}
-          </div>
+              </div>
+              )}
+            </>
+          )}
 
           <div className="conflict-summary">
             <Info size={16} />
             <span>
-              {Object.keys(conflictResolutions).length} of {conflicts.zones.length} conflicts resolved
+              {Object.keys(conflictResolutions).length} of {(conflicts.zones?.length || 0) + (conflicts.aliases?.length || 0)} conflicts resolved
             </span>
           </div>
         </div>

@@ -56,6 +56,8 @@ class ImportOrchestrator:
         data: str,
         fabric_id: Optional[int] = None,
         fabric_name_override: Optional[str] = None,
+        zoneset_name_override: Optional[str] = None,
+        vsan_override: Optional[str] = None,
         create_new_fabric: bool = False
     ) -> Dict:
         """
@@ -65,6 +67,8 @@ class ImportOrchestrator:
             data: Raw text data to parse
             fabric_id: ID of existing fabric to use for all imports
             fabric_name_override: Optional fabric name to use when creating new fabric
+            zoneset_name_override: Optional zoneset name to use when creating new fabric
+            vsan_override: Optional VSAN to use when creating new fabric
             create_new_fabric: If True, create new fabric; if False, use existing
 
         Returns:
@@ -103,6 +107,8 @@ class ImportOrchestrator:
             parse_result,
             fabric_id,
             fabric_name_override,
+            zoneset_name_override,
+            vsan_override,
             create_new_fabric
         )
 
@@ -255,23 +261,63 @@ class ImportOrchestrator:
         # Check for duplicate zones (zones with same name in customer's fabrics)
         zone_names = [z.name for z in parse_result.zones]
         if zone_names:
+            # Get unique zone names to avoid duplicate conflict entries
+            unique_zone_names = list(set(zone_names))
             existing_zones = Zone.objects.filter(
                 fabric__customer=self.customer,
-                name__in=zone_names
+                name__in=unique_zone_names
             ).select_related('fabric').values('name', 'fabric__name', 'zone_type')
 
+            # Track zones we've already added to conflicts
+            seen_conflicts = set()
+
             for existing_zone in existing_zones:
-                # Find the parsed zone with same name
-                parsed_zone = next((z for z in parse_result.zones if z.name == existing_zone['name']), None)
-                if parsed_zone:
-                    conflicts['zones'].append({
-                        'name': existing_zone['name'],
-                        'existing_fabric': existing_zone['fabric__name'],
-                        'existing_type': existing_zone['zone_type'],
-                        'new_fabric': parsed_zone.fabric_name or 'Unknown',
-                        'new_type': parsed_zone.zone_type,
-                        'new_member_count': len(parsed_zone.members)
-                    })
+                zone_name = existing_zone['name']
+                # Only add each zone conflict once
+                if zone_name not in seen_conflicts:
+                    # Find the parsed zone with same name
+                    parsed_zone = next((z for z in parse_result.zones if z.name == zone_name), None)
+                    if parsed_zone:
+                        conflicts['zones'].append({
+                            'name': zone_name,
+                            'existing_fabric': existing_zone['fabric__name'],
+                            'existing_type': existing_zone['zone_type'],
+                            'new_fabric': parsed_zone.fabric_name or 'Unknown',
+                            'new_type': parsed_zone.zone_type,
+                            'new_member_count': len(parsed_zone.members)
+                        })
+                        seen_conflicts.add(zone_name)
+
+        # Check for duplicate aliases (aliases with same name in customer's fabrics)
+        alias_names = [a.name for a in parse_result.aliases]
+        if alias_names:
+            # Get unique alias names to avoid duplicate conflict entries
+            unique_alias_names = list(set(alias_names))
+            existing_aliases = Alias.objects.filter(
+                fabric__customer=self.customer,
+                name__in=unique_alias_names
+            ).select_related('fabric').values('name', 'wwpn', 'fabric__name', 'use')
+
+            # Track aliases we've already added to conflicts
+            seen_conflicts = set()
+
+            for existing_alias in existing_aliases:
+                alias_name = existing_alias['name']
+                # Only add each alias conflict once
+                if alias_name not in seen_conflicts:
+                    # Find the parsed alias with same name
+                    parsed_alias = next((a for a in parse_result.aliases if a.name == alias_name), None)
+                    if parsed_alias:
+                        conflicts['aliases'].append({
+                            'name': alias_name,
+                            'existing_wwpn': existing_alias['wwpn'],
+                            'existing_fabric': existing_alias['fabric__name'],
+                            'existing_use': existing_alias.get('use', ''),
+                            'new_wwpn': parsed_alias.wwpn,
+                            'new_fabric': parsed_alias.fabric_name or 'Unknown',
+                            'new_use': parsed_alias.use or ''
+                        })
+                        seen_conflicts.add(alias_name)
 
         return conflicts
 
@@ -281,6 +327,8 @@ class ImportOrchestrator:
         parse_result: ParseResult,
         fabric_id: Optional[int] = None,
         fabric_name_override: Optional[str] = None,
+        zoneset_name_override: Optional[str] = None,
+        vsan_override: Optional[str] = None,
         create_new_fabric: bool = False
     ) -> Dict:
         """Import parsed data into database within a transaction"""
@@ -327,6 +375,8 @@ class ImportOrchestrator:
             fabric_map = self._import_fabrics(
                 active_fabrics,
                 fabric_name_override,
+                zoneset_name_override,
+                vsan_override,
                 create_new_fabric
             )
 
@@ -356,6 +406,8 @@ class ImportOrchestrator:
         self,
         parsed_fabrics: List[ParsedFabric],
         name_override: Optional[str],
+        zoneset_name_override: Optional[str],
+        vsan_override: Optional[str],
         create_new: bool
     ) -> Dict[str, Fabric]:
         """
@@ -368,6 +420,8 @@ class ImportOrchestrator:
 
         for parsed_fabric in parsed_fabrics:
             fabric_name = name_override or parsed_fabric.name
+            zoneset_name = zoneset_name_override or parsed_fabric.zoneset_name or ''
+            vsan = vsan_override or parsed_fabric.vsan
 
             try:
                 if create_new:
@@ -376,10 +430,11 @@ class ImportOrchestrator:
                         customer=self.customer,
                         name=fabric_name,
                         san_vendor=parsed_fabric.san_vendor,
-                        zoneset_name=parsed_fabric.zoneset_name or ''
+                        zoneset_name=zoneset_name,
+                        vsan=vsan
                     )
                     self.stats['fabrics_created'] += 1
-                    logger.info(f"Created new fabric: {fabric_name}")
+                    logger.info(f"Created new fabric: {fabric_name} (zoneset: {zoneset_name}, vsan: {vsan})")
                 else:
                     # Try to find existing fabric or create new
                     fabric, created = Fabric.objects.get_or_create(
@@ -387,7 +442,8 @@ class ImportOrchestrator:
                         name=fabric_name,
                         defaults={
                             'san_vendor': parsed_fabric.san_vendor,
-                            'zoneset_name': parsed_fabric.zoneset_name or ''
+                            'zoneset_name': zoneset_name,
+                            'vsan': vsan
                         }
                     )
 
@@ -395,10 +451,12 @@ class ImportOrchestrator:
                         self.stats['fabrics_created'] += 1
                         logger.info(f"Created fabric: {fabric_name}")
                     else:
-                        # Update zoneset if provided
-                        if parsed_fabric.zoneset_name:
-                            fabric.zoneset_name = parsed_fabric.zoneset_name
-                            fabric.save()
+                        # Update zoneset and vsan if provided
+                        if zoneset_name:
+                            fabric.zoneset_name = zoneset_name
+                        if vsan:
+                            fabric.vsan = vsan
+                        fabric.save()
                         self.stats['fabrics_updated'] += 1
                         logger.info(f"Updated fabric: {fabric_name}")
 

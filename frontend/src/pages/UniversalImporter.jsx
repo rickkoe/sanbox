@@ -39,6 +39,8 @@ const UniversalImporter = () => {
 
   // Configuration
   const [fabricName, setFabricName] = useState('');
+  const [zonesetName, setZonesetName] = useState('');
+  const [vsan, setVsan] = useState('');
   const [createNewFabric, setCreateNewFabric] = useState(false);
   const [selectedFabricId, setSelectedFabricId] = useState('new');
   const [existingFabrics, setExistingFabrics] = useState([]);
@@ -201,6 +203,17 @@ const UniversalImporter = () => {
       // Set the detected vendor in state
       setDetectedVendor(vendorCode);
 
+      // Auto-populate VSAN and zoneset from first fabric in preview data
+      if (response.data.fabrics && response.data.fabrics.length > 0) {
+        const firstFabric = response.data.fabrics[0];
+        if (firstFabric.vsan) {
+          setVsan(String(firstFabric.vsan));
+        }
+        if (firstFabric.zoneset_name) {
+          setZonesetName(firstFabric.zoneset_name);
+        }
+      }
+
       // Re-fetch fabrics filtered by detected vendor
       if (vendorCode) {
         await fetchExistingFabrics(vendorCode);
@@ -271,6 +284,8 @@ const UniversalImporter = () => {
         data: dataToImport,
         fabric_id: selectedFabricId === 'new' ? null : selectedFabricId,
         fabric_name: selectedFabricId === 'new' ? fabricName : null,
+        zoneset_name: selectedFabricId === 'new' ? zonesetName : null,
+        vsan: selectedFabricId === 'new' ? vsan : null,
         create_new_fabric: selectedFabricId === 'new',
         selected_items: selectedItems,
         conflict_resolutions: conflictResolutions,
@@ -462,6 +477,8 @@ const UniversalImporter = () => {
     setPastedText('');
     setPreviewData(null);
     setFabricName('');
+    setZonesetName('');
+    setVsan('');
     setCreateNewFabric(false);
     setSelectedFabricId('new');
     setImportId(null);
@@ -499,8 +516,14 @@ const UniversalImporter = () => {
         return (sourceType === 'file' && uploadedFiles.length > 0) ||
                (sourceType === 'paste' && pastedText.trim());
       case 3:
-        return (selectedFabricId && (selectedFabricId !== 'new' || fabricName.trim())) &&
-               (selectedAliases.size > 0 || selectedZones.size > 0 || selectedFabrics.size > 0);
+        // Check fabric selection
+        const hasFabric = selectedFabricId && (
+          selectedFabricId !== 'new' ||
+          (fabricName.trim() && zonesetName.trim())
+        );
+        // Check that at least something is selected to import
+        const hasSelections = selectedAliases.size > 0 || selectedZones.size > 0 || selectedFabrics.size > 0;
+        return hasFabric && hasSelections;
       default:
         return false;
     }
@@ -577,6 +600,10 @@ const UniversalImporter = () => {
                 onCreateNewToggle={setCreateNewFabric}
                 fabricName={fabricName}
                 onFabricNameChange={setFabricName}
+                zonesetName={zonesetName}
+                onZonesetNameChange={setZonesetName}
+                vsan={vsan}
+                onVsanChange={setVsan}
                 conflicts={conflicts}
                 conflictResolutions={conflictResolutions}
                 onConflictResolve={handleConflictResolve}

@@ -228,6 +228,12 @@ const DataPreview = ({
               {expandedSections.aliases ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
               <Database size={20} />
               <span>Aliases ({filteredData.aliases?.length || 0})</span>
+              {conflicts && conflicts.aliases?.length > 0 && (
+                <span className="conflict-badge">
+                  <AlertTriangle size={14} />
+                  {conflicts.aliases.length} conflicts
+                </span>
+              )}
             </div>
             <div className="section-actions">
               <button
@@ -274,11 +280,13 @@ const DataPreview = ({
                   {filteredData.aliases?.map((alias, index) => {
                     const key = `${alias.name}_${alias.fabric || 'default'}`;
                     const isSelected = selectedAliases.has(key);
+                    const conflictDetails = conflicts?.aliases?.find(c => c.name === alias.name);
+                    const hasConflict = !!conflictDetails;
 
                     return (
                       <tr
                         key={key}
-                        className={`${isSelected ? 'selected' : ''}`}
+                        className={`${isSelected ? 'selected' : ''} ${hasConflict ? 'has-conflict' : ''}`}
                         onClick={() => onAliasToggle(key)}
                       >
                         <td className="checkbox-col">
@@ -289,7 +297,18 @@ const DataPreview = ({
                             onClick={(e) => e.stopPropagation()}
                           />
                         </td>
-                        <td className="name-col">{alias.name}</td>
+                        <td className="name-col">
+                          {alias.name}
+                          {hasConflict && (
+                            <span
+                              className="conflict-icon"
+                              title={`Conflict: Alias already exists\nExisting: ${conflictDetails.existing_wwpn} in ${conflictDetails.existing_fabric}\nNew: ${conflictDetails.new_wwpn} in ${conflictDetails.new_fabric}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <AlertTriangle size={16} />
+                            </span>
+                          )}
+                        </td>
                         <td className="wwpn-col">
                           <code>{alias.wwpn}</code>
                         </td>

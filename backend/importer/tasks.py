@@ -156,7 +156,7 @@ def cleanup_old_imports():
 
 
 @shared_task(bind=True)
-def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_name=None, create_new_fabric=False, project_id=None):
+def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_name=None, zoneset_name=None, vsan=None, create_new_fabric=False, conflict_resolutions=None, project_id=None):
     """
     Async task to import SAN configuration (Cisco/Brocade) in the background
     """
@@ -174,7 +174,10 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
         if fabric_id:
             import_logger.info(f'Using existing fabric ID: {fabric_id}')
         elif create_new_fabric:
-            import_logger.info(f'Creating new fabric: {fabric_name}')
+            import_logger.info(f'Creating new fabric: {fabric_name} (zoneset: {zoneset_name}, vsan: {vsan})')
+
+        if conflict_resolutions:
+            import_logger.info(f'Conflict resolutions provided for {len(conflict_resolutions)} items')
 
         # Update status
         import_record.celery_task_id = self.request.id
@@ -203,7 +206,10 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
             config_data,
             fabric_id,
             fabric_name,
-            create_new_fabric
+            zoneset_name,
+            vsan,
+            create_new_fabric,
+            conflict_resolutions or {}
         )
 
         # Update import record with results

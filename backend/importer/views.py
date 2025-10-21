@@ -558,7 +558,10 @@ def import_san_config(request):
         config_data = data.get('data')
         fabric_id = data.get('fabric_id')  # ID of existing fabric to use
         fabric_name = data.get('fabric_name')  # Name for new fabric
+        zoneset_name = data.get('zoneset_name')  # Zoneset name for new fabric
+        vsan = data.get('vsan')  # VSAN for new fabric
         create_new_fabric = data.get('create_new_fabric', False)
+        conflict_resolutions = data.get('conflict_resolutions', {})  # How to handle conflicts
         project_id = data.get('project_id')  # Optional project assignment
 
         if not customer_id:
@@ -582,7 +585,10 @@ def import_san_config(request):
             config_data,
             fabric_id,
             fabric_name,
+            zoneset_name,
+            vsan,
             create_new_fabric,
+            conflict_resolutions,
             project_id
         )
 
