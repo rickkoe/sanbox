@@ -18,6 +18,7 @@ const WorksheetGeneratorPage = () => {
   // Form state
   const [customerName, setCustomerName] = useState('');
   const [projectName, setProjectName] = useState('');
+  const [plannedInstallationDate, setPlannedInstallationDate] = useState('');
   const [sites, setSites] = useState([
     {
       id: 1,
@@ -486,13 +487,9 @@ const WorksheetGeneratorPage = () => {
         if (implementationCompany) {
           implementationCompanyId = implementationCompany.id;
         } else {
-          // No implementation company exists, create one (default: "Evolving Solutions")
-          const createCustomerResponse = await api.post('/api/customers/', {
-            name: 'Evolving Solutions',
-            notes: 'Implementation team company',
-            is_implementation_company: true
-          });
-          implementationCompanyId = createCustomerResponse.data.id;
+          // No implementation company exists yet - must be set in Settings first
+          setError('No implementation company is configured. Please set up an implementation company in Settings first.');
+          return;
         }
       } catch (customerErr) {
         console.error('Error handling implementation company customer:', customerErr);
@@ -576,6 +573,7 @@ const WorksheetGeneratorPage = () => {
           smtpPort: site.smtpPort,
           // Implementation Team
           implementationTeam: implementationTeam,
+          implementationCompanyName: implementationCompany?.name || '',
           equipment: equipment
         };
       });
@@ -583,6 +581,7 @@ const WorksheetGeneratorPage = () => {
       const payload = {
         customer_name: customerName,
         project_name: projectName,
+        planned_installation_date: plannedInstallationDate,
         sites: sitesPayload
       };
 
@@ -598,15 +597,18 @@ const WorksheetGeneratorPage = () => {
       const link = document.createElement('a');
       link.href = url;
 
-      // Build filename: {Implementation Company} {Customer} {Project} Implemenation Worksheets {MMDDYY}.xlsx
+      // Build filename: {Implementation Company} {Customer} {Project} Implementation Worksheets {MMDDYY}.xlsx
       const today = new Date();
       const mmddyy = `${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}${String(today.getFullYear()).slice(-2)}`;
 
-      const implCompanyName = implementationCompany?.name || 'Company';
-      const custName = customerName || 'Customer';
-      const projName = projectName || 'Project';
+      const parts = [];
+      if (implementationCompany?.name) parts.push(implementationCompany.name);
+      if (customerName) parts.push(customerName);
+      if (projectName) parts.push(projectName);
+      parts.push('Implementation Worksheets');
+      parts.push(mmddyy);
 
-      const filename = `${implCompanyName} ${custName} ${projName} Implementation Worksheets ${mmddyy}.xlsx`;
+      const filename = `${parts.join(' ')}.xlsx`;
 
       link.setAttribute('download', filename);
       document.body.appendChild(link);
@@ -650,12 +652,12 @@ const WorksheetGeneratorPage = () => {
           <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
-                <Form.Label>Customer Name</Form.Label>
+                <Form.Label>Client Name</Form.Label>
                 <Form.Control
                   type="text"
                   value={customerName}
                   onChange={(e) => handleCustomerNameChange(e.target.value)}
-                  placeholder="Enter customer name (optional)"
+                  placeholder="Enter client name (optional)"
                 />
                 {autoFilledCustomer && (
                   <Form.Text className="text-muted">
@@ -678,6 +680,18 @@ const WorksheetGeneratorPage = () => {
                     Auto-filled from active project
                   </Form.Text>
                 )}
+              </Form.Group>
+            </Col>
+          </Row>
+          <Row>
+            <Col md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Planned Installation Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={plannedInstallationDate}
+                  onChange={(e) => setPlannedInstallationDate(e.target.value)}
+                />
               </Form.Group>
             </Col>
           </Row>

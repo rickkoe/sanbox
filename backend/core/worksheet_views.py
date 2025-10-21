@@ -161,12 +161,13 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
 
             header_font = Font(name='Calibri', size=14, bold=True, color='FFFFFF')
             header_fill = PatternFill(start_color='505050', end_color='505050', fill_type='solid')  # Dark Gray
-            subheader_font = Font(name='Calibri', size=12, bold=True, color='505050')  # Dark Gray text
+            subheader_font = Font(name='Calibri', size=12, bold=True, color='303030')  # Darker Gray text for better readability
             subheader_fill = PatternFill(start_color='B3B3B3', end_color='B3B3B3', fill_type='solid')  # Light Gray
             accent_green_fill = PatternFill(start_color='A2CA62', end_color='A2CA62', fill_type='solid')  # Green
             accent_blue_fill = PatternFill(start_color='64CAE6', end_color='64CAE6', fill_type='solid')  # Blue
             normal_font = Font(name='Calibri', size=11, color='505050')  # Dark Gray
             bold_font = Font(name='Calibri', size=11, bold=True, color='505050')  # Dark Gray
+            light_gray_fill = PatternFill(start_color='E8E8E8', end_color='E8E8E8', fill_type='solid')  # Light gray for field labels
             center_alignment = Alignment(horizontal='center', vertical='center')
             left_alignment = Alignment(horizontal='left', vertical='center')
             thin_border = Border(
@@ -200,56 +201,20 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 # Get the column letter for the rightmost column
                 max_col_letter = get_column_letter(max_col)
 
-                # Add company logo with padding
+                # Store logo path for later (will add to footer)
                 logo_path = os.path.join(settings.BASE_DIR, 'static', 'images', 'company-logo.png')
-                if os.path.exists(logo_path):
-                    try:
-                        # Insert logo image
-                        img = XLImage(logo_path)
-                        # Get original dimensions
-                        original_width = img.width
-                        original_height = img.height
-                        # Scale logo to fit nicely (adjust height to ~60 pixels)
-                        target_height = 60
-                        if original_height > 0:
-                            aspect_ratio = original_width / original_height
-                            img.height = target_height
-                            img.width = int(target_height * aspect_ratio)
-                        # Position logo at A1 with anchor offset for padding (10 pixels from left and top)
-                        img.anchor = 'A1'
-                        ws.add_image(img, 'A1')
-                        # Set column A width to add left padding
-                        ws.column_dimensions['A'].width = 3
-                        # Set row height to accommodate logo
-                        ws.row_dimensions[1].height = 45
-                        ws.row_dimensions[2].height = 15
-                        ws.row_dimensions[3].height = 15
-                        current_row = 4  # Skip rows used by logo
-                    except Exception as e:
-                        # Fallback to placeholder if image loading fails
-                        print(f"Error loading logo: {e}")
-                        ws.merge_cells(f'A{current_row}:D{current_row}')
-                        cell = ws[f'A{current_row}']
-                        cell.value = "[COMPANY LOGO]"
-                        cell.font = Font(name='Calibri', size=12, italic=True, color='505050')
-                        cell.alignment = center_alignment
-                        current_row += 2
-                else:
-                    # Fallback to placeholder if logo doesn't exist
-                    ws.merge_cells(f'A{current_row}:D{current_row}')
-                    cell = ws[f'A{current_row}']
-                    cell.value = "[COMPANY LOGO]"
-                    cell.font = Font(name='Calibri', size=12, italic=True, color='505050')
-                    cell.alignment = center_alignment
-                    current_row += 2
 
-                # Add title with green accent
+                # Start at row 1 (no blank rows at top)
+                current_row = 1
+
+                # Add title with dark background (first row) - size 26
                 ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
                 cell = ws[f'A{current_row}']
                 cell.value = "Equipment Implementation Worksheet"
-                cell.font = Font(name='Calibri', size=16, bold=True, color='FFFFFF')
-                cell.fill = accent_green_fill  # Green accent for title
+                cell.font = Font(name='Calibri', size=26, bold=True, color='FFFFFF')
+                cell.fill = PatternFill(start_color='505050', end_color='505050', fill_type='solid')  # Dark gray from color scheme
                 cell.alignment = center_alignment
+                ws.row_dimensions[current_row].height = 40  # Proper height for size 26 font
                 current_row += 2
 
                 # Add project information section
@@ -259,61 +224,68 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
                 current_row += 1
 
-                # Customer name
-                ws[f'A{current_row}'] = "Customer:"
+                # Client Name
+                ws[f'A{current_row}'] = "Client Name:"
                 ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
+                ws[f'A{current_row}'].border = thin_border
                 ws[f'B{current_row}'] = data.get('customer_name', '')
+                ws[f'B{current_row}'].font = normal_font
+                ws[f'B{current_row}'].border = thin_border
                 ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
                 current_row += 1
 
-                # Project name
+                # Project Name
                 ws[f'A{current_row}'] = "Project:"
                 ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
+                ws[f'A{current_row}'].border = thin_border
                 ws[f'B{current_row}'] = data.get('project_name', '')
+                ws[f'B{current_row}'].font = normal_font
+                ws[f'B{current_row}'].border = thin_border
+                ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
                 ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
                 current_row += 1
 
-                # Date
-                ws[f'A{current_row}'] = "Date:"
+                # Planned Installation Date
+                ws[f'A{current_row}'] = "Planned Installation Date:"
                 ws[f'A{current_row}'].font = bold_font
-                ws[f'B{current_row}'] = datetime.now().strftime('%Y-%m-%d')
+                ws[f'A{current_row}'].fill = light_gray_fill
+                ws[f'A{current_row}'].border = thin_border
+                ws[f'B{current_row}'] = data.get('planned_installation_date', '')
+                ws[f'B{current_row}'].font = normal_font
+                ws[f'B{current_row}'].border = thin_border
                 ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
                 current_row += 2
 
                 # Site Information Section
-                ws[f'A{current_row}'] = "Site Information"
+                ws[f'A{current_row}'] = "Support Information"
                 ws[f'A{current_row}'].font = subheader_font
                 ws[f'A{current_row}'].fill = subheader_fill
                 ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
                 current_row += 1
 
-                # Site Name
-                ws[f'A{current_row}'] = "Site Name:"
-                ws[f'A{current_row}'].font = bold_font
-                ws[f'B{current_row}'] = site.get('name', '')
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
-                current_row += 1
-
                 # Site Contact - Always include (empty or not) with borders and banding
                 site_info_rows = []
 
-                # Row 1
-                ws[f'A{current_row}'] = "Site Contact:"
+                # Row 1 - Site Name (with borders and banding)
+                ws[f'A{current_row}'] = "Site Name:"
                 ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = site.get('siteContactName', '')
+                ws[f'B{current_row}'] = site.get('name', '')
                 ws[f'B{current_row}'].font = normal_font
                 ws[f'B{current_row}'].border = thin_border
                 ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 2
-                ws[f'A{current_row}'] = "Email:"
+                # Row 2 - Site Contact
+                ws[f'A{current_row}'] = "Site Contact:"
                 ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'A{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws[f'B{current_row}'] = site.get('siteContactEmail', '')
+                ws[f'B{current_row}'] = site.get('siteContactName', '')
                 ws[f'B{current_row}'].font = normal_font
                 ws[f'B{current_row}'].border = thin_border
                 ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
@@ -321,26 +293,27 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 3
+                # Row 3 - Email
+                ws[f'A{current_row}'] = "Email:"
+                ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
+                ws[f'A{current_row}'].border = thin_border
+                ws[f'B{current_row}'] = site.get('siteContactEmail', '')
+                ws[f'B{current_row}'].font = normal_font
+                ws[f'B{current_row}'].border = thin_border
+                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                site_info_rows.append(current_row)
+                current_row += 1
+
+                # Row 4 - Phone
                 phone_display = site.get('siteContactPhone', '')
                 if site.get('siteContactAltPhone'):
                     phone_display += f" / {site.get('siteContactAltPhone', '')}"
                 ws[f'A{current_row}'] = "Phone / Alt Phone:"
                 ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
                 ws[f'B{current_row}'] = phone_display
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
-                site_info_rows.append(current_row)
-                current_row += 1
-
-                # Row 4
-                ws[f'A{current_row}'] = "Street Address:"
-                ws[f'A{current_row}'].font = bold_font
-                ws[f'A{current_row}'].border = thin_border
-                ws[f'A{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws[f'B{current_row}'] = site.get('siteStreetAddress', '')
                 ws[f'B{current_row}'].font = normal_font
                 ws[f'B{current_row}'].border = thin_border
                 ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
@@ -348,7 +321,19 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 5
+                # Row 5 - Street Address
+                ws[f'A{current_row}'] = "Street Address:"
+                ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
+                ws[f'A{current_row}'].border = thin_border
+                ws[f'B{current_row}'] = site.get('siteStreetAddress', '')
+                ws[f'B{current_row}'].font = normal_font
+                ws[f'B{current_row}'].border = thin_border
+                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                site_info_rows.append(current_row)
+                current_row += 1
+
+                # Row 6 - City, State, Zip
                 city_state_zip = site.get('siteCity', '')
                 if site.get('siteState'):
                     city_state_zip += f", {site.get('siteState', '')}" if city_state_zip else site.get('siteState', '')
@@ -356,20 +341,9 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                     city_state_zip += f" {site.get('siteZip', '')}"
                 ws[f'A{current_row}'] = "City, State, Zip:"
                 ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
                 ws[f'B{current_row}'] = city_state_zip
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
-                site_info_rows.append(current_row)
-                current_row += 1
-
-                # Row 6
-                ws[f'A{current_row}'] = "Location Notes:"
-                ws[f'A{current_row}'].font = bold_font
-                ws[f'A{current_row}'].border = thin_border
-                ws[f'A{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws[f'B{current_row}'] = site.get('siteNotes', '')
                 ws[f'B{current_row}'].font = normal_font
                 ws[f'B{current_row}'].border = thin_border
                 ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
@@ -377,26 +351,27 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 7
+                # Row 7 - Location Notes
+                ws[f'A{current_row}'] = "Location Notes:"
+                ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
+                ws[f'A{current_row}'].border = thin_border
+                ws[f'B{current_row}'] = site.get('siteNotes', '')
+                ws[f'B{current_row}'].font = normal_font
+                ws[f'B{current_row}'].border = thin_border
+                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                site_info_rows.append(current_row)
+                current_row += 1
+
+                # Row 8 - DNS Servers
                 dns_servers = site.get('dnsServer1', '')
                 if site.get('dnsServer2'):
                     dns_servers += f", {site.get('dnsServer2', '')}" if dns_servers else site.get('dnsServer2', '')
                 ws[f'A{current_row}'] = "DNS Servers:"
                 ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
                 ws[f'B{current_row}'] = dns_servers
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
-                site_info_rows.append(current_row)
-                current_row += 1
-
-                # Row 8
-                ws[f'A{current_row}'] = "NTP Server:"
-                ws[f'A{current_row}'].font = bold_font
-                ws[f'A{current_row}'].border = thin_border
-                ws[f'A{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws[f'B{current_row}'] = site.get('ntpServer', '')
                 ws[f'B{current_row}'].font = normal_font
                 ws[f'B{current_row}'].border = thin_border
                 ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
@@ -404,16 +379,30 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 9
+                # Row 9 - NTP Server
+                ws[f'A{current_row}'] = "NTP Server:"
+                ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
+                ws[f'A{current_row}'].border = thin_border
+                ws[f'B{current_row}'] = site.get('ntpServer', '')
+                ws[f'B{current_row}'].font = normal_font
+                ws[f'B{current_row}'].border = thin_border
+                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                site_info_rows.append(current_row)
+                current_row += 1
+
+                # Row 10 - SMTP Server
                 smtp_display = site.get('smtpServer', '')
                 if site.get('smtpPort'):
                     smtp_display += f":{site.get('smtpPort', '')}"
                 ws[f'A{current_row}'] = "SMTP Server:Port:"
                 ws[f'A{current_row}'].font = bold_font
+                ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
                 ws[f'B{current_row}'] = smtp_display
                 ws[f'B{current_row}'].font = normal_font
                 ws[f'B{current_row}'].border = thin_border
+                ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
                 ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
@@ -431,15 +420,45 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
 
                     items = equipment.get('items', [])
                     if items and len(items) > 0:
-                        # Get field names from first item - ensure we have ALL fields including empty ones
-                        fields = list(items[0].keys())
+                        # Get field names from first item
+                        all_fields = list(items[0].keys())
                         equipment_type_name = equipment.get('type_name', 'Equipment').replace(' ', '_')
+
+                        # Reorder fields: put subnet_mask, default_gateway, vlan right after management_ip
+                        network_fields = ['subnet_mask', 'default_gateway', 'vlan']
+                        fields = []
+
+                        for field in all_fields:
+                            if field == 'management_ip':
+                                fields.append(field)
+                                # Add network fields right after management_ip
+                                for nf in network_fields:
+                                    if nf in all_fields and nf not in fields:
+                                        fields.append(nf)
+                            elif field not in network_fields:
+                                fields.append(field)
+
+                        # Add any remaining network fields that weren't placed yet
+                        for nf in network_fields:
+                            if nf in all_fields and nf not in fields:
+                                fields.append(nf)
+
+                        # Special case label mappings for proper capitalization
+                        label_overrides = {
+                            'management_ip': 'Management IP',
+                            'vlan': 'VLAN',
+                            'subnet_mask': 'Subnet Mask',
+                            'default_gateway': 'Default Gateway'
+                        }
 
                         # Column labels row - Blue accent
                         for col_idx, field in enumerate(fields, start=1):
                             cell = ws.cell(row=current_row, column=col_idx)
-                            # Convert field name to readable label (snake_case to Title Case)
-                            label = field.replace('_', ' ').title()
+                            # Use override label if available, otherwise convert snake_case to Title Case
+                            if field in label_overrides:
+                                label = label_overrides[field]
+                            else:
+                                label = field.replace('_', ' ').title()
                             cell.value = label
                             cell.font = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
                             cell.fill = accent_blue_fill  # Blue accent for data headers
@@ -477,23 +496,38 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 # Add footer section
                 current_row += 2  # Add some space
 
-                # Footer separator
-                ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
-                cell = ws[f'A{current_row}']
-                cell.value = ""
-                cell.border = Border(top=Side(style='thick', color='505050'))
+                # Green accent row before footer separator
+                for col in range(1, max_col + 1):
+                    cell = ws.cell(row=current_row, column=col)
+                    cell.fill = accent_green_fill
                 current_row += 1
 
-                # Implementation Team Contacts footer (Evolving Solutions)
+                footer_start_row = current_row
+
+                # Footer separator - full width of all columns
+                for col in range(1, max_col + 1):
+                    cell = ws.cell(row=current_row, column=col)
+                    cell.border = Border(top=Side(style='thick', color='505050'))
+                current_row += 1
+
+                # Implementation Team Contacts footer (centered text)
                 implementation_team = site.get('implementationTeam', [])
+                implementation_company_name = site.get('implementationCompanyName', '')
+                contact_section_start_row = current_row  # Track where contact section starts
+                contact_section_end_row = current_row  # Will be updated as we add rows
+
                 if implementation_team and len(implementation_team) > 0:
                     ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
                     cell = ws[f'A{current_row}']
-                    cell.value = "Implementation Team (Evolving Solutions)"
+                    if implementation_company_name:
+                        cell.value = f"Contact Us ({implementation_company_name})"
+                    else:
+                        cell.value = "Contact Us"
                     cell.font = Font(name='Calibri', size=10, bold=True, color='505050')
+                    cell.alignment = center_alignment  # Center the text
                     current_row += 1
 
-                    # Display each team member
+                    # Display each team member (centered)
                     for team_member in implementation_team:
                         ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
                         cell = ws[f'A{current_row}']
@@ -509,12 +543,40 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                         cell.alignment = center_alignment
                         current_row += 1
 
-                # Generated timestamp
+                    # Update end of contact section (before timestamp)
+                    contact_section_end_row = current_row - 1
+
+                # Generated timestamp (centered) - separate from contact section
                 ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
                 cell = ws[f'A{current_row}']
                 cell.value = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M')}"
                 cell.font = Font(name='Calibri', size=8, italic=True, color='B3B3B3')
                 cell.alignment = center_alignment
+
+                # Add logo to right side of footer, vertically centered in contact section only
+                if os.path.exists(logo_path) and implementation_team and len(implementation_team) > 0:
+                    try:
+                        img = XLImage(logo_path)
+                        # Scale logo to fit nicely in footer
+                        target_height = 60  # Slightly larger for better visibility
+                        if img.height > 0:
+                            aspect_ratio = img.width / img.height
+                            img.height = target_height
+                            img.width = int(target_height * aspect_ratio)
+
+                        # Calculate vertical center position within contact section only
+                        # For proper centering: if we have rows 1,2,3,4,5 the center is row 3 (index 2)
+                        # Formula: start_row + (total_rows - 1) / 2
+                        contact_section_height = contact_section_end_row - contact_section_start_row + 1
+                        vertical_center_row = contact_section_start_row + ((contact_section_height - 1) // 2)
+
+                        # Position logo on the right side (last column)
+                        logo_col = max_col
+                        logo_anchor = f'{get_column_letter(logo_col)}{vertical_center_row}'
+                        img.anchor = logo_anchor
+                        ws.add_image(img, logo_anchor)
+                    except Exception as e:
+                        print(f"Error loading logo in footer: {e}")
 
                 # Auto-adjust column widths for this site's sheet
                 for column in ws.columns:
