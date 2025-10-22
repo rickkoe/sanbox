@@ -49,12 +49,12 @@ const FabricTableTanStackClean = () => {
 
     // All possible fabric columns
     const columns = [
-        { data: "name", title: "Name" },
-        { data: "san_vendor", title: "Vendor", type: "dropdown" },
+        { data: "name", title: "Name", required: true },
+        { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
         { data: "switch", title: "Switch", type: "dropdown" },
         { data: "zoneset_name", title: "Zoneset Name" },
-        { data: "domain_id", title: "Domain ID", type: "numeric" },
-        { data: "vsan", title: "VSAN", type: "numeric" },
+        { data: "domain_id", title: "Domain ID", type: "numeric", defaultVisible: false },
+        { data: "vsan", title: "VSAN", type: "numeric", defaultVisible: false },
         { data: "alias_count", title: "Aliases", type: "numeric", readOnly: true },
         { data: "zone_count", title: "Zones", type: "numeric", readOnly: true },
         { data: "exists", title: "Exists", type: "checkbox" },

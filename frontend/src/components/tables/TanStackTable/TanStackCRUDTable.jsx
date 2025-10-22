@@ -112,6 +112,7 @@ const TanStackCRUDTable = forwardRef(({
   const [sorting, setSorting] = useState([]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
+  const [columnVisibility, setColumnVisibility] = useState({});
 
   // Advanced filter state
   const [activeFilters, setActiveFilters] = useState({});
@@ -259,6 +260,18 @@ const TanStackCRUDTable = forwardRef(({
           console.log('📊 Loading saved current page:', response.data.additional_settings.current_page);
           setCurrentPage(response.data.additional_settings.current_page);
         }
+
+        // Load visible_columns from config
+        if (response.data.visible_columns && response.data.visible_columns.length > 0) {
+          console.log('📊 Loading saved visible columns:', response.data.visible_columns);
+          // Convert array of visible column IDs to TanStack Table visibility object
+          // TanStack uses { columnId: true/false } format
+          const visibilityMap = {};
+          response.data.visible_columns.forEach(colId => {
+            visibilityMap[colId] = true;
+          });
+          setColumnVisibility(visibilityMap);
+        }
         console.log('📊 Loaded table configuration:', response.data);
       }
     } catch (error) {
@@ -308,6 +321,54 @@ const TanStackCRUDTable = forwardRef(({
       console.error('❌ Error status:', error.response?.status);
     }
   }, [tableName, customerId, user, tableConfig, columnSizing]);
+
+  // Initialize column visibility from column defaults when config is loaded
+  useEffect(() => {
+    if (configLoaded && columns.length > 0 && Object.keys(columnVisibility).length === 0) {
+      console.log('🎯 Initializing column visibility from column defaults');
+      const initialVisibility = {};
+
+      columns.forEach((column, index) => {
+        const accessorKey = column.data || column.accessorKey || `column_${index}`;
+
+        // If column has required: true, it's always visible and cannot be hidden
+        if (column.required) {
+          initialVisibility[accessorKey] = true;
+        }
+        // If column has defaultVisible explicitly set, use that
+        else if (column.defaultVisible !== undefined) {
+          initialVisibility[accessorKey] = column.defaultVisible;
+        }
+        // Otherwise, default to visible (true)
+        else {
+          initialVisibility[accessorKey] = true;
+        }
+      });
+
+      console.log('🎯 Initial column visibility:', initialVisibility);
+      setColumnVisibility(initialVisibility);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configLoaded, columns.length]);
+
+  // Save column visibility to database when changed (debounced)
+  useEffect(() => {
+    // Only save if config has been loaded and we have visibility settings
+    if (configLoaded && Object.keys(columnVisibility).length > 0) {
+      // Convert TanStack visibility object { columnId: true/false } to array of visible column IDs
+      const visibleColumns = Object.keys(columnVisibility).filter(colId => columnVisibility[colId]);
+
+      if (visibleColumns.length > 0) {
+        // Debounce the save to avoid blocking UI during rapid changes
+        const timeoutId = setTimeout(() => {
+          console.log('💾 Saving column visibility:', visibleColumns);
+          saveTableConfig({ visible_columns: visibleColumns });
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [columnVisibility, configLoaded, saveTableConfig]);
 
   // Determine if we need client-side pagination (memoized for consistency)
   const hasActiveClientFilters = useMemo(() => {
@@ -1077,7 +1138,7 @@ const TanStackCRUDTable = forwardRef(({
 
   // Create enhanced column definitions with our custom cell components
   const columnDefs = useMemo(() => {
-    console.log('🏗️ Building column definitions with dropdownSources:', dropdownSources);
+    // console.log('🏗️ Building column definitions with dropdownSources:', dropdownSources);
 
     return columns.map((column, index) => {
       const headerName = colHeaders[index] || column.header || column.data || `Column ${index + 1}`;
@@ -1129,17 +1190,17 @@ const TanStackCRUDTable = forwardRef(({
           const isDropdown = actualColumnConfig?.type === 'dropdown' || accessorKey === 'san_vendor' ||
             (accessorKey.startsWith('member_') && !accessorKey.includes('count'));
 
-          console.log(`🔍 Cell [${rowIndex}, ${colIndex}] ${accessorKey}:`, {
-            value,
-            isCheckbox,
-            isDropdown,
-            columnConfig: actualColumnConfig,
-            index,
-            columnsLength: columns.length,
-            isMemberColumn: accessorKey.startsWith('member_'),
-            dropdownSource,
-            dropdownOptions: dropdownSources[accessorKey]
-          });
+          // console.log(`🔍 Cell [${rowIndex}, ${colIndex}] ${accessorKey}:`, {
+          //   value,
+          //   isCheckbox,
+          //   isDropdown,
+          //   columnConfig: actualColumnConfig,
+          //   index,
+          //   columnsLength: columns.length,
+          //   isMemberColumn: accessorKey.startsWith('member_'),
+          //   dropdownSource,
+          //   dropdownOptions: dropdownSources[accessorKey]
+          // });
 
           // Checkbox cell
           if (isCheckbox) {
@@ -1172,7 +1233,7 @@ const TanStackCRUDTable = forwardRef(({
               }
             }
 
-            console.log(`📋 Dropdown ${accessorKey} options:`, Array.isArray(options) ? options.length : 'function');
+            // console.log(`📋 Dropdown ${accessorKey} options:`, Array.isArray(options) ? options.length : 'function');
 
             return (
               <VendorDropdownCell
@@ -1291,8 +1352,10 @@ const TanStackCRUDTable = forwardRef(({
       columnFilters,
       globalFilter,
       columnSizing,
+      columnVisibility,
       ...(hasActiveClientFilters && { pagination }),
     },
+    onColumnVisibilityChange: setColumnVisibility,
     onColumnSizingChange: (updater) => {
       console.log('🔧 Column sizing changed:', updater);
       setColumnSizing(updater);
@@ -2923,27 +2986,208 @@ const TanStackCRUDTable = forwardRef(({
           </>
         )}
 
-{/* Auto-size columns button */}
-        <button
-          onClick={autoSizeColumns}
-          style={{
-            padding: '10px 18px',
-            backgroundColor: 'var(--table-pagination-button-bg)',
-            color: 'var(--table-toolbar-text)',
-            border: '1px solid var(--table-pagination-button-border)',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: '500',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-          title="Auto-size all columns to fit content"
-        >
-          Auto-size Columns
-        </button>
+        {/* Columns dropdown with auto-size and visibility controls */}
+        <div className="dropdown">
+          <button
+            type="button"
+            data-bs-toggle="dropdown"
+            data-bs-auto-close="outside"
+            aria-expanded="false"
+            style={{
+              padding: '10px 18px',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: 'var(--table-toolbar-text)',
+              border: '1px solid var(--table-pagination-button-border)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title="Column visibility and options"
+          >
+            Columns ▼
+          </button>
+          <ul
+            className="dropdown-menu"
+            style={{ minWidth: '280px', maxHeight: '500px', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing on click
+          >
+            {/* Auto-size all columns option */}
+            <li>
+              <button
+                className="dropdown-item"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  autoSizeColumns();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  fontWeight: '500'
+                }}
+              >
+                ⚡ Auto-size All Columns
+              </button>
+            </li>
+            <li><hr className="dropdown-divider" /></li>
+
+            {/* Show All / Hide All buttons */}
+            <li>
+              <div style={{ display: 'flex', gap: '8px', padding: '4px 16px' }}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Show all non-required columns
+                    table.getAllLeafColumns().forEach(column => {
+                      const columnDef = columns.find(c => (c.data || c.accessorKey) === column.id);
+                      if (!columnDef?.required) {
+                        column.toggleVisibility(true);
+                      }
+                    });
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 12px',
+                    backgroundColor: 'var(--table-pagination-button-bg)',
+                    color: 'var(--table-toolbar-text)',
+                    border: '1px solid var(--table-pagination-button-border)',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '500'
+                  }}
+                >
+                  Show All
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Hide all non-required columns
+                    table.getAllLeafColumns().forEach(column => {
+                      const columnDef = columns.find(c => (c.data || c.accessorKey) === column.id);
+                      if (!columnDef?.required) {
+                        column.toggleVisibility(false);
+                      }
+                    });
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '6px 12px',
+                    backgroundColor: 'var(--table-pagination-button-bg)',
+                    color: 'var(--table-toolbar-text)',
+                    border: '1px solid var(--table-pagination-button-border)',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '500'
+                  }}
+                >
+                  Hide All
+                </button>
+              </div>
+            </li>
+            <li><hr className="dropdown-divider" /></li>
+
+            {/* Column search filter */}
+            <li style={{ padding: '8px 16px' }}>
+              <input
+                type="text"
+                placeholder="Search columns..."
+                className="form-control form-control-sm"
+                onChange={(e) => {
+                  const searchTerm = e.target.value.toLowerCase();
+                  const columnItems = document.querySelectorAll('.column-visibility-item');
+                  columnItems.forEach(item => {
+                    const columnName = item.getAttribute('data-column-name')?.toLowerCase() || '';
+                    if (columnName.includes(searchTerm)) {
+                      item.style.display = 'block';
+                    } else {
+                      item.style.display = 'none';
+                    }
+                  });
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  fontSize: '13px',
+                  padding: '6px 10px'
+                }}
+              />
+            </li>
+            <li><hr className="dropdown-divider" /></li>
+
+            {/* Column visibility toggles */}
+            {table.getAllLeafColumns().map(column => {
+              const columnDef = columns.find(c => (c.data || c.accessorKey) === column.id);
+              const isRequired = columnDef?.required === true;
+              const isVisible = column.getIsVisible();
+              const columnName = typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id;
+
+              // Use a handler that doesn't rely on closure variables
+              const handleToggle = (e) => {
+                e.stopPropagation();
+                if (!isRequired) {
+                  console.log('🔄 Toggling column:', column.id);
+                  // Use the toggle function with explicit value to avoid state timing issues
+                  const newVisibility = !column.getIsVisible();
+                  column.toggleVisibility(newVisibility);
+                }
+              };
+
+              return (
+                <li
+                  key={column.id}
+                  className="column-visibility-item"
+                  data-column-name={columnName}
+                >
+                  <label
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      cursor: isRequired ? 'not-allowed' : 'pointer',
+                      opacity: isRequired ? 0.6 : 1,
+                      backgroundColor: isVisible ? 'transparent' : 'var(--table-row-hover)',
+                      userSelect: 'none',
+                      margin: 0
+                    }}
+                    title={isRequired ? 'Required column - cannot be hidden' : `Toggle ${columnName} visibility`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isVisible}
+                      onChange={handleToggle}
+                      disabled={isRequired}
+                      style={{
+                        cursor: isRequired ? 'not-allowed' : 'pointer',
+                        margin: 0
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <span style={{ flex: 1 }}>
+                      {columnName}
+                    </span>
+                    {isRequired && (
+                      <span style={{ fontSize: '11px', color: 'var(--table-toolbar-text)', opacity: 0.7 }}>
+                        (required)
+                      </span>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
 
         {/* Status indicator and shortcuts */}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>

@@ -38,15 +38,15 @@ const SwitchTableTanStack = () => {
 
     // All possible switch columns
     const columns = [
-        { data: "name", title: "Name" },
-        { data: "san_vendor", title: "Vendor", type: "dropdown" },
+        { data: "name", title: "Name", required: true },
+        { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
         { data: "wwnn", title: "WWNN" },
         { data: "ip_address", title: "IP Address" },
-        { data: "subnet_mask", title: "Subnet Mask" },
-        { data: "gateway", title: "Gateway" },
+        { data: "subnet_mask", title: "Subnet Mask", defaultVisible: false },
+        { data: "gateway", title: "Gateway", defaultVisible: false },
         { data: "model", title: "Model" },
-        { data: "serial_number", title: "Serial Number" },
-        { data: "firmware_version", title: "Firmware Version" },
+        { data: "serial_number", title: "Serial Number", defaultVisible: false },
+        { data: "firmware_version", title: "Firmware Version", defaultVisible: false },
         { data: "is_active", title: "Active", type: "checkbox" },
         { data: "location", title: "Location" },
         { data: "notes", title: "Notes" }

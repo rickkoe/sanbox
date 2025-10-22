@@ -42,20 +42,20 @@ const AliasTableTanStackClean = () => {
 
     // All possible alias columns
     const columns = [
-        { data: "name", title: "Name" },
-        { data: "wwpn", title: "WWPN" },
+        { data: "name", title: "Name", required: true },
+        { data: "wwpn", title: "WWPN", required: true },
         { data: "use", title: "Use", type: "dropdown" },
-        { data: "fabric_details.name", title: "Fabric", type: "dropdown" },
+        { data: "fabric_details.name", title: "Fabric", type: "dropdown", required: true },
         { data: "host_details.name", title: "Host", type: "dropdown" },
         { data: "storage_details.name", title: "Storage System", readOnly: true },
         { data: "cisco_alias", title: "Alias Type", type: "dropdown" },
         { data: "create", title: "Create", type: "checkbox" },
         { data: "delete", title: "Delete", type: "checkbox" },
         { data: "include_in_zoning", title: "Include in Zoning", type: "checkbox" },
-        { data: "logged_in", title: "Logged In", type: "checkbox" },
+        { data: "logged_in", title: "Logged In", type: "checkbox", defaultVisible: false },
         { data: "zoned_count", title: "Zoned Count", type: "numeric", readOnly: true },
-        { data: "imported", title: "Imported", readOnly: true },
-        { data: "updated", title: "Updated", readOnly: true },
+        { data: "imported", title: "Imported", readOnly: true, defaultVisible: false },
+        { data: "updated", title: "Updated", readOnly: true, defaultVisible: false },
         { data: "notes", title: "Notes" }
     ];
 
