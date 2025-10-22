@@ -165,6 +165,19 @@ docker cp sanbox_dev_backend:/app/equipment_types_export.json ./equipment_types_
 
 ### Importing Equipment Types (To Production)
 
+**Method 1: Using Import Script (Recommended)**
+
+```bash
+# Copy fixture to server
+scp equipment_types_fixture.json user@production-server:/path/to/sanbox/
+
+# On production server - auto-detects environment
+./scripts/import-equipment-types.sh
+
+```
+
+**Method 2: Manual Import**
+
 ```bash
 # Copy fixture to server
 scp equipment_types_fixture.json user@production-server:/path/to/sanbox/

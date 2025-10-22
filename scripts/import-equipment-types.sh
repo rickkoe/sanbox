@@ -32,16 +32,25 @@ echo "Fixture file: $FIXTURE_FILE"
 echo ""
 
 # Detect which environment (dev or production)
-if [ -f "docker-compose.dev.yml" ] && docker-compose -f docker-compose.dev.yml ps backend 2>/dev/null | grep -q "Up"; then
+# Check for running containers directly
+if docker ps --format '{{.Names}}' | grep -q "^sanbox_dev_backend$"; then
     COMPOSE_FILE="docker-compose.dev.yml"
     CONTAINER_NAME="sanbox_dev_backend"
     ENV_NAME="DEVELOPMENT"
-elif [ -f "docker-compose.yml" ] && docker-compose ps backend 2>/dev/null | grep -q "Up"; then
+elif docker ps --format '{{.Names}}' | grep -q "^sanbox_backend$"; then
     COMPOSE_FILE="docker-compose.yml"
     CONTAINER_NAME="sanbox_backend"
     ENV_NAME="PRODUCTION"
 else
     echo "ERROR: No running backend container found"
+    echo ""
+    echo "Expected container names:"
+    echo "  Development: sanbox_dev_backend"
+    echo "  Production:  sanbox_backend"
+    echo ""
+    echo "Currently running containers:"
+    docker ps --format '{{.Names}}' | grep "sanbox" || echo "  (no sanbox containers found)"
+    echo ""
     echo "Please start either development or production environment first."
     exit 1
 fi

@@ -1,0 +1,360 @@
+[
+{
+  "model": "core.equipmenttype",
+  "pk": 1,
+  "fields": {
+    "name": "SAN Switch - Cisco",
+    "category": "network",
+    "vendor": "Cisco",
+    "description": null,
+    "fields_schema": [
+      {
+        "name": "switch_name",
+        "type": "text",
+        "label": "Switch Name",
+        "required": true
+      },
+      {
+        "name": "management_ip",
+        "type": "text",
+        "label": "Management IP",
+        "required": true
+      },
+      {
+        "name": "site_address",
+        "type": "textarea",
+        "label": "Site Address",
+        "required": false
+      },
+      {
+        "name": "serial_number",
+        "type": "text",
+        "label": "Serial Number",
+        "required": false
+      },
+      {
+        "name": "model",
+        "type": "select",
+        "label": "Model",
+        "options": [
+          "MDS 9148",
+          "MDS 9396",
+          "MDS 9710",
+          "MDS 9718"
+        ],
+        "required": false
+      },
+      {
+        "name": "port_count",
+        "type": "number",
+        "label": "Port Count",
+        "required": false
+      },
+      {
+        "name": "firmware_version",
+        "type": "text",
+        "label": "Firmware Version",
+        "required": false
+      }
+    ],
+    "is_active": true,
+    "icon_name": "FaNetworkWired",
+    "display_order": 1,
+    "created_at": "2025-10-21T17:43:08.248Z",
+    "updated_at": "2025-10-21T17:43:08.248Z"
+  }
+},
+{
+  "model": "core.equipmenttype",
+  "pk": 2,
+  "fields": {
+    "name": "SAN Switch - Brocade",
+    "category": "network",
+    "vendor": "Brocade",
+    "description": null,
+    "fields_schema": [
+      {
+        "name": "switch_name",
+        "type": "text",
+        "label": "Switch Name",
+        "required": true
+      },
+      {
+        "name": "management_ip",
+        "type": "text",
+        "label": "Management IP",
+        "required": true
+      },
+      {
+        "name": "site_address",
+        "type": "textarea",
+        "label": "Site Address",
+        "required": false
+      },
+      {
+        "name": "serial_number",
+        "type": "text",
+        "label": "Serial Number",
+        "required": false
+      },
+      {
+        "name": "model",
+        "type": "select",
+        "label": "Model",
+        "options": [
+          "G620",
+          "G630",
+          "G720",
+          "X6-4",
+          "X7-4",
+          "X7-8"
+        ],
+        "required": false
+      },
+      {
+        "name": "port_count",
+        "type": "number",
+        "label": "Port Count",
+        "required": false
+      },
+      {
+        "name": "firmware_version",
+        "type": "text",
+        "label": "Firmware Version",
+        "required": false
+      }
+    ],
+    "is_active": true,
+    "icon_name": "FaNetworkWired",
+    "display_order": 2,
+    "created_at": "2025-10-21T17:43:08.257Z",
+    "updated_at": "2025-10-21T17:43:08.257Z"
+  }
+},
+{
+  "model": "core.equipmenttype",
+  "pk": 3,
+  "fields": {
+    "name": "IBM FlashSystem",
+    "category": "storage",
+    "vendor": "IBM",
+    "description": null,
+    "fields_schema": [
+      {
+        "name": "system_name",
+        "type": "text",
+        "label": "System Name",
+        "required": true
+      },
+      {
+        "name": "management_ip",
+        "type": "text",
+        "label": "Management IP",
+        "required": true
+      },
+      {
+        "name": "site_address",
+        "type": "textarea",
+        "label": "Site Address",
+        "required": false
+      },
+      {
+        "name": "serial_number",
+        "type": "text",
+        "label": "Serial Number",
+        "required": false
+      },
+      {
+        "name": "model",
+        "type": "select",
+        "label": "Model",
+        "options": [
+          "5015",
+          "5035",
+          "5045",
+          "5100",
+          "5200",
+          "7200",
+          "9200",
+          "9500"
+        ],
+        "required": false
+      },
+      {
+        "name": "node_count",
+        "type": "select",
+        "label": "Node Count",
+        "options": [
+          "2",
+          "4"
+        ],
+        "required": false
+      },
+      {
+        "name": "total_capacity_tb",
+        "type": "number",
+        "label": "Total Capacity (TB)",
+        "required": false
+      },
+      {
+        "name": "software_version",
+        "type": "text",
+        "label": "Software Version",
+        "required": false
+      }
+    ],
+    "is_active": true,
+    "icon_name": "FaHdd",
+    "display_order": 3,
+    "created_at": "2025-10-21T17:43:08.263Z",
+    "updated_at": "2025-10-21T17:43:08.263Z"
+  }
+},
+{
+  "model": "core.equipmenttype",
+  "pk": 4,
+  "fields": {
+    "name": "IBM DS8000",
+    "category": "storage",
+    "vendor": "IBM",
+    "description": null,
+    "fields_schema": [
+      {
+        "name": "system_name",
+        "type": "text",
+        "label": "System Name",
+        "required": true
+      },
+      {
+        "name": "management_ip",
+        "type": "text",
+        "label": "Management IP",
+        "required": true
+      },
+      {
+        "name": "site_address",
+        "type": "textarea",
+        "label": "Site Address",
+        "required": false
+      },
+      {
+        "name": "serial_number",
+        "type": "text",
+        "label": "Serial Number",
+        "required": false
+      },
+      {
+        "name": "model",
+        "type": "select",
+        "label": "Model",
+        "options": [
+          "DS8880",
+          "DS8900F"
+        ],
+        "required": false
+      },
+      {
+        "name": "frame_count",
+        "type": "number",
+        "label": "Frame Count",
+        "required": false
+      },
+      {
+        "name": "total_capacity_tb",
+        "type": "number",
+        "label": "Total Capacity (TB)",
+        "required": false
+      },
+      {
+        "name": "microcode_level",
+        "type": "text",
+        "label": "Microcode Level",
+        "required": false
+      }
+    ],
+    "is_active": true,
+    "icon_name": "FaServer",
+    "display_order": 4,
+    "created_at": "2025-10-21T17:43:08.267Z",
+    "updated_at": "2025-10-21T17:43:08.267Z"
+  }
+},
+{
+  "model": "core.equipmenttype",
+  "pk": 5,
+  "fields": {
+    "name": "Server",
+    "category": "compute",
+    "vendor": null,
+    "description": null,
+    "fields_schema": [
+      {
+        "name": "server_name",
+        "type": "text",
+        "label": "Server Name",
+        "required": true
+      },
+      {
+        "name": "management_ip",
+        "type": "text",
+        "label": "Management IP",
+        "required": true
+      },
+      {
+        "name": "site_address",
+        "type": "textarea",
+        "label": "Site Address",
+        "required": false
+      },
+      {
+        "name": "serial_number",
+        "type": "text",
+        "label": "Serial Number",
+        "required": false
+      },
+      {
+        "name": "vendor",
+        "type": "select",
+        "label": "Vendor",
+        "options": [
+          "IBM",
+          "Dell",
+          "HP",
+          "Lenovo",
+          "Cisco"
+        ],
+        "required": false
+      },
+      {
+        "name": "model",
+        "type": "text",
+        "label": "Model",
+        "required": false
+      },
+      {
+        "name": "cpu",
+        "type": "text",
+        "label": "CPU",
+        "required": false
+      },
+      {
+        "name": "memory_gb",
+        "type": "number",
+        "label": "Memory (GB)",
+        "required": false
+      },
+      {
+        "name": "operating_system",
+        "type": "text",
+        "label": "Operating System",
+        "required": false
+      }
+    ],
+    "is_active": true,
+    "icon_name": "FaServer",
+    "display_order": 5,
+    "created_at": "2025-10-21T17:43:08.270Z",
+    "updated_at": "2025-10-21T17:43:08.270Z"
+  }
+}
+]

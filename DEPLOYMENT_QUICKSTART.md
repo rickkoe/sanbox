@@ -41,8 +41,9 @@ docker-compose exec backend python manage.py migrate
 # Copy fixture to production server
 scp equipment_types_fixture.json user@prod-server:/path/to/sanbox/
 
-# On production server
-./scripts/import-equipment-types.sh
+# On production server - use either script:
+./scripts/import-equipment-types.sh        # Auto-detects dev/prod
+./scripts/import-equipment-types-prod.sh   # Production-specific
 ```
 
 ### 4. Setup HTTPS (One-time)
