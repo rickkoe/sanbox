@@ -612,7 +612,7 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 # Generated timestamp (centered) - separate from contact section
                 ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
                 cell = ws[f'A{current_row}']
-                cell.value = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M')}"
+                cell.value = f"Generated on {datetime.now().strftime('%Y-%m-%d')}"
                 cell.font = Font(name='Calibri', size=8, italic=True, color='B3B3B3')
                 cell.alignment = center_alignment
 
