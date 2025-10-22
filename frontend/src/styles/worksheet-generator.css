@@ -91,6 +91,11 @@
   color: var(--muted-text) !important;
 }
 
+/* Dark theme specific overrides for badge text */
+.theme-dark .equipment-card .badge {
+  color: #333333 !important;
+}
+
 /* Equipment Details */
 .equipment-item {
   padding: 1.5rem;
