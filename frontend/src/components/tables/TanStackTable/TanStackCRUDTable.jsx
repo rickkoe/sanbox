@@ -3045,11 +3045,25 @@ const TanStackCRUDTable = forwardRef(({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Show all non-required columns
-                    table.getAllLeafColumns().forEach(column => {
-                      const columnDef = columns.find(c => (c.data || c.accessorKey) === column.id);
-                      if (!columnDef?.required) {
-                        column.toggleVisibility(true);
+                    // Show all non-required columns that are currently visible in the filtered list
+                    const visibleColumnItems = Array.from(document.querySelectorAll('.column-visibility-item'))
+                      .filter(item => item.style.display !== 'none');
+
+                    visibleColumnItems.forEach(item => {
+                      const columnName = item.getAttribute('data-column-name');
+                      const column = table.getAllLeafColumns().find(col => {
+                        const colDef = columns.find(c => (c.data || c.accessorKey) === col.id);
+                        const colName = colDef?.title || colDef?.header ||
+                                       (typeof col.columnDef.header === 'string' ? col.columnDef.header : null) ||
+                                       col.id;
+                        return colName === columnName;
+                      });
+
+                      if (column) {
+                        const columnDef = columns.find(c => (c.data || c.accessorKey) === column.id);
+                        if (!columnDef?.required) {
+                          column.toggleVisibility(true);
+                        }
                       }
                     });
                   }}
@@ -3071,11 +3085,25 @@ const TanStackCRUDTable = forwardRef(({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Hide all non-required columns
-                    table.getAllLeafColumns().forEach(column => {
-                      const columnDef = columns.find(c => (c.data || c.accessorKey) === column.id);
-                      if (!columnDef?.required) {
-                        column.toggleVisibility(false);
+                    // Hide all non-required columns that are currently visible in the filtered list
+                    const visibleColumnItems = Array.from(document.querySelectorAll('.column-visibility-item'))
+                      .filter(item => item.style.display !== 'none');
+
+                    visibleColumnItems.forEach(item => {
+                      const columnName = item.getAttribute('data-column-name');
+                      const column = table.getAllLeafColumns().find(col => {
+                        const colDef = columns.find(c => (c.data || c.accessorKey) === col.id);
+                        const colName = colDef?.title || colDef?.header ||
+                                       (typeof col.columnDef.header === 'string' ? col.columnDef.header : null) ||
+                                       col.id;
+                        return colName === columnName;
+                      });
+
+                      if (column) {
+                        const columnDef = columns.find(c => (c.data || c.accessorKey) === column.id);
+                        if (!columnDef?.required) {
+                          column.toggleVisibility(false);
+                        }
                       }
                     });
                   }}
@@ -3099,28 +3127,79 @@ const TanStackCRUDTable = forwardRef(({
 
             {/* Column search filter */}
             <li style={{ padding: '8px 16px' }}>
-              <input
-                type="text"
-                placeholder="Search columns..."
-                className="form-control form-control-sm"
-                onChange={(e) => {
-                  const searchTerm = e.target.value.toLowerCase();
-                  const columnItems = document.querySelectorAll('.column-visibility-item');
-                  columnItems.forEach(item => {
-                    const columnName = item.getAttribute('data-column-name')?.toLowerCase() || '';
-                    if (columnName.includes(searchTerm)) {
-                      item.style.display = 'block';
-                    } else {
-                      item.style.display = 'none';
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Search columns..."
+                  className="form-control form-control-sm column-search-input"
+                  onChange={(e) => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const columnItems = document.querySelectorAll('.column-visibility-item');
+                    columnItems.forEach(item => {
+                      const columnName = item.getAttribute('data-column-name')?.toLowerCase() || '';
+                      if (columnName.includes(searchTerm)) {
+                        item.style.display = 'block';
+                      } else {
+                        item.style.display = 'none';
+                      }
+                    });
+
+                    // Show/hide clear button
+                    const clearBtn = e.target.parentElement.querySelector('.column-search-clear');
+                    if (clearBtn) {
+                      clearBtn.style.display = e.target.value ? 'flex' : 'none';
                     }
-                  });
-                }}
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  fontSize: '13px',
-                  padding: '6px 10px'
-                }}
-              />
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    fontSize: '13px',
+                    padding: '6px 32px 6px 10px',
+                    width: '100%'
+                  }}
+                />
+                <button
+                  type="button"
+                  className="column-search-clear"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const input = e.target.closest('div').querySelector('.column-search-input');
+                    if (input) {
+                      input.value = '';
+
+                      // Show all columns again
+                      const columnItems = document.querySelectorAll('.column-visibility-item');
+                      columnItems.forEach(item => {
+                        item.style.display = 'block';
+                      });
+
+                      // Hide the clear button
+                      e.target.style.display = 'none';
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--table-toolbar-text)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'none',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '16px',
+                    opacity: 0.6,
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.target.style.opacity = 1}
+                  onMouseLeave={(e) => e.target.style.opacity = 0.6}
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              </div>
             </li>
             <li><hr className="dropdown-divider" /></li>
 
@@ -3244,9 +3323,9 @@ const TanStackCRUDTable = forwardRef(({
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => {
-                  // Get column group for styling
-                  const columnIndex = header.column.getIndex();
-                  const columnConfig = columns[columnIndex];
+                  // Get column group for styling - use column.id to find the config
+                  // instead of index, since index changes when columns are hidden
+                  const columnConfig = columns.find(c => (c.data || c.accessorKey) === header.column.id);
                   const columnGroup = columnConfig?.columnGroup;
                   const isNameColumn = header.id === 'name' || columnConfig?.data === 'name';
 
@@ -3356,8 +3435,9 @@ const TanStackCRUDTable = forwardRef(({
                   const isSelected = selectedCells.has(cellKey);
                   const isInvalid = invalidCells.has(cellKey);
 
-                  // Get column group for styling
-                  const columnConfig = columns[colIndex];
+                  // Get column group for styling - use column.id to find the config
+                  // instead of index, since index changes when columns are hidden
+                  const columnConfig = columns.find(c => (c.data || c.accessorKey) === cell.column.id);
                   const columnGroup = columnConfig?.columnGroup;
                   const isNameColumn = cell.column.id === 'name' || columnConfig?.data === 'name';
                   const rowData = row.original;
