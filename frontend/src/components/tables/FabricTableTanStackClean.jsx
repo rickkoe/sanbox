@@ -1,8 +1,9 @@
-import React, { useContext } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
+import api from "../../api";
 
 // Clean TanStack Table implementation for Fabric management
 const FabricTableTanStackClean = () => {
@@ -22,11 +23,37 @@ const FabricTableTanStackClean = () => {
         { code: 'BR', name: 'Brocade' }
     ];
 
+    // State for switches dropdown
+    const [switches, setSwitches] = useState([]);
+    const [switchesLoading, setSwitchesLoading] = useState(false);
+
+    // Fetch switches for the active customer
+    useEffect(() => {
+        const fetchSwitches = async () => {
+            if (!customerId) return;
+
+            setSwitchesLoading(true);
+            try {
+                const response = await api.get(`/api/san/switches/customer/${customerId}/`);
+                console.log('📡 Fetched switches:', response.data);
+                setSwitches(response.data);
+            } catch (error) {
+                console.error('Error fetching switches:', error);
+            } finally {
+                setSwitchesLoading(false);
+            }
+        };
+
+        fetchSwitches();
+    }, [customerId]);
+
     // All possible fabric columns
     const columns = [
         { data: "name", title: "Name" },
         { data: "san_vendor", title: "Vendor", type: "dropdown" },
+        { data: "switch", title: "Switch", type: "dropdown" },
         { data: "zoneset_name", title: "Zoneset Name" },
+        { data: "domain_id", title: "Domain ID", type: "numeric" },
         { data: "vsan", title: "VSAN", type: "numeric" },
         { data: "exists", title: "Exists", type: "checkbox" },
         { data: "notes", title: "Notes" }
@@ -35,28 +62,69 @@ const FabricTableTanStackClean = () => {
     const colHeaders = columns.map(col => col.title);
 
     const dropdownSources = {
-        san_vendor: vendorOptions.map(o => o.name)
+        san_vendor: vendorOptions.map(o => o.name),
+        switch: switches.map(s => s.name)
     };
+
+    // Filter switch dropdown to only show switches matching the fabric's vendor
+    // Using useMemo to capture the current switches state
+    const dropdownFilters = React.useMemo(() => ({
+        switch: (options, rowData, columnKey, allTableData) => {
+            // Get the fabric's vendor (in display form, e.g., "Cisco" or "Brocade")
+            const fabricVendor = rowData?.san_vendor;
+
+            console.log('🔍 Filtering switches for fabric vendor:', fabricVendor);
+            console.log('🔍 Row data:', rowData);
+            console.log('🔍 Available switches:', switches);
+
+            // Convert vendor name to code for comparison
+            const vendorCode = vendorOptions.find(v => v.name === fabricVendor)?.code;
+
+            console.log('🔍 Vendor code:', vendorCode);
+
+            if (!vendorCode) {
+                // If no vendor selected, show all switches
+                console.log('🔍 No vendor code, showing all switches');
+                return options; // Return all options
+            }
+
+            // Filter switches to only those matching the fabric's vendor
+            const filteredSwitches = switches.filter(s => {
+                console.log(`🔍 Checking switch ${s.name}: ${s.san_vendor} === ${vendorCode}?`, s.san_vendor === vendorCode);
+                return s.san_vendor === vendorCode;
+            });
+
+            console.log('🔍 Filtered switches:', filteredSwitches);
+
+            // Return the filtered switch names
+            const filteredNames = filteredSwitches.map(s => s.name);
+            console.log('🔍 Returning filtered names:', filteredNames);
+            return filteredNames;
+        }
+    }), [switches]);
 
     const NEW_FABRIC_TEMPLATE = {
         id: null,
         name: "",
         san_vendor: "",
+        switch: "",
         zoneset_name: "",
+        domain_id: "",
         vsan: "",
         exists: false,
         notes: ""
     };
 
-    // Process data for display - convert vendor codes to names
+    // Process data for display - convert vendor codes to names and switch IDs to names
     const preprocessData = (data) => {
         return data.map(fabric => ({
             ...fabric,
-            san_vendor: vendorOptions.find(v => v.code === fabric.san_vendor)?.name || fabric.san_vendor
+            san_vendor: vendorOptions.find(v => v.code === fabric.san_vendor)?.name || fabric.san_vendor,
+            switch: fabric.switch_details?.name || ""
         }));
     };
 
-    // Transform data for saving - convert vendor names to codes
+    // Transform data for saving - convert vendor names to codes and switch names to IDs
     const saveTransform = (rows) =>
         rows
             .filter(row => {
@@ -67,10 +135,15 @@ const FabricTableTanStackClean = () => {
                 });
             })
             .map(row => {
+                // Find switch ID by name
+                const switchObj = switches.find(s => s.name === row.switch);
+
                 return {
                     ...row,
                     customer: customerId,
                     san_vendor: vendorOptions.find(v => v.name === row.san_vendor || v.code === row.san_vendor)?.code || row.san_vendor,
+                    switch: switchObj?.id || null,
+                    domain_id: row.domain_id === "" ? null : row.domain_id,
                     vsan: row.vsan === "" ? null : row.vsan
                 };
             });
@@ -113,6 +186,7 @@ const FabricTableTanStackClean = () => {
                 columns={columns}
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
+                dropdownFilters={dropdownFilters}
                 newRowTemplate={NEW_FABRIC_TEMPLATE}
 
                 // Data Processing

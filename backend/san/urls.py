@@ -27,7 +27,10 @@ from .views import (
     bulk_update_zone_boolean,
     bulk_update_zones_create,
     bulk_update_aliases_create,
-    bulk_update_hosts_create
+    bulk_update_hosts_create,
+    switch_management,
+    switch_delete_view,
+    switches_by_customer_view
 )
 
 urlpatterns = [
@@ -67,4 +70,10 @@ urlpatterns = [
     path("zones/bulk-update-create/", bulk_update_zones_create, name="bulk-update-zones-create"),
     path("aliases/bulk-update-create/", bulk_update_aliases_create, name="bulk-update-aliases-create"),
     path("hosts/bulk-update-create/", bulk_update_hosts_create, name="bulk-update-hosts-create"),
+
+    # Switch management endpoints
+    path("switches/", switch_management, name="switch-list"),
+    path("switches/<int:pk>/", switch_management, name="switch-detail"),
+    path("switches/delete/<int:pk>/", switch_delete_view, name="switch-delete"),
+    path("switches/customer/<int:customer_id>/", switches_by_customer_view, name="switches-by-customer"),
 ]

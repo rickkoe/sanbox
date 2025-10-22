@@ -1,18 +1,63 @@
 from django.contrib import admin
-from .models import Fabric, Alias, Zone, WwpnPrefix
+from .models import Fabric, Alias, Zone, WwpnPrefix, Switch
 from django.db.models import Count
+
+@admin.register(Switch)
+class SwitchAdmin(admin.ModelAdmin):
+    list_display = [
+        "name", "customer", "san_vendor", "ip_address", "model",
+        "is_active", "location", "fabric_count", "created_at"
+    ]
+    list_filter = [
+        "customer",
+        "san_vendor",
+        "is_active",
+        ("location", admin.EmptyFieldListFilter),
+        ("created_at", admin.DateFieldListFilter),
+    ]
+    search_fields = ["name", "customer__name", "ip_address", "model", "serial_number", "location"]
+    list_editable = ["is_active"]
+    ordering = ["customer__name", "name"]
+    list_per_page = 50
+
+    # Add custom field to display fabric count
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            fabric_count=Count('fabrics', distinct=True)
+        ).select_related('customer')
+
+    def fabric_count(self, obj):
+        return obj.fabric_count
+    fabric_count.short_description = "Fabrics"
+    fabric_count.admin_order_field = "fabric_count"
+
+    # Add actions
+    actions = ["mark_as_active", "mark_as_inactive"]
+
+    def mark_as_active(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"{updated} switches marked as active.")
+    mark_as_active.short_description = "Mark selected switches as active"
+
+    def mark_as_inactive(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"{updated} switches marked as inactive.")
+    mark_as_inactive.short_description = "Mark selected switches as inactive"
+
 
 @admin.register(Fabric)
 class FabricAdmin(admin.ModelAdmin):
-    list_display = ["name", "customer", "zoneset_name", "san_vendor", "vsan", "exists", "alias_count", "zone_count"]
+    list_display = ["name", "customer", "switch", "zoneset_name", "san_vendor", "domain_id", "vsan", "exists", "alias_count", "zone_count"]
     list_filter = [
-        "customer", 
-        "san_vendor", 
+        "customer",
+        "san_vendor",
         "exists",
+        ("switch", admin.EmptyFieldListFilter),  # Filter by empty/non-empty switch
+        ("domain_id", admin.EmptyFieldListFilter),  # Filter by empty/non-empty domain_id
         ("vsan", admin.EmptyFieldListFilter),  # Filter by empty/non-empty VSAN
     ]
-    search_fields = ["name", "customer__name", "zoneset_name"]
-    list_editable = ["exists", "vsan"]
+    search_fields = ["name", "customer__name", "zoneset_name", "switch__name"]
+    list_editable = ["exists", "domain_id", "vsan"]
     ordering = ["customer__name", "name"]
     list_per_page = 50
     
@@ -21,7 +66,7 @@ class FabricAdmin(admin.ModelAdmin):
         return super().get_queryset(request).annotate(
             alias_count=Count('alias', distinct=True),
             zone_count=Count('zone', distinct=True)
-        ).select_related('customer')
+        ).select_related('customer', 'switch')
     
     def alias_count(self, obj):
         return obj.alias_count

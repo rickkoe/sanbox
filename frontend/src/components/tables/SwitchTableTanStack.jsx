@@ -1,0 +1,158 @@
+import React, { useContext } from "react";
+import { ConfigContext } from "../../context/ConfigContext";
+import { useAuth } from "../../context/AuthContext";
+import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
+import EmptyConfigMessage from "../common/EmptyConfigMessage";
+
+// TanStack Table implementation for Switch management
+const SwitchTableTanStack = () => {
+    const API_URL = process.env.REACT_APP_API_URL || '';
+    const { config, loading: configLoading } = useContext(ConfigContext);
+    const { getUserRole } = useAuth();
+    const customerId = config?.customer?.id;
+
+    // Check if user can edit infrastructure (members and admins only)
+    const userRole = getUserRole(customerId);
+    const canEditInfrastructure = userRole === 'member' || userRole === 'admin';
+    const isReadOnly = !canEditInfrastructure;
+
+    // Vendor mapping (same as FabricTable)
+    const vendorOptions = [
+        { code: 'CI', name: 'Cisco' },
+        { code: 'BR', name: 'Brocade' }
+    ];
+
+    // All possible switch columns
+    const columns = [
+        { data: "name", title: "Name" },
+        { data: "san_vendor", title: "Vendor", type: "dropdown" },
+        { data: "ip_address", title: "IP Address" },
+        { data: "subnet_mask", title: "Subnet Mask" },
+        { data: "gateway", title: "Gateway" },
+        { data: "model", title: "Model" },
+        { data: "serial_number", title: "Serial Number" },
+        { data: "firmware_version", title: "Firmware Version" },
+        { data: "is_active", title: "Active", type: "checkbox" },
+        { data: "location", title: "Location" },
+        { data: "notes", title: "Notes" }
+    ];
+
+    const colHeaders = columns.map(col => col.title);
+
+    const dropdownSources = {
+        san_vendor: vendorOptions.map(o => o.name)
+    };
+
+    const NEW_SWITCH_TEMPLATE = {
+        id: null,
+        name: "",
+        san_vendor: "",
+        ip_address: "",
+        subnet_mask: "",
+        gateway: "",
+        model: "",
+        serial_number: "",
+        firmware_version: "",
+        is_active: true,
+        location: "",
+        notes: ""
+    };
+
+    // Process data for display - convert vendor codes to names
+    const preprocessData = (data) => {
+        return data.map(switchItem => ({
+            ...switchItem,
+            san_vendor: vendorOptions.find(v => v.code === switchItem.san_vendor)?.name || switchItem.san_vendor
+        }));
+    };
+
+    // Transform data for saving - convert vendor names to codes
+    const saveTransform = (rows) =>
+        rows
+            .filter(row => {
+                const requiredFields = ["name", "san_vendor"];
+                return requiredFields.some(key => {
+                    const value = row[key];
+                    return typeof value === "string" && value.trim() !== "";
+                });
+            })
+            .map(row => {
+                return {
+                    ...row,
+                    customer: customerId,
+                    san_vendor: vendorOptions.find(v => v.name === row.san_vendor || v.code === row.san_vendor)?.code || row.san_vendor,
+                    ip_address: row.ip_address === "" ? null : row.ip_address,
+                    subnet_mask: row.subnet_mask === "" ? null : row.subnet_mask,
+                    gateway: row.gateway === "" ? null : row.gateway,
+                    model: row.model === "" ? null : row.model,
+                    serial_number: row.serial_number === "" ? null : row.serial_number,
+                    firmware_version: row.firmware_version === "" ? null : row.firmware_version,
+                    location: row.location === "" ? null : row.location
+                };
+            });
+
+    // Show loading while config is being fetched
+    if (configLoading) {
+        return (
+            <div className="modern-table-container">
+                <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading configuration...</span>
+                    </div>
+                    <span className="ms-2">Loading customer configuration...</span>
+                </div>
+            </div>
+        );
+    }
+
+    // Show message if no active customer/project is configured
+    if (!config || !customerId) {
+        return <EmptyConfigMessage entityName="switches" />;
+    }
+
+    return (
+        <div className="modern-table-container">
+            {isReadOnly && (
+                <div className="alert alert-info mb-3" role="alert">
+                    <strong>Read-only access:</strong> You have viewer permissions for this customer. Only members and admins can modify infrastructure (Switches and Fabrics).
+                </div>
+            )}
+            <TanStackCRUDTable
+                // API Configuration
+                apiUrl={`${API_URL}/api/san/switches/`}
+                saveUrl={`${API_URL}/api/san/switches/`}
+                deleteUrl={`${API_URL}/api/san/switches/delete/`}
+                customerId={customerId}
+                tableName="switches"
+
+                // Column Configuration
+                columns={columns}
+                colHeaders={colHeaders}
+                dropdownSources={dropdownSources}
+                newRowTemplate={NEW_SWITCH_TEMPLATE}
+
+                // Data Processing
+                preprocessData={preprocessData}
+                saveTransform={saveTransform}
+                vendorOptions={vendorOptions}
+
+                // Table Settings
+                height="calc(100vh - 200px)"
+                storageKey={`switch-table-${customerId || 'default'}`}
+                readOnly={isReadOnly}
+
+                // Event Handlers
+                onSave={(result) => {
+                    if (result.success) {
+                        console.log('✅ Save successful:', result.message);
+                    } else {
+                        console.error('❌ Save failed:', result.message);
+                        alert('Error saving changes: ' + result.message);
+                    }
+                }}
+            />
+        </div>
+    );
+};
+
+export default SwitchTableTanStack;

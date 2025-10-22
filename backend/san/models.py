@@ -2,11 +2,63 @@ from django.db import models
 from core.models import Project, Customer
 from storage.models import Storage, Host
 from django.core.exceptions import ValidationError
-from django.contrib.auth.models import User 
+from django.contrib.auth.models import User
 
 # Create your models here.
+class Switch(models.Model):
+    """Model for SAN switches (Brocade and Cisco)."""
+    customer = models.ForeignKey(Customer, related_name='switches', on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    san_vendor = models.CharField(
+        max_length=7,
+        choices=[
+            ("BR", "Brocade"),
+            ("CI", "Cisco"),
+        ],
+        default="BR",
+    )
+
+    # Network configuration
+    ip_address = models.CharField(max_length=45, blank=True, null=True, help_text="IPv4 or IPv6 address")
+    subnet_mask = models.CharField(max_length=45, blank=True, null=True)
+    gateway = models.CharField(max_length=45, blank=True, null=True)
+    management_url = models.URLField(blank=True, null=True, help_text="Web management interface URL")
+
+    # Hardware/Software information
+    model = models.CharField(max_length=100, blank=True, null=True, help_text="Switch model (e.g., MDS 9148S, G620)")
+    serial_number = models.CharField(max_length=100, blank=True, null=True)
+    firmware_version = models.CharField(max_length=50, blank=True, null=True, help_text="Firmware/OS version")
+
+    # Status and location
+    is_active = models.BooleanField(default=True, help_text="Whether switch is currently active/in use")
+    location = models.CharField(max_length=200, blank=True, null=True, help_text="Physical location (datacenter/rack)")
+    notes = models.TextField(null=True, blank=True)
+
+    # Audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_switches',
+        help_text="User who last modified this switch"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    def __str__(self):
+        return f'{self.customer}: {self.name}'
+
+    class Meta:
+        unique_together = ['customer', 'name']
+        ordering = ['customer__name', 'name']
+        verbose_name = "Switch"
+        verbose_name_plural = "Switches"
+
+
 class Fabric(models.Model):
     customer = models.ForeignKey(Customer, related_name='fabric_customer', on_delete=models.CASCADE)
+    switch = models.ForeignKey(Switch, related_name='fabrics', on_delete=models.SET_NULL, null=True, blank=True, help_text="Switch this fabric belongs to")
     name = models.CharField(max_length=64)
     zoneset_name = models.CharField(max_length=200)
     san_vendor = models.CharField(
@@ -17,6 +69,7 @@ class Fabric(models.Model):
         ],
         default="BR",
     )
+    domain_id = models.IntegerField(blank=True, null=True, help_text="Fabric domain ID")
     vsan = models.IntegerField(blank=True, null=True)
     exists = models.BooleanField(default=False)
     notes = models.TextField(null=True, blank=True)

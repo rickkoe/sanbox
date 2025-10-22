@@ -1,14 +1,27 @@
 from rest_framework import serializers
-from .models import Alias, Zone, Fabric, WwpnPrefix
+from .models import Alias, Zone, Fabric, WwpnPrefix, Switch
 from core.models import Project
 from storage.models import Host, Storage
 
 
+class SwitchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Switch
+        fields = '__all__'
+
 
 class FabricSerializer(serializers.ModelSerializer):
+    switch_details = serializers.SerializerMethodField()  # For displaying switch name
+
     class Meta:
         model = Fabric
         fields = '__all__'
+
+    def get_switch_details(self, obj):
+        """Return switch name for display"""
+        if obj.switch:
+            return {"id": obj.switch.id, "name": obj.switch.name}
+        return None
 
 
 class AliasSerializer(serializers.ModelSerializer):

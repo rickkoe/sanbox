@@ -48,6 +48,7 @@ const ScriptsPage = React.lazy(() => import("./pages/ScriptsPage"));
 const CustomerTable = React.lazy(() => import("./components/tables/CustomerTableTanStackClean"));
 const ProjectTable = React.lazy(() => import("./components/tables/ProjectTableTanStackClean"));
 const FabricTable = React.lazy(() => import("./components/tables/FabricTableTanStackClean"));
+const SwitchTable = React.lazy(() => import("./components/tables/SwitchTableTanStack"));
 const AliasTable = React.lazy(() => import("./components/tables/AliasTableTanStackClean"));
 const ZoneTable = React.lazy(() => import("./components/tables/ZoneTableTanStackClean"));
 const StorageTable = React.lazy(() => import("./components/tables/StorageTableTanStackClean"));
@@ -85,6 +86,7 @@ function AppContent() {
   const tableRoutes = [
     '/customers',
     '/projects',
+    '/san/switches',
     '/san/aliases',
     '/san/zones',
     '/san/fabrics',
@@ -207,6 +209,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
                     <Route path="/storage/:id/ports" element={<StoragePortsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
+                    <Route path="/san/switches" element={<SwitchTable />} />
                     <Route path="/settings" element={<div style={{padding: '2rem'}}><h2>Settings</h2><p>Choose a settings category from the Settings dropdown in the navbar.</p></div>} />
                     <Route path="/settings/project-config" element={<ConfigForm />} />
                     <Route path="/settings/app-settings" element={<SettingsPage />} />

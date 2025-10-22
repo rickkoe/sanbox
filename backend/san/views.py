@@ -5,11 +5,11 @@ from django.db.models import Q as Q_models
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
-from .models import Alias, Zone, Fabric, WwpnPrefix
+from .models import Alias, Zone, Fabric, WwpnPrefix, Switch
 from customers.models import Customer
 from core.models import Config, Project
 from storage.models import Host
-from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer, WwpnPrefixSerializer
+from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer, WwpnPrefixSerializer, SwitchSerializer
 from django.db import IntegrityError
 from collections import defaultdict
 from .san_utils import generate_alias_commands, generate_zone_commands, generate_alias_deletion_only_commands, generate_zone_deletion_commands, generate_zone_creation_commands
@@ -2874,4 +2874,177 @@ def bulk_update_hosts_create(request):
         print(f"❌ Error in bulk update hosts: {e}")
         import traceback
         traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST", "PUT"])
+def switch_management(request, pk=None):
+    """
+    GET  /switches/                -> List all switches (optionally filter by customer)
+    GET  /switches/{pk}/           -> Retrieve a single switch
+    POST /switches/                -> Create a new switch (requires customer_id in payload)
+    PUT  /switches/{pk}/           -> Update an existing switch
+    """
+
+    if request.method == "GET":
+        if pk:
+            # Single switch GET
+            try:
+                switch = Switch.objects.get(pk=pk)
+                data = SwitchSerializer(switch).data
+                return JsonResponse(data)
+            except Switch.DoesNotExist:
+                return JsonResponse({"error": "Switch not found"}, status=404)
+
+        # List view with pagination
+        customer_id = request.GET.get("customer_id")
+        search = request.GET.get('search', '')
+        ordering = request.GET.get('ordering', 'id')
+
+        # Build queryset with optimizations
+        qs = Switch.objects.select_related('customer').all()
+
+        # Filter by customer if provided
+        if customer_id:
+            qs = qs.filter(customer_id=customer_id)
+
+        # Apply search if provided
+        if search:
+            qs = qs.filter(
+                Q(name__icontains=search) |
+                Q(customer__name__icontains=search) |
+                Q(san_vendor__icontains=search) |
+                Q(ip_address__icontains=search) |
+                Q(model__icontains=search) |
+                Q(serial_number__icontains=search) |
+                Q(location__icontains=search) |
+                Q(notes__icontains=search)
+            )
+
+        # Apply field-specific filters
+        filter_params = {}
+        for param, value in request.GET.items():
+            if param.startswith((
+                'name__', 'customer__name__', 'san_vendor__', 'ip_address__',
+                'model__', 'serial_number__', 'is_active__', 'location__', 'notes__'
+            )):
+                filter_params[param] = value
+
+        # Apply the filters
+        if filter_params:
+            qs = qs.filter(**filter_params)
+
+        # Apply ordering
+        if ordering:
+            qs = qs.order_by(ordering)
+
+        # Check if pagination is requested
+        page = request.GET.get('page')
+        page_size = request.GET.get('page_size')
+
+        if page is not None and page_size is not None:
+            # Paginated response
+            try:
+                page = int(page)
+                page_size = int(page_size)
+            except (ValueError, TypeError):
+                page = 1
+                page_size = 50
+
+            # Apply pagination
+            paginator = Paginator(qs, page_size)
+            page_obj = paginator.get_page(page)
+
+            # Serialize paginated results
+            serializer = SwitchSerializer(page_obj, many=True)
+
+            # Return paginated response with metadata
+            return JsonResponse({
+                'results': serializer.data,
+                'count': paginator.count,
+                'num_pages': paginator.num_pages,
+                'current_page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+        else:
+            # Non-paginated response (for backwards compatibility)
+            data = SwitchSerializer(qs, many=True).data
+            return JsonResponse(data, safe=False)
+
+    # POST method
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            serializer = SwitchSerializer(data=data)
+            if serializer.is_valid():
+                switch = serializer.save()
+
+                # Reload switch to ensure all relations are loaded
+                switch = Switch.objects.select_related('customer', 'last_modified_by').get(pk=switch.pk)
+
+                return JsonResponse({
+                    "message": "Switch created successfully!",
+                    "switch": SwitchSerializer(switch).data
+                }, status=201)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    # PUT method
+    elif request.method == "PUT":
+        if not pk:
+            return JsonResponse({"error": "Missing switch ID"}, status=400)
+
+        try:
+            switch = Switch.objects.get(pk=pk)
+        except Switch.DoesNotExist:
+            return JsonResponse({"error": "Switch not found"}, status=404)
+
+        try:
+            data = json.loads(request.body)
+            serializer = SwitchSerializer(switch, data=data, partial=True)
+            if serializer.is_valid():
+                updated = serializer.save()
+
+                return JsonResponse({
+                    "message": "Switch updated successfully!",
+                    "switch": SwitchSerializer(updated).data
+                })
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def switch_delete_view(request, pk):
+    """Delete a switch."""
+    print(f"🔥 Switch Delete - PK: {pk}")
+
+    try:
+        switch = Switch.objects.get(pk=pk)
+        print(f'Deleting Switch: {switch.name}')
+        switch.delete()
+
+        return JsonResponse({"message": "Switch deleted successfully."})
+    except Switch.DoesNotExist:
+        return JsonResponse({"error": "Switch not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def switches_by_customer_view(request, customer_id):
+    """Fetch switches belonging to a specific customer (for dropdown population)."""
+    print(f"🔥 Switches by Customer - Customer ID: {customer_id}")
+
+    try:
+        switches = Switch.objects.filter(customer_id=customer_id).order_by('name')
+        data = SwitchSerializer(switches, many=True).data
+        return JsonResponse(data, safe=False)
+    except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

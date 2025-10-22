@@ -24,6 +24,7 @@ import {
   Terminal,
   Upload,
   FileSpreadsheet,
+  Router,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -84,11 +85,12 @@ const getSidebarLinks = (pathname) => {
           { path: "/projects", label: "Projects", icon: FolderOpen },
         ]
       },
-      { 
-        label: "SAN", 
-        icon: Network, 
+      {
+        label: "SAN",
+        icon: Network,
         expandable: true,
         subLinks: [
+          { path: "/san/switches", label: "Switches", icon: Router },
           { path: "/san/fabrics", label: "Fabrics", icon: GitBranch },
           { path: "/san/aliases", label: "Aliases", icon: Tags },
           { path: "/san/zones", label: "Zones", icon: Layers },
