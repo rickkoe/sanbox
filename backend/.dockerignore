@@ -37,7 +37,9 @@ logs/
 *.pid
 
 # Static and media files (will be collected in container)
-static/
+# BUT allow static/images/ directory for logos and required images
+static/*
+!static/images/
 staticfiles/
 media/
 
