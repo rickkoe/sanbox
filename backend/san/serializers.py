@@ -193,9 +193,16 @@ class ZoneSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_members_details(self, obj):
-        """Return a list of member alias details including use type."""
-        # Use prefetch_related data if available to avoid N+1 queries
-        members = obj.members.all() if hasattr(obj, '_prefetched_objects_cache') else obj.members.select_related()
+        """
+        Return a list of member alias details including use type.
+
+        PERFORMANCE: This method relies on prefetch_related('members') being called
+        in the view queryset. When properly prefetched, this accesses cached data
+        instead of making additional database queries.
+        """
+        # Access prefetched members (already loaded in memory from view's Prefetch)
+        # Using .all() on a prefetched relation does NOT trigger a new query
+        members = obj.members.all()
         return [{"id": alias.id, "name": alias.name, "alias_details": {"use": alias.use}} for alias in members]
     
     def create(self, validated_data):

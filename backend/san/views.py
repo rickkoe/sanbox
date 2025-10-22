@@ -1,6 +1,6 @@
 import json
 from django.http import JsonResponse
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Prefetch
 from django.db.models import Q as Q_models
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -1698,9 +1698,20 @@ def zones_by_project_view(request, project_id):
         # Get query parameters
         search = request.GET.get('search', '')
         ordering = request.GET.get('ordering', 'id')
-        
-        # Build queryset with optimizations and calculated fields
-        zones = Zone.objects.select_related('fabric').prefetch_related('members', 'projects').filter(projects=project).annotate(
+
+        # Build queryset with optimized prefetching to avoid N+1 queries
+        # Prefetch members with only the fields we need (id, name, use)
+        # This loads ALL members for ALL zones in a SINGLE additional query
+        optimized_members_prefetch = Prefetch(
+            'members',
+            queryset=Alias.objects.only('id', 'name', 'use', 'fabric_id')
+        )
+
+        # Build optimized query with prefetch_related to eliminate N+1 queries
+        zones = Zone.objects.select_related('fabric').prefetch_related(
+            optimized_members_prefetch,
+            'projects'
+        ).filter(projects=project).annotate(
             _member_count=Count('members', distinct=True)
         )
         

@@ -62,6 +62,7 @@ const TanStackCRUDTable = forwardRef(({
   height = '600px',
   storageKey,
   readOnly = false,
+  pageSizeOptions = [25, 50, 100, 250, 'All'], // Customizable page size options
 
   // Event Handlers
   onSave,
@@ -2532,11 +2533,12 @@ const TanStackCRUDTable = forwardRef(({
                 cursor: 'pointer'
               }}
             >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value={250}>250</option>
-              <option value="all">All ({totalItems.toLocaleString()})</option>
+              {pageSizeOptions.map((option) => {
+                if (option === 'All') {
+                  return <option key="all" value="all">All ({totalItems.toLocaleString()})</option>;
+                }
+                return <option key={option} value={option}>{option}</option>;
+              })}
             </select>
           </div>
         </div>

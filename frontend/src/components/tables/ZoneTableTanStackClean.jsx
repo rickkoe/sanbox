@@ -1150,6 +1150,7 @@ const ZoneTableTanStackClean = () => {
                 height="calc(100vh - 200px)"
                 storageKey={`zone-table-${activeProjectId || 'default'}-bytype-t${memberColumnCounts.targets}i${memberColumnCounts.initiators}a${memberColumnCounts.allAccess}`}
                 readOnly={isReadOnly}
+                pageSizeOptions={[25, 50, 100]} // Limited options for better performance with large datasets
 
                 // Event Handlers
                 onSave={(result) => {
