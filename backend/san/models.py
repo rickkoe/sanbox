@@ -23,6 +23,7 @@ class Switch(models.Model):
     subnet_mask = models.CharField(max_length=45, blank=True, null=True)
     gateway = models.CharField(max_length=45, blank=True, null=True)
     management_url = models.URLField(blank=True, null=True, help_text="Web management interface URL")
+    wwnn = models.CharField(max_length=23, blank=True, null=True, help_text="World Wide Node Name (WWNN)")
 
     # Hardware/Software information
     model = models.CharField(max_length=100, blank=True, null=True, help_text="Switch model (e.g., MDS 9148S, G620)")

@@ -102,6 +102,7 @@ const getSidebarLinks = (pathname) => {
         expandable: true,
         subLinks: [
           { path: "/storage/systems", label: "Systems", icon: Server },
+          { path: "/storage/volumes", label: "Volumes", icon: Archive },
           { path: "/storage/hosts", label: "Hosts", icon: Monitor },
           { path: "/storage/ports", label: "Ports", icon: Cable },
         ]

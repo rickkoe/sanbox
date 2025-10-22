@@ -3,7 +3,8 @@ import { useParams } from "react-router-dom";
 import Breadcrumbs from "../components/navigation/Breadcrumbs";
 import axios from "axios";
 import { BreadcrumbContext } from "../context/BreadcrumbContext";
-const VolumeTable = () => <div>Volume Table - TanStack version coming soon</div>;
+import VolumeTableTanStackClean from "../components/tables/VolumeTableTanStackClean";
+
 const StorageVolumesPage = () => {
   const { id } = useParams();
   const [storage, setStorage] = useState(null);
@@ -24,19 +25,35 @@ const StorageVolumesPage = () => {
     };
 
     fetchStorage();
-  }, [id]);
+  }, [id, setBreadcrumbMap]);
 
   if (loading) {
-    return <p>Loading volumes for storage system...</p>;
+    return (
+      <div className="main-content table-page" style={{ paddingBottom: "50px" }}>
+        <div className="d-flex justify-content-center align-items-center" style={{ height: '300px' }}>
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <span className="ms-2">Loading storage system...</span>
+        </div>
+      </div>
+    );
   }
 
   if (!storage) {
-    return <p>Storage system not found.</p>;
+    return (
+      <div className="main-content table-page" style={{ paddingBottom: "50px" }}>
+        <div className="alert alert-warning">Storage system not found.</div>
+      </div>
+    );
   }
 
   return (
     <div className="main-content table-page" style={{ paddingBottom: "50px" }}>
-      <VolumeTable storage={storage} />
+      <VolumeTableTanStackClean
+        storageId={parseInt(id)}
+        hideColumns={['storage']}
+      />
     </div>
   );
 };

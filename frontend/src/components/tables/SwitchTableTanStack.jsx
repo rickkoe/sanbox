@@ -22,10 +22,25 @@ const SwitchTableTanStack = () => {
         { code: 'BR', name: 'Brocade' }
     ];
 
+    // WWNN formatting utilities (same as WWPN formatting in AliasTable)
+    const formatWWNN = (value) => {
+        if (!value) return "";
+        const cleanValue = value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+        if (cleanValue.length !== 16) return value;
+        return cleanValue.match(/.{2}/g).join(':');
+    };
+
+    const isValidWWNNFormat = (value) => {
+        if (!value) return true;
+        const cleanValue = value.replace(/[^0-9a-fA-F]/g, '');
+        return cleanValue.length <= 16 && /^[0-9a-fA-F]*$/.test(cleanValue);
+    };
+
     // All possible switch columns
     const columns = [
         { data: "name", title: "Name" },
         { data: "san_vendor", title: "Vendor", type: "dropdown" },
+        { data: "wwnn", title: "WWNN" },
         { data: "ip_address", title: "IP Address" },
         { data: "subnet_mask", title: "Subnet Mask" },
         { data: "gateway", title: "Gateway" },
@@ -47,6 +62,7 @@ const SwitchTableTanStack = () => {
         id: null,
         name: "",
         san_vendor: "",
+        wwnn: "",
         ip_address: "",
         subnet_mask: "",
         gateway: "",
@@ -58,6 +74,16 @@ const SwitchTableTanStack = () => {
         notes: ""
     };
 
+    // Custom renderers for WWNN formatting
+    const customRenderers = {
+        wwnn: (rowData, td, row, col, prop, value) => {
+            if (value && isValidWWNNFormat(value)) {
+                return formatWWNN(value);
+            }
+            return value || "";
+        }
+    };
+
     // Process data for display - convert vendor codes to names
     const preprocessData = (data) => {
         return data.map(switchItem => ({
@@ -66,7 +92,7 @@ const SwitchTableTanStack = () => {
         }));
     };
 
-    // Transform data for saving - convert vendor names to codes
+    // Transform data for saving - convert vendor names to codes and format WWNN
     const saveTransform = (rows) =>
         rows
             .filter(row => {
@@ -81,6 +107,7 @@ const SwitchTableTanStack = () => {
                     ...row,
                     customer: customerId,
                     san_vendor: vendorOptions.find(v => v.name === row.san_vendor || v.code === row.san_vendor)?.code || row.san_vendor,
+                    wwnn: row.wwnn ? formatWWNN(row.wwnn) : null,
                     ip_address: row.ip_address === "" ? null : row.ip_address,
                     subnet_mask: row.subnet_mask === "" ? null : row.subnet_mask,
                     gateway: row.gateway === "" ? null : row.gateway,
@@ -129,6 +156,7 @@ const SwitchTableTanStack = () => {
                 columns={columns}
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
+                customRenderers={customRenderers}
                 newRowTemplate={NEW_SWITCH_TEMPLATE}
 
                 // Data Processing

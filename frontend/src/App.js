@@ -55,6 +55,7 @@ const StorageTable = React.lazy(() => import("./components/tables/StorageTableTa
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
 const StoragePortsPage = React.lazy(() => import("./pages/StoragePortsPage"));
+const AllVolumesPage = React.lazy(() => import("./pages/AllVolumesPage"));
 const PortTable = React.lazy(() => import("./components/tables/PortTableTanStackClean"));
 const HostTable = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
 const ConfigForm = React.lazy(() => import("./components/forms/ConfigForm"));
@@ -93,6 +94,7 @@ function AppContent() {
     '/storage/systems',
     '/storage/hosts',
     '/storage/ports',
+    '/storage/volumes',
     '/tools/wwpn-colonizer',
     '/test'
   ];
@@ -204,6 +206,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage/systems" element={<StorageTable />} />
                     <Route path="/storage/hosts" element={<HostTable />} />
                     <Route path="/storage/ports" element={<PortTable />} />
+                    <Route path="/storage/volumes" element={<AllVolumesPage />} />
                     <Route path="/storage/:id" element={<StoragePage />} />
                     <Route path="/storage/:id/volumes" element={<StorageVolumesPage />} />
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />

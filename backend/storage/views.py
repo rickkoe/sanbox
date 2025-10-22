@@ -617,20 +617,43 @@ def storage_insights_host_connections(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def volume_list(request):
-    """Return volumes filtered by storage system ID with pagination and filtering."""
+    """Return volumes filtered by storage system ID (optional) or customer with pagination and filtering."""
     print(f"🔥 Volume List - Method: {request.method}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
     try:
         system_id = request.GET.get("storage_system_id")
-        if not system_id:
-            return JsonResponse({"error": "Missing storage_system_id"}, status=400)
+        storage_id = request.GET.get("storage_id")
+        customer_id = request.GET.get("customer")
 
         # Get query parameters
         search = request.GET.get('search', '').strip()
         ordering = request.GET.get('ordering', 'name')
-        
+
         # Base queryset with optimizations
-        volumes = Volume.objects.select_related('storage').filter(storage__storage_system_id=system_id)
+        volumes = Volume.objects.select_related('storage').all()
+
+        # Filter by user's customer access
+        if user and user.is_authenticated:
+            from core.permissions import filter_by_customer_access
+            # Filter through storage relationship
+            accessible_storages = filter_by_customer_access(
+                Storage.objects.all(), user
+            ).values_list('id', flat=True)
+            volumes = volumes.filter(storage_id__in=accessible_storages)
+
+        # Filter by storage system ID (legacy parameter)
+        if system_id:
+            volumes = volumes.filter(storage__storage_system_id=system_id)
+
+        # Filter by storage ID (direct FK)
+        if storage_id:
+            volumes = volumes.filter(storage_id=storage_id)
+
+        # Filter by customer
+        if customer_id:
+            volumes = volumes.filter(storage__customer_id=customer_id)
         
         # Apply general search if provided
         if search:
