@@ -55,10 +55,19 @@ def customer_management(request, pk=None):
 
             # Build queryset - filter by user's customer memberships
             if user and user.is_authenticated:
-                # All users (including superusers) only see customers they're members of
-                customer_ids = CustomerMembership.objects.filter(
+                # Get customer IDs the user is a member of
+                customer_ids = list(CustomerMembership.objects.filter(
                     user=user
-                ).values_list('customer_id', flat=True)
+                ).values_list('customer_id', flat=True))
+
+                # Also include the implementation company for all users
+                try:
+                    impl_company = Customer.objects.get(is_implementation_company=True)
+                    if impl_company.id not in customer_ids:
+                        customer_ids.append(impl_company.id)
+                except Customer.DoesNotExist:
+                    pass  # No implementation company set
+
                 customers = Customer.objects.filter(id__in=customer_ids)
             else:
                 # Unauthenticated users see no customers
@@ -254,15 +263,31 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filter contacts by customer membership"""
+        """Filter contacts by customer membership, plus implementation company contacts for all users"""
         user = self.request.user
 
-        # Get customer IDs the user has access to
-        customer_ids = CustomerMembership.objects.filter(
-            user=user
-        ).values_list('customer_id', flat=True)
+        # Admins and superusers can see all contacts
+        if user.is_superuser or user.is_staff:
+            queryset = ContactInfo.objects.all()
+        else:
+            # Get customer IDs the user has access to
+            customer_ids = list(CustomerMembership.objects.filter(
+                user=user
+            ).values_list('customer_id', flat=True))
 
-        queryset = ContactInfo.objects.filter(customer_id__in=customer_ids)
+            # Also include the implementation company's contacts for all users
+            try:
+                impl_company = Customer.objects.get(is_implementation_company=True)
+                if impl_company.id not in customer_ids:
+                    customer_ids.append(impl_company.id)
+            except Customer.DoesNotExist:
+                pass  # No implementation company set yet
+
+            # If user has no customer memberships and no implementation company, return empty queryset
+            if not customer_ids:
+                queryset = ContactInfo.objects.none()
+            else:
+                queryset = ContactInfo.objects.filter(customer_id__in=customer_ids)
 
         # Optional filtering by customer
         customer_id = self.request.query_params.get('customer', None)

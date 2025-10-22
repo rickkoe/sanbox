@@ -12,6 +12,8 @@ class SwitchSerializer(serializers.ModelSerializer):
 
 class FabricSerializer(serializers.ModelSerializer):
     switch_details = serializers.SerializerMethodField()  # For displaying switch name
+    alias_count = serializers.SerializerMethodField()  # Count of aliases in this fabric
+    zone_count = serializers.SerializerMethodField()  # Count of zones in this fabric
 
     class Meta:
         model = Fabric
@@ -22,6 +24,14 @@ class FabricSerializer(serializers.ModelSerializer):
         if obj.switch:
             return {"id": obj.switch.id, "name": obj.switch.name}
         return None
+
+    def get_alias_count(self, obj):
+        """Return count of aliases in this fabric"""
+        return obj.alias_set.count()
+
+    def get_zone_count(self, obj):
+        """Return count of zones in this fabric"""
+        return obj.zone_set.count()
 
 
 class AliasSerializer(serializers.ModelSerializer):

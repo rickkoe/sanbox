@@ -55,6 +55,8 @@ const FabricTableTanStackClean = () => {
         { data: "zoneset_name", title: "Zoneset Name" },
         { data: "domain_id", title: "Domain ID", type: "numeric" },
         { data: "vsan", title: "VSAN", type: "numeric" },
+        { data: "alias_count", title: "Aliases", type: "numeric", readOnly: true },
+        { data: "zone_count", title: "Zones", type: "numeric", readOnly: true },
         { data: "exists", title: "Exists", type: "checkbox" },
         { data: "notes", title: "Notes" }
     ];
@@ -111,6 +113,8 @@ const FabricTableTanStackClean = () => {
         zoneset_name: "",
         domain_id: "",
         vsan: "",
+        alias_count: 0,
+        zone_count: 0,
         exists: false,
         notes: ""
     };
@@ -138,13 +142,16 @@ const FabricTableTanStackClean = () => {
                 // Find switch ID by name
                 const switchObj = switches.find(s => s.name === row.switch);
 
+                // Exclude read-only fields from save
+                const { alias_count, zone_count, ...fabricData } = row;
+
                 return {
-                    ...row,
+                    ...fabricData,
                     customer: customerId,
-                    san_vendor: vendorOptions.find(v => v.name === row.san_vendor || v.code === row.san_vendor)?.code || row.san_vendor,
+                    san_vendor: vendorOptions.find(v => v.name === fabricData.san_vendor || v.code === fabricData.san_vendor)?.code || fabricData.san_vendor,
                     switch: switchObj?.id || null,
-                    domain_id: row.domain_id === "" ? null : row.domain_id,
-                    vsan: row.vsan === "" ? null : row.vsan
+                    domain_id: fabricData.domain_id === "" ? null : fabricData.domain_id,
+                    vsan: fabricData.vsan === "" ? null : fabricData.vsan
                 };
             });
 
