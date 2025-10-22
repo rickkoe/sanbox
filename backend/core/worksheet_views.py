@@ -468,12 +468,25 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                                     ordered_fields.append(f)
                             all_fields = ordered_fields
 
-                        # Reorder fields: put subnet_mask, default_gateway, vlan right after management_ip
-                        # Exclude vlan for switches
+                        # Reorder fields: put network fields after IP fields
+                        # For FlashSystem: cluster_management_ip, node1_service_ip, node2_service_ip, subnet_mask, default_gateway
+                        # For others: management_ip, subnet_mask, default_gateway, vlan
+
+                        # Define network configuration fields (subnet, gateway, vlan)
                         if is_switch:
-                            network_fields = ['subnet_mask', 'default_gateway']
+                            network_config_fields = ['subnet_mask', 'default_gateway']
                         else:
-                            network_fields = ['subnet_mask', 'default_gateway', 'vlan']
+                            network_config_fields = ['subnet_mask', 'default_gateway', 'vlan']
+
+                        # Define node IP fields (for FlashSystem)
+                        node_ip_fields = ['node1_service_ip', 'node2_service_ip']
+
+                        # Identify primary IP field (management_ip or cluster_management_ip)
+                        primary_ip_field = None
+                        if 'cluster_management_ip' in all_fields:
+                            primary_ip_field = 'cluster_management_ip'
+                        elif 'management_ip' in all_fields:
+                            primary_ip_field = 'management_ip'
 
                         fields = []
 
@@ -482,23 +495,32 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                             if is_switch and field == 'vlan':
                                 continue
 
-                            if field == 'management_ip':
+                            # When we hit the primary IP field, add it plus node IPs plus network config
+                            if field == primary_ip_field:
                                 fields.append(field)
-                                # Add network fields right after management_ip
-                                for nf in network_fields:
+                                # Add node service IPs right after (for FlashSystem)
+                                for node_field in node_ip_fields:
+                                    if node_field in all_fields and node_field not in fields:
+                                        fields.append(node_field)
+                                # Add network config fields (subnet, gateway, vlan)
+                                for nf in network_config_fields:
                                     if nf in all_fields and nf not in fields:
                                         fields.append(nf)
-                            elif field not in network_fields and field != 'vlan':
+                            # Skip fields we've already handled
+                            elif field not in network_config_fields and field not in node_ip_fields and field != 'vlan':
                                 fields.append(field)
 
                         # Add any remaining network fields that weren't placed yet
-                        for nf in network_fields:
+                        for nf in network_config_fields:
                             if nf in all_fields and nf not in fields:
                                 fields.append(nf)
 
                         # Special case label mappings for proper capitalization
                         label_overrides = {
                             'management_ip': 'Management IP',
+                            'cluster_management_ip': 'Cluster Management IP',
+                            'node1_service_ip': 'Node 1 Service IP',
+                            'node2_service_ip': 'Node 2 Service IP',
                             'vlan': 'VLAN',
                             'subnet_mask': 'Subnet Mask',
                             'default_gateway': 'Default Gateway'
@@ -633,8 +655,8 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                         contact_section_height = contact_section_end_row - contact_section_start_row + 1
                         vertical_center_row = contact_section_start_row + ((contact_section_height - 1) // 2)
 
-                        # Position logo on the right side (last column)
-                        logo_col = max_col
+                        # Position logo on the second-to-last column (one column left from the end)
+                        logo_col = max(1, max_col - 1)  # Second-to-last column, or column A if only 1 column
                         logo_anchor = f'{get_column_letter(logo_col)}{vertical_center_row}'
                         img.anchor = logo_anchor
                         ws.add_image(img, logo_anchor)
@@ -652,8 +674,8 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                     for cell in column:
                         if cell.value and isinstance(cell.value, str):
                             cell_value_lower = cell.value.lower()
-                            # Check if this is a network field header
-                            if cell_value_lower in ['management ip', 'subnet mask', 'default gateway', 'ip address', 'gateway']:
+                            # Check if this is a network field header (includes node IPs, cluster IPs, etc.)
+                            if cell_value_lower in ['management ip', 'cluster management ip', 'node 1 service ip', 'node 2 service ip', 'subnet mask', 'default gateway', 'ip address', 'gateway']:
                                 network_field_columns.add(column_letter)
                                 break
                             # Check if this is a name field header (switch name, array name, etc.)

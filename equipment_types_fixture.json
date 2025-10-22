@@ -138,7 +138,7 @@
     "name": "IBM FlashSystem",
     "category": "storage",
     "vendor": "IBM",
-    "description": null,
+    "description": "",
     "fields_schema": [
       {
         "name": "system_name",
@@ -147,15 +147,21 @@
         "required": true
       },
       {
-        "name": "management_ip",
+        "name": "cluster_management_ip",
         "type": "text",
-        "label": "Management IP",
+        "label": "Cluster Management IP",
         "required": true
       },
       {
-        "name": "site_address",
-        "type": "textarea",
-        "label": "Site Address",
+        "name": "node1_service_ip",
+        "type": "text",
+        "label": "Node 1 Service IP",
+        "required": false
+      },
+      {
+        "name": "node2_service_ip",
+        "type": "text",
+        "label": "Node 2 Service IP",
         "required": false
       },
       {
@@ -179,35 +185,13 @@
           "9500"
         ],
         "required": false
-      },
-      {
-        "name": "node_count",
-        "type": "select",
-        "label": "Node Count",
-        "options": [
-          "2",
-          "4"
-        ],
-        "required": false
-      },
-      {
-        "name": "total_capacity_tb",
-        "type": "number",
-        "label": "Total Capacity (TB)",
-        "required": false
-      },
-      {
-        "name": "software_version",
-        "type": "text",
-        "label": "Software Version",
-        "required": false
       }
     ],
     "is_active": true,
     "icon_name": "FaHdd",
     "display_order": 3,
     "created_at": "2025-10-21T17:43:08.263Z",
-    "updated_at": "2025-10-21T17:43:08.263Z"
+    "updated_at": "2025-10-22T02:06:24.792Z"
   }
 },
 {
@@ -217,7 +201,7 @@
     "name": "IBM DS8000",
     "category": "storage",
     "vendor": "IBM",
-    "description": null,
+    "description": "",
     "fields_schema": [
       {
         "name": "system_name",
@@ -249,7 +233,9 @@
         "label": "Model",
         "options": [
           "DS8880",
-          "DS8900F"
+          "DS8900F",
+          "DS8A10",
+          "DS8A50"
         ],
         "required": false
       },
@@ -276,7 +262,7 @@
     "icon_name": "FaServer",
     "display_order": 4,
     "created_at": "2025-10-21T17:43:08.267Z",
-    "updated_at": "2025-10-21T17:43:08.267Z"
+    "updated_at": "2025-10-22T02:02:28.221Z"
   }
 },
 {
