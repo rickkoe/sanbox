@@ -231,38 +231,41 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 ws.merge_cells(f'A{current_row}:{max_col_letter}{current_row}')
                 current_row += 1
 
-                # Client Name
+                # Client Name - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "Client Name:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = data.get('customer_name', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = data.get('customer_name', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 current_row += 1
 
-                # Project Name
+                # Project Name - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "Project:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = data.get('project_name', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = data.get('project_name', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws[f'C{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 current_row += 1
 
-                # Planned Installation Date
+                # Planned Installation Date - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "Planned Installation Date:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = data.get('planned_installation_date', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = data.get('planned_installation_date', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 current_row += 2
 
                 # Site Information Section
@@ -275,44 +278,47 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 # Site Contact - Always include (empty or not) with borders and banding
                 site_info_rows = []
 
-                # Row 1 - Site Name (with borders and banding)
+                # Row 1 - Site Name - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "Site Name:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = site.get('name', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = site.get('name', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 2 - Site Contact
+                # Row 2 - Site Contact - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "Site Contact:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = site.get('siteContactName', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = site.get('siteContactName', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws[f'C{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 3 - Email
+                # Row 3 - Email - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "Email:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = site.get('siteContactEmail', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = site.get('siteContactEmail', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 4 - Phone
+                # Row 4 - Phone - merge label across A:B, value starts at C
                 phone_display = site.get('siteContactPhone', '')
                 if site.get('siteContactAltPhone'):
                     phone_display += f" / {site.get('siteContactAltPhone', '')}"
@@ -320,27 +326,29 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = phone_display
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = phone_display
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws[f'C{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 5 - Street Address
+                # Row 5 - Street Address - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "Street Address:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = site.get('siteStreetAddress', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = site.get('siteStreetAddress', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 6 - City, State, Zip
+                # Row 6 - City, State, Zip - merge label across A:B, value starts at C
                 city_state_zip = site.get('siteCity', '')
                 if site.get('siteState'):
                     city_state_zip += f", {site.get('siteState', '')}" if city_state_zip else site.get('siteState', '')
@@ -350,27 +358,29 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = city_state_zip
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = city_state_zip
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws[f'C{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 7 - Location Notes
+                # Row 7 - Location Notes - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "Location Notes:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = site.get('siteNotes', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = site.get('siteNotes', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 8 - DNS Servers
+                # Row 8 - DNS Servers - merge label across A:B, value starts at C
                 dns_servers = site.get('dnsServer1', '')
                 if site.get('dnsServer2'):
                     dns_servers += f", {site.get('dnsServer2', '')}" if dns_servers else site.get('dnsServer2', '')
@@ -378,27 +388,29 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = dns_servers
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = dns_servers
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws[f'C{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 9 - NTP Server
+                # Row 9 - NTP Server - merge label across A:B, value starts at C
                 ws[f'A{current_row}'] = "NTP Server:"
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = site.get('ntpServer', '')
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = site.get('ntpServer', '')
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
-                # Row 10 - SMTP Server
+                # Row 10 - SMTP Server - merge label across A:B, value starts at C
                 smtp_display = site.get('smtpServer', '')
                 if site.get('smtpPort'):
                     smtp_display += f":{site.get('smtpPort', '')}"
@@ -406,11 +418,12 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 ws[f'A{current_row}'].font = bold_font
                 ws[f'A{current_row}'].fill = light_gray_fill
                 ws[f'A{current_row}'].border = thin_border
-                ws[f'B{current_row}'] = smtp_display
-                ws[f'B{current_row}'].font = normal_font
-                ws[f'B{current_row}'].border = thin_border
-                ws[f'B{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
-                ws.merge_cells(f'B{current_row}:{max_col_letter}{current_row}')
+                ws.merge_cells(f'A{current_row}:B{current_row}')
+                ws[f'C{current_row}'] = smtp_display
+                ws[f'C{current_row}'].font = normal_font
+                ws[f'C{current_row}'].border = thin_border
+                ws[f'C{current_row}'].fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
+                ws.merge_cells(f'C{current_row}:{max_col_letter}{current_row}')
                 site_info_rows.append(current_row)
                 current_row += 1
 
@@ -427,12 +440,33 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
 
                     items = equipment.get('items', [])
                     if items and len(items) > 0:
-                        # Get field names from first item
-                        all_fields = list(items[0].keys())
                         equipment_type_name = equipment.get('type_name', 'Equipment').replace(' ', '_')
+                        equipment_type_id = equipment.get('type_id')
 
                         # Check if this is a switch (exclude VLAN for switches)
                         is_switch = 'switch' in equipment.get('type_name', '').lower()
+
+                        # Try to get field order from the equipment type's schema
+                        # This ensures consistent ordering based on database configuration
+                        try:
+                            equipment_type = EquipmentType.objects.get(id=equipment_type_id)
+                            schema_fields = [field['name'] for field in equipment_type.fields_schema]
+                        except:
+                            # Fallback to keys from first item if type not found
+                            schema_fields = []
+
+                        # Get all fields that actually exist in the items
+                        all_fields = list(items[0].keys())
+
+                        # Start with schema order if available, otherwise use all_fields
+                        if schema_fields:
+                            # Use schema order, but only include fields that actually exist in items
+                            ordered_fields = [f for f in schema_fields if f in all_fields]
+                            # Add any fields from items that aren't in schema (like network fields added by frontend)
+                            for f in all_fields:
+                                if f not in ordered_fields:
+                                    ordered_fields.append(f)
+                            all_fields = ordered_fields
 
                         # Reorder fields: put subnet_mask, default_gateway, vlan right after management_ip
                         # Exclude vlan for switches
@@ -608,6 +642,26 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                         print(f"Error loading logo in footer: {e}")
 
                 # Auto-adjust column widths for this site's sheet
+                # Track which columns contain network fields (IP, subnet, gateway) and name fields
+                network_field_columns = set()
+                name_field_columns = set()
+
+                # First pass: identify special field columns
+                for col_idx, column in enumerate(ws.columns, start=1):
+                    column_letter = get_column_letter(col_idx)
+                    for cell in column:
+                        if cell.value and isinstance(cell.value, str):
+                            cell_value_lower = cell.value.lower()
+                            # Check if this is a network field header
+                            if cell_value_lower in ['management ip', 'subnet mask', 'default gateway', 'ip address', 'gateway']:
+                                network_field_columns.add(column_letter)
+                                break
+                            # Check if this is a name field header (switch name, array name, etc.)
+                            elif 'name' in cell_value_lower and cell_value_lower not in ['site name:', 'client name:', 'site contact:']:
+                                name_field_columns.add(column_letter)
+                                break
+
+                # Second pass: set column widths
                 for column in ws.columns:
                     max_length = 0
                     column_letter = get_column_letter(column[0].column)
@@ -617,7 +671,26 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                                 max_length = max(max_length, len(str(cell.value)))
                         except:
                             pass
-                    adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
+
+                    # Calculate base width
+                    adjusted_width = max_length + 2
+
+                    # Apply 25% increase for network field columns
+                    if column_letter in network_field_columns:
+                        adjusted_width = int(adjusted_width * 1.25)
+                        # For empty columns, ensure minimum width for IP addresses
+                        if max_length < 10:  # Empty or very short content
+                            adjusted_width = 20  # Wide enough for "255.255.255.255"
+
+                    # Apply 50% increase for name field columns (e.g., Switch Name, Array Name)
+                    elif column_letter in name_field_columns:
+                        adjusted_width = int(adjusted_width * 1.5)
+                        # For empty columns, ensure minimum width for device names
+                        if max_length < 15:  # Empty or very short content
+                            adjusted_width = 25  # Wide enough for longer device names
+
+                    # Cap at 50 characters
+                    adjusted_width = min(adjusted_width, 50)
                     ws.column_dimensions[column_letter].width = adjusted_width
 
             # Save to BytesIO

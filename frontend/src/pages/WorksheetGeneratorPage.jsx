@@ -178,7 +178,7 @@ const WorksheetGeneratorPage = () => {
           type_id: parseInt(id),
           type_name: data.type.name,
           quantity: data.items.length,
-          fields: data.items[0] // Save first item as template
+          items: data.items // Save all items with their field values
         }))
       };
 
@@ -225,27 +225,55 @@ const WorksheetGeneratorPage = () => {
         for (const equipmentConfig of template.template_config.equipment) {
           const equipmentType = equipmentTypes.find(et => et.id === equipmentConfig.type_id);
           if (equipmentType) {
-            // Create the specified number of items with template field values
-            const items = [];
-            for (let i = 0; i < equipmentConfig.quantity; i++) {
-              const item = {};
-              // Initialize with template fields or empty (skip site_address)
-              if (i === 0 && equipmentConfig.fields) {
-                // First item gets template values
-                Object.keys(equipmentConfig.fields).forEach(key => {
+            let items = [];
+
+            // Check if template has saved items (new format) or just first item fields (old format)
+            if (equipmentConfig.items && Array.isArray(equipmentConfig.items)) {
+              // New format: load all saved items
+              items = equipmentConfig.items.map(savedItem => {
+                const item = {};
+                // Copy all fields except site_address
+                Object.keys(savedItem).forEach(key => {
                   if (key !== 'site_address') {
-                    item[key] = equipmentConfig.fields[key];
+                    item[key] = savedItem[key];
                   }
                 });
-              } else {
-                // Additional items start empty
+                return item;
+              });
+            } else if (equipmentConfig.fields) {
+              // Old format: use first item fields for backward compatibility
+              const items_to_create = equipmentConfig.quantity || 1;
+              for (let i = 0; i < items_to_create; i++) {
+                const item = {};
+                if (i === 0) {
+                  // First item gets template values
+                  Object.keys(equipmentConfig.fields).forEach(key => {
+                    if (key !== 'site_address') {
+                      item[key] = equipmentConfig.fields[key];
+                    }
+                  });
+                } else {
+                  // Additional items start empty
+                  equipmentType.fields_schema.forEach(field => {
+                    if (field.name !== 'site_address') {
+                      item[field.name] = '';
+                    }
+                  });
+                }
+                items.push(item);
+              }
+            } else {
+              // No saved data, create empty items
+              const items_to_create = equipmentConfig.quantity || 1;
+              for (let i = 0; i < items_to_create; i++) {
+                const item = {};
                 equipmentType.fields_schema.forEach(field => {
                   if (field.name !== 'site_address') {
                     item[field.name] = '';
                   }
                 });
+                items.push(item);
               }
-              items.push(item);
             }
 
             newSelectedEquipment[equipmentConfig.type_id] = {
@@ -1269,7 +1297,7 @@ const WorksheetGeneratorPage = () => {
           <Alert variant="info" className="mb-0">
             <small>
               This template will save your current configuration including selected equipment types
-              and the first item's field values as defaults.
+              and all equipment details (serial numbers, IPs, etc.) from the active site.
             </small>
           </Alert>
         </Modal.Body>
