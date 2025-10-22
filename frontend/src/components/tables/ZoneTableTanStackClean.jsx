@@ -21,9 +21,9 @@ const ZoneTableTanStackClean = () => {
     const [rawZoneData, setRawZoneData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [memberColumnCounts, setMemberColumnCounts] = useState({
-        targets: 3,
-        initiators: 3,
-        allAccess: 2
+        targets: 1,
+        initiators: 1,
+        allAccess: 1
     });
 
     // Ref to access table methods
@@ -344,14 +344,17 @@ const ZoneTableTanStackClean = () => {
         console.log('🔢 calculateMemberColumnsByType called with', zones?.length, 'zones and', aliases?.length, 'aliases');
 
         if (!zones || zones.length === 0) {
-            console.log('⚠️ No zones provided, using defaults');
-            return { targets: 3, initiators: 3, allAccess: 2 }; // Default minimums
+            console.log('⚠️ No zones provided, using minimums of 1 each');
+            return { targets: 1, initiators: 1, allAccess: 1 }; // Minimum of 1 column each
         }
 
         const memberCounts = { targets: 0, initiators: 0, allAccess: 0 };
 
         zones.forEach((zone, zoneIndex) => {
-            console.log(`🔍 Checking zone ${zoneIndex}: ${zone.name}, members_details:`, zone.members_details);
+            console.log(`🔍 Checking zone ${zoneIndex}: ${zone.name}, has ${zone.members_details?.length || 0} members`);
+            if (zone.members_details && zone.members_details.length > 0) {
+                console.log(`   First member sample:`, zone.members_details[0]);
+            }
 
             if (zone.members_details) {
                 const typeCounts = { targets: 0, initiators: 0, allAccess: 0 };
@@ -389,11 +392,11 @@ const ZoneTableTanStackClean = () => {
             }
         });
 
-        // Use maximum found across all zones, with minimum defaults
+        // Use maximum found across all zones, with minimum of 1 column each
         const result = {
-            targets: Math.max(3, memberCounts.targets),
-            initiators: Math.max(3, memberCounts.initiators),
-            allAccess: Math.max(2, memberCounts.allAccess)
+            targets: Math.max(1, memberCounts.targets),
+            initiators: Math.max(1, memberCounts.initiators),
+            allAccess: Math.max(1, memberCounts.allAccess)
         };
 
         console.log(`📊 Dynamic member columns by type:`, {
@@ -415,8 +418,8 @@ const ZoneTableTanStackClean = () => {
 
                     const [fabricResponse, aliasResponse, zoneResponse] = await Promise.all([
                         axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
-                        axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`),
-                        axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/`)
+                        axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/?page_size=10000`),
+                        axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/?page_size=10000`)
                     ]);
 
                     // Handle paginated responses
@@ -447,8 +450,11 @@ const ZoneTableTanStackClean = () => {
                     setRawZoneData(zonesArray);
 
                     // Calculate member columns by type - pass aliases for lookup
+                    console.log('📊 About to calculate member columns from', zonesArray.length, 'zones');
                     const requiredMemberColumns = calculateMemberColumnsByType(zonesArray, processedAliases);
+                    console.log('📊 Calculated member columns:', requiredMemberColumns);
                     setMemberColumnCounts(requiredMemberColumns);
+                    console.log('📊 Set member column counts to:', requiredMemberColumns);
 
                     console.log('✅ Zone dropdown data loaded successfully');
                     setLoading(false);
