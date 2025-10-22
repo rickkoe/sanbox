@@ -3129,7 +3129,13 @@ const TanStackCRUDTable = forwardRef(({
               const columnDef = columns.find(c => (c.data || c.accessorKey) === column.id);
               const isRequired = columnDef?.required === true;
               const isVisible = column.getIsVisible();
-              const columnName = typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id;
+
+              // Get the friendly column name from the original column definition
+              // Priority: columnDef.title > columnDef.header > column.columnDef.header > column.id
+              const columnName = columnDef?.title ||
+                                 columnDef?.header ||
+                                 (typeof column.columnDef.header === 'string' ? column.columnDef.header : null) ||
+                                 column.id;
 
               // Use a handler that doesn't rely on closure variables
               const handleToggle = (e) => {
