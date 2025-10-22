@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Form, Button, Card, Row, Col, Alert, Spinner, Modal, Nav, Tab } from 'react-bootstrap';
-import { FaFileExcel, FaPlus, FaTrash, FaUserPlus, FaSave, FaTimes } from 'react-icons/fa';
+import { FaFileExcel, FaPlus, FaTrash, FaUserPlus, FaSave, FaTimes, FaCopy } from 'react-icons/fa';
 import api from '../api';
 import { ConfigContext } from '../context/ConfigContext';
 import '../styles/worksheet-generator.css';
@@ -439,6 +439,27 @@ const WorksheetGeneratorPage = () => {
         }
       });
     }
+  };
+
+  const handleDuplicateItem = (equipmentTypeId, itemIndex) => {
+    const currentEquipment = sites[activeSiteIndex].equipment;
+    const equipment = currentEquipment[equipmentTypeId];
+
+    // Create a copy of the item at the specified index
+    const itemToDuplicate = equipment.items[itemIndex];
+    const duplicatedItem = { ...itemToDuplicate };
+
+    // Insert the duplicated item right after the original
+    const newItems = [...equipment.items];
+    newItems.splice(itemIndex + 1, 0, duplicatedItem);
+
+    updateSiteEquipment(activeSiteIndex, {
+      ...currentEquipment,
+      [equipmentTypeId]: {
+        ...equipment,
+        items: newItems
+      }
+    });
   };
 
   const handleFieldChange = (equipmentTypeId, itemIndex, fieldName, value) => {
@@ -1111,13 +1132,23 @@ const WorksheetGeneratorPage = () => {
               <div key={itemIndex} className="equipment-item mb-4">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h6 className="mb-0">{data.type.name} #{itemIndex + 1}</h6>
-                  <Button
-                    size="sm"
-                    variant="outline-danger"
-                    onClick={() => handleRemoveItem(equipmentTypeId, itemIndex)}
-                  >
-                    <FaTrash /> Remove
-                  </Button>
+                  <div className="d-flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline-primary"
+                      onClick={() => handleDuplicateItem(equipmentTypeId, itemIndex)}
+                      title="Duplicate this item with all current values"
+                    >
+                      <FaCopy /> Duplicate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline-danger"
+                      onClick={() => handleRemoveItem(equipmentTypeId, itemIndex)}
+                    >
+                      <FaTrash /> Remove
+                    </Button>
+                  </div>
                 </div>
                 <Row>
                   {data.type.fields_schema
