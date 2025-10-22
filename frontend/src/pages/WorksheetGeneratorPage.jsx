@@ -343,7 +343,12 @@ const WorksheetGeneratorPage = () => {
       // Add standard network fields for all equipment
       emptyItem['subnet_mask'] = site.defaultSubnetMask || '';
       emptyItem['default_gateway'] = site.defaultGateway || '';
-      emptyItem['vlan'] = '';
+
+      // Add VLAN only for non-switch equipment
+      const isSwitch = equipmentType.name && equipmentType.name.toLowerCase().includes('switch');
+      if (!isSwitch) {
+        emptyItem['vlan'] = '';
+      }
 
       updateSiteEquipment(activeSiteIndex, {
         ...currentEquipment,
@@ -371,7 +376,12 @@ const WorksheetGeneratorPage = () => {
     // Add standard network fields for all equipment
     emptyItem['subnet_mask'] = site.defaultSubnetMask || '';
     emptyItem['default_gateway'] = site.defaultGateway || '';
-    emptyItem['vlan'] = '';
+
+    // Add VLAN only for non-switch equipment
+    const isSwitch = equipment.type.name && equipment.type.name.toLowerCase().includes('switch');
+    if (!isSwitch) {
+      emptyItem['vlan'] = '';
+    }
 
     updateSiteEquipment(activeSiteIndex, {
       ...currentEquipment,
@@ -1098,6 +1108,43 @@ const WorksheetGeneratorPage = () => {
                         </Form.Group>
                       </Col>
                     ))}
+                  {/* Add network configuration fields */}
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Subnet Mask</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={item.subnet_mask || ''}
+                        onChange={(e) => handleFieldChange(equipmentTypeId, itemIndex, 'subnet_mask', e.target.value)}
+                        placeholder="255.255.255.0"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label>Default Gateway</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value={item.default_gateway || ''}
+                        onChange={(e) => handleFieldChange(equipmentTypeId, itemIndex, 'default_gateway', e.target.value)}
+                        placeholder="10.0.0.1"
+                      />
+                    </Form.Group>
+                  </Col>
+                  {/* Add VLAN only for non-switch equipment */}
+                  {!data.type.name.toLowerCase().includes('switch') && (
+                    <Col md={6}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>VLAN</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={item.vlan || ''}
+                          onChange={(e) => handleFieldChange(equipmentTypeId, itemIndex, 'vlan', e.target.value)}
+                          placeholder="100"
+                        />
+                      </Form.Group>
+                    </Col>
+                  )}
                 </Row>
                 {itemIndex < data.items.length - 1 && <hr />}
               </div>

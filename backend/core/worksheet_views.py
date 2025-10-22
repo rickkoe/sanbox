@@ -197,7 +197,12 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                     items = equipment.get('items', [])
                     if items and len(items) > 0:
                         fields = list(items[0].keys())
+                        # Check if this is a switch (exclude VLAN for switches)
+                        is_switch = 'switch' in equipment.get('type_name', '').lower()
+                        # Subtract 1 from field count if it's a switch and has VLAN field
                         num_fields = len(fields)
+                        if is_switch and 'vlan' in fields:
+                            num_fields -= 1
                         max_col = max(max_col, num_fields)
 
                 # Get the column letter for the rightmost column
@@ -426,18 +431,30 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                         all_fields = list(items[0].keys())
                         equipment_type_name = equipment.get('type_name', 'Equipment').replace(' ', '_')
 
+                        # Check if this is a switch (exclude VLAN for switches)
+                        is_switch = 'switch' in equipment.get('type_name', '').lower()
+
                         # Reorder fields: put subnet_mask, default_gateway, vlan right after management_ip
-                        network_fields = ['subnet_mask', 'default_gateway', 'vlan']
+                        # Exclude vlan for switches
+                        if is_switch:
+                            network_fields = ['subnet_mask', 'default_gateway']
+                        else:
+                            network_fields = ['subnet_mask', 'default_gateway', 'vlan']
+
                         fields = []
 
                         for field in all_fields:
+                            # Skip vlan field for switches
+                            if is_switch and field == 'vlan':
+                                continue
+
                             if field == 'management_ip':
                                 fields.append(field)
                                 # Add network fields right after management_ip
                                 for nf in network_fields:
                                     if nf in all_fields and nf not in fields:
                                         fields.append(nf)
-                            elif field not in network_fields:
+                            elif field not in network_fields and field != 'vlan':
                                 fields.append(field)
 
                         # Add any remaining network fields that weren't placed yet
