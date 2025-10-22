@@ -131,7 +131,7 @@ const getSidebarLinks = (pathname) => {
           { path: "/tools/custom-naming", label: "Custom Naming", icon: Type },
           { path: "/tools/wwpn-colonizer", label: "WWPN Colonizer", icon: Cable },
           { path: "/tools/ibm-storage-calculator", label: "Storage Calculators", icon: Calculator },
-          { path: "/tools/worksheet-generator", label: "Worksheet Generator", icon: FileSpreadsheet },
+          { path: "/tools/doc-builder", label: "Doc Builder", icon: FileSpreadsheet },
         ]
       },
     ],

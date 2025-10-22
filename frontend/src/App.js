@@ -122,7 +122,7 @@ function AppContent() {
                           location.pathname.match(/^\/storage\/\d+$/) || // Storage detail pages
                           location.pathname.startsWith('/scripts/') ||
                           location.pathname.startsWith('/tools/ibm-storage-calculator') ||
-                          location.pathname.startsWith('/tools/worksheet-generator') ||
+                          location.pathname.startsWith('/tools/doc-builder') ||
                           location.pathname.startsWith('/import/') ||
                           location.pathname.startsWith('/settings/');
 
@@ -235,7 +235,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     element={<StorageCalculatorPage />}
                   />
                   <Route
-                    path="/tools/worksheet-generator"
+                    path="/tools/doc-builder"
                     element={<WorksheetGeneratorPage />}
                   />
                   <Route

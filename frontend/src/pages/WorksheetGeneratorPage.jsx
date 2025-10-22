@@ -676,7 +676,7 @@ const WorksheetGeneratorPage = () => {
   return (
     <div className="worksheet-generator-container">
       <div className="page-header">
-        <h1><FaFileExcel className="me-2" />Worksheet Generator</h1>
+        <h1><FaFileExcel className="me-2" />Doc Builder</h1>
         <p className="text-muted">Generate professional implementation worksheets for equipment deployments</p>
       </div>
 

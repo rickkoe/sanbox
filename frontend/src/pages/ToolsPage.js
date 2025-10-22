@@ -38,12 +38,12 @@ const ToolsPage = () => {
             </div>
           </NavLink>
         </div>
-        {/* Worksheet Generator Tool */}
+        {/* Doc Builder Tool */}
         <div className="col-md-4 mb-4">
-          <NavLink to="/tools/worksheet-generator" className="home-card card text-center h-100">
+          <NavLink to="/tools/doc-builder" className="home-card card text-center h-100">
             <div className="card-body">
               <FaFileExcel size={48} className="home-icon mb-3" />
-              <h5 className="card-title">Worksheet Generator</h5>
+              <h5 className="card-title">Doc Builder</h5>
               <p className="card-text">Generate professional implementation worksheets for equipment deployments.</p>
             </div>
           </NavLink>
