@@ -638,8 +638,9 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                 cell.font = Font(name='Calibri', size=8, italic=True, color='B3B3B3')
                 cell.alignment = center_alignment
 
-                # Add logo to right side of footer, vertically centered in contact section only
-                if os.path.exists(logo_path) and implementation_team and len(implementation_team) > 0:
+                # Add logo to footer if it exists
+                # Always show logo if file exists, regardless of implementation team contacts
+                if os.path.exists(logo_path):
                     try:
                         img = XLImage(logo_path)
                         # Scale logo to fit nicely in footer
@@ -649,11 +650,15 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
                             img.height = target_height
                             img.width = int(target_height * aspect_ratio)
 
-                        # Calculate vertical center position within contact section only
-                        # For proper centering: if we have rows 1,2,3,4,5 the center is row 3 (index 2)
-                        # Formula: start_row + (total_rows - 1) / 2
-                        contact_section_height = contact_section_end_row - contact_section_start_row + 1
-                        vertical_center_row = contact_section_start_row + ((contact_section_height - 1) // 2)
+                        # Calculate vertical position for logo
+                        # If we have implementation team contacts, center within that section
+                        # Otherwise, position at the footer start row
+                        if implementation_team and len(implementation_team) > 0:
+                            contact_section_height = contact_section_end_row - contact_section_start_row + 1
+                            vertical_center_row = contact_section_start_row + ((contact_section_height - 1) // 2)
+                        else:
+                            # No contacts, position at footer separator + 1
+                            vertical_center_row = footer_start_row + 1
 
                         # Position logo on the second-to-last column (one column left from the end)
                         logo_col = max(1, max_col - 1)  # Second-to-last column, or column A if only 1 column
