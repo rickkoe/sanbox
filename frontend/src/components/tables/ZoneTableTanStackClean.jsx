@@ -911,8 +911,8 @@ const ZoneTableTanStackClean = () => {
                     });
 
                     // Extract members from all member columns (organized by type)
+                    // Match existing members by alias ID, not by array index
                     const members = [];
-                    let memberIndex = 0;
 
                     // Process target members
                     for (let i = 1; i <= memberColumnCounts.targets; i++) {
@@ -920,18 +920,21 @@ const ZoneTableTanStackClean = () => {
                         if (memberName) {
                             const alias = aliasOptions.find(a => a.name === memberName);
                             if (alias) {
-                                // Check if this is an existing member relationship
-                                if (row.members_details?.[memberIndex]?.id) {
+                                // Find existing member relationship by matching alias ID
+                                const existingMember = row.members_details?.find(m =>
+                                    (m.alias === alias.id || m.alias_details?.id === alias.id)
+                                );
+
+                                if (existingMember?.id) {
                                     members.push({
-                                        id: row.members_details[memberIndex].id,
+                                        id: existingMember.id,
                                         alias: alias.id
                                     });
-                                    console.log(`  ✅ Preserved existing target member ${i}: ${memberName} (ID: ${row.members_details[memberIndex].id})`);
+                                    console.log(`  ✅ Preserved existing target member ${i}: ${memberName} (member ID: ${existingMember.id}, alias ID: ${alias.id})`);
                                 } else {
                                     members.push({ alias: alias.id });
                                     console.log(`  🆕 New target member ${i}: ${memberName} (alias ID: ${alias.id})`);
                                 }
-                                memberIndex++;
                             }
                         }
                     }
@@ -942,18 +945,21 @@ const ZoneTableTanStackClean = () => {
                         if (memberName) {
                             const alias = aliasOptions.find(a => a.name === memberName);
                             if (alias) {
-                                // Check if this is an existing member relationship
-                                if (row.members_details?.[memberIndex]?.id) {
+                                // Find existing member relationship by matching alias ID
+                                const existingMember = row.members_details?.find(m =>
+                                    (m.alias === alias.id || m.alias_details?.id === alias.id)
+                                );
+
+                                if (existingMember?.id) {
                                     members.push({
-                                        id: row.members_details[memberIndex].id,
+                                        id: existingMember.id,
                                         alias: alias.id
                                     });
-                                    console.log(`  ✅ Preserved existing init member ${i}: ${memberName} (ID: ${row.members_details[memberIndex].id})`);
+                                    console.log(`  ✅ Preserved existing init member ${i}: ${memberName} (member ID: ${existingMember.id}, alias ID: ${alias.id})`);
                                 } else {
                                     members.push({ alias: alias.id });
                                     console.log(`  🆕 New init member ${i}: ${memberName} (alias ID: ${alias.id})`);
                                 }
-                                memberIndex++;
                             }
                         }
                     }
@@ -964,18 +970,21 @@ const ZoneTableTanStackClean = () => {
                         if (memberName) {
                             const alias = aliasOptions.find(a => a.name === memberName);
                             if (alias) {
-                                // Check if this is an existing member relationship
-                                if (row.members_details?.[memberIndex]?.id) {
+                                // Find existing member relationship by matching alias ID
+                                const existingMember = row.members_details?.find(m =>
+                                    (m.alias === alias.id || m.alias_details?.id === alias.id)
+                                );
+
+                                if (existingMember?.id) {
                                     members.push({
-                                        id: row.members_details[memberIndex].id,
+                                        id: existingMember.id,
                                         alias: alias.id
                                     });
-                                    console.log(`  ✅ Preserved existing all access member ${i}: ${memberName} (ID: ${row.members_details[memberIndex].id})`);
+                                    console.log(`  ✅ Preserved existing all access member ${i}: ${memberName} (member ID: ${existingMember.id}, alias ID: ${alias.id})`);
                                 } else {
                                     members.push({ alias: alias.id });
                                     console.log(`  🆕 New all access member ${i}: ${memberName} (alias ID: ${alias.id})`);
                                 }
-                                memberIndex++;
                             }
                         }
                     }
