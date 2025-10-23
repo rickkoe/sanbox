@@ -7,7 +7,7 @@
       "email": "rick.k@evolvingsol.com",
       "phone_number": "612-321-1854",
       "title": "Delivery Consultant",
-      "is_default": true,
+      "is_default": false,
       "notes": ""
     }
   },
