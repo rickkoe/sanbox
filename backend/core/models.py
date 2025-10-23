@@ -821,35 +821,6 @@ class DashboardPreset(models.Model):
         return self.display_name
 
 
-class DashboardAnalytics(models.Model):
-    """Track dashboard usage and widget performance"""
-    layout = models.ForeignKey(DashboardLayout, on_delete=models.CASCADE)
-    widget = models.ForeignKey(DashboardWidget, on_delete=models.CASCADE, null=True, blank=True)
-    event_type = models.CharField(max_length=50, choices=[
-        ('view', 'Dashboard View'),
-        ('widget_add', 'Widget Added'),
-        ('widget_remove', 'Widget Removed'),
-        ('widget_resize', 'Widget Resized'),
-        ('widget_move', 'Widget Moved'),
-        ('config_change', 'Configuration Changed'),
-        ('theme_change', 'Theme Changed'),
-        ('export', 'Data Export'),
-        ('refresh', 'Manual Refresh')
-    ])
-    metadata = models.JSONField(default=dict)  # Event-specific data
-    session_id = models.CharField(max_length=100, blank=True)
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
-    user_agent = models.TextField(blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-timestamp']
-        indexes = [
-            models.Index(fields=['layout', 'event_type', 'timestamp']),
-            models.Index(fields=['widget', 'event_type', 'timestamp']),
-        ]
-
-
 # ========== WORKSHEET GENERATOR MODELS ==========
 
 class EquipmentType(models.Model):

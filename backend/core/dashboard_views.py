@@ -142,8 +142,8 @@ from datetime import timedelta
 from django.utils import timezone
 
 from .models import (
-    DashboardLayout, DashboardWidget, WidgetType, DashboardTheme, 
-    DashboardPreset, DashboardAnalytics, WidgetDataSource
+    DashboardLayout, DashboardWidget, WidgetType, DashboardTheme,
+    DashboardPreset, WidgetDataSource
 )
 
 
@@ -170,16 +170,7 @@ class DashboardLayoutView(View):
             
             # Get all widgets for this layout
             widgets = DashboardWidget.objects.filter(layout=layout, is_visible=True)
-            
-            # Track dashboard view
-            DashboardAnalytics.objects.create(
-                layout=layout,
-                event_type='view',
-                session_id=request.session.session_key,
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT', '')
-            )
-            
+
             return JsonResponse({
                 'layout': {
                     'id': layout.id,
@@ -241,17 +232,7 @@ class DashboardLayoutView(View):
                 layout.auto_refresh = data.get('auto_refresh', layout.auto_refresh)
                 layout.refresh_interval = data.get('refresh_interval', layout.refresh_interval)
                 layout.save()
-                
-                # Track configuration change
-                DashboardAnalytics.objects.create(
-                    layout=layout,
-                    event_type='config_change',
-                    metadata=data,
-                    session_id=request.session.session_key,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
-                )
-                
+
                 return JsonResponse({
                     'message': 'Layout updated successfully',
                     'layout_id': layout.id
@@ -300,18 +281,7 @@ class DashboardWidgetView(View):
                     data_filters=data.get('data_filters', {}),
                     refresh_interval=data.get('refresh_interval')
                 )
-                
-                # Track widget addition
-                DashboardAnalytics.objects.create(
-                    layout=layout,
-                    widget=widget,
-                    event_type='widget_add',
-                    metadata={'widget_type': widget_type_name},
-                    session_id=request.session.session_key,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
-                )
-                
+
                 return JsonResponse({
                     'message': 'Widget added successfully',
                     'widget_id': widget.id
@@ -346,22 +316,7 @@ class DashboardWidgetView(View):
                 widget.refresh_interval = data.get('refresh_interval', widget.refresh_interval)
                 widget.z_index = data.get('z_index', widget.z_index)
                 widget.save()
-                
-                # Track widget update
-                event_type = 'widget_move' if 'position_x' in data or 'position_y' in data else 'config_change'
-                if 'width' in data or 'height' in data:
-                    event_type = 'widget_resize'
-                
-                DashboardAnalytics.objects.create(
-                    layout=widget.layout,
-                    widget=widget,
-                    event_type=event_type,
-                    metadata=data,
-                    session_id=request.session.session_key,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
-                )
-                
+
                 return JsonResponse({'message': 'Widget updated successfully'})
                 
         except DashboardWidget.DoesNotExist:
@@ -384,17 +339,7 @@ class DashboardWidgetView(View):
             
             with transaction.atomic():
                 widget.delete()
-                
-                # Track widget removal
-                DashboardAnalytics.objects.create(
-                    layout=layout,
-                    event_type='widget_remove',
-                    metadata={'widget_type': widget_type_name},
-                    session_id=request.session.session_key,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
-                )
-                
+
                 return JsonResponse({'message': 'Widget removed successfully'})
                 
         except DashboardWidget.DoesNotExist:
@@ -594,20 +539,7 @@ class DashboardPresetApplyView(View):
                 # Update preset usage count
                 preset.usage_count += 1
                 preset.save()
-                
-                # Track preset application
-                DashboardAnalytics.objects.create(
-                    layout=layout,
-                    event_type='preset_apply',
-                    metadata={
-                        'preset_name': preset_name,
-                        'widgets_created': len(widgets_created)
-                    },
-                    session_id=request.session.session_key,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
-                )
-                
+
                 return JsonResponse({
                     'message': 'Preset applied successfully',
                     'layout_id': layout.id,
@@ -688,21 +620,7 @@ class DashboardTemplateSaveView(View):
                     is_featured=False,
                     usage_count=0
                 )
-                
-                # Track template creation
-                DashboardAnalytics.objects.create(
-                    layout=layout,
-                    event_type='template_save',
-                    metadata={
-                        'template_name': template_name,
-                        'widget_count': len(layout_config['widgets']),
-                        'is_public': is_public
-                    },
-                    session_id=request.session.session_key,
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    user_agent=request.META.get('HTTP_USER_AGENT', '')
-                )
-                
+
                 return JsonResponse({
                     'message': 'Template saved successfully',
                     'template_id': preset.id,

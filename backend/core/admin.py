@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Project, Config, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable,
-    CustomerMembership, ProjectGroup, DashboardAnalytics, DashboardLayout,
+    CustomerMembership, ProjectGroup, DashboardLayout,
     DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType,
     UserConfig, EquipmentType, WorksheetTemplate
 )
@@ -376,36 +376,6 @@ class DashboardPresetAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Optimize queries with select_related"""
         return super().get_queryset(request).select_related('created_by', 'customer')
-
-
-@admin.register(DashboardAnalytics)
-class DashboardAnalyticsAdmin(admin.ModelAdmin):
-    list_display = ("layout", "event_type", "widget", "timestamp", "session_id")
-    list_filter = ("event_type", "timestamp", "layout__customer")
-    search_fields = ("layout__name", "layout__user__username", "widget__title", "session_id", "ip_address")
-    readonly_fields = ("timestamp",)
-
-    fieldsets = (
-        ("Event Information", {
-            "fields": ("layout", "widget", "event_type", "metadata")
-        }),
-        ("Session Information", {
-            "fields": ("session_id", "ip_address", "user_agent"),
-            "classes": ("collapse",)
-        }),
-        ("Metadata", {
-            "fields": ("timestamp",),
-            "classes": ("collapse",)
-        })
-    )
-
-    def get_queryset(self, request):
-        """Optimize queries with select_related"""
-        return super().get_queryset(request).select_related('layout', 'widget', 'layout__user', 'layout__customer')
-
-    def has_add_permission(self, request):
-        # Analytics should only be created programmatically
-        return False
 
 
 # ========== WORKSHEET GENERATOR ADMIN ==========
