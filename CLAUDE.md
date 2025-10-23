@@ -80,11 +80,35 @@ docker-compose -f docker-compose.dev.yml exec frontend npm run build
 ```bash
 # PostgreSQL shell
 docker-compose -f docker-compose.dev.yml exec postgres psql -U sanbox_dev -d sanbox_dev
+```
 
-# Backup database
+### Backup and Restore
+
+**Important**: Use the built-in Backup Management UI (`/backups`) instead of manual database dumps. The application provides:
+- Automatic scheduled backups (hourly or daily)
+- Pre-restore safety backups
+- Backup verification and metadata tracking
+- One-click restore with automatic pre-restore backup
+
+**Access Backup Management**:
+- Navigate to `/backups` in the application
+- Configure automatic backups via "Configure Schedule"
+- Create manual backups via "Create Backup"
+- Restore from any backup via the "Restore" button
+
+**How Backups Work**:
+- Backups are stored in `/app/backups/` within the container
+- Backup metadata tables are excluded from backups to prevent corruption during restore
+- Pre-restore safety backups are automatically created before each restore
+- Backups include all application data (zones, aliases, customers, storage, etc.)
+- Restore history is tracked in the Restore History page
+
+**Manual Database Operations** (if needed):
+```bash
+# Manual backup (not recommended - use UI instead)
 docker-compose -f docker-compose.dev.yml exec postgres pg_dump -U sanbox_dev sanbox_dev > backup.sql
 
-# Restore database
+# Manual restore (not recommended - use UI instead)
 cat backup.sql | docker-compose -f docker-compose.dev.yml exec -T postgres psql -U sanbox_dev -d sanbox_dev
 ```
 
@@ -190,6 +214,7 @@ sudo ./setup-ssl-selfsigned.sh your-domain.com
   - `san/` - SAN zoning, aliases, fabrics, and WWN management
   - `storage/` - Storage system management and volume tracking
   - `importer/` - Data import functionality with Celery tasks
+  - `backup/` - Database backup and restore functionality with Celery tasks
 
 ### Frontend Structure
 - **Components**:
@@ -210,12 +235,15 @@ sudo ./setup-ssl-selfsigned.sh your-domain.com
 
 ## Database Models
 
-The application uses five main Django apps with their respective models:
+The application uses six main Django apps with their respective models:
 - **customers**: Customer and organization data
 - **san**: SAN fabric, zone, alias, and device management
 - **storage**: Storage system, volume, and capacity tracking
 - **importer**: Data import jobs and status tracking
+- **backup**: Backup records, restore records, and backup configuration
 - **core**: Base models and utilities
+
+**Note**: Backup metadata tables (`backup_backuprecord`, `backup_backuplog`, `backup_restorerecord`, `backup_backupconfiguration`) are automatically excluded from database backups to prevent corruption during restore operations.
 
 ## Important Development Notes
 
