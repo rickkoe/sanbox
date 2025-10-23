@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Project, Config, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable,
-    CustomerMembership, ProjectGroup, DashboardLayout,
+    DashboardLayout,
     DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType,
     UserConfig, EquipmentType, WorksheetTemplate
 )
@@ -175,52 +175,7 @@ class CustomVariableAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related('customer', 'user')
 
 
-@admin.register(CustomerMembership)
-class CustomerMembershipAdmin(admin.ModelAdmin):
-    list_display = ("user", "customer", "role", "created_at")
-    list_filter = ("role", "customer", "created_at")
-    search_fields = ("user__username", "customer__name")
-    readonly_fields = ("created_at", "updated_at")
-
-    fieldsets = (
-        ("Membership Information", {
-            "fields": ("customer", "user", "role")
-        }),
-        ("Metadata", {
-            "fields": ("created_at", "updated_at"),
-            "classes": ("collapse",)
-        })
-    )
-
-    def get_queryset(self, request):
-        """Optimize queries with select_related"""
-        return super().get_queryset(request).select_related('customer', 'user')
-
-
-@admin.register(ProjectGroup)
-class ProjectGroupAdmin(admin.ModelAdmin):
-    list_display = ("name", "customer", "created_by", "created_at")
-    list_filter = ("customer", "created_at")
-    search_fields = ("name", "customer__name", "created_by__username", "description")
-    readonly_fields = ("created_at", "updated_at")
-    filter_horizontal = ("members",)
-
-    fieldsets = (
-        ("Group Information", {
-            "fields": ("name", "customer", "description")
-        }),
-        ("Members", {
-            "fields": ("created_by", "members")
-        }),
-        ("Metadata", {
-            "fields": ("created_at", "updated_at"),
-            "classes": ("collapse",)
-        })
-    )
-
-    def get_queryset(self, request):
-        """Optimize queries with select_related"""
-        return super().get_queryset(request).select_related('customer', 'created_by')
+# CustomerMembership and ProjectGroup admin removed - models no longer exist
 
 
 @admin.register(DashboardLayout)

@@ -3,88 +3,20 @@ from django.contrib.auth.models import User
 from customers.models import Customer
 
 class Project(models.Model):
-    VISIBILITY_CHOICES = [
-        ('private', 'Private'),   # Only owner can see
-        ('public', 'Public'),     # All users in customer can see
-        ('group', 'Group'),       # Only group members can see
-    ]
-
+    """
+    Project model for organizing work within a customer.
+    All users have full access to all projects - no ownership or visibility restrictions.
+    """
     name = models.CharField(max_length=200)
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='owned_projects',
-        null=True,  # Temporarily allow null for migration
-        blank=True,
-        help_text="User who owns this project"
-    )
-    visibility = models.CharField(
-        max_length=10,
-        choices=VISIBILITY_CHOICES,
-        default='private',
-        help_text="Project visibility: private (owner only), public (all customer users), or group (group members)"
-    )
-    group = models.ForeignKey(
-        'ProjectGroup',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='projects',
-        help_text="Group that has access to this project (only used when visibility='group')"
-    )
     notes = models.TextField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)  # null=True for migration
-    updated_at = models.DateTimeField(auto_now=True, null=True)  # null=True for migration
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
         return f"{self.name}"
 
 
-class ProjectGroup(models.Model):
-    """
-    Groups for sharing projects with multiple users.
-    Allows fine-grained project access control beyond customer-level permissions.
-    """
-    name = models.CharField(
-        max_length=200,
-        help_text="Name of the project group"
-    )
-    customer = models.ForeignKey(
-        Customer,
-        on_delete=models.CASCADE,
-        related_name='project_groups',
-        help_text="Customer this group belongs to"
-    )
-    members = models.ManyToManyField(
-        User,
-        related_name='project_groups',
-        blank=True,
-        help_text="Users who are members of this group"
-    )
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='created_project_groups',
-        help_text="User who created this group"
-    )
-    description = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Optional description of the group's purpose"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        unique_together = ['customer', 'name']
-        verbose_name = "Project Group"
-        verbose_name_plural = "Project Groups"
-        indexes = [
-            models.Index(fields=['customer', 'name']),
-        ]
-
-    def __str__(self):
-        return f"{self.customer.name} - {self.name}"
+# ProjectGroup model removed - no longer needed with simplified sharing
 
 
 class Config(models.Model):
@@ -134,6 +66,7 @@ class UserConfig(models.Model):
     """
     Per-user configuration tracking active customer and project.
     Each user can have their own active context independent of other users.
+    Tracks last activity for conflict prevention and presence awareness.
     """
     user = models.OneToOneField(
         User,
@@ -156,6 +89,10 @@ class UserConfig(models.Model):
         blank=True,
         related_name='active_for_users',
         help_text="Currently active project for this user"
+    )
+    last_activity_at = models.DateTimeField(
+        auto_now=True,
+        help_text="Last activity timestamp for presence detection"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -195,49 +132,7 @@ class UserConfig(models.Model):
         return user_config
 
 
-class CustomerMembership(models.Model):
-    """
-    Links users to customers with specific roles (admin/member/viewer).
-    Enables multi-user collaboration with role-based access control.
-    """
-    ROLE_CHOICES = [
-        ('admin', 'Admin'),      # Can modify customer-level resources (Fabrics, Storage)
-        ('member', 'Member'),    # Can create/modify own projects
-        ('viewer', 'Viewer'),    # Read-only access
-    ]
-
-    customer = models.ForeignKey(
-        Customer,
-        on_delete=models.CASCADE,
-        related_name='memberships',
-        help_text="Customer this membership belongs to"
-    )
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='customer_memberships',
-        help_text="User who is a member of this customer"
-    )
-    role = models.CharField(
-        max_length=10,
-        choices=ROLE_CHOICES,
-        default='member',
-        help_text="User's role for this customer"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-
-    class Meta:
-        unique_together = ['customer', 'user']
-        verbose_name = "Customer Membership"
-        verbose_name_plural = "Customer Memberships"
-        indexes = [
-            models.Index(fields=['customer', 'user']),
-            models.Index(fields=['user', 'role']),
-        ]
-
-    def __str__(self):
-        return f"{self.user.username} - {self.customer.name} ({self.role})"
+# CustomerMembership model removed - all users now have full access to all customers
 
 
 class TableConfiguration(models.Model):

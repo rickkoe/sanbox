@@ -1,11 +1,11 @@
 """
-Management command to set up demo data including customer, project, config, and membership for admin user.
+Management command to set up demo data including customer, project, and config for admin user.
 This ensures the default admin user can log into the frontend application with a complete setup.
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from customers.models import Customer
-from core.models import CustomerMembership, Project, Config
+from core.models import Project, Config, UserConfig
 
 
 class Command(BaseCommand):
@@ -40,33 +40,12 @@ class Command(BaseCommand):
                 self.style.WARNING(f'Demo customer already exists: {demo_customer.name}')
             )
 
-        # Create customer membership for admin user
-        membership, membership_created = CustomerMembership.objects.get_or_create(
-            user=admin_user,
-            customer=demo_customer,
-            defaults={
-                'role': 'admin',
-            }
-        )
-
-        if membership_created:
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'✅ Created admin membership for user "{admin_user.username}" '
-                    f'in customer "{demo_customer.name}" with role "admin"'
-                )
-            )
-        else:
-            self.stdout.write(
-                self.style.WARNING('Admin membership already exists')
-            )
+        # No customer membership needed - all users have access to all customers
 
         # Create demo project if it doesn't exist
         demo_project, project_created = Project.objects.get_or_create(
             name='Demo Project',
             defaults={
-                'owner': admin_user,
-                'visibility': 'public',
                 'notes': 'Demo project for testing and development',
             }
         )

@@ -125,14 +125,26 @@ class Alias(models.Model):
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
 
-    
+    # Optimistic locking and audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_aliases',
+        help_text="User who last modified this alias"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+
+
     class Meta:
         ordering = ['name']
         unique_together = [
             ('fabric', 'wwpn'),
             ('fabric', 'name'),
         ]
-    
+
     def __str__(self):
         return f'{self.fabric.customer}: {self.name}'
 
@@ -223,13 +235,25 @@ class Zone(models.Model):
             ('smart', 'smart'),
             ('standard', 'standard'),
         ],
-        null=True, 
+        null=True,
         blank=True
     )
     members = models.ManyToManyField(Alias, blank=True)
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
+
+    # Optimistic locking and audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_zones',
+        help_text="User who last modified this zone"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
 
     def __str__(self):
         return f'{self.fabric.customer}: {self.name}'

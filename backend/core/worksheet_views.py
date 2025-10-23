@@ -20,8 +20,9 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image as XLImage
 
-from .models import EquipmentType, WorksheetTemplate, CustomerMembership
+from .models import EquipmentType, WorksheetTemplate
 from .serializers import EquipmentTypeSerializer, WorksheetTemplateSerializer
+from customers.models import Customer
 
 
 class EquipmentTypeViewSet(viewsets.ModelViewSet):
@@ -78,20 +79,11 @@ class WorksheetTemplateViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Get templates accessible to the user"""
+        """Get templates - all users can see all templates"""
         user = self.request.user
 
-        # Get customer IDs the user has access to
-        customer_ids = CustomerMembership.objects.filter(
-            user=user
-        ).values_list('customer_id', flat=True)
-
-        # Get templates: global templates + user's templates + customer templates
-        queryset = WorksheetTemplate.objects.filter(
-            Q(is_global=True) |
-            Q(user=user) |
-            Q(customer_id__in=customer_ids)
-        )
+        # All authenticated users can see all templates
+        queryset = WorksheetTemplate.objects.all()
 
         # Optional filtering
         customer_id = self.request.query_params.get('customer', None)

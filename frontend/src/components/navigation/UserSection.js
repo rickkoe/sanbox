@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Settings, HelpCircle, User, Sliders, Info, Users, LogOut, Database } from "lucide-react";
+import { Settings, HelpCircle, User, Sliders, Info, LogOut, Database } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "../../context/AuthContext";
 
@@ -105,10 +105,6 @@ const UserSection = ({ onAboutClick }) => {
                 <Dropdown.Item as={NavLink} to="/profile">
                   <User size={16} className="me-2" />
                   My Profile
-                </Dropdown.Item>
-                <Dropdown.Item as={NavLink} to="/team">
-                  <Users size={16} className="me-2" />
-                  Team Management
                 </Dropdown.Item>
                 <Dropdown.Divider />
                 <Dropdown.Item onClick={handleLogout}>

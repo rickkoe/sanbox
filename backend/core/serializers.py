@@ -1,141 +1,36 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Config, Project, ProjectGroup, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, CustomerMembership, UserConfig, EquipmentType, WorksheetTemplate
+from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, UserConfig, EquipmentType, WorksheetTemplate
 from customers.models import Customer
 
 
 class UserSerializer(serializers.ModelSerializer):
-    customer_memberships = serializers.SerializerMethodField()
+    """Simplified user serializer - no permission/membership info needed"""
 
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name',
-                  'is_superuser', 'date_joined', 'customer_memberships']
+                  'is_superuser', 'date_joined']
         read_only_fields = ['id', 'username', 'is_superuser', 'date_joined']
 
-    def get_customer_memberships(self, obj):
-        memberships = CustomerMembership.objects.filter(user=obj).select_related('customer')
-        return [{
-            'id': m.id,
-            'customer_id': m.customer.id,
-            'customer_name': m.customer.name,
-            'role': m.role,
-            'created_at': m.created_at
-        } for m in memberships]
 
-
-class CustomerMembershipSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    customer = serializers.SerializerMethodField()
-    user_id = serializers.IntegerField(write_only=True, required=False)
-    customer_id = serializers.IntegerField(write_only=True, required=False)
-
-    class Meta:
-        model = CustomerMembership
-        fields = ['id', 'customer', 'customer_id', 'user', 'user_id',
-                  'role', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-    def get_customer(self, obj):
-        return {
-            'id': obj.customer.id,
-            'name': obj.customer.name
-        }
-
-    def validate_role(self, value):
-        if value not in dict(CustomerMembership.ROLE_CHOICES):
-            raise serializers.ValidationError(f"Invalid role: {value}")
-        return value
+# CustomerMembershipSerializer removed - no longer needed with simplified permissions
+# ProjectGroupSerializer removed - no longer needed with simplified permissions
 
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = "__all__" 
+        fields = "__all__"
+
 
 class ProjectSerializer(serializers.ModelSerializer):
+    """Simplified project serializer - no ownership or group info needed"""
     customers = CustomerSerializer(many=True, read_only=True)  # Show all customers this project belongs to
-    group_details = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
         fields = "__all__"
-
-    def get_group_details(self, obj):
-        """Return group details if project has a group"""
-        if obj.group:
-            return {
-                'id': obj.group.id,
-                'name': obj.group.name,
-                'member_count': obj.group.members.count()
-            }
-        return None
-
-
-class ProjectGroupSerializer(serializers.ModelSerializer):
-    """Serializer for ProjectGroup"""
-    members = UserSerializer(many=True, read_only=True)
-    created_by = UserSerializer(read_only=True)
-    customer = serializers.SerializerMethodField()
-    member_ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=False,
-        help_text="List of user IDs to add as members"
-    )
-    project_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ProjectGroup
-        fields = ['id', 'name', 'customer', 'members', 'member_ids',
-                  'created_by', 'description', 'project_count',
-                  'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
-
-    def get_customer(self, obj):
-        return {
-            'id': obj.customer.id,
-            'name': obj.customer.name
-        }
-
-    def get_project_count(self, obj):
-        """Return count of projects using this group"""
-        return obj.projects.count()
-
-    def validate_member_ids(self, value):
-        """Validate that all member IDs exist"""
-        if value:
-            existing_users = User.objects.filter(id__in=value)
-            if existing_users.count() != len(value):
-                raise serializers.ValidationError("One or more user IDs are invalid")
-        return value
-
-    def create(self, validated_data):
-        """Create group and add members"""
-        member_ids = validated_data.pop('member_ids', [])
-        group = ProjectGroup.objects.create(**validated_data)
-
-        if member_ids:
-            members = User.objects.filter(id__in=member_ids)
-            group.members.set(members)
-
-        return group
-
-    def update(self, instance, validated_data):
-        """Update group and members"""
-        member_ids = validated_data.pop('member_ids', None)
-
-        # Update basic fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        # Update members if provided
-        if member_ids is not None:
-            members = User.objects.filter(id__in=member_ids)
-            instance.members.set(members)
-
-        return instance
 
 
 class ActiveConfigSerializer(serializers.Serializer):
@@ -173,7 +68,7 @@ class ConfigSerializer(serializers.ModelSerializer):
 
 
 class UserConfigSerializer(serializers.ModelSerializer):
-    """Serializer for per-user configuration"""
+    """Serializer for per-user configuration with activity tracking"""
     active_customer = CustomerSerializer(read_only=True)
     active_project = ProjectSerializer(read_only=True)
     active_customer_id = serializers.PrimaryKeyRelatedField(
@@ -194,8 +89,9 @@ class UserConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserConfig
         fields = ['id', 'user', 'active_customer', 'active_customer_id',
-                  'active_project', 'active_project_id', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+                  'active_project', 'active_project_id', 'last_activity_at',
+                  'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'last_activity_at', 'created_at', 'updated_at']
 
 
 class TableConfigurationSerializer(serializers.ModelSerializer):

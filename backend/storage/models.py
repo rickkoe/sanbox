@@ -193,6 +193,18 @@ class Host(models.Model):
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
 
+    # Optimistic locking and audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_hosts',
+        help_text="User who last modified this host"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+
     class Meta:
         unique_together = ['project', 'name']
 
@@ -399,6 +411,18 @@ class Volume(models.Model):
     deduplicated = models.CharField(max_length=10, blank=True, null=True)
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
+
+    # Optimistic locking and audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_volumes',
+        help_text="User who last modified this volume"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
 
     def __str__(self):
         return self.name

@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import Customer, ContactInfo
 from .serializers import CustomerSerializer, ContactInfoSerializer
-from core.models import Config, CustomerMembership, UserConfig
+from core.models import Config, UserConfig
 from django.db.models import Q
 from django.core.paginator import Paginator
 from urllib.parse import urlencode
@@ -53,11 +53,9 @@ def customer_management(request, pk=None):
                 print(f"⚠️  If origin uses 127.0.0.1 but API uses localhost (or vice versa), cookies won't be sent")
                 print(f"⚠️  Solution: Access frontend at http://localhost:3000 instead of http://127.0.0.1:3000")
 
-            # Build queryset - filter by user's customer memberships
-            # Use centralized permission function which includes implementation company
+            # All authenticated users can see all customers
             if user and user.is_authenticated:
-                from core.permissions import get_user_customers
-                customers = get_user_customers(user)
+                customers = Customer.objects.all()
             else:
                 # Unauthenticated users see no customers
                 customers = Customer.objects.none()
@@ -128,20 +126,12 @@ def customer_management(request, pk=None):
                 'results': data
             })
             
-        # Single customer GET with permission check
+        # Single customer GET - all authenticated users can access
         try:
             customer = Customer.objects.get(pk=pk)
 
-            # Check if user has access to this customer
-            if user and user.is_authenticated:
-                # All users (including superusers) must be members
-                has_access = CustomerMembership.objects.filter(
-                    customer=customer,
-                    user=user
-                ).exists()
-                if not has_access:
-                    return JsonResponse({"error": "Permission denied"}, status=403)
-            else:
+            # Require authentication
+            if not user or not user.is_authenticated:
                 return JsonResponse({"error": "Authentication required"}, status=401)
 
             data = CustomerSerializer(customer).data
@@ -161,13 +151,6 @@ def customer_management(request, pk=None):
                 customer = serializer.save()
                 Config.objects.create(customer=customer)
 
-                # Automatically create admin membership for the creator (including superusers)
-                CustomerMembership.objects.create(
-                    customer=customer,
-                    user=user,
-                    role='admin'
-                )
-
                 # Auto-activate this customer for the user if they have no active customer
                 user_config = UserConfig.get_or_create_for_user(user)
                 if not user_config.active_customer:
@@ -180,7 +163,7 @@ def customer_management(request, pk=None):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-    # PUT - update existing customer (requires admin role)
+    # PUT - update existing customer (all authenticated users can update)
     elif request.method == "PUT":
         if not user or not user.is_authenticated:
             return JsonResponse({"error": "Authentication required"}, status=401)
@@ -190,15 +173,6 @@ def customer_management(request, pk=None):
 
         try:
             customer = Customer.objects.get(pk=pk)
-
-            # Check if user is admin for this customer (all users including superusers)
-            membership = CustomerMembership.objects.filter(
-                customer=customer,
-                user=user,
-                role='admin'
-            ).first()
-            if not membership:
-                return JsonResponse({"error": "Admin permission required"}, status=403)
 
             data = json.loads(request.body)
             serializer = CustomerSerializer(customer, data=data, partial=True)
@@ -223,16 +197,6 @@ def customer_delete(request, pk):
 
     try:
         customer = Customer.objects.get(pk=pk)
-
-        # Check if user is admin for this customer (all users including superusers)
-        membership = CustomerMembership.objects.filter(
-            customer=customer,
-            user=user,
-            role='admin'
-        ).first()
-        if not membership:
-            return JsonResponse({"error": "Admin permission required"}, status=403)
-
         customer.delete()
         return JsonResponse({"message": "Customer deleted successfully"}, status=204)
     except Customer.DoesNotExist:
@@ -252,23 +216,8 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filter contacts by customer membership, plus implementation company contacts for all users"""
-        user = self.request.user
-
-        # Admins and superusers can see all contacts
-        if user.is_superuser or user.is_staff:
-            queryset = ContactInfo.objects.all()
-        else:
-            # Get customer IDs the user has access to
-            # Use centralized permission function which includes implementation company
-            from core.permissions import get_user_customer_ids
-            customer_ids = get_user_customer_ids(user)
-
-            # If user has no customer access, return empty queryset
-            if not customer_ids:
-                queryset = ContactInfo.objects.none()
-            else:
-                queryset = ContactInfo.objects.filter(customer_id__in=customer_ids)
+        """All authenticated users can see all contacts"""
+        queryset = ContactInfo.objects.all()
 
         # Optional filtering by customer
         customer_id = self.request.query_params.get('customer', None)
@@ -278,42 +227,23 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
         return queryset.select_related('customer').order_by('-is_default', 'name')
 
     def perform_create(self, serializer):
-        """Create contact info with permission check"""
-        from core.permissions import can_view_customer
-        customer = serializer.validated_data.get('customer')
-
-        # Verify user has access to this customer (skip check for global contacts)
-        if customer is not None:
-            if not can_view_customer(self.request.user, customer):
-                raise PermissionError("You don't have access to this customer")
-
+        """Create contact info - all authenticated users can create"""
         serializer.save()
 
     def perform_update(self, serializer):
-        """Update contact info with permission check"""
-        from core.permissions import can_view_customer
-        customer = serializer.validated_data.get('customer', serializer.instance.customer)
-
-        # Verify user has access to this customer (skip check for global contacts)
-        if customer is not None:
-            if not can_view_customer(self.request.user, customer):
-                raise PermissionError("You don't have access to this customer")
-
+        """Update contact info - all authenticated users can update"""
         serializer.save()
 
     @action(detail=False, methods=['get'])
     def by_customer(self, request):
         """Get all contact info for a specific customer"""
-        from core.permissions import can_view_customer
         customer_id = request.query_params.get('customer_id')
         if not customer_id:
             return Response({"error": "customer_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check user has access to this customer
+        # Check customer exists
         try:
             customer = Customer.objects.get(id=customer_id)
-            if not can_view_customer(request.user, customer):
-                return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
         except Customer.DoesNotExist:
             return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -327,13 +257,6 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
         customer_id = request.query_params.get('customer_id')
         if not customer_id:
             return Response({"error": "customer_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check user has access to this customer
-        if not CustomerMembership.objects.filter(
-            customer_id=customer_id,
-            user=request.user
-        ).exists():
-            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
 
         contact = ContactInfo.objects.filter(customer_id=customer_id, is_default=True).first()
         if contact:

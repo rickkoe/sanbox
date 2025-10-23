@@ -31,17 +31,11 @@ from .views import (
     table_columns_list,
     user_detail,
     user_change_password,
-    user_customer_memberships,
-    customer_memberships_list,
-    customer_invite_user,
     customer_add_member,
-    customer_membership_detail,
-    project_groups_list,
-    project_group_detail,
-    project_group_members,
-    project_group_member_remove,
-    users_list,
 )
+# Removed: users_list, user_customer_memberships, customer_memberships_list, customer_invite_user,
+#          customer_membership_detail, project_groups_list, project_group_detail,
+#          project_group_members, project_group_member_remove
 
 # Import new dashboard views
 from .dashboard_views import (
@@ -104,21 +98,12 @@ urlpatterns = [
     path("custom-variables/<int:pk>/", custom_variable_detail, name="custom-variable-detail"),
     path("table-columns/", table_columns_list, name="table-columns-list"),
 
-    # User & Team Management endpoints
-    path("users/", users_list, name="users-list"),
+    # User Management endpoints (membership endpoints removed)
     path("users/<int:user_id>/", user_detail, name="user-detail"),
     path("users/<int:user_id>/change-password/", user_change_password, name="user-change-password"),
-    path("users/<int:user_id>/customer-memberships/", user_customer_memberships, name="user-customer-memberships"),
-    path("customers/<int:customer_id>/memberships/", customer_memberships_list, name="customer-memberships-list"),
-    path("customers/<int:customer_id>/invite/", customer_invite_user, name="customer-invite-user"),
     path("customers/<int:customer_id>/add-member/", customer_add_member, name="customer-add-member"),
-    path("customer-memberships/<int:membership_id>/", customer_membership_detail, name="customer-membership-detail"),
 
-    # Project Groups endpoints
-    path("customers/<int:customer_id>/project-groups/", project_groups_list, name="project-groups-list"),
-    path("project-groups/<int:group_id>/", project_group_detail, name="project-group-detail"),
-    path("project-groups/<int:group_id>/members/", project_group_members, name="project-group-members"),
-    path("project-groups/<int:group_id>/members/<int:user_id>/", project_group_member_remove, name="project-group-member-remove"),
+    # Project Groups endpoints removed - groups no longer exist
 
     # ========== CUSTOMIZABLE DASHBOARD ENDPOINTS ==========
     # Dashboard Layout Management

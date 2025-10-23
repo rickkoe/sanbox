@@ -71,7 +71,6 @@ const ImportSwitchConfig = React.lazy(() => import("./components/forms/ImportSwi
 const StorageInsightsImporter = React.lazy(() => import("./pages/StorageInsightsImporter"));
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
 const CustomNamingPage = React.lazy(() => import("./pages/CustomNamingPage"));
-const TeamManagement = React.lazy(() => import("./pages/TeamManagement"));
 const UserProfile = React.lazy(() => import("./pages/UserProfile"));
 const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
 const UniversalImporter = React.lazy(() => import("./pages/UniversalImporter"));
@@ -121,7 +120,6 @@ function AppContent() {
     '/import',
     '/tools/custom-naming',
     '/profile',
-    '/team',
     '/settings/backups',
     '/settings/backups/dashboard',
     '/settings/backups/restore-history'
@@ -223,7 +221,6 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/settings/project-config" element={<ConfigForm />} />
                     <Route path="/settings/app-settings" element={<SettingsPage />} />
                     <Route path="/profile" element={<UserProfile />} />
-                    <Route path="/team" element={<TeamManagement />} />
                     <Route path="/tools" element={<ToolsPage />} />
                     <Route path="/scripts" element={<ScriptsPage />} />
                     <Route path="/scripts/zoning" element={<ZoneScriptsPage />} />
