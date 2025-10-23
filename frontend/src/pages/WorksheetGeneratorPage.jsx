@@ -10,6 +10,7 @@ const WorksheetGeneratorPage = () => {
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [implementationCompany, setImplementationCompany] = useState(null);
+  const [defaultContactId, setDefaultContactId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
@@ -134,7 +135,20 @@ const WorksheetGeneratorPage = () => {
 
         // Load contacts for the implementation company
         const response = await api.get(`/api/customers/contact-info/?customer=${implCompany.id}`);
-        setContacts(response.data);
+        const loadedContacts = response.data;
+        setContacts(loadedContacts);
+
+        // Auto-select the default contact for all sites
+        const defaultContact = loadedContacts.find(c => c.is_default === true);
+        if (defaultContact) {
+          setDefaultContactId(defaultContact.id.toString());
+          setSites(prevSites => prevSites.map(site => ({
+            ...site,
+            implementationContacts: site.implementationContacts.length > 0
+              ? site.implementationContacts
+              : [defaultContact.id.toString()]
+          })));
+        }
       } else {
         // No implementation company set yet
         setImplementationCompany(null);
@@ -316,8 +330,8 @@ const WorksheetGeneratorPage = () => {
       // Network defaults
       defaultSubnetMask: '',
       defaultGateway: '',
-      // Implementation team contacts
-      implementationContacts: [],
+      // Implementation team contacts - auto-select default contact
+      implementationContacts: defaultContactId ? [defaultContactId] : [],
       equipment: {}
     };
     setSites([...sites, newSite]);
