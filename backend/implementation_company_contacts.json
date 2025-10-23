@@ -6,7 +6,7 @@
       "name": "Rick Koetter",
       "email": "rick.k@evolvingsol.com",
       "phone_number": "612-321-1854",
-      "title": "Storage Delivery Consultant",
+      "title": "Delivery Consultant",
       "is_default": true,
       "notes": ""
     }
@@ -23,7 +23,7 @@
       "notes": ""
     }
   },
-    {
+  {
     "model": "customers.contactinfo",
     "fields": {
       "customer": null,

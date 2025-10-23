@@ -22,5 +22,29 @@
       "is_default": false,
       "notes": ""
     }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Paul Manuel",
+      "email": "paul.m@evolvingsol.com",
+      "phone_number": "952-818-0082",
+      "title": "IBM Power Architect",
+      "is_default": false,
+      "notes": ""
+    }
+  },
+    {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Doug Hill",
+      "email": "doug.h@evolvingsol.com",
+      "phone_number": "612-718-4027",
+      "title": "IBM Power Delivery Consultant",
+      "is_default": false,
+      "notes": ""
+    }
   }
 ]
