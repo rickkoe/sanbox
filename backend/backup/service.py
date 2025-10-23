@@ -16,6 +16,7 @@ from django.conf import settings
 from django.db import connection
 from django.apps import apps
 from django.core.management import call_command
+from django.utils import timezone
 from .models import BackupRecord, BackupConfiguration, RestoreRecord
 from .logger import BackupLogger
 
@@ -41,7 +42,7 @@ class BackupService:
         try:
             self.logger.info("Starting backup process")
             self.backup_record.status = 'in_progress'
-            self.backup_record.started_at = datetime.now()
+            self.backup_record.started_at = timezone.now()
             self.backup_record.save()
 
             # Collect version information
@@ -86,9 +87,21 @@ class BackupService:
                     self.logger.warning("Media backup failed, continuing without media")
 
             # Mark as completed
+            # Use direct database update to avoid ORM caching issues
+            completed_at = timezone.now()
+            BackupRecord.objects.filter(id=self.backup_record.id).update(
+                status='completed',
+                completed_at=completed_at,
+                file_path=str(backup_path),
+                file_size=backup_path.stat().st_size,
+                checksum=checksum
+            )
+            # Update local object for logging
             self.backup_record.status = 'completed'
-            self.backup_record.completed_at = datetime.now()
-            self.backup_record.save()
+            self.backup_record.completed_at = completed_at
+            self.backup_record.file_path = str(backup_path)
+            self.backup_record.file_size = backup_path.stat().st_size
+            self.backup_record.checksum = checksum
 
             self.logger.info(
                 f"Backup completed successfully. "
@@ -106,7 +119,7 @@ class BackupService:
             self.logger.error(f"Backup failed: {error_msg}")
             self.backup_record.status = 'failed'
             self.backup_record.error_message = error_msg
-            self.backup_record.completed_at = datetime.now()
+            self.backup_record.completed_at = timezone.now()
             self.backup_record.save()
             return (False, error_msg)
 
@@ -127,6 +140,11 @@ class BackupService:
                 '--format', 'custom',  # Custom format for flexibility
                 '--file', str(backup_path),
                 '--verbose',
+                # Exclude backup tables to prevent corruption during restore
+                '--exclude-table=public.backup_backuprecord',
+                '--exclude-table=public.backup_backuplog',
+                '--exclude-table=public.backup_restorerecord',
+                '--exclude-table=public.backup_backupconfiguration',
             ]
 
             if self.config.use_compression:
@@ -377,13 +395,34 @@ class BackupService:
             return (False, error_msg)
 
 
+class RestoreLogger:
+    """Logger for restore operations - logs to Python logging instead of database"""
+
+    def __init__(self, restore_record):
+        import logging
+        self.restore_record = restore_record
+        self.py_logger = logging.getLogger(f'backup.restore.{restore_record.id}')
+
+    def debug(self, message, details=None):
+        self.py_logger.debug(f"Restore #{self.restore_record.id}: {message}")
+
+    def info(self, message, details=None):
+        self.py_logger.info(f"Restore #{self.restore_record.id}: {message}")
+
+    def warning(self, message, details=None):
+        self.py_logger.warning(f"Restore #{self.restore_record.id}: {message}")
+
+    def error(self, message, details=None):
+        self.py_logger.error(f"Restore #{self.restore_record.id}: {message}")
+
+
 class RestoreService:
     """Service for restoring database from backups"""
 
     def __init__(self, restore_record):
         self.restore_record = restore_record
         self.backup_record = restore_record.backup
-        self.logger = BackupLogger(self.backup_record)
+        self.logger = RestoreLogger(restore_record)
 
     def restore_backup(self):
         """
@@ -432,11 +471,23 @@ class RestoreService:
                 self._run_migrations()
 
             # Mark as completed
-            self.restore_record.status = 'completed'
-            self.restore_record.completed_at = datetime.now()
-            self.restore_record.save()
+            # NOTE: Do NOT refresh_from_db() here! The database was just restored,
+            # so the RestoreRecord we're working with may no longer exist in the DB.
+            # We need to recreate it after the restore.
+            try:
+                # Try to update if it still exists
+                RestoreRecord.objects.filter(id=self.restore_record.id).update(
+                    status='completed',
+                    completed_at=timezone.now()
+                )
+            except Exception:
+                # If it doesn't exist, recreate it
+                self.restore_record.id = None  # Clear ID to force INSERT
+                self.restore_record.status = 'completed'
+                self.restore_record.completed_at = timezone.now()
+                self.restore_record.save()
 
-            self.logger.info(f"Restore completed successfully in {self.restore_record.duration}")
+            self.logger.info(f"Restore completed successfully")
             return (True, None)
 
         except Exception as e:
@@ -444,7 +495,7 @@ class RestoreService:
             self.logger.error(f"Restore failed: {error_msg}")
             self.restore_record.status = 'failed'
             self.restore_record.error_message = error_msg
-            self.restore_record.completed_at = datetime.now()
+            self.restore_record.completed_at = timezone.now()
             self.restore_record.save()
             return (False, error_msg)
 
@@ -598,11 +649,48 @@ class RestoreService:
             # pg_restore may return non-zero even on success due to warnings
             # Check stderr for critical errors
             if result.returncode != 0:
-                # Log stderr but don't necessarily fail
-                self.logger.warning(f"pg_restore stderr: {result.stderr}")
+                # Filter stderr to remove non-critical warnings before logging
+                filtered_lines = []
+                critical_errors = []
 
-                # Only fail if there are critical errors
-                if 'FATAL' in result.stderr or 'could not' in result.stderr.lower():
+                for line in result.stderr.split('\n'):
+                    lower_line = line.lower()
+
+                    # Skip empty lines
+                    if not line.strip():
+                        continue
+
+                    # Skip known non-critical warnings and messages
+                    if 'warning:' in lower_line:
+                        continue
+                    if 'unrecognized configuration parameter' in lower_line:
+                        continue
+                    if 'errors ignored on restore' in lower_line:
+                        continue
+                    if 'transaction_timeout' in lower_line:
+                        continue
+                    # Skip verbose pg_restore progress messages
+                    if line.startswith('pg_restore: creating') or line.startswith('pg_restore: dropping'):
+                        continue
+                    if line.startswith('pg_restore: connecting to database'):
+                        continue
+                    if line.startswith('pg_restore: while INITIALIZING'):
+                        continue
+
+                    # Check for actual fatal errors
+                    if 'fatal' in lower_line and 'error:' in lower_line:
+                        critical_errors.append(line)
+
+                    # Keep other potentially important messages
+                    if 'error' in lower_line or 'fatal' in lower_line:
+                        filtered_lines.append(line)
+
+                # Only log if there are filtered messages (not just verbose output)
+                if filtered_lines:
+                    self.logger.warning(f"pg_restore messages: {'; '.join(filtered_lines[:10])}")
+
+                if critical_errors:
+                    self.logger.error(f"Critical restore errors: {critical_errors}")
                     return False
 
             self.logger.info("pg_restore completed")
