@@ -18,7 +18,7 @@
       "name": "Phillip Moore",
       "email": "phillip.moore@evolvingsol.com",
       "phone_number": "612-209-4277",
-      "title": "IBM Storage Engineer",
+      "title": "Delivery Consultant",
       "is_default": false,
       "notes": ""
     }
@@ -30,7 +30,7 @@
       "name": "Paul Manuel",
       "email": "paul.m@evolvingsol.com",
       "phone_number": "952-818-0082",
-      "title": "IBM Power Architect",
+      "title": "Solution Architect",
       "is_default": false,
       "notes": ""
     }
@@ -42,7 +42,7 @@
       "name": "Doug Hill",
       "email": "doug.h@evolvingsol.com",
       "phone_number": "612-718-4027",
-      "title": "IBM Power Delivery Consultant",
+      "title": "Delivery Consultant",
       "is_default": false,
       "notes": ""
     }
@@ -55,6 +55,42 @@
       "email": "doug.m@evolvingsol.com",
       "phone_number": "612-805-2882",
       "title": "Client Technical Advisor",
+      "is_default": false,
+      "notes": ""
+    }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Roger Ecklund",
+      "email": "roger.e@evolvingsol.com",
+      "phone_number": "952-237-6998",
+      "title": "Solution Architect",
+      "is_default": false,
+      "notes": ""
+    }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Shaun Flynn",
+      "email": "shaun.f@evolvingsol.com",
+      "phone_number": "612-963-6855",
+      "title": "Solution Architect",
+      "is_default": false,
+      "notes": ""
+    }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Jim Pross",
+      "email": "jim.p@evolvingsol.com",
+      "phone_number": "612-669-4796",
+      "title": "Solution Architect",
       "is_default": false,
       "notes": ""
     }
