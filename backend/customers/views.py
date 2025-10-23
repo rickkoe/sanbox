@@ -54,21 +54,10 @@ def customer_management(request, pk=None):
                 print(f"⚠️  Solution: Access frontend at http://localhost:3000 instead of http://127.0.0.1:3000")
 
             # Build queryset - filter by user's customer memberships
+            # Use centralized permission function which includes implementation company
             if user and user.is_authenticated:
-                # Get customer IDs the user is a member of
-                customer_ids = list(CustomerMembership.objects.filter(
-                    user=user
-                ).values_list('customer_id', flat=True))
-
-                # Also include the implementation company for all users
-                try:
-                    impl_company = Customer.objects.get(is_implementation_company=True)
-                    if impl_company.id not in customer_ids:
-                        customer_ids.append(impl_company.id)
-                except Customer.DoesNotExist:
-                    pass  # No implementation company set
-
-                customers = Customer.objects.filter(id__in=customer_ids)
+                from core.permissions import get_user_customers
+                customers = get_user_customers(user)
             else:
                 # Unauthenticated users see no customers
                 customers = Customer.objects.none()
@@ -271,19 +260,11 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
             queryset = ContactInfo.objects.all()
         else:
             # Get customer IDs the user has access to
-            customer_ids = list(CustomerMembership.objects.filter(
-                user=user
-            ).values_list('customer_id', flat=True))
+            # Use centralized permission function which includes implementation company
+            from core.permissions import get_user_customer_ids
+            customer_ids = get_user_customer_ids(user)
 
-            # Also include the implementation company's contacts for all users
-            try:
-                impl_company = Customer.objects.get(is_implementation_company=True)
-                if impl_company.id not in customer_ids:
-                    customer_ids.append(impl_company.id)
-            except Customer.DoesNotExist:
-                pass  # No implementation company set yet
-
-            # If user has no customer memberships and no implementation company, return empty queryset
+            # If user has no customer access, return empty queryset
             if not customer_ids:
                 queryset = ContactInfo.objects.none()
             else:
@@ -298,28 +279,24 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Create contact info with permission check"""
+        from core.permissions import can_view_customer
         customer = serializer.validated_data.get('customer')
 
         # Verify user has access to this customer (skip check for global contacts)
         if customer is not None:
-            if not CustomerMembership.objects.filter(
-                customer=customer,
-                user=self.request.user
-            ).exists():
+            if not can_view_customer(self.request.user, customer):
                 raise PermissionError("You don't have access to this customer")
 
         serializer.save()
 
     def perform_update(self, serializer):
         """Update contact info with permission check"""
+        from core.permissions import can_view_customer
         customer = serializer.validated_data.get('customer', serializer.instance.customer)
 
         # Verify user has access to this customer (skip check for global contacts)
         if customer is not None:
-            if not CustomerMembership.objects.filter(
-                customer=customer,
-                user=self.request.user
-            ).exists():
+            if not can_view_customer(self.request.user, customer):
                 raise PermissionError("You don't have access to this customer")
 
         serializer.save()
@@ -327,16 +304,18 @@ class ContactInfoViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def by_customer(self, request):
         """Get all contact info for a specific customer"""
+        from core.permissions import can_view_customer
         customer_id = request.query_params.get('customer_id')
         if not customer_id:
             return Response({"error": "customer_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check user has access to this customer
-        if not CustomerMembership.objects.filter(
-            customer_id=customer_id,
-            user=request.user
-        ).exists():
-            return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            customer = Customer.objects.get(id=customer_id)
+            if not can_view_customer(request.user, customer):
+                return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
+        except Customer.DoesNotExist:
+            return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
 
         contacts = ContactInfo.objects.filter(customer_id=customer_id).order_by('-is_default', 'name')
         serializer = self.get_serializer(contacts, many=True)

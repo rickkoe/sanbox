@@ -10,9 +10,24 @@ from customers.models import Customer
 from core.models import Project, CustomerMembership
 
 
+def _get_implementation_company() -> Optional[Customer]:
+    """
+    Get the implementation company (customer with is_implementation_company=True).
+
+    Returns:
+        Customer object if found, None otherwise
+    """
+    try:
+        return Customer.objects.get(is_implementation_company=True)
+    except Customer.DoesNotExist:
+        return None
+
+
 def get_user_role(user: User, customer: Customer) -> Optional[str]:
     """
     Get the user's role for a specific customer.
+
+    All authenticated users have implicit 'admin' role for the implementation company.
 
     Args:
         user: The User object
@@ -21,6 +36,13 @@ def get_user_role(user: User, customer: Customer) -> Optional[str]:
     Returns:
         str: The role ('admin', 'member', 'viewer') or None if no membership exists
     """
+    if not user or not user.is_authenticated:
+        return None
+
+    # All authenticated users are admins of the implementation company
+    if customer.is_implementation_company:
+        return 'admin'
+
     try:
         membership = CustomerMembership.objects.get(customer=customer, user=user)
         return membership.role
@@ -182,19 +204,28 @@ def get_user_customers(user: User):
     """
     Get all customers the user has access to.
 
+    All authenticated users have access to the implementation company.
+
     Args:
         user: The User object
 
     Returns:
-        QuerySet: Customer objects the user is a member of
+        QuerySet: Customer objects the user is a member of (plus implementation company)
     """
+    from django.db.models import Q
+
     if not user or not user.is_authenticated:
         return Customer.objects.none()
 
     # Get customers through memberships
-    customer_ids = CustomerMembership.objects.filter(
+    customer_ids = list(CustomerMembership.objects.filter(
         user=user
-    ).values_list('customer_id', flat=True)
+    ).values_list('customer_id', flat=True))
+
+    # All authenticated users have access to the implementation company
+    impl_company = _get_implementation_company()
+    if impl_company and impl_company.id not in customer_ids:
+        customer_ids.append(impl_company.id)
 
     return Customer.objects.filter(id__in=customer_ids)
 
@@ -296,6 +327,8 @@ def get_user_customer_ids(user: User):
     """
     Get list of customer IDs that the user has access to.
 
+    All authenticated users have access to the implementation company.
+
     Args:
         user: Django User object
 
@@ -305,14 +338,23 @@ def get_user_customer_ids(user: User):
     if not user or not user.is_authenticated:
         return []
 
-    return list(CustomerMembership.objects.filter(
+    customer_ids = list(CustomerMembership.objects.filter(
         user=user
     ).values_list('customer_id', flat=True))
+
+    # All authenticated users have access to the implementation company
+    impl_company = _get_implementation_company()
+    if impl_company and impl_company.id not in customer_ids:
+        customer_ids.append(impl_company.id)
+
+    return customer_ids
 
 
 def filter_by_customer_access(queryset, user: User, customer_field: str = 'customer'):
     """
     Filter a queryset to only include items from customers the user has access to.
+
+    All authenticated users have access to the implementation company's objects.
 
     Args:
         queryset: Django QuerySet to filter
@@ -328,7 +370,7 @@ def filter_by_customer_access(queryset, user: User, customer_field: str = 'custo
         # No access - return empty queryset
         return queryset.none()
 
-    # Filter by accessible customers
+    # Filter by accessible customers (includes implementation company via get_user_customer_ids)
     filter_kwargs = {f'{customer_field}_id__in': customer_ids}
     return queryset.filter(**filter_kwargs)
 
@@ -337,6 +379,8 @@ def filter_by_fabric_customer_access(queryset, user: User):
     """
     Filter a queryset to only include items from fabrics belonging to accessible customers.
     Used for Alias and Zone models which reference Fabric.
+
+    All authenticated users have access to the implementation company's fabrics.
 
     Args:
         queryset: Django QuerySet to filter (Alias or Zone)
@@ -351,5 +395,5 @@ def filter_by_fabric_customer_access(queryset, user: User):
         # No access - return empty queryset
         return queryset.none()
 
-    # Filter by fabrics belonging to accessible customers
+    # Filter by fabrics belonging to accessible customers (includes implementation company via get_user_customer_ids)
     return queryset.filter(fabric__customer_id__in=customer_ids)

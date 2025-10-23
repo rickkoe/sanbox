@@ -39,8 +39,13 @@ const ConfigForm = () => {
             fetchConfigForCustomer(newCustomer.id);
             setShowCustomerModal(false);
             setNewCustomerName("");
+            setSaveStatus("Customer created successfully!");
+            setTimeout(() => setSaveStatus(""), 3000);
         } catch (error) {
             console.error("❌ Error adding customer:", error);
+            const errorMessage = error.response?.data?.error || "Failed to create customer. Please try again.";
+            setSaveStatus(`Error: ${errorMessage}`);
+            setTimeout(() => setSaveStatus(""), 5000);
         }
     };
     const handleAddProject = async () => {
@@ -54,8 +59,13 @@ const ConfigForm = () => {
             setUnsavedConfig(prev => ({ ...prev, project: String(newProject.id), active_project_id: String(newProject.id) }));
             setShowProjectModal(false);
             setNewProjectName("");
+            setSaveStatus("Project created successfully!");
+            setTimeout(() => setSaveStatus(""), 3000);
         } catch (error) {
             console.error("❌ Error adding project:", error);
+            const errorMessage = error.response?.data?.error || "Failed to create project. Please try again.";
+            setSaveStatus(`Error: ${errorMessage}`);
+            setTimeout(() => setSaveStatus(""), 5000);
         }
     };
 

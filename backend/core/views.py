@@ -419,15 +419,10 @@ def create_project_for_customer(request):
                 return JsonResponse({"error": "Customer not found."}, status=404)
 
             # Check if user has permission to create projects for this customer
-            membership = CustomerMembership.objects.filter(
-                customer=customer,
-                user=user
-            ).first()
-            if not membership:
-                return JsonResponse({"error": "You must be a member of this customer to create projects"}, status=403)
-            # Viewer role can't create projects
-            if membership.role == 'viewer':
-                return JsonResponse({"error": "Viewers cannot create projects"}, status=403)
+            # Use centralized permission function which respects implicit admin access for implementation company
+            from core.permissions import can_create_project
+            if not can_create_project(user, customer):
+                return JsonResponse({"error": "You don't have permission to create projects for this customer"}, status=403)
 
             print(f"📝 Creating project with name: {name}")
 
@@ -622,22 +617,11 @@ def delete_project(request, project_id):
             return JsonResponse({"error": "Project not found."}, status=404)
 
         # Check if user has permission to delete this project
+        # Use centralized permission function which respects implicit admin access for implementation company
+        from core.permissions import can_modify_project
         if not user.is_superuser:
-            # Get the customer that owns this project
-            customer = project.customers.first()
-            if customer:
-                membership = CustomerMembership.objects.filter(
-                    customer=customer,
-                    user=user,
-                    role='admin'  # Only admins can delete projects
-                ).first()
-                # User must be admin of customer OR owner of project
-                if not membership and project.owner != user:
-                    return JsonResponse({"error": "Only admins or project owners can delete projects"}, status=403)
-            else:
-                # No customer, only owner can delete
-                if project.owner != user:
-                    return JsonResponse({"error": "Permission denied"}, status=403)
+            if not can_modify_project(user, project):
+                return JsonResponse({"error": "Only admins or project owners can delete projects"}, status=403)
 
         project_name = project.name
         
