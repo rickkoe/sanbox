@@ -175,8 +175,8 @@ services:
     container_name: sanbox_frontend
     ports:
       - "80:8080"
-      # Uncomment for HTTPS (after running ./setup-ssl.sh)
-      - "443:8443"
+      # Uncomment for HTTPS (after running ./setup-ssl.sh or ./setup-ssl-selfsigned.sh)
+      # - "443:8443"
     volumes:
       # Share static files from backend
       - static_files:/app/static:ro
@@ -187,8 +187,8 @@ services:
       # - /var/www/certbot:/var/www/certbot:ro
       # - ./nginx/nginx-ssl-active.conf:/etc/nginx/conf.d/default.conf:ro
       # Uncomment for HTTPS with self-signed cert (after running ./setup-ssl-selfsigned.sh)
-      - /etc/ssl/sanbox:/etc/ssl/sanbox:ro
-      - ./nginx/nginx-ssl-selfsigned.conf:/etc/nginx/conf.d/default.conf:ro
+      # - /etc/ssl/sanbox:/etc/ssl/sanbox:ro
+      # - ./nginx/nginx-ssl-selfsigned.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       backend:
         condition: service_healthy
