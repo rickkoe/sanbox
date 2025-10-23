@@ -15,6 +15,7 @@ const WorksheetGeneratorPage = () => {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [validationError, setValidationError] = useState(null);
 
   // Form state
   const [customerName, setCustomerName] = useState('');
@@ -593,11 +594,25 @@ const WorksheetGeneratorPage = () => {
       setGenerating(true);
       setError(null);
       setSuccess(null);
+      setValidationError(null);
 
       // Validate at least one site has equipment
       const hasEquipment = sites.some(site => Object.keys(site.equipment).length > 0);
       if (!hasEquipment) {
-        setError('Please select at least one equipment type for at least one site');
+        setValidationError('Please select at least one equipment type for at least one site');
+        setGenerating(false);
+        return;
+      }
+
+      // Validate all sites have at least one implementation contact
+      const sitesWithoutContacts = sites
+        .map((site, index) => ({ site, index }))
+        .filter(({ site }) => !site.implementationContacts || site.implementationContacts.length === 0);
+
+      if (sitesWithoutContacts.length > 0) {
+        const siteNames = sitesWithoutContacts.map(({ site }) => site.name).join(', ');
+        setValidationError(`Please select at least one implementation team contact for: ${siteNames}`);
+        setGenerating(false);
         return;
       }
 
@@ -1075,6 +1090,7 @@ const WorksheetGeneratorPage = () => {
                       <Form.Group>
                         <Form.Label>
                           <strong>Implementation Team Contacts</strong>
+                          <span className="text-danger"> *</span>
                           {implementationCompany && ` (${implementationCompany.name})`}
                         </Form.Label>
                         <Form.Select
@@ -1102,7 +1118,7 @@ const WorksheetGeneratorPage = () => {
                   <hr />
 
                   {/* Equipment Selection for this Site */}
-                  <h6 className="mb-3">Select Equipment Types</h6>
+                  <h6 className="mb-3">Select Equipment Types<span className="text-danger"> *</span></h6>
                   <div className="equipment-grid mb-3">
                     {equipmentTypes.map(equipmentType => (
                       <div
@@ -1234,6 +1250,11 @@ const WorksheetGeneratorPage = () => {
 
       {/* Generate Button */}
       <div className="text-center mt-4 mb-5">
+        {validationError && (
+          <Alert variant="danger" className="mb-3" onClose={() => setValidationError(null)} dismissible>
+            <strong>Validation Error:</strong> {validationError}
+          </Alert>
+        )}
         <Button
           variant="primary"
           size="lg"
