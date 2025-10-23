@@ -76,6 +76,9 @@ const UserProfile = React.lazy(() => import("./pages/UserProfile"));
 const BulkZoningImportPage = React.lazy(() => import("./pages/BulkZoningImportPage"));
 const UniversalImporter = React.lazy(() => import("./pages/UniversalImporter"));
 const WorksheetGeneratorPage = React.lazy(() => import("./pages/WorksheetGeneratorPage"));
+const BackupManagement = React.lazy(() => import("./pages/BackupManagement"));
+const BackupDashboard = React.lazy(() => import("./pages/BackupDashboard"));
+const RestoreHistory = React.lazy(() => import("./pages/RestoreHistory"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -118,7 +121,10 @@ function AppContent() {
     '/import',
     '/tools/custom-naming',
     '/profile',
-    '/team'
+    '/team',
+    '/settings/backups',
+    '/settings/backups/dashboard',
+    '/settings/backups/restore-history'
   ];
 
   // Check for scrollable routes including dynamic routes
@@ -258,6 +264,9 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                   />
                     <Route path="/import-data" element={<ImportSwitchConfig />} />
                     <Route path="/tools/custom-naming" element={<CustomNamingPage />} />
+                    <Route path="/settings/backups" element={<BackupManagement />} />
+                    <Route path="/settings/backups/dashboard" element={<BackupDashboard />} />
+                    <Route path="/settings/backups/restore-history" element={<RestoreHistory />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

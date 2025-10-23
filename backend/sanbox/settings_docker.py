@@ -41,6 +41,20 @@ REDIS_DB = os.environ.get('REDIS_DB', '0')
 
 CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
 CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/Chicago'  # Set to your timezone
+
+# Celery Beat schedule for periodic tasks
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'auto-backup-hourly': {
+        'task': 'backup.tasks.auto_backup_task',
+        'schedule': crontab(minute='0'),  # Run at the top of every hour
+    },
+}
 
 # Static and media files
 STATIC_ROOT = os.environ.get('STATIC_ROOT', '/app/static/')

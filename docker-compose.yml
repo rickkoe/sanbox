@@ -20,10 +20,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '0.5'
           memory: 2G
         reservations:
-          cpus: '1'
+          cpus: '0.2'
           memory: 1G
 
   # Redis Cache and Message Broker
@@ -44,7 +44,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '0.3'
           memory: 512M
 
   # Django Backend (Production Mode with Gunicorn)
@@ -67,6 +67,8 @@ services:
       - media_files:/app/media
       # Static files (shared with nginx)
       - static_files:/app/static
+      # Persist backups
+      - backup_files:/app/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,10 +86,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '0.75'
           memory: 2G
         reservations:
-          cpus: '1'
+          cpus: '0.3'
           memory: 512M
 
   # Celery Worker
@@ -108,6 +110,8 @@ services:
       - ./logs:/app/logs
       # Share media files
       - media_files:/app/media
+      # Share backups
+      - backup_files:/app/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,10 +126,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: '0.75'
           memory: 2G
         reservations:
-          cpus: '1'
+          cpus: '0.3'
           memory: 512M
 
   # Celery Beat (Scheduler)
@@ -146,6 +150,8 @@ services:
       - ./logs:/app/logs
       # Share media files
       - media_files:/app/media
+      # Share backups
+      - backup_files:/app/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -160,7 +166,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '0.2'
           memory: 512M
 
   # React Frontend (Production Build served by Nginx - acts as reverse proxy)
@@ -201,7 +207,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: '0.5'
           memory: 512M
 
 networks:
@@ -216,4 +222,6 @@ volumes:
   media_files:
     driver: local
   static_files:
+    driver: local
+  backup_files:
     driver: local

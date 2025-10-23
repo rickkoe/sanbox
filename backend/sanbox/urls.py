@@ -25,4 +25,5 @@ urlpatterns = [
     path("api/san/", include("san.urls")),  # API for SAN
     path("api/storage/", include("storage.urls")),  # API for Storage
     path("api/importer/", include("importer.urls")),  # API for Simple Importer
+    path("api/backup/", include("backup.urls")),  # API for Backup & Restore
 ]

@@ -56,6 +56,8 @@ services:
       - ./dev_logs:/app/logs
       # Persist media files
       - media_files_dev:/app/media
+      # Persist backups
+      - ./dev_backups:/app/backups
     ports:
       - "8000:8000"
     depends_on:
@@ -94,6 +96,8 @@ services:
       - ./dev_logs:/app/logs
       # Share media files
       - media_files_dev:/app/media
+      # Share backups
+      - ./dev_backups:/app/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,6 +128,8 @@ services:
       - ./dev_logs:/app/logs
       # Share media files
       - media_files_dev:/app/media
+      # Share backups
+      - ./dev_backups:/app/backups
     depends_on:
       postgres:
         condition: service_healthy
