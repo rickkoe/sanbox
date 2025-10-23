@@ -9,7 +9,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-FIXTURE_FILE="${1:-$PROJECT_DIR/equipment_types_fixture.json}"
+FIXTURE_FILE="${1:-$SCRIPT_DIR/fixtures/equipment_types_fixture.json}"
 
 echo "================================================"
 echo "Equipment Types Import Script"

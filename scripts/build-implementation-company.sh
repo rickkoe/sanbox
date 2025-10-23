@@ -10,8 +10,8 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-CONTACTS_FIXTURE="$SCRIPT_DIR/implementation_company_contacts.json"
-EQUIPMENT_TYPES_FIXTURE="$PROJECT_DIR/equipment_types_fixture.json"
+CONTACTS_FIXTURE="$SCRIPT_DIR/fixtures/implementation_company_contacts.json"
+EQUIPMENT_TYPES_FIXTURE="$SCRIPT_DIR/fixtures/equipment_types_fixture.json"
 
 echo "================================================"
 echo "Implementation Company Setup Script"
@@ -220,13 +220,18 @@ echo "Step 3: Importing equipment types..."
 echo "------------------------------------"
 
 if [ -f "$EQUIPMENT_TYPES_FIXTURE" ]; then
-    # Call the import-equipment-types.sh script with auto-confirm
-    if [ "$ENV_NAME" = "PRODUCTION" ]; then
-        echo "n" | "$SCRIPT_DIR/import-equipment-types.sh" "$EQUIPMENT_TYPES_FIXTURE" 2>/dev/null || true
-        echo "y" | "$SCRIPT_DIR/import-equipment-types.sh" "$EQUIPMENT_TYPES_FIXTURE"
+    # Import equipment types directly (skip the interactive script prompts)
+    echo "Copying fixture to container..."
+    docker cp "$EQUIPMENT_TYPES_FIXTURE" "$CONTAINER_NAME:/app/equipment_types_fixture.json"
+
+    echo "Loading fixture into database..."
+    if [ "$COMPOSE_FILE" = "docker-compose.dev.yml" ]; then
+        docker-compose -f docker-compose.dev.yml exec -T backend python manage.py loaddata /app/equipment_types_fixture.json
     else
-        "$SCRIPT_DIR/import-equipment-types.sh" "$EQUIPMENT_TYPES_FIXTURE"
+        docker-compose exec -T backend python manage.py loaddata /app/equipment_types_fixture.json
     fi
+
+    echo "✓ Equipment types imported!"
 else
     echo "⚠️  Equipment types fixture not found: $EQUIPMENT_TYPES_FIXTURE"
     echo "  Skipping equipment types import."
