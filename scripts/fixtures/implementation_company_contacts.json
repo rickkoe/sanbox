@@ -94,5 +94,65 @@
       "is_default": false,
       "notes": ""
     }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Joel Conaway",
+      "email": "joel.c@evolvingsol.com",
+      "phone_number": "952-210-2804",
+      "title": "Account Executive",
+      "is_default": false,
+      "notes": ""
+    }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Joe Lyden",
+      "email": "joe.l@evolvingsol.com",
+      "phone_number": "612-850-5167",
+      "title": "Account Executive",
+      "is_default": false,
+      "notes": ""
+    }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Tim Klubertanz",
+      "email": "tim.k@evolvingsol.com",
+      "phone_number": "507-358-1088",
+      "title": "Account Executive",
+      "is_default": false,
+      "notes": ""
+    }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Roxane Akradi",
+      "email": "roxane.a@evolvingsol.com",
+      "phone_number": "612-562-0134",
+      "title": "Account Executive",
+      "is_default": false,
+      "notes": ""
+    }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Brandon Rau",
+      "email": "brandon.rau@evolvingsol.com",
+      "phone_number": "507-261-9607",
+      "title": "Solution Architect",
+      "is_default": false,
+      "notes": ""
+    }
   }
 ]
