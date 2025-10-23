@@ -46,5 +46,17 @@
       "is_default": false,
       "notes": ""
     }
+  },
+  {
+    "model": "customers.contactinfo",
+    "fields": {
+      "customer": null,
+      "name": "Doug Mayer",
+      "email": "doug.m@evolvingsol.com",
+      "phone_number": "612-805-2882",
+      "title": "Client Technical Advisor",
+      "is_default": false,
+      "notes": ""
+    }
   }
 ]
