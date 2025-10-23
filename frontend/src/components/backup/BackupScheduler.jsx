@@ -18,6 +18,7 @@ const BackupScheduler = ({ onSave }) => {
 
   const [formData, setFormData] = useState({
     auto_backup_enabled: false,
+    auto_backup_frequency: 'daily',
     auto_backup_hour: 2,
     auto_backup_include_media: false,
     retention_days: 30,
@@ -35,6 +36,7 @@ const BackupScheduler = ({ onSave }) => {
       setConfig(data);
       setFormData({
         auto_backup_enabled: data.auto_backup_enabled,
+        auto_backup_frequency: data.auto_backup_frequency || 'daily',
         auto_backup_hour: data.auto_backup_hour,
         auto_backup_include_media: data.auto_backup_include_media,
         retention_days: data.retention_days,
@@ -92,11 +94,17 @@ const BackupScheduler = ({ onSave }) => {
 
     const now = new Date();
     const next = new Date();
-    next.setHours(formData.auto_backup_hour, 0, 0, 0);
 
-    // If the time has passed today, schedule for tomorrow
-    if (next <= now) {
-      next.setDate(next.getDate() + 1);
+    if (formData.auto_backup_frequency === 'hourly') {
+      // Next hour
+      next.setHours(now.getHours() + 1, 0, 0, 0);
+    } else {
+      // Daily at configured hour
+      next.setHours(formData.auto_backup_hour, 0, 0, 0);
+      // If the time has passed today, schedule for tomorrow
+      if (next <= now) {
+        next.setDate(next.getDate() + 1);
+      }
     }
 
     return next;
@@ -152,7 +160,7 @@ const BackupScheduler = ({ onSave }) => {
               <span>
                 <strong>Enable Automatic Scheduled Backups</strong>
                 <div className="small text-muted">
-                  Automatically create backups on a daily schedule
+                  Automatically create backups on a scheduled basis
                 </div>
               </span>
             }
@@ -167,27 +175,53 @@ const BackupScheduler = ({ onSave }) => {
             <div className="mb-4">
               <Form.Label>
                 <FaClock className="me-2" />
-                <strong>Backup Time</strong>
+                <strong>Backup Frequency</strong>
               </Form.Label>
               <Form.Select
-                value={formData.auto_backup_hour}
-                onChange={(e) => handleChange('auto_backup_hour', parseInt(e.target.value))}
+                value={formData.auto_backup_frequency}
+                onChange={(e) => handleChange('auto_backup_frequency', e.target.value)}
               >
-                {timeOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
+                <option value="hourly">Hourly - Every hour</option>
+                <option value="daily">Daily - Once per day</option>
               </Form.Select>
               <Form.Text className="text-muted">
-                Server time (local to the server). Daily backups will run at this time.
+                Choose how often automatic backups should run
               </Form.Text>
             </div>
+
+            {formData.auto_backup_frequency === 'daily' && (
+              <div className="mb-4">
+                <Form.Label>
+                  <strong>Daily Backup Time</strong>
+                </Form.Label>
+                <Form.Select
+                  value={formData.auto_backup_hour}
+                  onChange={(e) => handleChange('auto_backup_hour', parseInt(e.target.value))}
+                >
+                  {timeOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  Server time (local to the server). Daily backups will run at this time.
+                </Form.Text>
+              </div>
+            )}
+
+            {formData.auto_backup_frequency === 'hourly' && (
+              <div className="mb-4">
+                <Alert variant="info">
+                  <strong>Hourly Backups:</strong> A backup will be created at the top of every hour (e.g., 1:00, 2:00, 3:00, etc.)
+                </Alert>
+              </div>
+            )}
 
             {nextBackup && (
               <Alert variant="info" className="mb-4">
                 <FaCalendarAlt className="me-2" />
-                <strong>Next Scheduled Backup:</strong>
+                <strong>Next Scheduled Backup ({formData.auto_backup_frequency === 'hourly' ? 'Hourly' : 'Daily'}):</strong>
                 <div className="mt-1">
                   {nextBackup.toLocaleString(undefined, {
                     weekday: 'long',
@@ -199,7 +233,11 @@ const BackupScheduler = ({ onSave }) => {
                   })}
                 </div>
                 <small className="text-muted">
-                  ({Math.ceil((nextBackup - new Date()) / (1000 * 60 * 60))} hours from now)
+                  {formData.auto_backup_frequency === 'hourly' ? (
+                    `(${Math.ceil((nextBackup - new Date()) / (1000 * 60))} minutes from now)`
+                  ) : (
+                    `(${Math.ceil((nextBackup - new Date()) / (1000 * 60 * 60))} hours from now)`
+                  )}
                 </small>
               </Alert>
             )}

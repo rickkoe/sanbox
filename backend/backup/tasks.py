@@ -171,7 +171,7 @@ def auto_backup_task():
     """
     Scheduled task for automatic backups
     Called by Celery Beat at the top of every hour
-    Checks if it should run based on configuration
+    Checks if it should run based on configuration (hourly or daily)
     """
     from .models import BackupConfiguration
     from datetime import datetime, timedelta
@@ -191,29 +191,30 @@ def auto_backup_task():
         now_local = now_utc.astimezone(server_tz)
         current_hour = now_local.hour
 
-        # Check if current hour matches configured hour (in local time)
-        if current_hour != config.auto_backup_hour:
-            return {
-                'status': 'skipped',
-                'reason': f'current hour {current_hour} (local) != configured hour {config.auto_backup_hour}',
-                'current_time_utc': str(now_utc),
-                'current_time_local': str(now_local)
-            }
+        # For daily frequency, only run at the configured hour
+        if config.auto_backup_frequency == 'daily':
+            if current_hour != config.auto_backup_hour:
+                return {
+                    'status': 'skipped',
+                    'reason': f'daily backup: current hour {current_hour} (local) != configured hour {config.auto_backup_hour}',
+                    'current_time_utc': str(now_utc),
+                    'current_time_local': str(now_local)
+                }
 
-        # Check if a backup has already been created today at this hour
+        # Check if a backup has already been created this hour
         # to avoid duplicates if the task runs multiple times
         # Use local time for the range check
-        today_start_local = now_local.replace(hour=config.auto_backup_hour, minute=0, second=0, microsecond=0)
-        today_end_local = today_start_local + timedelta(hours=1)
+        hour_start_local = now_local.replace(minute=0, second=0, microsecond=0)
+        hour_end_local = hour_start_local + timedelta(hours=1)
 
         # Convert back to UTC for database query (Django stores in UTC)
         utc_tz = ZoneInfo('UTC')
-        today_start_utc = today_start_local.astimezone(utc_tz)
-        today_end_utc = today_end_local.astimezone(utc_tz)
+        hour_start_utc = hour_start_local.astimezone(utc_tz)
+        hour_end_utc = hour_end_local.astimezone(utc_tz)
 
         existing_backup = BackupRecord.objects.filter(
-            created_at__gte=today_start_utc,
-            created_at__lt=today_end_utc,
+            created_at__gte=hour_start_utc,
+            created_at__lt=hour_end_utc,
             description__contains="Scheduled automatic backup"
         ).exists()
 

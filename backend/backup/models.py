@@ -353,13 +353,24 @@ class BackupConfiguration(models.Model):
     )
 
     # Automatic Backup Schedule
+    FREQUENCY_CHOICES = [
+        ('hourly', 'Hourly'),
+        ('daily', 'Daily'),
+    ]
+
     auto_backup_enabled = models.BooleanField(
         default=False,
         help_text="Enable automatic scheduled backups"
     )
+    auto_backup_frequency = models.CharField(
+        max_length=10,
+        choices=FREQUENCY_CHOICES,
+        default='daily',
+        help_text="Frequency of automatic backups"
+    )
     auto_backup_hour = models.IntegerField(
         default=2,
-        help_text="Hour of day for automatic backup (0-23)"
+        help_text="Hour of day for automatic backup (0-23) - for daily backups or starting hour for hourly"
     )
     auto_backup_include_media = models.BooleanField(
         default=False,

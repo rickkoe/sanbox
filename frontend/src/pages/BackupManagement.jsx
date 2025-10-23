@@ -226,11 +226,17 @@ const BackupManagement = () => {
 
     const now = new Date();
     const next = new Date();
-    next.setHours(config.auto_backup_hour, 0, 0, 0);
 
-    // If the time has passed today, schedule for tomorrow
-    if (next <= now) {
-      next.setDate(next.getDate() + 1);
+    if (config.auto_backup_frequency === 'hourly') {
+      // Next hour
+      next.setHours(now.getHours() + 1, 0, 0, 0);
+    } else {
+      // Daily at configured hour
+      next.setHours(config.auto_backup_hour, 0, 0, 0);
+      // If the time has passed today, schedule for tomorrow
+      if (next <= now) {
+        next.setDate(next.getDate() + 1);
+      }
     }
 
     return next;
@@ -290,7 +296,7 @@ const BackupManagement = () => {
         <Alert variant={config.auto_backup_enabled ? 'info' : 'warning'} className="mb-4">
           <div className="d-flex align-items-center">
             <FaCalendarAlt className="me-2" />
-            <strong>Next Scheduled Backup:</strong>
+            <strong>Next Scheduled Backup {config.auto_backup_enabled && config.auto_backup_frequency && `(${config.auto_backup_frequency === 'hourly' ? 'Hourly' : 'Daily'})`}:</strong>
             <span className="ms-2">
               {config.auto_backup_enabled ? (
                 nextBackup ? (
@@ -303,7 +309,10 @@ const BackupManagement = () => {
                       minute: '2-digit'
                     })}
                     <span className="text-muted ms-2">
-                      ({Math.ceil((nextBackup - new Date()) / (1000 * 60 * 60))} hours from now)
+                      ({config.auto_backup_frequency === 'hourly'
+                        ? `${Math.ceil((nextBackup - new Date()) / (1000 * 60))} minutes from now`
+                        : `${Math.ceil((nextBackup - new Date()) / (1000 * 60 * 60))} hours from now`
+                      })
                     </span>
                   </>
                 ) : (

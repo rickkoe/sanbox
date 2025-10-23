@@ -374,6 +374,7 @@ def backup_config(request):
                 'backup_directory': config.backup_directory,
                 'max_backups': config.max_backups,
                 'auto_backup_enabled': config.auto_backup_enabled,
+                'auto_backup_frequency': config.auto_backup_frequency,
                 'auto_backup_hour': config.auto_backup_hour,
                 'auto_backup_include_media': config.auto_backup_include_media,
                 'retention_days': config.retention_days,
@@ -391,6 +392,8 @@ def backup_config(request):
                 config.max_backups = data['max_backups']
             if 'auto_backup_enabled' in data:
                 config.auto_backup_enabled = data['auto_backup_enabled']
+            if 'auto_backup_frequency' in data:
+                config.auto_backup_frequency = data['auto_backup_frequency']
             if 'auto_backup_hour' in data:
                 config.auto_backup_hour = data['auto_backup_hour']
             if 'auto_backup_include_media' in data:
