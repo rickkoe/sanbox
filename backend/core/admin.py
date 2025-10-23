@@ -84,11 +84,11 @@ class TableConfigurationAdmin(admin.ModelAdmin):
 
 @admin.register(AppSettings)
 class AppSettingsAdmin(admin.ModelAdmin):
-    list_display = ("user", "theme", "items_per_page", "zone_ratio", "alias_max_zones", "updated_at")
-    list_filter = ("theme", "items_per_page", "zone_ratio", "compact_mode", "auto_refresh", "notifications")
+    list_display = ("user", "theme", "items_per_page", "zone_ratio", "alias_max_zones", "new_users_are_staff", "new_users_are_superuser", "updated_at")
+    list_filter = ("theme", "items_per_page", "zone_ratio", "compact_mode", "auto_refresh", "notifications", "new_users_are_staff", "new_users_are_superuser")
     search_fields = ("user__username",)
     readonly_fields = ("created_at", "updated_at")
-    
+
     fieldsets = (
         ("User", {
             "fields": ("user",)
@@ -102,6 +102,10 @@ class AppSettingsAdmin(admin.ModelAdmin):
         ("SAN Configuration", {
             "fields": ("zone_ratio", "alias_max_zones"),
             "description": "SAN-specific settings moved from Config model"
+        }),
+        ("User Management", {
+            "fields": ("new_users_are_staff", "new_users_are_superuser"),
+            "description": "Controls whether newly registered users automatically receive Django admin access (staff status) and/or full admin privileges (superuser status)"
         }),
         ("Features & Notifications", {
             "fields": ("notifications", "show_advanced_features")

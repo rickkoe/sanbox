@@ -438,7 +438,18 @@ class AppSettings(models.Model):
         default=1,
         help_text="Maximum number of zones per alias"
     )
-    
+
+    # User Management Settings
+    new_users_are_staff = models.BooleanField(
+        default=True,
+        help_text="Automatically grant staff status (Django admin access) to newly registered users"
+    )
+
+    new_users_are_superuser = models.BooleanField(
+        default=True,
+        help_text="Automatically grant superuser status (full admin privileges) to newly registered users"
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -478,6 +489,8 @@ class AppSettings(models.Model):
                 'show_advanced_features': False,
                 'zone_ratio': 'one-to-one',
                 'alias_max_zones': 1,
+                'new_users_are_staff': True,
+                'new_users_are_superuser': True,
             }
         )
         return settings

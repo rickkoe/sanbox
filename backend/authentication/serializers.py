@@ -48,6 +48,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Create new user with hashed password"""
+        from core.models import AppSettings
+
         validated_data.pop('password2')
         user = User.objects.create_user(
             username=validated_data['username'],
@@ -56,6 +58,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', '')
         )
+
+        # Check AppSettings to determine if new users should have staff/superuser status
+        app_settings = AppSettings.get_settings()
+        if app_settings:
+            if app_settings.new_users_are_staff:
+                user.is_staff = True
+            if app_settings.new_users_are_superuser:
+                user.is_superuser = True
+            user.save()
+
         return user
 
 

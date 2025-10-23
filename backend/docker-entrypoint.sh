@@ -54,9 +54,6 @@ python manage.py migrate --noinput
 echo "Creating default superuser if needed..."
 python manage.py create_default_superuser
 
-echo "Setting up demo customer and membership..."
-python manage.py setup_demo_data
-
 echo "Collecting static files..."
 python manage.py collectstatic --noinput || true
 

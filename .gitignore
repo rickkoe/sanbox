@@ -200,8 +200,9 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Migration files (auto-generated per environment)
-backend/*/migrations/[0-9]*.py
+# Migration files should be committed!
+# Migrations are part of your application code and schema history
+# backend/*/migrations/[0-9]*.py  # REMOVED - migrations MUST be in version control
 
 # Development logs
 backend/.DS_Store
