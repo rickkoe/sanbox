@@ -447,6 +447,15 @@ const TanStackCRUDTable = forwardRef(({
       return;
     }
 
+    // Check if preprocessing is blocked BEFORE setting loading state
+    if (preprocessData) {
+      const testResult = preprocessData([]);
+      if (testResult === null) {
+        console.log('⏸️ Load data skipped - preprocessing blocked (table reconfiguration in progress)');
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
 
