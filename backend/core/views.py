@@ -2007,3 +2007,86 @@ def customer_add_member(request, customer_id):
         import traceback
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def active_users_view(request):
+    """
+    Get list of users currently editing customers/projects.
+    Returns users active in last 5 minutes.
+
+    GET /api/core/active-users/
+
+    Response:
+    {
+        "active_users": [
+            {
+                "user": {"id": 1, "username": "john"},
+                "active_customer": {"id": 5, "name": "ACME Corp"},
+                "active_project": {"id": 10, "name": "Migration"},
+                "last_activity": "2025-01-15T10:30:00Z"
+            }
+        ]
+    }
+    """
+    from datetime import timedelta
+    from django.utils import timezone
+
+    cutoff = timezone.now() - timedelta(minutes=5)
+    active_configs = UserConfig.objects.filter(
+        last_activity_at__gte=cutoff
+    ).select_related('user', 'active_customer', 'active_project')
+
+    result = []
+    for config in active_configs:
+        result.append({
+            'user': {
+                'id': config.user.id,
+                'username': config.user.username,
+                'first_name': config.user.first_name,
+                'last_name': config.user.last_name,
+            },
+            'active_customer': {
+                'id': config.active_customer.id if config.active_customer else None,
+                'name': config.active_customer.name if config.active_customer else None
+            },
+            'active_project': {
+                'id': config.active_project.id if config.active_project else None,
+                'name': config.active_project.name if config.active_project else None
+            },
+            'last_activity': config.last_activity_at.isoformat() if config.last_activity_at else None
+        })
+
+    return JsonResponse({'active_users': result})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def heartbeat_view(request):
+    """
+    Update user's last_activity_at timestamp.
+    Called by frontend every 30 seconds to track user presence.
+
+    POST /api/core/heartbeat/
+
+    Response:
+    {
+        "success": true,
+        "last_activity": "2025-01-15T10:30:00Z"
+    }
+    """
+    from django.utils import timezone
+
+    user = request.user if request.user.is_authenticated else None
+    if not user:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    user_config = UserConfig.get_or_create_for_user(user)
+    user_config.last_activity_at = timezone.now()
+    user_config.save(update_fields=['last_activity_at'])
+
+    return JsonResponse({
+        "success": True,
+        "last_activity": user_config.last_activity_at.isoformat()
+    })

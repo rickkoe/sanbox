@@ -1599,6 +1599,21 @@ def alias_save_view(request):
             if alias_id:
                 alias = Alias.objects.filter(id=alias_id).first()
                 if alias:
+                    # Optimistic locking - check version
+                    client_version = alias_data.get('version')
+                    if client_version is not None and alias.version != client_version:
+                        # Version mismatch - someone else modified this alias
+                        errors.append({
+                            "alias": alias_data.get("name", "Unknown"),
+                            "errors": {
+                                "version": f"Conflict: This alias was modified by {alias.last_modified_by.username if alias.last_modified_by else 'another user'} at {alias.last_modified_at}. Please refresh and try again.",
+                                "current_version": alias.version,
+                                "last_modified_by": alias.last_modified_by.username if alias.last_modified_by else None,
+                                "last_modified_at": alias.last_modified_at.isoformat() if alias.last_modified_at else None
+                            }
+                        })
+                        continue
+
                     serializer = AliasSerializer(alias, data=alias_data, partial=True)
                     if serializer.is_valid():
                         # Manual dirty check
@@ -1610,7 +1625,11 @@ def alias_save_view(request):
                         alias = serializer.save()
                         if dirty:
                             alias.updated = timezone.now()
-                            alias.save(update_fields=["updated"])
+                            # Increment version and set last_modified_by
+                            alias.version += 1
+                            if user:
+                                alias.last_modified_by = user
+                            alias.save(update_fields=["updated", "version", "last_modified_by"])
                         saved_aliases.append(AliasSerializer(alias).data)
                     else:
                         errors.append({"alias": alias_data.get("name", "Unknown"), "errors": serializer.errors})
@@ -1956,6 +1975,21 @@ def zone_save_view(request):
             if zone_id:
                 zone = Zone.objects.filter(id=zone_id).first()
                 if zone:
+                    # Optimistic locking - check version
+                    client_version = zone_data.get('version')
+                    if client_version is not None and zone.version != client_version:
+                        # Version mismatch - someone else modified this zone
+                        errors.append({
+                            "zone": zone_name,
+                            "errors": {
+                                "version": f"Conflict: This zone was modified by {zone.last_modified_by.username if zone.last_modified_by else 'another user'} at {zone.last_modified_at}. Please refresh and try again.",
+                                "current_version": zone.version,
+                                "last_modified_by": zone.last_modified_by.username if zone.last_modified_by else None,
+                                "last_modified_at": zone.last_modified_at.isoformat() if zone.last_modified_at else None
+                            }
+                        })
+                        continue
+
                     serializer = ZoneSerializer(zone, data=zone_data, partial=True)
                     if serializer.is_valid():
                         # Manual dirty check
@@ -1967,7 +2001,11 @@ def zone_save_view(request):
                         zone = serializer.save()
                         if dirty:
                             zone.updated = timezone.now()
-                            zone.save(update_fields=["updated"])
+                            # Increment version and set last_modified_by
+                            zone.version += 1
+                            if user:
+                                zone.last_modified_by = user
+                            zone.save(update_fields=["updated", "version", "last_modified_by"])
                         zone.projects.add(*projects_list)  # Append projects instead of overwriting
                         member_ids = [member.get('alias') for member in members_list if member.get('alias')]
                         print(f"🎯 [UPDATE] Setting members for {zone_name}: {member_ids}")

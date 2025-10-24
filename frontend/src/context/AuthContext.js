@@ -78,32 +78,31 @@ export const AuthProvider = ({ children }) => {
   };
 
   //Helper to get user's role for a specific customer
+  // SIMPLIFIED: All authenticated users are now admins (no CustomerMembership model)
   const getUserRole = (customerId) => {
-    if (!user || !user.customer_memberships) {
+    if (!user) {
       return null;
     }
-
-    const membership = user.customer_memberships.find(
-      (m) => m.customer_id === parseInt(customerId)
-    );
-
-    return membership?.role || null;
+    // All authenticated users have full access
+    return 'admin';
   };
 
   // Helper to check if user is admin for a customer
+  // SIMPLIFIED: All authenticated users are admins
   const isCustomerAdmin = (customerId) => {
-    return getUserRole(customerId) === 'admin';
+    return user !== null;
   };
 
   // Helper to check if user is at least a member
+  // SIMPLIFIED: All authenticated users are members
   const isCustomerMember = (customerId) => {
-    const role = getUserRole(customerId);
-    return role === 'admin' || role === 'member';
+    return user !== null;
   };
 
   // Helper to check if user can view customer
+  // SIMPLIFIED: All authenticated users can view all customers
   const canViewCustomer = (customerId) => {
-    return getUserRole(customerId) !== null;
+    return user !== null;
   };
 
   const value = {

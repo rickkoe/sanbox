@@ -32,6 +32,8 @@ from .views import (
     user_detail,
     user_change_password,
     customer_add_member,
+    active_users_view,
+    heartbeat_view,
 )
 # Removed: users_list, user_customer_memberships, customer_memberships_list, customer_invite_user,
 #          customer_membership_detail, project_groups_list, project_group_detail,
@@ -104,6 +106,10 @@ urlpatterns = [
     path("customers/<int:customer_id>/add-member/", customer_add_member, name="customer-add-member"),
 
     # Project Groups endpoints removed - groups no longer exist
+
+    # User Presence and Activity endpoints
+    path("active-users/", active_users_view, name="active-users"),
+    path("heartbeat/", heartbeat_view, name="heartbeat"),
 
     # ========== CUSTOMIZABLE DASHBOARD ENDPOINTS ==========
     # Dashboard Layout Management
