@@ -389,26 +389,23 @@ const ZoneTableTanStackClean = () => {
             updated: null
         };
 
-        // Use ref value to avoid dependency on memberColumnCounts
-        const columnCounts = memberColumnCountsRef.current;
-
         // Add target member fields
-        for (let i = 1; i <= columnCounts.targets; i++) {
+        for (let i = 1; i <= memberColumnCounts.targets; i++) {
             template[`target_member_${i}`] = "";
         }
 
         // Add initiator member fields
-        for (let i = 1; i <= columnCounts.initiators; i++) {
+        for (let i = 1; i <= memberColumnCounts.initiators; i++) {
             template[`init_member_${i}`] = "";
         }
 
         // Add all access member fields
-        for (let i = 1; i <= columnCounts.allAccess; i++) {
+        for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
             template[`all_member_${i}`] = "";
         }
 
         return template;
-    }, []); // memberColumnCounts accessed via ref
+    }, [memberColumnCounts]); // Needs to recreate when columns added
 
     // Calculate dynamic member columns by use type based on zone data
     const calculateMemberColumnsByType = useCallback((zones, aliases) => {
@@ -543,15 +540,12 @@ const ZoneTableTanStackClean = () => {
     const calculateUsedAliases = useCallback((tableData, currentRowIndex, currentMemberColumn) => {
         const usedAliases = new Set();
 
-        // Use ref value to avoid dependency on memberColumnCounts
-        const columnCounts = memberColumnCountsRef.current;
-
         tableData.forEach((row, rowIndex) => {
             // Check all member columns (target, init, all access)
             const memberColumns = [
-                ...Array.from({length: columnCounts.targets}, (_, i) => `target_member_${i + 1}`),
-                ...Array.from({length: columnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
-                ...Array.from({length: columnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+                ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+                ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+                ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
             ];
 
             memberColumns.forEach(memberKey => {
@@ -566,7 +560,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return usedAliases;
-    }, []); // memberColumnCounts accessed via ref
+    }, [memberColumnCounts]); // Needs to recreate when columns added
 
     // Custom member dropdown renderer that filters by fabric and use type
     const getMemberDropdownOptions = useCallback((rowData, columnKey) => {
@@ -621,14 +615,11 @@ const ZoneTableTanStackClean = () => {
     const customRenderers = useMemo(() => {
         const renderers = {};
 
-        // Use ref value to avoid dependency on memberColumnCounts
-        const columnCounts = memberColumnCountsRef.current;
-
         // Get all member column keys for all types
         const allMemberColumns = [
-            ...Array.from({length: columnCounts.targets}, (_, i) => `target_member_${i + 1}`),
-            ...Array.from({length: columnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
-            ...Array.from({length: columnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+            ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+            ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+            ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
         ];
 
         // Add custom renderers for each member column type
@@ -665,7 +656,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return renderers;
-    }, [getMemberDropdownOptions]); // memberColumnCounts accessed via ref
+    }, [getMemberDropdownOptions, memberColumnCounts]); // Needs to recreate when columns added
 
     // Dynamic dropdown sources that include member filtering
     const dropdownSources = useMemo(() => {
@@ -680,41 +671,35 @@ const ZoneTableTanStackClean = () => {
             alias.include_in_zoning && (alias.zoned_count || 0) < aliasMaxZones
         );
 
-        // Use ref value to avoid dependency on memberColumnCounts
-        const columnCounts = memberColumnCountsRef.current;
-
         // Add target member columns with full alias list (filtering happens in custom renderer)
-        for (let i = 1; i <= columnCounts.targets; i++) {
+        for (let i = 1; i <= memberColumnCounts.targets; i++) {
             sources[`target_member_${i}`] = availableAliases.filter(alias => alias.use === 'target').map(alias => alias.name);
         }
 
         // Add initiator member columns
-        for (let i = 1; i <= columnCounts.initiators; i++) {
+        for (let i = 1; i <= memberColumnCounts.initiators; i++) {
             sources[`init_member_${i}`] = availableAliases.filter(alias => alias.use === 'init').map(alias => alias.name);
         }
 
         // Add all access member columns (includes 'both' and empty/null use types)
-        for (let i = 1; i <= columnCounts.allAccess; i++) {
+        for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
             sources[`all_member_${i}`] = availableAliases.filter(alias =>
                 alias.use === 'both' || !alias.use || alias.use === ''
             ).map(alias => alias.name);
         }
 
         return sources;
-    }, [fabricOptions, aliasOptions, settings]); // memberColumnCounts accessed via ref
+    }, [fabricOptions, aliasOptions, settings, memberColumnCounts]); // Needs to recreate when columns added
 
     // Dynamic dropdown filters for member columns
     const dropdownFilters = useMemo(() => {
         const filters = {};
 
-        // Use ref value to avoid dependency on memberColumnCounts
-        const columnCounts = memberColumnCountsRef.current;
-
         // Get all member column keys for all types
         const allMemberColumns = [
-            ...Array.from({length: columnCounts.targets}, (_, i) => `target_member_${i + 1}`),
-            ...Array.from({length: columnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
-            ...Array.from({length: columnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+            ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+            ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+            ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
         ];
 
         // Create fabric and use-type based filter for member columns
@@ -817,7 +802,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return filters;
-    }, [aliasOptions, settings]); // memberColumnCounts accessed via ref
+    }, [aliasOptions, settings, memberColumnCounts]); // Needs to recreate when columns added
 
     // Custom cell validation for fabric consistency
     const customValidation = useCallback((value, rowData, columnKey) => {
