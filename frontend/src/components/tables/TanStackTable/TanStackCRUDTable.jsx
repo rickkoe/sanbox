@@ -111,6 +111,7 @@ const TanStackCRUDTable = forwardRef(({
 
   // Table configuration
   const [sorting, setSorting] = useState([]);
+  const [frozenSortOrder, setFrozenSortOrder] = useState(null); // Captures sorted order to prevent auto-resorting
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
   const [columnVisibility, setColumnVisibility] = useState({});
@@ -1360,6 +1361,7 @@ const TanStackCRUDTable = forwardRef(({
 
             return (
               <VendorDropdownCell
+                key={`${row.original.id}-${accessorKey}`}
                 value={value}
                 options={options}
                 rowIndex={rowIndex}
@@ -1459,9 +1461,38 @@ const TanStackCRUDTable = forwardRef(({
     });
   }, [columns, colHeaders, dropdownSources, updateCellData, columnSizing]);
 
+  // Excel-like sorting: Apply frozen sort order to maintain sort after edits
+  const sortedEditableData = useMemo(() => {
+    if (!frozenSortOrder || frozenSortOrder.length === 0) {
+      return editableData; // No frozen order, use data as-is
+    }
+
+    // Apply the frozen sort order
+    const sorted = [...editableData];
+    sorted.sort((a, b) => {
+      const aId = a.id !== undefined && a.id !== null ? String(a.id) : null;
+      const bId = b.id !== undefined && b.id !== null ? String(b.id) : null;
+      const aIndex = aId ? frozenSortOrder.indexOf(aId) : -1;
+      const bIndex = bId ? frozenSortOrder.indexOf(bId) : -1;
+
+      // If both are in frozen order, use that order
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      // If only one is in frozen order, it comes first
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      // If neither is in frozen order, maintain original order
+      return 0;
+    });
+
+    console.log('📋 Applied frozen sort order, sorted', sorted.length, 'rows');
+    return sorted;
+  }, [editableData, frozenSortOrder]);
+
   // Table instance
   const table = useReactTable({
-    data: editableData,
+    data: sortedEditableData,
     columns: columnDefs,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -1470,6 +1501,15 @@ const TanStackCRUDTable = forwardRef(({
     manualPagination: !hasActiveClientFilters, // Use manual pagination when not doing client-side filtering
     enableColumnResizing: true,
     columnResizeMode: 'onEnd',
+    // Excel-like behavior: Sort stays fixed after initial sort, doesn't re-sort on data changes
+    autoResetAll: false, // Don't reset state when data changes
+    enableSortingRemoval: false, // Prevent accidental sort removal
+    // Provide stable row identity to prevent re-sorting on edits
+    getRowId: (row, index) => {
+      // Use the row's id if available, otherwise use index
+      // This helps TanStack Table track which row is which across renders
+      return row.id !== undefined && row.id !== null ? String(row.id) : String(index);
+    },
     state: {
       sorting,
       columnFilters,
@@ -1531,6 +1571,25 @@ const TanStackCRUDTable = forwardRef(({
       }
     }
   });
+
+  // Capture sorted order when sorting changes (Excel-like behavior)
+  useEffect(() => {
+    if (sorting && sorting.length > 0 && table) {
+      // Sorting is active - capture the sorted order
+      const rows = table.getSortedRowModel().rows;
+      const order = rows.map(row => {
+        const id = row.original.id;
+        return id !== undefined && id !== null ? String(id) : null;
+      }).filter(id => id !== null);
+
+      setFrozenSortOrder(order);
+      console.log('📌 Frozen sort order captured:', order.length, 'rows');
+    } else if (!sorting || sorting.length === 0) {
+      // No sorting - clear frozen order
+      setFrozenSortOrder(null);
+      console.log('❌ Cleared frozen sort order');
+    }
+  }, [sorting, table]);
 
   // Helper to map visual row index to data row index
   // This is needed because after sorting/filtering, the visual position differs from data position
@@ -1743,14 +1802,38 @@ const TanStackCRUDTable = forwardRef(({
 
     const cellKeys = Array.from(selectedCells).sort();
 
+    // Get visual order mapping (how rows appear after sorting/filtering)
+    // The table shows sortedEditableData, so we need to map visual positions to original editableData indices
+    const visibleRows = table.getRowModel().rows;
+
+    // Create a map from data index in editableData to visual position in table
+    const dataIndexToVisualIndex = new Map();
+    visibleRows.forEach((row, visualIndex) => {
+      // row.original is the actual data object from sortedEditableData
+      // We need to find its index in the original editableData array
+      const rowId = row.original.id;
+      if (rowId !== undefined && rowId !== null) {
+        // Find this row in editableData by ID
+        const dataIndex = editableData.findIndex(item => item.id === rowId);
+        if (dataIndex !== -1) {
+          dataIndexToVisualIndex.set(dataIndex, visualIndex);
+        }
+      }
+    });
+
     // Group cells by column
     const cellsByColumn = {};
     cellKeys.forEach(cellKey => {
-      const [visualRowIndex, colIndex] = cellKey.split('-').map(Number);
-      if (!cellsByColumn[colIndex]) {
-        cellsByColumn[colIndex] = [];
+      const [dataRowIndex, colIndex] = cellKey.split('-').map(Number);
+      const visualIndex = dataIndexToVisualIndex.get(dataRowIndex);
+      if (visualIndex !== undefined) {
+        if (!cellsByColumn[colIndex]) {
+          cellsByColumn[colIndex] = [];
+        }
+        cellsByColumn[colIndex].push({ dataRowIndex, visualIndex, colIndex, cellKey });
+      } else {
+        console.warn(`⚠️ Could not find visual index for data row ${dataRowIndex}`);
       }
-      cellsByColumn[colIndex].push({ visualRowIndex, colIndex, cellKey });
     });
 
     console.log(`🔽 Fill Down: Processing ${Object.keys(cellsByColumn).length} columns`);
@@ -1762,21 +1845,24 @@ const TanStackCRUDTable = forwardRef(({
 
       // Process each column independently
       Object.keys(cellsByColumn).forEach(colIndex => {
-        const colCells = cellsByColumn[colIndex].sort((a, b) => a.visualRowIndex - b.visualRowIndex);
+        // Sort by VISUAL index (how they appear on screen), not data index
+        const colCells = cellsByColumn[colIndex].sort((a, b) => a.visualIndex - b.visualIndex);
         if (colCells.length <= 1) return; // Need at least 2 cells in this column
 
         const firstCell = colCells[0];
-        const firstVisualRowIndex = firstCell.visualRowIndex;
-        const firstDataRowIndex = visualToDataIndex(firstVisualRowIndex);
+        const firstDataRowIndex = firstCell.dataRowIndex;
         const columnKey = columnDefs[colIndex]?.accessorKey;
 
-        console.log(`🔽 Fill Down Column ${colIndex} (${columnKey}): ${colCells.length} cells, visual row ${firstVisualRowIndex} -> data row ${firstDataRowIndex}`);
+        console.log(`🔽 Fill Down Column ${colIndex} (${columnKey}): ${colCells.length} cells, visual row ${firstCell.visualIndex} (data row ${firstDataRowIndex})`);
+        console.log(`🔽 First cell data:`, newData[firstDataRowIndex]);
 
         // Get source value from the first row in this column (using data index)
         const sourceValue = getNestedValue(newData[firstDataRowIndex], columnKey);
 
-        if (sourceValue === undefined || sourceValue === null) {
-          console.log(`⚠️ Column ${colIndex}: Source value is null/undefined, skipping column`);
+        console.log(`🔽 Source value from newData[${firstDataRowIndex}].${columnKey}:`, sourceValue);
+
+        if (sourceValue === undefined || sourceValue === null || sourceValue === '') {
+          console.log(`⚠️ Column ${colIndex}: Source value is empty/null/undefined ("${sourceValue}"), skipping column`);
           return;
         }
 
@@ -1789,11 +1875,10 @@ const TanStackCRUDTable = forwardRef(({
 
         // Fill all cells in this column except the first one
         colCells.slice(1).forEach(cell => {
-          const visualRowIndex = cell.visualRowIndex;
-          const dataRowIndex = visualToDataIndex(visualRowIndex);
+          const dataRowIndex = cell.dataRowIndex;
 
           if (!newData[dataRowIndex]) {
-            console.log(`  ⚠️ Visual row ${visualRowIndex} (data row ${dataRowIndex}) doesn't exist`);
+            console.log(`  ⚠️ Data row ${dataRowIndex} doesn't exist`);
             return;
           }
 
@@ -1807,7 +1892,7 @@ const TanStackCRUDTable = forwardRef(({
               );
 
               if (!isValidOption) {
-                console.log(`⚠️ Skipping [visual ${visualRowIndex}, data ${dataRowIndex}, col ${colIndex}]: "${sourceValue}" not valid for this row`);
+                console.log(`⚠️ Skipping [data ${dataRowIndex}, col ${colIndex}]: "${sourceValue}" not valid for this row`);
                 skippedInColumn++;
                 return;
               }
@@ -1834,16 +1919,52 @@ const TanStackCRUDTable = forwardRef(({
 
     setHasChanges(true);
     console.log('🔽 Fill Down: Done, hasChanges set to true');
-  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, visualToDataIndex]);
+  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData]);
 
   // Fill right operation
   const fillRight = useCallback(() => {
     if (selectedCells.size <= 1) return;
 
-    const cellKeys = Array.from(selectedCells).sort();
-    const firstCellKey = cellKeys[0];
-    const [firstVisualRowIndex, firstColIndex] = firstCellKey.split('-').map(Number);
-    const firstDataRowIndex = visualToDataIndex(firstVisualRowIndex);
+    // Get visual order mapping (how rows appear after sorting/filtering)
+    // The table shows sortedEditableData, so we need to map visual positions to original editableData indices
+    const visibleRows = table.getRowModel().rows;
+    const dataIndexToVisualIndex = new Map();
+    visibleRows.forEach((row, visualIndex) => {
+      // row.original is the actual data object from sortedEditableData
+      // We need to find its index in the original editableData array
+      const rowId = row.original.id;
+      if (rowId !== undefined && rowId !== null) {
+        // Find this row in editableData by ID
+        const dataIndex = editableData.findIndex(item => item.id === rowId);
+        if (dataIndex !== -1) {
+          dataIndexToVisualIndex.set(dataIndex, visualIndex);
+        }
+      }
+    });
+
+    // Convert cell keys to include visual indices and sort by visual position
+    const cellsWithVisual = Array.from(selectedCells)
+      .map(cellKey => {
+        const [dataRowIndex, colIndex] = cellKey.split('-').map(Number);
+        const visualIndex = dataIndexToVisualIndex.get(dataRowIndex);
+        if (visualIndex !== undefined) {
+          return { cellKey, dataRowIndex, colIndex, visualIndex };
+        } else {
+          console.warn(`⚠️ Could not find visual index for data row ${dataRowIndex}`);
+          return null;
+        }
+      })
+      .filter(cell => cell !== null);
+
+    // Sort by visual row first, then column (to get top-left cell)
+    cellsWithVisual.sort((a, b) => {
+      if (a.visualIndex !== b.visualIndex) return a.visualIndex - b.visualIndex;
+      return a.colIndex - b.colIndex;
+    });
+
+    const firstCell = cellsWithVisual[0];
+    const firstDataRowIndex = firstCell.dataRowIndex;
+    const firstColIndex = firstCell.colIndex;
 
     // Update the actual data
     setEditableData(currentData => {
@@ -1855,14 +1976,14 @@ const TanStackCRUDTable = forwardRef(({
 
       if (sourceValue === undefined || sourceValue === null) return currentData;
 
-      console.log(`➡️ Fill Right: Copying "${sourceValue}" from visual row ${firstVisualRowIndex} (data row ${firstDataRowIndex}) to ${selectedCells.size - 1} cells`);
+      console.log(`➡️ Fill Right: Copying "${sourceValue}" from visual row ${firstCell.visualIndex} (data row ${firstDataRowIndex}) to ${selectedCells.size - 1} cells`);
 
       let skippedCells = 0;
 
       // Fill all selected cells except the first one with the source value
-      cellKeys.slice(1).forEach(cellKey => {
-        const [visualRowIndex, colIndex] = cellKey.split('-').map(Number);
-        const dataRowIndex = visualToDataIndex(visualRowIndex);
+      cellsWithVisual.slice(1).forEach(cell => {
+        const dataRowIndex = cell.dataRowIndex;
+        const colIndex = cell.colIndex;
         const columnKey = columnDefs[colIndex]?.accessorKey;
         if (!newData[dataRowIndex] || !columnKey) return;
 
@@ -1882,7 +2003,7 @@ const TanStackCRUDTable = forwardRef(({
             );
 
             if (!isValidOption) {
-              console.log(`⚠️ Skipping cell [visual ${visualRowIndex}, data ${dataRowIndex}, col ${colIndex}]: "${sourceValue}" not valid for this row's context. Available options:`, availableOptions.slice(0, 5));
+              console.log(`⚠️ Skipping cell [data ${dataRowIndex}, col ${colIndex}]: "${sourceValue}" not valid for this row's context. Available options:`, availableOptions.slice(0, 5));
               skippedCells++;
               return;
             }
@@ -1901,30 +2022,28 @@ const TanStackCRUDTable = forwardRef(({
     });
 
     setHasChanges(true);
-  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, visualToDataIndex]);
+  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData]);
 
   // Enhanced Copy functionality for Excel compatibility
   const handleCopy = useCallback(() => {
     if (selectedCells.size === 0) return;
 
-    // Get visible rows (respects sorting/filtering)
-    const visibleRows = table.getRowModel().rows;
-
     // Convert selected cells to a grid structure
+    // Note: selectedCells now contains DATA row indices (not visual)
     const cellArray = Array.from(selectedCells);
-    const visualRowIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[0])))].sort((a, b) => a - b);
+    const dataRowIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[0])))].sort((a, b) => a - b);
     const colIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[1])))].sort((a, b) => a - b);
 
-    console.log('📋 Copy operation: visual rows', visualRowIndices, 'cols', colIndices);
+    console.log('📋 Copy operation: data rows', dataRowIndices, 'cols', colIndices);
 
-    // Build a 2D grid of the selected data (using visual order)
-    const copyGrid = visualRowIndices.map(visualRowIndex => {
+    // Build a 2D grid of the selected data (using data indices)
+    const copyGrid = dataRowIndices.map(dataRowIndex => {
       return colIndices.map(colIndex => {
-        const cellKey = `${visualRowIndex}-${colIndex}`;
+        const cellKey = `${dataRowIndex}-${colIndex}`;
         if (selectedCells.has(cellKey)) {
           const columnKey = columnDefs[colIndex]?.accessorKey;
-          // Get data from the visible row (which is in sorted order)
-          const rowData = visibleRows[visualRowIndex]?.original;
+          // Get data directly from editableData using data row index
+          const rowData = editableData[dataRowIndex];
           // Use getNestedValue to handle both flat and nested properties
           const value = getNestedValue(rowData, columnKey);
 
@@ -1951,12 +2070,12 @@ const TanStackCRUDTable = forwardRef(({
     // Show brief success feedback
     setFillPreview({
       operation: 'Copied',
-      sourceValue: `${visualRowIndices.length} rows × ${colIndices.length} columns`,
+      sourceValue: `${dataRowIndices.length} rows × ${colIndices.length} columns`,
       count: selectedCells.size
     });
 
     setTimeout(() => setFillPreview(null), 1500);
-  }, [selectedCells, table, columnDefs, getNestedValue]);
+  }, [selectedCells, editableData, columnDefs, getNestedValue]);
 
   // Enhanced Paste functionality for Excel compatibility
   const handlePaste = useCallback(async () => {
@@ -1988,39 +2107,37 @@ const TanStackCRUDTable = forwardRef(({
       // Calculate paste dimensions
       const pasteRowCount = pasteData.length;
       const pasteColCount = Math.max(...pasteData.map(row => row.length));
-      const targetStartVisualRow = currentCell.row; // This is a visual row index
+      const targetStartDataRow = currentCell.row; // This is now a DATA row index
       const targetStartCol = currentCell.col;
 
       // Excel-like behavior: if multiple cells are selected and paste data is smaller, repeat the pattern
-      let targetEndVisualRow, targetEndCol;
+      let targetEndDataRow, targetEndCol;
 
       if (selectedCells.size > 1) {
-        // Get the selection bounds (visual indices)
+        // Get the selection bounds (DATA indices)
         const cellArray = Array.from(selectedCells);
-        const visualRowIndices = cellArray.map(key => parseInt(key.split('-')[0]));
+        const dataRowIndices = cellArray.map(key => parseInt(key.split('-')[0]));
         const colIndices = cellArray.map(key => parseInt(key.split('-')[1]));
-        const selectionStartVisualRow = Math.min(...visualRowIndices);
-        const selectionEndVisualRow = Math.max(...visualRowIndices);
+        const selectionStartDataRow = Math.min(...dataRowIndices);
+        const selectionEndDataRow = Math.max(...dataRowIndices);
         const selectionStartCol = Math.min(...colIndices);
         const selectionEndCol = Math.max(...colIndices);
 
         // Use selection bounds instead of paste data size
-        targetEndVisualRow = selectionEndVisualRow;
+        targetEndDataRow = selectionEndDataRow;
         targetEndCol = selectionEndCol;
 
-        console.log(`📋 Paste with repeat: selection [visual ${selectionStartVisualRow}-${selectionEndVisualRow}, ${selectionStartCol}-${selectionEndCol}], data size [${pasteRowCount}x${pasteColCount}]`);
+        console.log(`📋 Paste with repeat: selection [data ${selectionStartDataRow}-${selectionEndDataRow}, ${selectionStartCol}-${selectionEndCol}], data size [${pasteRowCount}x${pasteColCount}]`);
       } else {
         // Standard paste: use paste data dimensions
-        targetEndVisualRow = targetStartVisualRow + pasteRowCount - 1;
+        targetEndDataRow = targetStartDataRow + pasteRowCount - 1;
         targetEndCol = targetStartCol + pasteColCount - 1;
-        console.log(`📋 Standard paste: [visual ${targetStartVisualRow}-${targetEndVisualRow}, ${targetStartCol}-${targetEndCol}]`);
+        console.log(`📋 Standard paste: [data ${targetStartDataRow}-${targetEndDataRow}, ${targetStartCol}-${targetEndCol}]`);
       }
 
-      // Auto-extend table rows if needed
-      // Note: We need to check based on visual row count, but extend actual data
-      const visibleRows = table.getRowModel().rows;
+      // Auto-extend table rows if needed (using data row count)
       const currentRowCount = editableData.length;
-      const neededRows = Math.max(0, (targetEndVisualRow + 1) - visibleRows.length);
+      const neededRows = Math.max(0, (targetEndDataRow + 1) - currentRowCount);
 
       if (neededRows > 0) {
         console.log(`➕ Auto-extending table with ${neededRows} new rows`);
@@ -2039,13 +2156,11 @@ const TanStackCRUDTable = forwardRef(({
       setEditableData(currentData => {
         const newData = [...currentData];
 
-        // Iterate over the target area using visual indices, convert to data indices
-        for (let targetVisualRowIndex = targetStartVisualRow; targetVisualRowIndex <= targetEndVisualRow && targetVisualRowIndex < visibleRows.length; targetVisualRowIndex++) {
-          const targetDataRowIndex = visualToDataIndex(targetVisualRowIndex);
-
+        // Iterate over the target area using data indices
+        for (let targetDataRowIndex = targetStartDataRow; targetDataRowIndex <= targetEndDataRow && targetDataRowIndex < newData.length; targetDataRowIndex++) {
           for (let targetColIndex = targetStartCol; targetColIndex <= targetEndCol && targetColIndex < columnDefs.length; targetColIndex++) {
             // Calculate which cell from paste data to use (with modulo for repeating)
-            const rowOffset = (targetVisualRowIndex - targetStartVisualRow) % pasteRowCount;
+            const rowOffset = (targetDataRowIndex - targetStartDataRow) % pasteRowCount;
             const colOffset = (targetColIndex - targetStartCol) % pasteColCount;
             const rowData = pasteData[rowOffset];
             const cellValue = rowData?.[colOffset] || '';
@@ -2072,8 +2187,8 @@ const TanStackCRUDTable = forwardRef(({
                   convertedValue = cellValue;
                 }
 
-                // Validate dropdown values - use visual index for cellKey (for UI highlighting)
-                const cellKey = `${targetVisualRowIndex}-${targetColIndex}`;
+                // Validate dropdown values - use data index for cellKey
+                const cellKey = `${targetDataRowIndex}-${targetColIndex}`;
                 if (columnDef?.type === 'dropdown' && dropdownSources?.[columnKey]) {
                   const options = dropdownSources[columnKey];
                   const isValidOption = options.some(opt =>
@@ -2081,7 +2196,7 @@ const TanStackCRUDTable = forwardRef(({
                   );
 
                   if (!isValidOption && convertedValue && convertedValue.trim() !== '') {
-                    console.warn(`⚠️ Invalid dropdown value "${convertedValue}" for ${columnKey} at [visual ${targetVisualRowIndex}, data ${targetDataRowIndex}, col ${targetColIndex}]`);
+                    console.warn(`⚠️ Invalid dropdown value "${convertedValue}" for ${columnKey} at [data ${targetDataRowIndex}, col ${targetColIndex}]`);
                     newInvalidCells.add(cellKey);
                   }
                 }
@@ -2089,13 +2204,13 @@ const TanStackCRUDTable = forwardRef(({
               // Use nested property setter if needed - use data index for actual data update
               if (columnKey.includes('.')) {
                 setNestedValue(newData[targetDataRowIndex], columnKey, convertedValue);
-                console.log(`📝 Pasted "${cellValue}" → nested "${convertedValue}" to [visual ${targetVisualRowIndex}, data ${targetDataRowIndex}, col ${targetColIndex}] (${columnKey})`);
+                console.log(`📝 Pasted "${cellValue}" → nested "${convertedValue}" to [data ${targetDataRowIndex}, col ${targetColIndex}] (${columnKey})`);
               } else {
                 newData[targetDataRowIndex] = {
                   ...newData[targetDataRowIndex],
                   [columnKey]: convertedValue
                 };
-                console.log(`📝 Pasted "${cellValue}" → "${convertedValue}" to [visual ${targetVisualRowIndex}, data ${targetDataRowIndex}, col ${targetColIndex}] (${columnKey})`);
+                console.log(`📝 Pasted "${cellValue}" → "${convertedValue}" to [data ${targetDataRowIndex}, col ${targetColIndex}] (${columnKey})`);
               }
             }
           }
@@ -2112,11 +2227,9 @@ const TanStackCRUDTable = forwardRef(({
         setTimeout(() => {
           // Collect all changes made by the paste
           const changes = [];
-          for (let targetVisualRowIndex = targetStartVisualRow; targetVisualRowIndex <= targetEndVisualRow && targetVisualRowIndex < visibleRows.length; targetVisualRowIndex++) {
-            const targetDataRowIndex = visualToDataIndex(targetVisualRowIndex);
-
+          for (let targetDataRowIndex = targetStartDataRow; targetDataRowIndex <= targetEndDataRow && targetDataRowIndex < editableData.length; targetDataRowIndex++) {
             for (let targetColIndex = targetStartCol; targetColIndex <= targetEndCol && targetColIndex < columnDefs.length; targetColIndex++) {
-              const rowOffset = (targetVisualRowIndex - targetStartVisualRow) % pasteRowCount;
+              const rowOffset = (targetDataRowIndex - targetStartDataRow) % pasteRowCount;
               const colOffset = (targetColIndex - targetStartCol) % pasteColCount;
               const rowData = pasteData[rowOffset];
               const cellValue = rowData?.[colOffset] || '';
@@ -2146,18 +2259,18 @@ const TanStackCRUDTable = forwardRef(({
         }, 0);
       }
 
-      // Update selection to show the pasted area (using visual indices)
+      // Update selection to show the pasted area (using data indices)
       const pastedCells = new Set();
-      for (let r = targetStartVisualRow; r <= targetEndVisualRow; r++) {
+      for (let r = targetStartDataRow; r <= targetEndDataRow; r++) {
         for (let c = targetStartCol; c <= Math.min(targetEndCol, columnDefs.length - 1); c++) {
           pastedCells.add(`${r}-${c}`);
         }
       }
       setSelectedCells(pastedCells);
       setSelectionRange({
-        startRow: targetStartVisualRow,
+        startRow: targetStartDataRow,
         startCol: targetStartCol,
-        endRow: targetEndVisualRow,
+        endRow: targetEndDataRow,
         endCol: Math.min(targetEndCol, columnDefs.length - 1)
       });
 
@@ -2193,7 +2306,7 @@ const TanStackCRUDTable = forwardRef(({
 
       setTimeout(() => setFillPreview(null), 3000);
     }
-  }, [currentCell, editableData, newRowTemplate, columnDefs, afterChange, dropdownSources, setNestedValue, visualToDataIndex, table]);
+  }, [currentCell, editableData, newRowTemplate, columnDefs, afterChange, dropdownSources, setNestedValue, table, selectedCells, setSelectedCells, setSelectionRange, setHasChanges, setInvalidCells, setFillPreview]);
 
   // Clear cell contents (set to empty string)
   const clearCellContents = useCallback(() => {
@@ -3584,12 +3697,32 @@ const TanStackCRUDTable = forwardRef(({
                 }}
               >
                 {row.getVisibleCells().map((cell, cellIndex) => {
-                  // Use visual row index for cell selection/navigation (sorted order)
-                  const rowIndex = visualRowIndex;
+                  // CRITICAL: Find the data row index in the original editableData array
+                  // row.index is the index in sortedEditableData, but we need the index in editableData
+                  // Use the row ID to find it in editableData
+                  const rowId = row.original.id;
+                  let dataRowIndex;
+
+                  if (rowId !== undefined && rowId !== null) {
+                    dataRowIndex = editableData.findIndex(item => item.id === rowId);
+                    if (dataRowIndex === -1) {
+                      console.error(`❌ Could not find rowId ${rowId} in editableData!`);
+                      dataRowIndex = row.index; // Fallback
+                    }
+                  } else {
+                    dataRowIndex = row.index; // Fallback if no ID
+                  }
+
+                  const rowIndex = dataRowIndex;
                   const colIndex = cellIndex;
                   const cellKey = `${rowIndex}-${colIndex}`;
                   const isSelected = selectedCells.has(cellKey);
                   const isInvalid = invalidCells.has(cellKey);
+
+                  // Debug: Log the mapping for the first few rows
+                  if (visualRowIndex < 3 && cell.column.id === 'use') {
+                    console.log(`📍 Cell render: visual row ${visualRowIndex}, rowId ${rowId}, sortedIndex ${row.index}, found at data index ${dataRowIndex}, passing rowIndex=${rowIndex}, editableData.length=${editableData.length}`);
+                  }
 
                   // Get column group for styling - use column.id to find the config
                   // instead of index, since index changes when columns are hidden
@@ -3993,6 +4126,13 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
   const triggerRef = useRef(null);
+
+  // Debug: Log rowIndex when component mounts or rowIndex changes
+  useEffect(() => {
+    if (columnKey === 'use') {
+      console.log(`🔍 VendorDropdownCell (${columnKey}): rowIndex=${rowIndex}, rowId=${rowData?.id}, value="${value}"`);
+    }
+  }, [rowIndex, columnKey, rowData?.id, value]);
 
   useEffect(() => {
     setLocalValue(value || '');
