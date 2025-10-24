@@ -265,12 +265,45 @@ const TanStackCRUDTable = forwardRef(({
         // Load visible_columns from config
         if (response.data.visible_columns && response.data.visible_columns.length > 0) {
           console.log('📊 Loading saved visible columns:', response.data.visible_columns);
+
+          // Migrate old WWPN column names to new dynamic column names
+          // This handles transition from single 'wwpn' to multiple 'wwpn_1', 'wwpn_2', etc.
+          let migratedColumns = [...response.data.visible_columns];
+
+          // Check if saved config has old 'wwpn' column
+          const hasOldWwpnColumn = migratedColumns.includes('wwpn');
+          if (hasOldWwpnColumn) {
+            console.log('🔄 Migrating old "wwpn" column to new dynamic WWPN columns');
+
+            // Remove old 'wwpn' column
+            migratedColumns = migratedColumns.filter(col => col !== 'wwpn');
+
+            // Add all new WWPN columns that exist in current table definition
+            const wwpnColumns = columns
+              .map(col => col.data || col.accessorKey)
+              .filter(colId => colId && colId.match(/^wwpn_\d+$/));
+
+            if (wwpnColumns.length > 0) {
+              console.log(`🔄 Adding ${wwpnColumns.length} new WWPN columns:`, wwpnColumns);
+              // Insert WWPN columns after 'name' column to maintain logical order
+              const nameIndex = migratedColumns.indexOf('name');
+              if (nameIndex >= 0) {
+                migratedColumns.splice(nameIndex + 1, 0, ...wwpnColumns);
+              } else {
+                // If 'name' not found, add at beginning
+                migratedColumns.unshift(...wwpnColumns);
+              }
+            }
+          }
+
           // Convert array of visible column IDs to TanStack Table visibility object
           // TanStack uses { columnId: true/false } format
           const visibilityMap = {};
-          response.data.visible_columns.forEach(colId => {
+          migratedColumns.forEach(colId => {
             visibilityMap[colId] = true;
           });
+
+          console.log('📊 Final column visibility after migration:', migratedColumns);
           setColumnVisibility(visibilityMap);
         }
         console.log('📊 Loaded table configuration:', response.data);

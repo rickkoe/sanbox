@@ -133,19 +133,26 @@ class CiscoParser(BaseParser):
             # Extract WWPNs from members
             wwpn_matches = re.findall(r'member pwwn ([0-9a-f:]+)', members, re.IGNORECASE)
 
+            # Collect all WWPNs for this alias
+            normalized_wwpns = []
+            first_use = None
             for wwpn in wwpn_matches:
                 normalized_wwpn = self.normalize_wwpn(wwpn)
-                wwpn_type = self.detect_wwpn_type(normalized_wwpn)
+                normalized_wwpns.append(normalized_wwpn)
 
-                # Detect peer zone tag (target, init, both)
-                tag_match = re.search(rf'member pwwn {re.escape(wwpn)}\s+(target|init|both)', members, re.IGNORECASE)
-                use = tag_match.group(1) if tag_match else wwpn_type
+                if not first_use:
+                    wwpn_type = self.detect_wwpn_type(normalized_wwpn)
+                    # Detect peer zone tag (target, init, both)
+                    tag_match = re.search(rf'member pwwn {re.escape(wwpn)}\s+(target|init|both)', members, re.IGNORECASE)
+                    first_use = tag_match.group(1) if tag_match else wwpn_type
 
+            # Create a single ParsedAlias with all WWPNs
+            if normalized_wwpns:
                 aliases.append(ParsedAlias(
                     name=alias_name,
-                    wwpn=normalized_wwpn,
+                    wwpns=normalized_wwpns,
                     alias_type='fcalias',
-                    use=use,
+                    use=first_use,
                     fabric_name=f'vsan{vsan}'
                 ))
 
@@ -276,6 +283,7 @@ class CiscoParser(BaseParser):
         aliases = []
 
         # Pattern: device-alias name PRD03A_CLM_01a pwwn c0:50:76:09:15:09:01:14
+        # Note: device-alias typically has single WWPN per alias, but we support the list format
         pattern = r'device-alias name (\S+) pwwn ([0-9a-f:]+)'
 
         for match in re.finditer(pattern, data, re.IGNORECASE):
@@ -288,7 +296,7 @@ class CiscoParser(BaseParser):
 
                 aliases.append(ParsedAlias(
                     name=alias_name,
-                    wwpn=normalized_wwpn,
+                    wwpns=[normalized_wwpn],  # Single WWPN in a list
                     alias_type='device-alias',
                     use=wwpn_type
                 ))
@@ -299,7 +307,8 @@ class CiscoParser(BaseParser):
 
     def _parse_fcalias_section(self, data: str) -> Dict[int, List[ParsedAlias]]:
         """Parse 'show fcalias vsan 1-4093' output"""
-        aliases_by_vsan = {}
+        # Dictionary to collect WWPNs per alias: {vsan: {alias_name: {wwpns: [], use: str, alias_type: str}}}
+        alias_wwpns_by_vsan = {}
 
         # Pattern: fcalias name s_78E37VE_n1p9 vsan 75
         #            pwwn 50:05:07:68:10:35:7a:a9 [target]
@@ -314,8 +323,14 @@ class CiscoParser(BaseParser):
             if alias_match:
                 current_alias = alias_match.group(1)
                 current_vsan = int(alias_match.group(2))
-                if current_vsan not in aliases_by_vsan:
-                    aliases_by_vsan[current_vsan] = []
+                if current_vsan not in alias_wwpns_by_vsan:
+                    alias_wwpns_by_vsan[current_vsan] = {}
+                if current_alias not in alias_wwpns_by_vsan[current_vsan]:
+                    alias_wwpns_by_vsan[current_vsan][current_alias] = {
+                        'wwpns': [],
+                        'use': None,
+                        'alias_type': 'fcalias'
+                    }
                 continue
 
             # Match pwwn member line
@@ -336,15 +351,28 @@ class CiscoParser(BaseParser):
                         else:
                             use = wwpn_type
 
-                        aliases_by_vsan[current_vsan].append(ParsedAlias(
-                            name=current_alias,
-                            wwpn=normalized_wwpn,
-                            alias_type='fcalias',
-                            use=use,
-                            fabric_name=f'vsan{current_vsan}'
-                        ))
+                        # Add WWPN to the alias
+                        alias_wwpns_by_vsan[current_vsan][current_alias]['wwpns'].append(normalized_wwpn)
+                        # Use the first detected use type (all WWPNs in same alias should have same use)
+                        if not alias_wwpns_by_vsan[current_vsan][current_alias]['use']:
+                            alias_wwpns_by_vsan[current_vsan][current_alias]['use'] = use
+
                     except ValueError as e:
                         self.add_error(f'Invalid WWPN for fcalias {current_alias}: {e}')
+
+        # Convert to list of ParsedAlias objects
+        aliases_by_vsan = {}
+        for vsan, aliases_dict in alias_wwpns_by_vsan.items():
+            aliases_by_vsan[vsan] = []
+            for alias_name, alias_data in aliases_dict.items():
+                if alias_data['wwpns']:  # Only create if we have at least one WWPN
+                    aliases_by_vsan[vsan].append(ParsedAlias(
+                        name=alias_name,
+                        wwpns=alias_data['wwpns'],
+                        alias_type=alias_data['alias_type'],
+                        use=alias_data['use'],
+                        fabric_name=f'vsan{vsan}'
+                    ))
 
         return aliases_by_vsan
 
@@ -475,7 +503,7 @@ class CiscoParser(BaseParser):
 
                 aliases.append(ParsedAlias(
                     name=alias_name,
-                    wwpn=normalized_wwpn,
+                    wwpns=[normalized_wwpn],  # Single WWPN in a list
                     alias_type='device-alias',
                     use=wwpn_type
                 ))

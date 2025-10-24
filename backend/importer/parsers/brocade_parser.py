@@ -111,6 +111,9 @@ class BrocadeParser(BaseParser):
             # Split by spaces and filter out empty strings
             wwpn_list = [w.strip() for w in member_wwpns.split() if w.strip()]
 
+            # Collect all normalized WWPNs for this alias
+            normalized_wwpns = []
+            first_use = None
             for wwpn in wwpn_list:
                 if not self.is_valid_wwpn(wwpn):
                     self.add_warning(f'Skipping invalid WWPN "{wwpn}" for alias {alias_name}')
@@ -118,19 +121,24 @@ class BrocadeParser(BaseParser):
 
                 try:
                     normalized_wwpn = self.normalize_wwpn(wwpn)
-                    wwpn_type = self.detect_wwpn_type(normalized_wwpn)
+                    normalized_wwpns.append(normalized_wwpn)
 
-                    # Create one alias entry per WWPN
-                    # If an alias has multiple WWPNs, we create multiple alias records
-                    aliases.append(ParsedAlias(
-                        name=alias_name,
-                        wwpn=normalized_wwpn,
-                        alias_type='fcalias',  # Brocade uses fcalias
-                        use=wwpn_type,
-                        fabric_name=fabric_name
-                    ))
+                    # Use the first detected wwpn type
+                    if not first_use:
+                        first_use = self.detect_wwpn_type(normalized_wwpn)
+
                 except ValueError as e:
                     self.add_error(f'Invalid WWPN for alias {alias_name}: {e}')
+
+            # Create a single ParsedAlias with all WWPNs
+            if normalized_wwpns:
+                aliases.append(ParsedAlias(
+                    name=alias_name,
+                    wwpns=normalized_wwpns,
+                    alias_type='fcalias',  # Brocade uses fcalias
+                    use=first_use,
+                    fabric_name=fabric_name
+                ))
 
         return ParseResult(
             fabrics=[],
@@ -331,23 +339,33 @@ class BrocadeParser(BaseParser):
                 # Parse semicolon-separated WWPNs
                 wwpn_list = [w.strip() for w in wwpns_str.split(';') if w.strip()]
 
+                # Collect all normalized WWPNs for this alias
+                normalized_wwpns = []
+                first_use = None
                 for wwpn in wwpn_list:
                     if not self.is_valid_wwpn(wwpn):
                         continue
 
                     try:
                         normalized_wwpn = self.normalize_wwpn(wwpn)
-                        wwpn_type = self.detect_wwpn_type(normalized_wwpn)
+                        normalized_wwpns.append(normalized_wwpn)
 
-                        aliases.append(ParsedAlias(
-                            name=alias_name,
-                            wwpn=normalized_wwpn,
-                            alias_type='fcalias',
-                            use=wwpn_type,
-                            fabric_name='brocade_fabric'
-                        ))
+                        # Use the first detected wwpn type
+                        if not first_use:
+                            first_use = self.detect_wwpn_type(normalized_wwpn)
+
                     except ValueError as e:
                         self.add_error(f'Invalid WWPN for alias {alias_name}: {e}')
+
+                # Create a single ParsedAlias with all WWPNs
+                if normalized_wwpns:
+                    aliases.append(ParsedAlias(
+                        name=alias_name,
+                        wwpns=normalized_wwpns,
+                        alias_type='fcalias',
+                        use=first_use,
+                        fabric_name='brocade_fabric'
+                    ))
 
         return ParseResult(
             fabrics=fabrics,

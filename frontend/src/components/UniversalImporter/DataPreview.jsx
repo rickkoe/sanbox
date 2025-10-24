@@ -283,18 +283,22 @@ const DataPreview = ({
                     const conflictDetails = conflicts?.aliases?.find(c => c.name === alias.name);
                     const hasConflict = !!conflictDetails;
 
+                    // Handle both single wwpn (legacy) and wwpns array (new format)
+                    const wwpns = alias.wwpns || (alias.wwpn ? [alias.wwpn] : []);
+                    const hasMultipleWwpns = wwpns.length > 1;
+                    const wwpnTooltip = wwpns.join('\n');
+
                     return (
                       <tr
                         key={key}
                         className={`${isSelected ? 'selected' : ''} ${hasConflict ? 'has-conflict' : ''}`}
                         onClick={() => onAliasToggle(key)}
                       >
-                        <td className="checkbox-col">
+                        <td className="checkbox-col" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => {}}
-                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => onAliasToggle(key)}
                           />
                         </td>
                         <td className="name-col">
@@ -310,7 +314,19 @@ const DataPreview = ({
                           )}
                         </td>
                         <td className="wwpn-col">
-                          <code>{alias.wwpn}</code>
+                          <code title={wwpnTooltip}>
+                            {wwpns[0]}
+                            {hasMultipleWwpns && (
+                              <span style={{
+                                marginLeft: '4px',
+                                color: theme === 'dark' ? '#64ffda' : '#0066cc',
+                                fontWeight: '600',
+                                cursor: 'help'
+                              }}>
+                                (+{wwpns.length - 1})
+                              </span>
+                            )}
+                          </code>
                         </td>
                         <td>
                           <span className="type-badge">{alias.type || 'device'}</span>
@@ -392,12 +408,11 @@ const DataPreview = ({
                         className={`${isSelected ? 'selected' : ''} ${hasConflict ? 'has-conflict' : ''}`}
                         onClick={() => onZoneToggle(key)}
                       >
-                        <td className="checkbox-col">
+                        <td className="checkbox-col" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => {}}
-                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => onZoneToggle(key)}
                           />
                         </td>
                         <td className="name-col">
@@ -493,12 +508,11 @@ const DataPreview = ({
                         className={`${isSelected ? 'selected' : ''}`}
                         onClick={() => onFabricToggle(key)}
                       >
-                        <td className="checkbox-col">
+                        <td className="checkbox-col" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => {}}
-                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => onFabricToggle(key)}
                           />
                         </td>
                         <td className="name-col">{fabric.name}</td>

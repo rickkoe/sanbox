@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Alias, Zone, Fabric, WwpnPrefix, Switch, SwitchFabric
+from .models import Alias, AliasWWPN, Zone, Fabric, WwpnPrefix, Switch, SwitchFabric
 from core.models import Project
 from storage.models import Host, Storage
 
@@ -121,16 +121,40 @@ class AliasSerializer(serializers.ModelSerializer):
         queryset=Storage.objects.all(), required=False, allow_null=True
     )  # ✅ Allow writing storage (ID) in request
 
+    # Multi-WWPN support
+    wwpns = serializers.SerializerMethodField()  # Read: list of WWPNs
+    wwpns_write = serializers.ListField(
+        child=serializers.CharField(max_length=23),
+        write_only=True,
+        required=False,
+        help_text="List of WWPNs for this alias"
+    )
+    wwpn = serializers.SerializerMethodField()  # Backward compatibility: first WWPN
+
     fabric_details = FabricSerializer(source="fabric", read_only=True)  # ✅ Return full fabric details
     host_details = serializers.SerializerMethodField()  # ✅ Return host name for display
     storage_details = serializers.SerializerMethodField()  # ✅ Return storage name for display
-    
+
     # ADD THIS: Zoned count field
     zoned_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Alias
-        fields = "__all__"  # ✅ Includes both `fabric` (ID) and `fabric_details` (full object)
+        fields = [
+            'id', 'fabric', 'fabric_details', 'projects', 'storage', 'storage_details',
+            'name', 'wwpns', 'wwpns_write', 'wwpn', 'use', 'cisco_alias',
+            'create', 'delete', 'include_in_zoning', 'logged_in',
+            'host', 'host_details', 'notes', 'imported', 'updated',
+            'last_modified_by', 'last_modified_at', 'version', 'zoned_count'
+        ]
+
+    def get_wwpns(self, obj):
+        """Return list of WWPNs for this alias"""
+        return obj.wwpns
+
+    def get_wwpn(self, obj):
+        """Return first WWPN for backward compatibility"""
+        return obj.wwpn
 
     def get_host_details(self, obj):
         """Return host name for display"""
@@ -140,10 +164,11 @@ class AliasSerializer(serializers.ModelSerializer):
 
     def get_storage_details(self, obj):
         """
-        Return storage name by looking up the port with matching WWPN.
-        Lookup chain: Alias.wwpn → Port.wwpn → Port.storage → Storage.name
+        Return storage name by looking up ports with matching WWPNs.
+        Lookup chain: Alias.wwpns → Port.wwpn → Port.storage → Storage.name
         """
-        if not obj.wwpn:
+        wwpns = obj.wwpns
+        if not wwpns:
             return None
 
         # Get customer_id from context (passed from the view)
@@ -157,10 +182,7 @@ class AliasSerializer(serializers.ModelSerializer):
         try:
             from storage.models import Port
 
-            # Normalize WWPN for comparison (remove colons, uppercase)
-            alias_wwpn_normalized = obj.wwpn.replace(':', '').upper()
-
-            # Look up port with matching WWPN for the customer
+            # Look up ports with matching WWPNs for the customer
             query = Port.objects.select_related('storage').filter(
                 wwpn__isnull=False
             )
@@ -169,11 +191,14 @@ class AliasSerializer(serializers.ModelSerializer):
             if customer_id:
                 query = query.filter(storage__customer_id=customer_id)
 
-            # Find matching port by normalized WWPN
+            # Normalize all alias WWPNs for comparison
+            alias_wwpns_normalized = [w.replace(':', '').upper() for w in wwpns]
+
+            # Find matching port by normalized WWPN (check all WWPNs in the alias)
             for port in query:
                 if port.wwpn:
                     port_wwpn_normalized = port.wwpn.replace(':', '').upper()
-                    if port_wwpn_normalized == alias_wwpn_normalized:
+                    if port_wwpn_normalized in alias_wwpns_normalized:
                         # Found matching port with storage
                         if port.storage:
                             return {"id": port.storage.id, "name": port.storage.name}
@@ -192,10 +217,10 @@ class AliasSerializer(serializers.ModelSerializer):
         # Use prefetched data if available to avoid N+1 queries
         if hasattr(obj, '_zoned_count'):
             return obj._zoned_count
-            
+
         # Get project_id from context (passed from the view)
         project_id = self.context.get('project_id')
-        
+
         if project_id:
             # Count zones in this project that contain this alias
             try:
@@ -208,19 +233,31 @@ class AliasSerializer(serializers.ModelSerializer):
                 # Log the error but don't break the API
                 print(f"Error calculating zoned_count for alias {obj.name}: {e}")
                 return 0
-        
+
         return 0
 
     def create(self, validated_data):
-        """Create alias and properly handle many-to-many projects"""
+        """Create alias and properly handle many-to-many projects and WWPNs"""
         projects = validated_data.pop("projects", [])
+        wwpns_list = validated_data.pop("wwpns_write", [])
+
         alias = Alias.objects.create(**validated_data)
         alias.projects.set(projects)  # ✅ Assign multiple projects
+
+        # Create AliasWWPN entries
+        for order, wwpn in enumerate(wwpns_list):
+            AliasWWPN.objects.create(
+                alias=alias,
+                wwpn=wwpn,
+                order=order
+            )
+
         return alias
 
     def update(self, instance, validated_data):
-        """Update alias and handle many-to-many projects"""
+        """Update alias and handle many-to-many projects and WWPNs"""
         projects = validated_data.pop("projects", None)
+        wwpns_list = validated_data.pop("wwpns_write", None)
 
         updated = False
 
@@ -238,6 +275,17 @@ class AliasSerializer(serializers.ModelSerializer):
 
         if projects is not None:
             instance.projects.set(projects)
+
+        # Update WWPNs if provided
+        if wwpns_list is not None:
+            # Clear existing WWPNs and recreate
+            instance.alias_wwpns.all().delete()
+            for order, wwpn in enumerate(wwpns_list):
+                AliasWWPN.objects.create(
+                    alias=instance,
+                    wwpn=wwpn,
+                    order=order
+                )
 
         return instance
 

@@ -26,10 +26,15 @@ class ParsedFabric:
 class ParsedAlias:
     """Represents a parsed SAN alias"""
     name: str
-    wwpn: str
+    wwpns: List[str]  # List of WWPNs for this alias
     alias_type: str = 'device-alias'  # device-alias, fcalias, or wwpn
     use: Optional[str] = None  # init, target, both
     fabric_name: Optional[str] = None
+
+    @property
+    def wwpn(self):
+        """Return first WWPN for backward compatibility"""
+        return self.wwpns[0] if self.wwpns else None
 
 
 @dataclass

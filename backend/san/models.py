@@ -138,7 +138,6 @@ class Alias(models.Model):
         ('both', 'Both'),
     ]
     name = models.CharField(max_length=100, unique=False)
-    wwpn = models.CharField(max_length=23)
     use = models.CharField(max_length=6, choices=USE_CHOICES, null=True, blank=True)
     cisco_alias = models.CharField(
         max_length=15,
@@ -171,16 +170,50 @@ class Alias(models.Model):
     last_modified_at = models.DateTimeField(auto_now=True, null=True)
     version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
 
-
     class Meta:
         ordering = ['name']
         unique_together = [
-            ('fabric', 'wwpn'),
             ('fabric', 'name'),
         ]
 
     def __str__(self):
         return f'{self.fabric.customer}: {self.name}'
+
+    @property
+    def wwpns(self):
+        """Return list of WWPNs for this alias in order"""
+        return [aw.wwpn for aw in self.alias_wwpns.order_by('order')]
+
+    @property
+    def wwpn(self):
+        """Return first WWPN for backward compatibility"""
+        first_wwpn = self.alias_wwpns.order_by('order').first()
+        return first_wwpn.wwpn if first_wwpn else None
+
+
+class AliasWWPN(models.Model):
+    """
+    Junction table for Alias to WWPN many-to-many relationship.
+    Allows a single alias to have multiple WWPNs (common in SAN configurations).
+    """
+    alias = models.ForeignKey(Alias, on_delete=models.CASCADE, related_name='alias_wwpns')
+    wwpn = models.CharField(max_length=23, help_text="World Wide Port Name")
+    order = models.IntegerField(
+        default=0,
+        help_text="Order of WWPN in the alias (for preserving import order)"
+    )
+
+    class Meta:
+        ordering = ['alias', 'order']
+        unique_together = [
+            ('alias', 'wwpn'),  # Each WWPN can appear only once per alias
+            ('alias', 'order'),  # Each order position must be unique per alias
+        ]
+        verbose_name = "Alias WWPN"
+        verbose_name_plural = "Alias WWPNs"
+
+    def __str__(self):
+        return f"{self.alias.name}: {self.wwpn}"
 
 
 class WwpnPrefix(models.Model):

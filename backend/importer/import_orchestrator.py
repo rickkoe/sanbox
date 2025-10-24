@@ -10,7 +10,7 @@ Coordinates the entire import process:
 
 from typing import Dict, List, Optional, Callable
 from django.db import transaction
-from san.models import Fabric, Alias, Zone, WwpnPrefix
+from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix
 from customers.models import Customer
 from .parsers.base_parser import ParseResult, ParsedFabric, ParsedAlias, ParsedZone
 from .parsers.cisco_parser import CiscoParser
@@ -150,11 +150,12 @@ class ImportOrchestrator:
             conflicts = self._detect_conflicts(parse_result)
 
         # Deduplicate aliases before preview (same logic as database import)
-        # Use a dict with (fabric, name, wwpn) as key to remove duplicates
+        # Use a dict with (fabric, name) as key to remove duplicates
+        # With multi-WWPN support, we now key on alias name only (WWPNs are in a list)
         # Keep FIRST occurrence to preserve correct "use" field from parser
         unique_aliases = {}
         for a in parse_result.aliases:
-            key = (a.fabric_name, a.name, a.wwpn)
+            key = (a.fabric_name, a.name)
             if key not in unique_aliases:
                 unique_aliases[key] = a
             else:
@@ -168,7 +169,7 @@ class ImportOrchestrator:
         duplicates_removed = len(parse_result.aliases) - len(unique_aliases)
         if duplicates_removed > 0:
             parse_result.warnings.append(
-                f'{duplicates_removed} duplicate alias entries removed from preview (same name+WWPN)'
+                f'{duplicates_removed} duplicate alias entries removed from preview (same name)'
             )
 
         # Filter out fabrics that have no aliases or zones assigned to them
@@ -221,7 +222,8 @@ class ImportOrchestrator:
             'aliases': [
                 {
                     'name': a.name,
-                    'wwpn': a.wwpn,
+                    'wwpn': a.wwpn,  # First WWPN for backward compatibility
+                    'wwpns': a.wwpns,  # Full list of WWPNs
                     'type': a.alias_type,
                     'use': a.use,
                     'fabric': a.fabric_name
@@ -299,7 +301,7 @@ class ImportOrchestrator:
             existing_aliases = Alias.objects.filter(
                 fabric__customer=self.customer,
                 name__in=unique_alias_names
-            ).select_related('fabric').values('name', 'wwpn', 'fabric__name', 'use')
+            ).select_related('fabric').prefetch_related('alias_wwpns').values('id', 'name', 'fabric__name', 'use')
 
             # Track aliases we've already added to conflicts
             seen_conflicts = set()
@@ -311,12 +313,23 @@ class ImportOrchestrator:
                     # Find the parsed alias with same name
                     parsed_alias = next((a for a in parse_result.aliases if a.name == alias_name), None)
                     if parsed_alias:
+                        # Get the first WWPNs for display purposes
+                        alias_obj = Alias.objects.get(id=existing_alias['id'])
+                        existing_wwpns = alias_obj.wwpns
+                        existing_wwpn_display = existing_wwpns[0] if existing_wwpns else 'N/A'
+                        if len(existing_wwpns) > 1:
+                            existing_wwpn_display += f' (+{len(existing_wwpns)-1} more)'
+
+                        new_wwpn_display = parsed_alias.wwpns[0] if parsed_alias.wwpns else 'N/A'
+                        if len(parsed_alias.wwpns) > 1:
+                            new_wwpn_display += f' (+{len(parsed_alias.wwpns)-1} more)'
+
                         conflicts['aliases'].append({
                             'name': alias_name,
-                            'existing_wwpn': existing_alias['wwpn'],
+                            'existing_wwpn': existing_wwpn_display,
                             'existing_fabric': existing_alias['fabric__name'],
                             'existing_use': existing_alias.get('use', ''),
-                            'new_wwpn': parsed_alias.wwpn,
+                            'new_wwpn': new_wwpn_display,
                             'new_fabric': parsed_alias.fabric_name or 'Unknown',
                             'new_use': parsed_alias.use or ''
                         })
@@ -556,14 +569,11 @@ class ImportOrchestrator:
                 fabric = list(fabric_map.values())[0]
 
                 # Create or update alias
-                # NOTE: update_or_create prevents duplicates by using unique combination of:
-                # (fabric, name, wwpn)
-                # If the same alias+wwpn is parsed multiple times, it updates instead of creating duplicates
-                # Alias model doesn't have customer field - customer is implied through fabric
+                # NOTE: Alias model now uses (fabric, name) as unique identifier
+                # WWPNs are stored in separate AliasWWPN junction table
                 alias, created = Alias.objects.update_or_create(
                     fabric=fabric,
                     name=parsed_alias.name,
-                    wwpn=parsed_alias.wwpn,
                     defaults={
                         'cisco_alias': parsed_alias.alias_type,  # Field is 'cisco_alias' not 'alias_type'
                         'use': parsed_alias.use or ''
@@ -574,6 +584,16 @@ class ImportOrchestrator:
                     self.stats['aliases_created'] += 1
                 else:
                     self.stats['aliases_updated'] += 1
+                    # Clear existing WWPNs for this alias (we'll recreate them)
+                    alias.alias_wwpns.all().delete()
+
+                # Create AliasWWPN entries for each WWPN
+                for order, wwpn in enumerate(parsed_alias.wwpns):
+                    AliasWWPN.objects.create(
+                        alias=alias,
+                        wwpn=wwpn,
+                        order=order
+                    )
 
                 # Assign alias to project if project_id was provided
                 if self.project_id:

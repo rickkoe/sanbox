@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Fabric, Alias, Zone, WwpnPrefix, Switch, SwitchFabric
+from .models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix, Switch, SwitchFabric
 from django.db.models import Count
 
 @admin.register(Switch)
@@ -83,16 +83,23 @@ class FabricAdmin(admin.ModelAdmin):
     zone_count.short_description = "Zones"
     zone_count.admin_order_field = "zone_count"
 
+# Inline for AliasWWPN
+class AliasWWPNInline(admin.TabularInline):
+    model = AliasWWPN
+    extra = 1
+    fields = ['wwpn', 'order']
+    ordering = ['order']
+
 @admin.register(Alias)
 class AliasAdmin(admin.ModelAdmin):
     list_display = [
-        "name", 
-        "wwpn", 
-        "fabric", 
+        "name",
+        "wwpn_display",
+        "fabric",
         "customer_name",
-        "use", 
-        "cisco_alias", 
-        "create", 
+        "use",
+        "cisco_alias",
+        "create",
         "include_in_zoning",
         "project_count",
         "imported",
@@ -103,8 +110,8 @@ class AliasAdmin(admin.ModelAdmin):
         "fabric",
         "projects",  # Filter by projects
         "use",
-        "cisco_alias", 
-        "create", 
+        "cisco_alias",
+        "create",
         "include_in_zoning",
         ("storage", admin.EmptyFieldListFilter),  # Has storage or not
         ("host", admin.EmptyFieldListFilter),     # Has host or not
@@ -112,30 +119,43 @@ class AliasAdmin(admin.ModelAdmin):
         ("updated", admin.DateFieldListFilter),  # Filter by update date
     ]
     search_fields = [
-        "name", 
-        "wwpn", 
-        "fabric__name", 
+        "name",
+        "alias_wwpns__wwpn",  # Search in related AliasWWPN table
+        "fabric__name",
         "fabric__customer__name",
         "notes"
     ]
     list_editable = ["use", "create", "include_in_zoning"]
     ordering = ["fabric__customer__name", "fabric__name", "name"]
     list_per_page = 100
-    
+
     # Add filter for projects
     filter_horizontal = ["projects"]  # Better interface for many-to-many
+
+    # Add inline for WWPNs
+    inlines = [AliasWWPNInline]
     
     # Custom fields
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(
             project_count=Count('projects', distinct=True)
-        ).select_related('fabric', 'fabric__customer', 'storage', 'host')
-    
+        ).select_related('fabric', 'fabric__customer', 'storage', 'host').prefetch_related('alias_wwpns')
+
+    def wwpn_display(self, obj):
+        """Display WWPNs - show first one, indicate if there are more"""
+        wwpns = obj.wwpns
+        if not wwpns:
+            return '-'
+        if len(wwpns) == 1:
+            return wwpns[0]
+        return f"{wwpns[0]} (+{len(wwpns)-1} more)"
+    wwpn_display.short_description = "WWPN(s)"
+
     def customer_name(self, obj):
         return obj.fabric.customer.name
     customer_name.short_description = "Customer"
     customer_name.admin_order_field = "fabric__customer__name"
-    
+
     def project_count(self, obj):
         return obj.project_count
     project_count.short_description = "Projects"

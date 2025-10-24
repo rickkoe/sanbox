@@ -1616,10 +1616,14 @@ def alias_save_view(request):
 
                     serializer = AliasSerializer(alias, data=alias_data, partial=True)
                     if serializer.is_valid():
-                        # Manual dirty check
+                        # Manual dirty check (skip write-only fields that don't exist on model)
                         dirty = False
                         for field, value in serializer.validated_data.items():
-                            if getattr(alias, field) != value:
+                            # Skip write-only fields like wwpns_write
+                            if field in ['wwpns_write']:
+                                dirty = True  # If wwpns_write is present, consider it dirty
+                                continue
+                            if getattr(alias, field, None) != value:
                                 dirty = True
                                 break
                         alias = serializer.save()

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useContext, useMemo } from "react";
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
 
@@ -10,14 +11,71 @@ const AliasTableTanStackClean = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
     const { user, getUserRole } = useAuth();
+    const { theme } = useTheme();
 
     const [fabricOptions, setFabricOptions] = useState([]);
     const [hostOptions, setHostOptions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [errorModal, setErrorModal] = useState({ show: false, message: '', errors: null });
+    const [wwpnColumnCount, setWwpnColumnCount] = useState(1); // Dynamic WWPN column count
+
+    // Ref to access table methods
+    const tableRef = useRef(null);
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
+
+    // Function to add new WWPN column
+    const addWwpnColumn = useCallback(() => {
+        // Preserve current table data and sorting before adding column
+        const currentData = tableRef.current?.getTableData();
+        const currentSorting = tableRef.current?.getSorting();
+        console.log('💾 Preserving table data before adding WWPN column:', currentData?.length, 'rows');
+
+        setWwpnColumnCount(prev => prev + 1);
+        console.log('➕ Added new WWPN column');
+
+        // Restore data and sorting after column is added
+        if (currentData && currentData.length > 0) {
+            setTimeout(() => {
+                console.log('♻️ Restoring preserved table data and sorting');
+                tableRef.current?.setTableData(currentData);
+                tableRef.current?.setSorting(currentSorting || []);
+                setTimeout(() => {
+                    console.log('📏 Auto-sizing columns after adding new column');
+                    tableRef.current?.autoSizeColumns();
+                }, 50);
+            }, 100);
+        } else {
+            setTimeout(() => {
+                console.log('📏 Auto-sizing columns after adding new column');
+                tableRef.current?.autoSizeColumns();
+            }, 150);
+        }
+    }, []);
+
+    // Helper function to get plus button styles based on theme
+    const getPlusButtonStyle = useCallback(() => {
+        const isDark = theme === 'dark';
+        return {
+            background: isDark ? '#14b8a6' : '#64748b',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0',
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            color: isDark ? '#000' : '#fff',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            lineHeight: '1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: 0.8,
+            transition: 'opacity 0.2s, transform 0.2s'
+        };
+    }, [theme]);
 
     // Check permissions for modifying project data
     const userRole = getUserRole(activeCustomerId);
@@ -40,10 +98,9 @@ const AliasTableTanStackClean = () => {
         aliasDelete: `${API_URL}/api/san/aliases/delete/`
     };
 
-    // All possible alias columns
-    const columns = [
+    // Base alias columns (non-WWPN columns)
+    const baseColumns = [
         { data: "name", title: "Name", required: true },
-        { data: "wwpn", title: "WWPN", required: true },
         { data: "use", title: "Use", type: "dropdown" },
         { data: "fabric_details.name", title: "Fabric", type: "dropdown", required: true },
         { data: "host_details.name", title: "Host", type: "dropdown" },
@@ -59,29 +116,100 @@ const AliasTableTanStackClean = () => {
         { data: "notes", title: "Notes" }
     ];
 
+    // Generate dynamic WWPN columns
+    const wwpnColumns = useMemo(() => {
+        const columns = [];
+        for (let i = 1; i <= wwpnColumnCount; i++) {
+            const isLastColumn = i === wwpnColumnCount;
+            columns.push({
+                data: `wwpn_${i}`,
+                title: isLastColumn ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        WWPN {i}
+                        <button
+                            className="wwpn-plus-button"
+                            title="Add WWPN column"
+                            style={getPlusButtonStyle()}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.opacity = '1';
+                                e.currentTarget.style.transform = 'scale(1.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.opacity = '0.8';
+                                e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                            onClick={(e) => {
+                                console.log('🔘 Plus button clicked in header!');
+                                e.preventDefault();
+                                e.stopPropagation();
+                                addWwpnColumn();
+                            }}
+                        >
+                            +
+                        </button>
+                    </span>
+                ) : `WWPN ${i}`,
+                required: i === 1 // Only first WWPN is required
+            });
+        }
+        return columns;
+    }, [wwpnColumnCount, theme, getPlusButtonStyle, addWwpnColumn]);
+
+    // Combine base columns with WWPN columns (WWPNs come after name)
+    const columns = useMemo(() => {
+        const nameColumn = baseColumns.slice(0, 1); // "Name" column
+        const otherColumns = baseColumns.slice(1);  // All other columns
+        return [...nameColumn, ...wwpnColumns, ...otherColumns];
+    }, [wwpnColumns]);
+
+    // Generate list of default visible columns (includes all WWPN columns)
+    const defaultVisibleColumns = useMemo(() => {
+        const wwpnColumnNames = Array.from({ length: wwpnColumnCount }, (_, i) => `wwpn_${i + 1}`);
+        return [
+            'name',
+            ...wwpnColumnNames,
+            'use',
+            'fabric_details.name',
+            'host_details.name',
+            'storage_details.name',
+            'cisco_alias',
+            'create',
+            'delete',
+            'include_in_zoning',
+            'zoned_count',
+            'notes'
+        ];
+    }, [wwpnColumnCount]);
+
     const colHeaders = columns.map(col => col.title);
 
-    const NEW_ALIAS_TEMPLATE = {
-        id: null,
-        name: "",
-        wwpn: "",
-        use: "",
-        fabric: "",
-        fabric_details: { name: "" },
-        host: "",
-        host_details: { name: "" },
-        storage: "",
-        storage_details: { name: "" },
-        cisco_alias: "",
-        create: false,
-        delete: false,
-        include_in_zoning: false,
-        logged_in: false,
-        notes: "",
-        imported: null,
-        updated: null,
-        zoned_count: 0
-    };
+    const NEW_ALIAS_TEMPLATE = useMemo(() => {
+        const template = {
+            id: null,
+            name: "",
+            use: "",
+            fabric: "",
+            fabric_details: { name: "" },
+            host: "",
+            host_details: { name: "" },
+            storage: "",
+            storage_details: { name: "" },
+            cisco_alias: "",
+            create: false,
+            delete: false,
+            include_in_zoning: false,
+            logged_in: false,
+            notes: "",
+            imported: null,
+            updated: null,
+            zoned_count: 0
+        };
+        // Add dynamic WWPN fields
+        for (let i = 1; i <= wwpnColumnCount; i++) {
+            template[`wwpn_${i}`] = "";
+        }
+        return template;
+    }, [wwpnColumnCount]);
 
     // WWPN formatting utilities
     const formatWWPN = (value) => {
@@ -97,7 +225,21 @@ const AliasTableTanStackClean = () => {
         return cleanValue.length <= 16 && /^[0-9a-fA-F]*$/.test(cleanValue);
     };
 
-    // Load fabrics and hosts (storage is now read-only, looked up via WWPN)
+    // Calculate required WWPN columns based on alias data
+    const calculateWwpnColumns = useCallback((aliases) => {
+        if (!aliases || aliases.length === 0) return 1;
+
+        let maxWwpns = 1;
+        aliases.forEach(alias => {
+            if (alias.wwpns && Array.isArray(alias.wwpns)) {
+                maxWwpns = Math.max(maxWwpns, alias.wwpns.length);
+            }
+        });
+        console.log(`📊 Calculated ${maxWwpns} WWPN columns needed`);
+        return maxWwpns;
+    }, []);
+
+    // Load fabrics, hosts, and calculate WWPN columns
     useEffect(() => {
         const loadData = async () => {
             if (activeCustomerId && activeProjectId) {
@@ -105,9 +247,10 @@ const AliasTableTanStackClean = () => {
                     setLoading(true);
                     console.log('Loading dropdown data for alias table...');
 
-                    const [fabricResponse, hostResponse] = await Promise.all([
+                    const [fabricResponse, hostResponse, aliasResponse] = await Promise.all([
                         axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
-                        axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`)
+                        axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`),
+                        axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`)
                     ]);
 
                     // Handle paginated response structure
@@ -115,6 +258,11 @@ const AliasTableTanStackClean = () => {
                     setFabricOptions(fabricsArray.map(f => ({ id: f.id, name: f.name })));
 
                     setHostOptions(hostResponse.data.map(h => ({ id: h.id, name: h.name })));
+
+                    // Calculate required WWPN columns based on alias data
+                    const aliasesArray = aliasResponse.data.results || aliasResponse.data;
+                    const requiredColumns = calculateWwpnColumns(aliasesArray);
+                    setWwpnColumnCount(requiredColumns);
 
                     console.log('✅ Dropdown data loaded successfully');
                     setLoading(false);
@@ -126,7 +274,7 @@ const AliasTableTanStackClean = () => {
         };
 
         loadData();
-    }, [activeCustomerId, activeProjectId]);
+    }, [activeCustomerId, activeProjectId, calculateWwpnColumns]);
 
     // Dynamic dropdown sources (storage removed - now read-only lookup via WWPN)
     const dropdownSources = useMemo(() => ({
@@ -136,29 +284,74 @@ const AliasTableTanStackClean = () => {
         cisco_alias: ["device-alias", "fcalias", "wwpn"],
     }), [fabricOptions, hostOptions]);
 
-    // Custom renderers for WWPN formatting
-    const customRenderers = {
-        wwpn: (rowData, td, row, col, prop, value) => {
-            if (value && isValidWWPNFormat(value)) {
-                return formatWWPN(value);
-            }
-            return value || "";
-        }
-    };
+    // Custom renderers for WWPN formatting (applied to all WWPN columns)
+    const customRenderers = useMemo(() => {
+        console.log('🎨 Creating custom renderers for', wwpnColumnCount, 'WWPN columns');
+        const renderers = {};
 
-    // Process data for display - convert IDs to names in nested properties
+        // Add renderer for each WWPN column - just format the value
+        // TanStackCRUDTable calls: customRenderer(rowData, null, rowIndex, colIndex, accessorKey, value)
+        for (let i = 1; i <= wwpnColumnCount; i++) {
+            const columnName = `wwpn_${i}`;
+
+            renderers[columnName] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+                // The value is passed as the 6th argument
+                // Format WWPN value
+                const formattedValue = value && isValidWWPNFormat(value) ? formatWWPN(value) : (value || "");
+                return formattedValue;
+            };
+        }
+        console.log('✅ Custom renderers created:', Object.keys(renderers));
+        return renderers;
+    }, [wwpnColumnCount]);
+
+    // Process data for display - convert IDs to names in nested properties and distribute WWPNs across columns
     const preprocessData = (data) => {
-        return data.map(alias => ({
-            ...alias,
-            // Keep nested structure for display
-            fabric_details: alias.fabric_details || { name: "" },
-            host_details: alias.host_details || { name: "" },
-            storage_details: alias.storage_details || { name: "" },
-            // Add flattened version for easier filtering (helps FilterDropdown extract values)
-            'storage_details.name': alias.storage_details?.name || '',
-            // Ensure zoned_count defaults to 0 if not set
-            zoned_count: alias.zoned_count || 0
-        }));
+        console.log(`🔄 preprocessData called with ${data?.length} aliases`);
+        const processed = data.map((alias, idx) => {
+            const processedAlias = {
+                ...alias,
+                // Keep nested structure for display
+                fabric_details: alias.fabric_details || { name: "" },
+                host_details: alias.host_details || { name: "" },
+                storage_details: alias.storage_details || { name: "" },
+                // Add flattened version for easier filtering (helps FilterDropdown extract values)
+                'storage_details.name': alias.storage_details?.name || '',
+                // Ensure zoned_count defaults to 0 if not set
+                zoned_count: alias.zoned_count || 0
+            };
+
+            // Distribute WWPNs across dynamic columns
+            const wwpns = alias.wwpns || (alias.wwpn ? [alias.wwpn] : []);
+
+            // Clear all WWPN columns first
+            for (let i = 1; i <= wwpnColumnCount; i++) {
+                processedAlias[`wwpn_${i}`] = "";
+            }
+
+            // Populate WWPN columns with data
+            wwpns.forEach((wwpn, index) => {
+                if (index < wwpnColumnCount) {
+                    processedAlias[`wwpn_${index + 1}`] = wwpn;
+                }
+            });
+
+            // Log first 3 aliases for debugging
+            if (idx < 3) {
+                console.log(`📝 Processed alias ${idx}:`, {
+                    name: alias.name,
+                    wwpns: wwpns,
+                    wwpn_1: processedAlias.wwpn_1,
+                    wwpn_2: processedAlias.wwpn_2,
+                    allKeys: Object.keys(processedAlias).filter(k => k.startsWith('wwpn'))
+                });
+            }
+
+            return processedAlias;
+        });
+
+        console.log('📝 Sample of processed data (first row):', processed[0]);
+        return processed;
     };
 
     // Custom save handler that matches the original AliasTable bulk save approach
@@ -200,18 +393,37 @@ const AliasTableTanStackClean = () => {
                 }
             }
 
-            // Validate WWPNs
+            // Validate WWPNs - check all WWPN columns
             const invalidWWPN = allTableData.find((alias) => {
                 if (!alias.name || alias.name.trim() === "") return false;
-                if (!alias.wwpn) return true;
-                const cleanWWPN = alias.wwpn.replace(/[^0-9a-fA-F]/g, "");
-                return cleanWWPN.length !== 16 || !/^[0-9a-fA-F]+$/.test(cleanWWPN);
+
+                // Check if at least one WWPN is provided
+                let hasAnyWwpn = false;
+                for (let i = 1; i <= wwpnColumnCount; i++) {
+                    if (alias[`wwpn_${i}`] && alias[`wwpn_${i}`].trim()) {
+                        hasAnyWwpn = true;
+                        break;
+                    }
+                }
+                if (!hasAnyWwpn) return true; // No WWPN provided
+
+                // Validate format of all provided WWPNs
+                for (let i = 1; i <= wwpnColumnCount; i++) {
+                    const wwpn = alias[`wwpn_${i}`];
+                    if (wwpn && wwpn.trim()) {
+                        const cleanWWPN = wwpn.replace(/[^0-9a-fA-F]/g, "");
+                        if (cleanWWPN.length !== 16 || !/^[0-9a-fA-F]+$/.test(cleanWWPN)) {
+                            return true; // Invalid format
+                        }
+                    }
+                }
+                return false;
             });
 
             if (invalidWWPN) {
                 return {
                     success: false,
-                    message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}". Must be 16 hex characters.`,
+                    message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}". All WWPNs must be 16 hex characters.`,
                 };
             }
 
@@ -292,9 +504,15 @@ const AliasTableTanStackClean = () => {
                     delete cleanRow.storage_details;
                     delete cleanRow.zoned_count;
 
-                    // Format WWPN
-                    if (cleanRow.wwpn) {
-                        cleanRow.wwpn = formatWWPN(cleanRow.wwpn);
+                    // Collect WWPNs from all dynamic WWPN columns
+                    let wwpns_write = [];
+                    for (let i = 1; i <= wwpnColumnCount; i++) {
+                        const wwpnValue = cleanRow[`wwpn_${i}`];
+                        if (wwpnValue && wwpnValue.trim()) {
+                            wwpns_write.push(formatWWPN(wwpnValue.trim()));
+                        }
+                        // Delete WWPN column from cleanRow
+                        delete cleanRow[`wwpn_${i}`];
                     }
 
                     // Handle boolean fields
@@ -309,6 +527,7 @@ const AliasTableTanStackClean = () => {
 
                     const result = {
                         ...cleanRow,
+                        wwpns_write: wwpns_write, // Send as array
                         projects: [activeProjectId],
                         fabric: parseInt(fabric.id),
                         host: null
@@ -409,6 +628,8 @@ const AliasTableTanStackClean = () => {
                 </div>
             )}
             <TanStackCRUDTable
+                ref={tableRef}
+
                 // API Configuration - uses custom save endpoint
                 apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}
                 saveUrl={API_ENDPOINTS.aliasSave}
@@ -421,6 +642,7 @@ const AliasTableTanStackClean = () => {
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
                 newRowTemplate={NEW_ALIAS_TEMPLATE}
+                defaultVisibleColumns={defaultVisibleColumns}
 
                 // Data Processing
                 preprocessData={preprocessData}
