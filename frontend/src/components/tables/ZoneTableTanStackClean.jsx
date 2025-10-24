@@ -999,7 +999,11 @@ const ZoneTableTanStackClean = () => {
                     for (let i = 1; i <= columnCounts.targets; i++) {
                         const memberName = row[`target_member_${i}`];
                         if (memberName) {
-                            const alias = aliasOptions.find(a => a.name === memberName);
+                            // Trim whitespace and use case-insensitive matching (handle pasted values from Excel)
+                            const trimmedName = (typeof memberName === 'string') ? memberName.trim() : memberName;
+                            const alias = aliasOptions.find(a =>
+                                a.name.toLowerCase() === (trimmedName || '').toLowerCase()
+                            );
                             if (alias) {
                                 // Find existing member relationship by matching alias ID
                                 const existingMember = row.members_details?.find(m =>
@@ -1024,7 +1028,11 @@ const ZoneTableTanStackClean = () => {
                     for (let i = 1; i <= columnCounts.initiators; i++) {
                         const memberName = row[`init_member_${i}`];
                         if (memberName) {
-                            const alias = aliasOptions.find(a => a.name === memberName);
+                            // Trim whitespace and use case-insensitive matching (handle pasted values from Excel)
+                            const trimmedName = (typeof memberName === 'string') ? memberName.trim() : memberName;
+                            const alias = aliasOptions.find(a =>
+                                a.name.toLowerCase() === (trimmedName || '').toLowerCase()
+                            );
                             if (alias) {
                                 // Find existing member relationship by matching alias ID
                                 const existingMember = row.members_details?.find(m =>
@@ -1049,7 +1057,11 @@ const ZoneTableTanStackClean = () => {
                     for (let i = 1; i <= columnCounts.allAccess; i++) {
                         const memberName = row[`all_member_${i}`];
                         if (memberName) {
-                            const alias = aliasOptions.find(a => a.name === memberName);
+                            // Trim whitespace and use case-insensitive matching (handle pasted values from Excel)
+                            const trimmedName = (typeof memberName === 'string') ? memberName.trim() : memberName;
+                            const alias = aliasOptions.find(a =>
+                                a.name.toLowerCase() === (trimmedName || '').toLowerCase()
+                            );
                             if (alias) {
                                 // Find existing member relationship by matching alias ID
                                 const existingMember = row.members_details?.find(m =>
@@ -1073,9 +1085,14 @@ const ZoneTableTanStackClean = () => {
                     console.log(`🎯 Final members array for ${row.name}:`, members);
 
                     // Find fabric ID from name
-                    const fabric = fabricOptions.find(f => f.name === row.fabric);
+                    // Trim whitespace and use case-insensitive matching (handle pasted values from Excel)
+                    const fabricName = (typeof row.fabric === 'string') ? row.fabric.trim() : row.fabric;
+                    const fabric = fabricOptions.find(f =>
+                        f.name.toLowerCase() === (fabricName || '').toLowerCase()
+                    );
                     if (!fabric) {
-                        throw new Error(`Zone "${row.name}" must have a valid fabric selected`);
+                        const availableFabricNames = fabricOptions.map(f => f.name).join(', ');
+                        throw new Error(`Zone "${row.name}" must have a valid fabric selected. Fabric "${fabricName}" not found. Available fabrics: ${availableFabricNames}`);
                     }
 
                     // Clean payload

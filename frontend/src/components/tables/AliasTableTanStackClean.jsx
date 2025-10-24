@@ -529,14 +529,29 @@ const AliasTableTanStackClean = () => {
                     // Find IDs from names - check nested structure first (new behavior), then flat property (legacy)
                     // Use explicit checks to handle empty strings properly
                     let fabricName = (row.fabric_details?.name && row.fabric_details.name.trim() !== '')
-                        ? row.fabric_details.name
+                        ? row.fabric_details.name.trim()
                         : (row['fabric_details.name'] || row.fabric);
                     let hostName = (row.host_details?.name && row.host_details.name.trim() !== '')
-                        ? row.host_details.name
+                        ? row.host_details.name.trim()
                         : (row['host_details.name'] || row.host);
 
-                    const fabric = fabricOptions.find(f => f.name === fabricName);
-                    const host = hostOptions.find(h => h.name === hostName);
+                    // Trim and normalize fabric/host names for matching (handle pasted values from Excel)
+                    if (fabricName && typeof fabricName === 'string') {
+                        fabricName = fabricName.trim();
+                    }
+                    if (hostName && typeof hostName === 'string') {
+                        hostName = hostName.trim();
+                    }
+
+                    // Case-insensitive lookup for fabric (handles pasted values with different case)
+                    const fabric = fabricOptions.find(f =>
+                        f.name.toLowerCase() === (fabricName || '').toLowerCase()
+                    );
+
+                    // Case-insensitive lookup for host (handles pasted values with different case)
+                    const host = hostOptions.find(h =>
+                        h.name.toLowerCase() === (hostName || '').toLowerCase()
+                    );
 
                     console.log('🎯 Found references:', {
                         fabricName: fabricName,
@@ -549,7 +564,8 @@ const AliasTableTanStackClean = () => {
 
                     if (!fabric) {
                         console.error('❌ Fabric lookup failed for row:', row);
-                        throw new Error(`Alias "${row.name}" must have a valid fabric selected`);
+                        const availableFabricNames = fabricOptions.map(f => f.name).join(', ');
+                        throw new Error(`Alias "${row.name}" must have a valid fabric selected. Fabric "${fabricName}" not found. Available fabrics: ${availableFabricNames}`);
                     }
 
                     // Clean payload (replicating original buildPayload)
