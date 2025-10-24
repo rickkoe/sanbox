@@ -611,6 +611,7 @@ def alias_list_view(request, project_id):
     # Apply storage filter if present (must be done via Port.wwpn lookup)
     if storage_filter_value:
         from storage.models import Port
+        from san.models import AliasWWPN
 
         param, value = storage_filter_value
         print(f"🔍 Applying storage filter: {param} = {value}")
@@ -634,8 +635,12 @@ def alias_list_view(request, project_id):
             # Exact match
             storage_names = [value]
 
-        # Get ports with matching storage names
-        ports_query = Port.objects.select_related('storage').filter(
+        # OPTIMIZED: Use database query instead of Python iteration
+        # Get WWPNs from ports with matching storage names (normalized, uppercase)
+        from django.db.models import F
+        from django.db.models.functions import Replace, Upper
+
+        port_wwpns_query = Port.objects.filter(
             wwpn__isnull=False,
             storage__isnull=False,
             storage__name__in=storage_names
@@ -643,25 +648,33 @@ def alias_list_view(request, project_id):
 
         # Filter by customer if available
         if customer_id:
-            ports_query = ports_query.filter(storage__customer_id=customer_id)
+            port_wwpns_query = port_wwpns_query.filter(storage__customer_id=customer_id)
 
-        # Get WWPNs from matching ports (normalized)
+        # Get normalized WWPNs from ports (remove colons, uppercase)
         port_wwpns = set()
-        for port in ports_query:
-            if port.wwpn:
-                port_wwpns.add(port.wwpn.replace(':', '').upper())
+        for port in port_wwpns_query.values_list('wwpn', flat=True):
+            if port:
+                port_wwpns.add(port.replace(':', '').upper())
 
-        # Filter aliases to those with matching WWPNs
-        matching_alias_ids = []
-        for alias in aliases_queryset:
-            if alias.wwpn:
-                alias_wwpn_normalized = alias.wwpn.replace(':', '').upper()
-                if alias_wwpn_normalized in port_wwpns:
-                    matching_alias_ids.append(alias.id)
+        print(f"🔍 Found {len(port_wwpns)} WWPNs matching storage filter")
+
+        # Find aliases with matching WWPNs using database query on AliasWWPN table
+        # This is much faster than iterating through all aliases in Python
+        matching_wwpns = AliasWWPN.objects.filter(
+            alias__in=aliases_queryset
+        ).values_list('wwpn', 'alias_id')
+
+        # Find matching alias IDs by comparing normalized WWPNs
+        matching_alias_ids = set()
+        for wwpn, alias_id in matching_wwpns:
+            if wwpn:
+                wwpn_normalized = wwpn.replace(':', '').upper()
+                if wwpn_normalized in port_wwpns:
+                    matching_alias_ids.add(alias_id)
 
         # Apply the filter
         aliases_queryset = aliases_queryset.filter(id__in=matching_alias_ids)
-        print(f"📊 Storage filter result count: {aliases_queryset.count()}")
+        print(f"📊 Storage filter result count: {len(matching_alias_ids)} aliases")
 
     # Apply ordering
     if ordering:
@@ -682,10 +695,43 @@ def alias_list_view(request, project_id):
     # Get customer_id from project
     customer_id = project.customers.first().id if project.customers.exists() else None
 
+    # Build WWPN→Storage map for bulk lookup (performance optimization)
+    # This prevents N+1 queries when serializing storage_details
+    wwpn_storage_map = {}
+    try:
+        from storage.models import Port
+
+        # Get all ports with storage for this customer
+        ports_query = Port.objects.select_related('storage').filter(
+            wwpn__isnull=False,
+            storage__isnull=False
+        )
+
+        if customer_id:
+            ports_query = ports_query.filter(storage__customer_id=customer_id)
+
+        # Build the map: normalized_wwpn → storage_info
+        for port in ports_query:
+            if port.wwpn and port.storage:
+                wwpn_normalized = port.wwpn.replace(':', '').upper()
+                wwpn_storage_map[wwpn_normalized] = {
+                    "id": port.storage.id,
+                    "name": port.storage.name
+                }
+
+        print(f"🔧 Built WWPN→Storage map with {len(wwpn_storage_map)} entries for performance")
+    except Exception as e:
+        print(f"⚠️ Failed to build WWPN→Storage map: {e}")
+        # Continue without the map - serializer will fall back to individual queries
+
     serializer = AliasSerializer(
         page_obj,
         many=True,
-        context={'project_id': project_id, 'customer_id': customer_id}
+        context={
+            'project_id': project_id,
+            'customer_id': customer_id,
+            'wwpn_storage_map': wwpn_storage_map
+        }
     )
     
     # Return paginated response with metadata

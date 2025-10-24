@@ -461,7 +461,10 @@ const TanStackCRUDTable = forwardRef(({
 
     try {
       console.log(`🔄 Loading page ${currentPage} (size: ${pageSize}) from:`, url);
-      const response = await api.get(url);
+      // Use longer timeout for large dataset requests (when fetching all data for filtering)
+      const response = await api.get(url, {
+        timeout: effectivePageSize >= 10000 ? 30000 : undefined // 30s for large requests
+      });
 
       // Handle paginated response
       let dataList = response.data.results || response.data;
@@ -519,7 +522,10 @@ const TanStackCRUDTable = forwardRef(({
       const url = buildApiUrl(1, 10000, '', {});
       console.log('🔍 Loading complete dataset for filtering from:', url);
 
-      const response = await api.get(url);
+      // Use longer timeout for large dataset requests
+      const response = await api.get(url, {
+        timeout: 30000 // 30s timeout for loading complete dataset
+      });
       let dataList = response.data.results || response.data;
 
       // Process data if preprocessing function provided

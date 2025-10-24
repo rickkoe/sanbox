@@ -2,7 +2,7 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: "/", // Use root since all URLs already include /api/
-  timeout: 5000, // Optional: Set timeout
+  timeout: 30000, // 30 second timeout for large dataset operations
   headers: {
     "Content-Type": "application/json",
   },

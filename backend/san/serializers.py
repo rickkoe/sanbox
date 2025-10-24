@@ -166,12 +166,27 @@ class AliasSerializer(serializers.ModelSerializer):
         """
         Return storage name by looking up ports with matching WWPNs.
         Lookup chain: Alias.wwpns → Port.wwpn → Port.storage → Storage.name
+
+        Optimized: Uses a pre-built WWPN→Storage map from context to avoid N+1 queries.
         """
         wwpns = obj.wwpns
         if not wwpns:
             return None
 
-        # Get customer_id from context (passed from the view)
+        # Check if we have a pre-built WWPN→Storage map in context (bulk optimization)
+        wwpn_storage_map = self.context.get('wwpn_storage_map')
+
+        if wwpn_storage_map is not None:
+            # Use the pre-built map for O(1) lookup
+            for wwpn in wwpns:
+                wwpn_normalized = wwpn.replace(':', '').upper()
+                storage_info = wwpn_storage_map.get(wwpn_normalized)
+                if storage_info:
+                    return storage_info
+            return None
+
+        # Fallback to individual query (only used when map is not provided)
+        # This preserves backward compatibility but is slower
         customer_id = self.context.get('customer_id')
 
         if not customer_id:
