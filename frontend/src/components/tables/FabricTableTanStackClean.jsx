@@ -23,35 +23,11 @@ const FabricTableTanStackClean = () => {
         { code: 'BR', name: 'Brocade' }
     ];
 
-    // State for switches dropdown
-    const [switches, setSwitches] = useState([]);
-    const [switchesLoading, setSwitchesLoading] = useState(false);
-
-    // Fetch switches for the active customer
-    useEffect(() => {
-        const fetchSwitches = async () => {
-            if (!customerId) return;
-
-            setSwitchesLoading(true);
-            try {
-                const response = await api.get(`/api/san/switches/customer/${customerId}/`);
-                console.log('📡 Fetched switches:', response.data);
-                setSwitches(response.data);
-            } catch (error) {
-                console.error('Error fetching switches:', error);
-            } finally {
-                setSwitchesLoading(false);
-            }
-        };
-
-        fetchSwitches();
-    }, [customerId]);
-
     // All possible fabric columns
     const columns = [
         { data: "name", title: "Name", required: true },
         { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
-        { data: "switch", title: "Switch", type: "dropdown" },
+        { data: "switches", title: "Switches", readOnly: true },
         { data: "zoneset_name", title: "Zoneset Name" },
         { data: "domain_id", title: "Domain ID", type: "numeric", defaultVisible: false },
         { data: "vsan", title: "VSAN", type: "numeric", defaultVisible: false },
@@ -64,52 +40,14 @@ const FabricTableTanStackClean = () => {
     const colHeaders = columns.map(col => col.title);
 
     const dropdownSources = {
-        san_vendor: vendorOptions.map(o => o.name),
-        switch: switches.map(s => s.name)
+        san_vendor: vendorOptions.map(o => o.name)
     };
-
-    // Filter switch dropdown to only show switches matching the fabric's vendor
-    // Using useMemo to capture the current switches state
-    const dropdownFilters = React.useMemo(() => ({
-        switch: (options, rowData, columnKey, allTableData) => {
-            // Get the fabric's vendor (in display form, e.g., "Cisco" or "Brocade")
-            const fabricVendor = rowData?.san_vendor;
-
-            console.log('🔍 Filtering switches for fabric vendor:', fabricVendor);
-            console.log('🔍 Row data:', rowData);
-            console.log('🔍 Available switches:', switches);
-
-            // Convert vendor name to code for comparison
-            const vendorCode = vendorOptions.find(v => v.name === fabricVendor)?.code;
-
-            console.log('🔍 Vendor code:', vendorCode);
-
-            if (!vendorCode) {
-                // If no vendor selected, show all switches
-                console.log('🔍 No vendor code, showing all switches');
-                return options; // Return all options
-            }
-
-            // Filter switches to only those matching the fabric's vendor
-            const filteredSwitches = switches.filter(s => {
-                console.log(`🔍 Checking switch ${s.name}: ${s.san_vendor} === ${vendorCode}?`, s.san_vendor === vendorCode);
-                return s.san_vendor === vendorCode;
-            });
-
-            console.log('🔍 Filtered switches:', filteredSwitches);
-
-            // Return the filtered switch names
-            const filteredNames = filteredSwitches.map(s => s.name);
-            console.log('🔍 Returning filtered names:', filteredNames);
-            return filteredNames;
-        }
-    }), [switches]);
 
     const NEW_FABRIC_TEMPLATE = {
         id: null,
         name: "",
         san_vendor: "",
-        switch: "",
+        switches: "",
         zoneset_name: "",
         domain_id: "",
         vsan: "",
@@ -119,16 +57,16 @@ const FabricTableTanStackClean = () => {
         notes: ""
     };
 
-    // Process data for display - convert vendor codes to names and switch IDs to names
+    // Process data for display - convert vendor codes to names and format switches
     const preprocessData = (data) => {
         return data.map(fabric => ({
             ...fabric,
             san_vendor: vendorOptions.find(v => v.code === fabric.san_vendor)?.name || fabric.san_vendor,
-            switch: fabric.switch_details?.name || ""
+            switches: fabric.switches_details?.map(s => s.name).join(', ') || ""
         }));
     };
 
-    // Transform data for saving - convert vendor names to codes and switch names to IDs
+    // Transform data for saving - convert vendor names to codes
     const saveTransform = (rows) =>
         rows
             .filter(row => {
@@ -139,17 +77,13 @@ const FabricTableTanStackClean = () => {
                 });
             })
             .map(row => {
-                // Find switch ID by name
-                const switchObj = switches.find(s => s.name === row.switch);
-
                 // Exclude read-only fields from save
-                const { alias_count, zone_count, ...fabricData } = row;
+                const { alias_count, zone_count, switches, ...fabricData } = row;
 
                 return {
                     ...fabricData,
                     customer: customerId,
                     san_vendor: vendorOptions.find(v => v.name === fabricData.san_vendor || v.code === fabricData.san_vendor)?.code || fabricData.san_vendor,
-                    switch: switchObj?.id || null,
                     domain_id: fabricData.domain_id === "" ? null : fabricData.domain_id,
                     vsan: fabricData.vsan === "" ? null : fabricData.vsan
                 };
@@ -193,7 +127,6 @@ const FabricTableTanStackClean = () => {
                 columns={columns}
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
-                dropdownFilters={dropdownFilters}
                 newRowTemplate={NEW_FABRIC_TEMPLATE}
 
                 // Data Processing

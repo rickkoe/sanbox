@@ -59,7 +59,7 @@ class Switch(models.Model):
 
 class Fabric(models.Model):
     customer = models.ForeignKey(Customer, related_name='fabric_customer', on_delete=models.CASCADE)
-    switch = models.ForeignKey(Switch, related_name='fabrics', on_delete=models.SET_NULL, null=True, blank=True, help_text="Switch this fabric belongs to")
+    switches = models.ManyToManyField(Switch, related_name='fabrics', blank=True, help_text="Switches this fabric belongs to")
     name = models.CharField(max_length=64)
     zoneset_name = models.CharField(max_length=200)
     san_vendor = models.CharField(

@@ -1,8 +1,9 @@
-import React, { useContext } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
+import api from "../../api";
 
 // TanStack Table implementation for Switch management
 const SwitchTableTanStack = () => {
@@ -15,6 +16,32 @@ const SwitchTableTanStack = () => {
     const userRole = getUserRole(customerId);
     const canEditInfrastructure = userRole === 'member' || userRole === 'admin';
     const isReadOnly = !canEditInfrastructure;
+
+    // State for fabrics dropdown
+    const [fabrics, setFabrics] = useState([]);
+    const [fabricsLoading, setFabricsLoading] = useState(false);
+
+    // Fetch fabrics for the active customer
+    useEffect(() => {
+        const fetchFabrics = async () => {
+            if (!customerId) return;
+
+            setFabricsLoading(true);
+            try {
+                const response = await api.get(`/api/san/fabrics/?customer_id=${customerId}`);
+                console.log('📡 Fetched fabrics:', response.data);
+                // Handle paginated response
+                const fabricsData = response.data.results || response.data;
+                setFabrics(fabricsData);
+            } catch (error) {
+                console.error('Error fetching fabrics:', error);
+            } finally {
+                setFabricsLoading(false);
+            }
+        };
+
+        fetchFabrics();
+    }, [customerId]);
 
     // Vendor mapping (same as FabricTable)
     const vendorOptions = [
@@ -40,6 +67,7 @@ const SwitchTableTanStack = () => {
     const columns = [
         { data: "name", title: "Name", required: true },
         { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
+        { data: "fabrics", title: "Fabrics", type: "dropdown", allowMultiple: true },
         { data: "wwnn", title: "WWNN" },
         { data: "ip_address", title: "IP Address" },
         { data: "subnet_mask", title: "Subnet Mask", defaultVisible: false },
@@ -55,13 +83,15 @@ const SwitchTableTanStack = () => {
     const colHeaders = columns.map(col => col.title);
 
     const dropdownSources = {
-        san_vendor: vendorOptions.map(o => o.name)
+        san_vendor: vendorOptions.map(o => o.name),
+        fabrics: fabrics.map(f => f.name)
     };
 
     const NEW_SWITCH_TEMPLATE = {
         id: null,
         name: "",
         san_vendor: "",
+        fabrics: [],
         wwnn: "",
         ip_address: "",
         subnet_mask: "",
@@ -84,15 +114,16 @@ const SwitchTableTanStack = () => {
         }
     };
 
-    // Process data for display - convert vendor codes to names
+    // Process data for display - convert vendor codes to names and format fabrics
     const preprocessData = (data) => {
         return data.map(switchItem => ({
             ...switchItem,
-            san_vendor: vendorOptions.find(v => v.code === switchItem.san_vendor)?.name || switchItem.san_vendor
+            san_vendor: vendorOptions.find(v => v.code === switchItem.san_vendor)?.name || switchItem.san_vendor,
+            fabrics: switchItem.fabrics_details?.map(f => f.name) || []
         }));
     };
 
-    // Transform data for saving - convert vendor names to codes and format WWNN
+    // Transform data for saving - convert vendor names to codes, format WWNN, and convert fabric names to IDs
     const saveTransform = (rows) =>
         rows
             .filter(row => {
@@ -103,10 +134,18 @@ const SwitchTableTanStack = () => {
                 });
             })
             .map(row => {
+                // Convert fabric names to IDs
+                const fabricIds = Array.isArray(row.fabrics)
+                    ? row.fabrics
+                        .map(fabricName => fabrics.find(f => f.name === fabricName)?.id)
+                        .filter(id => id !== undefined)
+                    : [];
+
                 return {
                     ...row,
                     customer: customerId,
                     san_vendor: vendorOptions.find(v => v.name === row.san_vendor || v.code === row.san_vendor)?.code || row.san_vendor,
+                    fabrics: fabricIds,
                     wwnn: row.wwnn ? formatWWNN(row.wwnn) : null,
                     ip_address: row.ip_address === "" ? null : row.ip_address,
                     subnet_mask: row.subnet_mask === "" ? null : row.subnet_mask,

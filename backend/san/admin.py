@@ -47,32 +47,38 @@ class SwitchAdmin(admin.ModelAdmin):
 
 @admin.register(Fabric)
 class FabricAdmin(admin.ModelAdmin):
-    list_display = ["name", "customer", "switch", "zoneset_name", "san_vendor", "domain_id", "vsan", "exists", "alias_count", "zone_count"]
+    list_display = ["name", "customer", "zoneset_name", "san_vendor", "domain_id", "vsan", "exists", "switch_count", "alias_count", "zone_count"]
     list_filter = [
         "customer",
         "san_vendor",
         "exists",
-        ("switch", admin.EmptyFieldListFilter),  # Filter by empty/non-empty switch
         ("domain_id", admin.EmptyFieldListFilter),  # Filter by empty/non-empty domain_id
         ("vsan", admin.EmptyFieldListFilter),  # Filter by empty/non-empty VSAN
     ]
-    search_fields = ["name", "customer__name", "zoneset_name", "switch__name"]
+    search_fields = ["name", "customer__name", "zoneset_name", "switches__name"]
     list_editable = ["exists", "domain_id", "vsan"]
     ordering = ["customer__name", "name"]
     list_per_page = 50
-    
+    filter_horizontal = ["switches"]  # Better interface for many-to-many
+
     # Add custom fields to display counts
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(
+            switch_count=Count('switches', distinct=True),
             alias_count=Count('alias', distinct=True),
             zone_count=Count('zone', distinct=True)
-        ).select_related('customer', 'switch')
+        ).select_related('customer')
     
+    def switch_count(self, obj):
+        return obj.switch_count
+    switch_count.short_description = "Switches"
+    switch_count.admin_order_field = "switch_count"
+
     def alias_count(self, obj):
         return obj.alias_count
     alias_count.short_description = "Aliases"
     alias_count.admin_order_field = "alias_count"
-    
+
     def zone_count(self, obj):
         return obj.zone_count
     zone_count.short_description = "Zones"

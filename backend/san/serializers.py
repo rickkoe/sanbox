@@ -5,13 +5,56 @@ from storage.models import Host, Storage
 
 
 class SwitchSerializer(serializers.ModelSerializer):
+    fabrics = serializers.PrimaryKeyRelatedField(
+        queryset=Fabric.objects.all(), many=True, required=False
+    )  # Allow writing fabric IDs
+    fabrics_details = serializers.SerializerMethodField()  # For displaying fabric details
+
     class Meta:
         model = Switch
         fields = '__all__'
 
+    def get_fabrics_details(self, obj):
+        """Return list of fabrics associated with this switch"""
+        return [{"id": fabric.id, "name": fabric.name} for fabric in obj.fabrics.all()]
+
+    def create(self, validated_data):
+        """Create switch and properly handle reverse many-to-many fabrics"""
+        fabrics = validated_data.pop("fabrics", [])
+        switch = Switch.objects.create(**validated_data)
+
+        # Set fabrics by updating each fabric's switches field
+        for fabric in fabrics:
+            fabric.switches.add(switch)
+
+        return switch
+
+    def update(self, instance, validated_data):
+        """Update switch and handle reverse many-to-many fabrics"""
+        fabrics = validated_data.pop("fabrics", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        if fabrics is not None:
+            # Clear all existing relationships
+            for fabric in instance.fabrics.all():
+                fabric.switches.remove(instance)
+
+            # Add new relationships
+            for fabric in fabrics:
+                fabric.switches.add(instance)
+
+        return instance
+
 
 class FabricSerializer(serializers.ModelSerializer):
-    switch_details = serializers.SerializerMethodField()  # For displaying switch name
+    switches = serializers.PrimaryKeyRelatedField(
+        queryset=Switch.objects.all(), many=True, required=False
+    )  # Allow writing switch IDs
+    switches_details = serializers.SerializerMethodField()  # For displaying switch details
     alias_count = serializers.SerializerMethodField()  # Count of aliases in this fabric
     zone_count = serializers.SerializerMethodField()  # Count of zones in this fabric
 
@@ -19,11 +62,9 @@ class FabricSerializer(serializers.ModelSerializer):
         model = Fabric
         fields = '__all__'
 
-    def get_switch_details(self, obj):
-        """Return switch name for display"""
-        if obj.switch:
-            return {"id": obj.switch.id, "name": obj.switch.name}
-        return None
+    def get_switches_details(self, obj):
+        """Return list of switches with their details"""
+        return [{"id": switch.id, "name": switch.name} for switch in obj.switches.all()]
 
     def get_alias_count(self, obj):
         """Return count of aliases in this fabric"""
@@ -32,6 +73,27 @@ class FabricSerializer(serializers.ModelSerializer):
     def get_zone_count(self, obj):
         """Return count of zones in this fabric"""
         return obj.zone_set.count()
+
+    def create(self, validated_data):
+        """Create fabric and properly handle many-to-many switches"""
+        switches = validated_data.pop("switches", [])
+        fabric = Fabric.objects.create(**validated_data)
+        fabric.switches.set(switches)  # Assign switches
+        return fabric
+
+    def update(self, instance, validated_data):
+        """Update fabric and handle many-to-many switches"""
+        switches = validated_data.pop("switches", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        if switches is not None:
+            instance.switches.set(switches)
+
+        return instance
 
 
 class AliasSerializer(serializers.ModelSerializer):

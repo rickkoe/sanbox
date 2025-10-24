@@ -1193,11 +1193,13 @@ const TanStackCRUDTable = forwardRef(({
           const isCheckbox = accessorKey === 'exists' || actualColumnConfig?.type === 'checkbox';
           const isDropdown = actualColumnConfig?.type === 'dropdown' || accessorKey === 'san_vendor' ||
             (accessorKey.startsWith('member_') && !accessorKey.includes('count'));
+          const isMultiSelect = actualColumnConfig?.allowMultiple === true;
 
           // console.log(`🔍 Cell [${rowIndex}, ${colIndex}] ${accessorKey}:`, {
           //   value,
           //   isCheckbox,
           //   isDropdown,
+          //   isMultiSelect,
           //   columnConfig: actualColumnConfig,
           //   index,
           //   columnsLength: columns.length,
@@ -1218,7 +1220,44 @@ const TanStackCRUDTable = forwardRef(({
             );
           }
 
-          // Dropdown cell
+          // Multi-Select Dropdown cell
+          if (isDropdown && isMultiSelect) {
+            let options = dropdownSource || dropdownSources[accessorKey] || [];
+
+            // Get current table data from table instance
+            const tableData = table.options.data;
+
+            // Handle dynamic dropdown sources (functions)
+            if (typeof dropdownSources === 'function') {
+              const dynamicSources = dropdownSources(tableData);
+
+              // Check if this column has a dynamic function
+              if (dynamicSources.getMemberOptions && accessorKey.startsWith('member_')) {
+                options = dynamicSources.getMemberOptions(rowIndex, accessorKey, tableData);
+              } else {
+                options = dynamicSources[accessorKey] || [];
+              }
+            }
+
+            return (
+              <MultiSelectDropdownCell
+                value={value}
+                options={options}
+                rowIndex={rowIndex}
+                colIndex={colIndex}
+                columnKey={accessorKey}
+                updateCellData={updateCellData}
+                rowData={row.original}
+                allTableData={tableData}
+                filterFunction={dropdownFilters?.[accessorKey]}
+                invalidCells={invalidCells}
+                setInvalidCells={setInvalidCells}
+                theme={theme}
+              />
+            );
+          }
+
+          // Regular Dropdown cell
           if (isDropdown) {
             let options = dropdownSource || dropdownSources[accessorKey] || [];
 
@@ -4267,6 +4306,357 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
                 No options found
               </div>
             )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+// Multi-Select Dropdown Cell for selecting multiple values
+const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, allTableData, filterFunction, invalidCells, setInvalidCells, theme = 'dark' }) => {
+  // value should be an array of selected items
+  const [selectedValues, setSelectedValues] = useState(Array.isArray(value) ? value : []);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const dropdownRef = useRef(null);
+  const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    setSelectedValues(Array.isArray(value) ? value : []);
+  }, [value]);
+
+  // Auto-focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check if click is outside both the container AND the dropdown
+      const isOutsideContainer = containerRef.current && !containerRef.current.contains(event.target);
+      const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(event.target);
+
+      if (isOutsideContainer && isOutsideDropdown) {
+        console.log('🖱️ Click outside multi-select dropdown, closing');
+        setIsOpen(false);
+        setSearchText('');
+      }
+    };
+
+    if (isOpen) {
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('focusin', handleClickOutside);
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('focusin', handleClickOutside);
+      };
+    }
+  }, [isOpen]);
+
+  // Apply filtering function if provided, then search filtering
+  let availableOptions = options;
+  if (filterFunction && rowData) {
+    availableOptions = filterFunction(options, rowData, columnKey, allTableData);
+  }
+
+  const filteredOptions = availableOptions.filter(option =>
+    typeof option === 'string'
+      ? option.toLowerCase().includes(searchText.toLowerCase())
+      : (option.name || option.label || '').toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const toggleOption = (selectedOption) => {
+    const optionValue = typeof selectedOption === 'string' ? selectedOption : (selectedOption.name || selectedOption.label);
+
+    console.log(`🖱️ toggleOption called for ${columnKey}:`, {
+      selectedOption,
+      optionValue,
+      currentSelectedValues: selectedValues,
+      isCurrentlySelected: selectedValues.includes(optionValue)
+    });
+
+    const newSelectedValues = selectedValues.includes(optionValue)
+      ? selectedValues.filter(v => v !== optionValue)
+      : [...selectedValues, optionValue];
+
+    console.log(`📝 Multi-select ${columnKey} updated from:`, selectedValues, 'to:', newSelectedValues, 'for row', rowIndex);
+
+    setSelectedValues(newSelectedValues);
+    updateCellData(rowIndex, columnKey, newSelectedValues);
+
+    // Clear invalid state for this cell if it was marked invalid
+    const cellKey = `${rowIndex}-${colIndex}`;
+    if (invalidCells?.has(cellKey)) {
+      setInvalidCells?.(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(cellKey);
+        return newSet;
+      });
+    }
+  };
+
+  const handleClearAll = () => {
+    console.log(`🗑️ Clearing all ${columnKey} selections for row ${rowIndex}`);
+    setSelectedValues([]);
+    updateCellData(rowIndex, columnKey, []);
+
+    // Clear invalid state for this cell when cleared
+    const cellKey = `${rowIndex}-${colIndex}`;
+    if (invalidCells?.has(cellKey)) {
+      setInvalidCells?.(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(cellKey);
+        return newSet;
+      });
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (!isOpen) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsOpen(true);
+        return;
+      }
+      // Check if it's a printable character
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsOpen(true);
+        setSearchText(e.key);
+        return;
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsOpen(false);
+      setSearchText('');
+      setTimeout(() => {
+        if (triggerRef.current) {
+          triggerRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  const getDropdownStyle = () => {
+    if (!containerRef.current) {
+      return {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        zIndex: 10000,
+      };
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const dropdownHeight = 300;
+
+    const shouldShowAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
+    return {
+      position: 'fixed',
+      top: shouldShowAbove ? undefined : rect.bottom + 2,
+      bottom: shouldShowAbove ? window.innerHeight - rect.top + 2 : undefined,
+      left: rect.left,
+      width: Math.max(rect.width, 200),
+      maxWidth: '400px',
+      zIndex: 10000,
+    };
+  };
+
+  const displayText = selectedValues.length > 0 ? selectedValues.join(', ') : '';
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <button
+        ref={triggerRef}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        onKeyDown={handleKeyDown}
+        style={{
+          width: '100%',
+          height: '100%',
+          minHeight: '20px',
+          padding: '0',
+          margin: '0',
+          border: 'none',
+          background: 'transparent',
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontSize: '13px',
+          color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+          outline: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+        tabIndex={0}
+        aria-label={`Select ${columnKey}`}
+        aria-expanded={isOpen}
+      >
+        <span style={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          flex: 1,
+          paddingRight: '8px',
+          color: displayText ? (theme === 'dark' ? '#e2e8f0' : '#0f172a') : (theme === 'dark' ? '#a0aec0' : '#64748b')
+        }}>
+          {displayText || 'Select...'}
+        </span>
+        <span style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }}>▼</span>
+      </button>
+
+      {isOpen && ReactDOM.createPortal(
+        <div ref={dropdownRef} style={getDropdownStyle()}>
+          <div style={{
+            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+            border: `1px solid ${theme === 'dark' ? '#475569' : '#cbd5e1'}`,
+            borderRadius: '4px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            maxHeight: '300px',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            {/* Search Input */}
+            <div style={{ padding: '8px', borderBottom: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}` }}>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="Type to search..."
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  fontSize: '13px',
+                  border: `1px solid ${theme === 'dark' ? '#475569' : '#cbd5e1'}`,
+                  borderRadius: '3px',
+                  backgroundColor: theme === 'dark' ? '#0f172a' : '#ffffff',
+                  color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+                  outline: 'none',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Clear All Button */}
+            {selectedValues.length > 0 && (
+              <div style={{ padding: '4px 8px', borderBottom: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}` }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearAll();
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    backgroundColor: theme === 'dark' ? '#ef4444' : '#fecaca',
+                    color: theme === 'dark' ? '#ffffff' : '#991b1b',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear All ({selectedValues.length})
+                </button>
+              </div>
+            )}
+
+            {/* Options List */}
+            <div style={{
+              overflowY: 'auto',
+              maxHeight: '220px',
+            }}>
+              {filteredOptions.map((option, idx) => {
+                const optionValue = typeof option === 'string' ? option : (option.name || option.label);
+                const isSelected = selectedValues.includes(optionValue);
+
+                return (
+                  <div
+                    key={idx}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🖱️ Option clicked:', optionValue);
+                      toggleOption(option);
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      backgroundColor: isSelected
+                        ? (theme === 'dark' ? '#3b82f6' : '#dbeafe')
+                        : 'transparent',
+                      color: isSelected
+                        ? (theme === 'dark' ? '#ffffff' : '#1e40af')
+                        : (theme === 'dark' ? '#e2e8f0' : '#0f172a'),
+                      borderBottom: `1px solid ${theme === 'dark' ? '#334155' : '#f1f5f9'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      userSelect: 'none',
+                      transition: 'background-color 0.15s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor = theme === 'dark' ? '#334155' : '#f1f5f9';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      readOnly
+                      style={{ cursor: 'pointer', pointerEvents: 'none' }}
+                    />
+                    <span>{optionValue}</span>
+                  </div>
+                );
+              })}
+              {filteredOptions.length === 0 && (
+                <div style={{
+                  padding: '12px',
+                  fontSize: '13px',
+                  fontStyle: 'italic',
+                  textAlign: 'center',
+                  backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+                  color: theme === 'dark' ? '#a0aec0' : '#64748b'
+                }}>
+                  No options found
+                </div>
+              )}
+            </div>
           </div>
         </div>,
         document.body
