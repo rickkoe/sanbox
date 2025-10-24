@@ -5054,8 +5054,6 @@ const CheckboxHeaderCell = ({ columnKey, headerName, editableData, setEditableDa
   const visibleRows = hasFilters ? table.getRowModel().rows : null;
   const rowsToCheck = visibleRows ? visibleRows.map(r => r.original) : editableData;
 
-  console.log('🔍 CheckboxHeader:', { hasActiveClientFilters, hasFilters, visibleRowCount: visibleRows?.length, totalRowCount: editableData.length });
-
   const allChecked = useMemo(() => {
     return rowsToCheck.length > 0 && rowsToCheck.every(row => {
       const value = getNestedValue(row, columnKey);
