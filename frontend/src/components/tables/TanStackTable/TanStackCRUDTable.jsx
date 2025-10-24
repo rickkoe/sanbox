@@ -463,6 +463,13 @@ const TanStackCRUDTable = forwardRef(({
       // Process data if preprocessing function provided
       const processedData = preprocessData ? preprocessData(dataList) : dataList;
 
+      // If preprocessData returns null, skip this data load (table is being reconfigured)
+      if (processedData === null) {
+        console.log('⏸️ Data load skipped - table reconfiguration in progress');
+        setIsLoading(false);
+        return;
+      }
+
       // Store all data for filtering, but handle pagination correctly
       if (hasActiveClientFilters) {
         // When client-side filtering is active, we have all data
@@ -508,6 +515,12 @@ const TanStackCRUDTable = forwardRef(({
 
       // Process data if preprocessing function provided
       const processedData = preprocessData ? preprocessData(dataList) : dataList;
+
+      // If preprocessData returns null, skip this data load (table is being reconfigured)
+      if (processedData === null) {
+        console.log('⏸️ Filter data load skipped - table reconfiguration in progress');
+        return;
+      }
 
       setAllData(processedData);
       console.log(`📊 Loaded ${processedData.length} total records for filtering`);

@@ -25,112 +25,180 @@ const ZoneTableTanStackClean = () => {
         initiators: 1,
         allAccess: 1
     });
+    const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
+    const memberColumnCountsRef = useRef(memberColumnCounts); // Store current counts for stable access
+
+    // Keep the ref in sync with state
+    useEffect(() => {
+        memberColumnCountsRef.current = memberColumnCounts;
+    }, [memberColumnCounts]);
 
     // Ref to access table methods
     const tableRef = useRef(null);
 
-    // Functions to add new member columns
+    // Functions to add new member columns - no dependencies to avoid recreation issues
     const addTargetColumn = useCallback(() => {
         // Preserve current table data and sorting before adding column
         const currentData = tableRef.current?.getTableData();
         const currentSorting = tableRef.current?.getSorting();
-        console.log('💾 Preserving table data before adding column:', currentData?.length, 'rows');
-        console.log('💾 Preserving sorting state:', currentSorting);
+        const hadChanges = tableRef.current?.hasChanges;
+        console.log('💾 Preserving table data before adding target column:', {
+            rows: currentData?.length,
+            hadChanges: hadChanges
+        });
 
-        setMemberColumnCounts(prev => ({
-            ...prev,
-            targets: prev.targets + 1
-        }));
+        // Create a deep copy to ensure data isn't lost
+        const dataCopy = currentData ? JSON.parse(JSON.stringify(currentData)) : null;
+
+        // Set flag to prevent automatic data reload
+        isAddingColumnRef.current = true;
+
+        // Capture current count before updating
+        let newColumnIndex;
+        setMemberColumnCounts(prev => {
+            newColumnIndex = prev.targets + 1;
+            return {
+                ...prev,
+                targets: prev.targets + 1
+            };
+        });
         console.log('➕ Added new target member column');
 
-        // Restore data and sorting after column is added and trigger auto-size for new column
-        if (currentData && currentData.length > 0) {
-            setTimeout(() => {
+        // Restore data and sorting after column is added
+        setTimeout(() => {
+            if (dataCopy && dataCopy.length > 0) {
                 console.log('♻️ Restoring preserved table data and sorting');
-                tableRef.current?.setTableData(currentData);
+
+                // Extend each row with the new member column field
+                // Use newColumnIndex captured during setState
+                const extendedData = dataCopy.map(row => ({
+                    ...row,
+                    [`target_member_${newColumnIndex}`]: ""
+                }));
+
+                tableRef.current?.setTableData(extendedData);
                 tableRef.current?.setSorting(currentSorting || []);
-                // Auto-size all columns including the new one
+
                 setTimeout(() => {
                     console.log('📏 Auto-sizing columns after adding new column');
                     tableRef.current?.autoSizeColumns();
+                    isAddingColumnRef.current = false;
                 }, 50);
-            }, 100);
-        } else {
-            // Even if no data, auto-size the new column
-            setTimeout(() => {
-                console.log('📏 Auto-sizing columns after adding new column');
+            } else {
+                console.log('📏 Auto-sizing columns after adding new column (no data to restore)');
                 tableRef.current?.autoSizeColumns();
-            }, 150);
-        }
-    }, []);
+                isAddingColumnRef.current = false;
+            }
+        }, 200);
+    }, []); // Empty deps - stable reference
 
     const addInitiatorColumn = useCallback(() => {
         // Preserve current table data and sorting before adding column
         const currentData = tableRef.current?.getTableData();
         const currentSorting = tableRef.current?.getSorting();
-        console.log('💾 Preserving table data before adding column:', currentData?.length, 'rows');
-        console.log('💾 Preserving sorting state:', currentSorting);
+        const hadChanges = tableRef.current?.hasChanges;
+        console.log('💾 Preserving table data before adding initiator column:', {
+            rows: currentData?.length,
+            hadChanges: hadChanges
+        });
 
-        setMemberColumnCounts(prev => ({
-            ...prev,
-            initiators: prev.initiators + 1
-        }));
+        // Create a deep copy to ensure data isn't lost
+        const dataCopy = currentData ? JSON.parse(JSON.stringify(currentData)) : null;
+
+        // Set flag to prevent automatic data reload
+        isAddingColumnRef.current = true;
+
+        // Capture current count before updating
+        let newColumnIndex;
+        setMemberColumnCounts(prev => {
+            newColumnIndex = prev.initiators + 1;
+            return {
+                ...prev,
+                initiators: prev.initiators + 1
+            };
+        });
         console.log('➕ Added new initiator member column');
 
-        // Restore data and sorting after column is added and trigger auto-size for new column
-        if (currentData && currentData.length > 0) {
-            setTimeout(() => {
+        // Restore data and sorting after column is added
+        setTimeout(() => {
+            if (dataCopy && dataCopy.length > 0) {
                 console.log('♻️ Restoring preserved table data and sorting');
-                tableRef.current?.setTableData(currentData);
+
+                // Extend each row with the new member column field
+                const extendedData = dataCopy.map(row => ({
+                    ...row,
+                    [`init_member_${newColumnIndex}`]: ""
+                }));
+
+                tableRef.current?.setTableData(extendedData);
                 tableRef.current?.setSorting(currentSorting || []);
-                // Auto-size all columns including the new one
+
                 setTimeout(() => {
                     console.log('📏 Auto-sizing columns after adding new column');
                     tableRef.current?.autoSizeColumns();
+                    isAddingColumnRef.current = false;
                 }, 50);
-            }, 100);
-        } else {
-            // Even if no data, auto-size the new column
-            setTimeout(() => {
-                console.log('📏 Auto-sizing columns after adding new column');
+            } else {
+                console.log('📏 Auto-sizing columns after adding new column (no data to restore)');
                 tableRef.current?.autoSizeColumns();
-            }, 150);
-        }
-    }, []);
+                isAddingColumnRef.current = false;
+            }
+        }, 200);
+    }, []); // Empty deps - stable reference
 
     const addAllAccessColumn = useCallback(() => {
         // Preserve current table data and sorting before adding column
         const currentData = tableRef.current?.getTableData();
         const currentSorting = tableRef.current?.getSorting();
-        console.log('💾 Preserving table data before adding column:', currentData?.length, 'rows');
-        console.log('💾 Preserving sorting state:', currentSorting);
+        const hadChanges = tableRef.current?.hasChanges;
+        console.log('💾 Preserving table data before adding all access column:', {
+            rows: currentData?.length,
+            hadChanges: hadChanges
+        });
 
-        setMemberColumnCounts(prev => ({
-            ...prev,
-            allAccess: prev.allAccess + 1
-        }));
+        // Create a deep copy to ensure data isn't lost
+        const dataCopy = currentData ? JSON.parse(JSON.stringify(currentData)) : null;
+
+        // Set flag to prevent automatic data reload
+        isAddingColumnRef.current = true;
+
+        // Capture current count before updating
+        let newColumnIndex;
+        setMemberColumnCounts(prev => {
+            newColumnIndex = prev.allAccess + 1;
+            return {
+                ...prev,
+                allAccess: prev.allAccess + 1
+            };
+        });
         console.log('➕ Added new all access member column');
 
-        // Restore data and sorting after column is added and trigger auto-size for new column
-        if (currentData && currentData.length > 0) {
-            setTimeout(() => {
+        // Restore data and sorting after column is added
+        setTimeout(() => {
+            if (dataCopy && dataCopy.length > 0) {
                 console.log('♻️ Restoring preserved table data and sorting');
-                tableRef.current?.setTableData(currentData);
+
+                // Extend each row with the new member column field
+                const extendedData = dataCopy.map(row => ({
+                    ...row,
+                    [`all_member_${newColumnIndex}`]: ""
+                }));
+
+                tableRef.current?.setTableData(extendedData);
                 tableRef.current?.setSorting(currentSorting || []);
-                // Auto-size all columns including the new one
+
                 setTimeout(() => {
                     console.log('📏 Auto-sizing columns after adding new column');
                     tableRef.current?.autoSizeColumns();
+                    isAddingColumnRef.current = false;
                 }, 50);
-            }, 100);
-        } else {
-            // Even if no data, auto-size the new column
-            setTimeout(() => {
-                console.log('📏 Auto-sizing columns after adding new column');
+            } else {
+                console.log('📏 Auto-sizing columns after adding new column (no data to restore)');
                 tableRef.current?.autoSizeColumns();
-            }, 150);
-        }
-    }, []);
+                isAddingColumnRef.current = false;
+            }
+        }, 200);
+    }, []); // Empty deps - stable reference
 
     // Helper function to get plus button styles based on theme
     const getPlusButtonStyle = useCallback(() => {
@@ -321,23 +389,26 @@ const ZoneTableTanStackClean = () => {
             updated: null
         };
 
+        // Use ref value to avoid dependency on memberColumnCounts
+        const columnCounts = memberColumnCountsRef.current;
+
         // Add target member fields
-        for (let i = 1; i <= memberColumnCounts.targets; i++) {
+        for (let i = 1; i <= columnCounts.targets; i++) {
             template[`target_member_${i}`] = "";
         }
 
         // Add initiator member fields
-        for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+        for (let i = 1; i <= columnCounts.initiators; i++) {
             template[`init_member_${i}`] = "";
         }
 
         // Add all access member fields
-        for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+        for (let i = 1; i <= columnCounts.allAccess; i++) {
             template[`all_member_${i}`] = "";
         }
 
         return template;
-    }, [memberColumnCounts]);
+    }, []); // memberColumnCounts accessed via ref
 
     // Calculate dynamic member columns by use type based on zone data
     const calculateMemberColumnsByType = useCallback((zones, aliases) => {
@@ -472,12 +543,15 @@ const ZoneTableTanStackClean = () => {
     const calculateUsedAliases = useCallback((tableData, currentRowIndex, currentMemberColumn) => {
         const usedAliases = new Set();
 
+        // Use ref value to avoid dependency on memberColumnCounts
+        const columnCounts = memberColumnCountsRef.current;
+
         tableData.forEach((row, rowIndex) => {
             // Check all member columns (target, init, all access)
             const memberColumns = [
-                ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
-                ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
-                ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+                ...Array.from({length: columnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+                ...Array.from({length: columnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+                ...Array.from({length: columnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
             ];
 
             memberColumns.forEach(memberKey => {
@@ -492,7 +566,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return usedAliases;
-    }, [memberColumnCounts]);
+    }, []); // memberColumnCounts accessed via ref
 
     // Custom member dropdown renderer that filters by fabric and use type
     const getMemberDropdownOptions = useCallback((rowData, columnKey) => {
@@ -547,11 +621,14 @@ const ZoneTableTanStackClean = () => {
     const customRenderers = useMemo(() => {
         const renderers = {};
 
+        // Use ref value to avoid dependency on memberColumnCounts
+        const columnCounts = memberColumnCountsRef.current;
+
         // Get all member column keys for all types
         const allMemberColumns = [
-            ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
-            ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
-            ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+            ...Array.from({length: columnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+            ...Array.from({length: columnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+            ...Array.from({length: columnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
         ];
 
         // Add custom renderers for each member column type
@@ -588,7 +665,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return renderers;
-    }, [memberColumnCounts, getMemberDropdownOptions]);
+    }, [getMemberDropdownOptions]); // memberColumnCounts accessed via ref
 
     // Dynamic dropdown sources that include member filtering
     const dropdownSources = useMemo(() => {
@@ -603,35 +680,41 @@ const ZoneTableTanStackClean = () => {
             alias.include_in_zoning && (alias.zoned_count || 0) < aliasMaxZones
         );
 
+        // Use ref value to avoid dependency on memberColumnCounts
+        const columnCounts = memberColumnCountsRef.current;
+
         // Add target member columns with full alias list (filtering happens in custom renderer)
-        for (let i = 1; i <= memberColumnCounts.targets; i++) {
+        for (let i = 1; i <= columnCounts.targets; i++) {
             sources[`target_member_${i}`] = availableAliases.filter(alias => alias.use === 'target').map(alias => alias.name);
         }
 
         // Add initiator member columns
-        for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+        for (let i = 1; i <= columnCounts.initiators; i++) {
             sources[`init_member_${i}`] = availableAliases.filter(alias => alias.use === 'init').map(alias => alias.name);
         }
 
         // Add all access member columns (includes 'both' and empty/null use types)
-        for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+        for (let i = 1; i <= columnCounts.allAccess; i++) {
             sources[`all_member_${i}`] = availableAliases.filter(alias =>
                 alias.use === 'both' || !alias.use || alias.use === ''
             ).map(alias => alias.name);
         }
 
         return sources;
-    }, [fabricOptions, aliasOptions, settings, memberColumnCounts]);
+    }, [fabricOptions, aliasOptions, settings]); // memberColumnCounts accessed via ref
 
     // Dynamic dropdown filters for member columns
     const dropdownFilters = useMemo(() => {
         const filters = {};
 
+        // Use ref value to avoid dependency on memberColumnCounts
+        const columnCounts = memberColumnCountsRef.current;
+
         // Get all member column keys for all types
         const allMemberColumns = [
-            ...Array.from({length: memberColumnCounts.targets}, (_, i) => `target_member_${i + 1}`),
-            ...Array.from({length: memberColumnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
-            ...Array.from({length: memberColumnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
+            ...Array.from({length: columnCounts.targets}, (_, i) => `target_member_${i + 1}`),
+            ...Array.from({length: columnCounts.initiators}, (_, i) => `init_member_${i + 1}`),
+            ...Array.from({length: columnCounts.allAccess}, (_, i) => `all_member_${i + 1}`)
         ];
 
         // Create fabric and use-type based filter for member columns
@@ -734,7 +817,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return filters;
-    }, [memberColumnCounts, aliasOptions, settings]);
+    }, [aliasOptions, settings]); // memberColumnCounts accessed via ref
 
     // Custom cell validation for fabric consistency
     const customValidation = useCallback((value, rowData, columnKey) => {
@@ -753,7 +836,17 @@ const ZoneTableTanStackClean = () => {
     }, [aliasOptions]);
 
     // Process data for display - convert fabric IDs to names and handle members
+    // Using useCallback with stable reference - memberColumnCounts accessed via ref to avoid recreating function
     const preprocessData = useCallback((data) => {
+        // If we're in the middle of adding a column, return null to prevent reload
+        if (isAddingColumnRef.current) {
+            console.log('⏸️ preprocessData skipped - adding column in progress');
+            return null;
+        }
+
+        // Use ref value to avoid dependency on memberColumnCounts
+        const columnCounts = memberColumnCountsRef.current;
+
         console.log('🔄 Preprocessing zone data:', data.length, 'zones');
         return data.map(zone => {
             const processedZone = {
@@ -763,15 +856,15 @@ const ZoneTableTanStackClean = () => {
 
             // Clear all member columns first
             // Target member columns
-            for (let i = 1; i <= memberColumnCounts.targets; i++) {
+            for (let i = 1; i <= columnCounts.targets; i++) {
                 processedZone[`target_member_${i}`] = "";
             }
             // Initiator member columns
-            for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+            for (let i = 1; i <= columnCounts.initiators; i++) {
                 processedZone[`init_member_${i}`] = "";
             }
             // All access member columns
-            for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+            for (let i = 1; i <= columnCounts.allAccess; i++) {
                 processedZone[`all_member_${i}`] = "";
             }
 
@@ -822,7 +915,7 @@ const ZoneTableTanStackClean = () => {
 
                 // Populate target member columns
                 membersByType.targets.forEach((member, index) => {
-                    if (index < memberColumnCounts.targets) {
+                    if (index < columnCounts.targets) {
                         processedZone[`target_member_${index + 1}`] = member.name || '';
                         console.log(`  Set target_member_${index + 1} = "${member.name}"`);
                     }
@@ -830,7 +923,7 @@ const ZoneTableTanStackClean = () => {
 
                 // Populate initiator member columns
                 membersByType.initiators.forEach((member, index) => {
-                    if (index < memberColumnCounts.initiators) {
+                    if (index < columnCounts.initiators) {
                         processedZone[`init_member_${index + 1}`] = member.name || '';
                         console.log(`  Set init_member_${index + 1} = "${member.name}"`);
                     }
@@ -838,7 +931,7 @@ const ZoneTableTanStackClean = () => {
 
                 // Populate all access member columns
                 membersByType.allAccess.forEach((member, index) => {
-                    if (index < memberColumnCounts.allAccess) {
+                    if (index < columnCounts.allAccess) {
                         processedZone[`all_member_${index + 1}`] = member.name || '';
                         console.log(`  Set all_member_${index + 1} = "${member.name}"`);
                     }
@@ -853,14 +946,17 @@ const ZoneTableTanStackClean = () => {
 
             return processedZone;
         });
-    }, [fabricsById, memberColumnCounts]);
+    }, [fabricsById]); // memberColumnCounts accessed via ref - not in deps to prevent reload
 
     // Custom save handler for zone bulk save
-    const handleZoneSave = async (allTableData, hasChanges, deletedRows = []) => {
+    const handleZoneSave = useCallback(async (allTableData, hasChanges, deletedRows = []) => {
         if (!hasChanges) {
             console.log('⚠️ No changes to save');
             return { success: true, message: 'No changes to save' };
         }
+
+        // Use ref value to avoid dependency on memberColumnCounts
+        const columnCounts = memberColumnCountsRef.current;
 
         try {
             console.log('🔥 Custom zone save with data:', allTableData);
@@ -915,7 +1011,7 @@ const ZoneTableTanStackClean = () => {
                     const members = [];
 
                     // Process target members
-                    for (let i = 1; i <= memberColumnCounts.targets; i++) {
+                    for (let i = 1; i <= columnCounts.targets; i++) {
                         const memberName = row[`target_member_${i}`];
                         if (memberName) {
                             const alias = aliasOptions.find(a => a.name === memberName);
@@ -940,7 +1036,7 @@ const ZoneTableTanStackClean = () => {
                     }
 
                     // Process initiator members
-                    for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+                    for (let i = 1; i <= columnCounts.initiators; i++) {
                         const memberName = row[`init_member_${i}`];
                         if (memberName) {
                             const alias = aliasOptions.find(a => a.name === memberName);
@@ -965,7 +1061,7 @@ const ZoneTableTanStackClean = () => {
                     }
 
                     // Process all access members
-                    for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+                    for (let i = 1; i <= columnCounts.allAccess; i++) {
                         const memberName = row[`all_member_${i}`];
                         if (memberName) {
                             const alias = aliasOptions.find(a => a.name === memberName);
@@ -1002,15 +1098,15 @@ const ZoneTableTanStackClean = () => {
 
                     // Remove all member columns and UI-only fields
                     // Remove target member columns
-                    for (let i = 1; i <= memberColumnCounts.targets; i++) {
+                    for (let i = 1; i <= columnCounts.targets; i++) {
                         delete cleanRow[`target_member_${i}`];
                     }
                     // Remove initiator member columns
-                    for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+                    for (let i = 1; i <= columnCounts.initiators; i++) {
                         delete cleanRow[`init_member_${i}`];
                     }
                     // Remove all access member columns
-                    for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+                    for (let i = 1; i <= columnCounts.allAccess; i++) {
                         delete cleanRow[`all_member_${i}`];
                     }
                     delete cleanRow.saved;
@@ -1084,7 +1180,7 @@ const ZoneTableTanStackClean = () => {
                 message: `Error saving zones: ${error.response?.data?.error || error.response?.data?.message || error.message}`
             };
         }
-    };
+    }, [fabricOptions, aliasOptions, activeProjectId, API_ENDPOINTS]); // memberColumnCounts accessed via ref
 
     // Show empty config message if no active customer/project
     if (!config || !activeCustomerId || !activeProjectId) {
@@ -1148,7 +1244,7 @@ const ZoneTableTanStackClean = () => {
 
                 // Table Settings
                 height="calc(100vh - 200px)"
-                storageKey={`zone-table-${activeProjectId || 'default'}-bytype-t${memberColumnCounts.targets}i${memberColumnCounts.initiators}a${memberColumnCounts.allAccess}`}
+                storageKey={`zone-table-${activeProjectId || 'default'}-bytype`}
                 readOnly={isReadOnly}
                 pageSizeOptions={[25, 50, 100]} // Limited options for better performance with large datasets
 

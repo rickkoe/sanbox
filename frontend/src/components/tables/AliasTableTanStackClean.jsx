@@ -18,6 +18,7 @@ const AliasTableTanStackClean = () => {
     const [loading, setLoading] = useState(true);
     const [errorModal, setErrorModal] = useState({ show: false, message: '', errors: null });
     const [wwpnColumnCount, setWwpnColumnCount] = useState(1); // Dynamic WWPN column count
+    const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
 
     // Ref to access table methods
     const tableRef = useRef(null);
@@ -27,32 +28,61 @@ const AliasTableTanStackClean = () => {
 
     // Function to add new WWPN column
     const addWwpnColumn = useCallback(() => {
-        // Preserve current table data and sorting before adding column
+        // Preserve current table data, sorting, and changes state before adding column
         const currentData = tableRef.current?.getTableData();
         const currentSorting = tableRef.current?.getSorting();
-        console.log('💾 Preserving table data before adding WWPN column:', currentData?.length, 'rows');
+        const hadChanges = tableRef.current?.hasChanges;
+        console.log('💾 Preserving table data before adding WWPN column:', {
+            rows: currentData?.length,
+            hadChanges: hadChanges
+        });
 
-        setWwpnColumnCount(prev => prev + 1);
+        // Create a deep copy to ensure data isn't lost
+        const dataCopy = currentData ? JSON.parse(JSON.stringify(currentData)) : null;
+
+        // Set flag to prevent automatic data reload
+        isAddingColumnRef.current = true;
+
+        // Capture current count before updating
+        let newColumnIndex;
+        setWwpnColumnCount(prev => {
+            newColumnIndex = prev + 1;
+            return prev + 1;
+        });
         console.log('➕ Added new WWPN column');
 
         // Restore data and sorting after column is added
-        if (currentData && currentData.length > 0) {
-            setTimeout(() => {
+        // Use longer timeout to ensure table has re-rendered with new columns
+        setTimeout(() => {
+            if (dataCopy && dataCopy.length > 0) {
                 console.log('♻️ Restoring preserved table data and sorting');
-                tableRef.current?.setTableData(currentData);
+
+                // Extend each row with the new WWPN column field
+                const extendedData = dataCopy.map(row => ({
+                    ...row,
+                    [`wwpn_${newColumnIndex}`]: "" // Add empty field for new WWPN column
+                }));
+
+                tableRef.current?.setTableData(extendedData);
                 tableRef.current?.setSorting(currentSorting || []);
+
+                // Auto-size columns after restoration
                 setTimeout(() => {
                     console.log('📏 Auto-sizing columns after adding new column');
                     tableRef.current?.autoSizeColumns();
+
+                    // Clear the flag after everything is done
+                    isAddingColumnRef.current = false;
                 }, 50);
-            }, 100);
-        } else {
-            setTimeout(() => {
-                console.log('📏 Auto-sizing columns after adding new column');
+            } else {
+                console.log('📏 Auto-sizing columns after adding new column (no data to restore)');
                 tableRef.current?.autoSizeColumns();
-            }, 150);
-        }
-    }, []);
+
+                // Clear the flag
+                isAddingColumnRef.current = false;
+            }
+        }, 200); // Increased timeout to ensure columns are ready
+    }, []); // Empty deps - stable reference
 
     // Helper function to get plus button styles based on theme
     const getPlusButtonStyle = useCallback(() => {
@@ -315,9 +345,25 @@ const AliasTableTanStackClean = () => {
         return renderers;
     }, [wwpnColumnCount]);
 
+    // Store wwpnColumnCount in a ref so preprocessData doesn't need to depend on it
+    const wwpnColumnCountRef = useRef(wwpnColumnCount);
+    useEffect(() => {
+        wwpnColumnCountRef.current = wwpnColumnCount;
+    }, [wwpnColumnCount]);
+
     // Process data for display - convert IDs to names in nested properties and distribute WWPNs across columns
-    const preprocessData = (data) => {
-        console.log(`🔄 preprocessData called with ${data?.length} aliases`);
+    // Using useCallback with stable reference - wwpnColumnCount accessed via ref to avoid recreating function
+    const preprocessData = useCallback((data) => {
+        // If we're in the middle of adding a column, return null to prevent reload
+        if (isAddingColumnRef.current) {
+            console.log('⏸️ preprocessData skipped - adding column in progress');
+            return null;
+        }
+
+        // Use ref value to avoid dependency on wwpnColumnCount
+        const columnCount = wwpnColumnCountRef.current;
+
+        console.log(`🔄 preprocessData called with ${data?.length} aliases, ${columnCount} WWPN columns`);
         const processed = data.map((alias, idx) => {
             const processedAlias = {
                 ...alias,
@@ -335,13 +381,13 @@ const AliasTableTanStackClean = () => {
             const wwpns = alias.wwpns || (alias.wwpn ? [alias.wwpn] : []);
 
             // Clear all WWPN columns first
-            for (let i = 1; i <= wwpnColumnCount; i++) {
+            for (let i = 1; i <= columnCount; i++) {
                 processedAlias[`wwpn_${i}`] = "";
             }
 
             // Populate WWPN columns with data
             wwpns.forEach((wwpn, index) => {
-                if (index < wwpnColumnCount) {
+                if (index < columnCount) {
                     processedAlias[`wwpn_${index + 1}`] = wwpn;
                 }
             });
@@ -362,7 +408,7 @@ const AliasTableTanStackClean = () => {
 
         console.log('📝 Sample of processed data (first row):', processed[0]);
         return processed;
-    };
+    }, []); // Empty deps - function never recreates!
 
     // Custom save handler that matches the original AliasTable bulk save approach
     // Handles CREATE, UPDATE, and DELETE operations
