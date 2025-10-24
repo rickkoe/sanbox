@@ -10,7 +10,7 @@ import {
   getColumnResizeMode,
   flexRender,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Maximize2 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import FilterDropdown from './components/FilterDropdown';
@@ -3124,7 +3124,7 @@ const TanStackCRUDTable = forwardRef(({
                   fontWeight: '500'
                 }}
               >
-                ⚡ Auto-size All Columns
+                <Maximize2 size={16} /> Auto-size All Columns
               </button>
             </li>
             <li><hr className="dropdown-divider" /></li>
