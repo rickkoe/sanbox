@@ -121,36 +121,46 @@ const AliasTableTanStackClean = () => {
         const columns = [];
         for (let i = 1; i <= wwpnColumnCount; i++) {
             const isLastColumn = i === wwpnColumnCount;
-            columns.push({
+
+            const columnDef = {
                 data: `wwpn_${i}`,
-                title: isLastColumn ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        WWPN {i}
-                        <button
-                            className="wwpn-plus-button"
-                            title="Add WWPN column"
-                            style={getPlusButtonStyle()}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.opacity = '1';
-                                e.currentTarget.style.transform = 'scale(1.1)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.opacity = '0.8';
-                                e.currentTarget.style.transform = 'scale(1)';
-                            }}
-                            onClick={(e) => {
-                                console.log('🔘 Plus button clicked in header!');
-                                e.preventDefault();
-                                e.stopPropagation();
-                                addWwpnColumn();
-                            }}
-                        >
-                            +
-                        </button>
-                    </span>
-                ) : `WWPN ${i}`,
+                title: `WWPN ${i}`, // Keep title as string for auto-sizing
                 required: i === 1 // Only first WWPN is required
-            });
+            };
+
+            // Add custom header with plus button only to the last column
+            if (isLastColumn) {
+                columnDef.customHeader = {
+                    component: (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            WWPN {i}
+                            <button
+                                className="wwpn-plus-button"
+                                title="Add WWPN column"
+                                style={getPlusButtonStyle()}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.opacity = '1';
+                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.opacity = '0.8';
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                                onClick={(e) => {
+                                    console.log('🔘 Plus button clicked in header!');
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    addWwpnColumn();
+                                }}
+                            >
+                                +
+                            </button>
+                        </span>
+                    )
+                };
+            }
+
+            columns.push(columnDef);
         }
         return columns;
     }, [wwpnColumnCount, theme, getPlusButtonStyle, addWwpnColumn]);

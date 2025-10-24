@@ -650,7 +650,10 @@ const TanStackCRUDTable = forwardRef(({
       // Add extra width if column has a custom header (likely has a plus icon button)
       const hasCustomHeader = column.customHeader;
       const customHeaderPadding = hasCustomHeader ? 40 : 0; // Extra space for plus icon
-      const headerWidth = Math.max(120, headerName.length * 10 + 60 + customHeaderPadding);
+
+      // Handle case where headerName might be a React element (shouldn't happen with proper customHeader usage)
+      const headerText = typeof headerName === 'string' ? headerName : column.title || column.data || `Column ${index + 1}`;
+      const headerWidth = Math.max(120, headerText.length * 10 + 60 + customHeaderPadding);
 
       // Calculate content width by sampling data
       let maxContentWidth = headerWidth;
