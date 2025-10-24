@@ -1,60 +1,78 @@
 from rest_framework import serializers
-from .models import Alias, Zone, Fabric, WwpnPrefix, Switch
+from .models import Alias, Zone, Fabric, WwpnPrefix, Switch, SwitchFabric
 from core.models import Project
 from storage.models import Host, Storage
 
 
 class SwitchSerializer(serializers.ModelSerializer):
-    fabrics = serializers.PrimaryKeyRelatedField(
-        queryset=Fabric.objects.all(), many=True, required=False
-    )  # Allow writing fabric IDs
-    fabrics_details = serializers.SerializerMethodField()  # For displaying fabric details
+    fabric_domains = serializers.ListField(
+        child=serializers.DictField(), required=False, write_only=True
+    )  # For writing: [{"fabric_id": 1, "domain_id": 123}, ...]
+    fabrics_details = serializers.SerializerMethodField()  # For reading
+    fabric_domain_details = serializers.SerializerMethodField()  # For reading with domain IDs
 
     class Meta:
         model = Switch
         fields = '__all__'
 
     def get_fabrics_details(self, obj):
-        """Return list of fabrics associated with this switch"""
+        """Return list of fabrics associated with this switch (backward compatibility)"""
         return [{"id": fabric.id, "name": fabric.name} for fabric in obj.fabrics.all()]
 
+    def get_fabric_domain_details(self, obj):
+        """Return list of fabrics with their domain IDs"""
+        switch_fabrics = obj.switch_fabrics.select_related('fabric').all()
+        return [
+            {
+                "id": sf.fabric.id,
+                "name": sf.fabric.name,
+                "domain_id": sf.domain_id
+            }
+            for sf in switch_fabrics
+        ]
+
     def create(self, validated_data):
-        """Create switch and properly handle reverse many-to-many fabrics"""
-        fabrics = validated_data.pop("fabrics", [])
+        """Create switch and handle fabric-domain associations"""
+        fabric_domains = validated_data.pop("fabric_domains", [])
         switch = Switch.objects.create(**validated_data)
 
-        # Set fabrics by updating each fabric's switches field
-        for fabric in fabrics:
-            fabric.switches.add(switch)
+        # Create SwitchFabric entries
+        for fd in fabric_domains:
+            SwitchFabric.objects.create(
+                switch=switch,
+                fabric_id=fd.get('fabric_id'),
+                domain_id=fd.get('domain_id')
+            )
 
         return switch
 
     def update(self, instance, validated_data):
-        """Update switch and handle reverse many-to-many fabrics"""
-        fabrics = validated_data.pop("fabrics", None)
+        """Update switch and handle fabric-domain associations"""
+        fabric_domains = validated_data.pop("fabric_domains", None)
 
+        # Update regular fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-
         instance.save()
 
-        if fabrics is not None:
-            # Clear all existing relationships
-            for fabric in instance.fabrics.all():
-                fabric.switches.remove(instance)
+        # Update fabric-domain relationships if provided
+        if fabric_domains is not None:
+            # Clear existing relationships
+            instance.switch_fabrics.all().delete()
 
-            # Add new relationships
-            for fabric in fabrics:
-                fabric.switches.add(instance)
+            # Create new relationships
+            for fd in fabric_domains:
+                SwitchFabric.objects.create(
+                    switch=instance,
+                    fabric_id=fd.get('fabric_id'),
+                    domain_id=fd.get('domain_id')
+                )
 
         return instance
 
 
 class FabricSerializer(serializers.ModelSerializer):
-    switches = serializers.PrimaryKeyRelatedField(
-        queryset=Switch.objects.all(), many=True, required=False
-    )  # Allow writing switch IDs
-    switches_details = serializers.SerializerMethodField()  # For displaying switch details
+    switches_details = serializers.SerializerMethodField()  # For displaying switch details with domain IDs
     alias_count = serializers.SerializerMethodField()  # Count of aliases in this fabric
     zone_count = serializers.SerializerMethodField()  # Count of zones in this fabric
 
@@ -63,8 +81,16 @@ class FabricSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_switches_details(self, obj):
-        """Return list of switches with their details"""
-        return [{"id": switch.id, "name": switch.name} for switch in obj.switches.all()]
+        """Return list of switches with their details and domain IDs"""
+        switch_fabrics = obj.fabric_switches.select_related('switch').all()
+        return [
+            {
+                "id": sf.switch.id,
+                "name": sf.switch.name,
+                "domain_id": sf.domain_id
+            }
+            for sf in switch_fabrics
+        ]
 
     def get_alias_count(self, obj):
         """Return count of aliases in this fabric"""
@@ -74,26 +100,8 @@ class FabricSerializer(serializers.ModelSerializer):
         """Return count of zones in this fabric"""
         return obj.zone_set.count()
 
-    def create(self, validated_data):
-        """Create fabric and properly handle many-to-many switches"""
-        switches = validated_data.pop("switches", [])
-        fabric = Fabric.objects.create(**validated_data)
-        fabric.switches.set(switches)  # Assign switches
-        return fabric
-
-    def update(self, instance, validated_data):
-        """Update fabric and handle many-to-many switches"""
-        switches = validated_data.pop("switches", None)
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-
-        instance.save()
-
-        if switches is not None:
-            instance.switches.set(switches)
-
-        return instance
+    # Note: Switch-fabric relationships with domain IDs are managed through
+    # the SwitchSerializer or the SwitchFabric model directly
 
 
 class AliasSerializer(serializers.ModelSerializer):

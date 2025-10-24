@@ -29,7 +29,6 @@ const FabricTableTanStackClean = () => {
         { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
         { data: "switches", title: "Switches", readOnly: true },
         { data: "zoneset_name", title: "Zoneset Name" },
-        { data: "domain_id", title: "Domain ID", type: "numeric", defaultVisible: false },
         { data: "vsan", title: "VSAN", type: "numeric", defaultVisible: false },
         { data: "alias_count", title: "Aliases", type: "numeric", readOnly: true },
         { data: "zone_count", title: "Zones", type: "numeric", readOnly: true },
@@ -49,7 +48,6 @@ const FabricTableTanStackClean = () => {
         san_vendor: "",
         switches: "",
         zoneset_name: "",
-        domain_id: "",
         vsan: "",
         alias_count: 0,
         zone_count: 0,
@@ -57,12 +55,15 @@ const FabricTableTanStackClean = () => {
         notes: ""
     };
 
-    // Process data for display - convert vendor codes to names and format switches
+    // Process data for display - convert vendor codes to names and format switches with domain IDs
     const preprocessData = (data) => {
         return data.map(fabric => ({
             ...fabric,
             san_vendor: vendorOptions.find(v => v.code === fabric.san_vendor)?.name || fabric.san_vendor,
-            switches: fabric.switches_details?.map(s => s.name).join(', ') || ""
+            switches: fabric.switches_details?.map(s => {
+                const domainStr = s.domain_id !== null && s.domain_id !== undefined ? ` (${s.domain_id})` : '';
+                return `${s.name}${domainStr}`;
+            }).join(', ') || ""
         }));
     };
 
@@ -84,7 +85,6 @@ const FabricTableTanStackClean = () => {
                     ...fabricData,
                     customer: customerId,
                     san_vendor: vendorOptions.find(v => v.name === fabricData.san_vendor || v.code === fabricData.san_vendor)?.code || fabricData.san_vendor,
-                    domain_id: fabricData.domain_id === "" ? null : fabricData.domain_id,
                     vsan: fabricData.vsan === "" ? null : fabricData.vsan
                 };
             });

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Fabric, Alias, Zone, WwpnPrefix, Switch
+from .models import Fabric, Alias, Zone, WwpnPrefix, Switch, SwitchFabric
 from django.db.models import Count
 
 @admin.register(Switch)
@@ -47,19 +47,18 @@ class SwitchAdmin(admin.ModelAdmin):
 
 @admin.register(Fabric)
 class FabricAdmin(admin.ModelAdmin):
-    list_display = ["name", "customer", "zoneset_name", "san_vendor", "domain_id", "vsan", "exists", "switch_count", "alias_count", "zone_count"]
+    list_display = ["name", "customer", "zoneset_name", "san_vendor", "vsan", "exists", "switch_count", "alias_count", "zone_count"]
     list_filter = [
         "customer",
         "san_vendor",
         "exists",
-        ("domain_id", admin.EmptyFieldListFilter),  # Filter by empty/non-empty domain_id
         ("vsan", admin.EmptyFieldListFilter),  # Filter by empty/non-empty VSAN
     ]
     search_fields = ["name", "customer__name", "zoneset_name", "switches__name"]
-    list_editable = ["exists", "domain_id", "vsan"]
+    list_editable = ["exists", "vsan"]
     ordering = ["customer__name", "name"]
     list_per_page = 50
-    filter_horizontal = ["switches"]  # Better interface for many-to-many
+    # Note: Can't use filter_horizontal with through tables - managed via Switch admin or API
 
     # Add custom fields to display counts
     def get_queryset(self, request):
@@ -285,3 +284,18 @@ class WwpnPrefixAdmin(admin.ModelAdmin):
         updated = queryset.update(wwpn_type='target')
         self.message_user(request, f"{updated} prefixes marked as target.")
     mark_as_target.short_description = "Mark selected prefixes as target"
+
+
+@admin.register(SwitchFabric)
+class SwitchFabricAdmin(admin.ModelAdmin):
+    list_display = ["switch", "fabric", "domain_id", "get_customer"]
+    list_filter = ["fabric__customer", "switch__customer"]
+    search_fields = ["switch__name", "fabric__name", "domain_id"]
+    list_editable = ["domain_id"]
+    ordering = ["fabric", "switch"]
+    list_per_page = 100
+
+    def get_customer(self, obj):
+        return obj.fabric.customer.name
+    get_customer.short_description = "Customer"
+    get_customer.admin_order_field = "fabric__customer__name"

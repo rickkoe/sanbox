@@ -68,6 +68,7 @@ const SwitchTableTanStack = () => {
         { data: "name", title: "Name", required: true },
         { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
         { data: "fabrics", title: "Fabrics", type: "dropdown", allowMultiple: true },
+        { data: "domain_ids", title: "Domain IDs" },  // Custom editable cell component
         { data: "wwnn", title: "WWNN" },
         { data: "ip_address", title: "IP Address" },
         { data: "subnet_mask", title: "Subnet Mask", defaultVisible: false },
@@ -92,6 +93,7 @@ const SwitchTableTanStack = () => {
         name: "",
         san_vendor: "",
         fabrics: [],
+        domain_ids: "",
         wwnn: "",
         ip_address: "",
         subnet_mask: "",
@@ -114,12 +116,16 @@ const SwitchTableTanStack = () => {
         }
     };
 
-    // Process data for display - convert vendor codes to names and format fabrics
+    // Process data for display - convert vendor codes to names, format fabrics, and domain IDs
     const preprocessData = (data) => {
         return data.map(switchItem => ({
             ...switchItem,
             san_vendor: vendorOptions.find(v => v.code === switchItem.san_vendor)?.name || switchItem.san_vendor,
-            fabrics: switchItem.fabrics_details?.map(f => f.name) || []
+            fabrics: switchItem.fabric_domain_details?.map(f => f.name) || [],
+            domain_ids: switchItem.fabric_domain_details?.map(f => {
+                const domainStr = f.domain_id !== null && f.domain_id !== undefined ? f.domain_id : '';
+                return `${f.name}: ${domainStr}`;
+            }).join('\n') || ""
         }));
     };
 
@@ -134,26 +140,51 @@ const SwitchTableTanStack = () => {
                 });
             })
             .map(row => {
-                // Convert fabric names to IDs
-                const fabricIds = Array.isArray(row.fabrics)
-                    ? row.fabrics
-                        .map(fabricName => fabrics.find(f => f.name === fabricName)?.id)
-                        .filter(id => id !== undefined)
-                    : [];
+                // Build fabric_domains from fabric_domain_details (which has names and domain_ids)
+                // We need to look up fabric IDs from the fabrics list
+                let fabric_domains = [];
+
+                if (Array.isArray(row.fabric_domain_details) && row.fabric_domain_details.length > 0) {
+                    // Use the fabric_domain_details updated by DomainIDsCell
+                    fabric_domains = row.fabric_domain_details
+                        .map(fd => {
+                            // Look up fabric ID by name
+                            const fabric = fabrics.find(f => f.name === fd.name);
+                            if (fabric) {
+                                return {
+                                    fabric_id: fabric.id,
+                                    domain_id: fd.domain_id
+                                };
+                            }
+                            return null;
+                        })
+                        .filter(fd => fd !== null);
+                } else if (Array.isArray(row.fabrics)) {
+                    // Fall back to fabrics array (when domain IDs haven't been set yet)
+                    fabric_domains = row.fabrics
+                        .map(fabricName => {
+                            const fabric = fabrics.find(f => f.name === fabricName);
+                            return fabric ? { fabric_id: fabric.id, domain_id: null } : null;
+                        })
+                        .filter(fd => fd !== null);
+                }
+
+                // Exclude read-only/computed fields
+                const { domain_ids, fabric_domain_details, fabrics_details, ...switchData } = row;
 
                 return {
-                    ...row,
+                    ...switchData,
                     customer: customerId,
-                    san_vendor: vendorOptions.find(v => v.name === row.san_vendor || v.code === row.san_vendor)?.code || row.san_vendor,
-                    fabrics: fabricIds,
-                    wwnn: row.wwnn ? formatWWNN(row.wwnn) : null,
-                    ip_address: row.ip_address === "" ? null : row.ip_address,
-                    subnet_mask: row.subnet_mask === "" ? null : row.subnet_mask,
-                    gateway: row.gateway === "" ? null : row.gateway,
-                    model: row.model === "" ? null : row.model,
-                    serial_number: row.serial_number === "" ? null : row.serial_number,
-                    firmware_version: row.firmware_version === "" ? null : row.firmware_version,
-                    location: row.location === "" ? null : row.location
+                    san_vendor: vendorOptions.find(v => v.name === switchData.san_vendor || v.code === switchData.san_vendor)?.code || switchData.san_vendor,
+                    fabric_domains: fabric_domains,  // Send as fabric_domains array
+                    wwnn: switchData.wwnn ? formatWWNN(switchData.wwnn) : null,
+                    ip_address: switchData.ip_address === "" ? null : switchData.ip_address,
+                    subnet_mask: switchData.subnet_mask === "" ? null : switchData.subnet_mask,
+                    gateway: switchData.gateway === "" ? null : switchData.gateway,
+                    model: switchData.model === "" ? null : switchData.model,
+                    serial_number: switchData.serial_number === "" ? null : switchData.serial_number,
+                    firmware_version: switchData.firmware_version === "" ? null : switchData.firmware_version,
+                    location: switchData.location === "" ? null : switchData.location
                 };
             });
 

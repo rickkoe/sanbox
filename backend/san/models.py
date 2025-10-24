@@ -2,6 +2,7 @@ from django.db import models
 from core.models import Project, Customer
 from storage.models import Storage, Host
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import User
 
 # Create your models here.
@@ -57,9 +58,43 @@ class Switch(models.Model):
         verbose_name_plural = "Switches"
 
 
+class SwitchFabric(models.Model):
+    """
+    Junction table for Switch-Fabric many-to-many relationship with domain ID.
+    Domain ID represents a switch's unique identifier within a specific fabric.
+    """
+    switch = models.ForeignKey(Switch, on_delete=models.CASCADE, related_name='switch_fabrics')
+    fabric = models.ForeignKey('Fabric', on_delete=models.CASCADE, related_name='fabric_switches')
+    domain_id = models.IntegerField(
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(999)],
+        help_text="Switch's domain ID within this fabric (0-999)"
+    )
+
+    class Meta:
+        unique_together = [
+            ['switch', 'fabric'],  # Each switch-fabric pair is unique
+            ['fabric', 'domain_id']  # Domain ID must be unique per fabric
+        ]
+        ordering = ['fabric', 'switch']
+        verbose_name = "Switch-Fabric Assignment"
+        verbose_name_plural = "Switch-Fabric Assignments"
+
+    def __str__(self):
+        domain_str = f" (Domain: {self.domain_id})" if self.domain_id is not None else ""
+        return f"{self.switch.name} on {self.fabric.name}{domain_str}"
+
+
 class Fabric(models.Model):
     customer = models.ForeignKey(Customer, related_name='fabric_customer', on_delete=models.CASCADE)
-    switches = models.ManyToManyField(Switch, related_name='fabrics', blank=True, help_text="Switches this fabric belongs to")
+    switches = models.ManyToManyField(
+        Switch,
+        through='SwitchFabric',
+        related_name='fabrics',
+        blank=True,
+        help_text="Switches this fabric belongs to"
+    )
     name = models.CharField(max_length=64)
     zoneset_name = models.CharField(max_length=200)
     san_vendor = models.CharField(
@@ -70,7 +105,6 @@ class Fabric(models.Model):
         ],
         default="BR",
     )
-    domain_id = models.IntegerField(blank=True, null=True, help_text="Fabric domain ID")
     vsan = models.IntegerField(blank=True, null=True)
     exists = models.BooleanField(default=False)
     notes = models.TextField(null=True, blank=True)

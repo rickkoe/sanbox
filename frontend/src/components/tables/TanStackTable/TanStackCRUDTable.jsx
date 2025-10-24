@@ -1220,6 +1220,22 @@ const TanStackCRUDTable = forwardRef(({
             );
           }
 
+          // Domain IDs cell - special custom editor
+          if (accessorKey === 'domain_ids') {
+            const tableData = table.options.data;
+            return (
+              <DomainIDsCell
+                value={value}
+                rowIndex={rowIndex}
+                columnKey={accessorKey}
+                updateCellData={updateCellData}
+                rowData={row.original}
+                allTableData={tableData}
+                theme={theme}
+              />
+            );
+          }
+
           // Multi-Select Dropdown cell
           if (isDropdown && isMultiSelect) {
             let options = dropdownSource || dropdownSources[accessorKey] || [];
@@ -4656,6 +4672,284 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
                   No options found
                 </div>
               )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+// Domain IDs Cell - Simplified inline editor showing fabric:domain pairs
+const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, allTableData, theme = 'dark' }) => {
+  // Get the current table data to access fabrics column
+  const currentRow = allTableData?.[rowIndex] || rowData;
+  const selectedFabricNames = Array.isArray(currentRow.fabrics) ? currentRow.fabrics : [];
+  const fabricDomainDetails = Array.isArray(currentRow.fabric_domain_details) ? currentRow.fabric_domain_details : [];
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [localDomains, setLocalDomains] = useState({});
+  const dropdownRef = useRef(null);
+  const containerRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  // Sync localDomains when fabrics change
+  useEffect(() => {
+    const domainsMap = {};
+
+    selectedFabricNames.forEach(fabricName => {
+      // Find existing domain ID for this fabric
+      const existingDetail = fabricDomainDetails.find(fd => fd.name === fabricName);
+      domainsMap[fabricName] = existingDetail?.domain_id !== null && existingDetail?.domain_id !== undefined
+        ? String(existingDetail.domain_id)
+        : '';
+    });
+
+    setLocalDomains(domainsMap);
+  }, [JSON.stringify(selectedFabricNames), JSON.stringify(fabricDomainDetails)]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const isOutsideContainer = containerRef.current && !containerRef.current.contains(event.target);
+      const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(event.target);
+
+      if (isOutsideContainer && isOutsideDropdown) {
+        setIsOpen(false);
+        saveDomains();
+      }
+    };
+
+    if (isOpen) {
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isOpen, localDomains]);
+
+  const saveDomains = () => {
+    // Need to build fabric_domain_details with fabric IDs from the selected fabric names
+    // Since we don't have access to fabrics list here, we'll update when inputs change
+    // The parent will read fabric_domain_details in saveTransform
+    console.log('💾 Saving domain IDs for fabrics:', selectedFabricNames, 'with domains:', localDomains);
+
+    // We need to trigger update with fabric names and domain IDs
+    // The saveTransform will convert these to fabric IDs
+    const updatedDetails = selectedFabricNames.map(fabricName => {
+      const existingDetail = fabricDomainDetails.find(fd => fd.name === fabricName);
+      return {
+        id: existingDetail?.id || null,  // May be null for new fabrics
+        name: fabricName,
+        domain_id: localDomains[fabricName] ? parseInt(localDomains[fabricName]) || null : null
+      };
+    });
+
+    updateCellData(rowIndex, 'fabric_domain_details', updatedDetails);
+  };
+
+  const handleDomainChange = (fabricName, newValue) => {
+    // Only allow 3-digit numbers
+    const cleaned = newValue.replace(/[^0-9]/g, '').slice(0, 3);
+    setLocalDomains(prev => ({
+      ...prev,
+      [fabricName]: cleaned
+    }));
+
+    // Auto-save after a brief delay
+    setTimeout(() => {
+      saveDomains();
+    }, 100);
+  };
+
+  const handleKeyDown = (e, fabricId) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveDomains();
+      setIsOpen(false);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+    }
+  };
+
+  const getDropdownStyle = () => {
+    if (!containerRef.current) {
+      return {
+        position: 'absolute',
+        top: '100%',
+        left: 0,
+        zIndex: 10000,
+      };
+    }
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const dropdownHeight = 300;
+
+    const shouldShowAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
+    return {
+      position: 'fixed',
+      top: shouldShowAbove ? undefined : rect.bottom + 2,
+      bottom: shouldShowAbove ? window.innerHeight - rect.top + 2 : undefined,
+      left: rect.left,
+      width: Math.max(rect.width, 250),
+      maxWidth: '400px',
+      zIndex: 10000,
+    };
+  };
+
+  // Display text showing only domain IDs (comma-separated)
+  const displayText = selectedFabricNames
+    .map(fabricName => localDomains[fabricName] || '')
+    .filter(domainId => domainId !== '')  // Only show non-empty domain IDs
+    .join(', ');
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <button
+        ref={triggerRef}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        style={{
+          width: '100%',
+          height: '100%',
+          minHeight: '20px',
+          padding: '0',
+          margin: '0',
+          border: 'none',
+          background: 'transparent',
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontSize: '13px',
+          color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+          outline: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+        tabIndex={0}
+        aria-label="Edit Domain IDs"
+        aria-expanded={isOpen}
+      >
+        <span style={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          flex: 1,
+          paddingRight: '8px',
+          color: displayText ? (theme === 'dark' ? '#e2e8f0' : '#0f172a') : (theme === 'dark' ? '#a0aec0' : '#64748b')
+        }}>
+          {displayText || 'Click to edit...'}
+        </span>
+        <span style={{ fontSize: '10px', opacity: 0.5, flexShrink: 0 }}>▼</span>
+      </button>
+
+      {isOpen && ReactDOM.createPortal(
+        <div ref={dropdownRef} style={getDropdownStyle()}>
+          <div style={{
+            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+            border: `1px solid ${theme === 'dark' ? '#475569' : '#cbd5e1'}`,
+            borderRadius: '4px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            maxHeight: '300px',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '12px',
+          }}>
+            <div style={{
+              fontSize: '13px',
+              fontWeight: '600',
+              marginBottom: '8px',
+              color: theme === 'dark' ? '#e2e8f0' : '#0f172a'
+            }}>
+              Domain IDs
+            </div>
+
+            {selectedFabricNames.length === 0 ? (
+              <div style={{
+                padding: '12px',
+                fontSize: '13px',
+                fontStyle: 'italic',
+                textAlign: 'center',
+                color: theme === 'dark' ? '#a0aec0' : '#64748b'
+              }}>
+                No fabrics selected. Select fabrics in the Fabrics column first.
+              </div>
+            ) : (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                maxHeight: '220px',
+                overflowY: 'auto',
+              }}>
+                {selectedFabricNames.map(fabricName => (
+                  <div
+                    key={fabricName}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '6px',
+                      backgroundColor: theme === 'dark' ? '#0f172a' : '#f8fafc',
+                      borderRadius: '3px',
+                    }}
+                  >
+                    <label style={{
+                      flex: 1,
+                      fontSize: '13px',
+                      color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {fabricName}:
+                    </label>
+                    <input
+                      type="text"
+                      value={localDomains[fabricName] || ''}
+                      onChange={(e) => handleDomainChange(fabricName, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(e, fabricName)}
+                      onBlur={saveDomains}
+                      placeholder="000"
+                      maxLength={3}
+                      style={{
+                        width: '60px',
+                        padding: '4px 8px',
+                        fontSize: '13px',
+                        textAlign: 'center',
+                        border: `1px solid ${theme === 'dark' ? '#475569' : '#cbd5e1'}`,
+                        borderRadius: '3px',
+                        backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
+                        color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+                        outline: 'none',
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{
+              marginTop: '8px',
+              paddingTop: '8px',
+              borderTop: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
+              fontSize: '11px',
+              color: theme === 'dark' ? '#a0aec0' : '#64748b',
+              fontStyle: 'italic'
+            }}>
+              Enter 0-999 • Press Enter to save • Unique per fabric
             </div>
           </div>
         </div>,
