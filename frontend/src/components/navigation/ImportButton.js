@@ -34,11 +34,11 @@ const ImportButton = ({
             <span className="nav-label ms-1">Import</span>
           </Dropdown.Toggle>
           <Dropdown.Menu>
-            <Dropdown.Item as={NavLink} to="/import/ibm-storage-insights">
+            <Dropdown.Item as={NavLink} to="/import/universal">
               View Import Details
             </Dropdown.Item>
             <Dropdown.Divider />
-            <Dropdown.Item 
+            <Dropdown.Item
               onClick={async () => {
                 if (currentImport?.id && window.confirm('Cancel the current import?')) {
                   await onCancelImport(currentImport.id);
@@ -67,8 +67,8 @@ const ImportButton = ({
           <span className="nav-label ms-1">Import</span>
         </Dropdown.Toggle>
         <Dropdown.Menu>
-          <Dropdown.Item as={NavLink} to="/import/ibm-storage-insights">
-            Storage Insights Import
+          <Dropdown.Item as={NavLink} to="/import/universal">
+            Universal Importer
           </Dropdown.Item>
           <Dropdown.Item as={NavLink} to="/import/zoning">
             Bulk Zoning Import

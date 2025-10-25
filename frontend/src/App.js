@@ -68,7 +68,6 @@ const ZoneScriptsPage = React.lazy(() => import("./pages/ZoneScriptsPage"));
 const ZoneCreationScriptsPage = React.lazy(() => import("./pages/ZoneCreationScriptsPage"));
 const ZoneDeleteScriptsPage = React.lazy(() => import("./pages/ZoneDeleteScriptsPage"));
 const ImportSwitchConfig = React.lazy(() => import("./components/forms/ImportSwitchConfig"));
-const StorageInsightsImporter = React.lazy(() => import("./pages/StorageInsightsImporter"));
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
 const CustomNamingPage = React.lazy(() => import("./pages/CustomNamingPage"));
 const UserProfile = React.lazy(() => import("./pages/UserProfile"));
@@ -231,10 +230,6 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/import" element={<div style={{padding: '2rem'}}><h2>Import Data</h2><p>Choose an import type from the Import dropdown in the navbar.</p></div>} />
                     <Route path="/import/universal" element={<UniversalImporter />} />
                     <Route path="/import/zoning" element={<BulkZoningImportPage />} />
-                  <Route
-                    path="/import/ibm-storage-insights"
-                    element={<StorageInsightsImporter />}
-                  />
                   <Route
                     path="/tools/wwpn-colonizer"
                     element={<WWPNFormatterTable />}

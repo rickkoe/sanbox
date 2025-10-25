@@ -12,14 +12,12 @@ import {
   Archive,
   Monitor,
   Users,
-  Database,
   Building2,
   FolderOpen,
   Wrench,
   Type,
   Calculator,
   Cable,
-  BarChart3,
   Layout,
   Terminal,
   Upload,
@@ -122,7 +120,6 @@ const getSidebarLinks = (pathname) => {
         expandable: true,
         subLinks: [
           { path: "/import/universal", label: "Universal Importer", icon: Upload },
-          { path: "/import/ibm-storage-insights", label: "IBM Storage Insights", icon: Database },
           { path: "/import/zoning", label: "SAN Zoning Import", icon: Network },
         ]
       },
