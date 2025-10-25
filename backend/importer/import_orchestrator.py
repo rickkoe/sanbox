@@ -10,11 +10,17 @@ Coordinates the entire import process:
 
 from typing import Dict, List, Optional, Callable
 from django.db import transaction
+from django.utils import timezone
 from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix, Switch
+from storage.models import Storage, Volume, Host, HostWwpn
 from customers.models import Customer
-from .parsers.base_parser import ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch
+from .parsers.base_parser import (
+    ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch,
+    ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort
+)
 from .parsers.cisco_parser import CiscoParser
 from .parsers.brocade_parser import BrocadeParser
+from .parsers.insights_parser import InsightsParser
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,6 +42,7 @@ class ImportOrchestrator:
         self.progress_callback = progress_callback
         self.project_id = project_id
         self.stats = {
+            # SAN stats
             'fabrics_created': 0,
             'fabrics_updated': 0,
             'aliases_created': 0,
@@ -44,6 +51,17 @@ class ImportOrchestrator:
             'zones_updated': 0,
             'switches_created': 0,
             'switches_updated': 0,
+
+            # Storage stats
+            'storage_systems_created': 0,
+            'storage_systems_updated': 0,
+            'volumes_created': 0,
+            'volumes_updated': 0,
+            'hosts_created': 0,
+            'hosts_updated': 0,
+            'ports_created': 0,
+            'ports_updated': 0,
+
             'errors': [],
             'warnings': []
         }
@@ -94,9 +112,9 @@ class ImportOrchestrator:
         """
         self._report_progress(0, 100, "Detecting data format...")
 
-        # Auto-detect parser
+        # Auto-detect parser (now includes InsightsParser)
         parser = None
-        for parser_class in [CiscoParser, BrocadeParser]:
+        for parser_class in [InsightsParser, CiscoParser, BrocadeParser]:
             test_parser = parser_class()
             if test_parser.detect_format(data):
                 parser = test_parser
@@ -120,32 +138,38 @@ class ImportOrchestrator:
 
         self._report_progress(30, 100, "Validating parsed data...")
 
-        # Validate and import
-        return self._import_parse_result(
-            parse_result,
-            fabric_id,
-            fabric_name_override,
-            zoneset_name_override,
-            vsan_override,
-            create_new_fabric,
-            conflict_resolutions or {},
-            fabric_mapping
-        )
+        # Route to appropriate import method based on type
+        if parse_result.import_type == 'storage':
+            logger.info("Detected storage import (IBM Storage Insights)")
+            return self._import_storage_data(parse_result)
+        else:
+            logger.info("Detected SAN configuration import")
+            # Validate and import SAN data
+            return self._import_parse_result(
+                parse_result,
+                fabric_id,
+                fabric_name_override,
+                zoneset_name_override,
+                vsan_override,
+                create_new_fabric,
+                conflict_resolutions or {},
+                fabric_mapping
+            )
 
     def preview_import(self, data: str, check_conflicts: bool = False) -> Dict:
         """
         Preview what would be imported without committing to database.
 
         Args:
-            data: Raw text data to parse
-            check_conflicts: If True, check for duplicate zones
+            data: Raw text data to parse (SAN text or JSON credentials)
+            check_conflicts: If True, check for duplicate zones (SAN only)
 
         Returns:
             Dict with preview information
         """
-        # Auto-detect parser
+        # Auto-detect parser (including InsightsParser)
         parser = None
-        for parser_class in [CiscoParser, BrocadeParser]:
+        for parser_class in [InsightsParser, CiscoParser, BrocadeParser]:
             test_parser = parser_class()
             if test_parser.detect_format(data):
                 parser = test_parser
@@ -160,6 +184,10 @@ class ImportOrchestrator:
 
         # Parse the data
         parse_result = parser.parse(data)
+
+        # Handle storage import preview differently
+        if parse_result.import_type == 'storage':
+            return self._preview_storage_import(parse_result)
 
         # Check for conflicts if requested
         conflicts = None
@@ -369,6 +397,69 @@ class ImportOrchestrator:
                         seen_conflicts.add(alias_name)
 
         return conflicts
+
+    def _preview_storage_import(self, parse_result: ParseResult) -> Dict:
+        """
+        Preview storage import (IBM Storage Insights).
+
+        Args:
+            parse_result: ParseResult with storage data
+
+        Returns:
+            Dict with preview information for storage systems, volumes, hosts
+        """
+        return {
+            'success': True,
+            'import_type': 'storage',
+            'parser': 'InsightsParser',
+            'metadata': parse_result.metadata,
+            'storage_systems': [
+                {
+                    'storage_system_id': sys.storage_system_id,
+                    'name': sys.name,
+                    'type': sys.storage_type,
+                    'vendor': sys.vendor,
+                    'model': sys.model,
+                    'serial_number': sys.serial_number,
+                    'capacity_bytes': sys.capacity_bytes,
+                    'used_capacity_bytes': sys.used_capacity_bytes,
+                    'used_capacity_percent': sys.used_capacity_percent,
+                    'status': sys.probe_status
+                }
+                for sys in parse_result.storage_systems
+            ],
+            'volumes': [
+                {
+                    'volume_id': vol.volume_id,
+                    'name': vol.name,
+                    'storage_system_id': vol.storage_system_id,
+                    'capacity_bytes': vol.capacity_bytes,
+                    'used_capacity_bytes': vol.used_capacity_bytes,
+                    'pool_name': vol.pool_name,
+                    'thin_provisioned': vol.thin_provisioned
+                }
+                for vol in parse_result.volumes
+            ],
+            'hosts': [
+                {
+                    'name': host.name,
+                    'storage_system_id': host.storage_system_id,
+                    'wwpn_count': len(host.wwpns),
+                    'wwpns': host.wwpns[:5],  # Show first 5 WWPNs
+                    'host_type': host.host_type,
+                    'status': host.status
+                }
+                for host in parse_result.hosts
+            ],
+            'counts': {
+                'storage_systems': len(parse_result.storage_systems),
+                'volumes': len(parse_result.volumes),
+                'hosts': len(parse_result.hosts),
+                'ports': len(parse_result.ports)
+            },
+            'errors': parse_result.errors,
+            'warnings': parse_result.warnings
+        }
 
     @transaction.atomic
     def _import_parse_result(
@@ -1007,3 +1098,296 @@ class ImportOrchestrator:
                 logger.error(error_msg)
 
         return switch_map
+
+    def _import_storage_data(self, parse_result: ParseResult) -> Dict:
+        """
+        Import storage systems, volumes, hosts from parsed IBM Storage Insights data.
+
+        Args:
+            parse_result: ParseResult with storage_systems, volumes, hosts populated
+
+        Returns:
+            Dict with import statistics
+        """
+        self._report_progress(40, 100, "Starting storage import...")
+
+        try:
+            # Import storage systems
+            if parse_result.storage_systems:
+                self._report_progress(45, 100, f"Importing {len(parse_result.storage_systems)} storage systems...")
+                self._import_storage_systems(parse_result.storage_systems)
+
+            # Import volumes
+            if parse_result.volumes:
+                self._report_progress(60, 100, f"Importing {len(parse_result.volumes)} volumes...")
+                self._import_volumes(parse_result.volumes)
+
+            # Import hosts
+            if parse_result.hosts:
+                self._report_progress(80, 100, f"Importing {len(parse_result.hosts)} hosts...")
+                self._import_hosts(parse_result.hosts)
+
+            # Import ports (if any)
+            if parse_result.ports:
+                self._report_progress(95, 100, f"Importing {len(parse_result.ports)} ports...")
+                self._import_ports(parse_result.ports)
+
+            self._report_progress(100, 100, "Storage import complete!")
+
+            # Clear dashboard cache when import completes
+            try:
+                from core.dashboard_views import clear_dashboard_cache_for_customer
+                clear_dashboard_cache_for_customer(self.customer.id)
+            except Exception as e:
+                logger.warning(f"Failed to clear dashboard cache: {e}")
+
+            return {
+                'success': True,
+                'stats': self.stats,
+                'metadata': parse_result.metadata
+            }
+
+        except Exception as e:
+            error_msg = f"Storage import failed: {str(e)}"
+            self.stats['errors'].append(error_msg)
+            logger.error(error_msg)
+            raise
+
+    @transaction.atomic
+    def _import_storage_systems(self, parsed_systems: List[ParsedStorageSystem]):
+        """Import storage systems into database"""
+        logger.info(f"Importing {len(parsed_systems)} storage systems")
+
+        for system in parsed_systems:
+            try:
+                # Build defaults dict with all non-None fields
+                defaults = {
+                    'customer': self.customer,
+                    'name': system.name,
+                    'storage_type': system.storage_type,
+                }
+
+                # Add all optional fields that have values
+                optional_fields = [
+                    'vendor', 'model', 'serial_number', 'machine_type', 'system_id',
+                    'wwnn', 'firmware_level', 'uuid', 'location',
+                    'primary_ip', 'secondary_ip',
+                    'probe_status', 'condition', 'events_status', 'pm_status',
+                    'raw_capacity_bytes', 'capacity_bytes', 'used_capacity_bytes',
+                    'used_capacity_percent', 'available_capacity_bytes',
+                    'available_system_capacity_bytes', 'available_system_capacity_percent',
+                    'available_volume_capacity_bytes', 'available_written_capacity_bytes',
+                    'provisioned_capacity_bytes', 'provisioned_capacity_percent',
+                    'provisioned_written_capacity_percent', 'mapped_capacity_bytes',
+                    'mapped_capacity_percent', 'unmapped_capacity_bytes', 'unmapped_capacity_percent',
+                    'overhead_capacity_bytes', 'used_written_capacity_bytes',
+                    'used_written_capacity_percent', 'written_capacity_limit_bytes',
+                    'overprovisioned_capacity_bytes', 'unallocated_volume_capacity_bytes',
+                    'remaining_unallocated_capacity_bytes', 'shortfall_percent',
+                    'deduplication_savings_bytes', 'deduplication_savings_percent',
+                    'compression_savings_bytes', 'compression_savings_percent',
+                    'capacity_savings_bytes', 'capacity_savings_percent',
+                    'data_reduction_savings_bytes', 'data_reduction_savings_percent',
+                    'data_reduction_ratio', 'total_compression_ratio', 'total_savings_ratio',
+                    'drive_compression_ratio', 'drive_compression_savings_bytes',
+                    'drive_compression_savings_percent', 'pool_compression_ratio',
+                    'pool_compression_savings_bytes', 'pool_compression_savings_percent',
+                    'snapshot_written_capacity_bytes', 'snapshot_provisioned_capacity_bytes',
+                    'safe_guarded_capacity_bytes', 'safeguarded_virtual_capacity_bytes',
+                    'safeguarded_used_capacity_percentage',
+                    'read_cache_bytes', 'write_cache_bytes',
+                    'volumes_count', 'pools_count', 'disks_count', 'managed_disks_count',
+                    'fc_ports_count', 'ip_ports_count', 'host_connections_count',
+                    'volume_groups_count', 'unprotected_volumes_count', 'remote_relationships_count',
+                    'recent_fill_rate', 'recent_growth', 'current_power_usage_watts',
+                    'system_temperature_celsius', 'system_temperature_Fahrenheit',
+                    'power_efficiency', 'co2_emission',
+                    'last_successful_probe', 'last_successful_monitor',
+                    'customer_country_code', 'customer_number', 'data_collection',
+                    'data_collection_type', 'time_zone', 'staas_environment',
+                    'element_manager_url', 'probe_schedule', 'acknowledged', 'compressed',
+                    'callhome_system', 'ransomware_threat_detection',
+                    'threat_notification_recipients', 'topology', 'cluster_id_alias'
+                ]
+
+                for field in optional_fields:
+                    value = getattr(system, field, None)
+                    if value is not None:
+                        defaults[field] = value
+
+                # Add timestamps
+                defaults['imported'] = timezone.now()
+                defaults['updated'] = timezone.now()
+
+                # Create or update storage system
+                storage, created = Storage.objects.update_or_create(
+                    storage_system_id=system.storage_system_id,
+                    customer=self.customer,
+                    defaults=defaults
+                )
+
+                if created:
+                    self.stats['storage_systems_created'] += 1
+                    logger.info(f"Created storage system: {system.name}")
+                else:
+                    self.stats['storage_systems_updated'] += 1
+                    logger.info(f"Updated storage system: {system.name}")
+
+            except Exception as e:
+                error_msg = f"Failed to import storage system {system.name}: {e}"
+                self.stats['errors'].append(error_msg)
+                logger.error(error_msg)
+
+    @transaction.atomic
+    def _import_volumes(self, parsed_volumes: List[ParsedVolume]):
+        """Import volumes into database"""
+        logger.info(f"Importing {len(parsed_volumes)} volumes")
+
+        # Build mapping of storage_system_id to Storage objects
+        system_cache = {}
+
+        for volume in parsed_volumes:
+            try:
+                # Get parent storage system (with caching)
+                if volume.storage_system_id not in system_cache:
+                    try:
+                        system_cache[volume.storage_system_id] = Storage.objects.get(
+                            storage_system_id=volume.storage_system_id,
+                            customer=self.customer
+                        )
+                    except Storage.DoesNotExist:
+                        self.stats['warnings'].append(
+                            f"Storage system {volume.storage_system_id} not found for volume {volume.name}"
+                        )
+                        continue
+
+                storage = system_cache[volume.storage_system_id]
+
+                # Build defaults dict
+                defaults = {
+                    'storage': storage,
+                    'name': volume.name,
+                    'volume_id': volume.volume_id,
+                }
+
+                # Add all optional fields that have values
+                optional_fields = [
+                    'capacity_bytes', 'used_capacity_bytes', 'used_capacity_percent',
+                    'available_capacity_bytes', 'written_capacity_bytes', 'written_capacity_percent',
+                    'reserved_volume_capacity_bytes', 'pool_name', 'pool_id',
+                    'thin_provisioned', 'compressed', 'raid_level', 'encryption',
+                    'flashcopy', 'auto_expand', 'status_label', 'acknowledged',
+                    'node', 'io_group', 'volume_number', 'natural_key',
+                    'easy_tier', 'easy_tier_status',
+                    'tier0_flash_capacity_percent', 'tier1_flash_capacity_percent',
+                    'scm_capacity_percent', 'enterprise_hdd_capacity_percent',
+                    'nearline_hdd_capacity_percent', 'tier0_flash_capacity_bytes',
+                    'tier1_flash_capacity_bytes', 'scm_capacity_bytes',
+                    'enterprise_hdd_capacity_bytes', 'nearline_hdd_capacity_bytes',
+                    'safeguarded_virtual_capacity_bytes', 'safeguarded_used_capacity_percentage',
+                    'safeguarded_allocation_capacity_bytes'
+                ]
+
+                for field in optional_fields:
+                    value = getattr(volume, field, None)
+                    if value is not None:
+                        defaults[field] = value
+
+                # Create unique_id for volume
+                unique_id = f"{volume.storage_system_id}_{volume.volume_id}"
+
+                # Create or update volume
+                vol, created = Volume.objects.update_or_create(
+                    unique_id=unique_id,
+                    defaults=defaults
+                )
+
+                if created:
+                    self.stats['volumes_created'] += 1
+                else:
+                    self.stats['volumes_updated'] += 1
+
+            except Exception as e:
+                error_msg = f"Failed to import volume {volume.name}: {e}"
+                self.stats['errors'].append(error_msg)
+                logger.error(error_msg)
+
+    @transaction.atomic
+    def _import_hosts(self, parsed_hosts: List[ParsedHost]):
+        """Import hosts with WWPNs into database"""
+        logger.info(f"Importing {len(parsed_hosts)} hosts")
+
+        # Build mapping of storage_system_id to Storage objects
+        system_cache = {}
+
+        for host in parsed_hosts:
+            try:
+                # Get parent storage system (with caching)
+                if host.storage_system_id not in system_cache:
+                    try:
+                        system_cache[host.storage_system_id] = Storage.objects.get(
+                            storage_system_id=host.storage_system_id,
+                            customer=self.customer
+                        )
+                    except Storage.DoesNotExist:
+                        self.stats['warnings'].append(
+                            f"Storage system {host.storage_system_id} not found for host {host.name}"
+                        )
+                        continue
+
+                storage = system_cache[host.storage_system_id]
+
+                # Build defaults dict - only include fields that exist in the model
+                defaults = {}
+
+                # Add all optional fields that have values
+                optional_fields = [
+                    'host_type', 'status', 'acknowledged', 'storage_system',
+                    'associated_resource', 'volume_group', 'vols_count',
+                    'fc_ports_count', 'natural_key', 'last_data_collection'
+                ]
+
+                for field in optional_fields:
+                    value = getattr(host, field, None)
+                    if value is not None:
+                        defaults[field] = value
+
+                # Add timestamps
+                defaults['imported'] = timezone.now()
+
+                # Create or update host - lookup by name and storage
+                host_obj, created = Host.objects.update_or_create(
+                    name=host.name,
+                    storage=storage,
+                    defaults=defaults
+                )
+
+                # Clear existing manual WWPNs and recreate
+                HostWwpn.objects.filter(host=host_obj, source_type='manual').delete()
+
+                # Create new HostWwpn entries
+                for wwpn in host.wwpns:
+                    HostWwpn.objects.create(
+                        host=host_obj,
+                        wwpn=wwpn,
+                        source_type='manual'
+                    )
+
+                if created:
+                    self.stats['hosts_created'] += 1
+                    logger.info(f"Created host: {host.name} with {len(host.wwpns)} WWPNs")
+                else:
+                    self.stats['hosts_updated'] += 1
+                    logger.info(f"Updated host: {host.name} with {len(host.wwpns)} WWPNs")
+
+            except Exception as e:
+                error_msg = f"Failed to import host {host.name}: {e}"
+                self.stats['errors'].append(error_msg)
+                logger.error(error_msg)
+
+    @transaction.atomic
+    def _import_ports(self, parsed_ports: List[ParsedPort]):
+        """Import storage ports (placeholder for future implementation)"""
+        logger.info(f"Port import not yet implemented ({len(parsed_ports)} ports found)")
+        # TODO: Implement port import if Port model is created
+        self.stats['warnings'].append(f"{len(parsed_ports)} ports found but port import not yet implemented")

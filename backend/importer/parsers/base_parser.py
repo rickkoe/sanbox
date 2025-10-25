@@ -65,20 +65,266 @@ class ParsedSwitch:
 
 
 @dataclass
+class ParsedStorageSystem:
+    """Represents a parsed storage system from IBM Storage Insights"""
+    storage_system_id: str
+    name: str
+    storage_type: str  # FlashSystem, DS8000, etc.
+
+    # Basic info
+    vendor: Optional[str] = None
+    model: Optional[str] = None
+    serial_number: Optional[str] = None
+    machine_type: Optional[str] = None
+    system_id: Optional[str] = None
+    wwnn: Optional[str] = None
+    firmware_level: Optional[str] = None
+    uuid: Optional[str] = None
+    location: Optional[str] = None
+
+    # Network
+    primary_ip: Optional[str] = None
+    secondary_ip: Optional[str] = None
+
+    # System health
+    probe_status: Optional[str] = None
+    condition: Optional[str] = None
+    events_status: Optional[str] = None
+    pm_status: Optional[str] = None
+
+    # Capacity fields
+    raw_capacity_bytes: Optional[int] = None
+    capacity_bytes: Optional[int] = None
+    used_capacity_bytes: Optional[int] = None
+    used_capacity_percent: Optional[float] = None
+    available_capacity_bytes: Optional[int] = None
+    available_system_capacity_bytes: Optional[int] = None
+    available_system_capacity_percent: Optional[float] = None
+    available_volume_capacity_bytes: Optional[int] = None
+    available_written_capacity_bytes: Optional[int] = None
+    provisioned_capacity_bytes: Optional[int] = None
+    provisioned_capacity_percent: Optional[float] = None
+    provisioned_written_capacity_percent: Optional[float] = None
+    mapped_capacity_bytes: Optional[int] = None
+    mapped_capacity_percent: Optional[float] = None
+    unmapped_capacity_bytes: Optional[int] = None
+    unmapped_capacity_percent: Optional[float] = None
+    overhead_capacity_bytes: Optional[int] = None
+    used_written_capacity_bytes: Optional[int] = None
+    used_written_capacity_percent: Optional[float] = None
+    written_capacity_limit_bytes: Optional[int] = None
+    overprovisioned_capacity_bytes: Optional[int] = None
+    unallocated_volume_capacity_bytes: Optional[int] = None
+    remaining_unallocated_capacity_bytes: Optional[int] = None
+    shortfall_percent: Optional[float] = None
+
+    # Efficiency and data reduction
+    deduplication_savings_bytes: Optional[int] = None
+    deduplication_savings_percent: Optional[float] = None
+    compression_savings_bytes: Optional[int] = None
+    compression_savings_percent: Optional[float] = None
+    capacity_savings_bytes: Optional[int] = None
+    capacity_savings_percent: Optional[float] = None
+    data_reduction_savings_bytes: Optional[int] = None
+    data_reduction_savings_percent: Optional[float] = None
+    data_reduction_ratio: Optional[float] = None
+    total_compression_ratio: Optional[float] = None
+    total_savings_ratio: Optional[float] = None
+    drive_compression_ratio: Optional[float] = None
+    drive_compression_savings_bytes: Optional[int] = None
+    drive_compression_savings_percent: Optional[float] = None
+    pool_compression_ratio: Optional[float] = None
+    pool_compression_savings_bytes: Optional[int] = None
+    pool_compression_savings_percent: Optional[float] = None
+
+    # Snapshots
+    snapshot_written_capacity_bytes: Optional[int] = None
+    snapshot_provisioned_capacity_bytes: Optional[int] = None
+
+    # Safeguarded
+    safe_guarded_capacity_bytes: Optional[int] = None
+    safeguarded_virtual_capacity_bytes: Optional[int] = None
+    safeguarded_used_capacity_percentage: Optional[float] = None
+
+    # Cache
+    read_cache_bytes: Optional[int] = None
+    write_cache_bytes: Optional[int] = None
+
+    # Counts
+    volumes_count: Optional[int] = None
+    pools_count: Optional[int] = None
+    disks_count: Optional[int] = None
+    managed_disks_count: Optional[int] = None
+    fc_ports_count: Optional[int] = None
+    ip_ports_count: Optional[int] = None
+    host_connections_count: Optional[int] = None
+    volume_groups_count: Optional[int] = None
+    unprotected_volumes_count: Optional[int] = None
+    remote_relationships_count: Optional[int] = None
+
+    # Performance and metrics
+    recent_fill_rate: Optional[float] = None
+    recent_growth: Optional[float] = None
+    current_power_usage_watts: Optional[float] = None
+    system_temperature_celsius: Optional[float] = None
+    system_temperature_Fahrenheit: Optional[float] = None
+    power_efficiency: Optional[float] = None
+    co2_emission: Optional[float] = None
+
+    # Timestamps
+    last_successful_probe: Optional[str] = None
+    last_successful_monitor: Optional[str] = None
+
+    # Customer and system info
+    customer_country_code: Optional[str] = None
+    customer_number: Optional[str] = None
+    data_collection: Optional[str] = None
+    data_collection_type: Optional[str] = None
+    time_zone: Optional[str] = None
+    staas_environment: Optional[str] = None
+    element_manager_url: Optional[str] = None
+    probe_schedule: Optional[str] = None
+    acknowledged: Optional[bool] = None
+    compressed: Optional[bool] = None
+    callhome_system: Optional[bool] = None
+    ransomware_threat_detection: Optional[bool] = None
+    threat_notification_recipients: Optional[str] = None
+    topology: Optional[str] = None
+    cluster_id_alias: Optional[str] = None
+
+
+@dataclass
+class ParsedVolume:
+    """Represents a parsed volume from IBM Storage Insights"""
+    volume_id: str
+    name: str
+    storage_system_id: str  # Links to ParsedStorageSystem
+
+    # Capacity
+    capacity_bytes: Optional[int] = None
+    used_capacity_bytes: Optional[int] = None
+    used_capacity_percent: Optional[float] = None
+    available_capacity_bytes: Optional[int] = None
+    written_capacity_bytes: Optional[int] = None
+    written_capacity_percent: Optional[float] = None
+    reserved_volume_capacity_bytes: Optional[int] = None
+
+    # Pool info
+    pool_name: Optional[str] = None
+    pool_id: Optional[str] = None
+
+    # Properties
+    thin_provisioned: Optional[str] = None
+    compressed: Optional[bool] = None
+    raid_level: Optional[str] = None
+    encryption: Optional[str] = None
+    flashcopy: Optional[str] = None
+    auto_expand: Optional[bool] = None
+
+    # Status and config
+    status_label: Optional[str] = None
+    acknowledged: Optional[bool] = None
+    node: Optional[str] = None
+    io_group: Optional[str] = None
+    volume_number: Optional[int] = None
+    natural_key: Optional[str] = None
+
+    # Easy Tier
+    easy_tier: Optional[str] = None
+    easy_tier_status: Optional[str] = None
+
+    # Tier capacity fields
+    tier0_flash_capacity_percent: Optional[float] = None
+    tier1_flash_capacity_percent: Optional[float] = None
+    scm_capacity_percent: Optional[float] = None
+    enterprise_hdd_capacity_percent: Optional[float] = None
+    nearline_hdd_capacity_percent: Optional[float] = None
+    tier0_flash_capacity_bytes: Optional[int] = None
+    tier1_flash_capacity_bytes: Optional[int] = None
+    scm_capacity_bytes: Optional[int] = None
+    enterprise_hdd_capacity_bytes: Optional[int] = None
+    nearline_hdd_capacity_bytes: Optional[int] = None
+
+    # Safeguarded fields
+    safeguarded_virtual_capacity_bytes: Optional[int] = None
+    safeguarded_used_capacity_percentage: Optional[float] = None
+    safeguarded_allocation_capacity_bytes: Optional[int] = None
+
+
+@dataclass
+class ParsedHost:
+    """Represents a parsed host from IBM Storage Insights"""
+    name: str
+    storage_system_id: str  # Links to ParsedStorageSystem
+    wwpns: List[str]  # List of WWPNs
+
+    # Host info
+    host_type: Optional[str] = None
+    status: Optional[str] = None
+    acknowledged: Optional[str] = None
+
+    # Relationship
+    storage_system: Optional[str] = None
+    associated_resource: Optional[str] = None
+    volume_group: Optional[str] = None
+
+    # Counts
+    vols_count: Optional[int] = None
+    fc_ports_count: Optional[int] = None
+
+    # Metadata
+    natural_key: Optional[str] = None
+    last_data_collection: Optional[int] = None
+
+
+@dataclass
+class ParsedPort:
+    """Represents a SAN port from IBM Storage Insights"""
+    port_id: str
+    storage_system_id: str
+    wwpn: Optional[str] = None
+    port_type: Optional[str] = None  # FC, iSCSI, etc.
+    status: Optional[str] = None
+    speed: Optional[str] = None
+    node: Optional[str] = None
+    port_name: Optional[str] = None
+
+
+@dataclass
 class ParseResult:
     """Result of parsing operation"""
+    # SAN configuration objects (existing)
     fabrics: List[ParsedFabric]
     aliases: List[ParsedAlias]
     zones: List[ParsedZone]
     switches: List[ParsedSwitch] = None
+
+    # Storage objects (new)
+    storage_systems: List[ParsedStorageSystem] = None
+    volumes: List[ParsedVolume] = None
+    hosts: List[ParsedHost] = None
+    ports: List[ParsedPort] = None
+
+    # Metadata
     errors: List[str] = None
     warnings: List[str] = None
     metadata: Dict = None
+
+    # Import type identifier
+    import_type: str = 'san'  # 'san' or 'storage'
 
     def __post_init__(self):
         """Initialize mutable default arguments"""
         if self.switches is None:
             self.switches = []
+        if self.storage_systems is None:
+            self.storage_systems = []
+        if self.volumes is None:
+            self.volumes = []
+        if self.hosts is None:
+            self.hosts = []
+        if self.ports is None:
+            self.ports = []
         if self.errors is None:
             self.errors = []
         if self.warnings is None:

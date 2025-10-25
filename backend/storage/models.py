@@ -172,9 +172,8 @@ class Storage(models.Model):
 
 
 class Host(models.Model):
-    project = models.ForeignKey(Project, related_name='host_project', on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
-    storage = models.ForeignKey(Storage, related_name="owning_storage", on_delete=models.CASCADE, null=True, blank=True)
+    storage = models.ForeignKey(Storage, related_name="owning_storage", on_delete=models.CASCADE)
 
     # Storage Insights fields
     acknowledged = models.CharField(max_length=10, blank=True, null=True)
@@ -206,7 +205,7 @@ class Host(models.Model):
     version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
 
     class Meta:
-        unique_together = ['project', 'name']
+        unique_together = ['storage', 'name']
 
     def get_all_wwpns(self):
         """Returns list of all WWPNs (manual + from aliases) with source info"""
@@ -235,7 +234,7 @@ class Host(models.Model):
         return ', '.join([w['wwpn'] for w in self.get_all_wwpns()])
 
     def __str__(self):
-        return f'{self.project}: {self.name}'
+        return f'{self.storage.name if self.storage else "No Storage"}: {self.name}'
 
 
 class HostWwpn(models.Model):

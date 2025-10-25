@@ -4,7 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from customers.models import Customer
 from .models import StorageImport, ImportLog
-from .services import SimpleStorageImporter
+# Legacy importer removed - now using unified ImportOrchestrator
 import json
 
 
@@ -41,83 +41,18 @@ def import_history(request):
 @csrf_exempt
 @require_http_methods(['POST'])
 def start_import(request):
-    """Start a new storage import for a customer"""
-    try:
-        data = json.loads(request.body)
-        customer_id = data.get('customer_id')
-        
-        if not customer_id:
-            return JsonResponse(
-                {'error': 'customer_id is required'}, 
-                status=400
-            )
-        
-        customer = get_object_or_404(Customer, id=customer_id)
-        
-        # Check if there's already a running import
-        running_import = StorageImport.objects.filter(
-            customer=customer, 
-            status='running'
-        ).first()
-        
-        if running_import:
-            return JsonResponse(
-                {'error': 'Import already running for this customer'}, 
-                status=400
-            )
-        
-        # Check API credentials exist in customer model
-        if not customer.insights_api_key or not customer.insights_tenant:
-            return JsonResponse(
-                {'error': 'No Storage Insights API credentials configured for this customer'}, 
-                status=400
-            )
-        
-        # Create import record first
-        import_record = StorageImport.objects.create(
-            customer=customer,
-            status='pending'
-        )
-        
-        # Add immediate logging to see if this part works
-        from .logger import ImportLogger
-        import_logger = ImportLogger(import_record)
-        import_logger.info(f'Import record created with ID: {import_record.id}')
-        import_logger.info(f'About to start Celery task for customer: {customer.name}')
-        
-        # Start background import task
-        from .tasks import run_simple_import_task
-        task = run_simple_import_task.delay(import_record.id)
-        
-        import_logger.info(f'Celery task started with ID: {task.id}')
-        
-        # Update record with task ID
-        import_record.celery_task_id = task.id
-        import_record.status = 'running'
-        import_record.save()
-        
-        return JsonResponse({
-            'import_id': import_record.id,
-            'task_id': task.id,
-            'status': import_record.status,
-            'started_at': import_record.started_at.isoformat() if import_record.started_at else None,
-            'storage_systems_imported': import_record.storage_systems_imported,
-            'volumes_imported': import_record.volumes_imported,
-            'hosts_imported': import_record.hosts_imported,
-            'total_items_imported': import_record.total_items_imported,
-            'message': 'Import started in background - you can navigate to other pages'
-        })
-        
-    except json.JSONDecodeError:
-        return JsonResponse(
-            {'error': 'Invalid JSON'}, 
-            status=400
-        )
-    except Exception as e:
-        return JsonResponse(
-            {'error': f'Unexpected error: {str(e)}'}, 
-            status=500
-        )
+    """
+    DEPRECATED: Legacy endpoint for IBM Storage Insights import.
+
+    Use the unified importer endpoint instead: /api/insights/import-san-config/
+    This endpoint is kept for backward compatibility but will be removed in a future version.
+    """
+    return JsonResponse({
+        'error': 'This endpoint has been deprecated. Please use the unified importer at /api/insights/import-san-config/',
+        'deprecated': True,
+        'replacement_endpoint': '/api/insights/import-san-config/',
+        'documentation': 'See CLAUDE.md for universal importer documentation'
+    }, status=410)  # 410 Gone - indicates endpoint is deprecated
 
 
 @csrf_exempt
@@ -423,34 +358,50 @@ def fetch_storage_systems(request):
     try:
         data = json.loads(request.body)
         customer_id = data.get('customer_id')
-        
+
         if not customer_id:
             return JsonResponse({'error': 'customer_id required'}, status=400)
-        
+
         customer = get_object_or_404(Customer, id=customer_id)
-        
-        # Check API credentials
-        if not customer.insights_api_key or not customer.insights_tenant:
+
+        # Get credentials from request body (passed from frontend)
+        insights_tenant = data.get('insights_tenant')
+        insights_api_key = data.get('insights_api_key')
+
+        # Fall back to customer model if not provided in request
+        if not insights_tenant:
+            insights_tenant = customer.insights_tenant
+        if not insights_api_key:
+            insights_api_key = customer.insights_api_key
+
+        # Check we have credentials
+        if not insights_api_key or not insights_tenant:
             return JsonResponse({
-                'error': 'No Storage Insights API credentials configured for this customer'
+                'error': 'No Storage Insights API credentials provided. Please enter Tenant ID and API Key.'
             }, status=400)
-        
-        # Create API client and fetch storage systems
-        from .api_client import StorageInsightsClient
-        client = StorageInsightsClient(customer.insights_tenant, customer.insights_api_key)
+
+        # Create API client and fetch storage systems using V2 client
+        from .parsers.insights_api_client_v2 import StorageInsightsClientV2
+        client = StorageInsightsClientV2(insights_tenant, insights_api_key)
         storage_systems = client.get_storage_systems()
         
         # Format the response for the frontend
         formatted_systems = []
         for system in storage_systems:
+            # Get storage_system_id (primary key from API)
+            system_id = system.get('storage_system_id') or system.get('serial_number') or system.get('id', 'unknown')
+
             formatted_systems.append({
-                'serial': system.get('serial_number', system.get('id', 'unknown')),
+                'storage_system_id': system_id,
+                'serial': system.get('serial_number', system_id),
                 'name': system.get('name', system.get('display_name', 'Unknown System')),
+                'type': system.get('type', system.get('storage_type', 'Unknown Type')),
                 'model': system.get('model', system.get('product_name', 'Unknown Model')),
-                'status': system.get('status', 'unknown').lower(),
+                'status': system.get('probe_status', system.get('status', 'unknown')),
+                'vendor': system.get('vendor', 'IBM'),
                 'raw_data': system  # Include raw data for debugging
             })
-        
+
         return JsonResponse({
             'storage_systems': formatted_systems,
             'count': len(formatted_systems)
@@ -463,54 +414,18 @@ def fetch_storage_systems(request):
 @csrf_exempt
 @require_http_methods(['POST'])
 def start_selective_import(request):
-    """Start a selective import for specific storage systems and data types"""
-    try:
-        data = json.loads(request.body)
-        customer_id = data.get('customer_id')
-        selected_systems = data.get('selected_systems', [])
-        import_options = data.get('import_options', {})
+    """
+    DEPRECATED: Legacy selective import endpoint.
 
-        if not customer_id:
-            return JsonResponse({'error': 'customer_id required'}, status=400)
-
-        if not selected_systems:
-            return JsonResponse({'error': 'selected_systems required'}, status=400)
-
-        customer = get_object_or_404(Customer, id=customer_id)
-
-        # Create import record with selective options stored for future use
-        import_record = StorageImport.objects.create(
-            customer=customer,
-            status='pending',
-            api_response_summary={
-                'selective_import': True,
-                'selected_systems': selected_systems,
-                'import_options': import_options,
-                'note': 'Selective import - currently imports all data but options stored for future implementation'
-            }
-        )
-
-        # For now, use the existing import task
-        # TODO: Create a new selective import task that respects the selective options
-        from .tasks import run_simple_import_task
-
-        task = run_simple_import_task.delay(import_record.id)
-
-        # Update import record with task ID
-        import_record.celery_task_id = task.id
-        import_record.status = 'running'
-        import_record.save()
-
-        return JsonResponse({
-            'message': 'Selective import started successfully',
-            'import_id': import_record.id,
-            'task_id': task.id,
-            'selected_systems_count': len(selected_systems),
-            'import_options': import_options
-        }, status=201)
-
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    Use the unified importer with selective options instead: /api/insights/import-san-config/
+    Pass credentials with selected_systems and import_options in the JSON data field.
+    """
+    return JsonResponse({
+        'error': 'This endpoint has been deprecated. Please use the unified importer at /api/insights/import-san-config/',
+        'deprecated': True,
+        'replacement_endpoint': '/api/insights/import-san-config/',
+        'documentation': 'See CLAUDE.md for universal importer documentation with selective import support'
+    }, status=410)  # 410 Gone - indicates endpoint is deprecated
 
 
 # ===== Universal Importer Endpoints =====
@@ -518,7 +433,15 @@ def start_selective_import(request):
 @csrf_exempt
 @require_http_methods(['POST'])
 def parse_preview(request):
-    """Parse and preview SAN configuration data without committing to database"""
+    """
+    Universal preview endpoint - handles both SAN text and Storage API credentials.
+
+    Request body formats:
+    - For SAN: {"customer_id": 1, "data": "show zoneset active..."}
+    - For Storage: {"customer_id": 1, "data": "{\"tenant_id\": \"...\", \"api_key\": \"...\"}"}
+
+    The orchestrator auto-detects the format and routes appropriately.
+    """
     try:
         data = json.loads(request.body)
         customer_id = data.get('customer_id')
@@ -533,7 +456,7 @@ def parse_preview(request):
 
         customer = get_object_or_404(Customer, id=customer_id)
 
-        # Use orchestrator to preview
+        # Use orchestrator to preview (auto-detects SAN vs Storage)
         from .import_orchestrator import ImportOrchestrator
         orchestrator = ImportOrchestrator(customer)
 
@@ -551,19 +474,36 @@ def parse_preview(request):
 @csrf_exempt
 @require_http_methods(['POST'])
 def import_san_config(request):
-    """Import SAN configuration (Cisco/Brocade) into database"""
+    """
+    Universal import endpoint - handles both SAN and Storage imports.
+
+    Auto-detects import type based on data format:
+    - SAN text (Cisco/Brocade CLI) → SAN import
+    - JSON credentials (IBM Storage Insights) → Storage import
+
+    Request body:
+    - customer_id: Required
+    - data: Required (either text or JSON credentials)
+    - fabric_id, fabric_mapping: SAN-specific options
+    - conflict_resolutions: Conflict handling
+    - project_id: Optional project assignment
+
+    This replaces the legacy separate endpoints for SAN and Storage imports.
+    """
     try:
         data = json.loads(request.body)
         customer_id = data.get('customer_id')
         config_data = data.get('data')
-        fabric_id = data.get('fabric_id')  # ID of existing fabric to use (legacy single-fabric mode)
-        fabric_name = data.get('fabric_name')  # Name for new fabric (legacy)
-        zoneset_name = data.get('zoneset_name')  # Zoneset name for new fabric (legacy)
-        vsan = data.get('vsan')  # VSAN for new fabric (legacy)
-        create_new_fabric = data.get('create_new_fabric', False)  # (legacy)
-        conflict_resolutions = data.get('conflict_resolutions', {})  # How to handle conflicts
-        project_id = data.get('project_id')  # Optional project assignment
-        fabric_mapping = data.get('fabric_mapping')  # NEW: Map parsed fabrics to target fabrics
+
+        # SAN-specific options (optional)
+        fabric_id = data.get('fabric_id')
+        fabric_name = data.get('fabric_name')
+        zoneset_name = data.get('zoneset_name')
+        vsan = data.get('vsan')
+        create_new_fabric = data.get('create_new_fabric', False)
+        conflict_resolutions = data.get('conflict_resolutions', {})
+        project_id = data.get('project_id')
+        fabric_mapping = data.get('fabric_mapping')
 
         if not customer_id:
             return JsonResponse({'error': 'customer_id required'}, status=400)
@@ -579,8 +519,8 @@ def import_san_config(request):
             status='pending'
         )
 
-        # Start background task for import
-        from .tasks import run_san_import_task
+        # Start background task for universal import
+        from .tasks import run_san_import_task  # Will be renamed to run_universal_import_task
         task = run_san_import_task.delay(
             import_record.id,
             config_data,
@@ -591,7 +531,7 @@ def import_san_config(request):
             create_new_fabric,
             conflict_resolutions,
             project_id,
-            fabric_mapping  # NEW: Pass fabric mapping to task
+            fabric_mapping
         )
 
         # Update import record
@@ -601,7 +541,7 @@ def import_san_config(request):
 
         return JsonResponse({
             'success': True,
-            'message': 'SAN import started',
+            'message': 'Import started',
             'import_id': import_record.id,
             'task_id': task.id
         }, status=201)

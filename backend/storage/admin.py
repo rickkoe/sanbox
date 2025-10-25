@@ -75,7 +75,7 @@ class HostWwpnAdmin(admin.ModelAdmin):
         "updated_at"
     )
     search_fields = ("host__name", "wwpn", "source_alias__name")
-    list_filter = ("source_type", "created_at", "host__project")
+    list_filter = ("source_type", "created_at")
     readonly_fields = ("created_at", "updated_at")
     raw_id_fields = ("host", "source_alias")
 
@@ -95,7 +95,7 @@ class HostWwpnAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         """Optimize queries by selecting related objects"""
-        return super().get_queryset(request).select_related('host', 'source_alias', 'host__project')
+        return super().get_queryset(request).select_related('host', 'source_alias', 'host__storage')
 
     fieldsets = (
         (None, {

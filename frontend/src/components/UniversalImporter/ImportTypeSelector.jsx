@@ -37,21 +37,20 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
     },
     {
       id: 'storage',
-      title: 'Storage Systems',
-      description: 'Import storage arrays and volume configurations',
+      title: 'IBM Storage Insights',
+      description: 'Import storage systems, volumes, and hosts from IBM Storage Insights API',
       icon: HardDrive,
       color: 'success',
-      available: false,
-      comingSoon: true,
+      available: true,
       features: [
         'IBM FlashSystem',
         'IBM DS8000',
-        'Volume Management',
-        'Storage Replication'
+        'Volumes & Hosts',
+        'Automatic Updates'
       ],
       badge: {
-        text: 'Coming Q4 2025',
-        color: '#f59e0b'
+        text: 'New',
+        color: '#10b981'
       }
     },
     {

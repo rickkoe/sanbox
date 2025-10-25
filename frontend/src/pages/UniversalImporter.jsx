@@ -14,6 +14,8 @@ import DataPreview from '../components/UniversalImporter/DataPreview';
 import ConfigurationPanel from '../components/UniversalImporter/ConfigurationPanel';
 import ImportProgress from '../components/UniversalImporter/ImportProgress';
 import ImportLogger from '../components/ImportLogger';
+import StorageInsightsCredentials from '../components/UniversalImporter/StorageInsightsCredentials';
+import StoragePreview from '../components/UniversalImporter/StoragePreview';
 
 import './UniversalImporter.css';
 
@@ -26,12 +28,24 @@ const UniversalImporter = () => {
   const [step, setStep] = useState(1);
 
   // Import type selection
-  const [importType, setImportType] = useState('san');
+  const [importType, setImportType] = useState('san'); // 'san' or 'storage'
 
   // Data source
   const [sourceType, setSourceType] = useState('file');
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [pastedText, setPastedText] = useState('');
+
+  // Storage Insights specific state
+  const [tenantId, setTenantId] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [availableSystems, setAvailableSystems] = useState([]);
+  const [selectedSystems, setSelectedSystems] = useState([]);
+  const [storageImportOptions, setStorageImportOptions] = useState({
+    storage_systems: true,
+    volumes: true,
+    hosts: true,
+    ports: false
+  });
 
   // Preview data
   const [previewData, setPreviewData] = useState(null);
@@ -103,6 +117,19 @@ const UniversalImporter = () => {
       fetchExistingFabrics();
     }
   }, [config]);
+
+  // Pre-populate Storage Insights credentials from customer when entering step 2 for storage
+  useEffect(() => {
+    if (step === 2 && importType === 'storage' && config?.customer) {
+      // Only pre-populate if not already set
+      if (!tenantId && config.customer.insights_tenant) {
+        setTenantId(config.customer.insights_tenant);
+      }
+      if (!apiKey && config.customer.insights_api_key) {
+        setApiKey(config.customer.insights_api_key);
+      }
+    }
+  }, [step, importType, config]);
 
   // Handle selection toggles
   const handleAliasToggle = useCallback((aliasKey) => {
@@ -272,6 +299,50 @@ const UniversalImporter = () => {
     }
   };
 
+  // Handle storage insights preview
+  const handleStoragePreview = async () => {
+    if (!tenantId || !apiKey) {
+      setError('Please provide both Tenant ID and API Key');
+      return;
+    }
+
+    if (selectedSystems.length === 0) {
+      setError('Please select at least one storage system');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Build JSON credentials for the backend
+      const credentialsData = JSON.stringify({
+        tenant_id: tenantId,
+        api_key: apiKey,
+        selected_systems: selectedSystems,
+        import_options: storageImportOptions
+      });
+
+      // Call preview endpoint (backend will auto-detect this as storage type)
+      const response = await axios.post('/api/importer/parse-preview/', {
+        customer_id: config.customer.id,
+        data: credentialsData,
+        check_conflicts: false // No conflicts for storage imports
+      });
+
+      console.log('=== STORAGE PREVIEW DATA ===');
+      console.log('Full response:', response.data);
+      console.log('============================');
+
+      setPreviewData(response.data);
+      setStep(3);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to preview storage import');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle conflict resolution
   const handleConflictResolve = useCallback((conflictName, resolution, suffix = '_copy') => {
     setConflictResolutions(prev => ({
@@ -297,11 +368,22 @@ const UniversalImporter = () => {
     try {
       let dataToImport = '';
 
-      if (sourceType === 'file' && uploadedFiles.length > 0) {
-        const file = uploadedFiles[0];
-        dataToImport = await file.text();
-      } else if (sourceType === 'paste') {
-        dataToImport = pastedText;
+      // For storage imports, build JSON credentials
+      if (importType === 'storage') {
+        dataToImport = JSON.stringify({
+          tenant_id: tenantId,
+          api_key: apiKey,
+          selected_systems: selectedSystems,
+          import_options: storageImportOptions
+        });
+      } else {
+        // For SAN imports, get text data
+        if (sourceType === 'file' && uploadedFiles.length > 0) {
+          const file = uploadedFiles[0];
+          dataToImport = await file.text();
+        } else if (sourceType === 'paste') {
+          dataToImport = pastedText;
+        }
       }
 
       // Prepare selected items data
@@ -399,6 +481,7 @@ const UniversalImporter = () => {
             });
 
             return {
+              // SAN stats
               aliases: data.aliases_imported || data.aliases_count ||
                       data.stats?.aliases || data.stats?.aliases_imported ||
                       data.stats?.aliases_created || data.result?.aliases_imported ||
@@ -411,6 +494,16 @@ const UniversalImporter = () => {
                       data.stats?.fabrics || data.stats?.fabrics_created ||
                       data.stats?.fabrics_updated || data.result?.fabrics_created ||
                       data.summary?.fabrics || 0,
+              // Storage stats
+              storage_systems_created: data.storage_systems_imported ||
+                                       data.stats?.storage_systems_created || 0,
+              storage_systems_updated: data.stats?.storage_systems_updated || 0,
+              volumes_created: data.volumes_imported ||
+                              data.stats?.volumes_created || 0,
+              volumes_updated: data.stats?.volumes_updated || 0,
+              hosts_created: data.hosts_imported ||
+                            data.stats?.hosts_created || 0,
+              hosts_updated: data.stats?.hosts_updated || 0,
               duration: (() => {
                 if (!data.duration) return 0;
                 if (typeof data.duration === 'number') return Math.round(data.duration);
@@ -551,11 +644,27 @@ const UniversalImporter = () => {
   const canProceed = () => {
     switch (step) {
       case 1:
-        return importType === 'san'; // Only SAN is available for now
+        // Both SAN and Storage are available
+        return importType === 'san' || importType === 'storage';
       case 2:
+        // For storage: credentials must be entered (validation happens in component)
+        if (importType === 'storage') {
+          return true; // Allow proceeding - StorageInsightsCredentials handles its own validation
+        }
+        // For SAN: need file or pasted text
         return (sourceType === 'file' && uploadedFiles.length > 0) ||
                (sourceType === 'paste' && pastedText.trim());
       case 3:
+        // For storage imports, just check that we have preview data
+        if (importType === 'storage') {
+          return previewData && (
+            (previewData.counts?.storage_systems > 0) ||
+            (previewData.counts?.volumes > 0) ||
+            (previewData.counts?.hosts > 0)
+          );
+        }
+
+        // For SAN imports, check fabric/zone requirements
         // Check if this is a switches-only import
         const isSwitchesOnly = (previewData?.counts?.switches > 0) &&
                                (previewData?.counts?.aliases === 0) &&
@@ -630,57 +739,99 @@ const UniversalImporter = () => {
             </>
           )}
 
-          {/* Step 2: Upload/Paste Data */}
+          {/* Step 2: Upload/Paste Data OR Enter Credentials */}
           {step === 2 && (
             <>
-              <h2>Upload Your Data</h2>
-              <DataUploader
-                sourceType={sourceType}
-                onSourceTypeChange={setSourceType}
-                uploadedFiles={uploadedFiles}
-                onFilesChange={setUploadedFiles}
-                pastedText={pastedText}
-                onTextChange={setPastedText}
-                onPreview={handlePreview}
-                loading={loading}
-                error={error}
-                theme={theme}
-              />
+              {importType === 'storage' ? (
+                <>
+                  <h2>IBM Storage Insights Credentials</h2>
+                  <StorageInsightsCredentials
+                    tenantId={tenantId}
+                    setTenantId={setTenantId}
+                    apiKey={apiKey}
+                    setApiKey={setApiKey}
+                    availableSystems={availableSystems}
+                    setAvailableSystems={setAvailableSystems}
+                    selectedSystems={selectedSystems}
+                    setSelectedSystems={setSelectedSystems}
+                    importOptions={storageImportOptions}
+                    setImportOptions={setStorageImportOptions}
+                    customerId={config?.customer?.id}
+                    theme={theme}
+                  />
+                  {availableSystems.length > 0 && selectedSystems.length > 0 && (
+                    <div className="d-flex justify-content-between mt-4">
+                      <Button variant="secondary" onClick={() => setStep(1)}>
+                        Back
+                      </Button>
+                      <Button variant="primary" onClick={handleStoragePreview}>
+                        Preview Import
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h2>Upload Your Data</h2>
+                  <DataUploader
+                    sourceType={sourceType}
+                    onSourceTypeChange={setSourceType}
+                    uploadedFiles={uploadedFiles}
+                    onFilesChange={setUploadedFiles}
+                    pastedText={pastedText}
+                    onTextChange={setPastedText}
+                    onPreview={handlePreview}
+                    loading={loading}
+                    error={error}
+                    theme={theme}
+                  />
+                </>
+              )}
             </>
           )}
 
           {/* Step 3: Configure & Review */}
           {step === 3 && previewData && (
             <>
-              <h2>Configure & Review</h2>
-              <DataPreview
-                previewData={previewData}
-                selectedAliases={selectedAliases}
-                selectedZones={selectedZones}
-                selectedFabrics={selectedFabrics}
-                onAliasToggle={handleAliasToggle}
-                onZoneToggle={handleZoneToggle}
-                onFabricToggle={handleFabricToggle}
-                onSelectAll={handleSelectAll}
-                onDeselectAll={() => {}}
-                conflicts={conflicts}
-                theme={theme}
-              />
-              <div className="configuration-divider" />
-              <ConfigurationPanel
-                existingFabrics={existingFabrics}
-                selectedFabricId={selectedFabricId}
-                onFabricSelect={setSelectedFabricId}
-                createNewFabric={createNewFabric}
-                onCreateNewToggle={setCreateNewFabric}
-                fabricName={fabricName}
-                onFabricNameChange={setFabricName}
-                zonesetName={zonesetName}
-                onZonesetNameChange={setZonesetName}
-                vsan={vsan}
-                onVsanChange={setVsan}
-                conflicts={conflicts}
-                conflictResolutions={conflictResolutions}
+              <h2>{importType === 'storage' ? 'Review Import' : 'Configure & Review'}</h2>
+
+              {importType === 'storage' ? (
+                // Storage preview
+                <StoragePreview
+                  previewData={previewData}
+                  theme={theme}
+                />
+              ) : (
+                // SAN preview and configuration
+                <>
+                  <DataPreview
+                    previewData={previewData}
+                    selectedAliases={selectedAliases}
+                    selectedZones={selectedZones}
+                    selectedFabrics={selectedFabrics}
+                    onAliasToggle={handleAliasToggle}
+                    onZoneToggle={handleZoneToggle}
+                    onFabricToggle={handleFabricToggle}
+                    onSelectAll={handleSelectAll}
+                    onDeselectAll={() => {}}
+                    conflicts={conflicts}
+                    theme={theme}
+                  />
+                  <div className="configuration-divider" />
+                  <ConfigurationPanel
+                    existingFabrics={existingFabrics}
+                    selectedFabricId={selectedFabricId}
+                    onFabricSelect={setSelectedFabricId}
+                    createNewFabric={createNewFabric}
+                    onCreateNewToggle={setCreateNewFabric}
+                    fabricName={fabricName}
+                    onFabricNameChange={setFabricName}
+                    zonesetName={zonesetName}
+                    onZonesetNameChange={setZonesetName}
+                    vsan={vsan}
+                    onVsanChange={setVsan}
+                    conflicts={conflicts}
+                    conflictResolutions={conflictResolutions}
                 onConflictResolve={handleConflictResolve}
                 detectedVendor={detectedVendor}
                 theme={theme}
@@ -690,6 +841,8 @@ const UniversalImporter = () => {
                 fabricMapping={fabricMapping}
                 onFabricMappingChange={handleFabricMappingChange}
               />
+                </>
+              )}
             </>
           )}
 
@@ -872,6 +1025,84 @@ const UniversalImporter = () => {
                       letterSpacing: '0.5px'
                     }}>
                       Zone{completionStats.zones === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                )}
+                {(completionStats.storage_systems_created !== undefined || completionStats.storage_systems_updated !== undefined) && (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '8px',
+                    background: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
+                    border: `1px solid ${theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#86efac'}`
+                  }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: '700',
+                      color: '#10b981',
+                      marginBottom: '0.25rem'
+                    }}>
+                      {(completionStats.storage_systems_created || 0) + (completionStats.storage_systems_updated || 0)}
+                    </div>
+                    <div style={{
+                      fontSize: '0.85rem',
+                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Storage System{((completionStats.storage_systems_created || 0) + (completionStats.storage_systems_updated || 0)) === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                )}
+                {(completionStats.volumes_created !== undefined || completionStats.volumes_updated !== undefined) && (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '8px',
+                    background: theme === 'dark' ? 'rgba(139, 92, 246, 0.1)' : '#faf5ff',
+                    border: `1px solid ${theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : '#c4b5fd'}`
+                  }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: '700',
+                      color: '#8b5cf6',
+                      marginBottom: '0.25rem'
+                    }}>
+                      {(completionStats.volumes_created || 0) + (completionStats.volumes_updated || 0)}
+                    </div>
+                    <div style={{
+                      fontSize: '0.85rem',
+                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Volume{((completionStats.volumes_created || 0) + (completionStats.volumes_updated || 0)) === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                )}
+                {(completionStats.hosts_created !== undefined || completionStats.hosts_updated !== undefined) && (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '8px',
+                    background: theme === 'dark' ? 'rgba(236, 72, 153, 0.1)' : '#fdf2f8',
+                    border: `1px solid ${theme === 'dark' ? 'rgba(236, 72, 153, 0.2)' : '#f9a8d4'}`
+                  }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: '700',
+                      color: '#ec4899',
+                      marginBottom: '0.25rem'
+                    }}>
+                      {(completionStats.hosts_created || 0) + (completionStats.hosts_updated || 0)}
+                    </div>
+                    <div style={{
+                      fontSize: '0.85rem',
+                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Host{((completionStats.hosts_created || 0) + (completionStats.hosts_updated || 0)) === 1 ? '' : 's'}
                     </div>
                   </div>
                 )}

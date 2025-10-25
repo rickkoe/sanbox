@@ -1,120 +1,13 @@
 from celery import shared_task
 from django.utils import timezone
 from .models import StorageImport
-from .services import SimpleStorageImporter
+# Legacy SimpleStorageImporter removed - now using unified ImportOrchestrator
 from .logger import ImportLogger
 from customers.models import Customer
 import logging
 import traceback
 
 logger = logging.getLogger(__name__)
-
-
-@shared_task(bind=True)
-def run_simple_import_task(self, import_id, selective_options=None):
-    """
-    Async task to run storage import in the background
-    Supports selective import based on user selections
-    """
-    try:
-        # Get the import record
-        import_record = StorageImport.objects.get(id=import_id)
-        
-        # Initialize logging
-        import_logger = ImportLogger(import_record)
-        import_logger.info(f'Starting import task {self.request.id} for customer {import_record.customer.name}')
-        
-        # Update status to running with task ID
-        import_record.celery_task_id = self.request.id
-        import_record.status = 'running'
-        import_record.save()
-        
-        import_logger.info('Import status updated to running')
-        logger.info(f'Starting simple import task {self.request.id} for customer {import_record.customer.name}')
-        
-        # Update progress
-        import_logger.info('Initializing import process...')
-        self.update_state(
-            state='PROGRESS',
-            meta={
-                'current': 0,
-                'total': 100,
-                'status': 'Initializing import...',
-                'import_id': import_record.id
-            }
-        )
-        
-        # Check if this is a selective import and extract options
-        selective_options = None
-        if hasattr(import_record, 'api_response_summary') and import_record.api_response_summary:
-            if import_record.api_response_summary.get('selective_import'):
-                selective_options = {
-                    'selected_systems': import_record.api_response_summary.get('selected_systems', []),
-                    'import_options': import_record.api_response_summary.get('import_options', {})
-                }
-                import_logger.info(f'Selective import detected: {len(selective_options["selected_systems"])} systems, options: {selective_options["import_options"]}')
-        
-        # Run the import
-        import_logger.info('Creating storage importer instance')
-        importer = SimpleStorageImporter(import_record.customer)
-        importer.import_record = import_record  # Use existing record
-        importer.logger = import_logger  # Pass logger to importer
-        
-        # Update progress
-        import_logger.info('Connecting to IBM Storage Insights API...')
-        self.update_state(
-            state='PROGRESS',
-            meta={
-                'current': 25,
-                'total': 100,
-                'status': 'Fetching data from IBM Storage Insights...',
-                'import_id': import_record.id
-            }
-        )
-        
-        # Override the import method to add progress updates with selective options
-        import_logger.info('Starting data import process')
-        if selective_options:
-            result = importer._run_selective_import_with_progress(self, selective_options)
-        else:
-            result = importer._run_import_with_progress(self)
-        
-        import_logger.info(f'Import completed successfully - {result.total_items_imported} total items imported')
-        logger.info(f'Simple import task {self.request.id} completed successfully')
-        
-        return {
-            'import_id': import_record.id,
-            'status': result.status,
-            'storage_systems_imported': result.storage_systems_imported,
-            'volumes_imported': result.volumes_imported,
-            'hosts_imported': result.hosts_imported,
-            'total_items_imported': result.total_items_imported
-        }
-        
-    except StorageImport.DoesNotExist:
-        logger.error(f"Import record {import_id} not found")
-        raise
-        
-    except Exception as e:
-        logger.error(f"Simple import task failed: {str(e)}")
-        logger.error(traceback.format_exc())
-        
-        # Update import record status if we can
-        try:
-            import_record = StorageImport.objects.get(id=import_id)
-            import_logger = ImportLogger(import_record)
-            import_logger.error(f'Import task failed: {str(e)}', {'error': str(e), 'traceback': traceback.format_exc()})
-            
-            import_record.status = 'failed'
-            import_record.error_message = str(e)
-            import_record.completed_at = timezone.now()
-            import_record.save()
-            
-            import_logger.info('Import status updated to failed')
-        except Exception as log_error:
-            logger.error(f"Failed to log error: {log_error}")
-            
-        raise
 
 
 @shared_task
@@ -158,7 +51,21 @@ def cleanup_old_imports():
 @shared_task(bind=True)
 def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_name=None, zoneset_name=None, vsan=None, create_new_fabric=False, conflict_resolutions=None, project_id=None, fabric_mapping=None):
     """
-    Async task to import SAN configuration (Cisco/Brocade) in the background
+    Universal import task - handles both SAN and Storage imports.
+
+    Auto-detects import type based on config_data format:
+    - SAN text (Cisco/Brocade CLI) → SAN configuration import
+    - JSON credentials → IBM Storage Insights import
+
+    Args:
+        import_id: StorageImport record ID
+        config_data: Either SAN CLI text or JSON credentials string
+        fabric_id, fabric_name, etc.: SAN-specific options (ignored for storage imports)
+        conflict_resolutions: Conflict resolution strategies
+        project_id: Optional project assignment
+        fabric_mapping: Multi-fabric mapping for SAN imports
+
+    Note: This task name is kept for backward compatibility but now handles all import types.
     """
     try:
         # Get the import record
@@ -166,10 +73,10 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
 
         # Initialize logging
         import_logger = ImportLogger(import_record)
-        import_logger.info(f'Starting SAN import task {self.request.id} for customer {import_record.customer.name}')
+        import_logger.info(f'Starting universal import task {self.request.id} for customer {import_record.customer.name}')
 
         if project_id:
-            import_logger.info(f'Zones will be assigned to project ID: {project_id}')
+            import_logger.info(f'Zones/Hosts will be assigned to project ID: {project_id}')
 
         if fabric_mapping:
             import_logger.info(f'Using fabric mapping mode with {len(fabric_mapping)} mapped fabrics')
@@ -199,11 +106,11 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
                 }
             )
 
-        # Run the import
+        # Run the import (orchestrator auto-detects type)
         from .import_orchestrator import ImportOrchestrator
         orchestrator = ImportOrchestrator(import_record.customer, progress_callback, project_id=project_id)
 
-        import_logger.info('Starting SAN configuration import...')
+        import_logger.info('Starting import (auto-detecting type)...')
         result = orchestrator.import_from_text(
             config_data,
             fabric_id,
@@ -215,17 +122,36 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
             fabric_mapping
         )
 
+        # Determine import type from stats
+        if 'storage_systems_created' in result['stats']:
+            import_type = 'storage'
+            import_record.storage_systems_imported = result['stats'].get('storage_systems_created', 0) + result['stats'].get('storage_systems_updated', 0)
+            import_record.volumes_imported = result['stats'].get('volumes_created', 0) + result['stats'].get('volumes_updated', 0)
+            import_record.hosts_imported = result['stats'].get('hosts_created', 0) + result['stats'].get('hosts_updated', 0)
+
+            import_logger.info(
+                f'Storage import completed successfully - '
+                f'{result["stats"]["storage_systems_created"]} systems, '
+                f'{result["stats"]["volumes_created"]} volumes, '
+                f'{result["stats"]["hosts_created"]} hosts created'
+            )
+        else:
+            import_type = 'san_config'
+            import_logger.info(
+                f'SAN import completed successfully - '
+                f'{result["stats"]["zones_created"]} zones, '
+                f'{result["stats"]["aliases_created"]} aliases created'
+            )
+
         # Update import record with results
         import_record.status = 'completed'
         import_record.completed_at = timezone.now()
         import_record.api_response_summary = {
-            'import_type': 'san_config',
+            'import_type': import_type,
             'stats': result['stats'],
             'metadata': result['metadata']
         }
         import_record.save()
-
-        import_logger.info(f'SAN import completed successfully - {result["stats"]["zones_created"]} zones, {result["stats"]["aliases_created"]} aliases created')
 
         return {
             'import_id': import_record.id,
@@ -238,14 +164,14 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
         raise
 
     except Exception as e:
-        logger.error(f"SAN import task failed: {str(e)}")
+        logger.error(f"Universal import task failed: {str(e)}")
         logger.error(traceback.format_exc())
 
         # Update import record status
         try:
             import_record = StorageImport.objects.get(id=import_id)
             import_logger = ImportLogger(import_record)
-            import_logger.error(f'SAN import failed: {str(e)}', {'error': str(e), 'traceback': traceback.format_exc()})
+            import_logger.error(f'Import failed: {str(e)}', {'error': str(e), 'traceback': traceback.format_exc()})
 
             import_record.status = 'failed'
             import_record.error_message = str(e)

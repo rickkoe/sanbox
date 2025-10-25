@@ -17,26 +17,22 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const [storageOptions, setStorageOptions] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
 
-    // Check permissions for modifying project data
+    // Check permissions for modifying customer data
     const userRole = getUserRole(activeCustomerId);
-    const projectOwner = config?.active_project?.owner;
 
-    // Determine if user can modify this project
+    // Determine if user can modify customer infrastructure
     const isViewer = userRole === 'viewer';
-    const isProjectOwner = user && projectOwner && user.id === projectOwner;
     const isAdmin = userRole === 'admin';
+    const isMember = userRole === 'member';
 
-    const canModifyProject = !isViewer && (isProjectOwner || isAdmin);
-    const isReadOnly = !canModifyProject;
+    const canModifyInfrastructure = !isViewer && (isMember || isAdmin);
+    const isReadOnly = !canModifyInfrastructure;
 
-    // API endpoints
+    // API endpoints - use storage/hosts endpoints instead of san/hosts
     const API_ENDPOINTS = {
-        hosts: `${API_URL}/api/san/hosts/project/`,
-        hostSave: `${API_URL}/api/san/hosts/save/`,
-        hostDelete: `${API_URL}/api/san/hosts/delete/`,
+        hosts: `${API_URL}/api/storage/hosts/`,
         storage: `${API_URL}/api/storage/`
     };
 
@@ -152,6 +148,8 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const preprocessData = useCallback((data) => {
         let processedData = data.map(host => ({
             ...host,
+            // Map wwpn_display to wwpns for table display
+            wwpns: host.wwpn_display || host.wwpns || '',
             saved: !!host.id
         }));
 
@@ -166,116 +164,12 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         return processedData;
     }, [storageId, storageOptions]);
 
-    // Custom save handler for bulk host operations
-    const handleHostSave = async (allTableData, hasChanges, deletedRows = []) => {
-        if (!hasChanges) {
-            console.log('⚠️ No changes to save');
-            return { success: true, message: 'No changes to save' };
-        }
+    // Note: With the new storage/hosts API, we don't need a custom save handler
+    // The hosts are created/updated via Storage Insights import, not manual CRUD
+    // This component is now primarily for viewing hosts from storage systems
 
-        try {
-            console.log('🔥 Custom host save - RECEIVED DATA:');
-            console.log('📊 Total rows received:', allTableData.length);
-            console.log('📋 First 3 rows (full data):', allTableData.slice(0, 3));
-            console.log('🗑️ Deletions to process:', deletedRows);
-
-            // Handle deletions first
-            if (deletedRows && deletedRows.length > 0) {
-                console.log('🗑️ Processing host deletions:', deletedRows);
-                for (const hostId of deletedRows) {
-                    try {
-                        await axios.delete(`${API_ENDPOINTS.hostDelete}${hostId}/`);
-                        console.log(`✅ Deleted host ${hostId}`);
-                    } catch (error) {
-                        console.error(`❌ Failed to delete host ${hostId}:`, error);
-                        return {
-                            success: false,
-                            message: `Failed to delete host ${hostId}: ${error.response?.data?.message || error.message}`
-                        };
-                    }
-                }
-            }
-
-            // Build payload for hosts
-            const payload = allTableData
-                .filter(host => host.id || (host.name && host.name.trim() !== ""))
-                .map(row => {
-                    console.log('🔍 Processing row for save - RAW DATA:', row);
-                    console.log('   name:', row.name);
-                    console.log('   storage_system:', row.storage_system);
-                    console.log('   wwpns:', row.wwpns);
-                    console.log('   status:', row.status);
-                    console.log('   host_type:', row.host_type);
-
-                    // Find storage system ID and name from name
-                    let storageSystemId = null;
-                    let storageSystemName = null;
-                    if (row.storage_system) {
-                        const storage = storageOptions.find(s => s.name === row.storage_system);
-                        if (storage) {
-                            storageSystemId = parseInt(storage.id);
-                            storageSystemName = storage.name;
-                        }
-                    }
-
-                    // Clean payload
-                    const cleanRow = { ...row };
-                    delete cleanRow.saved;
-
-                    // Handle boolean fields
-                    if (typeof cleanRow.create === 'string') {
-                        cleanRow.create = cleanRow.create.toLowerCase() === 'true';
-                    }
-
-                    const result = {
-                        ...cleanRow,
-                        projects: [activeProjectId],
-                        storage: storageSystemId,  // ForeignKey ID for the storage relation
-                        storage_system: storageSystemName  // CharField for the storage system name
-                    };
-
-                    return result;
-                });
-
-            // Only call bulk save if there are hosts to save
-            if (payload.length > 0) {
-                console.log('🚀 Sending bulk host save:');
-                console.log('   Project ID:', activeProjectId);
-                console.log('   Total hosts to save:', payload.length);
-                console.log('   First 3 hosts (full payload):', payload.slice(0, 3));
-
-                await axios.post(API_ENDPOINTS.hostSave, {
-                    project_id: activeProjectId,
-                    hosts: payload
-                });
-            } else {
-                console.log('✅ No host data to save, only deletions were processed');
-            }
-
-            const operations = [];
-            if (payload.length > 0) operations.push(`saved ${payload.length} hosts`);
-            if (deletedRows && deletedRows.length > 0) operations.push(`deleted ${deletedRows.length} hosts`);
-
-            const message = operations.length > 0
-                ? `Successfully ${operations.join(' and ')}`
-                : 'No changes to save';
-
-            return {
-                success: true,
-                message: message
-            };
-
-        } catch (error) {
-            console.error('❌ Host save error:', error);
-            return {
-                success: false,
-                message: `Error saving hosts: ${error.response?.data?.message || error.message}`
-            };
-        }
-    };
-
-    // Show empty config message if no active customer/project
-    if (!config || !activeCustomerId || !activeProjectId) {
+    // Show empty config message if no active customer
+    if (!config || !activeCustomerId) {
         return <EmptyConfigMessage entityName="hosts" />;
     }
 
@@ -293,15 +187,21 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         );
     }
 
-    // Generate read-only message based on user role and project ownership
+    // Generate read-only message based on user role
     const getReadOnlyMessage = () => {
         if (isViewer) {
-            return "You have viewer permissions for this customer. Only members and admins can modify project data.";
-        } else if (!isProjectOwner && !isAdmin) {
-            const ownerName = config?.active_project?.owner_username || 'another user';
-            return `You can only modify projects you own. This project is owned by ${ownerName}.`;
+            return "You have viewer permissions for this customer. Only members and admins can modify infrastructure.";
         }
         return "";
+    };
+
+    // Build API URL with customer filter and optional storage filter
+    const buildApiUrl = () => {
+        let url = `${API_ENDPOINTS.hosts}?customer=${activeCustomerId}`;
+        if (storageId) {
+            url += `&storage_id=${storageId}`;
+        }
+        return url;
     };
 
     return (
@@ -313,9 +213,9 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             )}
             <TanStackCRUDTable
                 // API Configuration
-                apiUrl={`${API_ENDPOINTS.hosts}${activeProjectId}/?format=table`}
-                saveUrl={API_ENDPOINTS.hostSave}
-                deleteUrl={API_ENDPOINTS.hostDelete}
+                apiUrl={buildApiUrl()}
+                saveUrl={API_ENDPOINTS.hosts}
+                deleteUrl={API_ENDPOINTS.hosts}
                 customerId={activeCustomerId}
                 tableName="hosts"
 
@@ -329,12 +229,9 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 preprocessData={preprocessData}
                 customRenderers={customRenderers}
 
-                // Custom save handler for bulk host operations
-                customSaveHandler={handleHostSave}
-
                 // Table Settings
                 height="calc(100vh - 200px)"
-                storageKey={`host-table-${activeProjectId || 'default'}`}
+                storageKey={`host-table-${storageId || activeCustomerId || 'default'}`}
                 readOnly={isReadOnly}
 
                 // Event Handlers

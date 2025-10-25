@@ -217,6 +217,39 @@ const ImportProgress = ({
                 <div className="stat-label">Fabrics {stats.fabrics_created ? 'Created' : 'Updated'}</div>
               </div>
             )}
+            {(stats.storage_systems_created !== undefined || stats.storage_systems_updated !== undefined) && (
+              <div className="stat-item">
+                <div className="stat-icon">
+                  <FileText size={20} />
+                </div>
+                <div className="stat-value">
+                  {(stats.storage_systems_created || 0) + (stats.storage_systems_updated || 0)}
+                </div>
+                <div className="stat-label">Storage Systems</div>
+              </div>
+            )}
+            {(stats.volumes_created !== undefined || stats.volumes_updated !== undefined) && (
+              <div className="stat-item">
+                <div className="stat-icon">
+                  <Activity size={20} />
+                </div>
+                <div className="stat-value">
+                  {(stats.volumes_created || 0) + (stats.volumes_updated || 0)}
+                </div>
+                <div className="stat-label">Volumes</div>
+              </div>
+            )}
+            {(stats.hosts_created !== undefined || stats.hosts_updated !== undefined) && (
+              <div className="stat-item">
+                <div className="stat-icon">
+                  <Zap size={20} />
+                </div>
+                <div className="stat-value">
+                  {(stats.hosts_created || 0) + (stats.hosts_updated || 0)}
+                </div>
+                <div className="stat-label">Hosts</div>
+              </div>
+            )}
           </div>
         </div>
       )}

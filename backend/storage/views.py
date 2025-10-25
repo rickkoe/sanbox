@@ -719,23 +719,49 @@ def volume_list(request):
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def host_list(request):
-    """Return hosts filtered by storage system ID with pagination and filtering."""
+    """Handle host list and creation operations."""
     print(f"🔥 Host List - Method: {request.method}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
+    if request.method == "GET":
+        return _handle_host_list_get(request, user)
+    elif request.method == "POST":
+        return _handle_host_create(request, user)
+
+
+def _handle_host_list_get(request, user):
+    """Return hosts filtered by customer's storage systems with pagination and filtering."""
     try:
-        system_id = request.GET.get("storage_system_id")
-        if not system_id:
-            return JsonResponse({"error": "Missing storage_system_id"}, status=400)
+        customer_id = request.GET.get("customer")
+        storage_id = request.GET.get("storage_id")
 
         # Get query parameters
         search = request.GET.get('search', '').strip()
         ordering = request.GET.get('ordering', 'name')
-        
+
         # Base queryset with optimizations
-        hosts = Host.objects.select_related('storage').filter(storage__storage_system_id=system_id)
-        
+        hosts = Host.objects.select_related('storage', 'storage__customer').all()
+
+        # Filter by user's customer access
+        if user and user.is_authenticated:
+            from core.permissions import filter_by_customer_access
+            # Filter through storage relationship
+            accessible_storages = filter_by_customer_access(
+                Storage.objects.all(), user
+            ).values_list('id', flat=True)
+            hosts = hosts.filter(storage_id__in=accessible_storages)
+
+        # Filter by customer if provided
+        if customer_id:
+            hosts = hosts.filter(storage__customer_id=customer_id)
+
+        # Filter by specific storage if provided
+        if storage_id:
+            hosts = hosts.filter(storage_id=storage_id)
+
         # Apply general search if provided
         if search:
             hosts = hosts.filter(
@@ -748,37 +774,37 @@ def host_list(request):
                 Q(volume_group__icontains=search) |
                 Q(natural_key__icontains=search)
             )
-        
+
         # Apply field-specific filters
         filter_params = {}
         for param, value in request.GET.items():
             if param.startswith((
-                'name__', 'storage__', 'wwpns__', 'status__', 'acknowledged__', 
+                'name__', 'storage__', 'wwpns__', 'status__', 'acknowledged__',
                 'associated_resource__', 'host_type__', 'vols_count__', 'fc_ports_count__',
                 'last_data_collection__', 'volume_group__', 'natural_key__'
             )):
                 filter_params[param] = value
-        
+
         # Apply the filters
         if filter_params:
             hosts = hosts.filter(**filter_params)
-        
+
         # Apply ordering
         if ordering:
             hosts = hosts.order_by(ordering)
-        
+
         # Add pagination for performance with large datasets
         # Get pagination parameters
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 50))  # Default 50 hosts per page
-        
+
         # Apply pagination
         paginator = Paginator(hosts, page_size)
         page_obj = paginator.get_page(page)
-        
+
         # Serialize paginated results
         serializer = HostSerializer(page_obj, many=True)
-        
+
         # Return paginated response with metadata
         return JsonResponse({
             'results': serializer.data,
@@ -789,9 +815,141 @@ def host_list(request):
             'has_next': page_obj.has_next(),
             'has_previous': page_obj.has_previous()
         })
-        
+
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+def _handle_host_create(request, user):
+    """Create or update a host."""
+    try:
+        data = json.loads(request.body)
+        storage_id = data.get("storage")
+        name = data.get("name")
+
+        if not storage_id or not name:
+            return JsonResponse({"error": "storage and name are required"}, status=400)
+
+        # Check if user can modify infrastructure for this customer
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            try:
+                storage = Storage.objects.get(id=storage_id)
+                if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
+                    return JsonResponse({
+                        "error": "You do not have permission to create/update hosts. Only members and admins can modify infrastructure."
+                    }, status=403)
+            except Storage.DoesNotExist:
+                return JsonResponse({"error": "Storage system not found"}, status=404)
+
+        try:
+            # Try to find existing host by name and storage
+            host = Host.objects.get(name=name, storage=storage)
+            serializer = HostSerializer(host, data=data)
+        except Host.DoesNotExist:
+            # Create new host
+            serializer = HostSerializer(data=data)
+
+        if serializer.is_valid():
+            host_instance = serializer.save()
+            # Set last_modified_by and imported timestamp
+            if user:
+                host_instance.last_modified_by = user
+            host_instance.imported = timezone.now()
+            update_fields = ['imported']
+            if user:
+                update_fields.append('last_modified_by')
+            host_instance.save(update_fields=update_fields)
+
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
+def host_detail(request, pk):
+    """Handle host detail operations."""
+    print(f"🔥 Host Detail - Method: {request.method}, PK: {pk}")
+
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        host = Host.objects.select_related('storage', 'storage__customer').get(pk=pk)
+    except Host.DoesNotExist:
+        return JsonResponse({"error": "Host not found"}, status=404)
+
+    if request.method == "GET":
+        # Check if user has access to this host's customer
+        if user and user.is_authenticated:
+            from core.permissions import has_customer_access
+            if host.storage.customer and not has_customer_access(user, host.storage.customer):
+                return JsonResponse({"error": "Permission denied"}, status=403)
+
+        try:
+            serializer = HostSerializer(host)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method in ["PUT", "PATCH"]:
+        # Update host
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if host.storage.customer and not can_edit_customer_infrastructure(user, host.storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to update hosts. Only members and admins can modify infrastructure."
+                }, status=403)
+
+        try:
+            data = json.loads(request.body)
+
+            # Optimistic locking - check version
+            client_version = data.get('version')
+            if client_version is not None:
+                if host.version != client_version:
+                    return JsonResponse({
+                        "error": "Conflict",
+                        "message": f"This host was modified by {host.last_modified_by.username if host.last_modified_by else 'another user'}. Please reload and try again.",
+                        "current_version": host.version,
+                        "last_modified_by": host.last_modified_by.username if host.last_modified_by else None,
+                        "last_modified_at": host.last_modified_at.isoformat() if host.last_modified_at else None
+                    }, status=409)
+
+            serializer = HostSerializer(host, data=data, partial=(request.method == "PATCH"))
+            if serializer.is_valid():
+                host_instance = serializer.save()
+                # Set last_modified_by and increment version
+                if user:
+                    host_instance.last_modified_by = user
+                host_instance.version += 1
+                host_instance.updated = timezone.now()
+                update_fields = ['version', 'updated']
+                if user:
+                    update_fields.append('last_modified_by')
+                host_instance.save(update_fields=update_fields)
+
+                return JsonResponse(serializer.data)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "DELETE":
+        # Delete host
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if host.storage.customer and not can_edit_customer_infrastructure(user, host.storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to delete hosts. Only members and admins can modify infrastructure."
+                }, status=403)
+
+        try:
+            host.delete()
+            return JsonResponse({"message": "Host deleted successfully"}, status=204)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
 
 @csrf_exempt
 @require_http_methods(["GET"])

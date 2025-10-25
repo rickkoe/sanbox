@@ -10,8 +10,6 @@ Improvements over original:
 - Detailed progress tracking
 """
 
-import asyncio
-import aiohttp
 import requests
 import time
 from typing import Dict, List, Optional, Tuple, Callable
@@ -39,10 +37,14 @@ class StorageInsightsClientV2:
     def _get_auth_token(self) -> str:
         """Get authentication token with caching"""
         cache_key = f"insights_token_{self.tenant_id}"
-        token = cache.get(cache_key)
 
-        if token:
-            return token
+        # Try to get from cache, but don't fail if cache is unavailable
+        try:
+            token = cache.get(cache_key)
+            if token:
+                return token
+        except Exception as e:
+            logger.warning(f"Cache get failed: {e}, proceeding without cache")
 
         auth_url = f"{self.base_url}/token"
         headers = {
@@ -58,8 +60,12 @@ class StorageInsightsClientV2:
         if not token:
             raise ValueError("No access token received from API")
 
-        # Cache for 45 minutes (tokens typically last 1 hour)
-        cache.set(cache_key, token, 45 * 60)
+        # Try to cache for 45 minutes (tokens typically last 1 hour)
+        try:
+            cache.set(cache_key, token, 45 * 60)
+        except Exception as e:
+            logger.warning(f"Cache set failed: {e}, proceeding without cache")
+
         return token
 
     def _make_request(
@@ -85,7 +91,10 @@ class StorageInsightsClientV2:
                 if response.status_code == 401:
                     # Token expired, clear cache and retry once
                     if attempt == 0:
-                        cache.delete(f"insights_token_{self.tenant_id}")
+                        try:
+                            cache.delete(f"insights_token_{self.tenant_id}")
+                        except Exception:
+                            pass  # Cache delete failed, continue anyway
                         token = self._get_auth_token()
                         headers['x-api-token'] = token
                         continue
@@ -427,11 +436,14 @@ class StorageInsightsClientV2:
                 progress_callback(0, 100, "Fetching storage systems...")
 
             if storage_system_ids:
-                # Fetch specific systems
-                result['storage_systems'] = [
-                    self._make_request(f"storage-systems/{sys_id}")
-                    for sys_id in storage_system_ids
-                ]
+                # Fetch specific systems - extract 'data' from response (which is a list)
+                systems_list = []
+                for sys_id in storage_system_ids:
+                    response = self._make_request(f"storage-systems/{sys_id}")
+                    data_list = response.get('data', [])
+                    # data is a list, even for single system - extend our list
+                    systems_list.extend(data_list)
+                result['storage_systems'] = systems_list
             else:
                 # Fetch all systems
                 result['storage_systems'] = self.get_storage_systems()
