@@ -247,6 +247,49 @@ The application uses six main Django apps with their respective models:
 
 ## Important Development Notes
 
+### Universal Importer
+The **Universal Importer** (`/import/universal`) is the unified data import system that handles both SAN and Storage imports:
+
+**Supported Import Types**:
+1. **SAN Configuration Import**
+   - Cisco and Brocade switch configurations
+   - Auto-detects vendor from CLI output
+   - Imports: Fabrics, Zones, Aliases, WWPNs
+   - Supports multi-fabric imports with fabric mapping
+   - Conflict resolution for duplicate aliases/zones
+
+2. **IBM Storage Insights Import**
+   - Connects to IBM Storage Insights API
+   - Imports: Storage Systems, Volumes, Hosts, WWPNs
+   - Preview before import
+   - Selective system import
+
+**Architecture**:
+- **Frontend**: `pages/UniversalImporter.jsx` - Multi-step wizard interface
+- **Backend**: `importer/import_orchestrator.py` - Unified orchestration layer
+- **Parsers**: Auto-detect format and parse data
+  - `parsers/cisco_parser.py` - Cisco switch configs
+  - `parsers/brocade_parser.py` - Brocade switch configs
+  - `parsers/insights_parser.py` - IBM Storage Insights JSON
+- **Tasks**: `importer/tasks.py` - Celery async import tasks with progress tracking
+
+**Key Features**:
+- Real-time progress tracking with ImportProgress component
+- Comprehensive error logging with ImportLogger
+- Preview data before importing
+- Statistics display on completion
+- Celery-based async processing for large imports
+
+**Important Notes**:
+- Hosts are linked to Storage systems (not Projects)
+- Host uniqueness: `(name, storage)` tuple
+- WWPNs stored in separate `HostWwpn` table with source tracking
+- Imports are customer-scoped with permission checks
+
+**Legacy Importers Removed**:
+- Old standalone Storage Insights Importer (removed Oct 2025)
+- All imports now go through Universal Importer
+
 ### GenericTable Component
 The `GenericTable` component (frontend/src/components/tables/GenericTable/) is the core reusable table component used throughout the application. It uses Handsontable for advanced spreadsheet-like functionality including:
 - Server-side pagination
