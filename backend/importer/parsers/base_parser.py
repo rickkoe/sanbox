@@ -48,14 +48,43 @@ class ParsedZone:
 
 
 @dataclass
+class ParsedSwitch:
+    """Represents a parsed SAN switch"""
+    name: str
+    wwnn: Optional[str] = None  # World Wide Node Name
+    model: Optional[str] = None
+    serial_number: Optional[str] = None
+    firmware_version: Optional[str] = None
+    ip_address: Optional[str] = None
+    domain_id: Optional[int] = None
+    san_vendor: str = 'BR'  # BR or CI
+    fabric_name: Optional[str] = None
+    is_active: bool = True
+    location: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@dataclass
 class ParseResult:
     """Result of parsing operation"""
     fabrics: List[ParsedFabric]
     aliases: List[ParsedAlias]
     zones: List[ParsedZone]
-    errors: List[str]
-    warnings: List[str]
-    metadata: Dict
+    switches: List[ParsedSwitch] = None
+    errors: List[str] = None
+    warnings: List[str] = None
+    metadata: Dict = None
+
+    def __post_init__(self):
+        """Initialize mutable default arguments"""
+        if self.switches is None:
+            self.switches = []
+        if self.errors is None:
+            self.errors = []
+        if self.warnings is None:
+            self.warnings = []
+        if self.metadata is None:
+            self.metadata = {}
 
 
 class BaseParser(ABC):

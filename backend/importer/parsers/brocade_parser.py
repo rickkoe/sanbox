@@ -10,11 +10,14 @@ Handles Brocade-specific formats including peer zone detection.
 
 import re
 import csv
+import logging
 from io import StringIO
 from typing import Dict, List, Optional
 from .base_parser import (
-    BaseParser, ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParserFactory
+    BaseParser, ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch, ParserFactory
 )
+
+logger = logging.getLogger(__name__)
 
 
 @ParserFactory.register_parser
@@ -50,17 +53,29 @@ class BrocadeParser(BaseParser):
         self.add_metadata('parser', 'BrocadeParser')
         self.add_metadata('data_size', len(data))
 
+        # Debug: check first 200 chars
+        logger.info(f"Brocade parser - First 200 chars: {data[:200]}")
+
         # Determine format type
-        if 'Fabric Name,Fabric Principal Switch' in data:
+        # IMPORTANT: Check SwitchSummary BEFORE FabricSummary because SwitchSummary also contains "Fabric Name"
+        if 'Switch Name,Switch WWN,Model Number' in data:
+            logger.info("Detected SwitchSummary.csv format - CALLING SWITCH PARSER")
+            return self._parse_switch_summary_csv(data)
+        elif 'Fabric Name,Fabric Principal Switch' in data:
+            logger.info("Detected FabricSummary.csv format")
             return self._parse_fabric_summary_csv(data)
         elif 'Fabric Name,Active Zone Config,Alias Name' in data:
+            logger.info("Detected AliasInfo.csv format")
             return self._parse_alias_info_csv(data)
         elif 'Fabric Name,Active Zone Config,Active Zones' in data:
+            logger.info("Detected ZoneInfo.csv format")
             return self._parse_zone_info_csv(data)
         elif 'Defined configuration:' in data or 'Effective configuration:' in data:
+            logger.info("Detected cfgshow format")
             return self._parse_cfgshow_output(data)
         else:
             # Try to detect if it's a combined CSV dump with multiple CSVs
+            logger.info("Falling back to combined CSV parser")
             return self._parse_combined_csv(data)
 
     def _parse_fabric_summary_csv(self, data: str) -> ParseResult:
@@ -97,6 +112,7 @@ class BrocadeParser(BaseParser):
         self.add_metadata('format', 'AliasInfo.csv')
 
         aliases = []
+        fabric_names = set()  # Track unique fabric names
         reader = csv.DictReader(StringIO(data))
 
         for row in reader:
@@ -106,6 +122,10 @@ class BrocadeParser(BaseParser):
 
             if not alias_name or not member_wwpns:
                 continue
+
+            # Track fabric names we've seen
+            if fabric_name:
+                fabric_names.add(fabric_name)
 
             # Parse space-separated WWPNs - Brocade can have multiple WWPNs in one alias
             # Split by spaces and filter out empty strings
@@ -140,8 +160,17 @@ class BrocadeParser(BaseParser):
                     fabric_name=fabric_name
                 ))
 
+        # Create fabric entries from the unique fabric names we found in aliases
+        fabrics = []
+        for fabric_name in sorted(fabric_names):
+            fabrics.append(ParsedFabric(
+                name=fabric_name,
+                san_vendor='BR',
+                exists=False
+            ))
+
         return ParseResult(
-            fabrics=[],
+            fabrics=fabrics,
             aliases=aliases,
             zones=[],
             errors=self.errors,
@@ -154,6 +183,7 @@ class BrocadeParser(BaseParser):
         self.add_metadata('format', 'ZoneInfo.csv')
 
         zones = []
+        fabric_names = set()  # Track unique fabric names
         reader = csv.DictReader(StringIO(data))
 
         for row in reader:
@@ -163,6 +193,10 @@ class BrocadeParser(BaseParser):
 
             if not zone_name or not members_str:
                 continue
+
+            # Track fabric names we've seen
+            if fabric_name:
+                fabric_names.add(fabric_name)
 
             # Parse comma-separated members
             # Remove trailing commas that are common in CSV exports
@@ -219,10 +253,87 @@ class BrocadeParser(BaseParser):
             else:
                 self.add_warning(f'Zone {zone_name} has no valid members, skipping')
 
+        # Create fabric entries from the unique fabric names we found in zones
+        fabrics = []
+        for fabric_name in sorted(fabric_names):
+            fabrics.append(ParsedFabric(
+                name=fabric_name,
+                san_vendor='BR',
+                exists=False
+            ))
+
         return ParseResult(
-            fabrics=[],
+            fabrics=fabrics,
             aliases=[],
             zones=zones,
+            errors=self.errors,
+            warnings=self.warnings,
+            metadata=self.metadata
+        )
+
+    def _parse_switch_summary_csv(self, data: str) -> ParseResult:
+        """Parse SwitchSummary.csv from SAN Health report"""
+        self.add_metadata('format', 'SwitchSummary.csv')
+        logger.info("Starting SwitchSummary.csv parsing...")
+
+        switches = []
+        fabric_names = set()
+        reader = csv.DictReader(StringIO(data))
+
+        logger.info(f"CSV headers: {reader.fieldnames}")
+
+        for row in reader:
+            switch_name = row.get('Switch Name', '').strip()
+            fabric_name = row.get('Fabric Name', '').strip()
+
+            if not switch_name:
+                continue
+
+            # Track fabric names
+            if fabric_name:
+                fabric_names.add(fabric_name)
+
+            # Parse domain ID
+            domain_id = None
+            domain_id_str = row.get('Domain ID', '').strip()
+            if domain_id_str:
+                try:
+                    domain_id = int(domain_id_str)
+                except ValueError:
+                    self.add_warning(f"Invalid domain ID '{domain_id_str}' for switch {switch_name}")
+
+            # Create switch entry
+            switches.append(ParsedSwitch(
+                name=switch_name,
+                wwnn=row.get('Switch WWN', '').strip() or None,
+                model=row.get('Model Name', '').strip() or row.get('Model Number', '').strip() or None,
+                serial_number=row.get('Switch Serial #', '').strip() or None,
+                firmware_version=row.get('Firmware', '').strip() or None,
+                ip_address=row.get('IP Address', '').strip() or None,
+                domain_id=domain_id,
+                san_vendor='BR',
+                fabric_name=fabric_name or None,
+                is_active=row.get('Switch State', '').strip().lower() == 'online',
+                location=row.get('SNMP Location', '').strip() or None,
+                notes=f"Health: {row.get('Health Status', 'Unknown')}"
+            ))
+
+        # Create fabric entries from unique fabric names
+        fabrics = []
+        for fabric_name in sorted(fabric_names):
+            fabrics.append(ParsedFabric(
+                name=fabric_name,
+                san_vendor='BR',
+                exists=False
+            ))
+
+        logger.info(f"Parsed {len(switches)} switches from {len(fabrics)} fabrics")
+
+        return ParseResult(
+            fabrics=fabrics,
+            aliases=[],
+            zones=[],
+            switches=switches,
             errors=self.errors,
             warnings=self.warnings,
             metadata=self.metadata

@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Modal, Button } from 'react-bootstrap';
+import { CheckCircle } from 'lucide-react';
 import { ConfigContext } from '../context/ConfigContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -54,6 +55,9 @@ const UniversalImporter = () => {
   // Conflict resolution
   const [conflicts, setConflicts] = useState(null);
   const [conflictResolutions, setConflictResolutions] = useState({});
+
+  // NEW: Fabric mapping state for multi-fabric imports
+  const [fabricMapping, setFabricMapping] = useState({});
 
   // Import execution
   const [importRunning, setImportRunning] = useState(false);
@@ -186,6 +190,12 @@ const UniversalImporter = () => {
         check_conflicts: true
       });
 
+      console.log('=== PREVIEW DATA DEBUG ===');
+      console.log('Full response:', response.data);
+      console.log('Switches array:', response.data.switches);
+      console.log('Counts:', response.data.counts);
+      console.log('==========================');
+
       setPreviewData(response.data);
       setConflicts(response.data.conflicts || null);
 
@@ -237,6 +247,21 @@ const UniversalImporter = () => {
           `${fabric.name}_${fabric.vsan || 'default'}`
         );
         setSelectedFabrics(new Set(allFabricKeys));
+
+        // Initialize fabric mapping for multi-fabric imports
+        if (response.data.fabrics.length > 1) {
+          const initialMapping = {};
+          response.data.fabrics.forEach(fabric => {
+            // Initialize with create_new as default
+            initialMapping[fabric.name] = {
+              create_new: true,
+              name: fabric.name,
+              zoneset_name: fabric.zoneset_name || '',
+              vsan: fabric.vsan ? String(fabric.vsan) : ''
+            };
+          });
+          setFabricMapping(initialMapping);
+        }
       }
 
       setStep(3);
@@ -252,6 +277,14 @@ const UniversalImporter = () => {
     setConflictResolutions(prev => ({
       ...prev,
       [conflictName]: resolution === 'rename' ? { action: 'rename', suffix } : resolution
+    }));
+  }, []);
+
+  // Handle fabric mapping changes
+  const handleFabricMappingChange = useCallback((sourceFabricName, mappingConfig) => {
+    setFabricMapping(prev => ({
+      ...prev,
+      [sourceFabricName]: mappingConfig
     }));
   }, []);
 
@@ -278,15 +311,22 @@ const UniversalImporter = () => {
         fabrics: Array.from(selectedFabrics)
       };
 
+      // Determine if we're using fabric mapping (multi-fabric mode)
+      const hasMultipleFabrics = previewData?.fabrics && previewData.fabrics.length > 1;
+      const useFabricMapping = hasMultipleFabrics && Object.keys(fabricMapping).length > 0;
+
       // Start import
       const response = await axios.post('/api/importer/import-san-config/', {
         customer_id: config.customer.id,
         data: dataToImport,
-        fabric_id: selectedFabricId === 'new' ? null : selectedFabricId,
-        fabric_name: selectedFabricId === 'new' ? fabricName : null,
-        zoneset_name: selectedFabricId === 'new' ? zonesetName : null,
-        vsan: selectedFabricId === 'new' ? vsan : null,
-        create_new_fabric: selectedFabricId === 'new',
+        // Legacy single-fabric parameters
+        fabric_id: !useFabricMapping && selectedFabricId === 'new' ? null : selectedFabricId,
+        fabric_name: !useFabricMapping && selectedFabricId === 'new' ? fabricName : null,
+        zoneset_name: !useFabricMapping && selectedFabricId === 'new' ? zonesetName : null,
+        vsan: !useFabricMapping && selectedFabricId === 'new' ? vsan : null,
+        create_new_fabric: !useFabricMapping && selectedFabricId === 'new',
+        // NEW: Fabric mapping for multi-fabric imports
+        fabric_mapping: useFabricMapping ? fabricMapping : null,
         selected_items: selectedItems,
         conflict_resolutions: conflictResolutions,
         project_id: config.active_project?.id
@@ -516,11 +556,46 @@ const UniversalImporter = () => {
         return (sourceType === 'file' && uploadedFiles.length > 0) ||
                (sourceType === 'paste' && pastedText.trim());
       case 3:
-        // Check fabric selection
-        const hasFabric = selectedFabricId && (
-          selectedFabricId !== 'new' ||
-          (fabricName.trim() && zonesetName.trim())
-        );
+        // Check if this is a switches-only import
+        const isSwitchesOnly = (previewData?.counts?.switches > 0) &&
+                               (previewData?.counts?.aliases === 0) &&
+                               (previewData?.counts?.zones === 0);
+
+        // For switches-only imports, we don't need fabric selection
+        if (isSwitchesOnly) {
+          // Just check conflicts are resolved
+          const totalConflicts = (conflicts?.zones?.length || 0) + (conflicts?.aliases?.length || 0);
+          const resolvedConflicts = Object.keys(conflictResolutions).length;
+          const allConflictsResolved = totalConflicts === 0 || resolvedConflicts >= totalConflicts;
+          return allConflictsResolved;
+        }
+
+        // Check fabric selection/mapping for alias/zone imports
+        const hasMultipleFabrics = previewData?.fabrics && previewData.fabrics.length > 1;
+        const useFabricMapping = hasMultipleFabrics && Object.keys(fabricMapping).length > 0;
+
+        let hasFabric = false;
+        if (useFabricMapping) {
+          // Fabric mapping mode: check that all fabrics are mapped
+          const allFabricsMapped = previewData.fabrics.every(fabric => {
+            const mapping = fabricMapping[fabric.name];
+            if (!mapping) return false;
+
+            // Check if mapped to existing fabric OR creating new with valid name
+            if (mapping.fabric_id) return true;
+            if (mapping.create_new && mapping.name && mapping.name.trim()) return true;
+
+            return false;
+          });
+          hasFabric = allFabricsMapped;
+        } else {
+          // Legacy single fabric mode
+          hasFabric = selectedFabricId && (
+            selectedFabricId !== 'new' ||
+            (fabricName.trim() && zonesetName.trim())
+          );
+        }
+
         // Check that at least something is selected to import
         const hasSelections = selectedAliases.size > 0 || selectedZones.size > 0 || selectedFabrics.size > 0;
 
@@ -611,6 +686,9 @@ const UniversalImporter = () => {
                 theme={theme}
                 onStartImport={handleImport}
                 canStartImport={canProceed() && !loading}
+                previewData={previewData}
+                fabricMapping={fabricMapping}
+                onFabricMappingChange={handleFabricMappingChange}
               />
             </>
           )}
@@ -675,163 +753,161 @@ const UniversalImporter = () => {
       <Modal
         show={showCompletionModal}
         onHide={() => setShowCompletionModal(false)}
-        size="lg"
+        size="md"
         centered
         className={`theme-${theme}`}
       >
         <Modal.Header
           closeButton
           style={{
-            background: theme === 'dark'
-              ? 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)'
-              : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            color: 'white',
-            borderBottom: 'none'
+            borderBottom: `2px solid ${theme === 'dark' ? '#10b981' : '#10b981'}`,
+            padding: '1.5rem 2rem'
           }}
         >
-          <Modal.Title>
-            <h4 style={{ margin: 0 }}>🎉 Import Completed Successfully!</h4>
+          <Modal.Title style={{
+            fontSize: '1.5rem',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
+          }}>
+            <CheckCircle size={28} style={{ color: '#10b981' }} />
+            Import Complete
           </Modal.Title>
         </Modal.Header>
         <Modal.Body
           style={{
-            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-            color: theme === 'dark' ? '#e2e8f0' : '#1e3a52'
+            padding: '2rem'
           }}
         >
-          <div style={{ padding: '20px', textAlign: 'center' }}>
-            <h3 style={{
-              color: theme === 'dark' ? '#68d391' : '#10b981',
-              marginBottom: '30px'
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <p style={{
+              fontSize: '1.1rem',
+              color: theme === 'dark' ? '#94a3b8' : '#64748b',
+              margin: 0
             }}>
-              ✅ Your data has been imported successfully!
-            </h3>
-
-            {completionStats && (
-              <div style={{
-                backgroundColor: theme === 'dark' ? 'rgba(30, 30, 60, 0.5)' : '#f8fafc',
-                borderRadius: '12px',
-                padding: '25px',
-                marginBottom: '20px',
-                border: theme === 'dark' ? '1px solid rgba(100, 255, 218, 0.2)' : '1px solid #e2e8f0'
-              }}>
-                <h5 style={{
-                  marginBottom: '25px',
-                  color: theme === 'dark' ? '#64ffda' : '#1e3a52',
-                  fontSize: '1.3rem',
-                  fontWeight: '600'
-                }}>
-                  📊 Import Summary
-                </h5>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                  gap: '20px',
-                  textAlign: 'center'
-                }}>
-                  {completionStats.fabrics !== undefined && (
-                    <div style={{
-                      padding: '15px',
-                      backgroundColor: theme === 'dark' ? 'rgba(100, 255, 218, 0.1)' : '#f0fdf4',
-                      borderRadius: '8px',
-                      border: theme === 'dark' ? '1px solid rgba(100, 255, 218, 0.3)' : '1px solid #86efac'
-                    }}>
-                      <div style={{
-                        fontSize: '2.5em',
-                        fontWeight: 'bold',
-                        color: theme === 'dark' ? '#64ffda' : '#10b981'
-                      }}>
-                        {completionStats.fabrics || 0}
-                      </div>
-                      <div style={{
-                        marginTop: '5px',
-                        fontSize: '0.9rem',
-                        color: theme === 'dark' ? '#cbd5e0' : '#475569'
-                      }}>
-                        Fabric{completionStats.fabrics === 1 ? '' : 's'} {createNewFabric ? 'Created' : 'Updated'}
-                      </div>
-                    </div>
-                  )}
-                  {completionStats.aliases !== undefined && (
-                    <div style={{
-                      padding: '15px',
-                      backgroundColor: theme === 'dark' ? 'rgba(99, 179, 237, 0.1)' : '#e8f0f7',
-                      borderRadius: '8px',
-                      border: theme === 'dark' ? '1px solid rgba(99, 179, 237, 0.3)' : '1px solid #b0c7d9'
-                    }}>
-                      <div style={{
-                        fontSize: '2.5em',
-                        fontWeight: 'bold',
-                        color: theme === 'dark' ? '#63b3ed' : '#1e3a52'
-                      }}>
-                        {completionStats.aliases || 0}
-                      </div>
-                      <div style={{
-                        marginTop: '5px',
-                        fontSize: '0.9rem',
-                        color: theme === 'dark' ? '#cbd5e0' : '#475569'
-                      }}>
-                        Alias{completionStats.aliases === 1 ? '' : 'es'} Imported
-                      </div>
-                    </div>
-                  )}
-                  {completionStats.zones !== undefined && (
-                    <div style={{
-                      padding: '15px',
-                      backgroundColor: theme === 'dark' ? 'rgba(246, 173, 85, 0.1)' : '#fffbeb',
-                      borderRadius: '8px',
-                      border: theme === 'dark' ? '1px solid rgba(246, 173, 85, 0.3)' : '1px solid #fcd34d'
-                    }}>
-                      <div style={{
-                        fontSize: '2.5em',
-                        fontWeight: 'bold',
-                        color: theme === 'dark' ? '#f6ad55' : '#f59e0b'
-                      }}>
-                        {completionStats.zones || 0}
-                      </div>
-                      <div style={{
-                        marginTop: '5px',
-                        fontSize: '0.9rem',
-                        color: theme === 'dark' ? '#cbd5e0' : '#475569'
-                      }}>
-                        Zone{completionStats.zones === 1 ? '' : 's'} Created
-                      </div>
-                    </div>
-                  )}
-                  {completionStats.duration !== undefined && (
-                    <div style={{
-                      padding: '15px',
-                      backgroundColor: theme === 'dark' ? 'rgba(160, 174, 192, 0.1)' : '#f1f5f9',
-                      borderRadius: '8px',
-                      border: theme === 'dark' ? '1px solid rgba(160, 174, 192, 0.3)' : '1px solid #cbd5e0'
-                    }}>
-                      <div style={{
-                        fontSize: '2.5em',
-                        fontWeight: 'bold',
-                        color: theme === 'dark' ? '#a0aec0' : '#64748b'
-                      }}>
-                        {completionStats.duration || 0}s
-                      </div>
-                      <div style={{
-                        marginTop: '5px',
-                        fontSize: '0.9rem',
-                        color: theme === 'dark' ? '#cbd5e0' : '#475569'
-                      }}>
-                        Time Taken
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+              Your data has been successfully imported into the database.
+            </p>
           </div>
+
+          {completionStats && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                gap: '1rem',
+                marginBottom: '1.5rem'
+              }}>
+                {completionStats.fabrics !== undefined && (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '8px',
+                    background: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
+                    border: `1px solid ${theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#86efac'}`
+                  }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: '700',
+                      color: '#10b981',
+                      marginBottom: '0.25rem'
+                    }}>
+                      {completionStats.fabrics || 0}
+                    </div>
+                    <div style={{
+                      fontSize: '0.85rem',
+                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Fabric{completionStats.fabrics === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                )}
+                {completionStats.aliases !== undefined && (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '8px',
+                    background: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff',
+                    border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.2)' : '#93c5fd'}`
+                  }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: '700',
+                      color: '#3b82f6',
+                      marginBottom: '0.25rem'
+                    }}>
+                      {completionStats.aliases || 0}
+                    </div>
+                    <div style={{
+                      fontSize: '0.85rem',
+                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Alias{completionStats.aliases === 1 ? '' : 'es'}
+                    </div>
+                  </div>
+                )}
+                {completionStats.zones !== undefined && (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '1.25rem',
+                    borderRadius: '8px',
+                    background: theme === 'dark' ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb',
+                    border: `1px solid ${theme === 'dark' ? 'rgba(245, 158, 11, 0.2)' : '#fcd34d'}`
+                  }}>
+                    <div style={{
+                      fontSize: '2rem',
+                      fontWeight: '700',
+                      color: '#f59e0b',
+                      marginBottom: '0.25rem'
+                    }}>
+                      {completionStats.zones || 0}
+                    </div>
+                    <div style={{
+                      fontSize: '0.85rem',
+                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Zone{completionStats.zones === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                )}
+              </div>
+          )}
         </Modal.Body>
         <Modal.Footer
           style={{
-            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-            borderTop: theme === 'dark' ? '1px solid rgba(100, 255, 218, 0.2)' : '1px solid #e2e8f0'
+            padding: '1rem 2rem',
+            borderTop: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
+            display: 'flex',
+            gap: '0.75rem',
+            justifyContent: 'flex-end'
           }}
         >
+          <Button
+            variant="outline-secondary"
+            onClick={() => setShowCompletionModal(false)}
+            style={{
+              padding: '0.5rem 1.5rem'
+            }}
+          >
+            Close
+          </Button>
+          <Button
+            variant="outline-primary"
+            onClick={() => {
+              setShowCompletionModal(false);
+              handleReset();
+            }}
+            style={{
+              padding: '0.5rem 1.5rem'
+            }}
+          >
+            Import More
+          </Button>
           <Button
             variant="success"
             onClick={() => {
@@ -839,34 +915,12 @@ const UniversalImporter = () => {
               navigate('/san/fabrics');
             }}
             style={{
-              backgroundColor: theme === 'dark' ? '#064e3b' : '#10b981',
-              borderColor: theme === 'dark' ? '#064e3b' : '#10b981'
+              padding: '0.5rem 1.5rem',
+              backgroundColor: '#10b981',
+              borderColor: '#10b981'
             }}
           >
             View Fabrics
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setShowCompletionModal(false);
-              handleReset();
-            }}
-            style={{
-              backgroundColor: theme === 'dark' ? '#1e3a52' : '#3b82f6',
-              borderColor: theme === 'dark' ? '#1e3a52' : '#3b82f6'
-            }}
-          >
-            Import More Data
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setShowCompletionModal(false)}
-            style={{
-              backgroundColor: theme === 'dark' ? '#374151' : '#6b7280',
-              borderColor: theme === 'dark' ? '#374151' : '#6b7280'
-            }}
-          >
-            Close
           </Button>
         </Modal.Footer>
       </Modal>

@@ -31,7 +31,11 @@ const ConfigurationPanel = ({
   detectedVendor,
   theme,
   onStartImport,
-  canStartImport = false
+  canStartImport = false,
+  // NEW: Fabric mapping props
+  previewData = null,
+  fabricMapping = {},
+  onFabricMappingChange
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedConflictSections, setExpandedConflictSections] = useState({
@@ -93,25 +97,183 @@ const ConfigurationPanel = ({
     return 'Select a Fabric';
   };
 
+  // Check if we have multiple fabrics that need mapping
+  const hasMultipleFabrics = previewData?.fabrics && previewData.fabrics.length > 1;
+  const useFabricMapping = hasMultipleFabrics && onFabricMappingChange;
+
+  // Check if this is a switches-only import
+  const isSwitchesOnly = (previewData?.counts?.switches > 0) &&
+                         (previewData?.counts?.aliases === 0) &&
+                         (previewData?.counts?.zones === 0);
+
   return (
     <div className={`configuration-panel theme-${theme}`}>
-      <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <Server size={24} />
-        Select Target Fabric
-        {detectedVendor && (
-          <span style={{
-            padding: '0.25rem 0.75rem',
-            backgroundColor: '#e0f2fe',
-            color: '#0369a1',
-            borderRadius: '6px',
-            fontSize: '0.875rem',
-            fontWeight: '500'
-          }}>
-            {detectedVendor === 'CI' ? 'Cisco' : 'Brocade'}
-          </span>
-        )}
-      </h3>
+      {!isSwitchesOnly && (
+        <>
+          <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <Server size={24} />
+            {useFabricMapping ? 'Map Source Fabrics to Database' : 'Select Target Fabric'}
+            {detectedVendor && (
+              <span style={{
+                padding: '0.25rem 0.75rem',
+                backgroundColor: '#e0f2fe',
+                color: '#0369a1',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                fontWeight: '500'
+              }}>
+                {detectedVendor === 'CI' ? 'Cisco' : 'Brocade'}
+              </span>
+            )}
+          </h3>
+        </>
+      )}
 
+      {isSwitchesOnly && (
+        <div style={{
+          padding: '1.5rem',
+          backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+          border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
+          borderRadius: '8px',
+          marginBottom: '1.5rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <Info size={18} style={{ color: '#3b82f6' }} />
+            <span style={{ fontWeight: '600', color: theme === 'dark' ? '#93c5fd' : '#1e40af' }}>
+              Switches-Only Import
+            </span>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: theme === 'dark' ? '#cbd5e1' : '#64748b' }}>
+            Importing {previewData?.counts?.switches} switches. Fabric assignment is optional and can be configured later.
+          </p>
+        </div>
+      )}
+
+      {/* Fabric Mapping Mode - Show mapping UI for multiple fabrics */}
+      {!isSwitchesOnly && useFabricMapping && (
+        <div style={{ marginTop: '1rem' }}>
+          <div style={{
+            backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+            border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <Info size={16} style={{ color: '#3b82f6' }} />
+              <span style={{ fontWeight: '600', color: theme === 'dark' ? '#93c5fd' : '#1e40af' }}>
+                Multiple Fabrics Detected
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: theme === 'dark' ? '#cbd5e1' : '#64748b' }}>
+              Your import data contains {previewData.fabrics.length} fabrics. Map each source fabric to a target fabric in your database.
+            </p>
+          </div>
+
+          {previewData.fabrics.map((sourceFabric) => {
+            const mapping = fabricMapping[sourceFabric.name] || {};
+            const isCreateNew = mapping.create_new;
+            const selectedTargetId = mapping.fabric_id;
+
+            return (
+              <div key={sourceFabric.name} style={{
+                border: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`,
+                borderRadius: '8px',
+                padding: '1rem',
+                marginBottom: '1rem',
+                backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)'
+              }}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
+                    Source Fabric: {sourceFabric.name}
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#6c757d' }}>
+                    {sourceFabric.vsan && `VSAN ${sourceFabric.vsan}`}
+                    {sourceFabric.zoneset_name && ` • Zoneset: ${sourceFabric.zoneset_name}`}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+                    Target Fabric
+                  </label>
+                  <Dropdown className="fabric-dropdown-wrapper">
+                    <Dropdown.Toggle variant="outline-secondary" style={{ width: '100%', textAlign: 'left' }}>
+                      {isCreateNew ? 'Create New Fabric' :
+                       selectedTargetId ? existingFabrics.find(f => f.id === selectedTargetId)?.name || 'Select a Fabric' :
+                       'Select a Fabric'}
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu style={{ maxHeight: '300px', overflow: 'auto', width: '100%' }}>
+                      <Dropdown.Item onClick={() => onFabricMappingChange(sourceFabric.name, { create_new: true })}>
+                        <Plus size={16} style={{ marginRight: '8px' }} />
+                        Create New Fabric
+                        {isCreateNew && <Check size={16} style={{ marginLeft: 'auto' }} />}
+                      </Dropdown.Item>
+                      <Dropdown.Divider />
+                      {existingFabrics.map(fabric => (
+                        <Dropdown.Item
+                          key={fabric.id}
+                          onClick={() => onFabricMappingChange(sourceFabric.name, { fabric_id: fabric.id })}
+                          active={selectedTargetId === fabric.id}
+                        >
+                          <Server size={16} style={{ marginRight: '8px' }} />
+                          {fabric.name}
+                          {fabric.vsan && <span style={{ marginLeft: '8px', color: '#6c757d' }}>VSAN {fabric.vsan}</span>}
+                        </Dropdown.Item>
+                      ))}
+                    </Dropdown.Menu>
+                  </Dropdown>
+                </div>
+
+                {/* Show new fabric inputs if creating new */}
+                {isCreateNew && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingTop: '1rem', borderTop: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: '500' }}>
+                        Fabric Name <span style={{ color: 'red' }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        placeholder="Enter fabric name..."
+                        value={mapping.name || ''}
+                        onChange={(e) => onFabricMappingChange(sourceFabric.name, { ...mapping, name: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: '500' }}>
+                        Zoneset Name
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        placeholder={sourceFabric.zoneset_name || 'Enter zoneset name...'}
+                        value={mapping.zoneset_name || ''}
+                        onChange={(e) => onFabricMappingChange(sourceFabric.name, { ...mapping, zoneset_name: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: '500' }}>
+                        VSAN
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        placeholder={sourceFabric.vsan ? `${sourceFabric.vsan}` : 'Enter VSAN...'}
+                        value={mapping.vsan || ''}
+                        onChange={(e) => onFabricMappingChange(sourceFabric.name, { ...mapping, vsan: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Legacy Single Fabric Mode */}
+      {!isSwitchesOnly && !useFabricMapping && (
       <Dropdown className="fabric-dropdown-wrapper">
         <Dropdown.Toggle variant="outline-secondary" style={{ minWidth: '300px', textAlign: 'left' }}>
           {getSelectedFabricName()}
@@ -174,9 +336,10 @@ const ConfigurationPanel = ({
           )}
         </Dropdown.Menu>
       </Dropdown>
+      )}
 
-      {/* New Fabric Inputs */}
-      {selectedFabricId === 'new' && (
+      {/* New Fabric Inputs - Legacy Single Fabric Mode */}
+      {!isSwitchesOnly && !useFabricMapping && selectedFabricId === 'new' && (
         <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>

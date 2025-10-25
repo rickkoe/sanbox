@@ -33,12 +33,14 @@ const DataPreview = ({
   const [expandedSections, setExpandedSections] = useState({
     aliases: true,
     zones: true,
-    fabrics: true
+    fabrics: true,
+    switches: true
   });
   const [searchTerms, setSearchTerms] = useState({
     aliases: '',
     zones: '',
-    fabrics: ''
+    fabrics: '',
+    switches: ''
   });
   const [showFilters, setShowFilters] = useState(false);
 
@@ -72,6 +74,12 @@ const DataPreview = ({
             item.name?.toLowerCase().includes(term) ||
             item.vsan?.toString().includes(term)
           );
+        case 'switches':
+          return items.filter(item =>
+            item.name?.toLowerCase().includes(term) ||
+            item.wwnn?.toLowerCase().includes(term) ||
+            item.model?.toLowerCase().includes(term)
+          );
         default:
           return items;
       }
@@ -80,7 +88,8 @@ const DataPreview = ({
     return {
       aliases: filterItems(previewData?.aliases || [], searchTerms.aliases, 'aliases'),
       zones: filterItems(previewData?.zones || [], searchTerms.zones, 'zones'),
-      fabrics: filterItems(previewData?.fabrics || [], searchTerms.fabrics, 'fabrics')
+      fabrics: filterItems(previewData?.fabrics || [], searchTerms.fabrics, 'fabrics'),
+      switches: filterItems(previewData?.switches || [], searchTerms.switches, 'switches')
     };
   }, [previewData, searchTerms]);
 
@@ -120,7 +129,14 @@ const DataPreview = ({
       value: previewData?.counts?.fabrics || 0,
       selected: selectedFabrics.size,
       color: 'info'
-    }
+    },
+    ...(previewData?.counts?.switches > 0 ? [{
+      icon: Server,
+      label: 'Switches',
+      value: previewData?.counts?.switches || 0,
+      selected: 0,
+      color: 'warning'
+    }] : [])
   ];
 
   return (
@@ -529,6 +545,56 @@ const DataPreview = ({
             </div>
           )}
         </div>
+
+        {/* Switches Table */}
+        {previewData?.switches && previewData.switches.length > 0 && (
+          <div className="table-section">
+            <div className="section-header" onClick={() => toggleSection('switches')}>
+              <div className="section-title">
+                {expandedSections.switches ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                <Server size={20} />
+                <span>Switches ({filteredData.switches?.length || 0})</span>
+              </div>
+            </div>
+
+            {expandedSections.switches && (
+              <div className="table-container">
+                <table className="preview-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>WWNN</th>
+                      <th>Model</th>
+                      <th>Firmware</th>
+                      <th>IP Address</th>
+                      <th>Domain ID</th>
+                      <th>Fabric</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredData.switches?.map((sw, idx) => (
+                      <tr key={idx}>
+                        <td className="name-col">{sw.name}</td>
+                        <td>{sw.wwnn || '-'}</td>
+                        <td>{sw.model || '-'}</td>
+                        <td>{sw.firmware_version || '-'}</td>
+                        <td>{sw.ip_address || '-'}</td>
+                        <td>{sw.domain_id !== null && sw.domain_id !== undefined ? sw.domain_id : '-'}</td>
+                        <td>{sw.fabric || '-'}</td>
+                        <td>
+                          <span className={`status-badge ${sw.is_active ? 'active' : 'inactive'}`}>
+                            {sw.is_active ? 'Online' : 'Offline'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

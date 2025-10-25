@@ -556,13 +556,14 @@ def import_san_config(request):
         data = json.loads(request.body)
         customer_id = data.get('customer_id')
         config_data = data.get('data')
-        fabric_id = data.get('fabric_id')  # ID of existing fabric to use
-        fabric_name = data.get('fabric_name')  # Name for new fabric
-        zoneset_name = data.get('zoneset_name')  # Zoneset name for new fabric
-        vsan = data.get('vsan')  # VSAN for new fabric
-        create_new_fabric = data.get('create_new_fabric', False)
+        fabric_id = data.get('fabric_id')  # ID of existing fabric to use (legacy single-fabric mode)
+        fabric_name = data.get('fabric_name')  # Name for new fabric (legacy)
+        zoneset_name = data.get('zoneset_name')  # Zoneset name for new fabric (legacy)
+        vsan = data.get('vsan')  # VSAN for new fabric (legacy)
+        create_new_fabric = data.get('create_new_fabric', False)  # (legacy)
         conflict_resolutions = data.get('conflict_resolutions', {})  # How to handle conflicts
         project_id = data.get('project_id')  # Optional project assignment
+        fabric_mapping = data.get('fabric_mapping')  # NEW: Map parsed fabrics to target fabrics
 
         if not customer_id:
             return JsonResponse({'error': 'customer_id required'}, status=400)
@@ -589,7 +590,8 @@ def import_san_config(request):
             vsan,
             create_new_fabric,
             conflict_resolutions,
-            project_id
+            project_id,
+            fabric_mapping  # NEW: Pass fabric mapping to task
         )
 
         # Update import record

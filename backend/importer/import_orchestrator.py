@@ -10,9 +10,9 @@ Coordinates the entire import process:
 
 from typing import Dict, List, Optional, Callable
 from django.db import transaction
-from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix
+from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix, Switch
 from customers.models import Customer
-from .parsers.base_parser import ParseResult, ParsedFabric, ParsedAlias, ParsedZone
+from .parsers.base_parser import ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch
 from .parsers.cisco_parser import CiscoParser
 from .parsers.brocade_parser import BrocadeParser
 import logging
@@ -42,6 +42,8 @@ class ImportOrchestrator:
             'aliases_updated': 0,
             'zones_created': 0,
             'zones_updated': 0,
+            'switches_created': 0,
+            'switches_updated': 0,
             'errors': [],
             'warnings': []
         }
@@ -59,19 +61,33 @@ class ImportOrchestrator:
         zoneset_name_override: Optional[str] = None,
         vsan_override: Optional[str] = None,
         create_new_fabric: bool = False,
-        conflict_resolutions: Optional[dict] = None
+        conflict_resolutions: Optional[dict] = None,
+        fabric_mapping: Optional[dict] = None
     ) -> Dict:
         """
         Import SAN configuration from text data (CLI output, CSV, etc.).
 
         Args:
             data: Raw text data to parse
-            fabric_id: ID of existing fabric to use for all imports
-            fabric_name_override: Optional fabric name to use when creating new fabric
-            zoneset_name_override: Optional zoneset name to use when creating new fabric
-            vsan_override: Optional VSAN to use when creating new fabric
-            create_new_fabric: If True, create new fabric; if False, use existing
+            fabric_id: ID of existing fabric to use for all imports (legacy single-fabric mode)
+            fabric_name_override: Optional fabric name to use when creating new fabric (legacy)
+            zoneset_name_override: Optional zoneset name to use when creating new fabric (legacy)
+            vsan_override: Optional VSAN to use when creating new fabric (legacy)
+            create_new_fabric: If True, create new fabric; if False, use existing (legacy)
             conflict_resolutions: Dict mapping item names to resolution action (skip/replace/rename)
+            fabric_mapping: Dict mapping parsed fabric names to target fabric config
+                           Format: {
+                               "parsed_fabric_name": {
+                                   "fabric_id": 123  # Use existing fabric
+                               }
+                               OR
+                               "parsed_fabric_name": {
+                                   "create_new": True,
+                                   "name": "New Fabric Name",
+                                   "zoneset_name": "zoneset",
+                                   "vsan": "10"
+                               }
+                           }
 
         Returns:
             Dict with import statistics
@@ -112,7 +128,8 @@ class ImportOrchestrator:
             zoneset_name_override,
             vsan_override,
             create_new_fabric,
-            conflict_resolutions or {}
+            conflict_resolutions or {},
+            fabric_mapping
         )
 
     def preview_import(self, data: str, check_conflicts: bool = False) -> Dict:
@@ -240,10 +257,26 @@ class ImportOrchestrator:
                 }
                 for z in parse_result.zones  # Return all for checkbox selection
             ],
+            'switches': [
+                {
+                    'name': s.name,
+                    'wwnn': s.wwnn,
+                    'model': s.model,
+                    'serial_number': s.serial_number,
+                    'firmware_version': s.firmware_version,
+                    'ip_address': s.ip_address,
+                    'domain_id': s.domain_id,
+                    'fabric': s.fabric_name,
+                    'is_active': s.is_active,
+                    'location': s.location
+                }
+                for s in parse_result.switches
+            ],
             'counts': {
                 'fabrics': len(active_fabrics),  # Use filtered count
                 'aliases': len(unique_aliases),  # Use deduplicated count
-                'zones': len(parse_result.zones)
+                'zones': len(parse_result.zones),
+                'switches': len(parse_result.switches)
             },
             'conflicts': conflicts,
             'errors': parse_result.errors,
@@ -346,15 +379,20 @@ class ImportOrchestrator:
         zoneset_name_override: Optional[str] = None,
         vsan_override: Optional[str] = None,
         create_new_fabric: bool = False,
-        conflict_resolutions: Optional[dict] = None
+        conflict_resolutions: Optional[dict] = None,
+        fabric_mapping: Optional[dict] = None
     ) -> Dict:
         """Import parsed data into database within a transaction"""
 
         conflict_resolutions = conflict_resolutions or {}
         self._report_progress(40, 100, "Determining target fabric...")
 
-        # If user selected existing fabric, use it for everything
-        if fabric_id:
+        # NEW: Fabric mapping mode - map each parsed fabric to a target fabric
+        if fabric_mapping:
+            logger.info(f"Using fabric mapping mode with {len(fabric_mapping)} mapped fabrics")
+            fabric_map = self._build_fabric_map_from_mapping(parse_result, fabric_mapping)
+        # LEGACY: If user selected existing fabric, use it for everything
+        elif fabric_id:
             try:
                 from san.models import Fabric
                 fabric = Fabric.objects.get(id=fabric_id, customer=self.customer)
@@ -411,6 +449,11 @@ class ImportOrchestrator:
         # Import zones
         self._import_zones(parse_result.zones, fabric_map, alias_map, conflict_resolutions)
 
+        # Import switches (if any)
+        if parse_result.switches:
+            self._report_progress(90, 100, "Importing switches...")
+            self._import_switches(parse_result.switches, fabric_map)
+
         self._report_progress(100, 100, "Import complete!")
 
         return {
@@ -419,6 +462,73 @@ class ImportOrchestrator:
             'fabrics': list(fabric_map.values()),
             'metadata': parse_result.metadata
         }
+
+    def _build_fabric_map_from_mapping(
+        self,
+        parse_result: ParseResult,
+        fabric_mapping: dict
+    ) -> Dict[str, Fabric]:
+        """
+        Build fabric map from user-provided fabric mapping.
+
+        Args:
+            parse_result: Parsed data containing fabric information
+            fabric_mapping: Dict mapping parsed fabric names to target fabric config
+
+        Returns:
+            Dict mapping parsed fabric name to Fabric instance
+        """
+        fabric_map = {}
+
+        for parsed_fabric in parse_result.fabrics:
+            fabric_name = parsed_fabric.name
+
+            # Get mapping config for this fabric
+            if fabric_name not in fabric_mapping:
+                logger.warning(f"No mapping found for fabric {fabric_name}, skipping")
+                self.stats['warnings'].append(f"No mapping found for fabric {fabric_name}")
+                continue
+
+            mapping_config = fabric_mapping[fabric_name]
+
+            try:
+                # Check if we should use an existing fabric
+                if 'fabric_id' in mapping_config:
+                    fabric_id = mapping_config['fabric_id']
+                    from san.models import Fabric
+                    fabric = Fabric.objects.get(id=fabric_id, customer=self.customer)
+                    logger.info(f"Mapped {fabric_name} to existing fabric: {fabric.name} (ID: {fabric_id})")
+                    fabric_map[fabric_name] = fabric
+
+                # Or create a new fabric
+                elif mapping_config.get('create_new'):
+                    new_fabric_name = mapping_config.get('name', fabric_name)
+                    zoneset_name = mapping_config.get('zoneset_name', parsed_fabric.zoneset_name or '')
+                    vsan = mapping_config.get('vsan', parsed_fabric.vsan)
+
+                    from san.models import Fabric
+                    fabric = Fabric.objects.create(
+                        customer=self.customer,
+                        name=new_fabric_name,
+                        san_vendor=parsed_fabric.san_vendor,
+                        zoneset_name=zoneset_name,
+                        vsan=vsan
+                    )
+                    self.stats['fabrics_created'] += 1
+                    logger.info(f"Created new fabric {new_fabric_name} for {fabric_name}")
+                    fabric_map[fabric_name] = fabric
+
+                else:
+                    error_msg = f"Invalid mapping config for fabric {fabric_name}: {mapping_config}"
+                    self.stats['errors'].append(error_msg)
+                    logger.error(error_msg)
+
+            except Exception as e:
+                error_msg = f"Error mapping fabric {fabric_name}: {e}"
+                self.stats['errors'].append(error_msg)
+                logger.error(error_msg)
+
+        return fabric_map
 
     def _import_fabrics(
         self,
@@ -560,13 +670,25 @@ class ImportOrchestrator:
                     logger.info(f"Renamed alias {original_name} to {alias_name}")
                     parsed_alias.name = alias_name  # Update the parsed alias name
 
-                # Get fabric - when user selects a fabric, fabric_map has only one entry
-                if not fabric_map:
-                    self.stats['warnings'].append(f"No fabric available for alias {parsed_alias.name}, skipping")
+                # Get fabric for this alias
+                # NEW: If alias has a fabric_name, use it to look up the mapped fabric
+                # LEGACY: If fabric_map has only one fabric, use that for all aliases
+                fabric = None
+                if parsed_alias.fabric_name and parsed_alias.fabric_name in fabric_map:
+                    # Use the specific fabric mapped for this alias's source fabric
+                    fabric = fabric_map[parsed_alias.fabric_name]
+                    logger.debug(f"Using mapped fabric {fabric.name} for alias {alias_name} from {parsed_alias.fabric_name}")
+                elif len(fabric_map) == 1:
+                    # Legacy mode: single fabric for all imports
+                    fabric = list(fabric_map.values())[0]
+                    logger.debug(f"Using single fabric {fabric.name} for alias {alias_name}")
+                else:
+                    # Multiple fabrics available but no mapping - skip this alias
+                    self.stats['warnings'].append(
+                        f"No fabric mapping found for alias {alias_name} (source fabric: {parsed_alias.fabric_name})"
+                    )
+                    logger.warning(f"Skipping alias {alias_name} - no fabric mapping")
                     continue
-
-                # Use the first (and typically only) fabric in the map
-                fabric = list(fabric_map.values())[0]
 
                 # Create or update alias
                 # NOTE: Alias model now uses (fabric, name) as unique identifier
@@ -678,13 +800,25 @@ class ImportOrchestrator:
                     logger.info(f"Renamed zone {original_name} to {zone_name}")
                     parsed_zone.name = zone_name  # Update the parsed zone name
 
-                # Get fabric - when user selects a fabric, fabric_map has only one entry
-                if not fabric_map:
-                    self.stats['warnings'].append(f"No fabric available for zone {parsed_zone.name}, skipping")
+                # Get fabric for this zone
+                # NEW: If zone has a fabric_name, use it to look up the mapped fabric
+                # LEGACY: If fabric_map has only one fabric, use that for all zones
+                fabric = None
+                if parsed_zone.fabric_name and parsed_zone.fabric_name in fabric_map:
+                    # Use the specific fabric mapped for this zone's source fabric
+                    fabric = fabric_map[parsed_zone.fabric_name]
+                    logger.debug(f"Using mapped fabric {fabric.name} for zone {zone_name} from {parsed_zone.fabric_name}")
+                elif len(fabric_map) == 1:
+                    # Legacy mode: single fabric for all imports
+                    fabric = list(fabric_map.values())[0]
+                    logger.debug(f"Using single fabric {fabric.name} for zone {zone_name}")
+                else:
+                    # Multiple fabrics available but no mapping - skip this zone
+                    self.stats['warnings'].append(
+                        f"No fabric mapping found for zone {zone_name} (source fabric: {parsed_zone.fabric_name})"
+                    )
+                    logger.warning(f"Skipping zone {zone_name} - no fabric mapping")
                     continue
-
-                # Use the first (and typically only) fabric in the map
-                fabric = list(fabric_map.values())[0]
 
                 # Create or update zone
                 zone, created = Zone.objects.update_or_create(
@@ -786,3 +920,90 @@ class ImportOrchestrator:
                 error_msg = f"Error importing zone {parsed_zone.name}: {e}"
                 self.stats['errors'].append(error_msg)
                 logger.error(error_msg)
+
+    def _import_switches(
+        self,
+        parsed_switches: List[ParsedSwitch],
+        fabric_map: Dict[str, Fabric]
+    ) -> Dict[str, Switch]:
+        """
+        Import switches into database.
+
+        Args:
+            parsed_switches: List of switches to import
+            fabric_map: Mapping of fabric names to Fabric instances
+
+        Returns:
+            Dict mapping switch name to Switch instance
+        """
+        switch_map = {}
+
+        if not parsed_switches:
+            logger.warning("No switches to import!")
+            return switch_map
+
+        for i, parsed_switch in enumerate(parsed_switches):
+            if i % 10 == 0:  # Update progress every 10 switches
+                progress = 90 + int(10 * i / len(parsed_switches))
+                self._report_progress(progress, 100, f"Importing switches ({i}/{len(parsed_switches)})...")
+
+            try:
+                switch_name = parsed_switch.name
+
+                # Get fabric for this switch (optional - switches can exist without fabric assignment)
+                fabric = None
+                if fabric_map:
+                    if parsed_switch.fabric_name and parsed_switch.fabric_name in fabric_map:
+                        # Use the specific fabric mapped for this switch's source fabric
+                        fabric = fabric_map[parsed_switch.fabric_name]
+                        logger.debug(f"Mapped switch {switch_name} to fabric {fabric.name}")
+                    elif len(fabric_map) == 1:
+                        # If only one fabric, use it
+                        fabric = list(fabric_map.values())[0]
+                        logger.debug(f"Assigned switch {switch_name} to single fabric {fabric.name}")
+                    else:
+                        logger.info(f"Switch {switch_name} will be imported without fabric assignment")
+                else:
+                    logger.info(f"Switch {switch_name} will be imported without fabric assignment")
+
+                # Create or update switch
+                switch, created = Switch.objects.update_or_create(
+                    customer=self.customer,
+                    name=switch_name,
+                    defaults={
+                        'wwnn': parsed_switch.wwnn,
+                        'san_vendor': parsed_switch.san_vendor,
+                        'model': parsed_switch.model,
+                        'serial_number': parsed_switch.serial_number,
+                        'firmware_version': parsed_switch.firmware_version,
+                        'ip_address': parsed_switch.ip_address,
+                        'is_active': parsed_switch.is_active,
+                        'location': parsed_switch.location,
+                        'notes': parsed_switch.notes
+                    }
+                )
+
+                # Link to fabric if one was specified
+                if fabric:
+                    from san.models import SwitchFabric
+                    SwitchFabric.objects.update_or_create(
+                        switch=switch,
+                        fabric=fabric,
+                        defaults={'domain_id': parsed_switch.domain_id}
+                    )
+
+                if created:
+                    self.stats['switches_created'] += 1
+                    logger.info(f"Created switch: {switch_name}")
+                else:
+                    self.stats['switches_updated'] += 1
+                    logger.info(f"Updated switch: {switch_name}")
+
+                switch_map[switch_name] = switch
+
+            except Exception as e:
+                error_msg = f"Error importing switch {parsed_switch.name}: {e}"
+                self.stats['errors'].append(error_msg)
+                logger.error(error_msg)
+
+        return switch_map

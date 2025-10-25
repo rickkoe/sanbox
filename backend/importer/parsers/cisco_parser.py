@@ -97,6 +97,21 @@ class CiscoParser(BaseParser):
         for vsan, zones in zones_by_vsan.items():
             all_zones.extend(zones)
 
+        # Create fabric entries for any VSANs found in aliases/zones but not in fabrics list
+        existing_vsans = {f.vsan for f in fabrics if f.vsan}
+        all_vsans = set(fcaliases_by_vsan.keys()) | set(zones_by_vsan.keys())
+
+        for vsan in all_vsans:
+            if vsan not in existing_vsans:
+                # Create a fabric entry for this VSAN
+                fabrics.append(ParsedFabric(
+                    name=f'vsan{vsan}',
+                    vsan=vsan,
+                    zoneset_name=zonesets_by_vsan.get(vsan),
+                    san_vendor='CI',
+                    exists=False
+                ))
+
         return ParseResult(
             fabrics=fabrics,
             aliases=all_aliases,

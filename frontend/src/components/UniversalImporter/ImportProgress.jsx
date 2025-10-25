@@ -146,27 +146,15 @@ const ImportProgress = ({
 
   return (
     <div className={`import-progress theme-${theme}`}>
-
-      {/* Confetti Animation */}
-      {showConfetti && (
-        <div className="confetti-container">
-          {[...Array(50)].map((_, i) => (
-            <div key={i} className="confetti" style={{
-              '--delay': `${Math.random() * 3}s`,
-              '--position': `${Math.random() * 100}%`,
-              '--rotation': `${Math.random() * 360}deg`,
-              '--color': ['#64ffda', '#4fd1c7', '#10b981', '#f59e0b', '#ef4444'][Math.floor(Math.random() * 5)]
-            }} />
-          ))}
-        </div>
-      )}
-
       {/* Status Card */}
       <div className={`status-card color-${statusConfig.color}`}>
         <div className="status-icon-wrapper">
           <div className="status-icon-bg" />
-          <div className="status-icon-ring" />
-          <StatusIcon size={48} className={importStatus === 'RUNNING' ? 'spinning' : ''} />
+          {importStatus === 'RUNNING' && <div className="status-icon-ring" />}
+          <StatusIcon
+            size={64}
+            className={importStatus === 'RUNNING' ? 'spinning' : importStatus === 'COMPLETED' && importProgress?.status === 'success' ? 'success-bounce' : ''}
+          />
         </div>
 
         <div className="status-content">
@@ -175,7 +163,7 @@ const ImportProgress = ({
         </div>
       </div>
 
-      {/* Progress Bar (for running state) OR Success Message */}
+      {/* Progress Bar (for running state) */}
       {importStatus === 'RUNNING' && (
         <div className="progress-section">
           <div className="progress-header">
@@ -188,31 +176,13 @@ const ImportProgress = ({
               className="progress-bar-fill"
               style={{ width: `${animatedProgress}%` }}
             />
-            <div className="progress-bar-glow" style={{ left: `${animatedProgress}%` }} />
           </div>
           {importProgress?.current_item && (
             <div className="progress-details">
-              <SquareTerminal size={14} />
-              <span>Processing: {safeRender(importProgress.current_item, 'Processing...')}</span>
+              <Activity size={16} />
+              <span>{safeRender(importProgress.current_item, 'Processing...')}</span>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Success Message for completed imports */}
-      {importStatus === 'COMPLETED' && importProgress?.status === 'success' && (
-        <div className="success-message" style={{
-          padding: '2rem',
-          background: 'linear-gradient(135deg, #10b981, #059669)',
-          color: 'white',
-          borderRadius: '12px',
-          textAlign: 'center',
-          fontSize: '1.2rem',
-          fontWeight: 'bold',
-          marginTop: '1rem',
-          marginBottom: '1rem'
-        }}>
-          ✨ Import Completed Successfully! ✨
         </div>
       )}
 
@@ -220,40 +190,31 @@ const ImportProgress = ({
       {importStatus === 'COMPLETED' && importProgress?.status === 'success' && (
         <div className="stats-section">
           <div className="stats-grid">
-            {stats.aliases && (
+            {(stats.aliases_created !== undefined || stats.aliases !== undefined) && (
               <div className="stat-item">
                 <div className="stat-icon">
                   <Zap size={20} />
                 </div>
-                <div className="stat-value">{safeRender(stats.aliases, '0')}</div>
+                <div className="stat-value">{stats.aliases_created || stats.aliases || 0}</div>
                 <div className="stat-label">Aliases Imported</div>
               </div>
             )}
-            {stats.zones && (
+            {(stats.zones_created !== undefined || stats.zones !== undefined) && (
               <div className="stat-item">
                 <div className="stat-icon">
                   <Activity size={20} />
                 </div>
-                <div className="stat-value">{safeRender(stats.zones, '0')}</div>
+                <div className="stat-value">{stats.zones_created || stats.zones || 0}</div>
                 <div className="stat-label">Zones Created</div>
               </div>
             )}
-            {stats.fabrics && (
+            {(stats.fabrics_created !== undefined || stats.fabrics_updated !== undefined || stats.fabrics !== undefined) && (
               <div className="stat-item">
                 <div className="stat-icon">
                   <FileText size={20} />
                 </div>
-                <div className="stat-value">{safeRender(stats.fabrics, '0')}</div>
-                <div className="stat-label">Fabrics Updated</div>
-              </div>
-            )}
-            {stats.duration && (
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <Clock size={20} />
-                </div>
-                <div className="stat-value">{safeRender(stats.duration, '0')}s</div>
-                <div className="stat-label">Time Taken</div>
+                <div className="stat-value">{stats.fabrics_created || stats.fabrics_updated || stats.fabrics || 0}</div>
+                <div className="stat-label">Fabrics {stats.fabrics_created ? 'Created' : 'Updated'}</div>
               </div>
             )}
           </div>

@@ -156,7 +156,7 @@ def cleanup_old_imports():
 
 
 @shared_task(bind=True)
-def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_name=None, zoneset_name=None, vsan=None, create_new_fabric=False, conflict_resolutions=None, project_id=None):
+def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_name=None, zoneset_name=None, vsan=None, create_new_fabric=False, conflict_resolutions=None, project_id=None, fabric_mapping=None):
     """
     Async task to import SAN configuration (Cisco/Brocade) in the background
     """
@@ -171,7 +171,9 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
         if project_id:
             import_logger.info(f'Zones will be assigned to project ID: {project_id}')
 
-        if fabric_id:
+        if fabric_mapping:
+            import_logger.info(f'Using fabric mapping mode with {len(fabric_mapping)} mapped fabrics')
+        elif fabric_id:
             import_logger.info(f'Using existing fabric ID: {fabric_id}')
         elif create_new_fabric:
             import_logger.info(f'Creating new fabric: {fabric_name} (zoneset: {zoneset_name}, vsan: {vsan})')
@@ -209,7 +211,8 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
             zoneset_name,
             vsan,
             create_new_fabric,
-            conflict_resolutions or {}
+            conflict_resolutions or {},
+            fabric_mapping
         )
 
         # Update import record with results
