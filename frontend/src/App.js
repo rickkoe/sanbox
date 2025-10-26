@@ -77,6 +77,7 @@ const WorksheetGeneratorPage = React.lazy(() => import("./pages/WorksheetGenerat
 const BackupManagement = React.lazy(() => import("./pages/BackupManagement"));
 const BackupDashboard = React.lazy(() => import("./pages/BackupDashboard"));
 const RestoreHistory = React.lazy(() => import("./pages/RestoreHistory"));
+const ThemeDemo = React.lazy(() => import("./pages/ThemeDemo"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -273,6 +274,11 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/theme-demo" element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <ThemeDemo />
+            </Suspense>
+          } />
           <Route path="/*" element={
             <ProtectedRoute>
               <AppContent />

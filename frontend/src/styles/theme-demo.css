@@ -1,0 +1,209 @@
+/* Theme Demo Page Styles */
+
+.theme-demo-root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--content-bg);
+  overflow: hidden;
+}
+
+/* Theme Switcher Panel */
+.theme-demo-switcher {
+  background: var(--secondary-bg);
+  border-bottom: 2px solid var(--color-border-default);
+  padding: var(--space-4) var(--space-5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.theme-demo-switcher-header {
+  margin-bottom: var(--space-4);
+}
+
+.theme-demo-switcher-header h2 {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--primary-text);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.theme-demo-switcher-header p {
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text);
+  margin: 0;
+}
+
+.theme-demo-switcher-options {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.theme-demo-option {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+  background: var(--card-bg);
+  border: 2px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  cursor: pointer;
+  transition: all var(--transition-speed) var(--transition-timing);
+  text-align: left;
+}
+
+.theme-demo-option:hover {
+  border-color: var(--color-accent-emphasis);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.theme-demo-option.active {
+  border-color: var(--color-accent-emphasis);
+  background: var(--color-accent-subtle);
+  box-shadow: 0 0 0 3px var(--color-accent-muted);
+}
+
+.theme-demo-option-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--primary-text);
+  margin-bottom: var(--space-1);
+}
+
+.theme-demo-option-desc {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text);
+  line-height: var(--line-height-normal);
+}
+
+.theme-demo-option-check {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 24px;
+  height: 24px;
+  background: var(--color-accent-emphasis);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.theme-demo-switcher-info {
+  background: var(--alert-info-bg);
+  border: 1px solid var(--alert-info-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  color: var(--alert-info-text);
+}
+
+.theme-demo-switcher-info p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.theme-demo-switcher-info p + p {
+  margin-top: var(--space-2);
+}
+
+.theme-demo-switcher-note {
+  font-size: var(--font-size-xs);
+  opacity: 0.9;
+}
+
+/* Demo Layout */
+.theme-demo-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.theme-demo-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.theme-demo-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--content-bg);
+}
+
+.theme-demo-section {
+  padding: var(--space-6);
+  background: var(--content-bg);
+  border-top: 2px solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.theme-demo-table-section {
+  padding: var(--space-6);
+  background: var(--content-bg);
+  border-top: 2px solid var(--color-border-default);
+  margin-top: var(--space-4);
+  flex-shrink: 0;
+}
+
+.theme-demo-table-section::before {
+  content: '';
+  display: block;
+  height: 1px;
+  margin-bottom: var(--space-6);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .theme-demo-switcher {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .theme-demo-switcher-options {
+    flex-direction: column;
+  }
+
+  .theme-demo-option {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .theme-demo-switcher {
+    padding: var(--space-3);
+  }
+
+  .theme-demo-table-section {
+    padding: var(--space-4);
+  }
+
+  .theme-demo-main {
+    flex-direction: column;
+  }
+}
+
+/* Scrollbar for content area */
+.theme-demo-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.theme-demo-content::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.theme-demo-content::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 5px;
+}
+
+.theme-demo-content::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}

@@ -1,0 +1,725 @@
+/* ========== SANBOX THEME DEMO SYSTEM ========== */
+/*
+ * ⚠️  DEMO ONLY - This file is ONLY used in /theme-demo
+ * ⚠️  Does NOT affect the main application
+ *
+ * Enhanced theme system inspired by GitHub and VSCode.
+ *
+ * When ready to deploy to production:
+ * 1. Review and approve design in /theme-demo
+ * 2. Replace frontend/src/styles/themes.css with this file
+ * 3. Test entire application in all 3 themes
+ *
+ * Three themes available:
+ * - .theme-light: Clean, professional light theme (GitHub Light inspired)
+ * - .theme-dark: Balanced dark theme (GitHub Dark inspired)
+ * - .theme-dark-plus: High contrast dark theme (VSCode Dark+ inspired)
+ */
+
+/* ========== BASE VARIABLES (ALL THEMES) ========== */
+:root {
+  /* Transitions & Animations */
+  --transition-speed: 0.2s;
+  --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+
+  /* Spacing Scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+}
+
+
+/* ========== LIGHT THEME (GitHub Light / VSCode Light) ========== */
+.theme-demo-root.theme-light {
+  /* ===== Core Color Palette ===== */
+  --color-canvas-default: #ffffff;
+  --color-canvas-subtle: #f6f8fa;
+  --color-canvas-inset: #f6f8fa;
+  --color-canvas-overlay: #ffffff;
+
+  /* Borders */
+  --color-border-default: #d0d7de;
+  --color-border-muted: #d8dee4;
+  --color-border-subtle: #e8ecef;
+
+  /* Foreground/Text */
+  --color-fg-default: #24292f;
+  --color-fg-muted: #57606a;
+  --color-fg-subtle: #6e7781;
+  --color-fg-onEmphasis: #ffffff;
+
+  /* Accent Colors */
+  --color-accent-fg: #0969da;
+  --color-accent-emphasis: #0969da;
+  --color-accent-muted: rgba(54, 129, 255, 0.4);
+  --color-accent-subtle: #ddf4ff;
+
+  /* Status Colors */
+  --color-success-fg: #1a7f37;
+  --color-success-emphasis: #2da44e;
+  --color-success-muted: rgba(46, 160, 67, 0.4);
+  --color-success-subtle: #dafbe1;
+
+  --color-danger-fg: #cf222e;
+  --color-danger-emphasis: #cf222e;
+  --color-danger-muted: rgba(255, 129, 130, 0.4);
+  --color-danger-subtle: #ffebe9;
+
+  --color-attention-fg: #9a6700;
+  --color-attention-emphasis: #bf8700;
+  --color-attention-muted: rgba(212, 167, 44, 0.4);
+  --color-attention-subtle: #fff8c5;
+
+  --color-info-fg: #0969da;
+  --color-info-emphasis: #0969da;
+  --color-info-muted: rgba(84, 174, 255, 0.4);
+  --color-info-subtle: #ddf4ff;
+
+  /* ===== Component Variables ===== */
+
+  /* Backgrounds */
+  --primary-bg: var(--color-canvas-default);
+  --secondary-bg: var(--color-canvas-subtle);
+  --accent-bg: var(--color-canvas-inset);
+  --content-bg: var(--color-canvas-subtle);
+
+  /* Text */
+  --primary-text: var(--color-fg-default);
+  --secondary-text: var(--color-fg-muted);
+  --muted-text: var(--color-fg-subtle);
+  --link-text: var(--color-accent-fg);
+  --link-hover: #0550ae;
+
+  /* Interactive Elements */
+  --button-bg: #f6f8fa;
+  --button-text: var(--color-fg-default);
+  --button-border: rgba(27, 31, 36, 0.15);
+  --button-hover-bg: #f3f4f6;
+  --button-hover-border: rgba(27, 31, 36, 0.25);
+  --button-active-bg: hsla(220, 14%, 96%, 1);
+  --button-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+
+  --button-primary-bg: #0969da;
+  --button-primary-text: #ffffff;
+  --button-primary-hover: #0550ae;
+  --button-primary-border: rgba(27, 31, 36, 0.15);
+  --button-primary-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
+
+  /* Forms */
+  --form-input-bg: var(--color-canvas-default);
+  --form-input-border: var(--color-border-default);
+  --form-input-text: var(--color-fg-default);
+  --form-input-placeholder: var(--color-fg-muted);
+  --form-input-focus-border: var(--color-accent-emphasis);
+  --form-input-focus-shadow: 0 0 0 3px var(--color-accent-muted);
+  --form-input-disabled-bg: #f6f8fa;
+  --form-input-disabled-text: var(--color-fg-subtle);
+
+  /* Navbar */
+  --navbar-bg: #24292f;
+  --navbar-text: rgba(255, 255, 255, 0.85);
+  --navbar-text-hover: #ffffff;
+  --navbar-border: rgba(255, 255, 255, 0.1);
+  --navbar-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  --navbar-button-bg: rgba(255, 255, 255, 0.08);
+  --navbar-button-hover: rgba(255, 255, 255, 0.15);
+  --navbar-brand-color: #ffffff;
+  --navbar-search-bg: rgba(255, 255, 255, 0.08);
+  --navbar-search-border: rgba(255, 255, 255, 0.2);
+  --navbar-search-focus: rgba(255, 255, 255, 0.25);
+
+  /* Sidebar */
+  --sidebar-bg: var(--color-canvas-default);
+  --sidebar-text: var(--color-fg-default);
+  --sidebar-text-hover: var(--color-fg-default);
+  --sidebar-border: var(--color-border-default);
+  --sidebar-shadow: inset -1px 0 0 var(--color-border-default);
+  --sidebar-button-bg: transparent;
+  --sidebar-button-hover: var(--color-canvas-subtle);
+  --sidebar-header-color: var(--color-fg-muted);
+  --sidebar-active-bg: var(--color-canvas-subtle);
+  --sidebar-active-border: var(--color-accent-emphasis);
+  --sidebar-active-text: var(--color-fg-default);
+  --sidebar-icon-color: var(--color-fg-muted);
+  --sidebar-icon-active: var(--color-accent-emphasis);
+
+  /* Breadcrumbs */
+  --breadcrumb-bg: transparent;
+  --breadcrumb-border: var(--color-border-default);
+  --breadcrumb-text: var(--color-fg-muted);
+  --breadcrumb-link: var(--color-accent-fg);
+  --breadcrumb-link-hover: var(--color-accent-emphasis);
+  --breadcrumb-separator: var(--color-fg-subtle);
+
+  /* Tables */
+  --table-bg: var(--color-canvas-default);
+  --table-header-bg: var(--color-canvas-subtle);
+  --table-header-text: var(--color-fg-default);
+  --table-border: var(--color-border-default);
+  --table-border-subtle: var(--color-border-subtle);
+  --table-row-hover: var(--color-canvas-subtle);
+  --table-row-selected: #fff8c5;
+  --table-row-selected-border: var(--color-attention-emphasis);
+  --table-cell-text: var(--color-fg-default);
+  --table-cell-muted: var(--color-fg-muted);
+
+  /* Table Toolbar */
+  --table-toolbar-bg: var(--color-canvas-subtle);
+  --table-toolbar-border: var(--color-border-default);
+  --table-toolbar-text: var(--color-fg-default);
+
+  /* Table Pagination */
+  --table-pagination-bg: var(--color-canvas-default);
+  --table-pagination-border: var(--color-border-default);
+  --table-pagination-text: var(--color-fg-default);
+  --table-pagination-button-bg: transparent;
+  --table-pagination-button-hover: var(--color-canvas-subtle);
+  --table-pagination-button-active: var(--color-accent-emphasis);
+  --table-pagination-button-border: var(--color-border-default);
+
+  /* Code Blocks */
+  --code-bg: #f6f8fa;
+  --code-text: #24292f;
+  --code-border: var(--color-border-default);
+
+  /* Alerts */
+  --alert-info-bg: var(--color-info-subtle);
+  --alert-info-text: var(--color-info-fg);
+  --alert-info-border: var(--color-info-muted);
+
+  --alert-success-bg: var(--color-success-subtle);
+  --alert-success-text: var(--color-success-fg);
+  --alert-success-border: var(--color-success-muted);
+
+  --alert-warning-bg: var(--color-attention-subtle);
+  --alert-warning-text: var(--color-attention-fg);
+  --alert-warning-border: var(--color-attention-muted);
+
+  --alert-danger-bg: var(--color-danger-subtle);
+  --alert-danger-text: var(--color-danger-fg);
+  --alert-danger-border: var(--color-danger-muted);
+
+  /* Cards */
+  --card-bg: var(--color-canvas-default);
+  --card-border: var(--color-border-default);
+  --card-shadow: var(--shadow-sm);
+  --card-hover-shadow: var(--shadow-md);
+
+  /* Modals */
+  --modal-bg: var(--color-canvas-overlay);
+  --modal-backdrop: rgba(27, 31, 36, 0.5);
+  --modal-border: var(--color-border-default);
+  --modal-shadow: var(--shadow-xl);
+
+  /* Tooltips */
+  --tooltip-bg: #24292f;
+  --tooltip-text: #ffffff;
+  --tooltip-shadow: var(--shadow-md);
+
+  /* Badges */
+  --badge-bg: var(--color-canvas-subtle);
+  --badge-text: var(--color-fg-default);
+  --badge-border: var(--color-border-default);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+}
+
+
+/* ========== DARK THEME (GitHub Dark / VSCode Dark) ========== */
+.theme-demo-root.theme-dark {
+  /* ===== Core Color Palette ===== */
+  --color-canvas-default: #0d1117;
+  --color-canvas-subtle: #161b22;
+  --color-canvas-inset: #010409;
+  --color-canvas-overlay: #161b22;
+
+  /* Borders */
+  --color-border-default: #30363d;
+  --color-border-muted: #21262d;
+  --color-border-subtle: #21262d;
+
+  /* Foreground/Text */
+  --color-fg-default: #e6edf3;
+  --color-fg-muted: #7d8590;
+  --color-fg-subtle: #6e7681;
+  --color-fg-onEmphasis: #ffffff;
+
+  /* Accent Colors */
+  --color-accent-fg: #58a6ff;
+  --color-accent-emphasis: #1f6feb;
+  --color-accent-muted: rgba(56, 139, 253, 0.4);
+  --color-accent-subtle: rgba(56, 139, 253, 0.15);
+
+  /* Status Colors */
+  --color-success-fg: #3fb950;
+  --color-success-emphasis: #238636;
+  --color-success-muted: rgba(46, 160, 67, 0.4);
+  --color-success-subtle: rgba(46, 160, 67, 0.15);
+
+  --color-danger-fg: #f85149;
+  --color-danger-emphasis: #da3633;
+  --color-danger-muted: rgba(248, 81, 73, 0.4);
+  --color-danger-subtle: rgba(248, 81, 73, 0.15);
+
+  --color-attention-fg: #d29922;
+  --color-attention-emphasis: #9e6a03;
+  --color-attention-muted: rgba(187, 128, 9, 0.4);
+  --color-attention-subtle: rgba(187, 128, 9, 0.15);
+
+  --color-info-fg: #58a6ff;
+  --color-info-emphasis: #1f6feb;
+  --color-info-muted: rgba(56, 139, 253, 0.4);
+  --color-info-subtle: rgba(56, 139, 253, 0.15);
+
+  /* ===== Component Variables ===== */
+
+  /* Backgrounds */
+  --primary-bg: var(--color-canvas-default);
+  --secondary-bg: var(--color-canvas-subtle);
+  --accent-bg: var(--color-canvas-inset);
+  --content-bg: var(--color-canvas-default);
+
+  /* Text */
+  --primary-text: var(--color-fg-default);
+  --secondary-text: var(--color-fg-muted);
+  --muted-text: var(--color-fg-subtle);
+  --link-text: var(--color-accent-fg);
+  --link-hover: #79c0ff;
+
+  /* Interactive Elements */
+  --button-bg: #21262d;
+  --button-text: var(--color-fg-default);
+  --button-border: rgba(240, 246, 252, 0.1);
+  --button-hover-bg: #30363d;
+  --button-hover-border: rgba(240, 246, 252, 0.2);
+  --button-active-bg: #282e33;
+  --button-shadow: 0 0 transparent;
+
+  --button-primary-bg: #1f6feb;
+  --button-primary-text: #ffffff;
+  --button-primary-hover: #388bfd;
+  --button-primary-border: rgba(240, 246, 252, 0.1);
+  --button-primary-shadow: 0 0 transparent;
+
+  /* Forms */
+  --form-input-bg: var(--color-canvas-default);
+  --form-input-border: var(--color-border-default);
+  --form-input-text: var(--color-fg-default);
+  --form-input-placeholder: var(--color-fg-muted);
+  --form-input-focus-border: var(--color-accent-emphasis);
+  --form-input-focus-shadow: 0 0 0 3px var(--color-accent-muted);
+  --form-input-disabled-bg: #21262d;
+  --form-input-disabled-text: var(--color-fg-subtle);
+
+  /* Navbar */
+  --navbar-bg: #161b22;
+  --navbar-text: rgba(230, 237, 243, 0.85);
+  --navbar-text-hover: #e6edf3;
+  --navbar-border: var(--color-border-default);
+  --navbar-shadow: inset 0 -1px 0 var(--color-border-default);
+  --navbar-button-bg: rgba(240, 246, 252, 0.06);
+  --navbar-button-hover: rgba(240, 246, 252, 0.12);
+  --navbar-brand-color: #e6edf3;
+  --navbar-search-bg: #0d1117;
+  --navbar-search-border: var(--color-border-default);
+  --navbar-search-focus: var(--color-accent-emphasis);
+
+  /* Sidebar */
+  --sidebar-bg: var(--color-canvas-default);
+  --sidebar-text: var(--color-fg-default);
+  --sidebar-text-hover: var(--color-fg-default);
+  --sidebar-border: var(--color-border-default);
+  --sidebar-shadow: inset -1px 0 0 var(--color-border-default);
+  --sidebar-button-bg: transparent;
+  --sidebar-button-hover: var(--color-canvas-subtle);
+  --sidebar-header-color: var(--color-fg-muted);
+  --sidebar-active-bg: var(--color-canvas-subtle);
+  --sidebar-active-border: var(--color-accent-emphasis);
+  --sidebar-active-text: var(--color-fg-default);
+  --sidebar-icon-color: var(--color-fg-muted);
+  --sidebar-icon-active: var(--color-accent-emphasis);
+
+  /* Breadcrumbs */
+  --breadcrumb-bg: transparent;
+  --breadcrumb-border: var(--color-border-default);
+  --breadcrumb-text: var(--color-fg-muted);
+  --breadcrumb-link: var(--color-accent-fg);
+  --breadcrumb-link-hover: var(--color-accent-emphasis);
+  --breadcrumb-separator: var(--color-fg-subtle);
+
+  /* Tables */
+  --table-bg: var(--color-canvas-default);
+  --table-header-bg: var(--color-canvas-subtle);
+  --table-header-text: var(--color-fg-default);
+  --table-border: var(--color-border-default);
+  --table-border-subtle: var(--color-border-muted);
+  --table-row-hover: var(--color-canvas-subtle);
+  --table-row-selected: rgba(187, 128, 9, 0.15);
+  --table-row-selected-border: var(--color-attention-emphasis);
+  --table-cell-text: var(--color-fg-default);
+  --table-cell-muted: var(--color-fg-muted);
+
+  /* Table Toolbar */
+  --table-toolbar-bg: var(--color-canvas-subtle);
+  --table-toolbar-border: var(--color-border-default);
+  --table-toolbar-text: var(--color-fg-default);
+
+  /* Table Pagination */
+  --table-pagination-bg: var(--color-canvas-default);
+  --table-pagination-border: var(--color-border-default);
+  --table-pagination-text: var(--color-fg-default);
+  --table-pagination-button-bg: transparent;
+  --table-pagination-button-hover: var(--color-canvas-subtle);
+  --table-pagination-button-active: var(--color-accent-emphasis);
+  --table-pagination-button-border: var(--color-border-default);
+
+  /* Code Blocks */
+  --code-bg: #161b22;
+  --code-text: #e6edf3;
+  --code-border: var(--color-border-default);
+
+  /* Alerts */
+  --alert-info-bg: var(--color-info-subtle);
+  --alert-info-text: var(--color-info-fg);
+  --alert-info-border: var(--color-info-muted);
+
+  --alert-success-bg: var(--color-success-subtle);
+  --alert-success-text: var(--color-success-fg);
+  --alert-success-border: var(--color-success-muted);
+
+  --alert-warning-bg: var(--color-attention-subtle);
+  --alert-warning-text: var(--color-attention-fg);
+  --alert-warning-border: var(--color-attention-muted);
+
+  --alert-danger-bg: var(--color-danger-subtle);
+  --alert-danger-text: var(--color-danger-fg);
+  --alert-danger-border: var(--color-danger-muted);
+
+  /* Cards */
+  --card-bg: var(--color-canvas-default);
+  --card-border: var(--color-border-default);
+  --card-shadow: 0 0 transparent;
+  --card-hover-shadow: 0 0 transparent;
+
+  /* Modals */
+  --modal-bg: var(--color-canvas-overlay);
+  --modal-backdrop: rgba(1, 4, 9, 0.8);
+  --modal-border: var(--color-border-default);
+  --modal-shadow: var(--shadow-xl);
+
+  /* Tooltips */
+  --tooltip-bg: #161b22;
+  --tooltip-text: #e6edf3;
+  --tooltip-shadow: var(--shadow-md);
+
+  /* Badges */
+  --badge-bg: var(--color-canvas-subtle);
+  --badge-text: var(--color-fg-default);
+  --badge-border: var(--color-border-default);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(110, 118, 129, 0.4);
+  --scrollbar-thumb-hover: rgba(110, 118, 129, 0.6);
+}
+
+
+/* ========== DARK PLUS THEME (VSCode Dark+ / High Contrast) ========== */
+.theme-demo-root.theme-dark-plus {
+  /* ===== Core Color Palette ===== */
+  --color-canvas-default: #000000;
+  --color-canvas-subtle: #0d1117;
+  --color-canvas-inset: #000000;
+  --color-canvas-overlay: #0d1117;
+
+  /* Borders */
+  --color-border-default: #30363d;
+  --color-border-muted: #21262d;
+  --color-border-subtle: #161b22;
+
+  /* Foreground/Text */
+  --color-fg-default: #f0f6fc;
+  --color-fg-muted: #8b949e;
+  --color-fg-subtle: #6e7681;
+  --color-fg-onEmphasis: #ffffff;
+
+  /* Accent Colors */
+  --color-accent-fg: #79c0ff;
+  --color-accent-emphasis: #388bfd;
+  --color-accent-muted: rgba(56, 139, 253, 0.5);
+  --color-accent-subtle: rgba(56, 139, 253, 0.2);
+
+  /* Status Colors */
+  --color-success-fg: #56d364;
+  --color-success-emphasis: #2ea043;
+  --color-success-muted: rgba(46, 160, 67, 0.5);
+  --color-success-subtle: rgba(46, 160, 67, 0.2);
+
+  --color-danger-fg: #ff7b72;
+  --color-danger-emphasis: #f85149;
+  --color-danger-muted: rgba(248, 81, 73, 0.5);
+  --color-danger-subtle: rgba(248, 81, 73, 0.2);
+
+  --color-attention-fg: #ffa657;
+  --color-attention-emphasis: #d29922;
+  --color-attention-muted: rgba(187, 128, 9, 0.5);
+  --color-attention-subtle: rgba(187, 128, 9, 0.2);
+
+  --color-info-fg: #79c0ff;
+  --color-info-emphasis: #388bfd;
+  --color-info-muted: rgba(56, 139, 253, 0.5);
+  --color-info-subtle: rgba(56, 139, 253, 0.2);
+
+  /* ===== Component Variables ===== */
+
+  /* Backgrounds */
+  --primary-bg: var(--color-canvas-default);
+  --secondary-bg: var(--color-canvas-subtle);
+  --accent-bg: var(--color-canvas-inset);
+  --content-bg: var(--color-canvas-default);
+
+  /* Text */
+  --primary-text: var(--color-fg-default);
+  --secondary-text: var(--color-fg-muted);
+  --muted-text: var(--color-fg-subtle);
+  --link-text: var(--color-accent-fg);
+  --link-hover: #a5d6ff;
+
+  /* Interactive Elements */
+  --button-bg: #21262d;
+  --button-text: var(--color-fg-default);
+  --button-border: rgba(240, 246, 252, 0.15);
+  --button-hover-bg: #30363d;
+  --button-hover-border: rgba(240, 246, 252, 0.25);
+  --button-active-bg: #373e47;
+  --button-shadow: 0 0 transparent;
+
+  --button-primary-bg: #388bfd;
+  --button-primary-text: #ffffff;
+  --button-primary-hover: #58a6ff;
+  --button-primary-border: rgba(240, 246, 252, 0.15);
+  --button-primary-shadow: 0 0 transparent;
+
+  /* Forms */
+  --form-input-bg: var(--color-canvas-default);
+  --form-input-border: var(--color-border-default);
+  --form-input-text: var(--color-fg-default);
+  --form-input-placeholder: var(--color-fg-muted);
+  --form-input-focus-border: var(--color-accent-emphasis);
+  --form-input-focus-shadow: 0 0 0 3px var(--color-accent-muted);
+  --form-input-disabled-bg: #0d1117;
+  --form-input-disabled-text: var(--color-fg-subtle);
+
+  /* Navbar */
+  --navbar-bg: #000000;
+  --navbar-text: rgba(240, 246, 252, 0.85);
+  --navbar-text-hover: #f0f6fc;
+  --navbar-border: var(--color-border-default);
+  --navbar-shadow: inset 0 -1px 0 var(--color-border-default);
+  --navbar-button-bg: rgba(240, 246, 252, 0.08);
+  --navbar-button-hover: rgba(240, 246, 252, 0.15);
+  --navbar-brand-color: #f0f6fc;
+  --navbar-search-bg: #0d1117;
+  --navbar-search-border: var(--color-border-default);
+  --navbar-search-focus: var(--color-accent-emphasis);
+
+  /* Sidebar */
+  --sidebar-bg: var(--color-canvas-default);
+  --sidebar-text: var(--color-fg-default);
+  --sidebar-text-hover: var(--color-fg-default);
+  --sidebar-border: var(--color-border-default);
+  --sidebar-shadow: inset -1px 0 0 var(--color-border-default);
+  --sidebar-button-bg: transparent;
+  --sidebar-button-hover: var(--color-canvas-subtle);
+  --sidebar-header-color: var(--color-fg-muted);
+  --sidebar-active-bg: var(--color-canvas-subtle);
+  --sidebar-active-border: var(--color-accent-emphasis);
+  --sidebar-active-text: var(--color-fg-default);
+  --sidebar-icon-color: var(--color-fg-muted);
+  --sidebar-icon-active: var(--color-accent-emphasis);
+
+  /* Breadcrumbs */
+  --breadcrumb-bg: transparent;
+  --breadcrumb-border: var(--color-border-default);
+  --breadcrumb-text: var(--color-fg-muted);
+  --breadcrumb-link: var(--color-accent-fg);
+  --breadcrumb-link-hover: var(--color-accent-emphasis);
+  --breadcrumb-separator: var(--color-fg-subtle);
+
+  /* Tables */
+  --table-bg: var(--color-canvas-default);
+  --table-header-bg: var(--color-canvas-subtle);
+  --table-header-text: var(--color-fg-default);
+  --table-border: var(--color-border-default);
+  --table-border-subtle: var(--color-border-muted);
+  --table-row-hover: var(--color-canvas-subtle);
+  --table-row-selected: rgba(187, 128, 9, 0.2);
+  --table-row-selected-border: var(--color-attention-emphasis);
+  --table-cell-text: var(--color-fg-default);
+  --table-cell-muted: var(--color-fg-muted);
+
+  /* Table Toolbar */
+  --table-toolbar-bg: var(--color-canvas-subtle);
+  --table-toolbar-border: var(--color-border-default);
+  --table-toolbar-text: var(--color-fg-default);
+
+  /* Table Pagination */
+  --table-pagination-bg: var(--color-canvas-default);
+  --table-pagination-border: var(--color-border-default);
+  --table-pagination-text: var(--color-fg-default);
+  --table-pagination-button-bg: transparent;
+  --table-pagination-button-hover: var(--color-canvas-subtle);
+  --table-pagination-button-active: var(--color-accent-emphasis);
+  --table-pagination-button-border: var(--color-border-default);
+
+  /* Code Blocks */
+  --code-bg: #0d1117;
+  --code-text: #f0f6fc;
+  --code-border: var(--color-border-default);
+
+  /* Alerts */
+  --alert-info-bg: var(--color-info-subtle);
+  --alert-info-text: var(--color-info-fg);
+  --alert-info-border: var(--color-info-muted);
+
+  --alert-success-bg: var(--color-success-subtle);
+  --alert-success-text: var(--color-success-fg);
+  --alert-success-border: var(--color-success-muted);
+
+  --alert-warning-bg: var(--color-attention-subtle);
+  --alert-warning-text: var(--color-attention-fg);
+  --alert-warning-border: var(--color-attention-muted);
+
+  --alert-danger-bg: var(--color-danger-subtle);
+  --alert-danger-text: var(--color-danger-fg);
+  --alert-danger-border: var(--color-danger-muted);
+
+  /* Cards */
+  --card-bg: var(--color-canvas-default);
+  --card-border: var(--color-border-default);
+  --card-shadow: 0 0 transparent;
+  --card-hover-shadow: 0 0 transparent;
+
+  /* Modals */
+  --modal-bg: var(--color-canvas-overlay);
+  --modal-backdrop: rgba(0, 0, 0, 0.85);
+  --modal-border: var(--color-border-default);
+  --modal-shadow: var(--shadow-xl);
+
+  /* Tooltips */
+  --tooltip-bg: #0d1117;
+  --tooltip-text: #f0f6fc;
+  --tooltip-shadow: var(--shadow-md);
+
+  /* Badges */
+  --badge-bg: var(--color-canvas-subtle);
+  --badge-text: var(--color-fg-default);
+  --badge-border: var(--color-border-default);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(139, 148, 158, 0.4);
+  --scrollbar-thumb-hover: rgba(139, 148, 158, 0.6);
+}
+
+
+/* ========== ACCESSIBILITY ========== */
+
+/* Focus States */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-emphasis);
+  outline-offset: 2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .theme-demo-root.theme-light,
+  .theme-demo-root.theme-dark,
+  .theme-demo-root.theme-dark-plus {
+    --color-border-default: currentColor;
+    --button-border: currentColor;
+    --form-input-border: currentColor;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .theme-demo-root.theme-light,
+  .theme-demo-root.theme-dark,
+  .theme-demo-root.theme-dark-plus {
+    --primary-bg: #ffffff;
+    --secondary-bg: #ffffff;
+    --primary-text: #000000;
+    --secondary-text: #000000;
+    --table-border: #000000;
+    --card-border: #000000;
+  }
+}
+
+/* Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* Firefox Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}

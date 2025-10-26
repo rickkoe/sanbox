@@ -1,0 +1,276 @@
+/* Sample Table Component Styles */
+
+.sample-table-container {
+  background: var(--table-bg);
+  border: 1px solid var(--table-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Toolbar */
+.sample-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--table-toolbar-border);
+  background: var(--table-toolbar-bg);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.sample-table-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sample-table-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--table-toolbar-text);
+  margin: 0;
+}
+
+.sample-table-count {
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text);
+  padding: 2px var(--space-2);
+  background: var(--secondary-bg);
+  border-radius: var(--radius-md);
+}
+
+.sample-table-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sample-table-button {
+  padding: var(--space-2) var(--space-4);
+  background: var(--button-bg);
+  color: var(--button-text);
+  border: 1px solid var(--button-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-speed) var(--transition-timing);
+  box-shadow: var(--button-shadow);
+}
+
+.sample-table-button:hover {
+  background: var(--button-hover-bg);
+  border-color: var(--button-hover-border);
+}
+
+.sample-table-button-primary {
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  border-color: var(--button-primary-border);
+  box-shadow: var(--button-primary-shadow);
+}
+
+.sample-table-button-primary:hover {
+  background: var(--button-primary-hover);
+}
+
+/* Table Wrapper */
+.sample-table-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+/* Table */
+.sample-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.sample-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sample-table th {
+  background: var(--table-header-bg);
+  color: var(--table-header-text);
+  font-weight: 600;
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--table-border);
+  white-space: nowrap;
+}
+
+.sample-table-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sample-table-sortable:hover {
+  background: var(--table-row-hover);
+}
+
+.sample-table-th-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sample-table tbody tr {
+  border-bottom: 1px solid var(--table-border-subtle);
+  transition: background-color var(--transition-speed) var(--transition-timing);
+}
+
+.sample-table tbody tr:hover {
+  background: var(--table-row-hover);
+}
+
+.sample-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.sample-table td {
+  padding: var(--space-3) var(--space-4);
+  color: var(--table-cell-text);
+}
+
+.sample-table-cell-primary {
+  font-weight: 500;
+  color: var(--primary-text);
+}
+
+.sample-table-cell-muted {
+  color: var(--table-cell-muted);
+}
+
+/* Status Badges */
+.sample-table-status {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.status-active {
+  background: var(--alert-success-bg);
+  color: var(--alert-success-text);
+  border: 1px solid var(--alert-success-border);
+}
+
+.status-inactive {
+  background: var(--secondary-bg);
+  color: var(--secondary-text);
+  border: 1px solid var(--color-border-default);
+}
+
+.status-warning {
+  background: var(--alert-warning-bg);
+  color: var(--alert-warning-text);
+  border: 1px solid var(--alert-warning-border);
+}
+
+/* Pagination */
+.sample-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--table-pagination-border);
+  background: var(--table-pagination-bg);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.sample-table-pagination-info {
+  font-size: var(--font-size-sm);
+  color: var(--table-pagination-text);
+}
+
+.sample-table-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sample-table-pagination-page {
+  font-size: var(--font-size-sm);
+  color: var(--table-pagination-text);
+  font-weight: 500;
+}
+
+.sample-table-pagination-button {
+  padding: var(--space-2);
+  background: var(--table-pagination-button-bg);
+  color: var(--table-pagination-text);
+  border: 1px solid var(--table-pagination-button-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+.sample-table-pagination-button:hover:not(:disabled) {
+  background: var(--table-pagination-button-hover);
+}
+
+.sample-table-pagination-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sample-table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sample-table-toolbar-left,
+  .sample-table-toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sample-table-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sample-table-pagination-info {
+    text-align: center;
+  }
+
+  .sample-table-pagination-controls {
+    justify-content: center;
+  }
+}
+
+/* Scrollbar */
+.sample-table-wrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.sample-table-wrapper::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.sample-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.sample-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
