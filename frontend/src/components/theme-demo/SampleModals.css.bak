@@ -1,7 +1,7 @@
 /* Standardized Modal Styles */
 
 /* Modal Overlay */
-.theme-demo-root .modal-overlay {
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -49,22 +49,22 @@
 }
 
 /* Modal Sizes */
-.theme-demo-root .modal-sm {
+.modal-sm {
   width: 90%;
   max-width: 400px;
 }
 
-.theme-demo-root .modal-md {
+.modal-md {
   width: 90%;
   max-width: 600px;
 }
 
-.theme-demo-root .modal-lg {
+.modal-lg {
   width: 90%;
   max-width: 800px;
 }
 
-.theme-demo-root .modal-xl {
+.modal-xl {
   width: 90%;
   max-width: 1000px;
 }
@@ -81,14 +81,14 @@
   flex-shrink: 0;
 }
 
-.theme-demo-root .modal-title {
+.modal-title {
   font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--primary-text);
   margin: 0;
 }
 
-.theme-demo-root .modal-close-button {
+.modal-close-button {
   background: transparent; /* Subtle, no background */
   border: none; /* No border */
   border-radius: var(--radius-md);
@@ -102,7 +102,7 @@
   opacity: 0.7; /* Subtle by default */
 }
 
-.theme-demo-root .modal-close-button:hover {
+.modal-close-button:hover {
   background: var(--button-hover-bg); /* Light hover effect */
   color: var(--primary-text); /* Brighter on hover */
   opacity: 1;
@@ -117,12 +117,12 @@
   background: var(--modal-bg) !important; /* Explicit background to match container */
 }
 
-.theme-demo-root .modal-body p {
+.modal-body p {
   margin: 0 0 var(--space-3) 0;
   line-height: var(--line-height-normal);
 }
 
-.theme-demo-root .modal-body p:last-child {
+.modal-body p:last-child {
   margin-bottom: 0;
 }
 
@@ -140,7 +140,7 @@
 }
 
 /* Modal Buttons */
-.theme-demo-root .modal-btn {
+.modal-btn {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -153,69 +153,69 @@
   gap: var(--space-2);
 }
 
-.theme-demo-root .modal-btn:disabled {
+.modal-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.theme-demo-root .modal-btn-primary {
+.modal-btn-primary {
   background: var(--button-primary-bg);
   color: var(--button-primary-text);
   border-color: var(--button-primary-border);
 }
 
-.theme-demo-root .modal-btn-primary:hover:not(:disabled) {
+.modal-btn-primary:hover:not(:disabled) {
   background: var(--button-primary-hover);
 }
 
-.theme-demo-root .modal-btn-secondary {
+.modal-btn-secondary {
   background: var(--button-bg);
   color: var(--button-text);
   border-color: var(--button-border);
 }
 
-.theme-demo-root .modal-btn-secondary:hover:not(:disabled) {
+.modal-btn-secondary:hover:not(:disabled) {
   background: var(--button-hover-bg);
   border-color: var(--button-hover-border);
 }
 
-.theme-demo-root .modal-btn-info {
+.modal-btn-info {
   background: var(--color-info-emphasis);
   color: white;
   border-color: var(--color-info-emphasis);
 }
 
-.theme-demo-root .modal-btn-info:hover:not(:disabled) {
+.modal-btn-info:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-.theme-demo-root .modal-btn-warning {
+.modal-btn-warning {
   background: var(--color-attention-emphasis);
   color: white;
   border-color: var(--color-attention-emphasis);
 }
 
-.theme-demo-root .modal-btn-warning:hover:not(:disabled) {
+.modal-btn-warning:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-.theme-demo-root .modal-btn-danger {
+.modal-btn-danger {
   background: var(--color-danger-emphasis);
   color: white;
   border-color: var(--color-danger-emphasis);
 }
 
-.theme-demo-root .modal-btn-danger:hover:not(:disabled) {
+.modal-btn-danger:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-.theme-demo-root .modal-btn-success {
+.modal-btn-success {
   background: var(--color-success-emphasis);
   color: white;
   border-color: var(--color-success-emphasis);
 }
 
-.theme-demo-root .modal-btn-success:hover:not(:disabled) {
+.modal-btn-success:hover:not(:disabled) {
   opacity: 0.9;
 }
 
@@ -281,15 +281,15 @@
   justify-content: flex-end;
 }
 
-.theme-demo-root .modal-body .form-group {
+.modal-body .form-group {
   margin-bottom: var(--space-4);
 }
 
-.theme-demo-root .modal-body .form-group:last-child {
+.modal-body .form-group:last-child {
   margin-bottom: 0;
 }
 
-.theme-demo-root .modal-body .form-group label {
+.modal-body .form-group label {
   display: block;
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -297,8 +297,8 @@
   margin-bottom: var(--space-2);
 }
 
-.theme-demo-root .modal-body .form-input,
-.theme-demo-root .modal-body .form-textarea {
+.modal-body .form-input,
+.modal-body .form-textarea {
   width: 100%;
   padding: var(--space-2) var(--space-3);
   background: var(--form-input-bg);
@@ -310,19 +310,19 @@
   transition: all var(--transition-speed) var(--transition-timing);
 }
 
-.theme-demo-root .modal-body .form-input:focus,
-.theme-demo-root .modal-body .form-textarea:focus {
+.modal-body .form-input:focus,
+.modal-body .form-textarea:focus {
   outline: none;
   border-color: var(--form-input-focus-border);
   box-shadow: var(--form-input-focus-shadow);
 }
 
-.theme-demo-root .modal-body .form-textarea {
+.modal-body .form-textarea {
   resize: vertical;
   min-height: 80px;
 }
 
-.theme-demo-root .modal-body .checkbox-label {
+.modal-body .checkbox-label {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -330,7 +330,7 @@
   font-weight: 400;
 }
 
-.theme-demo-root .modal-body .checkbox-label input[type="checkbox"] {
+.modal-body .checkbox-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -355,13 +355,13 @@
   margin: 0 0 var(--space-5) 0;
 }
 
-.theme-demo-root .modal-demo-grid {
+.modal-demo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: var(--space-4);
 }
 
-.theme-demo-root .modal-demo-item {
+.modal-demo-item {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
@@ -369,7 +369,7 @@
   box-shadow: var(--card-shadow);
 }
 
-.theme-demo-root .modal-demo-item h4 {
+.modal-demo-item h4 {
   font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--primary-text);

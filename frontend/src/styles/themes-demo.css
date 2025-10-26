@@ -262,7 +262,7 @@
   --color-canvas-default: #0d1117;
   --color-canvas-subtle: #161b22;
   --color-canvas-inset: #010409;
-  --color-canvas-overlay: #161b22;
+  --color-canvas-overlay: #0d1117; /* Match default for unified modal background */
 
   /* Borders */
   --color-border-default: #30363d;
@@ -461,7 +461,7 @@
   --color-canvas-default: #000000;
   --color-canvas-subtle: #0d1117;
   --color-canvas-inset: #000000;
-  --color-canvas-overlay: #0d1117;
+  --color-canvas-overlay: #000000; /* Match default for unified modal background */
 
   /* Borders */
   --color-border-default: #30363d;
