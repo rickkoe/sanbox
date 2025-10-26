@@ -23,12 +23,12 @@
 
 .status-card.color-success {
   border-color: var(--success-color);
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.02));
+  background: linear-gradient(135deg, var(--color-success-subtle), var(--color-success-subtle));
 }
 
 .status-card.color-error {
   border-color: var(--error-color);
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+  background: linear-gradient(135deg, var(--color-danger-subtle), var(--color-danger-subtle));
 }
 
 /* Status Icon */
@@ -56,7 +56,6 @@
   border-radius: 50%;
   border: 2px solid currentColor;
   opacity: 0.15;
-  animation: pulseRing 2s ease-in-out infinite;
 }
 
 .status-icon-wrapper svg {
@@ -70,7 +69,6 @@
 }
 
 .status-icon-wrapper svg.success-bounce {
-  animation: successBounce 0.6s ease-out;
 }
 
 /* Status Content */
@@ -153,7 +151,7 @@
   height: 8px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--color-border-muted);
 }
 
 .progress-bar-bg {
@@ -212,7 +210,7 @@
 
 .stat-item:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px var(--color-border-muted);
 }
 
 .stat-icon {
@@ -234,7 +232,6 @@
   font-weight: 700;
   color: var(--text-color);
   margin-bottom: 0.5rem;
-  animation: countUp 0.5s ease;
 }
 
 .stat-label {
@@ -318,7 +315,7 @@
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-border-muted);
   transform: translate(-50%, -50%);
   transition: width 0.6s, height 0.6s;
 }
@@ -391,7 +388,6 @@
 .timeline-item {
   position: relative;
   padding-bottom: 1.5rem;
-  animation: slideInLeft 0.5s ease;
 }
 
 .timeline-marker {
@@ -484,8 +480,8 @@
 
 /* Dark Theme Adjustments */
 .theme-dark .action-button.primary {
-  background: linear-gradient(135deg, #64ffda, #4fd1c7);
-  color: #0f172a;
+  background: linear-gradient(135deg, var(--color-accent-emphasis), var(--color-accent-fg));
+  color: var(--color-canvas-inset);
 }
 
 /* Light Theme Variables */
@@ -494,8 +490,8 @@
   --error-rgb: 239, 68, 68;
   --warning-rgb: 245, 158, 11;
   --info-rgb: 99, 179, 237;
-  --success-light: rgba(16, 185, 129, 0.1);
-  --error-light: rgba(239, 68, 68, 0.1);
+  --success-light: var(--color-success-subtle);
+  --error-light: var(--color-danger-subtle);
 }
 
 /* Responsive */

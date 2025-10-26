@@ -11,6 +11,7 @@ import ProgressTracker from '../components/backup/ProgressTracker';
 import BackupLogsViewer from '../components/backup/BackupLogsViewer';
 import BackupCompare from '../components/backup/BackupCompare';
 import BackupScheduler from '../components/backup/BackupScheduler';
+import '../styles/backup.css';
 
 const BackupManagement = () => {
   const [backups, setBackups] = useState([]);
@@ -896,11 +897,11 @@ const BackupManagement = () => {
       />
 
       {/* Scheduler Modal */}
-      <Modal show={showSchedulerModal} onHide={() => setShowSchedulerModal(false)} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>Backup Scheduler</Modal.Title>
+      <Modal show={showSchedulerModal} onHide={() => setShowSchedulerModal(false)} size="lg" dialogClassName="backup-scheduler-modal">
+        <Modal.Header closeButton style={{ backgroundColor: 'var(--table-header-bg)', borderBottomColor: 'var(--table-border)', color: 'var(--table-header-text)' }}>
+          <Modal.Title style={{ color: 'var(--primary-text)' }}>Backup Scheduler</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ backgroundColor: 'var(--modal-bg)', color: 'var(--primary-text)', padding: 0 }}>
           <BackupScheduler
             onSave={() => {
               setShowSchedulerModal(false);

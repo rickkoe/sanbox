@@ -3,9 +3,9 @@
 .theme-toggle-btn {
   background: none !important;
   border: none !important;
-  padding: 0.5rem !important;
+  padding: var(--space-2) !important;
   cursor: pointer !important;
-  transition: all 0.3s ease !important;
+  transition: all var(--transition-speed) var(--transition-timing) !important;
   border-radius: 20px !important;
   display: flex !important;
   align-items: center !important;
@@ -13,13 +13,13 @@
 }
 
 .theme-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: var(--navbar-button-hover) !important;
   transform: scale(1.02) !important;
 }
 
 .theme-toggle-btn:focus {
   outline: none !important;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 0 0 1px var(--navbar-border) !important;
 }
 
 /* ========== TOGGLE TRACK ========== */
@@ -27,16 +27,16 @@
 .theme-toggle-track {
   width: 40px;
   height: 20px;
-  background: var(--navbar-border, rgba(255, 255, 255, 0.2));
+  background: var(--navbar-border);
   border-radius: 20px;
   position: relative;
-  transition: all 0.3s ease;
-  border: 1px solid var(--navbar-border, rgba(255, 255, 255, 0.3));
+  transition: all var(--transition-speed) var(--transition-timing);
+  border: 1px solid var(--navbar-border);
 }
 
 .theme-toggle-btn:hover .theme-toggle-track {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: var(--navbar-button-hover);
+  border-color: var(--navbar-text);
 }
 
 /* ========== TOGGLE THUMB ========== */
@@ -44,16 +44,16 @@
 .theme-toggle-thumb {
   width: 16px;
   height: 16px;
-  background: var(--navbar-text, #ffffff);
+  background: var(--navbar-text);
   border-radius: 50%;
   position: absolute;
   top: 1px;
   left: 2px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Move thumb to the right for dark theme */
@@ -64,70 +64,12 @@
 /* ========== THEME ICONS ========== */
 
 .theme-icon {
-  color: var(--navbar-bg, #475569);
-  transition: all 0.3s ease;
+  color: var(--navbar-bg);
+  transition: all var(--transition-speed) var(--transition-timing);
 }
 
 .theme-toggle-btn:hover .theme-icon {
   transform: rotate(15deg);
-}
-
-/* ========== THEME-SPECIFIC STYLES ========== */
-
-/* Light Theme - Now with dark navbar */
-.navbar.theme-light .theme-toggle-track {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.navbar.theme-light .theme-toggle-btn:hover .theme-toggle-track {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.navbar.theme-light .theme-toggle-thumb {
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.navbar.theme-light .theme-icon {
-  color: #93b3cc;
-}
-
-.navbar.theme-light .theme-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-
-.navbar.theme-light .theme-toggle-btn:focus {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
-}
-
-/* Dark Theme */
-.navbar.theme-dark .theme-toggle-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.navbar.theme-dark .theme-toggle-btn:hover .theme-toggle-track {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.25);
-}
-
-.navbar.theme-dark .theme-toggle-thumb {
-  background: #1a1a2e;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-
-.navbar.theme-dark .theme-icon {
-  color: #64ffda;
-}
-
-.navbar.theme-dark .theme-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
-}
-
-.navbar.theme-dark .theme-toggle-btn:focus {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
 }
 
 /* ========== ACCESSIBILITY & ANIMATIONS ========== */
@@ -146,7 +88,7 @@
   .theme-toggle-track {
     border-width: 2px !important;
   }
-  
+
   .theme-toggle-thumb {
     box-shadow: 0 0 0 2px currentColor !important;
   }
@@ -156,23 +98,23 @@
 
 @media (max-width: 768px) {
   .theme-toggle-btn {
-    padding: 0.4rem !important;
+    padding: var(--space-1) !important;
   }
-  
+
   .theme-toggle-track {
     width: 36px;
     height: 18px;
   }
-  
+
   .theme-toggle-thumb {
     width: 14px;
     height: 14px;
   }
-  
+
   .theme-toggle-btn.dark .theme-toggle-thumb {
     left: 18px;
   }
-  
+
   .theme-icon {
     width: 12px;
     height: 12px;

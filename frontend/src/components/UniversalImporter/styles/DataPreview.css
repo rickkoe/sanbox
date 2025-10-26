@@ -76,7 +76,7 @@
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px var(--color-border-muted);
 }
 
 .stat-icon {
@@ -192,7 +192,6 @@
   border: 1px solid var(--border-color);
   border-radius: 12px;
   margin-bottom: 1rem;
-  animation: slideDown 0.3s ease;
 }
 
 .filter-item {
@@ -302,7 +301,6 @@
 .table-container {
   max-height: 400px;
   overflow: auto;
-  animation: expandIn 0.3s ease;
 }
 
 /* Custom Scrollbar */
@@ -480,35 +478,35 @@
 
 /* Dark Theme Adjustments */
 .theme-dark .stat-card {
-  background: rgba(30, 30, 60, 0.5);
-  border-color: rgba(100, 255, 218, 0.2);
+  background: var(--color-canvas-subtle);
+  border-color: var(--color-accent-muted);
 }
 
 .theme-dark .preview-table tbody tr:hover {
-  background: rgba(100, 255, 218, 0.05);
+  background: var(--color-accent-subtle);
 }
 
 .theme-dark .preview-table tbody tr.selected {
-  background: rgba(100, 255, 218, 0.1);
+  background: var(--color-accent-subtle);
 }
 
 .theme-dark .member-badge {
-  background: rgba(100, 255, 218, 0.1);
-  border-color: rgba(100, 255, 218, 0.3);
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent-muted);
 }
 
 /* Light Theme Adjustments */
 .theme-light .stat-card {
   background: white;
-  border-color: #e2e8f0;
+  border-color: var(--color-fg-default);
 }
 
 .theme-light .preview-table tbody tr:hover {
-  background: rgba(30, 58, 82, 0.02);
+  background: var(--color-accent-subtle);
 }
 
 .theme-light .preview-table tbody tr.selected {
-  background: rgba(30, 58, 82, 0.05);
+  background: var(--color-accent-subtle);
 }
 
 /* Responsive */

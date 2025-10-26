@@ -50,6 +50,14 @@ export const ThemeProvider = ({ children }) => {
     dashboardUpdateRef.current = null;
   };
 
+  // Apply theme class to document.body for portaled elements (dropdowns, modals, etc.)
+  useEffect(() => {
+    // Remove any existing theme classes
+    document.body.classList.remove('theme-light', 'theme-dark');
+    // Add current theme class
+    document.body.classList.add(`theme-${theme}`);
+  }, [theme]);
+
   // Listen for theme changes from other tabs/windows
   useEffect(() => {
     const handleStorageChange = (e) => {

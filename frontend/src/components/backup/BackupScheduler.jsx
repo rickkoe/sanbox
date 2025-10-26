@@ -4,6 +4,7 @@ import {
   FaCalendarAlt, FaClock, FaDatabase, FaLightbulb
 } from 'react-icons/fa';
 import backupService from '../../services/backupService';
+import '../../styles/backup.css';
 
 /**
  * Backup scheduling configuration component
@@ -126,7 +127,7 @@ const BackupScheduler = ({ onSave }) => {
   }
 
   return (
-    <Card>
+    <Card className="backup-scheduler-card">
       <Card.Header>
         <div className="d-flex align-items-center justify-content-between">
           <h6 className="mb-0"><FaCalendarAlt className="me-2" />Backup Schedule Configuration</h6>
@@ -152,14 +153,20 @@ const BackupScheduler = ({ onSave }) => {
         )}
 
         {/* Enable/Disable Schedule */}
-        <div className="mb-4 p-3 bg-light rounded">
+        <div
+          className="mb-4 p-3 rounded"
+          style={{
+            backgroundColor: 'var(--secondary-bg)',
+            border: '1px solid var(--table-border)'
+          }}
+        >
           <Form.Check
             type="switch"
             id="auto-backup-enabled"
             label={
               <span>
                 <strong>Enable Automatic Scheduled Backups</strong>
-                <div className="small text-muted">
+                <div className="small" style={{ color: 'var(--muted-text)' }}>
                   Automatically create backups on a scheduled basis
                 </div>
               </span>
@@ -173,30 +180,40 @@ const BackupScheduler = ({ onSave }) => {
         {formData.auto_backup_enabled && (
           <>
             <div className="mb-4">
-              <Form.Label>
+              <Form.Label style={{ color: 'var(--primary-text)' }}>
                 <FaClock className="me-2" />
                 <strong>Backup Frequency</strong>
               </Form.Label>
               <Form.Select
                 value={formData.auto_backup_frequency}
                 onChange={(e) => handleChange('auto_backup_frequency', e.target.value)}
+                style={{
+                  backgroundColor: 'var(--form-input-bg)',
+                  color: 'var(--form-input-text)',
+                  borderColor: 'var(--form-input-border)'
+                }}
               >
                 <option value="hourly">Hourly - Every hour</option>
                 <option value="daily">Daily - Once per day</option>
               </Form.Select>
-              <Form.Text className="text-muted">
+              <Form.Text style={{ color: 'var(--muted-text)' }}>
                 Choose how often automatic backups should run
               </Form.Text>
             </div>
 
             {formData.auto_backup_frequency === 'daily' && (
               <div className="mb-4">
-                <Form.Label>
+                <Form.Label style={{ color: 'var(--primary-text)' }}>
                   <strong>Daily Backup Time</strong>
                 </Form.Label>
                 <Form.Select
                   value={formData.auto_backup_hour}
                   onChange={(e) => handleChange('auto_backup_hour', parseInt(e.target.value))}
+                  style={{
+                    backgroundColor: 'var(--form-input-bg)',
+                    color: 'var(--form-input-text)',
+                    borderColor: 'var(--form-input-border)'
+                  }}
                 >
                   {timeOptions.map(opt => (
                     <option key={opt.value} value={opt.value}>
@@ -204,7 +221,7 @@ const BackupScheduler = ({ onSave }) => {
                     </option>
                   ))}
                 </Form.Select>
-                <Form.Text className="text-muted">
+                <Form.Text style={{ color: 'var(--muted-text)' }}>
                   Server time (local to the server). Daily backups will run at this time.
                 </Form.Text>
               </div>
@@ -232,7 +249,7 @@ const BackupScheduler = ({ onSave }) => {
                     minute: '2-digit'
                   })}
                 </div>
-                <small className="text-muted">
+                <small style={{ color: 'var(--muted-text)' }}>
                   {formData.auto_backup_frequency === 'hourly' ? (
                     `(${Math.ceil((nextBackup - new Date()) / (1000 * 60))} minutes from now)`
                   ) : (
@@ -249,7 +266,7 @@ const BackupScheduler = ({ onSave }) => {
                 label={
                   <span>
                     <strong>Include Media Files</strong>
-                    <div className="small text-muted">
+                    <div className="small" style={{ color: 'var(--muted-text)' }}>
                       Include uploaded media files in automatic backups (increases backup size)
                     </div>
                   </span>
@@ -264,10 +281,10 @@ const BackupScheduler = ({ onSave }) => {
         <hr />
 
         {/* Retention Policy */}
-        <h6 className="mb-3"><FaDatabase className="me-2" />Retention Policy</h6>
+        <h6 className="mb-3" style={{ color: 'var(--primary-text)' }}><FaDatabase className="me-2" />Retention Policy</h6>
 
         <div className="mb-3">
-          <Form.Label>
+          <Form.Label style={{ color: 'var(--primary-text)' }}>
             <strong>Maximum Backups to Retain</strong>
           </Form.Label>
           <InputGroup>
@@ -276,17 +293,26 @@ const BackupScheduler = ({ onSave }) => {
               min="0"
               value={formData.max_backups}
               onChange={(e) => handleChange('max_backups', parseInt(e.target.value))}
+              style={{
+                backgroundColor: 'var(--form-input-bg)',
+                color: 'var(--form-input-text)',
+                borderColor: 'var(--form-input-border)'
+              }}
             />
-            <InputGroup.Text>backups</InputGroup.Text>
+            <InputGroup.Text style={{
+              backgroundColor: 'var(--secondary-bg)',
+              color: 'var(--primary-text)',
+              borderColor: 'var(--form-input-border)'
+            }}>backups</InputGroup.Text>
           </InputGroup>
-          <Form.Text className="text-muted">
+          <Form.Text style={{ color: 'var(--muted-text)' }}>
             Keep only the N most recent backups. Set to 0 for unlimited.
             {formData.max_backups > 0 && ` Older backups will be automatically deleted.`}
           </Form.Text>
         </div>
 
         <div className="mb-4">
-          <Form.Label>
+          <Form.Label style={{ color: 'var(--primary-text)' }}>
             <strong>Retention Period</strong>
           </Form.Label>
           <InputGroup>
@@ -295,10 +321,19 @@ const BackupScheduler = ({ onSave }) => {
               min="0"
               value={formData.retention_days}
               onChange={(e) => handleChange('retention_days', parseInt(e.target.value))}
+              style={{
+                backgroundColor: 'var(--form-input-bg)',
+                color: 'var(--form-input-text)',
+                borderColor: 'var(--form-input-border)'
+              }}
             />
-            <InputGroup.Text>days</InputGroup.Text>
+            <InputGroup.Text style={{
+              backgroundColor: 'var(--secondary-bg)',
+              color: 'var(--primary-text)',
+              borderColor: 'var(--form-input-border)'
+            }}>days</InputGroup.Text>
           </InputGroup>
-          <Form.Text className="text-muted">
+          <Form.Text style={{ color: 'var(--muted-text)' }}>
             Automatically delete backups older than this many days. Set to 0 to keep all.
             {formData.retention_days > 0 && ` Backups older than ${formData.retention_days} days will be deleted.`}
           </Form.Text>
@@ -359,8 +394,14 @@ const BackupScheduler = ({ onSave }) => {
         </div>
 
         {/* Help Text */}
-        <div className="mt-4 p-3 bg-light rounded">
-          <small className="text-muted">
+        <div
+          className="mt-4 p-3 rounded"
+          style={{
+            backgroundColor: 'var(--secondary-bg)',
+            border: '1px solid var(--table-border)'
+          }}
+        >
+          <small style={{ color: 'var(--muted-text)' }}>
             <FaLightbulb className="me-2" />
             <strong>Tips:</strong>
             <ul className="mb-0 mt-2">

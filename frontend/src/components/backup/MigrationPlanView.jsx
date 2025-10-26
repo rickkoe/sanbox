@@ -185,7 +185,7 @@ const MigrationPlanView = ({ backup, currentMigrations, migrationPlan, compatibi
                                 key={idx}
                                 className="mb-1"
                                 style={{
-                                  color: isNew ? '#28a745' : 'inherit',
+                                  color: isNew ? 'var(--success-text)' : 'inherit',
                                   fontWeight: isNew ? 'bold' : 'normal'
                                 }}
                               >

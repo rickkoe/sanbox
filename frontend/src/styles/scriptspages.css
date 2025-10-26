@@ -364,54 +364,28 @@
 
 .download-modal .modal-content,
 .modal.download-modal .modal-content {
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-    border: 2px solid #dee2e6 !important;
+    background: var(--modal-bg) !important;
+    background-color: var(--modal-bg) !important;
+    border: 2px solid var(--modal-border) !important;
     border-radius: 12px !important;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
-}
-
-/* Dark theme modal */
-.theme-dark .download-modal .modal-content,
-.theme-dark .modal.download-modal .modal-content,
-.download-modal.theme-dark .modal-content,
-.modal.download-modal.theme-dark .modal-content {
-    background: #1a1a2e !important;
-    background-color: #1a1a2e !important;
-    border: 2px solid #2d3748 !important;
+    box-shadow: var(--modal-shadow) !important;
 }
 
 .download-modal-header,
 .download-modal .modal-header {
-    background: #f8f9fa !important;
-    background-color: #f8f9fa !important;
-    border-bottom: 1px solid #dee2e6 !important;
+    background: var(--secondary-bg) !important;
+    background-color: var(--secondary-bg) !important;
+    border-bottom: 1px solid var(--modal-border) !important;
     padding: 1.5rem !important;
     border-top-left-radius: 12px !important;
     border-top-right-radius: 12px !important;
 }
 
-.theme-dark .download-modal-header,
-.theme-dark .download-modal .modal-header,
-.download-modal.theme-dark .download-modal-header,
-.download-modal.theme-dark .modal-header {
-    background: #0f172a !important;
-    background-color: #0f172a !important;
-    border-bottom: 1px solid #2d3748 !important;
-}
-
 .download-modal-header .modal-title,
 .download-modal .modal-title {
-    color: #212529 !important;
+    color: var(--primary-text) !important;
     font-size: 1.25rem !important;
     font-weight: 600 !important;
-}
-
-.theme-dark .download-modal-header .modal-title,
-.theme-dark .download-modal .modal-title,
-.download-modal.theme-dark .download-modal-header .modal-title,
-.download-modal.theme-dark .modal-title {
-    color: #e2e8f0 !important;
 }
 
 .download-modal-header .btn-close,
@@ -420,9 +394,7 @@
 }
 
 .theme-dark .download-modal-header .btn-close,
-.theme-dark .download-modal .btn-close,
-.download-modal.theme-dark .download-modal-header .btn-close,
-.download-modal.theme-dark .btn-close {
+.theme-dark .download-modal .btn-close {
     filter: invert(1);
 }
 
@@ -431,16 +403,8 @@
     padding: 1.5rem !important;
     max-height: 60vh;
     overflow-y: auto;
-    background: #ffffff !important;
-    background-color: #ffffff !important;
-}
-
-.theme-dark .download-modal-body,
-.theme-dark .download-modal .modal-body,
-.download-modal.theme-dark .download-modal-body,
-.download-modal.theme-dark .modal-body {
-    background: #1a1a2e !important;
-    background-color: #1a1a2e !important;
+    background: var(--modal-bg) !important;
+    background-color: var(--modal-bg) !important;
 }
 
 .download-modal-section {
@@ -503,11 +467,10 @@
     border-color: var(--link-text) !important;
 }
 
-.theme-dark .select-all-checkbox .form-check-input:checked,
-.download-modal.theme-dark .select-all-checkbox .form-check-input:checked {
+.theme-dark .select-all-checkbox .form-check-input:checked {
     background-color: var(--link-text) !important;
     border-color: var(--link-text) !important;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%230f172a' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
 }
 
 .select-all-checkbox .form-check-label {
@@ -569,11 +532,10 @@
     border-color: var(--link-text) !important;
 }
 
-.theme-dark .fabric-checkbox .form-check-input:checked,
-.download-modal.theme-dark .fabric-checkbox .form-check-input:checked {
+.theme-dark .fabric-checkbox .form-check-input:checked {
     background-color: var(--link-text) !important;
     border-color: var(--link-text) !important;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%230f172a' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") !important;
 }
 
 .fabric-label {
@@ -626,24 +588,15 @@
 
 .download-modal-footer,
 .download-modal .modal-footer {
-    background: #f8f9fa !important;
-    background-color: #f8f9fa !important;
-    border-top: 1px solid #dee2e6 !important;
+    background: var(--secondary-bg) !important;
+    background-color: var(--secondary-bg) !important;
+    border-top: 1px solid var(--modal-border) !important;
     padding: 1.5rem !important;
     display: flex !important;
     gap: 0.75rem !important;
     justify-content: flex-end !important;
     border-bottom-left-radius: 12px !important;
     border-bottom-right-radius: 12px !important;
-}
-
-.theme-dark .download-modal-footer,
-.theme-dark .download-modal .modal-footer,
-.download-modal.theme-dark .download-modal-footer,
-.download-modal.theme-dark .modal-footer {
-    background: #0f172a !important;
-    background-color: #0f172a !important;
-    border-top: 1px solid #2d3748 !important;
 }
 
 .modal-btn {

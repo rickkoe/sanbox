@@ -39,12 +39,12 @@
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 80px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 0 0 1px var(--color-border-subtle) !important;
 }
 
 .import-type-dropdown-toggle:hover {
   border-color: var(--primary-color) !important;
-  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.1);
+  box-shadow: 0 4px 12px var(--color-accent-subtle);
   background: var(--card-background) !important;
 }
 
@@ -53,7 +53,7 @@
 .import-type-dropdown-toggle.show {
   outline: none;
   border-color: var(--primary-color) !important;
-  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1) !important;
+  box-shadow: 0 0 0 3px var(--color-accent-subtle) !important;
   background: var(--card-background) !important;
 }
 
@@ -114,7 +114,7 @@
   background: var(--card-background) !important;
   border: 1px solid var(--border-color) !important;
   border-radius: 12px !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 10px 40px var(--color-border-muted) !important;
   margin-top: 0.5rem !important;
   padding: 0.5rem !important;
   z-index: 1000;
@@ -173,8 +173,8 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg,
-    rgba(var(--primary-rgb), 0.1) 0%,
-    rgba(var(--primary-rgb), 0.05) 100%);
+    var(--color-accent-subtle) 0%,
+    var(--color-accent-subtle) 100%);
   border-radius: 10px;
   color: var(--primary-color);
 }
@@ -297,40 +297,40 @@
 
 /* Dark Theme Adjustments */
 .theme-dark .import-type-dropdown-toggle {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 0 0 1px var(--color-border-muted) !important;
 }
 
 .theme-dark .import-type-dropdown-menu {
-  background: #1a1a2e !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+  background: var(--color-canvas-inset) !important;
+  box-shadow: 0 10px 40px var(--modal-backdrop) !important;
 }
 
 .theme-dark .import-type-option.selected {
-  background: rgba(100, 255, 218, 0.1) !important;
+  background: var(--color-accent-subtle) !important;
 }
 
 .theme-dark .import-type-option:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: var(--color-canvas-subtle) !important;
 }
 
 .theme-dark .option-icon-container {
   background: linear-gradient(135deg,
-    rgba(100, 255, 218, 0.15) 0%,
-    rgba(100, 255, 218, 0.08) 100%);
-  color: #64ffda;
+    var(--color-accent-subtle) 0%,
+    var(--color-accent-subtle) 100%);
+  color: var(--color-accent-emphasis);
 }
 
 /* Light Theme Adjustments */
 .theme-light .import-type-dropdown-menu {
-  box-shadow: 0 10px 40px rgba(30, 58, 82, 0.15) !important;
+  box-shadow: 0 10px 40px var(--color-accent-muted) !important;
 }
 
 .theme-light .import-type-option.selected {
-  background: rgba(30, 58, 82, 0.08) !important;
+  background: var(--color-accent-subtle) !important;
 }
 
 .theme-light .import-type-option:hover {
-  background: rgba(0, 0, 0, 0.03) !important;
+  background: var(--color-border-subtle) !important;
 }
 
 /* Responsive */
@@ -379,7 +379,6 @@
 }
 
 .import-type-dropdown-menu {
-  animation: fadeIn 0.2s ease;
 }
 
 /* CSS Variables for colors */
@@ -395,4 +394,34 @@
   --success-rgb: 104, 211, 145;
   --info-rgb: 99, 179, 237;
   --warning-rgb: 251, 191, 36;
+}
+
+/* Badge styling using theme variables */
+.badge-popular {
+  background-color: var(--color-accent-subtle) !important;
+  color: var(--color-accent-emphasis) !important;
+  border: 1px solid var(--color-accent-muted) !important;
+}
+
+.badge-new {
+  background-color: var(--color-success-subtle) !important;
+  color: var(--color-success-emphasis) !important;
+  border: 1px solid var(--color-success-muted) !important;
+}
+
+.badge-coming-soon {
+  background-color: var(--color-attention-subtle) !important;
+  color: var(--color-attention-emphasis) !important;
+  border: 1px solid var(--color-attention-muted) !important;
+}
+
+/* Fix hover text color - prevent teal from appearing */
+.import-type-option:hover .option-title-row h4,
+.import-type-option:hover .option-description,
+.import-type-option:hover .option-content {
+  color: var(--color-fg-default) !important;
+}
+
+.import-type-option:hover .option-title-row h4 {
+  color: var(--color-accent-emphasis) !important;
 }

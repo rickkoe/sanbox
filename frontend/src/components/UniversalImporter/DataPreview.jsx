@@ -335,7 +335,7 @@ const DataPreview = ({
                             {hasMultipleWwpns && (
                               <span style={{
                                 marginLeft: '4px',
-                                color: theme === 'dark' ? '#64ffda' : '#0066cc',
+                                color: theme === 'dark' ? 'var(--color-accent-fg)' : 'var(--color-accent-emphasis)',
                                 fontWeight: '600',
                                 cursor: 'help'
                               }}>

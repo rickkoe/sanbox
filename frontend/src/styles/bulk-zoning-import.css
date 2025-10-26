@@ -104,7 +104,7 @@
 .form-textarea:focus {
     outline: none;
     border-color: var(--link-text);
-    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+    box-shadow: 0 0 0 3px var(--color-accent-muted);
 }
 
 .form-select:disabled,
@@ -174,14 +174,14 @@
 
 .btn-primary {
     background: var(--link-text);
-    color: #0f172a;
+    color: var(--color-canvas-inset);
     border-color: var(--link-text);
 }
 
 .btn-primary:hover:not(:disabled) {
     opacity: 0.9;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(20, 184, 166, 0.3);
+    box-shadow: 0 4px 8px var(--color-accent-muted);
 }
 
 .btn-secondary {
@@ -204,7 +204,7 @@
 
 .btn-outline-primary:hover:not(:disabled) {
     background: var(--link-text);
-    color: #0f172a;
+    color: var(--color-canvas-inset);
 }
 
 .btn-outline-secondary {
@@ -306,7 +306,7 @@
 
 .custom-badge-primary {
     background: var(--link-text);
-    color: #0f172a;
+    color: var(--color-canvas-inset);
 }
 
 .custom-badge-secondary {
@@ -520,7 +520,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: var(--modal-backdrop);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -532,7 +532,7 @@
     background: var(--table-bg);
     padding: 3rem 2rem;
     border-radius: 0.75rem;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 30px var(--color-border-muted);
     max-width: 400px;
     width: 90%;
 }
@@ -586,7 +586,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.75);
+    background: var(--modal-backdrop);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -601,7 +601,7 @@
     max-width: 90vw;
     max-height: 90vh;
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 20px 60px var(--modal-backdrop);
 }
 
 .custom-modal-xl {
@@ -611,68 +611,68 @@
 
 /* Light theme modal */
 .theme-light .custom-modal {
-    background: #ffffff;
-    color: #0f172a;
+    background: var(--color-canvas-default);
+    color: var(--color-canvas-inset);
 }
 
 .theme-light .custom-modal-header {
-    background: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background: var(--secondary-bg);
+    border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .theme-light .custom-modal-title {
-    color: #0f172a;
+    color: var(--color-canvas-inset);
 }
 
 .theme-light .custom-modal-close {
-    color: #6c757d;
+    color: var(--color-fg-muted);
 }
 
 .theme-light .custom-modal-close:hover {
-    color: #0f172a;
+    color: var(--color-canvas-inset);
 }
 
 .theme-light .custom-modal-body {
-    background: #ffffff;
-    color: #0f172a;
+    background: var(--color-canvas-default);
+    color: var(--color-canvas-inset);
 }
 
 .theme-light .custom-modal-footer {
-    background: #f8f9fa;
-    border-top: 1px solid #e9ecef;
+    background: var(--secondary-bg);
+    border-top: 1px solid var(--color-border-subtle);
 }
 
 /* Dark theme modal */
 .theme-dark .custom-modal {
-    background: #1e293b;
-    color: #e2e8f0;
+    background: var(--color-canvas-default);
+    color: var(--color-fg-default);
 }
 
 .theme-dark .custom-modal-header {
-    background: #2d3748;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--color-canvas-subtle);
+    border-bottom: 1px solid var(--color-border-muted);
 }
 
 .theme-dark .custom-modal-title {
-    color: #e2e8f0;
+    color: var(--color-fg-default);
 }
 
 .theme-dark .custom-modal-close {
-    color: #cbd5e0;
+    color: var(--color-border-default);
 }
 
 .theme-dark .custom-modal-close:hover {
-    color: #ffffff;
+    color: var(--color-canvas-default);
 }
 
 .theme-dark .custom-modal-body {
-    background: #1e293b;
-    color: #e2e8f0;
+    background: var(--color-canvas-default);
+    color: var(--color-fg-default);
 }
 
 .theme-dark .custom-modal-footer {
-    background: #2d3748;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--color-canvas-subtle);
+    border-top: 1px solid var(--color-border-muted);
 }
 
 .custom-modal-header {
@@ -716,215 +716,215 @@
 
 /* Modal content - Light theme */
 .theme-light .custom-modal-body .card {
-    background: #ffffff !important;
-    border-color: #dee2e6 !important;
-    color: #0f172a !important;
+    background: var(--color-canvas-default) !important;
+    border-color: var(--color-border-default) !important;
+    color: var(--color-canvas-inset) !important;
 }
 
 .theme-light .custom-modal-body .card-header {
-    background: #f8f9fa !important;
-    border-bottom-color: #dee2e6 !important;
-    color: #0f172a !important;
+    background: var(--secondary-bg) !important;
+    border-bottom-color: var(--color-border-default) !important;
+    color: var(--color-canvas-inset) !important;
 }
 
 .theme-light .custom-modal-body .card-body {
-    background: #ffffff !important;
-    color: #0f172a !important;
+    background: var(--color-canvas-default) !important;
+    color: var(--color-canvas-inset) !important;
 }
 
 .theme-light .custom-modal-body .alert {
-    background: #d1ecf1 !important;
-    color: #0c5460 !important;
-    border-color: #bee5eb !important;
+    background: var(--color-info-subtle) !important;
+    color: var(--color-info-emphasis) !important;
+    border-color: var(--color-info-subtle) !important;
 }
 
 .theme-light .custom-modal-body code {
-    background: #f8f9fa !important;
-    color: #0f172a !important;
+    background: var(--secondary-bg) !important;
+    color: var(--color-canvas-inset) !important;
 }
 
 .theme-light .custom-modal-body .table {
-    color: #0f172a !important;
+    color: var(--color-canvas-inset) !important;
 }
 
 .theme-light .custom-modal-body .table thead {
-    background: #f8f9fa !important;
+    background: var(--secondary-bg) !important;
 }
 
 .theme-light .custom-modal-body .table th,
 .theme-light .custom-modal-body .table td {
-    border-color: #dee2e6 !important;
-    color: #0f172a !important;
+    border-color: var(--color-border-default) !important;
+    color: var(--color-canvas-inset) !important;
 }
 
 .theme-light .custom-modal-body .table tbody tr {
-    background: #ffffff !important;
+    background: var(--color-canvas-default) !important;
 }
 
 .theme-light .custom-modal-body .table tbody tr:hover {
-    background: #f8f9fa !important;
+    background: var(--secondary-bg) !important;
 }
 
 /* Modal content - Dark theme */
 .theme-dark .custom-modal-body .card {
-    background: #1e293b !important;
-    border-color: rgba(255, 255, 255, 0.2) !important;
-    color: #e2e8f0 !important;
+    background: var(--color-canvas-default) !important;
+    border-color: var(--color-border-muted) !important;
+    color: var(--color-fg-default) !important;
 }
 
 .theme-dark .custom-modal-body .card-header {
-    background: #2d3748 !important;
-    border-bottom-color: rgba(255, 255, 255, 0.2) !important;
-    color: #e2e8f0 !important;
+    background: var(--color-canvas-subtle) !important;
+    border-bottom-color: var(--color-border-muted) !important;
+    color: var(--color-fg-default) !important;
 }
 
 .theme-dark .custom-modal-body .card-body {
-    background: #1e293b !important;
-    color: #e2e8f0 !important;
+    background: var(--color-canvas-default) !important;
+    color: var(--color-fg-default) !important;
 }
 
 .theme-dark .custom-modal-body .alert {
-    background: rgba(100, 255, 218, 0.15) !important;
-    color: #64ffda !important;
-    border-color: rgba(100, 255, 218, 0.3) !important;
+    background: var(--color-accent-subtle) !important;
+    color: var(--color-accent-emphasis) !important;
+    border-color: var(--color-accent-muted) !important;
 }
 
 .theme-dark .custom-modal-body .alert strong {
-    color: #64ffda !important;
+    color: var(--color-accent-emphasis) !important;
 }
 
 .theme-dark .custom-modal-body code {
-    background: #0f172a !important;
-    color: #64ffda !important;
+    background: var(--color-canvas-inset) !important;
+    color: var(--color-accent-emphasis) !important;
 }
 
 .theme-dark .custom-modal-body .table {
-    color: #e2e8f0 !important;
+    color: var(--color-fg-default) !important;
 }
 
 .theme-dark .custom-modal-body .table thead {
-    background: #2d3748 !important;
-    color: #ffffff !important;
+    background: var(--color-canvas-subtle) !important;
+    color: var(--color-canvas-default) !important;
 }
 
 .theme-dark .custom-modal-body .table th,
 .theme-dark .custom-modal-body .table td {
-    border-color: rgba(255, 255, 255, 0.2) !important;
-    color: #e2e8f0 !important;
+    border-color: var(--color-border-muted) !important;
+    color: var(--color-fg-default) !important;
 }
 
 .theme-dark .custom-modal-body .table tbody tr {
-    background: #1e293b !important;
+    background: var(--color-canvas-default) !important;
 }
 
 .theme-dark .custom-modal-body .table tbody tr:hover {
-    background: rgba(100, 255, 218, 0.08) !important;
+    background: var(--color-accent-subtle) !important;
 }
 
 .theme-dark .custom-modal-body .table-success {
-    background: rgba(52, 211, 153, 0.15) !important;
+    background: var(--color-success-subtle) !important;
 }
 
 /* Badges in modal */
 .theme-dark .custom-modal-body .badge,
 .theme-dark .custom-modal-body .custom-badge {
-    background: #2d3748 !important;
-    color: #cbd5e0 !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    background: var(--color-canvas-subtle) !important;
+    color: var(--color-border-default) !important;
+    border: 1px solid var(--color-border-muted) !important;
 }
 
 .theme-dark .custom-modal-body .badge-primary,
 .theme-dark .custom-modal-body .badge[variant="primary"],
 .theme-dark .custom-modal-body .custom-badge-primary {
-    background: #64ffda !important;
-    color: #0f172a !important;
-    border-color: #64ffda !important;
+    background: var(--color-accent-emphasis) !important;
+    color: var(--color-canvas-inset) !important;
+    border-color: var(--color-accent-emphasis) !important;
     font-weight: 600 !important;
 }
 
 .theme-dark .custom-modal-body .badge-secondary,
 .theme-dark .custom-modal-body .badge[variant="secondary"],
 .theme-dark .custom-modal-body .custom-badge-secondary {
-    background: #2d3748 !important;
-    color: #e2e8f0 !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    background: var(--color-canvas-subtle) !important;
+    color: var(--color-fg-default) !important;
+    border: 1px solid var(--color-border-muted) !important;
 }
 
 .theme-light .custom-modal-body .custom-badge-primary {
-    background: #334155 !important;
-    color: #ffffff !important;
-    border-color: #334155 !important;
+    background: var(--color-canvas-subtle) !important;
+    color: var(--color-canvas-default) !important;
+    border-color: var(--color-canvas-subtle) !important;
     font-weight: 600 !important;
 }
 
 .theme-light .custom-modal-body .custom-badge-secondary {
-    background: #f8f9fa !important;
-    color: #0f172a !important;
-    border: 1px solid #dee2e6 !important;
+    background: var(--secondary-bg) !important;
+    color: var(--color-canvas-inset) !important;
+    border: 1px solid var(--color-border-default) !important;
 }
 
 /* Buttons in modal footer */
 .theme-dark .custom-modal-footer .btn {
-    color: #e2e8f0 !important;
+    color: var(--color-fg-default) !important;
 }
 
 .theme-dark .custom-modal-footer .btn-primary {
-    background: #64ffda !important;
-    color: #0f172a !important;
-    border-color: #64ffda !important;
+    background: var(--color-accent-emphasis) !important;
+    color: var(--color-canvas-inset) !important;
+    border-color: var(--color-accent-emphasis) !important;
 }
 
 .theme-dark .custom-modal-footer .btn-primary:hover {
-    background: #4fd1c7 !important;
+    background: var(--color-accent-fg) !important;
 }
 
 .theme-dark .custom-modal-footer .btn-secondary {
-    background: #2d3748 !important;
-    color: #e2e8f0 !important;
-    border-color: rgba(255, 255, 255, 0.2) !important;
+    background: var(--color-canvas-subtle) !important;
+    color: var(--color-fg-default) !important;
+    border-color: var(--color-border-muted) !important;
 }
 
 .theme-dark .custom-modal-footer .btn-secondary:hover {
-    background: rgba(100, 255, 218, 0.08) !important;
+    background: var(--color-accent-subtle) !important;
 }
 
 .theme-light .custom-modal-footer .btn-primary {
-    background: #334155 !important;
-    color: #ffffff !important;
-    border-color: #334155 !important;
+    background: var(--color-canvas-subtle) !important;
+    color: var(--color-canvas-default) !important;
+    border-color: var(--color-canvas-subtle) !important;
 }
 
 .theme-light .custom-modal-footer .btn-primary:hover {
-    background: #0f172a !important;
+    background: var(--color-canvas-inset) !important;
 }
 
 .theme-light .custom-modal-footer .btn-secondary {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border-color: #cbd5e1 !important;
+    background: var(--color-canvas-default) !important;
+    color: var(--color-canvas-inset) !important;
+    border-color: var(--color-border-default) !important;
 }
 
 .theme-light .custom-modal-footer .btn-secondary:hover {
-    background: rgba(15, 23, 42, 0.04) !important;
+    background: var(--color-canvas-subtle) !important;
 }
 
 /* Form elements in modal */
 .theme-dark .custom-modal-body .form-check-input {
-    background: #2d3748 !important;
-    border-color: rgba(255, 255, 255, 0.2) !important;
+    background: var(--color-canvas-subtle) !important;
+    border-color: var(--color-border-muted) !important;
 }
 
 .theme-dark .custom-modal-body .form-check-input:checked {
-    background: #64ffda !important;
-    border-color: #64ffda !important;
+    background: var(--color-accent-emphasis) !important;
+    border-color: var(--color-accent-emphasis) !important;
 }
 
 .theme-dark .custom-modal-body h6 {
-    color: #e2e8f0 !important;
+    color: var(--color-fg-default) !important;
 }
 
 .theme-dark .custom-modal-body small {
-    color: #cbd5e0 !important;
+    color: var(--color-border-default) !important;
 }
 
 /* Buttons in modal body (Select All buttons) */
@@ -935,24 +935,24 @@
 
 .theme-dark .custom-modal-body .btn-outline-primary {
     background: transparent !important;
-    color: #64ffda !important;
-    border-color: #64ffda !important;
+    color: var(--color-accent-emphasis) !important;
+    border-color: var(--color-accent-emphasis) !important;
 }
 
 .theme-dark .custom-modal-body .btn-outline-primary:hover {
-    background: #64ffda !important;
-    color: #0f172a !important;
+    background: var(--color-accent-emphasis) !important;
+    color: var(--color-canvas-inset) !important;
 }
 
 .theme-light .custom-modal-body .btn-outline-primary {
     background: transparent !important;
-    color: #334155 !important;
-    border-color: #334155 !important;
+    color: var(--color-canvas-subtle) !important;
+    border-color: var(--color-canvas-subtle) !important;
 }
 
 .theme-light .custom-modal-body .btn-outline-primary:hover {
-    background: #334155 !important;
-    color: #ffffff !important;
+    background: var(--color-canvas-subtle) !important;
+    color: var(--color-canvas-default) !important;
 }
 
 /* Table Styles */
@@ -1312,7 +1312,7 @@ svg.text-muted,
 .theme-dark .badge.bg-primary,
 .theme-light .badge.bg-primary {
     background-color: var(--link-text) !important;
-    color: #0f172a !important;
+    color: var(--color-canvas-inset) !important;
     border-color: var(--link-text) !important;
 }
 
@@ -1417,7 +1417,7 @@ svg.text-muted,
 .theme-light .btn-primary,
 .modal-footer .btn-primary {
     background-color: var(--link-text) !important;
-    color: #0f172a !important;
+    color: var(--color-canvas-inset) !important;
     border-color: var(--link-text) !important;
 }
 
@@ -1455,7 +1455,7 @@ svg.text-muted,
 .theme-dark .btn-outline-primary:hover,
 .theme-light .btn-outline-primary:hover {
     background-color: var(--link-text) !important;
-    color: #0f172a !important;
+    color: var(--color-canvas-inset) !important;
 }
 
 .btn-outline-secondary,
@@ -1544,7 +1544,7 @@ svg.text-muted,
 .modal-backdrop,
 .theme-dark .modal-backdrop,
 .theme-light .modal-backdrop {
-    background-color: rgba(0, 0, 0, 0.7) !important;
+    background-color: var(--modal-backdrop) !important;
 }
 
 /* Close button for modals */

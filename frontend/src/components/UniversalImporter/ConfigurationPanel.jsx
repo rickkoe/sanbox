@@ -116,8 +116,8 @@ const ConfigurationPanel = ({
             {detectedVendor && (
               <span style={{
                 padding: '0.25rem 0.75rem',
-                backgroundColor: '#e0f2fe',
-                color: '#0369a1',
+                backgroundColor: 'var(--color-info-subtle)',
+                color: 'var(--color-info-emphasis)',
                 borderRadius: '6px',
                 fontSize: '0.875rem',
                 fontWeight: '500'
@@ -132,18 +132,18 @@ const ConfigurationPanel = ({
       {isSwitchesOnly && (
         <div style={{
           padding: '1.5rem',
-          backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+          backgroundColor: 'var(--color-accent-subtle)',
           border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
           borderRadius: '8px',
           marginBottom: '1.5rem'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <Info size={18} style={{ color: '#3b82f6' }} />
-            <span style={{ fontWeight: '600', color: theme === 'dark' ? '#93c5fd' : '#1e40af' }}>
+            <Info size={18} style={{ color: 'var(--color-accent-fg)' }} />
+            <span style={{ fontWeight: '600', color: theme === 'dark' ? 'var(--color-accent-fg)' : 'var(--color-accent-emphasis)' }}>
               Switches-Only Import
             </span>
           </div>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: theme === 'dark' ? '#cbd5e1' : '#64748b' }}>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: theme === 'dark' ? 'var(--color-fg-muted)' : 'var(--color-fg-muted)' }}>
             Importing {previewData?.counts?.switches} switches. Fabric assignment is optional and can be configured later.
           </p>
         </div>
@@ -153,19 +153,19 @@ const ConfigurationPanel = ({
       {!isSwitchesOnly && useFabricMapping && (
         <div style={{ marginTop: '1rem' }}>
           <div style={{
-            backgroundColor: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+            backgroundColor: 'var(--color-accent-subtle)',
             border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.2)'}`,
             borderRadius: '8px',
             padding: '1rem',
             marginBottom: '1rem'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Info size={16} style={{ color: '#3b82f6' }} />
-              <span style={{ fontWeight: '600', color: theme === 'dark' ? '#93c5fd' : '#1e40af' }}>
+              <Info size={16} style={{ color: 'var(--color-accent-fg)' }} />
+              <span style={{ fontWeight: '600', color: theme === 'dark' ? 'var(--color-accent-fg)' : 'var(--color-accent-emphasis)' }}>
                 Multiple Fabrics Detected
               </span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: theme === 'dark' ? '#cbd5e1' : '#64748b' }}>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: theme === 'dark' ? 'var(--color-fg-muted)' : 'var(--color-fg-muted)' }}>
               Your import data contains {previewData.fabrics.length} fabrics. Map each source fabric to a target fabric in your database.
             </p>
           </div>
@@ -181,13 +181,13 @@ const ConfigurationPanel = ({
                 borderRadius: '8px',
                 padding: '1rem',
                 marginBottom: '1rem',
-                backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)'
+                backgroundColor: 'var(--color-canvas-subtle)'
               }}>
                 <div style={{ marginBottom: '1rem' }}>
                   <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
                     Source Fabric: {sourceFabric.name}
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#6c757d' }}>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--color-fg-muted)' }}>
                     {sourceFabric.vsan && `VSAN ${sourceFabric.vsan}`}
                     {sourceFabric.zoneset_name && ` • Zoneset: ${sourceFabric.zoneset_name}`}
                   </div>
@@ -218,7 +218,7 @@ const ConfigurationPanel = ({
                         >
                           <Server size={16} style={{ marginRight: '8px' }} />
                           {fabric.name}
-                          {fabric.vsan && <span style={{ marginLeft: '8px', color: '#6c757d' }}>VSAN {fabric.vsan}</span>}
+                          {fabric.vsan && <span style={{ marginLeft: '8px', color: 'var(--color-fg-muted)' }}>VSAN {fabric.vsan}</span>}
                         </Dropdown.Item>
                       ))}
                     </Dropdown.Menu>
@@ -230,7 +230,7 @@ const ConfigurationPanel = ({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingTop: '1rem', borderTop: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}` }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: '500' }}>
-                        Fabric Name <span style={{ color: 'red' }}>*</span>
+                        Fabric Name <span style={{ color: 'var(--color-danger-emphasis)' }}>*</span>
                       </label>
                       <input
                         type="text"
@@ -322,7 +322,7 @@ const ConfigurationPanel = ({
                   >
                     <Server size={16} style={{ marginRight: '8px' }} />
                     {fabric.name}
-                    {fabric.vsan && <span style={{ marginLeft: '8px', color: '#6c757d' }}>VSAN {fabric.vsan}</span>}
+                    {fabric.vsan && <span style={{ marginLeft: '8px', color: 'var(--color-fg-muted)' }}>VSAN {fabric.vsan}</span>}
                   </Dropdown.Item>
                 ))}
               </div>
@@ -343,7 +343,7 @@ const ConfigurationPanel = ({
         <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
-              Fabric Name <span style={{ color: 'red' }}>*</span>
+              Fabric Name <span style={{ color: 'var(--color-danger-emphasis)' }}>*</span>
             </label>
             <input
               type="text"
@@ -356,7 +356,7 @@ const ConfigurationPanel = ({
 
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
-              Zoneset Name <span style={{ color: 'red' }}>*</span>
+              Zoneset Name <span style={{ color: 'var(--color-danger-emphasis)' }}>*</span>
             </label>
             <input
               type="text"
@@ -378,10 +378,10 @@ const ConfigurationPanel = ({
               onChange={(e) => onVsanChange(e.target.value)}
               className="form-control"
               readOnly={!!vsan}
-              style={{ backgroundColor: vsan ? '#f3f4f6' : 'white' }}
+              style={{ backgroundColor: vsan ? 'var(--secondary-bg)' : 'white' }}
             />
             {vsan && (
-              <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#6b7280' }}>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--color-fg-muted)' }}>
                 <Info size={14} style={{ display: 'inline', marginRight: '0.5rem' }} />
                 Auto-populated from imported data
               </div>
@@ -406,7 +406,7 @@ const ConfigurationPanel = ({
           <div className="bulk-actions" style={{
             marginBottom: '1rem',
             padding: '1rem',
-            backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+            backgroundColor: 'var(--color-canvas-subtle)',
             borderRadius: '8px',
             border: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}`
           }}>
@@ -415,7 +415,7 @@ const ConfigurationPanel = ({
               <div style={{
                 fontSize: '0.85rem',
                 fontWeight: '500',
-                color: theme === 'dark' ? '#10b981' : '#059669',
+                color: theme === 'dark' ? 'var(--color-success-emphasis)' : 'var(--color-success-emphasis)',
                 backgroundColor: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(5, 150, 105, 0.1)',
                 padding: '0.25rem 0.75rem',
                 borderRadius: '6px',
@@ -477,7 +477,7 @@ const ConfigurationPanel = ({
                 style={{ maxWidth: '150px' }}
               />
               {getFirstConflictName() && (
-                <span style={{ fontSize: '0.85rem', color: '#6c757d', fontStyle: 'italic' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-fg-muted)', fontStyle: 'italic' }}>
                   Preview: {getFirstConflictName()}{renameSuffix}
                 </span>
               )}
@@ -531,7 +531,7 @@ const ConfigurationPanel = ({
                       <div className="conflict-type">Duplicate Found</div>
                     </div>
 
-                    <div className="conflict-details" style={{ fontSize: '0.85rem', color: '#6c757d', marginBottom: '0.5rem' }}>
+                    <div className="conflict-details" style={{ fontSize: '0.85rem', color: 'var(--color-fg-muted)', marginBottom: '0.5rem' }}>
                       <div>Existing: {conflict.existing_wwpn} in {conflict.existing_fabric} {conflict.existing_use && `[${conflict.existing_use}]`}</div>
                       <div>New: {conflict.new_wwpn} in {conflict.new_fabric} {conflict.new_use && `[${conflict.new_use}]`}</div>
                     </div>

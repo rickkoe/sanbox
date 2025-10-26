@@ -1404,7 +1404,7 @@ const TanStackCRUDTable = forwardRef(({
                   dangerouslySetInnerHTML={{ __html: renderResult }}
                   style={{
                     cursor: 'pointer',
-                    color: '#007bff',
+                    color: 'var(--link-text)',
                     textDecoration: 'none'
                   }}
                 />
@@ -2634,7 +2634,7 @@ const TanStackCRUDTable = forwardRef(({
         );
         if (startPage > 2) {
           buttons.push(
-            <span key="ellipsis-start" style={{ padding: '0 4px', color: '#6b7280' }}>
+            <span key="ellipsis-start" style={{ padding: '0 4px', color: 'var(--color-fg-muted)' }}>
               ...
             </span>
           );
@@ -2673,7 +2673,7 @@ const TanStackCRUDTable = forwardRef(({
       if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
           buttons.push(
-            <span key="ellipsis-end" style={{ padding: '0 4px', color: '#6b7280' }}>
+            <span key="ellipsis-end" style={{ padding: '0 4px', color: 'var(--color-fg-muted)' }}>
               ...
             </span>
           );
@@ -2734,7 +2734,7 @@ const TanStackCRUDTable = forwardRef(({
             alignItems: 'center'
           }}>
             <span style={{
-              color: '#374151',
+              color: 'var(--color-fg-default)',
               fontSize: '14px'
             }}>
               Showing {startItem.toLocaleString()} to {endItem.toLocaleString()} of {totalItems.toLocaleString()} entries
@@ -2747,7 +2747,7 @@ const TanStackCRUDTable = forwardRef(({
             gap: '8px'
           }}>
             <label style={{
-              color: '#6b7280',
+              color: 'var(--color-fg-muted)',
               fontSize: '14px',
               margin: 0
             }}>Rows per page:</label>
@@ -3075,7 +3075,7 @@ const TanStackCRUDTable = forwardRef(({
       {Object.keys(activeFilters).filter(key => activeFilters[key].active).length > 0 && (
         <div style={{
           padding: '8px 20px',
-          borderBottom: '1px solid #e9ecef',
+          borderBottom: '1px solid var(--color-border-subtle)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
@@ -3599,17 +3599,17 @@ const TanStackCRUDTable = forwardRef(({
 
                   // Define solid background colors for column groups (no transparency)
                   // Default header: subtle difference from table background (like dark theme)
-                  let headerBg = theme === 'dark' ? 'var(--table-header-bg)' : '#f8fafc';
+                  let headerBg = theme === 'dark' ? 'var(--table-header-bg)' : 'var(--secondary-bg)';
 
                   if (columnGroup === 'target') {
                     // Blue tint - solid color
-                    headerBg = theme === 'dark' ? '#232f3e' : '#e1effe';
+                    headerBg = theme === 'dark' ? 'var(--color-canvas-subtle)' : 'var(--color-info-subtle)';
                   } else if (columnGroup === 'initiator') {
                     // Green tint - solid color
-                    headerBg = theme === 'dark' ? '#243230' : '#dcfce7';
+                    headerBg = theme === 'dark' ? 'var(--color-success-subtle)' : 'var(--color-success-subtle)';
                   } else if (columnGroup === 'allAccess') {
                     // Purple tint - solid color
-                    headerBg = theme === 'dark' ? '#2f2a38' : '#f3e8ff';
+                    headerBg = theme === 'dark' ? 'var(--color-canvas-subtle)' : 'var(--color-accent-subtle)';
                   }
 
                   return (
@@ -3740,13 +3740,13 @@ const TanStackCRUDTable = forwardRef(({
                       cellBg = 'var(--table-bg)';
                     } else if (columnGroup === 'target') {
                       // Blue tint - solid color, lighter than header
-                      cellBg = theme === 'dark' ? '#1a2632' : '#eff6ff';
+                      cellBg = theme === 'dark' ? 'var(--color-info-subtle)' : 'var(--color-info-subtle)';
                     } else if (columnGroup === 'initiator') {
                       // Green tint - solid color, lighter than header
-                      cellBg = theme === 'dark' ? '#1c2a27' : '#f0fdf4';
+                      cellBg = theme === 'dark' ? 'var(--color-success-subtle)' : 'var(--color-success-subtle)';
                     } else if (columnGroup === 'allAccess') {
                       // Purple tint - solid color, lighter than header
-                      cellBg = theme === 'dark' ? '#25222e' : '#faf5ff';
+                      cellBg = theme === 'dark' ? 'var(--color-canvas-subtle)' : 'var(--color-accent-subtle)';
                     }
                   }
 
@@ -3760,13 +3760,13 @@ const TanStackCRUDTable = forwardRef(({
                         borderBottom: '1px solid var(--table-border)',
                         borderRight: '1px solid var(--table-border)',
                         width: cell.column.getSize(),
-                        backgroundColor: isInvalid ? '#ffebee' : (isSelected ? 'var(--table-row-selected)' : cellBg),
+                        backgroundColor: isInvalid ? 'var(--color-danger-subtle)' : (isSelected ? 'var(--table-row-selected)' : cellBg),
                         cursor: 'cell',
                         position: isNameColumn ? 'sticky' : 'relative',
                         left: isNameColumn ? 0 : undefined,
                         zIndex: isNameColumn ? 15 : 1,
                         transition: 'background-color 0.15s, border-color 0.15s',
-                        outline: isSelected ? '2px solid var(--link-text)' : (isInvalid ? '2px solid #ef5350' : 'none'),
+                        outline: isSelected ? '2px solid var(--link-text)' : (isInvalid ? '2px solid var(--color-danger-emphasis)' : 'none'),
                         outlineOffset: '-2px',
                         minHeight: '20px',
                         maxWidth: '300px',
@@ -3819,7 +3819,7 @@ const TanStackCRUDTable = forwardRef(({
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          backgroundColor: fillPreview.isWarning ? '#f57c00' : '#333',
+          backgroundColor: fillPreview.isWarning ? 'var(--color-attention-emphasis)' : 'var(--color-canvas-inset)',
           color: 'white',
           padding: '12px 20px',
           borderRadius: '4px',
@@ -4445,8 +4445,8 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
           ref={dropdownRef}
           style={{
             ...getDropdownStyle(),
-            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-            border: theme === 'dark' ? '2px solid #64ffda' : '2px solid #334155',
+            backgroundColor: 'var(--color-canvas-default)',
+            border: '2px solid var(--color-accent-emphasis)',
             borderRadius: '8px',
             boxShadow: theme === 'dark' ? '0 8px 32px rgba(0, 0, 0, 0.6)' : '0 8px 32px rgba(15, 23, 42, 0.2)',
             overflow: 'hidden'
@@ -4467,18 +4467,18 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
               width: '100%',
               padding: '10px 12px',
               border: 'none',
-              borderBottom: theme === 'dark' ? '1px solid #4a5568' : '1px solid #cbd5e1',
+              borderBottom: '1px solid var(--color-border-default)',
               outline: 'none',
               fontSize: '14px',
-              backgroundColor: theme === 'dark' ? '#2d3748' : '#ffffff',
-              color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+              backgroundColor: 'var(--color-canvas-subtle)',
+              color: 'var(--color-fg-default)',
               boxSizing: 'border-box'
             }}
           />
           <div style={{
             maxHeight: '150px',
             overflow: 'auto',
-            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff'
+            backgroundColor: 'var(--color-canvas-default)'
           }}>
             {filteredOptions.map((option, index) => {
               const displayText = typeof option === 'string' ? option : (option.name || option.label);
@@ -4500,13 +4500,13 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
                   style={{
                     padding: '10px 12px',
                     cursor: 'pointer',
-                    borderBottom: index < filteredOptions.length - 1 ? (theme === 'dark' ? '1px solid #4a5568' : '1px solid #cbd5e1') : 'none',
+                    borderBottom: index < filteredOptions.length - 1 ? ('1px solid var(--color-border-default)') : 'none',
                     fontSize: '14px',
                     transition: 'background-color 0.15s',
                     backgroundColor: isSelected
-                      ? (theme === 'dark' ? '#2d4a4f' : '#f1f5f9')
-                      : (theme === 'dark' ? '#1e293b' : '#ffffff'),
-                    color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+                      ? ('var(--color-canvas-subtle)')
+                      : ('var(--color-canvas-default)'),
+                    color: 'var(--color-fg-default)',
                     userSelect: 'none'
                   }}
                 >
@@ -4520,8 +4520,8 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
                 fontSize: '13px',
                 fontStyle: 'italic',
                 textAlign: 'center',
-                backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-                color: theme === 'dark' ? '#a0aec0' : '#64748b'
+                backgroundColor: 'var(--color-canvas-default)',
+                color: 'var(--color-fg-muted)'
               }}>
                 No options found
               </div>
@@ -4724,7 +4724,7 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
           textAlign: 'left',
           cursor: 'pointer',
           fontSize: '13px',
-          color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+          color: 'var(--color-fg-default)',
           outline: 'none',
           display: 'flex',
           alignItems: 'center',
@@ -4740,7 +4740,7 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
           whiteSpace: 'nowrap',
           flex: 1,
           paddingRight: '8px',
-          color: displayText ? (theme === 'dark' ? '#e2e8f0' : '#0f172a') : (theme === 'dark' ? '#a0aec0' : '#64748b')
+          color: displayText ? ('var(--color-fg-default)') : ('var(--color-fg-muted)')
         }}>
           {displayText || 'Select...'}
         </span>
@@ -4750,8 +4750,8 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
       {isOpen && ReactDOM.createPortal(
         <div ref={dropdownRef} style={getDropdownStyle()}>
           <div style={{
-            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-            border: `1px solid ${theme === 'dark' ? '#475569' : '#cbd5e1'}`,
+            backgroundColor: 'var(--color-canvas-default)',
+            border: '1px solid var(--color-border-default)',
             borderRadius: '4px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
             maxHeight: '300px',
@@ -4759,7 +4759,7 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
             flexDirection: 'column',
           }}>
             {/* Search Input */}
-            <div style={{ padding: '8px', borderBottom: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}` }}>
+            <div style={{ padding: '8px', borderBottom: '1px solid var(--color-border-default)' }}>
               <input
                 ref={searchInputRef}
                 type="text"
@@ -4770,10 +4770,10 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
                   width: '100%',
                   padding: '6px 8px',
                   fontSize: '13px',
-                  border: `1px solid ${theme === 'dark' ? '#475569' : '#cbd5e1'}`,
+                  border: '1px solid var(--color-border-default)',
                   borderRadius: '3px',
-                  backgroundColor: theme === 'dark' ? '#0f172a' : '#ffffff',
-                  color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+                  backgroundColor: 'var(--color-canvas-inset)',
+                  color: 'var(--color-fg-default)',
                   outline: 'none',
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -4782,7 +4782,7 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
 
             {/* Clear All Button */}
             {selectedValues.length > 0 && (
-              <div style={{ padding: '4px 8px', borderBottom: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}` }}>
+              <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--color-border-default)' }}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -4792,8 +4792,8 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
                     width: '100%',
                     padding: '4px 8px',
                     fontSize: '12px',
-                    backgroundColor: theme === 'dark' ? '#ef4444' : '#fecaca',
-                    color: theme === 'dark' ? '#ffffff' : '#991b1b',
+                    backgroundColor: 'var(--color-danger-subtle)',
+                    color: 'var(--color-danger-fg)',
                     border: 'none',
                     borderRadius: '3px',
                     cursor: 'pointer',
@@ -4831,12 +4831,12 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
                       cursor: 'pointer',
                       fontSize: '13px',
                       backgroundColor: isSelected
-                        ? (theme === 'dark' ? '#3b82f6' : '#dbeafe')
+                        ? ('var(--color-accent-subtle)')
                         : 'transparent',
                       color: isSelected
-                        ? (theme === 'dark' ? '#ffffff' : '#1e40af')
-                        : (theme === 'dark' ? '#e2e8f0' : '#0f172a'),
-                      borderBottom: `1px solid ${theme === 'dark' ? '#334155' : '#f1f5f9'}`,
+                        ? ('var(--color-accent-fg)')
+                        : ('var(--color-fg-default)'),
+                      borderBottom: '1px solid var(--color-border-subtle)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
@@ -4845,7 +4845,7 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
                     }}
                     onMouseEnter={(e) => {
                       if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = theme === 'dark' ? '#334155' : '#f1f5f9';
+                        e.currentTarget.style.backgroundColor = 'var(--color-canvas-subtle)';
                       }
                     }}
                     onMouseLeave={(e) => {
@@ -4870,8 +4870,8 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
                   fontSize: '13px',
                   fontStyle: 'italic',
                   textAlign: 'center',
-                  backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-                  color: theme === 'dark' ? '#a0aec0' : '#64748b'
+                  backgroundColor: 'var(--color-canvas-default)',
+                  color: 'var(--color-fg-muted)'
                 }}>
                   No options found
                 </div>
@@ -5035,7 +5035,7 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
           textAlign: 'left',
           cursor: 'pointer',
           fontSize: '13px',
-          color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+          color: 'var(--color-fg-default)',
           outline: 'none',
           display: 'flex',
           alignItems: 'center',
@@ -5051,7 +5051,7 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
           whiteSpace: 'nowrap',
           flex: 1,
           paddingRight: '8px',
-          color: displayText ? (theme === 'dark' ? '#e2e8f0' : '#0f172a') : (theme === 'dark' ? '#a0aec0' : '#64748b')
+          color: displayText ? ('var(--color-fg-default)') : ('var(--color-fg-muted)')
         }}>
           {displayText || 'Click to edit...'}
         </span>
@@ -5061,8 +5061,8 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
       {isOpen && ReactDOM.createPortal(
         <div ref={dropdownRef} style={getDropdownStyle()}>
           <div style={{
-            backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-            border: `1px solid ${theme === 'dark' ? '#475569' : '#cbd5e1'}`,
+            backgroundColor: 'var(--color-canvas-default)',
+            border: '1px solid var(--color-border-default)',
             borderRadius: '4px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
             maxHeight: '300px',
@@ -5074,7 +5074,7 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
               fontSize: '13px',
               fontWeight: '600',
               marginBottom: '8px',
-              color: theme === 'dark' ? '#e2e8f0' : '#0f172a'
+              color: 'var(--color-fg-default)'
             }}>
               Domain IDs
             </div>
@@ -5085,7 +5085,7 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
                 fontSize: '13px',
                 fontStyle: 'italic',
                 textAlign: 'center',
-                color: theme === 'dark' ? '#a0aec0' : '#64748b'
+                color: 'var(--color-fg-muted)'
               }}>
                 No fabrics selected. Select fabrics in the Fabrics column first.
               </div>
@@ -5105,14 +5105,14 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
                       alignItems: 'center',
                       gap: '8px',
                       padding: '6px',
-                      backgroundColor: theme === 'dark' ? '#0f172a' : '#f8fafc',
+                      backgroundColor: 'var(--secondary-bg)',
                       borderRadius: '3px',
                     }}
                   >
                     <label style={{
                       flex: 1,
                       fontSize: '13px',
-                      color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+                      color: 'var(--color-fg-default)',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -5132,10 +5132,10 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
                         padding: '4px 8px',
                         fontSize: '13px',
                         textAlign: 'center',
-                        border: `1px solid ${theme === 'dark' ? '#475569' : '#cbd5e1'}`,
+                        border: '1px solid var(--color-border-default)',
                         borderRadius: '3px',
-                        backgroundColor: theme === 'dark' ? '#1e293b' : '#ffffff',
-                        color: theme === 'dark' ? '#e2e8f0' : '#0f172a',
+                        backgroundColor: 'var(--color-canvas-default)',
+                        color: 'var(--color-fg-default)',
                         outline: 'none',
                       }}
                       onClick={(e) => e.stopPropagation()}
@@ -5148,9 +5148,9 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
             <div style={{
               marginTop: '8px',
               paddingTop: '8px',
-              borderTop: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
+              borderTop: '1px solid var(--color-border-default)',
               fontSize: '11px',
-              color: theme === 'dark' ? '#a0aec0' : '#64748b',
+              color: 'var(--color-fg-muted)',
               fontStyle: 'italic'
             }}>
               Enter 0-999 • Press Enter to save • Unique per fabric

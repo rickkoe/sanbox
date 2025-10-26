@@ -6,6 +6,7 @@ import {
   FaUndo, FaInfoCircle, FaChartLine
 } from 'react-icons/fa';
 import backupService from '../services/backupService';
+import '../styles/backup.css';
 
 /**
  * Dashboard overview for backup system
@@ -99,7 +100,7 @@ const BackupDashboard = () => {
 
   if (loading && backups.length === 0) {
     return (
-      <Container fluid className="p-4">
+      <Container fluid className="p-4" id="backup-dashboard-page">
         <div className="text-center py-5">
           <Spinner animation="border" />
           <p className="mt-2">Loading dashboard...</p>
@@ -109,7 +110,7 @@ const BackupDashboard = () => {
   }
 
   return (
-    <Container fluid className="p-4">
+    <Container fluid className="p-4" id="backup-dashboard-page">
       <Row className="mb-4">
         <Col>
           <h2>Backup & Restore Dashboard</h2>

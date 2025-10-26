@@ -1,0 +1,675 @@
+/* Backup Management Page Theme Overrides */
+
+/* Page Headers */
+#backup-management-page h2,
+#backup-dashboard-page h2,
+#restore-history-page h2 {
+  color: var(--primary-text) !important;
+}
+
+#backup-management-page .text-muted,
+#backup-dashboard-page .text-muted,
+#restore-history-page .text-muted {
+  color: var(--muted-text) !important;
+}
+
+/* Bootstrap Card Overrides */
+#backup-management-page .card,
+#backup-dashboard-page .card,
+#restore-history-page .card {
+  background-color: var(--table-bg) !important;
+  border-color: var(--table-border) !important;
+  color: var(--primary-text) !important;
+}
+
+#backup-management-page .card-header,
+#backup-dashboard-page .card-header,
+#restore-history-page .card-header {
+  background-color: var(--table-header-bg) !important;
+  border-bottom-color: var(--table-border) !important;
+  color: var(--table-header-text) !important;
+}
+
+/* Override Bootstrap bg-white class */
+#backup-management-page .card-header.bg-white,
+#backup-dashboard-page .card-header.bg-white,
+#restore-history-page .card-header.bg-white {
+  background-color: var(--table-header-bg) !important;
+}
+
+#backup-management-page .card-header h5,
+#backup-dashboard-page .card-header h5,
+#restore-history-page .card-header h5 {
+  color: var(--table-header-text) !important;
+}
+
+#backup-management-page .card-body,
+#backup-dashboard-page .card-body,
+#restore-history-page .card-body {
+  background-color: var(--table-bg) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Stats Cards */
+#backup-management-page .card h4,
+#backup-management-page .card h3,
+#backup-dashboard-page .card h4,
+#backup-dashboard-page .card h3 {
+  color: var(--primary-text) !important;
+}
+
+#backup-management-page .card small,
+#backup-dashboard-page .card small {
+  color: var(--muted-text) !important;
+}
+
+/* Alert Overrides for Dark Theme */
+.theme-dark #backup-management-page .alert-info,
+.theme-dark #backup-dashboard-page .alert-info {
+  background-color: var(--info-bg) !important;
+  border-color: var(--info-border) !important;
+  color: var(--info-text) !important;
+}
+
+.theme-dark #backup-management-page .alert-warning,
+.theme-dark #backup-dashboard-page .alert-warning {
+  background-color: var(--warning-bg) !important;
+  border-color: var(--warning-border) !important;
+  color: var(--warning-text) !important;
+}
+
+.theme-dark #backup-management-page .alert-danger,
+.theme-dark #backup-dashboard-page .alert-danger {
+  background-color: var(--error-bg) !important;
+  border-color: var(--error-border) !important;
+  color: var(--error-text) !important;
+}
+
+/* Table Styling */
+#backup-management-page .table,
+#backup-dashboard-page .table,
+#restore-history-page .table {
+  color: var(--primary-text) !important;
+  background-color: var(--table-bg) !important;
+}
+
+#backup-management-page .table thead,
+#backup-dashboard-page .table thead,
+#restore-history-page .table thead {
+  background-color: var(--table-header-bg) !important;
+}
+
+#backup-management-page .table thead th,
+#backup-dashboard-page .table thead th,
+#restore-history-page .table thead th {
+  background-color: var(--table-header-bg) !important;
+  color: var(--table-header-text) !important;
+  border-color: var(--table-border) !important;
+  font-weight: 600;
+}
+
+#backup-management-page .table tbody,
+#backup-dashboard-page .table tbody,
+#restore-history-page .table tbody {
+  background-color: var(--table-bg) !important;
+}
+
+#backup-management-page .table tbody tr,
+#backup-dashboard-page .table tbody tr,
+#restore-history-page .table tbody tr {
+  background-color: var(--table-bg) !important;
+  border-color: var(--table-border) !important;
+}
+
+#backup-management-page .table tbody td,
+#backup-dashboard-page .table tbody td,
+#restore-history-page .table tbody td {
+  color: var(--table-cell-text) !important;
+  border-color: var(--table-border) !important;
+  background-color: inherit !important;
+}
+
+#backup-management-page .table tbody tr:hover,
+#backup-dashboard-page .table tbody tr:hover,
+#restore-history-page .table tbody tr:hover {
+  background-color: var(--table-row-hover) !important;
+}
+
+#backup-management-page .table tbody tr:hover td,
+#backup-dashboard-page .table tbody tr:hover td,
+#restore-history-page .table tbody tr:hover td {
+  background-color: var(--table-row-hover) !important;
+}
+
+/* Don't use alternating colors - keep all rows the same */
+#backup-management-page .table tbody tr:nth-child(odd),
+#backup-management-page .table tbody tr:nth-child(even),
+#backup-dashboard-page .table tbody tr:nth-child(odd),
+#backup-dashboard-page .table tbody tr:nth-child(even),
+#restore-history-page .table tbody tr:nth-child(odd),
+#restore-history-page .table tbody tr:nth-child(even) {
+  background-color: var(--table-bg) !important;
+}
+
+#backup-management-page .table tbody tr:nth-child(odd) td,
+#backup-management-page .table tbody tr:nth-child(even) td,
+#backup-dashboard-page .table tbody tr:nth-child(odd) td,
+#backup-dashboard-page .table tbody tr:nth-child(even) td,
+#restore-history-page .table tbody tr:nth-child(odd) td,
+#restore-history-page .table tbody tr:nth-child(even) td {
+  background-color: var(--table-bg) !important;
+}
+
+/* Bootstrap striped table override */
+#backup-management-page .table-striped > tbody > tr:nth-of-type(odd) > *,
+#backup-dashboard-page .table-striped > tbody > tr:nth-of-type(odd) > *,
+#restore-history-page .table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: var(--table-bg) !important;
+}
+
+#backup-management-page .table-striped > tbody > tr:nth-of-type(even) > *,
+#backup-dashboard-page .table-striped > tbody > tr:nth-of-type(even) > *,
+#restore-history-page .table-striped > tbody > tr:nth-of-type(even) > * {
+  background-color: var(--table-bg) !important;
+}
+
+/* Form Controls */
+#backup-management-page .form-control,
+#backup-management-page .form-select,
+#backup-dashboard-page .form-control,
+#backup-dashboard-page .form-select,
+#restore-history-page .form-control,
+#restore-history-page .form-select {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+#backup-management-page .form-control:focus,
+#backup-management-page .form-select:focus,
+#backup-dashboard-page .form-control:focus,
+#backup-dashboard-page .form-select:focus,
+#restore-history-page .form-control:focus,
+#restore-history-page .form-select:focus {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-focus-border) !important;
+  box-shadow: var(--form-input-focus-shadow) !important;
+}
+
+#backup-management-page .form-control::placeholder,
+#backup-dashboard-page .form-control::placeholder,
+#restore-history-page .form-control::placeholder {
+  color: var(--form-input-placeholder) !important;
+}
+
+/* Input Groups */
+#backup-management-page .input-group-text,
+#backup-dashboard-page .input-group-text,
+#restore-history-page .input-group-text {
+  background-color: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+/* Dropdown Menus */
+#backup-management-page .dropdown-menu,
+#backup-dashboard-page .dropdown-menu,
+#restore-history-page .dropdown-menu {
+  background-color: var(--modal-bg) !important;
+  border-color: var(--modal-border) !important;
+}
+
+#backup-management-page .dropdown-item,
+#backup-dashboard-page .dropdown-item,
+#restore-history-page .dropdown-item {
+  color: var(--primary-text) !important;
+}
+
+#backup-management-page .dropdown-item:hover,
+#backup-dashboard-page .dropdown-item:hover,
+#restore-history-page .dropdown-item:hover {
+  background-color: var(--table-row-hover) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Modal Overrides */
+#backup-management-page .modal-content,
+#backup-dashboard-page .modal-content,
+#restore-history-page .modal-content {
+  background-color: var(--modal-bg) !important;
+  border-color: var(--modal-border) !important;
+  color: var(--primary-text) !important;
+}
+
+#backup-management-page .modal-header,
+#backup-dashboard-page .modal-header,
+#restore-history-page .modal-header {
+  background-color: var(--secondary-bg) !important;
+  border-bottom-color: var(--modal-border) !important;
+}
+
+#backup-management-page .modal-title,
+#backup-dashboard-page .modal-title,
+#restore-history-page .modal-title {
+  color: var(--primary-text) !important;
+}
+
+#backup-management-page .modal-footer,
+#backup-dashboard-page .modal-footer,
+#restore-history-page .modal-footer {
+  background-color: var(--secondary-bg) !important;
+  border-top-color: var(--modal-border) !important;
+}
+
+/* Modal Dialog background (the gray area around the modal) */
+#backup-management-page .modal-dialog,
+#backup-dashboard-page .modal-dialog,
+#restore-history-page .modal-dialog {
+  background-color: transparent !important;
+}
+
+/* Backup Scheduler Modal specifically */
+.backup-scheduler-modal.modal-dialog {
+  background-color: transparent !important;
+}
+
+.backup-scheduler-modal .modal-content {
+  background-color: var(--modal-bg) !important;
+  border-color: var(--modal-border) !important;
+}
+
+.backup-scheduler-modal .modal-header {
+  background-color: var(--table-header-bg) !important;
+  border-bottom-color: var(--table-border) !important;
+}
+
+.backup-scheduler-modal .modal-body {
+  background-color: var(--modal-bg) !important;
+  color: var(--primary-text) !important;
+  padding: 0 !important;
+}
+
+.backup-scheduler-modal .modal-title {
+  color: var(--primary-text) !important;
+}
+
+.theme-dark #backup-management-page .btn-close,
+.theme-dark #backup-dashboard-page .btn-close,
+.theme-dark #restore-history-page .btn-close {
+  filter: invert(1);
+}
+
+/* List Group Items */
+#backup-management-page .list-group-item,
+#backup-dashboard-page .list-group-item,
+#restore-history-page .list-group-item {
+  background-color: var(--table-bg) !important;
+  border-color: var(--table-border) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Progress Bars */
+#backup-management-page .progress,
+#backup-dashboard-page .progress,
+#restore-history-page .progress {
+  background-color: var(--secondary-bg) !important;
+}
+
+/* Badge Overrides for Better Visibility in Dark Theme */
+.theme-dark #backup-management-page .badge,
+.theme-dark #backup-dashboard-page .badge,
+.theme-dark #restore-history-page .badge {
+  color: var(--primary-bg) !important;
+}
+
+/* Specific badge variants */
+.theme-dark .badge.bg-success {
+  background-color: var(--success-text) !important;
+  color: var(--primary-bg) !important;
+}
+
+.theme-dark .badge.bg-danger {
+  background-color: var(--error-text) !important;
+  color: var(--primary-bg) !important;
+}
+
+.theme-dark .badge.bg-warning {
+  background-color: var(--warning-text) !important;
+  color: var(--primary-bg) !important;
+}
+
+.theme-dark .badge.bg-info {
+  background-color: var(--info-text) !important;
+  color: var(--primary-bg) !important;
+}
+
+.theme-dark .badge.bg-secondary {
+  background-color: var(--muted-text) !important;
+  color: var(--primary-bg) !important;
+}
+
+/* Button Link Overrides */
+#backup-management-page .btn-link,
+#backup-dashboard-page .btn-link,
+#restore-history-page .btn-link {
+  color: var(--link-text) !important;
+}
+
+#backup-management-page .btn-link:hover,
+#backup-dashboard-page .btn-link:hover,
+#restore-history-page .btn-link:hover {
+  color: var(--link-hover) !important;
+}
+
+/* Spinner for Dark Theme */
+.theme-dark #backup-management-page .spinner-border,
+.theme-dark #backup-dashboard-page .spinner-border,
+.theme-dark #restore-history-page .spinner-border {
+  border-color: var(--muted-text) !important;
+  border-right-color: transparent !important;
+}
+
+/* Ensure text visibility in all states */
+#backup-management-page p,
+#backup-management-page span,
+#backup-management-page div,
+#backup-dashboard-page p,
+#backup-dashboard-page span,
+#backup-dashboard-page div,
+#restore-history-page p,
+#restore-history-page span,
+#restore-history-page div {
+  color: inherit;
+}
+
+/* ========== BACKUP SCHEDULER MODAL ========== */
+
+/* Modal title and header */
+#backup-management-page .modal-header .modal-title {
+  color: var(--primary-text) !important;
+}
+
+/* Main content sections */
+#backup-management-page .modal-body > div {
+  background-color: transparent !important;
+}
+
+/* White box with toggle switch */
+#backup-management-page .modal-body > div > div[style*="background"] {
+  background-color: var(--secondary-bg) !important;
+  border: 1px solid var(--table-border) !important;
+  border-radius: 8px !important;
+}
+
+/* Section headers */
+#backup-management-page .modal-body h6,
+#backup-management-page .modal-body label {
+  color: var(--primary-text) !important;
+}
+
+/* Info boxes (blue backgrounds) */
+#backup-management-page .modal-body > div[style*="border-left"] {
+  background-color: var(--info-bg) !important;
+  border-left-color: var(--info-border) !important;
+  color: var(--info-text) !important;
+}
+
+#backup-management-page .modal-body > div[style*="border-left"] * {
+  color: var(--info-text) !important;
+}
+
+/* Warning box (yellow/orange background) */
+#backup-management-page .modal-body > div[style*="background-color: rgb(133, 77, 14)"],
+#backup-management-page .modal-body > div[style*="background-color:#854d0e"],
+#backup-management-page .modal-body > div[style*="backgroundColor"] {
+  background-color: var(--warning-bg) !important;
+  border: 1px solid var(--warning-border) !important;
+  color: var(--warning-text) !important;
+}
+
+#backup-management-page .modal-body > div[style*="background-color: rgb(133, 77, 14)"] *,
+#backup-management-page .modal-body > div[style*="backgroundColor"] * {
+  color: var(--warning-text) !important;
+}
+
+/* Input groups */
+#backup-management-page .modal-body .input-group {
+  background-color: transparent !important;
+}
+
+#backup-management-page .modal-body input[type="number"] {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+#backup-management-page .modal-body input[type="number"]:focus {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-focus-border) !important;
+}
+
+/* Text labels next to inputs */
+#backup-management-page .modal-body .input-group-text {
+  background-color: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+/* Description text */
+#backup-management-page .modal-body small {
+  color: var(--muted-text) !important;
+}
+
+/* Checkbox labels */
+#backup-management-page .modal-body .form-check-label {
+  color: var(--primary-text) !important;
+}
+
+#backup-management-page .modal-body .form-check-input {
+  accent-color: var(--link-text) !important;
+}
+
+/* Section dividers */
+#backup-management-page .modal-body hr {
+  border-color: var(--table-border) !important;
+  opacity: 0.3;
+}
+
+/* All text inside modal */
+#backup-management-page .modal-body,
+#backup-management-page .modal-body p,
+#backup-management-page .modal-body span,
+#backup-management-page .modal-body div {
+  color: var(--primary-text);
+}
+
+/* Override any hardcoded dark backgrounds */
+.theme-dark #backup-management-page .modal-body > div > div {
+  background-color: var(--secondary-bg) !important;
+}
+
+/* Specific fix for the white content area */
+#backup-management-page .modal-body .bg-white,
+#backup-management-page .modal-body .bg-light {
+  background-color: var(--secondary-bg) !important;
+}
+
+/* Fix for cards inside modal */
+#backup-management-page .modal-body .card {
+  background-color: var(--table-bg) !important;
+  border-color: var(--table-border) !important;
+}
+
+#backup-management-page .modal-body .card-header {
+  background-color: var(--table-header-bg) !important;
+  border-bottom-color: var(--table-border) !important;
+}
+
+#backup-management-page .modal-body .card-header h6 {
+  color: var(--table-header-text) !important;
+}
+
+#backup-management-page .modal-body .card-body {
+  background-color: var(--table-bg) !important;
+}
+
+/* Form selects in modal */
+#backup-management-page .modal-body .form-select {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+#backup-management-page .modal-body .form-select:focus {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-focus-border) !important;
+  box-shadow: var(--form-input-focus-shadow) !important;
+}
+
+#backup-management-page .modal-body .form-select option {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+}
+
+/* Form text (help text) */
+#backup-management-page .modal-body .form-text {
+  color: var(--muted-text) !important;
+}
+
+/* ========== FORCE OVERRIDE ALL FORM CONTROLS ========== */
+
+/* ALL Form Controls - inputs and selects */
+#backup-management-page .modal-body .form-control,
+#backup-management-page .modal-body .form-select,
+#backup-management-page .modal-body input[type="number"],
+#backup-management-page .modal-body select,
+.backup-scheduler-card .form-control,
+.backup-scheduler-card .form-select,
+.backup-scheduler-card input[type="number"],
+.backup-scheduler-card select {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+#backup-management-page .modal-body .form-control:focus,
+#backup-management-page .modal-body .form-select:focus,
+#backup-management-page .modal-body input[type="number"]:focus,
+.backup-scheduler-card .form-control:focus,
+.backup-scheduler-card .form-select:focus,
+.backup-scheduler-card input[type="number"]:focus {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-focus-border) !important;
+  box-shadow: var(--form-input-focus-shadow) !important;
+}
+
+/* Input Group Text (backups, days labels) */
+#backup-management-page .modal-body .input-group-text,
+.backup-scheduler-card .input-group-text {
+  background-color: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+/* Form Check (Checkboxes and Switches) */
+#backup-management-page .modal-body .form-check-input,
+.backup-scheduler-card .form-check-input {
+  background-color: var(--form-input-bg) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+#backup-management-page .modal-body .form-check-input:checked,
+.backup-scheduler-card .form-check-input:checked {
+  background-color: var(--link-text) !important;
+  border-color: var(--link-text) !important;
+}
+
+/* Toggle Switch Specific */
+#backup-management-page .modal-body .form-switch .form-check-input,
+.backup-scheduler-card .form-switch .form-check-input {
+  background-color: var(--form-input-bg) !important;
+  border-color: var(--form-input-border) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(0,0,0,0.25)'/%3e%3c/svg%3e") !important;
+}
+
+#backup-management-page .modal-body .form-switch .form-check-input:checked,
+.backup-scheduler-card .form-switch .form-check-input:checked {
+  background-color: var(--link-text) !important;
+  border-color: var(--link-text) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+}
+
+#backup-management-page .modal-body .form-switch .form-check-input:focus,
+.backup-scheduler-card .form-switch .form-check-input:focus {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(0,0,0,0.25)'/%3e%3c/svg%3e") !important;
+  box-shadow: none !important;
+  border-color: var(--form-input-focus-border) !important;
+}
+
+/* Checkbox Labels */
+#backup-management-page .modal-body .form-check-label,
+.backup-scheduler-card .form-check-label {
+  color: var(--primary-text) !important;
+}
+
+/* Strong tags in labels */
+#backup-management-page .modal-body strong,
+.backup-scheduler-card strong {
+  color: var(--primary-text) !important;
+}
+
+/* Form labels */
+.backup-scheduler-card .form-label {
+  color: var(--primary-text) !important;
+}
+
+/* Form text */
+.backup-scheduler-card .form-text {
+  color: var(--muted-text) !important;
+}
+
+/* All headings */
+.backup-scheduler-card h6 {
+  color: var(--primary-text) !important;
+}
+
+/* Card styling */
+.backup-scheduler-card {
+  background-color: var(--table-bg) !important;
+  border-color: var(--table-border) !important;
+}
+
+.backup-scheduler-card .card-header {
+  background-color: var(--table-header-bg) !important;
+  border-bottom-color: var(--table-border) !important;
+  color: var(--table-header-text) !important;
+}
+
+.backup-scheduler-card .card-body {
+  background-color: var(--table-bg) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Fix for small text visibility */
+#backup-management-page small,
+#backup-dashboard-page small,
+#restore-history-page small {
+  color: var(--muted-text) !important;
+}
+
+/* Available Backups section header */
+#backup-management-page h3,
+#backup-management-page h4,
+#backup-management-page h5,
+#backup-dashboard-page h3,
+#backup-dashboard-page h4,
+#backup-dashboard-page h5,
+#restore-history-page h3,
+#restore-history-page h4,
+#restore-history-page h5 {
+  color: var(--primary-text) !important;
+}

@@ -1,291 +1,586 @@
 /* ========== SANBOX THEME SYSTEM ========== */
-/* 
+/*
  * Central theme configuration for the entire application.
- * Modify these variables to customize themes across navbar, sidebar, and dashboard.
- * 
+ * Professional theme system inspired by GitHub and VSCode.
+ *
+ * Two themes available:
+ * - .theme-light: Clean, professional light theme (GitHub Light inspired)
+ * - .theme-dark: Balanced dark theme (GitHub Dark inspired)
+ *
  * To customize:
  * 1. Find the theme you want to modify (.theme-light or .theme-dark)
  * 2. Update the CSS custom properties (variables starting with --)
- * 3. Changes will apply automatically to navbar, sidebar, and dashboard
+ * 3. Changes will apply automatically to all components
+ *
+ * Architecture:
+ * - Core Color Palette: Foundation colors (--color-canvas-*, --color-fg-*, etc.)
+ * - Component Variables: Semantic variables that reference core palette
+ * - All components should use component variables, not core palette directly
  */
 
-/* ========== BASE THEME VARIABLES ========== */
+/* ========== BASE VARIABLES (ALL THEMES) ========== */
 :root {
-  /* Common variables used across all themes */
-  --transition-speed: 0.3s;
-  --border-radius: 12px;
-  --shadow-light: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-medium: 0 8px 25px rgba(0, 0, 0, 0.15);
-  --shadow-heavy: 0 12px 40px rgba(0, 0, 0, 0.2);
-  --backdrop-blur: blur(20px);
+  /* Transitions & Animations */
+  --transition-speed: 0.2s;
+  --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+
+  /* Spacing Scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
 }
 
 
-/* ========== DARK THEME ========== */
-.theme-dark {
-  /* Background Colors */
-  --primary-bg: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
-  --secondary-bg: rgba(30, 30, 60, 0.8);
-  --accent-bg: rgba(40, 40, 80, 0.95);
-  
-  /* Text Colors */
-  --primary-text: #e2e8f0;
-  --secondary-text: #cbd5e0;
-  --muted-text: #a0aec0;
-  --link-text: #64ffda;
-  --link-hover: #4fd1c7;
-  
-  /* Interactive Colors */
-  --button-bg: rgba(30, 30, 60, 0.8);
-  --button-hover: #64ffda;
-  --button-active: #4fd1c7;
-  --button-border: rgba(255, 255, 255, 0.1);
-  
-  /* Status Colors */
-  --success-color: #68d391;
-  --error-color: #fc8181;
-  --warning-color: #f6ad55;
-  --info-color: #63b3ed;
-  
-  /* Component Specific */
-  --navbar-bg: var(--primary-bg);
-  --navbar-text: var(--primary-text);
-  --navbar-text-hover: var(--link-text);
-  --navbar-border: none;
-  --navbar-shadow: none;
-  --navbar-button-bg: var(--button-bg);
-  --navbar-button-hover: var(--button-hover);
-  --navbar-brand-color: var(--link-text);
-  
-  --sidebar-bg: var(--primary-bg);
-  --sidebar-text: var(--primary-text);
-  --sidebar-text-hover: var(--link-text);
-  --sidebar-border: var(--button-border);
-  --sidebar-shadow: 8px 0 32px rgba(0, 0, 0, 0.3);
-  --sidebar-button-bg: var(--button-bg);
-  --sidebar-button-hover: var(--button-hover);
-  --sidebar-header-color: var(--link-text);
-  --sidebar-active-bg: rgba(100, 255, 218, 0.1);
-  --sidebar-active-border: var(--link-text);
-  
-  /* Content and Layout */
-  --content-bg: #0f172a;
-  --content-text: var(--primary-text);
-  --breadcrumb-bg: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  --breadcrumb-border: rgba(100, 255, 218, 0.3);
-  --breadcrumb-text: var(--secondary-text);
-  --breadcrumb-link: var(--link-text);
-  --breadcrumb-link-hover: var(--link-hover);
-  
-  /* Tables */
-  --table-bg: #1e293b;
-  --table-header-bg: #2d3748;
-  --table-header-text: #ffffff;
-  --table-border: rgba(255, 255, 255, 0.2);
-  --table-bottom-border: rgba(255, 255, 255, 0.2);
-  --table-row-hover: rgba(100, 255, 218, 0.08);
-  --table-row-selected: rgba(100, 255, 218, 0.15);
-  --table-cell-text: #e2e8f0;
-
-  /* Table Toolbar */
-  --table-toolbar-bg: #1a1a2e;
-  --table-toolbar-border: #2d3748;
-  --table-toolbar-text: var(--primary-text);
-
-  /* Table Pagination */
-  --table-pagination-bg: #1a1a2e;
-  --table-pagination-border: #2d3748;
-  --table-pagination-text: var(--primary-text);
-  --table-pagination-button-bg: #2d3748;
-  --table-pagination-button-hover: var(--button-hover);
-  --table-pagination-button-active: #64ffda;
-  --table-pagination-button-border: #4a5568;
-
-  /* Form Controls */
-  --form-input-bg: #2d3748;
-  --form-input-border: #4a5568;
-  --form-input-text: var(--primary-text);
-  --form-input-placeholder: var(--muted-text);
-  --form-input-focus-border: #64ffda;
-  --form-input-focus-shadow: rgba(100, 255, 218, 0.1);
-  
-  /* Code Blocks */
-  --code-bg: #0f172a;
-  --code-text: #64ffda;
-  
-  /* Alert Colors */
-  --warning-bg: rgba(251, 191, 36, 0.15);
-  --warning-text: #fbbf24;
-  --warning-border: rgba(251, 191, 36, 0.3);
-  --error-bg: rgba(248, 113, 113, 0.15);
-  --error-text: #f87171;
-  --error-border: rgba(248, 113, 113, 0.3);
-  --info-bg: rgba(100, 255, 218, 0.15);
-  --info-text: #64ffda;
-  --info-border: rgba(100, 255, 218, 0.3);
-  --success-bg: rgba(52, 211, 153, 0.15);
-  --success-text: #34d399;
-  --success-border: rgba(52, 211, 153, 0.3);
-}
-
-/* ========== LIGHT THEME (MODERN & REFINED) ========== */
+/* ========== LIGHT THEME (GitHub Light / VSCode Light) ========== */
 .theme-light {
-  /* Background Colors - Soft gradients and subtle depth */
-  --primary-bg: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  --secondary-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  --accent-bg: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  /* ===== Core Color Palette ===== */
+  /* These are foundation colors - use component variables below in actual components */
 
-  /* Text Colors - Rich contrast with dark navy blue accents */
-  --primary-text: #0f172a;
-  --secondary-text: #334155;
-  --muted-text: #64748b;
-  --link-text: #1e3a52;
-  --link-hover: #152d44;
+  /* Canvas (Backgrounds) */
+  --color-canvas-default: #ffffff;
+  --color-canvas-subtle: #f6f8fa;
+  --color-canvas-inset: #f6f8fa;
+  --color-canvas-overlay: #ffffff;
 
-  /* Interactive Colors - Dark navy blue accents */
-  --button-bg: #ffffff;
-  --button-hover: #1e3a52;
-  --button-active: #152d44;
-  --button-border: #e2e8f0;
+  /* Borders */
+  --color-border-default: #d0d7de;
+  --color-border-muted: #d8dee4;
+  --color-border-subtle: #e8ecef;
 
-  /* Status Colors - Colorful and meaningful */
-  --success-color: #10b981;
-  --error-color: #ef4444;
-  --warning-color: #f59e0b;
-  --info-color: #1e3a52;
+  /* Foreground/Text */
+  --color-fg-default: #24292f;
+  --color-fg-muted: #57606a;
+  --color-fg-subtle: #6e7781;
+  --color-fg-onEmphasis: #ffffff;
 
-  /* Component Specific */
-  --navbar-bg: linear-gradient(135deg, #0a0e1a 0%, #111827 100%);
-  --navbar-text: #ffffff;
-  --navbar-text-hover: #7c9fb8;
-  --navbar-border: none;
-  --navbar-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --navbar-button-bg: rgba(255, 255, 255, 0.1);
-  --navbar-button-hover: #7c9fb8;
-  --navbar-brand-color: #ffffff;
+  /* Accent Colors (Blue) */
+  --color-accent-fg: #0969da;
+  --color-accent-emphasis: #0969da;
+  --color-accent-muted: rgba(54, 129, 255, 0.4);
+  --color-accent-subtle: #ddf4ff;
 
-  --sidebar-bg: linear-gradient(135deg, #f1f5f9 0%, #e8eef5 100%);
-  --sidebar-text: var(--primary-text);
-  --sidebar-text-hover: var(--link-text);
-  --sidebar-border: #d1dce6;
-  --sidebar-shadow: 2px 0 12px rgba(30, 58, 82, 0.08);
-  --sidebar-button-bg: var(--button-bg);
-  --sidebar-button-hover: var(--button-hover);
-  --sidebar-header-color: var(--link-text);
-  --sidebar-active-bg: rgba(30, 58, 82, 0.12);
-  --sidebar-active-border: var(--link-text);
+  /* Status Colors */
+  --color-success-fg: #1a7f37;
+  --color-success-emphasis: #2da44e;
+  --color-success-muted: rgba(46, 160, 67, 0.4);
+  --color-success-subtle: #dafbe1;
 
-  /* Content and Layout */
-  --content-bg: #f9fafb;
-  --content-text: var(--primary-text);
-  --breadcrumb-bg: linear-gradient(135deg, #e8eef5 0%, #dce4ed 100%);
-  --breadcrumb-border: rgba(30, 58, 82, 0.3);
-  --breadcrumb-text: var(--secondary-text);
-  --breadcrumb-link: var(--link-text);
-  --breadcrumb-link-hover: var(--link-hover);
+  --color-danger-fg: #cf222e;
+  --color-danger-emphasis: #cf222e;
+  --color-danger-muted: rgba(255, 129, 130, 0.4);
+  --color-danger-subtle: #ffebe9;
 
-  /* Tables - Modern design with subtle depth */
-  --table-bg: #ffffff;
-  --table-header-bg: #f8fafc;
-  --table-header-text: var(--primary-text);
-  --table-border: #e5e9ef;
-  --table-bottom-border: #1e3a52;
-  --table-row-hover: rgba(30, 58, 82, 0.04);
-  --table-row-selected: rgba(30, 58, 82, 0.08);
-  --table-cell-text: var(--primary-text);
+  --color-attention-fg: #9a6700;
+  --color-attention-emphasis: #bf8700;
+  --color-attention-muted: rgba(212, 167, 44, 0.4);
+  --color-attention-subtle: #fff8c5;
 
-  /* Table Toolbar */
-  --table-toolbar-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  --table-toolbar-border: #e2e8f0;
-  --table-toolbar-text: var(--primary-text);
+  --color-info-fg: #0969da;
+  --color-info-emphasis: #0969da;
+  --color-info-muted: rgba(84, 174, 255, 0.4);
+  --color-info-subtle: #ddf4ff;
 
-  /* Table Pagination */
-  --table-pagination-bg: #ffffff;
-  --table-pagination-border: #d1dce6;
-  --table-pagination-text: var(--primary-text);
-  --table-pagination-button-bg: #ffffff;
-  --table-pagination-button-hover: var(--button-hover);
-  --table-pagination-button-active: #1e3a52;
-  --table-pagination-button-border: #d1dce6;
+  /* ===== Component Variables ===== */
+  /* Use these in your components, not the core palette above */
+
+  /* General Backgrounds */
+  --primary-bg: var(--color-canvas-default);
+  --secondary-bg: var(--color-canvas-subtle);
+  --accent-bg: var(--color-canvas-inset);
+  --content-bg: var(--color-canvas-subtle);
+
+  /* General Text */
+  --primary-text: var(--color-fg-default);
+  --secondary-text: var(--color-fg-muted);
+  --muted-text: var(--color-fg-subtle);
+  --link-text: var(--color-accent-fg);
+  --link-hover: #0550ae;
+
+  /* Buttons (Default) */
+  --button-bg: #f6f8fa;
+  --button-text: var(--color-fg-default);
+  --button-border: rgba(27, 31, 36, 0.15);
+  --button-hover-bg: #f3f4f6;
+  --button-hover-border: rgba(27, 31, 36, 0.25);
+  --button-active-bg: hsla(220, 14%, 96%, 1);
+  --button-shadow: 0 1px 0 rgba(27, 31, 36, 0.04);
+
+  /* Buttons (Primary) */
+  --button-primary-bg: #0969da;
+  --button-primary-text: #ffffff;
+  --button-primary-hover: #0550ae;
+  --button-primary-border: rgba(27, 31, 36, 0.15);
+  --button-primary-shadow: 0 1px 0 rgba(27, 31, 36, 0.1);
 
   /* Form Controls */
-  --form-input-bg: #ffffff;
-  --form-input-border: #d1dce6;
-  --form-input-text: var(--primary-text);
-  --form-input-placeholder: var(--muted-text);
-  --form-input-focus-border: #1e3a52;
-  --form-input-focus-shadow: rgba(30, 58, 82, 0.2);
+  --form-input-bg: var(--color-canvas-default);
+  --form-input-border: var(--color-border-default);
+  --form-input-text: var(--color-fg-default);
+  --form-input-placeholder: var(--color-fg-muted);
+  --form-input-focus-border: var(--color-accent-emphasis);
+  --form-input-focus-shadow: 0 0 0 3px var(--color-accent-muted);
+  --form-input-disabled-bg: #f6f8fa;
+  --form-input-disabled-text: var(--color-fg-subtle);
+
+  /* Navbar */
+  --navbar-bg: #24292f;
+  --navbar-text: rgba(255, 255, 255, 0.85);
+  --navbar-text-hover: #ffffff;
+  --navbar-border: rgba(255, 255, 255, 0.1);
+  --navbar-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  --navbar-button-bg: rgba(255, 255, 255, 0.08);
+  --navbar-button-hover: rgba(255, 255, 255, 0.15);
+  --navbar-brand-color: #ffffff;
+  --navbar-search-bg: rgba(255, 255, 255, 0.08);
+  --navbar-search-border: rgba(255, 255, 255, 0.2);
+  --navbar-search-focus: rgba(255, 255, 255, 0.25);
+
+  /* Sidebar */
+  --sidebar-bg: var(--color-canvas-default);
+  --sidebar-text: var(--color-fg-default);
+  --sidebar-text-hover: var(--color-fg-default);
+  --sidebar-border: var(--color-border-default);
+  --sidebar-shadow: inset -1px 0 0 var(--color-border-default);
+  --sidebar-button-bg: transparent;
+  --sidebar-button-hover: var(--color-canvas-subtle);
+  --sidebar-header-color: var(--color-fg-muted);
+  --sidebar-active-bg: var(--color-canvas-subtle);
+  --sidebar-active-border: var(--color-accent-emphasis);
+  --sidebar-active-text: var(--color-fg-default);
+  --sidebar-icon-color: var(--color-fg-muted);
+  --sidebar-icon-active: var(--color-accent-emphasis);
+
+  /* Breadcrumbs */
+  --breadcrumb-bg: transparent;
+  --breadcrumb-border: var(--color-border-default);
+  --breadcrumb-text: var(--color-fg-muted);
+  --breadcrumb-link: var(--color-accent-fg);
+  --breadcrumb-link-hover: var(--color-accent-emphasis);
+  --breadcrumb-separator: var(--color-fg-subtle);
+
+  /* Tables */
+  --table-bg: var(--color-canvas-default);
+  --table-header-bg: var(--color-canvas-subtle);
+  --table-header-text: var(--color-fg-default);
+  --table-border: var(--color-border-default);
+  --table-border-subtle: var(--color-border-subtle);
+  --table-row-hover: var(--color-canvas-subtle);
+  --table-row-selected: var(--color-accent-subtle);
+  --table-row-selected-border: var(--color-accent-emphasis);
+  --table-cell-text: var(--color-fg-default);
+  --table-cell-muted: var(--color-fg-muted);
+  --table-bottom-border: var(--color-border-default);
+
+  /* Table Toolbar */
+  --table-toolbar-bg: var(--color-canvas-subtle);
+  --table-toolbar-border: var(--color-border-default);
+  --table-toolbar-text: var(--color-fg-default);
+
+  /* Table Pagination */
+  --table-pagination-bg: var(--color-canvas-default);
+  --table-pagination-border: var(--color-border-default);
+  --table-pagination-text: var(--color-fg-default);
+  --table-pagination-button-bg: transparent;
+  --table-pagination-button-hover: var(--color-canvas-subtle);
+  --table-pagination-button-active: var(--color-accent-emphasis);
+  --table-pagination-button-border: var(--color-border-default);
 
   /* Code Blocks */
-  --code-bg: #f8fafc;
-  --code-text: #0f172a;
+  --code-bg: #f6f8fa;
+  --code-text: #24292f;
+  --code-border: var(--color-border-default);
 
-  /* Alert Colors - Colorful and meaningful */
-  --warning-bg: #fffbeb;
-  --warning-text: #d97706;
-  --warning-border: #fcd34d;
-  --error-bg: #fef2f2;
-  --error-text: #dc2626;
-  --error-border: #fca5a5;
-  --info-bg: #e8f0f7;
-  --info-text: #1e3a52;
-  --info-border: #b0c7d9;
-  --success-bg: #f0fdf4;
-  --success-text: #16a34a;
-  --success-border: #86efac;
+  /* Alerts */
+  --alert-info-bg: var(--color-info-subtle);
+  --alert-info-text: var(--color-info-fg);
+  --alert-info-border: var(--color-info-muted);
+
+  --alert-success-bg: var(--color-success-subtle);
+  --alert-success-text: var(--color-success-fg);
+  --alert-success-border: var(--color-success-muted);
+
+  --alert-warning-bg: var(--color-attention-subtle);
+  --alert-warning-text: var(--color-attention-fg);
+  --alert-warning-border: var(--color-attention-muted);
+
+  --alert-danger-bg: var(--color-danger-subtle);
+  --alert-danger-text: var(--color-danger-fg);
+  --alert-danger-border: var(--color-danger-muted);
+
+  /* Legacy alert variable names for backward compatibility */
+  --warning-bg: var(--alert-warning-bg);
+  --warning-text: var(--alert-warning-text);
+  --warning-border: var(--alert-warning-border);
+  --error-bg: var(--alert-danger-bg);
+  --error-text: var(--alert-danger-text);
+  --error-border: var(--alert-danger-border);
+  --info-bg: var(--alert-info-bg);
+  --info-text: var(--alert-info-text);
+  --info-border: var(--alert-info-border);
+  --success-bg: var(--alert-success-bg);
+  --success-text: var(--alert-success-text);
+  --success-border: var(--alert-success-border);
+
+  /* Legacy status colors for backward compatibility */
+  --success-color: var(--color-success-fg);
+  --error-color: var(--color-danger-fg);
+  --warning-color: var(--color-attention-fg);
+  --info-color: var(--color-info-fg);
+
+  /* Cards */
+  --card-bg: var(--color-canvas-default);
+  --card-border: var(--color-border-default);
+  --card-shadow: var(--shadow-sm);
+  --card-hover-shadow: var(--shadow-md);
+
+  /* Modals */
+  --modal-bg: var(--color-canvas-overlay);
+  --modal-backdrop: rgba(27, 31, 36, 0.5);
+  --modal-border: var(--color-border-default);
+  --modal-shadow: var(--shadow-xl);
+
+  /* Tooltips */
+  --tooltip-bg: #24292f;
+  --tooltip-text: #ffffff;
+  --tooltip-shadow: var(--shadow-md);
+
+  /* Badges */
+  --badge-bg: var(--color-canvas-subtle);
+  --badge-text: var(--color-fg-default);
+  --badge-border: var(--color-border-default);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
 }
 
 
-/* ========== ACCESSIBILITY IMPROVEMENTS ========== */
-/* Ensure sufficient contrast for text readability */
-.theme-dark .muted-text {
-  opacity: 0.8;
+/* ========== DARK THEME (GitHub Dark / VSCode Dark) ========== */
+.theme-dark {
+  /* ===== Core Color Palette ===== */
+  /* These are foundation colors - use component variables below in actual components */
+
+  /* Canvas (Backgrounds) */
+  --color-canvas-default: #0d1117;
+  --color-canvas-subtle: #161b22;
+  --color-canvas-inset: #010409;
+  --color-canvas-overlay: #0d1117;
+
+  /* Borders */
+  --color-border-default: #30363d;
+  --color-border-muted: #21262d;
+  --color-border-subtle: #21262d;
+
+  /* Foreground/Text */
+  --color-fg-default: #e6edf3;
+  --color-fg-muted: #7d8590;
+  --color-fg-subtle: #6e7681;
+  --color-fg-onEmphasis: #ffffff;
+
+  /* Accent Colors (Blue) */
+  --color-accent-fg: #58a6ff;
+  --color-accent-emphasis: #1f6feb;
+  --color-accent-muted: rgba(56, 139, 253, 0.4);
+  --color-accent-subtle: rgba(56, 139, 253, 0.15);
+
+  /* Status Colors */
+  --color-success-fg: #3fb950;
+  --color-success-emphasis: #238636;
+  --color-success-muted: rgba(46, 160, 67, 0.4);
+  --color-success-subtle: rgba(46, 160, 67, 0.15);
+
+  --color-danger-fg: #f85149;
+  --color-danger-emphasis: #da3633;
+  --color-danger-muted: rgba(248, 81, 73, 0.4);
+  --color-danger-subtle: rgba(248, 81, 73, 0.15);
+
+  --color-attention-fg: #d29922;
+  --color-attention-emphasis: #9e6a03;
+  --color-attention-muted: rgba(187, 128, 9, 0.4);
+  --color-attention-subtle: rgba(187, 128, 9, 0.15);
+
+  --color-info-fg: #58a6ff;
+  --color-info-emphasis: #1f6feb;
+  --color-info-muted: rgba(56, 139, 253, 0.4);
+  --color-info-subtle: rgba(56, 139, 253, 0.15);
+
+  /* ===== Component Variables ===== */
+  /* Use these in your components, not the core palette above */
+
+  /* General Backgrounds */
+  --primary-bg: var(--color-canvas-default);
+  --secondary-bg: var(--color-canvas-subtle);
+  --accent-bg: var(--color-canvas-inset);
+  --content-bg: var(--color-canvas-default);
+
+  /* General Text */
+  --primary-text: var(--color-fg-default);
+  --secondary-text: var(--color-fg-muted);
+  --muted-text: var(--color-fg-subtle);
+  --link-text: var(--color-accent-fg);
+  --link-hover: #79c0ff;
+
+  /* Buttons (Default) */
+  --button-bg: #21262d;
+  --button-text: var(--color-fg-default);
+  --button-border: rgba(240, 246, 252, 0.1);
+  --button-hover-bg: #30363d;
+  --button-hover-border: rgba(240, 246, 252, 0.2);
+  --button-active-bg: #282e33;
+  --button-shadow: 0 0 transparent;
+
+  /* Buttons (Primary) */
+  --button-primary-bg: #1f6feb;
+  --button-primary-text: #ffffff;
+  --button-primary-hover: #388bfd;
+  --button-primary-border: rgba(240, 246, 252, 0.1);
+  --button-primary-shadow: 0 0 transparent;
+
+  /* Form Controls */
+  --form-input-bg: var(--color-canvas-default);
+  --form-input-border: var(--color-border-default);
+  --form-input-text: var(--color-fg-default);
+  --form-input-placeholder: var(--color-fg-muted);
+  --form-input-focus-border: var(--color-accent-emphasis);
+  --form-input-focus-shadow: 0 0 0 3px var(--color-accent-muted);
+  --form-input-disabled-bg: #21262d;
+  --form-input-disabled-text: var(--color-fg-subtle);
+
+  /* Navbar */
+  --navbar-bg: #161b22;
+  --navbar-text: rgba(230, 237, 243, 0.85);
+  --navbar-text-hover: #e6edf3;
+  --navbar-border: var(--color-border-default);
+  --navbar-shadow: inset 0 -1px 0 var(--color-border-default);
+  --navbar-button-bg: rgba(240, 246, 252, 0.06);
+  --navbar-button-hover: rgba(240, 246, 252, 0.12);
+  --navbar-brand-color: #e6edf3;
+  --navbar-search-bg: #0d1117;
+  --navbar-search-border: var(--color-border-default);
+  --navbar-search-focus: var(--color-accent-emphasis);
+
+  /* Sidebar */
+  --sidebar-bg: var(--color-canvas-default);
+  --sidebar-text: var(--color-fg-default);
+  --sidebar-text-hover: var(--color-fg-default);
+  --sidebar-border: var(--color-border-default);
+  --sidebar-shadow: inset -1px 0 0 var(--color-border-default);
+  --sidebar-button-bg: transparent;
+  --sidebar-button-hover: var(--color-canvas-subtle);
+  --sidebar-header-color: var(--color-fg-muted);
+  --sidebar-active-bg: var(--color-canvas-subtle);
+  --sidebar-active-border: var(--color-accent-emphasis);
+  --sidebar-active-text: var(--color-fg-default);
+  --sidebar-icon-color: var(--color-fg-muted);
+  --sidebar-icon-active: var(--color-accent-emphasis);
+
+  /* Breadcrumbs */
+  --breadcrumb-bg: transparent;
+  --breadcrumb-border: var(--color-border-default);
+  --breadcrumb-text: var(--color-fg-muted);
+  --breadcrumb-link: var(--color-accent-fg);
+  --breadcrumb-link-hover: var(--color-accent-emphasis);
+  --breadcrumb-separator: var(--color-fg-subtle);
+
+  /* Tables */
+  --table-bg: var(--color-canvas-default);
+  --table-header-bg: var(--color-canvas-subtle);
+  --table-header-text: var(--color-fg-default);
+  --table-border: var(--color-border-default);
+  --table-border-subtle: var(--color-border-muted);
+  --table-row-hover: var(--color-canvas-subtle);
+  --table-row-selected: var(--color-accent-subtle);
+  --table-row-selected-border: var(--color-accent-emphasis);
+  --table-cell-text: var(--color-fg-default);
+  --table-cell-muted: var(--color-fg-muted);
+  --table-bottom-border: var(--color-border-default);
+
+  /* Table Toolbar */
+  --table-toolbar-bg: var(--color-canvas-subtle);
+  --table-toolbar-border: var(--color-border-default);
+  --table-toolbar-text: var(--color-fg-default);
+
+  /* Table Pagination */
+  --table-pagination-bg: var(--color-canvas-default);
+  --table-pagination-border: var(--color-border-default);
+  --table-pagination-text: var(--color-fg-default);
+  --table-pagination-button-bg: transparent;
+  --table-pagination-button-hover: var(--color-canvas-subtle);
+  --table-pagination-button-active: var(--color-accent-emphasis);
+  --table-pagination-button-border: var(--color-border-default);
+
+  /* Code Blocks */
+  --code-bg: #161b22;
+  --code-text: #e6edf3;
+  --code-border: var(--color-border-default);
+
+  /* Alerts */
+  --alert-info-bg: var(--color-info-subtle);
+  --alert-info-text: var(--color-info-fg);
+  --alert-info-border: var(--color-info-muted);
+
+  --alert-success-bg: var(--color-success-subtle);
+  --alert-success-text: var(--color-success-fg);
+  --alert-success-border: var(--color-success-muted);
+
+  --alert-warning-bg: var(--color-attention-subtle);
+  --alert-warning-text: var(--color-attention-fg);
+  --alert-warning-border: var(--color-attention-muted);
+
+  --alert-danger-bg: var(--color-danger-subtle);
+  --alert-danger-text: var(--color-danger-fg);
+  --alert-danger-border: var(--color-danger-muted);
+
+  /* Legacy alert variable names for backward compatibility */
+  --warning-bg: var(--alert-warning-bg);
+  --warning-text: var(--alert-warning-text);
+  --warning-border: var(--alert-warning-border);
+  --error-bg: var(--alert-danger-bg);
+  --error-text: var(--alert-danger-text);
+  --error-border: var(--alert-danger-border);
+  --info-bg: var(--alert-info-bg);
+  --info-text: var(--alert-info-text);
+  --info-border: var(--alert-info-border);
+  --success-bg: var(--alert-success-bg);
+  --success-text: var(--alert-success-text);
+  --success-border: var(--alert-success-border);
+
+  /* Legacy status colors for backward compatibility */
+  --success-color: var(--color-success-fg);
+  --error-color: var(--color-danger-fg);
+  --warning-color: var(--color-attention-fg);
+  --info-color: var(--color-info-fg);
+
+  /* Cards */
+  --card-bg: var(--color-canvas-default);
+  --card-border: var(--color-border-default);
+  --card-shadow: 0 0 transparent;
+  --card-hover-shadow: 0 0 transparent;
+
+  /* Modals */
+  --modal-bg: var(--color-canvas-overlay);
+  --modal-backdrop: rgba(1, 4, 9, 0.8);
+  --modal-border: var(--color-border-default);
+  --modal-shadow: var(--shadow-xl);
+
+  /* Tooltips */
+  --tooltip-bg: #161b22;
+  --tooltip-text: #e6edf3;
+  --tooltip-shadow: var(--shadow-md);
+
+  /* Badges */
+  --badge-bg: var(--color-canvas-subtle);
+  --badge-text: var(--color-fg-default);
+  --badge-border: var(--color-border-default);
+
+  /* Scrollbar */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(110, 118, 129, 0.4);
+  --scrollbar-thumb-hover: rgba(110, 118, 129, 0.6);
 }
 
-.theme-light .muted-text {
-  opacity: 0.7;
-}
 
-/* Focus states for accessibility */
-.theme-light *:focus,
-.theme-dark *:focus {
-  outline: 2px solid var(--link-text);
+/* ========== ACCESSIBILITY ========== */
+
+/* Focus States */
+*:focus-visible {
+  outline: 2px solid var(--color-accent-emphasis);
   outline-offset: 2px;
 }
 
-/* ========== PRINT STYLES ========== */
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .theme-light,
+  .theme-dark {
+    --color-border-default: currentColor;
+    --button-border: currentColor;
+    --form-input-border: currentColor;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print Styles */
 @media print {
   .theme-light,
   .theme-dark {
-    --primary-bg: #ffffff !important;
-    --secondary-bg: #f9f9f9 !important;
-    --primary-text: #000000 !important;
-    --secondary-text: #333333 !important;
-    --navbar-bg: #ffffff !important;
-    --sidebar-bg: #ffffff !important;
-    background: white !important;
-    color: black !important;
+    --primary-bg: #ffffff;
+    --secondary-bg: #ffffff;
+    --primary-text: #000000;
+    --secondary-text: #000000;
+    --table-border: #000000;
+    --card-border: #000000;
   }
 }
 
+/* ========== CUSTOM SCROLLBAR STYLING ========== */
 
-/* ========== HIGH CONTRAST MODE ========== */
-@media (prefers-contrast: high) {
-  .theme-light {
-    --button-border: #000000;
-    --primary-text: #000000;
-    --link-text: #0000ff;
-  }
-  
-  .theme-dark {
-    --button-border: #ffffff;
-    --primary-text: #ffffff;
-    --link-text: #00ffff;
-  }
+/* Webkit Scrollbar (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* Firefox Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 /* ========== CHECKBOX INDETERMINATE STATE ========== */
-/* Custom styling for indeterminate checkbox to ensure visibility in dark theme */
+/* Custom styling for indeterminate checkbox to ensure visibility in both themes */
 .header-checkbox:indeterminate {
   background-color: var(--link-text);
   border-color: var(--link-text);
@@ -303,10 +598,46 @@
   transform: translate(-50%, -50%);
 }
 
-/* ========== REDUCED MOTION ========== */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
-  }
+/* ========== BOOTSTRAP BUTTON OVERRIDES ========== */
+/* Override Bootstrap button colors to use theme variables */
+
+.btn-primary {
+  background-color: var(--button-primary-bg) !important;
+  border-color: var(--button-primary-border) !important;
+  color: var(--button-primary-text) !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--button-primary-hover) !important;
+  border-color: var(--button-primary-border) !important;
+  color: var(--button-primary-text) !important;
+}
+
+.btn-primary:active,
+.btn-primary.active {
+  background-color: var(--button-primary-hover) !important;
+  border-color: var(--button-primary-border) !important;
+  color: var(--button-primary-text) !important;
+}
+
+.btn-secondary {
+  background-color: var(--button-bg) !important;
+  border-color: var(--button-border) !important;
+  color: var(--button-text) !important;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus {
+  background-color: var(--button-hover-bg) !important;
+  border-color: var(--button-hover-border) !important;
+  color: var(--button-text) !important;
+}
+
+.btn-secondary:disabled,
+.btn-secondary.disabled {
+  background-color: var(--form-input-disabled-bg) !important;
+  border-color: var(--button-border) !important;
+  color: var(--form-input-disabled-text) !important;
+  opacity: 0.6;
 }

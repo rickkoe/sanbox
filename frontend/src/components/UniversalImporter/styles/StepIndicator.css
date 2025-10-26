@@ -38,11 +38,11 @@
   inset: 0;
   border-radius: 20px;
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%);
+    var(--color-canvas-subtle) 0%,
+    var(--color-canvas-subtle) 100%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-canvas-subtle);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -177,7 +177,7 @@
 /* Hover Effects */
 .step-item:hover .step-icon-bg {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 24px var(--color-border-muted);
 }
 
 .step-item:hover .step-description {
@@ -253,30 +253,30 @@
 /* Dark Theme Adjustments */
 .theme-dark .step-icon-bg {
   background: linear-gradient(135deg,
-    rgba(100, 255, 218, 0.1) 0%,
-    rgba(100, 255, 218, 0.05) 100%);
-  border-color: rgba(100, 255, 218, 0.2);
+    var(--color-accent-subtle) 0%,
+    var(--color-accent-subtle) 100%);
+  border-color: var(--color-accent-muted);
 }
 
 .theme-dark .step-item.active .step-icon-bg {
-  background: linear-gradient(135deg, #64ffda, #4fd1c7);
-  box-shadow: 0 8px 32px rgba(100, 255, 218, 0.4);
+  background: linear-gradient(135deg, var(--color-accent-emphasis), var(--color-accent-fg));
+  box-shadow: 0 8px 32px var(--color-accent-muted);
 }
 
 .theme-dark .step-line-fill {
-  background: linear-gradient(90deg, #64ffda, #4fd1c7);
-  box-shadow: 0 0 20px rgba(100, 255, 218, 0.6);
+  background: linear-gradient(90deg, var(--color-accent-emphasis), var(--color-accent-fg));
+  box-shadow: 0 0 20px var(--color-accent-muted);
 }
 
 /* Light Theme Adjustments */
 .theme-light .step-icon-bg {
   background: linear-gradient(135deg,
-    rgba(30, 58, 82, 0.08) 0%,
-    rgba(30, 58, 82, 0.04) 100%);
-  border-color: rgba(30, 58, 82, 0.2);
+    var(--color-accent-subtle) 0%,
+    var(--color-accent-subtle) 100%);
+  border-color: var(--color-accent-muted);
 }
 
 .theme-light .step-item.active .step-icon-bg {
-  background: linear-gradient(135deg, #1e3a52, #152d44);
-  box-shadow: 0 8px 32px rgba(30, 58, 82, 0.3);
+  background: linear-gradient(135deg, var(--color-canvas-inset), var(--color-canvas-inset));
+  box-shadow: 0 8px 32px var(--color-accent-muted);
 }

@@ -1,22 +1,14 @@
 /* Modern breadcrumb container - fills topbar area completely */
 .breadcrumb-container {
-    background: var(--breadcrumb-bg, linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%));
-    border-bottom: 1px solid var(--breadcrumb-border, #dee2e6);
-    box-shadow: var(--shadow-light, 0 1px 3px rgba(0, 0, 0, 0.1));
-    color: var(--breadcrumb-text, #495057);
+    background: var(--secondary-bg);
+    border-bottom: 1px solid var(--breadcrumb-border);
+    box-shadow: var(--shadow-sm);
+    color: var(--breadcrumb-text);
     height: 100%;
     display: flex;
     align-items: center;
     margin: 0;
     padding: 0;
-    backdrop-filter: var(--backdrop-blur, blur(10px));
-}
-
-/* Light theme - colored background like dark theme */
-.theme-light .breadcrumb-container {
-    background: linear-gradient(135deg, #e8eef5 0%, #dce4ed 100%) !important;
-    border-bottom: 1px solid rgba(30, 58, 82, 0.3) !important;
-    box-shadow: 0 1px 3px rgba(30, 58, 82, 0.08) !important;
 }
 
 .breadcrumb-nav {
@@ -37,14 +29,14 @@
 .breadcrumb-right-content {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: var(--space-4);
 }
 
 /* Table controls in breadcrumb area */
 .breadcrumb-right-content .table-controls {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--space-3);
     flex-wrap: nowrap;
 }
 
@@ -54,7 +46,7 @@
 }
 
 .breadcrumb-right-content .table-controls .stats-container {
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
 }
 
 .modern-breadcrumb {
@@ -75,74 +67,49 @@
 .breadcrumb-link {
     display: flex;
     align-items: center;
-    padding: 0.25rem 0.5rem;
-    color: var(--breadcrumb-link, #6c757d);
+    padding: var(--space-1) var(--space-2);
+    color: var(--breadcrumb-link);
     text-decoration: none;
-    border-radius: 0.375rem;
-    transition: all 0.2s ease;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-speed) var(--transition-timing);
     font-weight: 500;
 }
 
 .breadcrumb-link:hover {
-    color: var(--breadcrumb-link-hover, #1e3a52);
-    background-color: rgba(30, 58, 82, 0.1);
+    color: var(--breadcrumb-link-hover);
+    background-color: var(--color-accent-subtle);
     text-decoration: none;
     transform: translateY(-1px);
 }
 
 .home-link .breadcrumb-icon {
-    margin-right: 0.25rem;
-    font-size: 0.875rem;
+    margin-right: var(--space-1);
+    font-size: var(--font-size-sm);
 }
 
 .breadcrumb-text {
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
 }
 
 .breadcrumb-separator {
-    margin: 0 0.5rem;
-    color: #adb5bd;
+    margin: 0 var(--space-2);
+    color: var(--breadcrumb-separator);
     font-weight: 500;
     user-select: none;
 }
 
 .breadcrumb-current {
-    color: #495057;
+    color: var(--breadcrumb-text);
     font-weight: 600;
-    font-size: 0.875rem;
-    padding: 0.25rem 0.5rem;
+    font-size: var(--font-size-sm);
+    padding: var(--space-1) var(--space-2);
 }
 
 .breadcrumb-item.active .breadcrumb-current {
-    background: linear-gradient(135deg, #64748b 0%, #475569 50%, #334155 100%);
-    color: white;
-    border-radius: 0.375rem;
-    box-shadow: 0 1px 3px rgba(100, 116, 139, 0.3);
-}
-
-/* Light theme breadcrumb active state */
-.theme-light .breadcrumb-item.active .breadcrumb-current {
-    background: linear-gradient(135deg, #1e3a52 0%, #152d44 100%);
-    color: white;
-    border-radius: 0.375rem;
-    box-shadow: 0 2px 4px rgba(30, 58, 82, 0.3);
-}
-
-/* Dark theme breadcrumb active state */
-.theme-dark .breadcrumb-item.active .breadcrumb-current {
-    background: #64ffda;
-    color: #0f172a;
-    box-shadow: 0 1px 3px rgba(100, 255, 218, 0.4);
-}
-
-/* Dark theme breadcrumb links (previous pages) */
-.theme-dark .breadcrumb-link {
-    color: #e2e8f0;
-}
-
-.theme-dark .breadcrumb-link:hover {
-    color: #64ffda;
-    background-color: rgba(100, 255, 218, 0.1);
+    background: var(--color-accent-emphasis);
+    color: var(--color-fg-onEmphasis);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
 }
 
 /* Responsive adjustments */
@@ -150,11 +117,11 @@
     .breadcrumb-text {
         display: none;
     }
-    
+
     .breadcrumb-separator {
-        margin: 0 0.25rem;
+        margin: 0 var(--space-1);
     }
-    
+
     .modern-breadcrumb {
         flex-wrap: wrap;
     }

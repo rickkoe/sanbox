@@ -209,3 +209,4 @@ backend/.DS_Store
 dev_logs/*
 .DS_Store
 backend/backups/
+dev_backups/

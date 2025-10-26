@@ -6,35 +6,35 @@
 .preview-section-card,
 .preview-messages-card,
 .ready-message-card {
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--color-border-default);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px var(--color-border-subtle);
 }
 
 .preview-summary-card .card-header,
 .preview-section-card .card-header {
-  background-color: #f8f9fa;
+  background-color: var(--secondary-bg);
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--color-border-default);
 }
 
 .theme-dark .preview-summary-card,
 .theme-dark .preview-section-card,
 .theme-dark .preview-messages-card,
 .theme-dark .ready-message-card {
-  background-color: #2d3748;
-  border-color: #4a5568;
+  background-color: var(--color-canvas-subtle);
+  border-color: var(--color-border-default);
 }
 
 .theme-dark .preview-summary-card .card-header,
 .theme-dark .preview-section-card .card-header {
-  background-color: #1a202c;
-  border-bottom-color: #4a5568;
-  color: #e2e8f0;
+  background-color: var(--color-canvas-inset);
+  border-bottom-color: var(--color-border-default);
+  color: var(--color-fg-default);
 }
 
 .summary-stats {
@@ -49,23 +49,23 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background-color: #f8f9fa;
+  background-color: var(--secondary-bg);
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-fg-default);
 }
 
 .theme-dark .stat-item {
-  background-color: #1a202c;
-  border-color: #4a5568;
+  background-color: var(--color-canvas-inset);
+  border-color: var(--color-border-default);
 }
 
 .stat-item svg {
-  color: #3b82f6;
+  color: var(--color-accent-fg);
   flex-shrink: 0;
 }
 
 .theme-dark .stat-item svg {
-  color: #60a5fa;
+  color: var(--color-accent-fg);
 }
 
 .stat-content {
@@ -75,24 +75,24 @@
 .stat-value {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a202c;
+  color: var(--color-canvas-inset);
   line-height: 1;
   margin-bottom: 0.25rem;
 }
 
 .theme-dark .stat-value {
-  color: #e2e8f0;
+  color: var(--color-fg-default);
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--color-fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .theme-dark .stat-label {
-  color: #94a3b8;
+  color: var(--color-fg-muted);
 }
 
 .preview-section-card .table {
@@ -100,20 +100,20 @@
 }
 
 .theme-dark .preview-section-card .table {
-  color: #e2e8f0;
+  color: var(--color-fg-default);
 }
 
 .theme-dark .preview-section-card .table-striped tbody tr:nth-of-type(odd) {
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: var(--color-canvas-subtle);
 }
 
 .theme-dark .preview-section-card .table thead {
-  border-color: #4a5568;
+  border-color: var(--color-border-default);
 }
 
 .theme-dark .preview-section-card .table th,
 .theme-dark .preview-section-card .table td {
-  border-color: #4a5568;
+  border-color: var(--color-border-default);
 }
 
 .wwpn-list {
@@ -125,41 +125,41 @@
 .wwpn-code {
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;
-  background-color: #e0f2fe;
-  color: #0369a1;
+  background-color: var(--color-info-subtle);
+  color: var(--color-info-emphasis);
   padding: 0.125rem 0.375rem;
   border-radius: 3px;
   display: inline-block;
 }
 
 .theme-dark .wwpn-code {
-  background-color: #0c4a6e;
-  color: #7dd3fc;
+  background-color: var(--color-info-emphasis);
+  color: var(--color-info-fg);
 }
 
 .ready-message-card {
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border-color: #86efac;
+  background: linear-gradient(135deg, var(--color-success-subtle) 0%, var(--color-success-subtle) 100%);
+  border-color: var(--color-success-fg);
 }
 
 .theme-dark .ready-message-card {
-  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
-  border-color: #34d399;
+  background: linear-gradient(135deg, var(--color-success-emphasis) 0%, var(--color-success-emphasis) 100%);
+  border-color: var(--color-success-fg);
 }
 
 .ready-message-card .text-muted {
-  color: #4b5563 !important;
+  color: var(--color-fg-muted) !important;
 }
 
 .theme-dark .ready-message-card .text-muted {
-  color: #9ca3af !important;
+  color: var(--color-fg-subtle) !important;
 }
 
 .ready-message-card h4 {
-  color: #047857;
+  color: var(--color-success-emphasis);
   margin-bottom: 0.5rem;
 }
 
 .theme-dark .ready-message-card h4 {
-  color: #34d399;
+  color: var(--color-success-fg);
 }

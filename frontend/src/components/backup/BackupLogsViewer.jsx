@@ -176,8 +176,8 @@ const BackupLogsViewer = ({ backupId, autoRefresh = true, maxHeight = '400px' })
             overflowY: 'auto',
             fontFamily: 'monospace',
             fontSize: '0.85rem',
-            backgroundColor: '#1e1e1e',
-            color: '#d4d4d4'
+            backgroundColor: 'var(--code-bg)',
+            color: 'var(--code-text)'
           }}
         >
           {loading && logs.length === 0 ? (
@@ -204,10 +204,10 @@ const BackupLogsViewer = ({ backupId, autoRefresh = true, maxHeight = '400px' })
                   className="log-entry mb-2"
                   style={{
                     borderLeft: `3px solid ${
-                      log.level === 'ERROR' ? '#dc3545' :
-                      log.level === 'WARNING' ? '#ffc107' :
-                      log.level === 'INFO' ? '#0dcaf0' :
-                      '#6c757d'
+                      log.level === 'ERROR' ? 'var(--error-text)' :
+                      log.level === 'WARNING' ? 'var(--warning-text)' :
+                      log.level === 'INFO' ? 'var(--info-text)' :
+                      'var(--muted-text)'
                     }`,
                     paddingLeft: '10px'
                   }}
@@ -217,24 +217,24 @@ const BackupLogsViewer = ({ backupId, autoRefresh = true, maxHeight = '400px' })
                     <div className="flex-grow-1">
                       <div className="d-flex align-items-center mb-1">
                         {getLevelBadge(log.level)}
-                        <small style={{ color: '#858585' }}>
+                        <small style={{ color: 'var(--muted-text)' }}>
                           {new Date(log.timestamp).toLocaleTimeString()}
                         </small>
                       </div>
-                      <div style={{ color: '#d4d4d4', whiteSpace: 'pre-wrap' }}>
+                      <div style={{ color: 'var(--code-text)', whiteSpace: 'pre-wrap' }}>
                         {log.message}
                       </div>
                       {log.details && (
                         <details className="mt-1">
-                          <summary style={{ color: '#858585', cursor: 'pointer' }}>
+                          <summary style={{ color: 'var(--muted-text)', cursor: 'pointer' }}>
                             <small>View details</small>
                           </summary>
                           <pre
                             className="mt-1 mb-0"
                             style={{
-                              color: '#858585',
+                              color: 'var(--muted-text)',
                               fontSize: '0.75rem',
-                              backgroundColor: '#2d2d2d',
+                              backgroundColor: 'var(--secondary-bg)',
                               padding: '5px',
                               borderRadius: '3px'
                             }}

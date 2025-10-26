@@ -1,0 +1,460 @@
+/* ========== TANSTACK TABLE STYLES ========== */
+/*
+ * Minimal CSS for TanStackCRUDTable component
+ * Most styling is done via inline styles with theme variables
+ * This file only defines essential layout and structural classes
+ */
+
+/* ========== TABLE CONTAINER (Wrapper) ========== */
+/* Used by table page components to wrap TanStackCRUDTable */
+.modern-table-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  width: 100%;
+  height: calc(100vh - 124px); /* navbar(50px) + topbar(50px) + toolbar(24px) */
+  background: transparent !important;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  margin: 0;
+}
+
+/* ========== TANSTACK CRUD TABLE INTERNAL CONTAINER ========== */
+/* Main container class set by TanStackCRUDTable component */
+.tanstack-crud-table-container {
+  /* Styling handled via inline styles with theme variables */
+}
+
+/* ========== FILTER & SEARCH TOOLBAR ========== */
+.filter-search-toolbar {
+  /* Styling handled via inline styles with theme variables */
+}
+
+/* ========== TABLE WRAPPER ========== */
+.table-wrapper {
+  /* Styling handled via inline styles with theme variables */
+}
+
+.table-wrapper:focus {
+  outline: 2px solid var(--color-accent-emphasis);
+  outline-offset: -2px;
+}
+
+/* ========== TABLE CONTROLS ========== */
+.table-controls {
+  /* Styling handled via inline styles with theme variables */
+}
+
+/* ========== PAGINATION BUTTONS ========== */
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border: 1px solid var(--table-border);
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-speed) var(--transition-timing);
+  font-size: var(--font-size-sm);
+  min-width: 36px;
+  height: 36px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--button-hover-bg);
+  border-color: var(--button-hover-border);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--form-input-disabled-bg);
+  color: var(--form-input-disabled-text);
+}
+
+.pagination-btn:active:not(:disabled) {
+  background: var(--button-active-bg);
+}
+
+/* ========== HEADER CHECKBOX ========== */
+.header-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-accent-emphasis);
+}
+
+.header-checkbox:indeterminate {
+  background-color: var(--color-accent-emphasis);
+  border-color: var(--color-accent-emphasis);
+}
+
+.header-checkbox:indeterminate::before {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 2px;
+  background-color: var(--primary-bg);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ========== COLUMN SEARCH INPUT ========== */
+.column-search-input {
+  width: 100%;
+  padding: 8px 36px 8px 12px;
+  border: 1px solid var(--form-input-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: var(--form-input-bg);
+  color: var(--form-input-text);
+  outline: none;
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+.column-search-input::placeholder {
+  color: var(--form-input-placeholder);
+}
+
+.column-search-input:focus {
+  border-color: var(--form-input-focus-border);
+  box-shadow: var(--form-input-focus-shadow);
+}
+
+/* ========== COLUMN SEARCH CLEAR BUTTON ========== */
+.column-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--secondary-text);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-speed) var(--transition-timing);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.column-search-clear:hover {
+  color: var(--primary-text);
+  background: var(--button-hover-bg);
+}
+
+/* ========== DROPDOWN COMPONENTS ========== */
+/* Most dropdown styling comes from Bootstrap, these are minimal overrides */
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu,
+ul.dropdown-menu,
+.dropdown .dropdown-menu,
+div.dropdown .dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  display: none;
+  min-width: 160px;
+  padding: 8px 0;
+  margin: 4px 0 0;
+  background-color: var(--modal-bg) !important;
+  border: 1px solid var(--modal-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--modal-shadow) !important;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.dropdown-menu.show,
+ul.dropdown-menu.show {
+  display: block !important;
+  background-color: var(--modal-bg) !important;
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  clear: both;
+  font-weight: 400;
+  color: var(--primary-text);
+  text-align: inherit;
+  white-space: nowrap;
+  background-color: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition: background-color var(--transition-speed) var(--transition-timing);
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  color: var(--primary-text);
+  background-color: var(--table-row-hover);
+}
+
+.dropdown-item:active {
+  color: var(--primary-text);
+  background-color: var(--table-row-selected);
+}
+
+.dropdown-divider {
+  height: 0;
+  margin: 8px 0;
+  overflow: hidden;
+  border-top: 1px solid var(--color-border-muted);
+}
+
+/* ========== ADVANCED FILTER DROPDOWN ========== */
+.advanced-filter-dropdown {
+  /* Styling handled via inline styles with theme variables */
+}
+
+/* Bootstrap dropdown overrides for theme support */
+.dropdown-toggle {
+  background-color: var(--button-bg) !important;
+  color: var(--button-text) !important;
+  border-color: var(--button-border) !important;
+}
+
+.dropdown-toggle:hover,
+.dropdown-toggle:focus {
+  background-color: var(--button-hover-bg) !important;
+  border-color: var(--button-hover-border) !important;
+  color: var(--button-text) !important;
+}
+
+.dropdown-toggle:active,
+.dropdown-toggle.show {
+  background-color: var(--button-active-bg) !important;
+  border-color: var(--button-border) !important;
+  color: var(--button-text) !important;
+}
+
+/* Ensure dropdown content has proper background in both themes */
+.dropdown-menu ul,
+.dropdown-menu li {
+  background-color: transparent;
+  color: var(--primary-text);
+}
+
+/* Theme-specific dropdown backgrounds to override Bootstrap */
+/* CRITICAL: These must use hardcoded colors with !important to override Bootstrap */
+.theme-light .dropdown-menu,
+.theme-light ul.dropdown-menu,
+.theme-light .dropdown .dropdown-menu,
+.theme-light div.dropdown .dropdown-menu {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  border-color: #d0d7de !important;
+}
+
+.theme-light .dropdown-menu.show,
+.theme-light ul.dropdown-menu.show {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+}
+
+.theme-dark .dropdown-menu,
+.theme-dark ul.dropdown-menu,
+.theme-dark .dropdown .dropdown-menu,
+.theme-dark div.dropdown .dropdown-menu {
+  background-color: #0d1117 !important;
+  background: #0d1117 !important;
+  border-color: #30363d !important;
+}
+
+.theme-dark .dropdown-menu.show,
+.theme-dark ul.dropdown-menu.show {
+  background-color: #0d1117 !important;
+  background: #0d1117 !important;
+}
+
+/* Additional specificity for table container dropdowns */
+.tanstack-crud-table-container .dropdown-menu,
+.modern-table-container .dropdown-menu {
+  background-color: var(--modal-bg) !important;
+  background: var(--modal-bg) !important;
+}
+
+.theme-light .tanstack-crud-table-container .dropdown-menu,
+.theme-light .modern-table-container .dropdown-menu {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+}
+
+.theme-dark .tanstack-crud-table-container .dropdown-menu,
+.theme-dark .modern-table-container .dropdown-menu {
+  background-color: #0d1117 !important;
+  background: #0d1117 !important;
+}
+
+/* Nuclear option: Target Bootstrap's data-bs attributes */
+[data-bs-toggle="dropdown"] + .dropdown-menu,
+button[data-bs-toggle="dropdown"] + .dropdown-menu,
+button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
+  background-color: var(--modal-bg) !important;
+  background: var(--modal-bg) !important;
+}
+
+.theme-light [data-bs-toggle="dropdown"] + .dropdown-menu,
+.theme-light button[data-bs-toggle="dropdown"] + .dropdown-menu {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+}
+
+.theme-dark [data-bs-toggle="dropdown"] + .dropdown-menu,
+.theme-dark button[data-bs-toggle="dropdown"] + .dropdown-menu {
+  background-color: #0d1117 !important;
+  background: #0d1117 !important;
+}
+
+/* ========== COLUMN VISIBILITY ITEM ========== */
+.column-visibility-item {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.column-visibility-item label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--transition-speed) var(--transition-timing);
+}
+
+.column-visibility-item label:hover {
+  background-color: var(--table-row-hover);
+}
+
+.column-visibility-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--color-accent-emphasis);
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+
+@media (max-width: 768px) {
+  .modern-table-container {
+    height: calc(100vh - 100px);
+  }
+
+  .pagination-btn {
+    padding: 4px 8px;
+    min-width: 32px;
+    height: 32px;
+    font-size: var(--font-size-xs);
+  }
+
+  .dropdown-menu {
+    max-height: 300px;
+  }
+}
+
+/* ========== ACCESSIBILITY ========== */
+
+/* Focus states for keyboard navigation */
+.pagination-btn:focus-visible,
+.column-search-input:focus-visible,
+.column-search-clear:focus-visible,
+.dropdown-item:focus-visible {
+  outline: 2px solid var(--color-accent-emphasis);
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .pagination-btn,
+  .column-search-input,
+  .column-search-clear,
+  .dropdown-item,
+  .dropdown-menu {
+    transition: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .pagination-btn,
+  .column-search-input {
+    border-width: 2px;
+  }
+}
+
+/* ========== LEGACY CLASSES (for Handsontable-based tools) ========== */
+/* These are used by WWPNColonizer and other Handsontable tools */
+
+.modern-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: var(--table-toolbar-bg);
+  border-bottom: 1px solid var(--table-toolbar-border);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.table-title {
+  margin: 0;
+  color: var(--table-toolbar-text);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.table-toggle-switch {
+  accent-color: var(--color-accent-emphasis);
+}
+
+.table-info-banner {
+  background: var(--alert-info-bg);
+  color: var(--alert-info-text);
+  border: 1px solid var(--alert-info-border);
+  padding: 12px 24px;
+}
+
+.table-alert-container {
+  margin: 16px 24px;
+}
+
+.table-alert {
+  margin: 0;
+}
+
+.table-scroll-container {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 24px;
+}

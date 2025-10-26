@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fa';
 import backupService from '../services/backupService';
 import ProgressTracker from '../components/backup/ProgressTracker';
+import '../styles/backup.css';
 
 /**
  * Restore history page
@@ -69,7 +70,7 @@ const RestoreHistory = () => {
 
   if (loading && restores.length === 0) {
     return (
-      <Container fluid className="p-4">
+      <Container fluid className="p-4" id="restore-history-page">
         <div className="text-center py-5">
           <Spinner animation="border" />
           <p className="mt-2">Loading restore history...</p>
@@ -79,7 +80,7 @@ const RestoreHistory = () => {
   }
 
   return (
-    <Container fluid className="p-4">
+    <Container fluid className="p-4" id="restore-history-page">
       <Row className="mb-4">
         <Col>
           <div className="d-flex align-items-center justify-content-between">

@@ -2,24 +2,9 @@ import React from "react";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Building2, FolderOpen, Settings, Shield, Edit2, Eye } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
+import { Building2, FolderOpen, Settings } from "lucide-react";
 
 const NavbarContext = ({ config, loading }) => {
-  const { getUserRole } = useAuth();
-
-  const getRoleInfo = (role) => {
-    switch (role) {
-      case 'admin':
-        return { icon: Shield, color: '#dc3545', label: 'Admin' };
-      case 'member':
-        return { icon: Edit2, color: '#0d6efd', label: 'Member' };
-      case 'viewer':
-        return { icon: Eye, color: '#6c757d', label: 'Viewer' };
-      default:
-        return { icon: Eye, color: '#6c757d', label: 'Unknown' };
-    }
-  };
 
   if (loading) {
     return (
@@ -42,10 +27,6 @@ const NavbarContext = ({ config, loading }) => {
     );
   }
 
-  const userRole = getUserRole(config.customer.id);
-  const roleInfo = getRoleInfo(userRole);
-  const RoleIcon = roleInfo.icon;
-
   return (
     <div className="navbar-context">
       <Dropdown align="start">
@@ -55,30 +36,7 @@ const NavbarContext = ({ config, loading }) => {
               <Building2 size={16} />
             </div>
             <div className="context-text">
-              <div className="context-customer">
-                {config.customer.name}
-                {userRole && (
-                  <span
-                    className="context-role-badge"
-                    style={{
-                      backgroundColor: `${roleInfo.color}15`,
-                      color: roleInfo.color,
-                      border: `1px solid ${roleInfo.color}40`,
-                      marginLeft: '0.5rem',
-                      padding: '0.125rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.7rem',
-                      fontWeight: '600',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}
-                  >
-                    <RoleIcon size={10} />
-                    {roleInfo.label}
-                  </span>
-                )}
-              </div>
+              <div className="context-customer">{config.customer.name}</div>
               <div className="context-project">{config.active_project.name}</div>
             </div>
           </div>
@@ -90,29 +48,7 @@ const NavbarContext = ({ config, loading }) => {
           <Dropdown.Item className="context-menu-item">
             <Building2 size={14} className="me-2" />
             <div style={{ flex: 1 }}>
-              <div className="context-menu-primary">
-                {config.customer.name}
-                {userRole && (
-                  <span
-                    style={{
-                      backgroundColor: `${roleInfo.color}15`,
-                      color: roleInfo.color,
-                      border: `1px solid ${roleInfo.color}40`,
-                      marginLeft: '0.5rem',
-                      padding: '0.125rem 0.4rem',
-                      borderRadius: '3px',
-                      fontSize: '0.65rem',
-                      fontWeight: '600',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}
-                  >
-                    <RoleIcon size={9} />
-                    {roleInfo.label}
-                  </span>
-                )}
-              </div>
+              <div className="context-menu-primary">{config.customer.name}</div>
               <small className="text-muted">Customer</small>
             </div>
           </Dropdown.Item>

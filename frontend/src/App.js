@@ -8,7 +8,7 @@ import "./App.css";
 import "./styles/navbar.css";
 import "./styles/sidebar.css";
 import "./styles/breadcrumbs.css";
-import "./styles/generictable.css";
+import "./styles/tanstacktable.css";
 import "./styles/pages.css";
 import "./styles/themes.css";
 // Navbar styles are now consolidated in styles/navbar.css (imported elsewhere)

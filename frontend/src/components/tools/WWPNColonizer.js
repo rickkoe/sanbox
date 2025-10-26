@@ -5,7 +5,7 @@ import Handsontable from 'handsontable';
 import { registerAllModules } from 'handsontable/registry';
 import { useTheme } from '../../context/ThemeContext';
 import 'handsontable/dist/handsontable.full.css';
-import '../../styles/generictable.css';
+import '../../styles/tanstacktable.css';
 
 
 registerAllModules();

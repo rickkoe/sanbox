@@ -32,7 +32,7 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
       ],
       badge: {
         text: 'Popular',
-        color: '#10b981'
+        color: 'var(--color-accent-emphasis)'
       }
     },
     {
@@ -50,7 +50,7 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
       ],
       badge: {
         text: 'New',
-        color: '#10b981'
+        color: 'var(--color-success-emphasis)'
       }
     },
     {
@@ -69,7 +69,7 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
       ],
       badge: {
         text: 'Coming Q1 2026',
-        color: '#f59e0b'
+        color: 'var(--color-attention-emphasis)'
       }
     }
   ];
@@ -134,12 +134,7 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect, theme }) => {
                       <h4>{type.title}</h4>
                       {type.badge && (
                         <span
-                          className="option-badge"
-                          style={{
-                            backgroundColor: `${type.badge.color}20`,
-                            color: type.badge.color,
-                            borderColor: `${type.badge.color}40`
-                          }}
+                          className={`option-badge ${type.id === 'san' ? 'badge-popular' : type.id === 'storage' ? 'badge-new' : 'badge-coming-soon'}`}
                         >
                           {type.badge.text}
                         </span>

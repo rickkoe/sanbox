@@ -343,7 +343,7 @@ const BackupCompare = ({ show, onHide, backups }) => {
                             {diff.difference !== 0 && (
                               <span
                                 style={{
-                                  color: diff.difference > 0 ? '#28a745' : '#dc3545',
+                                  color: diff.difference > 0 ? 'var(--success-text)' : 'var(--error-text)',
                                   fontWeight: 'bold'
                                 }}
                               >
