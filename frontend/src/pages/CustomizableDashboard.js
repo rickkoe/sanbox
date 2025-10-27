@@ -9,6 +9,7 @@ import {
   FaLayerGroup, FaStore, FaWrench, FaChartLine, FaDatabase,
   FaNetworkWired, FaServer, FaUsers, FaHdd, FaSearch,
   FaBars, FaTh, FaThLarge, FaGlobe, FaExclamationTriangle,
+  FaTable,
 } from 'react-icons/fa';
 import { ConfigContext } from '../context/ConfigContext';
 import { useTheme } from '../context/ThemeContext';
@@ -98,20 +99,74 @@ const CustomizableDashboard = () => {
     }
   }, [applyPreset, config?.customer?.id]);
 
+  const handleAutoLayout = useCallback(async () => {
+    try {
+      if (!dashboard?.widgets?.length) return;
+
+      const gridColumns = 12;
+      let currentX = 0;
+      let currentY = 0;
+      let rowHeight = 0;
+
+      // Sort widgets by current position to maintain some order
+      const sortedWidgets = [...dashboard.widgets].sort((a, b) => {
+        if (a.position_y === b.position_y) {
+          return a.position_x - b.position_x;
+        }
+        return a.position_y - b.position_y;
+      });
+
+      // Calculate new positions for each widget
+      const updates = sortedWidgets.map(widget => {
+        const widgetWidth = widget.width || 4;
+
+        // If widget doesn't fit in current row, move to next row
+        if (currentX + widgetWidth > gridColumns) {
+          currentX = 0;
+          currentY += 1;
+          rowHeight = 0;
+        }
+
+        const newPosition = {
+          position_x: currentX,
+          position_y: currentY
+        };
+
+        // Move to next position in row
+        currentX += widgetWidth;
+
+        return {
+          widgetId: widget.id,
+          updates: newPosition
+        };
+      });
+
+      // Update all widgets
+      await Promise.all(
+        updates.map(({ widgetId, updates }) => updateWidget(widgetId, updates))
+      );
+
+      console.log('Auto-layout applied successfully');
+    } catch (error) {
+      console.error('Failed to auto-layout widgets:', error);
+      alert('Failed to auto-layout widgets. Please try again.');
+    }
+  }, [dashboard?.widgets, updateWidget]);
+
   const handleSaveTemplate = useCallback(async (templateData) => {
     try {
       if (!config?.customer?.id) {
         alert('No customer selected. Please select a customer first.');
         return;
       }
-      
+
       const response = await axios.post('/api/core/dashboard-v2/templates/save/', {
         customer_id: config?.customer?.id,
         template_name: templateData.name,
         template_description: templateData.description,
         is_public: templateData.isPublic || false
       });
-      
+
       setShowSaveTemplate(false);
       // Show success message or refresh presets
       alert(`Template "${templateData.name}" saved successfully!`);
@@ -146,6 +201,7 @@ const CustomizableDashboard = () => {
           onShowPresets={() => setShowPresets(true)}
           onShowSaveTemplate={() => setShowSaveTemplate(true)}
           onRefresh={refreshDashboard}
+          onAutoLayout={handleAutoLayout}
           dashboardView={dashboardView}
           onViewChange={setDashboardView}
         />
@@ -207,16 +263,17 @@ const CustomizableDashboard = () => {
 };
 
 // Dashboard Header Component
-const DashboardHeader = ({ 
-  layout, 
-  editMode, 
-  onEditModeToggle, 
-  onShowMarketplace, 
+const DashboardHeader = ({
+  layout,
+  editMode,
+  onEditModeToggle,
+  onShowMarketplace,
   onShowPresets,
   onShowSaveTemplate,
   onRefresh,
+  onAutoLayout,
   dashboardView,
-  onViewChange 
+  onViewChange
 }) => {
   const { config } = useContext(ConfigContext);
   
@@ -271,13 +328,22 @@ const DashboardHeader = ({
           </button>
 
           {editMode && (
-            <button className="action-btn" onClick={onShowMarketplace} title="Manage Widgets">
-              <FaStore />
-              Manage Widgets
-            </button>
+            <>
+              <button className="action-btn" onClick={onShowMarketplace} title="Manage Widgets">
+                <FaStore />
+                Manage Widgets
+              </button>
+
+              {dashboardView === 'grid' && (
+                <button className="action-btn" onClick={onAutoLayout} title="Auto-Layout Widgets">
+                  <FaTable />
+                  Auto-Layout
+                </button>
+              )}
+            </>
           )}
 
-          <button 
+          <button
             className={`action-btn ${editMode ? 'active' : ''}`}
             onClick={onEditModeToggle}
             title={editMode ? 'Exit Edit Mode' : 'Edit Dashboard'}
