@@ -39,7 +39,10 @@ const CustomizableDashboard = () => {
   const [showPresets, setShowPresets] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [selectedWidget, setSelectedWidget] = useState(null);
-  const [dashboardView, setDashboardView] = useState('grid'); // grid, list, cards
+  const [dashboardView, setDashboardView] = useState(() => {
+    // Load saved view mode from localStorage, default to 'grid'
+    return localStorage.getItem('dashboardViewMode') || 'grid';
+  });
 
   // Note: Dashboard theme database integration disabled due to database lock issues
   // Themes work perfectly in UI without database persistence
@@ -48,7 +51,7 @@ const CustomizableDashboard = () => {
   // Auto-refresh functionality
   useEffect(() => {
     if (!dashboard?.layout?.auto_refresh || editMode) return;
-    
+
     const interval = setInterval(() => {
       if (!document.hidden) {
         refreshDashboard();
@@ -57,6 +60,11 @@ const CustomizableDashboard = () => {
 
     return () => clearInterval(interval);
   }, [dashboard?.layout, editMode, refreshDashboard]);
+
+  // Persist dashboard view mode to localStorage
+  useEffect(() => {
+    localStorage.setItem('dashboardViewMode', dashboardView);
+  }, [dashboardView]);
 
   const handleAddWidget = useCallback(async (widgetType, position) => {
     try {

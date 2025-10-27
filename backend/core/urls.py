@@ -43,7 +43,12 @@ from .views import (
 from .dashboard_views import (
     DashboardLayoutView, DashboardWidgetView, widget_types_view,
     dashboard_themes_view, dashboard_presets_view, DashboardPresetApplyView,
-    DashboardTemplateSaveView
+    DashboardTemplateSaveView,
+    # Widget data endpoints
+    widget_san_overview, widget_zone_deployment, widget_alias_distribution,
+    widget_storage_inventory, widget_host_connectivity, widget_import_activity,
+    widget_backup_health, widget_wwpn_inventory, widget_project_activity,
+    widget_storage_capacity
 )
 
 # Import worksheet views
@@ -127,6 +132,18 @@ urlpatterns = [
     path("dashboard-v2/presets/", dashboard_presets_view, name="dashboard-presets"),
     path("dashboard-v2/presets/apply/", DashboardPresetApplyView.as_view(), name="dashboard-preset-apply"),
     path("dashboard-v2/templates/save/", DashboardTemplateSaveView.as_view(), name="dashboard-template-save"),
+
+    # Widget Data Endpoints
+    path("widgets/san-overview/", widget_san_overview, name="widget-san-overview"),
+    path("widgets/zone-deployment/", widget_zone_deployment, name="widget-zone-deployment"),
+    path("widgets/alias-distribution/", widget_alias_distribution, name="widget-alias-distribution"),
+    path("widgets/storage-inventory/", widget_storage_inventory, name="widget-storage-inventory"),
+    path("widgets/host-connectivity/", widget_host_connectivity, name="widget-host-connectivity"),
+    path("widgets/import-activity/", widget_import_activity, name="widget-import-activity"),
+    path("widgets/backup-health/", widget_backup_health, name="widget-backup-health"),
+    path("widgets/wwpn-inventory/", widget_wwpn_inventory, name="widget-wwpn-inventory"),
+    path("widgets/project-activity/", widget_project_activity, name="widget-project-activity"),
+    path("widgets/storage-capacity/", widget_storage_capacity, name="widget-storage-capacity"),
 
     # Include router URLs for worksheet generator
     path('', include(router.urls)),

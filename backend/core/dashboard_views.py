@@ -167,7 +167,11 @@ class DashboardLayoutView(View):
                     'theme': 'modern'
                 }
             )
-            
+
+            # If this is a new layout, populate with default widgets
+            if created:
+                self._create_default_widgets(layout)
+
             # Get all widgets for this layout
             widgets = DashboardWidget.objects.filter(layout=layout, is_visible=True)
 
@@ -207,7 +211,50 @@ class DashboardLayoutView(View):
             return JsonResponse({'error': 'Customer not found'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
-    
+
+    def _create_default_widgets(self, layout):
+        """Create default widgets for a new dashboard layout"""
+        # Get all active widget types
+        widget_types = WidgetType.objects.filter(is_active=True).order_by('category', 'name')
+
+        # Define a nice grid layout (12 columns total)
+        # Position widgets in a 3-column layout
+        positions = [
+            # Row 1
+            {'x': 0, 'y': 0},   # Column 1
+            {'x': 4, 'y': 0},   # Column 2
+            {'x': 8, 'y': 0},   # Column 3
+            # Row 2
+            {'x': 0, 'y': 1},
+            {'x': 4, 'y': 1},
+            {'x': 8, 'y': 1},
+            # Row 3
+            {'x': 0, 'y': 2},
+            {'x': 4, 'y': 2},
+            {'x': 8, 'y': 2},
+            # Row 4
+            {'x': 0, 'y': 3},
+            {'x': 4, 'y': 3},
+            {'x': 8, 'y': 3},
+        ]
+
+        # Create widgets for each type
+        for idx, widget_type in enumerate(widget_types):
+            if idx < len(positions):
+                pos = positions[idx]
+                DashboardWidget.objects.create(
+                    layout=layout,
+                    widget_type=widget_type,
+                    title=widget_type.display_name,
+                    position_x=pos['x'],
+                    position_y=pos['y'],
+                    width=widget_type.default_width,
+                    height=widget_type.default_height,
+                    config={},
+                    data_filters={},
+                    is_visible=True
+                )
+
     def post(self, request):
         """Create or update dashboard layout"""
         try:
@@ -626,10 +673,423 @@ class DashboardTemplateSaveView(View):
                     'template_id': preset.id,
                     'template_name': preset.display_name
                 })
-                
+
         except Customer.DoesNotExist:
             return JsonResponse({'error': 'Customer not found'}, status=404)
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+
+
+# ========== WIDGET DATA ENDPOINTS ==========
+
+from san.models import Switch, AliasWWPN
+from storage.models import Host, HostWwpn
+from backup.models import BackupRecord
+from django.db.models import Sum, Count, Q, Max
+
+
+@login_required
+def widget_san_overview(request):
+    """SAN Configuration Overview Widget Data"""
+    try:
+        customer_id = request.GET.get('customer_id')
+        project_id = request.GET.get('project_id')
+
+        if not customer_id or not project_id:
+            return JsonResponse({'error': 'customer_id and project_id required'}, status=400)
+
+        project = Project.objects.get(id=project_id)
+
+        # Get counts
+        fabric_count = Fabric.objects.filter(customer_id=customer_id).count()
+        zone_count = Zone.objects.filter(projects=project).count()
+        alias_count = Alias.objects.filter(projects=project).count()
+        switch_count = Switch.objects.filter(customer_id=customer_id).count()
+
+        # Get vendor breakdown
+        cisco_fabrics = Fabric.objects.filter(customer_id=customer_id, san_vendor='cisco').count()
+        brocade_fabrics = Fabric.objects.filter(customer_id=customer_id, san_vendor='brocade').count()
+
+        return JsonResponse({
+            'total_fabrics': fabric_count,
+            'total_zones': zone_count,
+            'total_aliases': alias_count,
+            'total_switches': switch_count,
+            'cisco_fabrics': cisco_fabrics,
+            'brocade_fabrics': brocade_fabrics
+        })
+
+    except Project.DoesNotExist:
+        return JsonResponse({'error': 'Project not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_zone_deployment(request):
+    """Zone Deployment Status Widget Data"""
+    try:
+        project_id = request.GET.get('project_id')
+
+        if not project_id:
+            return JsonResponse({'error': 'project_id required'}, status=400)
+
+        project = Project.objects.get(id=project_id)
+
+        # Get deployment status
+        total_zones = Zone.objects.filter(projects=project).count()
+        deployed_zones = Zone.objects.filter(projects=project, exists=True).count()
+        designed_zones = total_zones - deployed_zones
+
+        deployment_percentage = round((deployed_zones / total_zones * 100) if total_zones > 0 else 0, 1)
+
+        return JsonResponse({
+            'total_zones': total_zones,
+            'deployed': deployed_zones,
+            'designed': designed_zones,
+            'deployment_percentage': deployment_percentage
+        })
+
+    except Project.DoesNotExist:
+        return JsonResponse({'error': 'Project not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_alias_distribution(request):
+    """Alias Distribution Widget Data"""
+    try:
+        project_id = request.GET.get('project_id')
+
+        if not project_id:
+            return JsonResponse({'error': 'project_id required'}, status=400)
+
+        project = Project.objects.get(id=project_id)
+
+        # Get alias distribution by use type
+        initiators = Alias.objects.filter(projects=project, use='init').count()
+        targets = Alias.objects.filter(projects=project, use='target').count()
+        both = Alias.objects.filter(projects=project, use='both').count()
+        total = initiators + targets + both
+
+        return JsonResponse({
+            'total_aliases': total,
+            'initiators': initiators,
+            'targets': targets,
+            'both': both
+        })
+
+    except Project.DoesNotExist:
+        return JsonResponse({'error': 'Project not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_storage_inventory(request):
+    """Storage Systems Inventory Widget Data"""
+    try:
+        customer_id = request.GET.get('customer_id')
+
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+
+        # Get storage counts by type
+        storage_types = Storage.objects.filter(
+            customer_id=customer_id
+        ).values('storage_type').annotate(count=Count('id'))
+
+        total_storage = Storage.objects.filter(customer_id=customer_id).count()
+
+        # Format by type
+        type_breakdown = {item['storage_type'] or 'Unknown': item['count'] for item in storage_types}
+
+        return JsonResponse({
+            'total_systems': total_storage,
+            'by_type': type_breakdown
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_host_connectivity(request):
+    """Host Connectivity Widget Data"""
+    try:
+        customer_id = request.GET.get('customer_id')
+
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+
+        # Get host counts
+        total_hosts = Host.objects.filter(storage__customer_id=customer_id).distinct().count()
+
+        # Hosts with WWPNs
+        hosts_with_wwpns = Host.objects.filter(
+            storage__customer_id=customer_id
+        ).annotate(
+            wwpn_count=Count('host_wwpns')
+        ).filter(wwpn_count__gt=0).count()
+
+        hosts_without_wwpns = total_hosts - hosts_with_wwpns
+
+        # Total WWPNs
+        total_wwpns = HostWwpn.objects.filter(
+            host__storage__customer_id=customer_id
+        ).count()
+
+        return JsonResponse({
+            'total_hosts': total_hosts,
+            'hosts_with_wwpns': hosts_with_wwpns,
+            'hosts_without_wwpns': hosts_without_wwpns,
+            'total_wwpns': total_wwpns
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_import_activity(request):
+    """Recent Import Activity Widget Data"""
+    try:
+        customer_id = request.GET.get('customer_id')
+
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+
+        # Get latest import
+        latest_import = StorageImport.objects.filter(
+            customer_id=customer_id
+        ).order_by('-started_at').first()
+
+        if not latest_import:
+            return JsonResponse({
+                'has_imports': False,
+                'message': 'No imports found'
+            })
+
+        return JsonResponse({
+            'has_imports': True,
+            'import_id': latest_import.id,
+            'status': latest_import.status,
+            'started_at': latest_import.started_at.isoformat() if latest_import.started_at else None,
+            'completed_at': latest_import.completed_at.isoformat() if latest_import.completed_at else None,
+            'storage_systems_imported': latest_import.storage_systems_imported or 0,
+            'volumes_imported': latest_import.volumes_imported or 0,
+            'hosts_imported': latest_import.hosts_imported or 0,
+            'error_message': latest_import.error_message
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_backup_health(request):
+    """Backup Health Widget Data"""
+    try:
+        # Get latest backup (global, not customer-specific)
+        latest_backup = BackupRecord.objects.order_by('-started_at').first()
+
+        if not latest_backup:
+            return JsonResponse({
+                'has_backups': False,
+                'message': 'No backups found'
+            })
+
+        # Calculate time since last backup
+        from django.utils import timezone
+        if latest_backup.completed_at:
+            time_since = timezone.now() - latest_backup.completed_at
+            hours_since = int(time_since.total_seconds() / 3600)
+
+            if hours_since < 1:
+                time_since_str = f"{int(time_since.total_seconds() / 60)} minutes ago"
+            elif hours_since < 24:
+                time_since_str = f"{hours_since} hours ago"
+            else:
+                days_since = int(hours_since / 24)
+                time_since_str = f"{days_since} days ago"
+        else:
+            time_since_str = "In progress"
+
+        return JsonResponse({
+            'has_backups': True,
+            'backup_id': latest_backup.id,
+            'status': latest_backup.status,
+            'started_at': latest_backup.started_at.isoformat() if latest_backup.started_at else None,
+            'completed_at': latest_backup.completed_at.isoformat() if latest_backup.completed_at else None,
+            'file_size_mb': latest_backup.size_mb,
+            'duration': latest_backup.duration,
+            'time_since': time_since_str,
+            'backup_type': latest_backup.backup_type,
+            'description': latest_backup.description
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_wwpn_inventory(request):
+    """WWPN Inventory Widget Data"""
+    try:
+        customer_id = request.GET.get('customer_id')
+        project_id = request.GET.get('project_id')
+
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+
+        # Total WWPNs in aliases (SAN side)
+        alias_wwpns = AliasWWPN.objects.filter(
+            alias__fabric__customer_id=customer_id
+        ).count()
+
+        # Total WWPNs on hosts (Storage side)
+        host_wwpns = HostWwpn.objects.filter(
+            host__storage__customer_id=customer_id
+        ).count()
+
+        # Manual vs alias-derived (from HostWwpn)
+        manual_wwpns = HostWwpn.objects.filter(
+            host__storage__customer_id=customer_id,
+            source_type='manual'
+        ).count()
+
+        alias_derived_wwpns = HostWwpn.objects.filter(
+            host__storage__customer_id=customer_id,
+            source_type='alias'
+        ).count()
+
+        return JsonResponse({
+            'alias_wwpns': alias_wwpns,
+            'host_wwpns': host_wwpns,
+            'manual_wwpns': manual_wwpns,
+            'alias_derived_wwpns': alias_derived_wwpns,
+            'total_wwpns': alias_wwpns + host_wwpns
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_project_activity(request):
+    """Project Activity Log Widget Data"""
+    try:
+        project_id = request.GET.get('project_id')
+        limit = int(request.GET.get('limit', 10))
+
+        if not project_id:
+            return JsonResponse({'error': 'project_id required'}, status=400)
+
+        project = Project.objects.get(id=project_id)
+
+        # Get recently modified zones
+        recent_zones = Zone.objects.filter(
+            projects=project,
+            last_modified_at__isnull=False
+        ).order_by('-last_modified_at')[:limit]
+
+        # Get recently modified aliases
+        recent_aliases = Alias.objects.filter(
+            projects=project,
+            last_modified_at__isnull=False
+        ).order_by('-last_modified_at')[:limit]
+
+        # Combine and sort by timestamp
+        activities = []
+
+        for zone in recent_zones:
+            activities.append({
+                'type': 'zone',
+                'name': zone.name,
+                'action': 'modified',
+                'timestamp': zone.last_modified_at.isoformat(),
+                'user': zone.last_modified_by.username if zone.last_modified_by else 'Unknown'
+            })
+
+        for alias in recent_aliases:
+            activities.append({
+                'type': 'alias',
+                'name': alias.name,
+                'action': 'modified',
+                'timestamp': alias.last_modified_at.isoformat(),
+                'user': alias.last_modified_by.username if alias.last_modified_by else 'Unknown'
+            })
+
+        # Sort by timestamp descending
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+
+        return JsonResponse({
+            'activities': activities[:limit]
+        })
+
+    except Project.DoesNotExist:
+        return JsonResponse({'error': 'Project not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def widget_storage_capacity(request):
+    """Storage Capacity Summary Widget Data"""
+    try:
+        customer_id = request.GET.get('customer_id')
+
+        if not customer_id:
+            return JsonResponse({'error': 'customer_id required'}, status=400)
+
+        # Get all storage systems for customer
+        storage_systems = Storage.objects.filter(customer_id=customer_id)
+
+        # Calculate totals
+        total_capacity_bytes = 0
+        total_used_bytes = 0
+        total_compression_savings = 0
+        system_count = 0
+
+        for system in storage_systems:
+            # Total capacity
+            if system.capacity_bytes:
+                total_capacity_bytes += system.capacity_bytes
+
+            # Used capacity
+            if system.used_capacity_bytes:
+                total_used_bytes += system.used_capacity_bytes
+
+            # Compression savings
+            if system.capacity_savings_bytes:
+                total_compression_savings += system.capacity_savings_bytes
+
+            system_count += 1
+
+        # Calculate available
+        total_available_bytes = total_capacity_bytes - total_used_bytes
+
+        # Calculate percentages
+        used_percentage = round((total_used_bytes / total_capacity_bytes * 100) if total_capacity_bytes > 0 else 0, 1)
+
+        # Convert to readable units (TB)
+        def bytes_to_tb(bytes_val):
+            return round(bytes_val / (1024**4), 2) if bytes_val else 0
+
+        return JsonResponse({
+            'system_count': system_count,
+            'total_capacity_tb': bytes_to_tb(total_capacity_bytes),
+            'used_capacity_tb': bytes_to_tb(total_used_bytes),
+            'available_capacity_tb': bytes_to_tb(total_available_bytes),
+            'used_percentage': used_percentage,
+            'compression_savings_tb': bytes_to_tb(total_compression_savings),
+            'total_capacity_bytes': total_capacity_bytes,
+            'used_capacity_bytes': total_used_bytes,
+            'available_capacity_bytes': total_available_bytes
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

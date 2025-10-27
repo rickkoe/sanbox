@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { 
-  FaChartLine, FaDatabase, FaServer, FaNetworkWired, 
+import {
+  FaChartLine, FaDatabase, FaServer, FaNetworkWired,
   FaExclamationTriangle, FaClock, FaUsers, FaHdd,
   FaCheckCircle, FaTimesCircle, FaSpinner
 } from 'react-icons/fa';
@@ -8,6 +8,16 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContaine
 import axios from 'axios';
 import { ConfigContext } from '../../context/ConfigContext';
 import InsightsStatusWidget from './widgets/InsightsStatusWidget';
+import SanOverviewWidget from './widgets/SanOverviewWidget';
+import ZoneDeploymentWidget from './widgets/ZoneDeploymentWidget';
+import AliasDistributionWidget from './widgets/AliasDistributionWidget';
+import StorageInventoryWidget from './widgets/StorageInventoryWidget';
+import HostConnectivityWidget from './widgets/HostConnectivityWidget';
+import ImportActivityWidget from './widgets/ImportActivityWidget';
+import BackupHealthWidget from './widgets/BackupHealthWidget';
+import WwpnInventoryWidget from './widgets/WwpnInventoryWidget';
+import ProjectActivityWidget from './widgets/ProjectActivityWidget';
+import StorageCapacityWidget from './widgets/StorageCapacityWidget';
 
 export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
   const { config } = useContext(ConfigContext);
@@ -75,6 +85,26 @@ export const WidgetRenderer = ({ widget, editMode, compact = false }) => {
       return <SystemsWidget widget={widget} data={data} compact={compact} />;
     case 'InsightsStatusWidget':
       return <InsightsStatusWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'SanOverviewWidget':
+      return <SanOverviewWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'ZoneDeploymentWidget':
+      return <ZoneDeploymentWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'AliasDistributionWidget':
+      return <AliasDistributionWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'StorageInventoryWidget':
+      return <StorageInventoryWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'HostConnectivityWidget':
+      return <HostConnectivityWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'ImportActivityWidget':
+      return <ImportActivityWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'BackupHealthWidget':
+      return <BackupHealthWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'WwpnInventoryWidget':
+      return <WwpnInventoryWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'ProjectActivityWidget':
+      return <ProjectActivityWidget widget={widget} editMode={editMode} compact={compact} />;
+    case 'StorageCapacityWidget':
+      return <StorageCapacityWidget widget={widget} editMode={editMode} compact={compact} />;
     default:
       return <GenericWidget widget={widget} data={data} compact={compact} />;
   }
