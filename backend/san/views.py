@@ -860,7 +860,10 @@ def hosts_by_project_view(request, project_id):
         return get_unique_values_for_hosts(request, project, unique_values_field)
     
     # Base queryset
-    hosts_queryset = Host.objects.filter(project=project)
+    # Host is linked to Storage which is linked to Customer
+    # Project is also linked to Customer
+    # So filter hosts by storage's customer matching project's customer
+    hosts_queryset = Host.objects.filter(storage__customer=project.customer)
     print(f"🔍 Found {hosts_queryset.count()} hosts for project {project_id}")
     
     # Apply storage filtering if provided

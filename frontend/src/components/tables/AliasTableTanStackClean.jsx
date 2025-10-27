@@ -287,24 +287,44 @@ const AliasTableTanStackClean = () => {
                     setLoading(true);
                     console.log('Loading dropdown data for alias table...');
 
-                    const [fabricResponse, hostResponse, aliasResponse] = await Promise.all([
+                    // Use Promise.allSettled to handle partial failures gracefully
+                    const results = await Promise.allSettled([
                         axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
                         axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`),
                         axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`)
                     ]);
 
-                    // Handle paginated response structure
-                    const fabricsArray = fabricResponse.data.results || fabricResponse.data;
-                    setFabricOptions(fabricsArray.map(f => ({ id: f.id, name: f.name })));
+                    // Handle fabrics
+                    if (results[0].status === 'fulfilled') {
+                        const fabricsArray = results[0].value.data.results || results[0].value.data;
+                        setFabricOptions(fabricsArray.map(f => ({ id: f.id, name: f.name })));
+                        console.log(`✅ Loaded ${fabricsArray.length} fabrics`);
+                    } else {
+                        console.error('❌ Failed to load fabrics:', results[0].reason);
+                        setFabricOptions([]);
+                    }
 
-                    setHostOptions(hostResponse.data.map(h => ({ id: h.id, name: h.name })));
+                    // Handle hosts
+                    if (results[1].status === 'fulfilled') {
+                        const hostsArray = results[1].value.data.results || results[1].value.data;
+                        setHostOptions(hostsArray.map(h => ({ id: h.id, name: h.name })));
+                        console.log(`✅ Loaded ${hostsArray.length} hosts`);
+                    } else {
+                        console.error('❌ Failed to load hosts:', results[1].reason);
+                        setHostOptions([]);
+                    }
 
-                    // Calculate required WWPN columns based on alias data
-                    const aliasesArray = aliasResponse.data.results || aliasResponse.data;
-                    const requiredColumns = calculateWwpnColumns(aliasesArray);
-                    setWwpnColumnCount(requiredColumns);
+                    // Handle aliases and calculate WWPN columns
+                    if (results[2].status === 'fulfilled') {
+                        const aliasesArray = results[2].value.data.results || results[2].value.data;
+                        const requiredColumns = calculateWwpnColumns(aliasesArray);
+                        setWwpnColumnCount(requiredColumns);
+                        console.log(`✅ Loaded ${aliasesArray.length} aliases`);
+                    } else {
+                        console.error('❌ Failed to load aliases:', results[2].reason);
+                    }
 
-                    console.log('✅ Dropdown data loaded successfully');
+                    console.log('✅ Dropdown data loading completed');
                     setLoading(false);
                 } catch (error) {
                     console.error('❌ Error loading dropdown data:', error);
