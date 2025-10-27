@@ -55,8 +55,8 @@ const GeneralStorageConverter = () => {
   };
 
   return (
-    <div className="calculator-card">
-      <h2>General Storage Converter</h2>
+    <>
+      <h2 className="calculator-title">General Storage Converter</h2>
 
       <label>Enter Value:</label>
       <input type="text" value={inputValue} onChange={handleInputChange} />
@@ -81,7 +81,7 @@ const GeneralStorageConverter = () => {
 
       <label>Converted Value:</label>
       <input type="text" value={convertedValue} readOnly />
-    </div>
+    </>
   );
 };
 

@@ -158,7 +158,7 @@ const WWPNFormatterTable = () => {
         <div className="header-left">
           <h2 className="table-title" style={{
             background: 'transparent',
-            color: 'inherit',
+            color: 'var(--table-toolbar-text)',
             margin: 0,
             fontSize: '1.25rem',
             fontWeight: '600'

@@ -97,8 +97,8 @@ const IBMiStorageCalculator = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <h2>IBM i (AS/400) Storage Calculator</h2>
+    <>
+      <h2 className="calculator-title">IBM i (AS/400) Storage Calculator</h2>
 
       <label>Disk Type:</label>
       <select value={isProtected ? "protected" : "unprotected"} onChange={handleTypeChange}>
@@ -129,21 +129,8 @@ const IBMiStorageCalculator = () => {
 
       <label>Terabytes (TB):</label>
       <input type="text" value={tb} readOnly />
-    </div>
+    </>
   );
-};
-
-const styles = {
-  container: {
-    maxWidth: "400px",
-    margin: "20px auto",
-    padding: "20px",
-    border: "1px solid var(--table-border)",
-    borderRadius: "8px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
 };
 
 export default IBMiStorageCalculator;

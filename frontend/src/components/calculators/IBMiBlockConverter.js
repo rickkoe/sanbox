@@ -36,29 +36,16 @@ const IBMiBlockConverter = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <h2>IBM i 520-byte Block Volume Converter</h2>
+    <>
+      <h2 className="calculator-title">IBM i 520-byte Block Volume Converter</h2>
 
       <label>Volume Size (GiB):</label>
       <input type="text" value={volumeSize} onChange={handleVolumeSizeChange} />
 
       <label>IBM i Equivalent Size (GB):</label>
       <input type="text" value={ibmiSize} onChange={handleIBMiSizeChange} />
-    </div>
+    </>
   );
-};
-
-const styles = {
-  container: {
-    maxWidth: "400px",
-    margin: "20px auto",
-    padding: "20px",
-    border: "1px solid #ccc",
-    borderRadius: "8px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
 };
 
 export default IBMiBlockConverter;

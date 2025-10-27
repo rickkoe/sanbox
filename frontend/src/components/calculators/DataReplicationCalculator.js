@@ -83,24 +83,22 @@ const DataReplicationCalculator = () => {
   };
 
   return (
-    <div className="calculator-card show">
-      <h2>Data Replication Calculator</h2>
-      
+    <>
+      <h2 className="calculator-title">Data Replication Calculator</h2>
+
       {/* Data Size Section */}
       <div>
         <label>Total Data Size:</label>
-        <div style={{ display: "flex", gap: "5px", marginBottom: "15px" }}>
+        <div className="replication-input-group">
           <input
             type="text"
             value={dataSize}
             onChange={handleDataSizeChange}
             placeholder="Enter data size"
-            style={{ flex: ".75" }}
           />
           <select
             value={dataSizeUnit}
             onChange={(e) => setDataSizeUnit(e.target.value)}
-            style={{ flex: "1.1" }}
           >
             {dataSizeUnits.map((unit) => (
               <option key={unit.value} value={unit.value}>
@@ -110,22 +108,20 @@ const DataReplicationCalculator = () => {
           </select>
         </div>
       </div>
-      
+
       {/* Data Rate Section */}
       <div>
         <label>Data Transfer Rate:</label>
-        <div style={{ display: "flex", gap: "5px", marginBottom: "20px" }}>
+        <div className="replication-input-group">
           <input
             type="text"
             value={dataRate}
             onChange={handleDataRateChange}
             placeholder="Enter data rate"
-            style={{ flex: ".75" }}
           />
           <select
             value={dataRateUnit}
             onChange={(e) => setDataRateUnit(e.target.value)}
-            style={{ flex: "1.1" }}
           >
             {dataRateUnits.map((unit) => (
               <option key={unit.value} value={unit.value}>
@@ -135,70 +131,37 @@ const DataReplicationCalculator = () => {
           </select>
         </div>
       </div>
-      
+
       {/* Results Section */}
-      <div style={{
-        padding: "15px",
-        borderRadius: "6px",
-        marginTop: "10px"
-      }}>
-        <h3 style={{ marginTop: "0", marginBottom: "10px" }}>Estimated Replication Time:</h3>
+      <div className="replication-results">
+        <h3>Estimated Replication Time:</h3>
         {formattedTime ? (
-          <div style={{ textAlign: "center" }}>
-            <p style={{ 
-              fontSize: "16px", 
-              fontWeight: "bold", 
-              marginBottom: "12px" 
-            }}>{formattedTime}</p>
-            <div style={{ 
-              display: "grid", 
-              gridTemplateColumns: "repeat(4, 1fr)", 
-              gap: "8px", 
-              textAlign: "center" 
-            }}>
-              <div style={{
-                padding: "8px",
-                borderRadius: "4px",
-                border: "1px solid var(--table-border)"
-              }}>
-                <div style={{ fontWeight: "bold", color: "var(--link-text)" }}>{replicationTime.days}</div>
-                <div>Days</div>
+          <div>
+            <p className="replication-time-string">{formattedTime}</p>
+            <div className="replication-time-grid">
+              <div className="replication-time-box">
+                <div className="replication-time-box-value">{replicationTime.days}</div>
+                <div className="replication-time-box-label">Days</div>
               </div>
-              <div style={{
-                padding: "8px",
-                borderRadius: "4px",
-                border: "1px solid var(--table-border)"
-              }}>
-                <div style={{ fontWeight: "bold", color: "var(--link-text)" }}>{replicationTime.hours}</div>
-                <div>Hours</div>
+              <div className="replication-time-box">
+                <div className="replication-time-box-value">{replicationTime.hours}</div>
+                <div className="replication-time-box-label">Hours</div>
               </div>
-              <div style={{
-                padding: "8px",
-                borderRadius: "4px",
-                border: "1px solid var(--table-border)"
-              }}>
-                <div style={{ fontWeight: "bold", color: "var(--link-text)" }}>{replicationTime.minutes}</div>
-                <div>Minutes</div>
+              <div className="replication-time-box">
+                <div className="replication-time-box-value">{replicationTime.minutes}</div>
+                <div className="replication-time-box-label">Minutes</div>
               </div>
-              <div style={{
-                padding: "8px",
-                borderRadius: "4px",
-                border: "1px solid var(--table-border)"
-              }}>
-                <div style={{ fontWeight: "bold", color: "var(--link-text)" }}>{replicationTime.seconds}</div>
-                <div>Seconds</div>
+              <div className="replication-time-box">
+                <div className="replication-time-box-value">{replicationTime.seconds}</div>
+                <div className="replication-time-box-label">Seconds</div>
               </div>
             </div>
           </div>
         ) : (
-          <p style={{ 
-            textAlign: "center", 
-            fontStyle: "italic", 
-            color: "#6c757d" 
-          }}>Enter data size and rate to calculate</p>
+          <p className="replication-placeholder">Enter data size and rate to calculate</p>
         )}
       </div>
-    </div>
+    </>
   );
 };
 

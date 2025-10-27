@@ -458,3 +458,149 @@ button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
   overflow: auto;
   padding: 16px 24px;
 }
+
+/* ========== HANDSONTABLE DARK THEME OVERRIDES ========== */
+/* Override Handsontable default white backgrounds for dark theme */
+
+.theme-dark .handsontable,
+.theme-dark .ht_master,
+.theme-dark .wtHolder {
+  background-color: var(--table-bg) !important;
+  color: var(--table-cell-text) !important;
+}
+
+/* Table cells */
+.theme-dark .handsontable td,
+.theme-dark .handsontable th {
+  background-color: var(--table-bg) !important;
+  color: var(--table-cell-text) !important;
+  border-color: var(--table-border) !important;
+}
+
+/* Table headers */
+.theme-dark .handsontable thead th,
+.theme-dark .ht__highlight {
+  background-color: var(--table-header-bg) !important;
+  color: var(--table-header-text) !important;
+  border-color: var(--table-border) !important;
+}
+
+/* Row hover */
+.theme-dark .handsontable tbody tr:hover td {
+  background-color: var(--table-row-hover) !important;
+}
+
+/* Selected cell */
+.theme-dark .handsontable .current,
+.theme-dark .handsontable .area {
+  background-color: var(--table-row-selected) !important;
+}
+
+/* Invalid cells */
+.theme-dark .handsontable .invalid-cell {
+  background-color: var(--alert-danger-bg) !important;
+  color: var(--alert-danger-text) !important;
+}
+
+/* Light theme overrides to ensure consistency */
+.theme-light .handsontable,
+.theme-light .ht_master,
+.theme-light .wtHolder {
+  background-color: var(--table-bg) !important;
+  color: var(--table-cell-text) !important;
+}
+
+.theme-light .handsontable td,
+.theme-light .handsontable th {
+  background-color: var(--table-bg) !important;
+  color: var(--table-cell-text) !important;
+  border-color: var(--table-border) !important;
+}
+
+.theme-light .handsontable thead th {
+  background-color: var(--table-header-bg) !important;
+  color: var(--table-header-text) !important;
+}
+
+/* ========== BOOTSTRAP TOGGLE SWITCH OVERRIDES ========== */
+/* Fix Bootstrap Form.Check toggle switch colors and label visibility */
+
+.table-toggle-switch,
+.table-toggle-switch .form-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Target all possible Bootstrap switch selectors to override teal */
+.table-toggle-switch .form-check-input,
+.table-toggle-switch .form-switch .form-check-input,
+.form-check.table-toggle-switch .form-check-input,
+.table-toggle-switch input[type="checkbox"] {
+  cursor: pointer !important;
+  width: 3rem !important;
+  height: 1.5rem !important;
+  background-color: var(--form-input-bg) !important;
+  border-color: var(--form-input-border) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(0,0,0,0.25)'/%3e%3c/svg%3e") !important;
+  background-position: left center !important;
+  background-repeat: no-repeat !important;
+  transition: background-position 0.15s ease-in-out !important;
+}
+
+/* Checked state - override Bootstrap's teal accent-color */
+.table-toggle-switch .form-check-input:checked,
+.table-toggle-switch .form-switch .form-check-input:checked,
+.form-check.table-toggle-switch .form-check-input:checked,
+.table-toggle-switch input[type="checkbox"]:checked {
+  background-color: var(--button-primary-bg) !important;
+  border-color: var(--button-primary-bg) !important;
+  accent-color: var(--button-primary-bg) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+  background-position: right center !important;
+}
+
+/* Focus state */
+.table-toggle-switch .form-check-input:focus,
+.table-toggle-switch input[type="checkbox"]:focus {
+  border-color: var(--form-input-focus-border) !important;
+  box-shadow: var(--form-input-focus-shadow) !important;
+  outline: none !important;
+}
+
+/* Label */
+.table-toggle-switch .form-check-label,
+.table-toggle-switch label {
+  color: var(--primary-text) !important;
+  cursor: pointer;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Dark theme specific - make label more visible */
+.theme-dark .table-toggle-switch .form-check-label,
+.theme-dark .table-toggle-switch label {
+  color: var(--table-header-text) !important;
+}
+
+/* Light theme - dark knob when OFF */
+.theme-light .table-toggle-switch .form-check-input {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(0,0,0,0.25)'/%3e%3c/svg%3e") !important;
+}
+
+.theme-light .table-toggle-switch .form-check-input:checked {
+  background-color: var(--button-primary-bg) !important;
+  border-color: var(--button-primary-bg) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+}
+
+/* Dark theme - light knob when OFF, white when ON */
+.theme-dark .table-toggle-switch .form-check-input {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.5)'/%3e%3c/svg%3e") !important;
+}
+
+.theme-dark .table-toggle-switch .form-check-input:checked {
+  background-color: var(--button-primary-bg) !important;
+  border-color: var(--button-primary-bg) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
+}

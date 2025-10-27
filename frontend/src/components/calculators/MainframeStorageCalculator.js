@@ -90,8 +90,8 @@ const MainframeStorageCalculator = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <h2>IBM 3390 Storage Calculator</h2>
+    <>
+      <h2 className="calculator-title">IBM 3390 Storage Calculator</h2>
 
       <label>Standard Disk Model:</label>
       <select value={selectedModel} onChange={handleModelChange}>
@@ -116,21 +116,8 @@ const MainframeStorageCalculator = () => {
 
       <label>Terabytes (TB):</label>
       <input type="number" value={terabytes} onChange={handleTBChange} />
-    </div>
+    </>
   );
-};
-
-const styles = {
-  container: {
-    maxWidth: "400px",
-    margin: "20px auto",
-    padding: "20px",
-    border: "1px solid var(--table-border)",
-    borderRadius: "8px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
 };
 
 export default MainframeStorageCalculator;

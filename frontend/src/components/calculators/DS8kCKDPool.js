@@ -94,8 +94,8 @@ const DS8kCKDPool = () => {
   };
 
   return (
-    <div className="calculator-container">
-      <h2>DS8K CKD Pool Calculator</h2>
+    <>
+      <h2 className="calculator-title">DS8K CKD Pool Calculator</h2>
 
       <label>Cylinders:</label>
       <input type="text" value={cylinders} onChange={handleCylindersChange} />
@@ -123,7 +123,7 @@ const DS8kCKDPool = () => {
 
       <label>TB (Terabytes):</label>
       <input value={tb} readOnly />
-    </div>
+    </>
   );
 };
 
