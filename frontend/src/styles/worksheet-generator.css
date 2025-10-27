@@ -28,47 +28,54 @@
 .section-card {
   background: var(--table-bg);
   border: 1px solid var(--table-border);
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .section-card .card-header {
-  background: var(--table-header-bg);
+  background: var(--table-header-bg) !important;
   border-bottom: 1px solid var(--table-border);
   padding: 1rem 1.25rem;
-  color: var(--table-header-text);
+  color: var(--table-header-text) !important;
 }
 
 .section-card .card-body {
-  background: var(--table-bg);
-  color: var(--primary-text);
+  background: var(--table-bg) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Override Bootstrap Card headers globally within this container */
+.worksheet-generator-container .card-header {
+  background-color: var(--table-header-bg) !important;
+  color: var(--table-header-text) !important;
+  border-bottom-color: var(--table-border) !important;
 }
 
 /* Equipment Grid */
 .equipment-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .equipment-card {
   border: 2px solid var(--table-border);
-  border-radius: 8px;
-  padding: 1rem;
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-speed) var(--transition-timing);
   background: var(--table-bg);
   color: var(--primary-text);
 }
 
 .equipment-card:hover {
-  border-color: var(--link-text);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border-color: var(--color-accent-emphasis);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
 .equipment-card.selected {
-  border-color: var(--link-text);
+  border-color: var(--color-accent-emphasis);
   background: var(--table-row-selected);
 }
 
@@ -76,7 +83,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
 }
 
 .equipment-card-header strong {
@@ -98,11 +105,11 @@
 
 /* Equipment Details */
 .equipment-item {
-  padding: 1.5rem;
+  padding: var(--space-5);
   border: 1px solid var(--table-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--table-header-bg);
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
 }
 
 .equipment-item h6 {
@@ -113,17 +120,17 @@
 /* Form Controls Override */
 .worksheet-generator-container .form-control,
 .worksheet-generator-container .form-select {
-  background-color: var(--form-input-bg);
-  border-color: var(--form-input-border);
-  color: var(--form-input-text);
+  background-color: var(--form-input-bg) !important;
+  border-color: var(--form-input-border) !important;
+  color: var(--form-input-text) !important;
 }
 
 .worksheet-generator-container .form-control:focus,
 .worksheet-generator-container .form-select:focus {
-  background-color: var(--form-input-bg);
-  border-color: var(--form-input-focus-border);
-  color: var(--form-input-text);
-  box-shadow: 0 0 0 0.2rem var(--form-input-focus-shadow);
+  background-color: var(--form-input-bg) !important;
+  border-color: var(--form-input-focus-border) !important;
+  color: var(--form-input-text) !important;
+  box-shadow: 0 0 0 0.2rem var(--form-input-focus-shadow) !important;
 }
 
 .worksheet-generator-container .form-control::placeholder {
@@ -131,10 +138,17 @@
   opacity: 0.7;
 }
 
+.worksheet-generator-container .form-control:disabled,
+.worksheet-generator-container .form-select:disabled {
+  background-color: var(--form-input-disabled-bg) !important;
+  color: var(--form-input-disabled-text) !important;
+  opacity: 0.6;
+}
+
 .worksheet-generator-container .form-label {
   color: var(--primary-text);
   font-weight: 500;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
 }
 
 .worksheet-generator-container .form-text {
@@ -190,8 +204,8 @@
 
 /* Button Overrides */
 .worksheet-generator-container .btn-outline-primary {
-  color: var(--link-text);
-  border-color: var(--link-text);
+  color: var(--color-accent-emphasis);
+  border-color: var(--color-accent-emphasis);
 }
 
 .worksheet-generator-container .btn-outline-primary:hover {
@@ -226,6 +240,19 @@
   color: var(--muted-text);
   border-color: var(--table-border);
   opacity: 0.5;
+}
+
+/* Badge Overrides */
+.worksheet-generator-container .badge.bg-secondary {
+  background-color: var(--secondary-bg) !important;
+  color: var(--secondary-text) !important;
+  border: 1px solid var(--table-border);
+}
+
+.worksheet-generator-container .badge.bg-primary {
+  background-color: var(--color-accent-emphasis) !important;
+  color: var(--color-fg-onEmphasis) !important;
+  border: 1px solid var(--color-accent-emphasis);
 }
 
 /* Spinner text */
