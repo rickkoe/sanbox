@@ -355,14 +355,13 @@ def create_project_for_customer(request):
                 alias_count = project.alias_projects.count()  # Direct ManyToMany
                 zone_count = project.zone_projects.count()    # Direct ManyToMany
                 storage_system_count = Storage.objects.filter(customer__projects=project).count()
-                host_count = Host.objects.filter(project=project).count()  # Direct ForeignKey
+                host_count = Host.objects.filter(storage__customer__projects=project).count()  # Through Storage->Customer->Project
 
                 all_projects.append({
                     'id': project.id,
                     'name': project.name,
                     'notes': project.notes or '',
-                    'customer': customer.name if customer else None,
-                    'customer_id': customer.id if customer else None,
+                    'customer': customer.id if customer else None,  # Return customer ID, not name
                     'fabric_count': fabric_count,
                     'alias_count': alias_count,
                     'zone_count': zone_count,
@@ -370,7 +369,11 @@ def create_project_for_customer(request):
                     'host_count': host_count
                 })
 
-            return JsonResponse(all_projects, safe=False)
+            # Return paginated format that frontend expects
+            return JsonResponse({
+                'results': all_projects,
+                'count': len(all_projects)
+            }, safe=False)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
     

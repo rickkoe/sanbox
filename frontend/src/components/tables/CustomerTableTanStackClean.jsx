@@ -1,6 +1,34 @@
 import React from "react";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 
+// Storage Insights Portal Button Component - Reactive to credential changes
+const StorageInsightsPortalButton = ({ tenant, apiKey }) => {
+    // Check if both credentials are present and not empty
+    const hasValidCredentials = Boolean(tenant && String(tenant).trim()) && Boolean(apiKey && String(apiKey).trim());
+
+    const handleClick = () => {
+        if (hasValidCredentials && tenant) {
+            window.open(`https://insights.ibm.com/cui/${tenant}`, '_blank');
+        }
+    };
+
+    return (
+        <div style={{ textAlign: 'center' }}>
+            <button
+                className={hasValidCredentials ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+                disabled={!hasValidCredentials}
+                onClick={handleClick}
+                style={{
+                    cursor: hasValidCredentials ? 'pointer' : 'not-allowed',
+                    minWidth: '110px'
+                }}
+            >
+                {hasValidCredentials ? 'Launch' : 'Not Available'}
+            </button>
+        </div>
+    );
+};
+
 // Clean TanStack Table implementation for Customer management
 const CustomerTableTanStackClean = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
@@ -31,23 +59,28 @@ const CustomerTableTanStackClean = () => {
             return value || "";
         },
         insights_api_key: (rowData, td, row, col, prop, value) => {
-            const customer = rowData || {};
-            // Show asterisks for existing customers with actual keys, allow editing for new or empty keys
-            if (customer.id && value) {
+            // Always mask any non-empty API key value
+            // Don't rely on rowData.id which may not be loaded yet on initial render
+            if (value && String(value).trim().length > 0) {
                 return "••••••••••••••••••••"; // Show asterisks as password-like display
             }
             return value || "";
         },
         insights_portal: (rowData, td, row, col, prop, value) => {
             const customer = rowData || {};
-            const hasValidCredentials = customer.insights_tenant && customer.insights_api_key;
-            const disabled = !hasValidCredentials;
-            const buttonClass = disabled ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm';
-            const disabledAttr = disabled ? 'disabled' : '';
-            const onClick = disabled ? '' : `onclick="window.open('https://insights.ibm.com/cui/${customer.insights_tenant}', '_blank')"`;
-            const buttonText = disabled ? 'Not Available' : 'Launch';
+            // Pass credentials directly as props for clearer reactivity
+            const tenant = customer.insights_tenant || '';
+            const apiKey = customer.insights_api_key || '';
 
-            return `<div style="text-align: center;"><button class="${buttonClass}" ${disabledAttr} ${onClick} style="cursor: ${disabled ? 'not-allowed' : 'pointer'}; min-width: 110px;">${buttonText}</button></div>`;
+            // Create a hash of the credentials to use as key
+            // This ensures React creates a new component instance when ANY credential changes
+            const credentialsHash = `${tenant || 'EMPTY'}_${apiKey || 'EMPTY'}`;
+            const componentKey = `portal-${row}-${credentialsHash}`;
+
+            return {
+                __isReactComponent: true,
+                component: <StorageInsightsPortalButton key={componentKey} tenant={tenant} apiKey={apiKey} />
+            };
         }
     };
 

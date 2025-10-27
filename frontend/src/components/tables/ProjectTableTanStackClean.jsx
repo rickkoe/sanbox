@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
@@ -43,8 +43,9 @@ const ProjectTableTanStackClean = () => {
     useEffect(() => {
         const loadCustomers = async () => {
             try {
-                const response = await api.get('/customers/');
+                const response = await api.get(`${API_URL}/api/customers/`);
                 const customers = response.data.results || response.data || [];
+
                 setCustomerOptions(customers.map(customer => customer.name));
 
                 // Create a map of customer ID to customer name for reverse lookup
@@ -66,15 +67,19 @@ const ProjectTableTanStackClean = () => {
     };
 
     // Process data for display - convert customer IDs to names
-    const preprocessData = (data) => {
+    const preprocessData = useCallback((data) => {
+        if (!data || data.length === 0) {
+            return data || [];
+        }
+
         return data.map(project => ({
             ...project,
             customer: customersById[project.customer] || project.customer
         }));
-    };
+    }, [customersById]);
 
     // Transform data for saving - convert customer names to IDs
-    const saveTransform = (rows) => {
+    const saveTransform = useCallback((rows) => {
         return rows.map(row => {
             // Find customer ID from the loaded customers data
             const customerName = row.customer;
@@ -90,7 +95,7 @@ const ProjectTableTanStackClean = () => {
                 customer: parseInt(customerId)
             };
         });
-    };
+    }, [customersById]);
 
     // Custom delete handler to refresh config after project deletion
     const handleDelete = async (projectId) => {
@@ -122,7 +127,7 @@ const ProjectTableTanStackClean = () => {
                 saveUrl={`${API_URL}/api/core/projects/`}
                 updateUrl={`${API_URL}/api/core/projects/update/`}
                 deleteUrl={`${API_URL}/api/core/projects/delete/`}
-                customerId={activeCustomerId}
+                customerId={null} // Show all projects user has access to (like CustomerTable)
                 tableName="projects"
 
                 // Column Configuration

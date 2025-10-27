@@ -115,11 +115,18 @@ const TanStackCRUDTable = forwardRef(({
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
   const [columnVisibility, setColumnVisibility] = useState({});
+  const [activeCustomerId, setActiveCustomerId] = useState(null); // User's active customer for global tables
 
   // Advanced filter state
   const [activeFilters, setActiveFilters] = useState({});
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [useServerSideFiltering, setUseServerSideFiltering] = useState(false); // Start with client-side filtering
+
+  // Dropdown menu states
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
+  const [addActionsMenuOpen, setAddActionsMenuOpen] = useState(false);
+  const columnMenuRef = useRef(null);
+  const addActionsMenuRef = useRef(null);
 
   // Client-side pagination state (for when we load all data)
   const [pagination, setPagination] = useState({
@@ -225,15 +232,59 @@ const TanStackCRUDTable = forwardRef(({
     return null;
   }, [deleteUrl]);
 
+  // Fetch user's active customer for global tables
+  useEffect(() => {
+    const fetchActiveCustomer = async () => {
+      if (user && customerId === null) {
+        console.log('🔍 Fetching active customer for global table...');
+        try {
+          const API_URL = process.env.REACT_APP_API_URL || '';
+          const response = await api.get(`${API_URL}/api/core/user-config/`);
+          console.log('📥 User config response:', response.data);
+          if (response.data?.active_customer?.id) {
+            console.log('✅ Setting activeCustomerId:', response.data.active_customer.id);
+            setActiveCustomerId(response.data.active_customer.id);
+          } else {
+            console.warn('⚠️ No customer ID in user config');
+          }
+        } catch (error) {
+          console.error('❌ Error fetching active customer:', error);
+        }
+      }
+    };
+    fetchActiveCustomer();
+  }, [user, customerId]);
+
   // Table configuration API functions
   const loadTableConfig = useCallback(async () => {
-    if (!tableName || !customerId || !user) return;
+    if (!tableName || !user) {
+      setConfigLoaded(true);
+      return;
+    }
+
+    // For global tables (customerId === null), use the user's active customer
+    const effectiveCustomerId = customerId !== null ? customerId : activeCustomerId;
+
+    console.log('🔧 loadTableConfig:', {
+      tableName,
+      customerId,
+      activeCustomerId,
+      effectiveCustomerId
+    });
+
+    // If we still don't have a customer ID, skip config loading
+    if (!effectiveCustomerId) {
+      console.log('⏸️ Skipping config load - no effective customer ID');
+      setConfigLoaded(true);
+      return;
+    }
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || '';
+
       const response = await api.get(`${API_URL}/api/core/table-config/`, {
         params: {
-          customer: customerId,
+          customer: effectiveCustomerId,
           table_name: tableName,
           user: user.id
         }
@@ -316,18 +367,34 @@ const TanStackCRUDTable = forwardRef(({
       setConfigLoaded(true);
       console.log('📊 Table configuration loading completed');
     }
-  }, [tableName, customerId, user]);
+  }, [tableName, customerId, user, activeCustomerId]);
 
   const saveTableConfig = useCallback(async (configUpdate) => {
-    if (!tableName || !customerId || !user) {
-      console.log('⚠️ Cannot save table config: missing tableName, customerId, or user', { tableName, customerId, user: user?.id });
+    if (!tableName || !user) {
+      return;
+    }
+
+    // For global tables (customerId === null), use the user's active customer
+    const effectiveCustomerId = customerId !== null ? customerId : activeCustomerId;
+
+    console.log('💾 saveTableConfig called:', {
+      tableName,
+      customerId,
+      activeCustomerId,
+      effectiveCustomerId,
+      configUpdate
+    });
+
+    // If we still don't have a customer ID, skip config saving
+    if (!effectiveCustomerId) {
+      console.log('⏸️ Skipping config save - no effective customer ID');
       return;
     }
 
     try {
       const API_URL = process.env.REACT_APP_API_URL || '';
       const configData = {
-        customer: customerId,
+        customer: effectiveCustomerId,
         table_name: tableName,
         user: user.id,
         column_widths: configUpdate.column_widths || columnSizing,
@@ -355,7 +422,7 @@ const TanStackCRUDTable = forwardRef(({
       console.error('❌ Error response:', error.response?.data);
       console.error('❌ Error status:', error.response?.status);
     }
-  }, [tableName, customerId, user, tableConfig, columnSizing]);
+  }, [tableName, customerId, user, tableConfig, columnSizing, activeCustomerId]);
 
   // Initialize column visibility from column defaults when config is loaded
   useEffect(() => {
@@ -548,11 +615,11 @@ const TanStackCRUDTable = forwardRef(({
 
   // Load data when dependencies change, but wait for table config to load first (if table has config)
   useEffect(() => {
-    const hasTableConfig = tableName && customerId;
+    // Table config is loaded when we have a tableName (customerId can be null for global tables like CustomerTable/ProjectTable)
+    const hasTableConfig = Boolean(tableName);
     const shouldWaitForConfig = hasTableConfig && !configLoaded;
 
     if (apiUrl && !shouldWaitForConfig) {
-      console.log('🔄 Loading data -', hasTableConfig ? 'after table configuration is ready' : 'no table config needed');
       loadData();
       // Also load complete dataset for filtering
       loadAllDataForFiltering();
@@ -569,7 +636,8 @@ const TanStackCRUDTable = forwardRef(({
 
   // Load table configuration on mount
   useEffect(() => {
-    if (tableName && customerId && user) {
+    // Load config for any table with a tableName (customerId can be null for global tables)
+    if (tableName && user) {
       loadTableConfig();
     }
   }, [tableName, customerId, user, loadTableConfig]);
@@ -1385,7 +1453,8 @@ const TanStackCRUDTable = forwardRef(({
 
             try {
               // Call custom renderer with row data for context
-              const rowData = editableData[rowIndex] || {};
+              // Use row.original which contains the actual row data from TanStack Table
+              const rowData = row.original || editableData[rowIndex] || {};
               renderResult = customRenderer(rowData, null, rowIndex, colIndex, accessorKey, value);
             } catch (error) {
               console.warn('Custom renderer error:', error);
@@ -1413,8 +1482,11 @@ const TanStackCRUDTable = forwardRef(({
 
             // Check if this is a password-like field (shows asterisks)
             if (typeof renderResult === 'string' && renderResult.includes('••••••••••')) {
+              // Use unique key to force re-render when data changes
+              const cellKey = `${rowIndex}-${accessorKey}-${value || 'empty'}`;
               return (
                 <PasswordLikeCell
+                  key={cellKey}
                   actualValue={value}
                   maskedValue={renderResult}
                   rowIndex={rowIndex}
@@ -1729,6 +1801,33 @@ const TanStackCRUDTable = forwardRef(({
       };
     }
   }, [contextMenu.visible, hideContextMenu]);
+
+  // Close dropdown menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (columnMenuOpen && columnMenuRef.current && !columnMenuRef.current.contains(event.target)) {
+        setColumnMenuOpen(false);
+      }
+      if (addActionsMenuOpen && addActionsMenuRef.current && !addActionsMenuRef.current.contains(event.target)) {
+        setAddActionsMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setColumnMenuOpen(false);
+        setAddActionsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [columnMenuOpen, addActionsMenuOpen]);
 
   // Arrow key navigation
   const navigateToCell = useCallback((newRow, newCol) => {
@@ -3185,11 +3284,11 @@ const TanStackCRUDTable = forwardRef(({
             {/* Action Buttons */}
             {/* Conditional rendering for Add Actions */}
             {customAddActions ? (
-              <div className="dropdown">
+              <div className="dropdown" ref={addActionsMenuRef}>
                 <button
                   type="button"
-                  data-bs-toggle="dropdown"
-                  aria-expanded="false"
+                  onClick={() => setAddActionsMenuOpen(!addActionsMenuOpen)}
+                  aria-expanded={addActionsMenuOpen}
                   style={{
                     padding: '10px 18px',
                     backgroundColor: 'var(--table-pagination-button-bg)',
@@ -3207,7 +3306,8 @@ const TanStackCRUDTable = forwardRef(({
                 >
                   {customAddActions.dropdownLabel || "Add Item"}
                 </button>
-                <ul className="dropdown-menu">
+                {addActionsMenuOpen && (
+                <ul className="dropdown-menu show">
                   {customAddActions.actions?.map((action, index) => (
                     <React.Fragment key={index}>
                       <li>
@@ -3220,6 +3320,7 @@ const TanStackCRUDTable = forwardRef(({
                             } else if (typeof action.onClick === 'function') {
                               action.onClick();
                             }
+                            setAddActionsMenuOpen(false);
                           }}
                         >
                           {action.label}
@@ -3229,6 +3330,7 @@ const TanStackCRUDTable = forwardRef(({
                     </React.Fragment>
                   ))}
                 </ul>
+                )}
               </div>
             ) : (
               <button
@@ -3255,12 +3357,11 @@ const TanStackCRUDTable = forwardRef(({
         )}
 
         {/* Columns dropdown with auto-size and visibility controls */}
-        <div className="dropdown">
+        <div className="dropdown" ref={columnMenuRef}>
           <button
             type="button"
-            data-bs-toggle="dropdown"
-            data-bs-auto-close="outside"
-            aria-expanded="false"
+            onClick={() => setColumnMenuOpen(!columnMenuOpen)}
+            aria-expanded={columnMenuOpen}
             style={{
               padding: '10px 18px',
               backgroundColor: 'var(--table-pagination-button-bg)',
@@ -3279,8 +3380,9 @@ const TanStackCRUDTable = forwardRef(({
           >
             Columns ▼
           </button>
+          {columnMenuOpen && (
           <ul
-            className="dropdown-menu"
+            className="dropdown-menu show"
             style={{ minWidth: '280px', maxHeight: '500px', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing on click
           >
@@ -3540,6 +3642,7 @@ const TanStackCRUDTable = forwardRef(({
               );
             })}
           </ul>
+          )}
         </div>
 
         {/* Status indicator and shortcuts */}
