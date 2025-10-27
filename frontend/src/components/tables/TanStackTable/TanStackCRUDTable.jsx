@@ -350,12 +350,15 @@ const TanStackCRUDTable = forwardRef(({
 
           // Convert array of visible column IDs to TanStack Table visibility object
           // TanStack uses { columnId: true/false } format
+          // IMPORTANT: Set ALL columns explicitly - visible columns to true, others to false
           const visibilityMap = {};
-          migratedColumns.forEach(colId => {
-            visibilityMap[colId] = true;
+          const allColumnIds = columns.map(col => col.data || col.accessorKey).filter(Boolean);
+
+          allColumnIds.forEach(colId => {
+            visibilityMap[colId] = migratedColumns.includes(colId);
           });
 
-          console.log('📊 Final column visibility after migration:', migratedColumns);
+          console.log('📊 Setting column visibility from saved config:', visibilityMap);
           setColumnVisibility(visibilityMap);
         }
         console.log('📊 Loaded table configuration:', response.data);
@@ -426,8 +429,15 @@ const TanStackCRUDTable = forwardRef(({
 
   // Initialize column visibility from column defaults when config is loaded
   useEffect(() => {
+    console.log('🔍 Column visibility initialization check:', {
+      configLoaded,
+      columnsLength: columns.length,
+      columnVisibilityKeys: Object.keys(columnVisibility).length,
+      willInitialize: configLoaded && columns.length > 0 && Object.keys(columnVisibility).length === 0
+    });
+
     if (configLoaded && columns.length > 0 && Object.keys(columnVisibility).length === 0) {
-      console.log('🎯 Initializing column visibility from column defaults');
+      console.log('🎯 Initializing column visibility from column defaults (NO saved config found)');
       const initialVisibility = {};
 
       columns.forEach((column, index) => {
@@ -447,8 +457,10 @@ const TanStackCRUDTable = forwardRef(({
         }
       });
 
-      console.log('🎯 Initial column visibility:', initialVisibility);
+      console.log('🎯 Setting initial column visibility:', initialVisibility);
       setColumnVisibility(initialVisibility);
+    } else if (configLoaded && Object.keys(columnVisibility).length > 0) {
+      console.log('✅ Skipping initialization - column visibility already loaded from config');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configLoaded, columns.length]);
@@ -3357,7 +3369,7 @@ const TanStackCRUDTable = forwardRef(({
         )}
 
         {/* Columns dropdown with auto-size and visibility controls */}
-        <div className="dropdown" ref={columnMenuRef}>
+        <div className="table-dropdown" ref={columnMenuRef}>
           <button
             type="button"
             onClick={() => setColumnMenuOpen(!columnMenuOpen)}
@@ -3382,31 +3394,23 @@ const TanStackCRUDTable = forwardRef(({
           </button>
           {columnMenuOpen && (
           <ul
-            className="dropdown-menu show"
-            style={{ minWidth: '280px', maxHeight: '500px', overflowY: 'auto' }}
+            className="table-dropdown-menu"
             onClick={(e) => e.stopPropagation()} // Prevent dropdown from closing on click
           >
             {/* Auto-size all columns option */}
             <li>
               <button
-                className="dropdown-item"
+                className="table-dropdown-item"
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   autoSizeColumns();
                 }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 16px',
-                  fontWeight: '500'
-                }}
               >
                 <Maximize2 size={16} /> Auto-size All Columns
               </button>
             </li>
-            <li><hr className="dropdown-divider" /></li>
+            <li><hr className="table-dropdown-divider" /></li>
 
             {/* Show All / Hide All buttons */}
             <li>
@@ -3493,7 +3497,7 @@ const TanStackCRUDTable = forwardRef(({
                 </button>
               </div>
             </li>
-            <li><hr className="dropdown-divider" /></li>
+            <li><hr className="table-dropdown-divider" /></li>
 
             {/* Column search filter */}
             <li style={{ padding: '8px 16px' }}>
@@ -3501,7 +3505,7 @@ const TanStackCRUDTable = forwardRef(({
                 <input
                   type="text"
                   placeholder="Search columns..."
-                  className="form-control form-control-sm column-search-input"
+                  className="table-search-input"
                   onChange={(e) => {
                     const searchTerm = e.target.value.toLowerCase();
                     const columnItems = document.querySelectorAll('.column-visibility-item');
@@ -3521,18 +3525,13 @@ const TanStackCRUDTable = forwardRef(({
                     }
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  style={{
-                    fontSize: '13px',
-                    padding: '6px 32px 6px 10px',
-                    width: '100%'
-                  }}
                 />
                 <button
                   type="button"
                   className="column-search-clear"
                   onClick={(e) => {
                     e.stopPropagation();
-                    const input = e.target.closest('div').querySelector('.column-search-input');
+                    const input = e.target.closest('div').querySelector('.table-search-input');
                     if (input) {
                       input.value = '';
 
@@ -3571,7 +3570,7 @@ const TanStackCRUDTable = forwardRef(({
                 </button>
               </div>
             </li>
-            <li><hr className="dropdown-divider" /></li>
+            <li><hr className="table-dropdown-divider" /></li>
 
             {/* Column visibility toggles */}
             {table.getAllLeafColumns().map(column => {
@@ -3604,18 +3603,7 @@ const TanStackCRUDTable = forwardRef(({
                   data-column-name={columnName}
                 >
                   <label
-                    className="dropdown-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 16px',
-                      cursor: isRequired ? 'not-allowed' : 'pointer',
-                      opacity: isRequired ? 0.6 : 1,
-                      backgroundColor: isVisible ? 'transparent' : 'var(--table-row-hover)',
-                      userSelect: 'none',
-                      margin: 0
-                    }}
+                    className="table-dropdown-item"
                     title={isRequired ? 'Required column - cannot be hidden' : `Toggle ${columnName} visibility`}
                   >
                     <input
@@ -3623,17 +3611,13 @@ const TanStackCRUDTable = forwardRef(({
                       checked={isVisible}
                       onChange={handleToggle}
                       disabled={isRequired}
-                      style={{
-                        cursor: isRequired ? 'not-allowed' : 'pointer',
-                        margin: 0
-                      }}
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <span style={{ flex: 1 }}>
+                    <span>
                       {columnName}
                     </span>
                     {isRequired && (
-                      <span style={{ fontSize: '11px', color: 'var(--table-toolbar-text)', opacity: 0.7 }}>
+                      <span>
                         (required)
                       </span>
                     )}

@@ -604,3 +604,166 @@ button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
   border-color: var(--button-primary-bg) !important;
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
 }
+
+/* ========== COLUMNS DROPDOWN (Bootstrap-free) ========== */
+/* Replaces Bootstrap dropdown classes with theme-aware custom styles */
+
+.table-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.table-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  display: block;
+  min-width: 280px;
+  max-height: 500px;
+  overflow-y: auto;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) 0;
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--modal-shadow);
+  list-style: none;
+}
+
+.table-dropdown-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.table-dropdown-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-dropdown-menu::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.table-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.table-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  color: var(--primary-text);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  width: 100%;
+  text-align: left;
+  transition: all var(--transition-speed) var(--transition-timing);
+  user-select: none;
+  line-height: var(--line-height-normal);
+}
+
+.table-dropdown-item:hover:not(:disabled) {
+  background: var(--secondary-bg);
+  color: var(--primary-text);
+  text-decoration: none;
+}
+
+.table-dropdown-item:active:not(:disabled) {
+  background: var(--color-accent-subtle);
+}
+
+.table-dropdown-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.table-dropdown-item:focus {
+  outline: none;
+  background: var(--secondary-bg);
+}
+
+.table-dropdown-divider {
+  height: 0;
+  margin: var(--space-2) 0;
+  overflow: hidden;
+  border-top: 1px solid var(--color-border-default);
+}
+
+/* Column visibility item specific styles */
+.column-visibility-item .table-dropdown-item {
+  cursor: pointer;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+}
+
+.column-visibility-item .table-dropdown-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+  accent-color: var(--color-accent-emphasis);
+}
+
+.column-visibility-item .table-dropdown-item input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Required column styling */
+.column-visibility-item .table-dropdown-item:has(input[disabled]) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.column-visibility-item .table-dropdown-item:hover:not(:has(input[disabled])) {
+  background: var(--secondary-bg);
+}
+
+/* Column name span */
+.column-visibility-item .table-dropdown-item span:first-of-type {
+  flex: 1;
+  color: var(--primary-text);
+}
+
+/* Required indicator styling */
+.column-visibility-item .table-dropdown-item span:last-of-type {
+  font-size: var(--font-size-xs);
+  color: var(--muted-text);
+  font-style: italic;
+}
+
+/* Table search input (replacing form-control) */
+.table-search-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-5) var(--space-2) var(--space-3);
+  background: var(--form-input-bg);
+  border: 1px solid var(--form-input-border);
+  border-radius: var(--radius-md);
+  color: var(--form-input-text);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  line-height: var(--line-height-normal);
+  transition: all var(--transition-speed) var(--transition-timing);
+  outline: none;
+}
+
+.table-search-input::placeholder {
+  color: var(--form-input-placeholder);
+}
+
+.table-search-input:focus {
+  border-color: var(--form-input-focus-border);
+  box-shadow: var(--form-input-focus-shadow);
+  background: var(--form-input-bg);
+}
+
+.table-search-input:disabled {
+  background: var(--form-input-disabled-bg);
+  color: var(--form-input-disabled-text);
+  cursor: not-allowed;
+}
