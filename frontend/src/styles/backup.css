@@ -316,37 +316,94 @@
   background-color: var(--secondary-bg) !important;
 }
 
-/* Badge Overrides for Better Visibility in Dark Theme */
-.theme-dark #backup-management-page .badge,
-.theme-dark #backup-dashboard-page .badge,
-.theme-dark #restore-history-page .badge {
-  color: var(--primary-bg) !important;
+/* Badge Overrides to Match Theme Alert System */
+
+/* Dark Theme Badges */
+.theme-dark #backup-management-page .badge.bg-success,
+.theme-dark #backup-dashboard-page .badge.bg-success,
+.theme-dark #restore-history-page .badge.bg-success {
+  background-color: var(--alert-success-bg) !important;
+  color: var(--alert-success-text) !important;
+  border: 1px solid var(--alert-success-border) !important;
 }
 
-/* Specific badge variants */
-.theme-dark .badge.bg-success {
-  background-color: var(--success-text) !important;
-  color: var(--primary-bg) !important;
+.theme-dark #backup-management-page .badge.bg-danger,
+.theme-dark #backup-dashboard-page .badge.bg-danger,
+.theme-dark #restore-history-page .badge.bg-danger {
+  background-color: var(--alert-danger-bg) !important;
+  color: var(--alert-danger-text) !important;
+  border: 1px solid var(--alert-danger-border) !important;
 }
 
-.theme-dark .badge.bg-danger {
-  background-color: var(--error-text) !important;
-  color: var(--primary-bg) !important;
+.theme-dark #backup-management-page .badge.bg-warning,
+.theme-dark #backup-dashboard-page .badge.bg-warning,
+.theme-dark #restore-history-page .badge.bg-warning {
+  background-color: var(--alert-warning-bg) !important;
+  color: var(--alert-warning-text) !important;
+  border: 1px solid var(--alert-warning-border) !important;
 }
 
-.theme-dark .badge.bg-warning {
-  background-color: var(--warning-text) !important;
-  color: var(--primary-bg) !important;
+.theme-dark #backup-management-page .badge.bg-info,
+.theme-dark #backup-management-page .badge.bg-primary,
+.theme-dark #backup-dashboard-page .badge.bg-info,
+.theme-dark #backup-dashboard-page .badge.bg-primary,
+.theme-dark #restore-history-page .badge.bg-info,
+.theme-dark #restore-history-page .badge.bg-primary {
+  background-color: var(--alert-info-bg) !important;
+  color: var(--alert-info-text) !important;
+  border: 1px solid var(--alert-info-border) !important;
 }
 
-.theme-dark .badge.bg-info {
-  background-color: var(--info-text) !important;
-  color: var(--primary-bg) !important;
+.theme-dark #backup-management-page .badge.bg-secondary,
+.theme-dark #backup-dashboard-page .badge.bg-secondary,
+.theme-dark #restore-history-page .badge.bg-secondary {
+  background-color: var(--secondary-bg) !important;
+  color: var(--secondary-text) !important;
+  border: 1px solid var(--color-border-default) !important;
 }
 
-.theme-dark .badge.bg-secondary {
-  background-color: var(--muted-text) !important;
-  color: var(--primary-bg) !important;
+/* Light Theme Badges */
+.theme-light #backup-management-page .badge.bg-success,
+.theme-light #backup-dashboard-page .badge.bg-success,
+.theme-light #restore-history-page .badge.bg-success {
+  background-color: var(--alert-success-bg) !important;
+  color: var(--alert-success-text) !important;
+  border: 1px solid var(--alert-success-border) !important;
+}
+
+.theme-light #backup-management-page .badge.bg-danger,
+.theme-light #backup-dashboard-page .badge.bg-danger,
+.theme-light #restore-history-page .badge.bg-danger {
+  background-color: var(--alert-danger-bg) !important;
+  color: var(--alert-danger-text) !important;
+  border: 1px solid var(--alert-danger-border) !important;
+}
+
+.theme-light #backup-management-page .badge.bg-warning,
+.theme-light #backup-dashboard-page .badge.bg-warning,
+.theme-light #restore-history-page .badge.bg-warning {
+  background-color: var(--alert-warning-bg) !important;
+  color: var(--alert-warning-text) !important;
+  border: 1px solid var(--alert-warning-border) !important;
+}
+
+.theme-light #backup-management-page .badge.bg-info,
+.theme-light #backup-management-page .badge.bg-primary,
+.theme-light #backup-dashboard-page .badge.bg-info,
+.theme-light #backup-dashboard-page .badge.bg-primary,
+.theme-light #restore-history-page .badge.bg-info,
+.theme-light #restore-history-page .badge.bg-primary {
+  background-color: var(--alert-info-bg) !important;
+  color: var(--alert-info-text) !important;
+  border: 1px solid var(--alert-info-border) !important;
+}
+
+.theme-light #backup-management-page .badge.bg-secondary,
+.theme-light #backup-dashboard-page .badge.bg-secondary,
+.theme-light #restore-history-page .badge.bg-secondary {
+  background-color: var(--secondary-bg) !important;
+  color: var(--secondary-text) !important;
+  border: 1px solid var(--color-border-default) !important;
 }
 
 /* Button Link Overrides */

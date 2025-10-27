@@ -78,12 +78,12 @@ const BackupHealthWidget = ({ widget, editMode }) => {
     switch (data.status) {
       case 'completed':
       case 'verified':
-        return <FaCheckCircle style={{ color: '#10b981' }} />;
+        return <FaCheckCircle style={{ color: 'var(--color-success-fg)' }} />;
       case 'failed':
-        return <FaTimesCircle style={{ color: '#ef4444' }} />;
+        return <FaTimesCircle style={{ color: 'var(--color-danger-fg)' }} />;
       case 'in_progress':
       case 'verifying':
-        return <FaSpinner className="spinning" style={{ color: '#3b82f6' }} />;
+        return <FaSpinner className="spinning" style={{ color: 'var(--color-info-fg)' }} />;
       default:
         return <FaDatabase />;
     }
@@ -130,7 +130,7 @@ const BackupHealthWidget = ({ widget, editMode }) => {
         )}
 
         {data.description && (
-          <div style={{ marginTop: '12px', padding: '8px', background: 'var(--stat-bg, #f9fafb)', borderRadius: '4px', fontSize: '12px', color: 'var(--text-muted, #6b7280)' }}>
+          <div style={{ marginTop: '12px', padding: '8px', background: 'var(--secondary-bg)', borderRadius: '4px', fontSize: '12px', color: 'var(--secondary-text)' }}>
             {data.description}
           </div>
         )}

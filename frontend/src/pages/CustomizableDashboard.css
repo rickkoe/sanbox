@@ -2,14 +2,14 @@
 
 /* Ensure main content area has dashboard background when dashboard is present */
 .main-content:has(.customizable-dashboard) {
-  background: var(--primary-bg, linear-gradient(135deg, #667eea 0%, #764ba2 100%)) !important;
+  background: var(--primary-bg) !important;
   overflow-y: auto;
 }
 
 .customizable-dashboard {
   min-height: calc(100% + 2rem);
   width: calc(100% + 2rem);
-  background: var(--primary-bg, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+  background: var(--primary-bg);
   transition: all 0.3s ease;
   position: absolute;
   top: -1rem;
@@ -102,20 +102,13 @@
 }
 
 .view-btn:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--button-hover-bg);
 }
 
 .view-btn.active {
-  background: var(--link-text);
-  color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* Dark theme active view button */
-.theme-dark .view-btn.active {
-  background: #64ffda;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(100, 255, 218, 0.3);
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  box-shadow: var(--button-primary-shadow);
 }
 
 .header-actions {
@@ -147,7 +140,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(90deg, transparent, var(--color-accent-muted), transparent);
   transition: left 0.5s ease;
 }
 
@@ -156,22 +149,15 @@
 }
 
 .action-btn:hover {
-  border-color: var(--link-text);
+  border-color: var(--button-primary-bg);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
 }
 
 .action-btn.active {
-  background: var(--link-text);
-  color: white;
-  border-color: var(--link-text);
-}
-
-/* Dark theme active action button */
-.theme-dark .action-btn.active {
-  background: #64ffda;
-  color: #0f172a;
-  border-color: #64ffda;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  border-color: var(--button-primary-bg);
 }
 
 /* ========== DASHBOARD TOOLBAR ========== */
@@ -228,15 +214,8 @@
 }
 
 .toolbar-btn:hover {
-  background: var(--link-text);
-  color: white;
-  transform: scale(1.05);
-}
-
-/* Dark theme toolbar button hover/active */
-.theme-dark .toolbar-btn:hover {
-  background: #64ffda;
-  color: #0f172a;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
   transform: scale(1.05);
 }
 
@@ -267,19 +246,17 @@
 }
 
 .dashboard-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--scrollbar-track);
   border-radius: 10px;
 }
 
 .dashboard-content::-webkit-scrollbar-thumb {
-  background: var(--primary-color, #667eea);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
-  opacity: 0.7;
 }
 
 .dashboard-content::-webkit-scrollbar-thumb:hover {
-  background: var(--secondary-color, #764ba2);
-  opacity: 1;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ========== DASHBOARD FOOTER ========== */
@@ -392,7 +369,7 @@
 
 .skeleton-header {
   height: 120px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--secondary-bg) 25%, var(--color-border-muted) 50%, var(--secondary-bg) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 16px;
@@ -401,7 +378,7 @@
 
 .skeleton-toolbar {
   height: 60px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--secondary-bg) 25%, var(--color-border-muted) 50%, var(--secondary-bg) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 12px;
@@ -416,7 +393,7 @@
 
 .skeleton-widget {
   height: 250px;
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(90deg, var(--secondary-bg) 25%, var(--color-border-muted) 50%, var(--secondary-bg) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 12px;

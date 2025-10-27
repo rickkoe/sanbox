@@ -909,12 +909,12 @@
 
 .theme-dark .widget-container:hover {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-  border-color: #64ffda;
+  border-color: var(--button-primary-bg);
 }
 
 .theme-dark .widget-container.selected {
-  border-color: #64ffda;
-  box-shadow: 0 0 0 4px rgba(100, 255, 218, 0.2);
+  border-color: var(--button-primary-bg);
+  box-shadow: 0 0 0 4px var(--color-accent-muted);
 }
 
 .theme-dark .widget-card {
@@ -925,7 +925,7 @@
 
 .theme-dark .widget-card:hover {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-  border-color: #64ffda;
+  border-color: var(--button-primary-bg);
 }
 
 .theme-dark .list-view {
@@ -943,7 +943,7 @@
 }
 
 .theme-dark .metric-value {
-  color: #64ffda;
+  color: var(--button-primary-bg);
 }
 
 .theme-dark .metric-label,
@@ -954,8 +954,8 @@
 }
 
 .theme-dark .metric-icon {
-  background: #64ffda;
-  color: #0f172a;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
 }
 
 .theme-dark .list-header {
@@ -994,7 +994,7 @@
 }
 
 .theme-dark .system-type {
-  color: #64ffda;
+  color: var(--button-primary-bg);
 }
 
 .theme-dark .status-item {
@@ -1008,23 +1008,23 @@
 }
 
 .theme-dark .control-btn:hover {
-  background: #64ffda;
-  color: #0f172a;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
 }
 
 .theme-dark .drag-handle {
-  background: rgba(100, 255, 218, 0.2);
-  border-color: rgba(100, 255, 218, 0.3);
-  color: #64ffda;
+  background: var(--color-accent-muted);
+  border-color: var(--color-accent-muted);
+  color: var(--button-primary-bg);
 }
 
 .theme-dark .drag-handle:hover {
-  background: rgba(100, 255, 218, 0.3);
+  background: var(--color-accent-muted);
 }
 
 .theme-dark .drag-handle:active {
-  background: #64ffda;
-  color: #0f172a;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
 }
 
 /* Dark Theme - Fix text contrast in IBM Storage Insights Status widget */
@@ -1047,8 +1047,8 @@
 
 .theme-dark .insights-status-widget .config-button:hover {
   background: var(--table-row-hover) !important;
-  border-color: #64ffda !important;
-  color: #64ffda !important;
+  border-color: var(--button-primary-bg) !important;
+  color: var(--button-primary-bg) !important;
 }
 
 .theme-dark .insights-status-widget .systems-footer {

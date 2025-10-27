@@ -138,7 +138,7 @@ const styles = {
     maxWidth: "400px",
     margin: "20px auto",
     padding: "20px",
-    border: "1px solid #ccc",
+    border: "1px solid var(--table-border)",
     borderRadius: "8px",
     display: "flex",
     flexDirection: "column",

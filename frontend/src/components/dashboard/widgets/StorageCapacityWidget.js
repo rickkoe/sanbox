@@ -74,9 +74,9 @@ const StorageCapacityWidget = ({ widget, editMode }) => {
       </div>
 
       <div className="widget-content">
-        <div style={{ marginBottom: '16px', textAlign: 'center', padding: '12px', background: 'var(--stat-bg, #f9fafb)', borderRadius: '6px' }}>
-          <FaServer style={{ fontSize: '24px', color: 'var(--icon-color, #6b7280)', marginBottom: '8px' }} />
-          <div style={{ fontSize: '14px', color: 'var(--text-muted, #6b7280)', marginBottom: '4px' }}>
+        <div style={{ marginBottom: '16px', textAlign: 'center', padding: '12px', background: 'var(--secondary-bg)', borderRadius: '6px' }}>
+          <FaServer style={{ fontSize: '24px', color: 'var(--secondary-text)', marginBottom: '8px' }} />
+          <div style={{ fontSize: '14px', color: 'var(--secondary-text)', marginBottom: '4px' }}>
             {data?.system_count || 0} Storage Systems
           </div>
         </div>
@@ -110,12 +110,12 @@ const StorageCapacityWidget = ({ widget, editMode }) => {
           </div>
 
           {data?.compression_savings_tb > 0 && (
-            <div className="capacity-row" style={{ borderTop: '1px solid var(--border-color, #e5e7eb)', marginTop: '8px', paddingTop: '8px' }}>
+            <div className="capacity-row" style={{ borderTop: '1px solid var(--color-border-default)', marginTop: '8px', paddingTop: '8px' }}>
               <span className="capacity-label">
-                <FaCompress style={{ marginRight: '6px', fontSize: '14px', color: '#10b981' }} />
+                <FaCompress style={{ marginRight: '6px', fontSize: '14px', color: 'var(--color-success-fg)' }} />
                 Compression Savings
               </span>
-              <span className="capacity-value" style={{ color: '#10b981' }}>
+              <span className="capacity-value" style={{ color: 'var(--color-success-fg)' }}>
                 {data.compression_savings_tb.toFixed(2)}
                 <span className="capacity-unit">TB</span>
               </span>
@@ -133,7 +133,7 @@ const StorageCapacityWidget = ({ widget, editMode }) => {
               className="progress-bar"
               style={{
                 width: `${data?.used_percentage || 0}%`,
-                background: data?.used_percentage > 80 ? '#ef4444' : data?.used_percentage > 60 ? '#f59e0b' : '#10b981'
+                background: data?.used_percentage > 80 ? 'var(--color-danger-emphasis)' : data?.used_percentage > 60 ? 'var(--color-attention-emphasis)' : 'var(--color-success-emphasis)'
               }}
             >
               {data?.used_percentage > 10 && `${data?.used_percentage?.toFixed(1)}%`}

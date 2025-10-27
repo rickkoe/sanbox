@@ -111,9 +111,9 @@ const ProjectActivityWidget = ({ widget, editMode }) => {
           {data.activities.map((activity, index) => (
             <div key={index} className={`activity-item ${activity.type}`}>
               {activity.type === 'zone' ? (
-                <FaRoute className="activity-icon" style={{ color: '#3b82f6' }} />
+                <FaRoute className="activity-icon" style={{ color: 'var(--color-info-fg)' }} />
               ) : (
-                <FaTags className="activity-icon" style={{ color: '#10b981' }} />
+                <FaTags className="activity-icon" style={{ color: 'var(--color-success-fg)' }} />
               )}
 
               <div className="activity-details">

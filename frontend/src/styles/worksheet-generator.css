@@ -93,7 +93,7 @@
 
 /* Dark theme specific overrides for badge text */
 .theme-dark .equipment-card .badge {
-  color: #333333 !important;
+  color: var(--primary-bg) !important;
 }
 
 /* Equipment Details */
@@ -195,31 +195,31 @@
 }
 
 .worksheet-generator-container .btn-outline-primary:hover {
-  background-color: var(--link-text);
-  border-color: var(--link-text);
-  color: #ffffff;
+  background-color: var(--button-primary-bg);
+  border-color: var(--button-primary-bg);
+  color: var(--button-primary-text);
 }
 
 .worksheet-generator-container .btn-outline-danger {
-  color: var(--error-color);
-  border-color: var(--error-color);
+  color: var(--color-danger-fg);
+  border-color: var(--color-danger-fg);
 }
 
 .worksheet-generator-container .btn-outline-danger:hover {
-  background-color: var(--error-color);
-  border-color: var(--error-color);
-  color: #ffffff;
+  background-color: var(--color-danger-emphasis);
+  border-color: var(--color-danger-emphasis);
+  color: var(--color-fg-onEmphasis);
 }
 
 .worksheet-generator-container .btn-outline-success {
-  color: var(--success-color);
-  border-color: var(--success-color);
+  color: var(--color-success-fg);
+  border-color: var(--color-success-fg);
 }
 
 .worksheet-generator-container .btn-outline-success:hover {
-  background-color: var(--success-color);
-  border-color: var(--success-color);
-  color: #ffffff;
+  background-color: var(--color-success-emphasis);
+  border-color: var(--color-success-emphasis);
+  color: var(--color-fg-onEmphasis);
 }
 
 .worksheet-generator-container .btn-outline-success:disabled {
