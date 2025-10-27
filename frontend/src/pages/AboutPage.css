@@ -1,0 +1,103 @@
+/* About Modal - Theme-Aware Styles */
+
+/* Modal Content (Override Bootstrap) */
+.about-modal .modal-content {
+  background: var(--modal-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--modal-shadow);
+}
+
+/* Modal Header */
+.about-modal .modal-header {
+  background: var(--modal-bg) !important;
+  background-color: var(--modal-bg) !important;
+  border-bottom: 1px solid var(--color-border-default);
+  padding: var(--space-4);
+}
+
+.about-modal .modal-title {
+  color: var(--primary-text) !important;
+  font-weight: 600;
+}
+
+.about-modal .btn-close {
+  filter: var(--close-button-filter);
+  opacity: 0.8;
+}
+
+.about-modal .btn-close:hover {
+  opacity: 1;
+}
+
+/* Modal Body */
+.about-modal .modal-body {
+  background: var(--modal-bg) !important;
+  background-color: var(--modal-bg) !important;
+  color: var(--primary-text) !important;
+  padding: var(--space-5);
+}
+
+/* Title Section */
+.about-title {
+  color: var(--primary-text);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.about-subtitle {
+  color: var(--secondary-text);
+  font-size: var(--font-size-md);
+}
+
+/* Version Info Cards */
+.about-info-card {
+  display: flex;
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--secondary-bg);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+.about-info-card:hover {
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.about-info-icon {
+  color: var(--color-accent-fg);
+  margin-right: var(--space-3);
+  flex-shrink: 0;
+}
+
+.about-info-label {
+  color: var(--primary-text);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-1);
+}
+
+.about-info-value {
+  color: var(--secondary-text);
+  font-size: var(--font-size-sm);
+}
+
+.about-info-value-mono {
+  color: var(--secondary-text);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .about-modal .modal-body {
+    padding: var(--space-4);
+  }
+
+  .about-info-card {
+    padding: var(--space-3);
+  }
+}

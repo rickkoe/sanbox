@@ -142,35 +142,63 @@
   }
 }
 .settings-container {
-  padding: 2rem;
+  min-height: 100vh;
+  background-color: var(--content-bg);
+}
+
+/* Compact Page Header - Matches ConfigForm */
+.page-header {
+  background: var(--primary-bg);
+  border-bottom: 1px solid var(--color-border-default);
+  padding: 1rem 1.5rem;
+}
+
+.page-header-content {
   max-width: 1200px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
-.settings-header {
-  margin-bottom: 2rem;
-  text-align: center;
+.page-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
 }
 
-.settings-header h1 {
-  font-size: 2.5rem;
+.page-icon {
+  flex-shrink: 0;
+  color: var(--link-text);
+}
+
+.page-title {
+  font-size: 1.5rem;
   font-weight: 600;
-  color: var(--primary-text) !important;
-  margin-bottom: 0.5rem;
+  color: var(--primary-text);
+  margin: 0;
+  letter-spacing: -0.015em;
 }
 
-.settings-header p {
-  font-size: 1.1rem;
-  color: var(--secondary-text) !important;
+.page-subtitle {
+  color: var(--secondary-text);
+  font-size: 0.875rem;
   margin: 0;
+  width: 100%;
 }
 
 .settings-form-card {
   background: var(--table-bg);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-light);
   padding: 2rem;
   border: 1px solid var(--table-border);
+  max-width: 1200px;
+  margin: 2rem auto;
 }
 
 .settings-form {
@@ -287,16 +315,13 @@ input[type="number"].form-select {
 }
 
 .auto-save-indicator {
-  position: fixed;
-  top: 80px;
-  right: 20px;
   padding: 0.5rem 1rem;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 500;
-  z-index: 1000;
   transition: all 0.3s ease;
-  box-shadow: var(--shadow-light);
+  box-shadow: var(--shadow-sm);
+  margin-left: auto;
 }
 
 .auto-save-indicator.saving {
@@ -376,16 +401,22 @@ input[type="number"].form-select {
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
-  .settings-container {
-    padding: 1rem;
+  .page-header {
+    padding: 0.75rem 1rem;
   }
-  
-  .settings-header h1 {
-    font-size: 2rem;
+
+  .page-title {
+    font-size: 1.25rem;
   }
-  
+
+  .page-subtitle {
+    font-size: 0.8125rem;
+  }
+
   .settings-form-card {
     padding: 1.5rem;
+    margin: 1rem;
+    border-radius: 8px;
   }
   
   .settings-grid {
@@ -409,9 +440,8 @@ input[type="number"].form-select {
   }
   
   .auto-save-indicator {
-    top: 60px;
-    left: 10px;
-    right: 10px;
+    margin-left: 0;
+    width: 100%;
     text-align: center;
   }
 }

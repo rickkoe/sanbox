@@ -266,6 +266,7 @@
   --modal-backdrop: rgba(27, 31, 36, 0.5);
   --modal-border: var(--color-border-default);
   --modal-shadow: var(--shadow-xl);
+  --close-button-filter: none;
 
   /* Tooltips */
   --tooltip-bg: #24292f;
@@ -491,6 +492,7 @@
   --modal-backdrop: rgba(1, 4, 9, 0.8);
   --modal-border: var(--color-border-default);
   --modal-shadow: var(--shadow-xl);
+  --close-button-filter: invert(1) brightness(2);
 
   /* Tooltips */
   --tooltip-bg: #161b22;

@@ -189,7 +189,7 @@ const ConfigForm = () => {
 
             if (result.success) {
                 console.log("✅ User config updated successfully");
-                setSaveStatus("Configuration saved successfully! ✅");
+                setSaveStatus("Configuration saved successfully!");
 
                 // Clear status after 3 seconds
                 setTimeout(() => setSaveStatus(""), 3000);
@@ -233,7 +233,7 @@ const ConfigForm = () => {
     };
 
     return (
-        <div className="config-container">
+        <div className={`config-container theme-${theme}`}>
             {loading ? (
                 <div className="loading-state">
                     <div className="spinner"></div>
@@ -241,13 +241,17 @@ const ConfigForm = () => {
                 </div>
             ) : (
                 <div className="settings-layout">
-                    {/* Page Header */}
-                    <div className="settings-header">
-                        <div className="header-content">
-                            <h1 className="settings-title">Project Configuration</h1>
-                            <p className="settings-description">
-                                Manage your workspace settings and preferences
-                            </p>
+                    {/* Compact Page Header */}
+                    <div className="page-header">
+                        <div className="page-header-content">
+                            <div className="page-title-wrapper">
+                                <svg className="page-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                                </svg>
+                                <h1 className="page-title">Project Configuration</h1>
+                            </div>
+                            <p className="page-subtitle">Manage your active customer and project workspace</p>
                         </div>
                     </div>
 
@@ -256,7 +260,13 @@ const ConfigForm = () => {
                         {/* Show setup guidance for new users */}
                         {customers.length === 0 && !loading && (
                             <div className="setup-guidance">
-                                <div className="guidance-icon">🚀</div>
+                                <div className="guidance-icon">
+                                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                                        <path d="M2 17l10 5 10-5"></path>
+                                        <path d="M2 12l10 5 10-5"></path>
+                                    </svg>
+                                </div>
                                 <h3>Welcome to Sanbox!</h3>
                                 <p>Let's set up your first customer and project to get started.</p>
                                 <div className="guidance-steps">
@@ -296,7 +306,15 @@ const ConfigForm = () => {
                                     <div className="form-section">
                                         <div className="form-group">
                                             <label className="form-label">
-                                                <span className="label-icon">🏢</span>
+                                                <span className="label-icon">
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                        <line x1="9" y1="3" x2="9" y2="21"></line>
+                                                        <line x1="15" y1="3" x2="15" y2="21"></line>
+                                                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                                                        <line x1="3" y1="15" x2="21" y2="15"></line>
+                                                    </svg>
+                                                </span>
                                                 Customer Organization
                                                 <span className="required">*</span>
                                             </label>
@@ -338,7 +356,11 @@ const ConfigForm = () => {
 
                                         <div className="form-group">
                                             <label className="form-label">
-                                                <span className="label-icon">📁</span>
+                                                <span className="label-icon">
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                                    </svg>
+                                                </span>
                                                 Active Project
                                                 <span className="required">*</span>
                                             </label>
@@ -404,7 +426,7 @@ const ConfigForm = () => {
                                         </button>
 
                                         {saveStatus && !saveStatus.includes("Saving") && (
-                                            <div className={`status-message ${saveStatus.includes("✅") ? "success" : "error"}`}>
+                                            <div className={`status-message ${saveStatus.includes("successfully") ? "success" : "error"}`}>
                                                 {saveStatus}
                                             </div>
                                         )}

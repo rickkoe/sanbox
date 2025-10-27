@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from 'react-bootstrap';
 import { Info, GitBranch, Calendar, User, Code, Server } from 'lucide-react';
+import './AboutPage.css';
 
 const AboutModal = ({ show, onHide }) => {
   const [versionInfo, setVersionInfo] = useState({
@@ -26,53 +27,53 @@ const AboutModal = ({ show, onHide }) => {
   }, []);
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
+    <Modal show={show} onHide={onHide} size="lg" centered className="about-modal">
       <Modal.Header closeButton>
         <Modal.Title className="d-flex align-items-center">
-          <Server size={24} className="text-primary me-2" />
+          <Server size={24} className="about-info-icon me-2" />
           About Sanbox
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <div className="text-center mb-4">
-          <h5 className="text-dark mb-2">Storage Area Network Management Platform</h5>
+          <h5 className="about-title mb-2">Storage Area Network Management Platform</h5>
         </div>
 
         {/* Version Information */}
         <div className="row g-3">
           <div className="col-md-6">
-            <div className="d-flex align-items-center p-3 bg-light rounded">
-              <Code size={20} className="text-primary me-3" />
+            <div className="about-info-card">
+              <Code size={20} className="about-info-icon" />
               <div>
-                <div className="fw-semibold">Version</div>
-                <div className="text-muted">{versionInfo.version}</div>
+                <div className="about-info-label">Version</div>
+                <div className="about-info-value">{versionInfo.version}</div>
               </div>
             </div>
           </div>
           <div className="col-md-6">
-            <div className="d-flex align-items-center p-3 bg-light rounded">
-              <Calendar size={20} className="text-primary me-3" />
+            <div className="about-info-card">
+              <Calendar size={20} className="about-info-icon" />
               <div>
-                <div className="fw-semibold">Build Date</div>
-                <div className="text-muted">{versionInfo.buildDate}</div>
+                <div className="about-info-label">Build Date</div>
+                <div className="about-info-value">{versionInfo.buildDate}</div>
               </div>
             </div>
           </div>
           <div className="col-md-6">
-            <div className="d-flex align-items-center p-3 bg-light rounded">
-              <GitBranch size={20} className="text-primary me-3" />
+            <div className="about-info-card">
+              <GitBranch size={20} className="about-info-icon" />
               <div>
-                <div className="fw-semibold">Branch</div>
-                <div className="text-muted">{versionInfo.branch}</div>
+                <div className="about-info-label">Branch</div>
+                <div className="about-info-value">{versionInfo.branch}</div>
               </div>
             </div>
           </div>
           <div className="col-md-6">
-            <div className="d-flex align-items-center p-3 bg-light rounded">
-              <User size={20} className="text-primary me-3" />
+            <div className="about-info-card">
+              <User size={20} className="about-info-icon" />
               <div>
-                <div className="fw-semibold">Commit</div>
-                <div className="text-muted font-monospace">{versionInfo.commitHash}</div>
+                <div className="about-info-label">Commit</div>
+                <div className="about-info-value-mono">{versionInfo.commitHash}</div>
               </div>
             </div>
           </div>

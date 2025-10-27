@@ -805,16 +805,6 @@ const UniversalImporter = () => {
                     customerId={config?.customer?.id}
                     theme={theme}
                   />
-                  {availableSystems.length > 0 && selectedSystems.length > 0 && (
-                    <div className="navigation-buttons">
-                      <button className="nav-button secondary" onClick={() => setStep(1)}>
-                        Back
-                      </button>
-                      <button className="nav-button primary" onClick={handleStoragePreview}>
-                        Preview Import
-                      </button>
-                    </div>
-                  )}
                 </>
               ) : (
                 <>
@@ -915,8 +905,35 @@ const UniversalImporter = () => {
           )}
         </div>
 
-        {/* Navigation Buttons */}
-        {step < 4 && (
+        {/* Step 2 Storage Insights Navigation Buttons */}
+        {step === 2 && importType === 'storage' && availableSystems.length > 0 && selectedSystems.length > 0 && (
+          <div className="navigation-buttons">
+            <div></div> {/* Empty div for spacing */}
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button className="nav-button secondary" onClick={() => setStep(1)} disabled={loading}>
+                Back
+              </button>
+              <button
+                className="nav-button primary"
+                onClick={handleStoragePreview}
+                disabled={loading}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    Loading Preview...
+                  </>
+                ) : (
+                  'Preview Import'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* General Navigation Buttons */}
+        {step < 4 && !(step === 2 && importType === 'storage' && availableSystems.length > 0 && selectedSystems.length > 0) && (
           <div className="navigation-buttons">
             <div></div> {/* Empty div for spacing */}
             <div style={{ display: 'flex', gap: '1rem' }}>

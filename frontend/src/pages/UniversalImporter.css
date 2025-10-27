@@ -611,6 +611,21 @@
   gap: var(--space-4);
 }
 
+.configuration-panel h3 {
+  color: var(--primary-text) !important;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-4);
+}
+
+.configuration-panel > div {
+  color: var(--primary-text);
+}
+
+.configuration-panel label {
+  color: var(--primary-text) !important;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -977,6 +992,24 @@
   border-top-color: var(--color-accent-emphasis);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+/* Inline button spinner */
+.spinner-border {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  vertical-align: text-bottom;
+  border: 0.15em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+.spinner-border-sm {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-width: 0.125em;
 }
 
 @keyframes spin {

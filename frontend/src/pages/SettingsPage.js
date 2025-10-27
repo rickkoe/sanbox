@@ -26,12 +26,12 @@ const SettingsPage = () => {
         
         try {
             await updateTheme(newTheme);
-            setSaveStatus("Theme updated ✅");
+            setSaveStatus("Theme updated successfully");
             // Clear success message after 2 seconds
             setTimeout(() => setSaveStatus(""), 2000);
         } catch (error) {
             console.error("Error updating theme:", error);
-            setSaveStatus("Error updating theme ⚠️");
+            setSaveStatus("Error updating theme");
             // Clear error message after 4 seconds
             setTimeout(() => setSaveStatus(""), 4000);
         } finally {
@@ -49,17 +49,17 @@ const SettingsPage = () => {
             const result = await updateSettings(updatedSettings);
             
             if (result.success) {
-                setSaveStatus("Saved ✅");
+                setSaveStatus("Saved successfully");
                 // Clear success message after 2 seconds
                 setTimeout(() => setSaveStatus(""), 2000);
             } else {
-                setSaveStatus("Error saving ⚠️");
+                setSaveStatus("Error saving settings");
                 // Clear error message after 4 seconds
                 setTimeout(() => setSaveStatus(""), 4000);
             }
         } catch (error) {
             console.error("Error auto-saving settings:", error);
-            setSaveStatus("Error saving ⚠️");
+            setSaveStatus("Error saving settings");
             // Clear error message after 4 seconds
             setTimeout(() => setSaveStatus(""), 4000);
         } finally {
@@ -93,16 +93,25 @@ const SettingsPage = () => {
     }
 
     return (
-        <div className="settings-container">
-            <div className="settings-header">
-                <h1>Application Settings</h1>
-                <p>Configure your application preferences and behavior</p>
-                {saving && <div className="auto-save-indicator saving">Saving...</div>}
-                {saveStatus && (
-                    <div className={`auto-save-indicator ${saveStatus.includes('✅') ? 'success' : 'error'}`}>
-                        {saveStatus}
+        <div className={`settings-container theme-${theme}`}>
+            {/* Compact Page Header */}
+            <div className="page-header">
+                <div className="page-header-content">
+                    <div className="page-title-wrapper">
+                        <svg className="page-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 1v6m0 6v6m8.66-9l-5.2 3M8.54 14l-5.2 3m12.72 0l-5.2-3M8.54 10l-5.2-3"></path>
+                        </svg>
+                        <h1 className="page-title">Application Settings</h1>
                     </div>
-                )}
+                    <p className="page-subtitle">Configure your application preferences and behavior</p>
+                    {saving && <div className="auto-save-indicator saving">Saving...</div>}
+                    {saveStatus && (
+                        <div className={`auto-save-indicator ${saveStatus.includes('successfully') || saveStatus.includes('Saved') ? 'success' : 'error'}`}>
+                            {saveStatus}
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="settings-form-card">
@@ -249,7 +258,12 @@ const SettingsPage = () => {
                         </button>
                         
                         <div className="auto-save-notice">
-                            💾 Changes are saved automatically
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            Changes are saved automatically
                         </div>
                     </div>
                 </form>

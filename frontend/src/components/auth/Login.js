@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme, ThemeProvider } from '../../context/ThemeContext';
+import '../../styles/themes.css';
 import './Login.css';
 
-const Login = () => {
+// Internal component that uses the theme context
+const LoginContent = () => {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -15,6 +18,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   const { login, register, isAuthenticated } = useAuth();
+  const { theme } = useTheme();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
@@ -86,7 +90,7 @@ const Login = () => {
   };
 
   return (
-    <div className="login-container theme-dark">
+    <div className={`login-container theme-${theme}`}>
       <div className="login-card">
         <div className="login-header">
           <h1 className="login-title">Welcome to SANBox</h1>
@@ -235,6 +239,15 @@ const Login = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+// Wrapper component that provides the theme context
+const Login = () => {
+  return (
+    <ThemeProvider>
+      <LoginContent />
+    </ThemeProvider>
   );
 };
 

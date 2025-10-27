@@ -6,30 +6,49 @@
     padding: 0;
 }
 
-/* Page Header */
-.settings-header {
+/* Compact Page Header */
+.page-header {
     background: var(--primary-bg);
-    padding: 2rem 1.5rem 3rem;
-    border-bottom: 1px solid var(--table-border);
+    border-bottom: 1px solid var(--color-border-default);
+    padding: 1rem 1.5rem;
 }
 
-.header-content {
+.page-header-content {
     max-width: 900px;
     margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
 }
 
-.settings-title {
-    font-size: 2.5rem;
-    font-weight: 700;
+.page-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.page-icon {
+    flex-shrink: 0;
+    color: var(--link-text);
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 600;
     color: var(--primary-text);
-    margin-bottom: 0.5rem;
-    letter-spacing: -0.025em;
+    margin: 0;
+    letter-spacing: -0.015em;
 }
 
-.settings-description {
+.page-subtitle {
     color: var(--secondary-text);
-    font-size: 1.125rem;
+    font-size: 0.875rem;
     margin: 0;
+    width: 100%;
 }
 
 /* Settings Content */
@@ -67,14 +86,14 @@
     box-shadow: var(--shadow-light);
 }
 
-/* Card Header */
-.card-header {
+/* Card Header - Updated for theme system */
+.settings-card .card-header {
     display: flex;
     align-items: center;
     gap: 1rem;
     padding: 1.5rem;
     border-bottom: 1px solid var(--table-border);
-    background: var(--table-header-bg);
+    background: transparent !important;
     position: relative;
 }
 
@@ -120,22 +139,7 @@
     margin: 0;
 }
 
-/* Force light theme text visibility */
-.theme-light .card-title {
-    color: #0f172a !important;
-}
-
-.theme-light .card-subtitle {
-    color: #334155 !important;
-}
-
-.theme-light .settings-title {
-    color: #0f172a !important;
-}
-
-.theme-light .settings-description {
-    color: #334155 !important;
-}
+/* Removed hardcoded theme overrides - using theme variables from themes.css instead */
 
 .coming-soon-badge {
     display: inline-flex;
@@ -164,10 +168,10 @@
     font-style: italic;
 }
 
-/* Card Footer */
-.card-footer {
+/* Card Footer - Updated for theme system */
+.settings-card .card-footer {
     padding: 1.5rem;
-    background: var(--table-header-bg);
+    background: transparent !important;
     border-top: 1px solid var(--table-border);
 }
 
@@ -197,19 +201,15 @@
     font-size: 0.9375rem;
 }
 
-/* Force light theme form label visibility */
-.theme-light .form-label {
-    color: #0f172a !important;
-}
-
 .label-icon {
-    font-size: 1.125rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--secondary-text);
 }
 
-/* Force light theme label icon visibility */
-.theme-light .label-icon {
-    opacity: 1;
-    filter: none;
+.label-icon svg {
+    flex-shrink: 0;
 }
 
 .required {
@@ -403,9 +403,17 @@
 }
 
 .guidance-icon {
-    font-size: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     margin-bottom: 1rem;
+    color: var(--link-text);
     animation: bounce 2s ease-in-out infinite;
+}
+
+.guidance-icon svg {
+    width: 56px;
+    height: 56px;
 }
 
 @keyframes bounce {
@@ -519,7 +527,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: var(--modal-backdrop);
     backdrop-filter: blur(10px);
     z-index: 100002;
     display: flex;
@@ -537,7 +545,7 @@
 .config-modal-content {
     background: var(--table-bg);
     border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--modal-shadow);
     max-width: 500px;
     width: 100%;
     display: flex;
@@ -559,7 +567,7 @@
 }
 
 .config-modal-header {
-    background: var(--table-header-bg);
+    background: transparent;
     color: var(--primary-text);
     padding: 1.5rem;
     display: flex;
@@ -636,7 +644,7 @@
 }
 
 .config-modal-footer {
-    background: var(--table-header-bg);
+    background: transparent;
     border-top: 1px solid var(--table-border);
     padding: 1rem 1.5rem;
     display: flex;
@@ -674,7 +682,7 @@
 .config-modal-btn-primary:hover {
     background-color: var(--link-hover);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-md);
 }
 
 /* Responsive Design */
@@ -685,20 +693,20 @@
 }
 
 @media (max-width: 768px) {
-    .settings-header {
-        padding: 2rem 1.5rem 3rem;
+    .page-header {
+        padding: 0.75rem 1rem;
     }
 
-    .settings-title {
-        font-size: 2rem;
+    .page-title {
+        font-size: 1.25rem;
     }
 
-    .settings-description {
-        font-size: 1rem;
+    .page-subtitle {
+        font-size: 0.8125rem;
     }
 
     .settings-content {
-        padding: 2rem 1.5rem 4rem;
+        padding: 1.5rem 1rem 3rem;
     }
 
     .card-header {
