@@ -70,9 +70,6 @@ const ImportButton = ({
           <Dropdown.Item as={NavLink} to="/import/universal">
             Universal Importer
           </Dropdown.Item>
-          <Dropdown.Item as={NavLink} to="/import/zoning">
-            Bulk Zoning Import
-          </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown>
     </li>

@@ -120,7 +120,6 @@ const getSidebarLinks = (pathname) => {
         expandable: true,
         subLinks: [
           { path: "/import/universal", label: "Universal Importer", icon: Upload },
-          { path: "/import/zoning", label: "SAN Zoning Import", icon: Network },
         ]
       },
       {
