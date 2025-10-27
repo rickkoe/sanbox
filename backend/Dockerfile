@@ -65,8 +65,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Copy application code
 COPY --chown=appuser:appuser . .
 
-# Create directories for logs and static files
-RUN mkdir -p /app/logs /app/static /app/media && \
+# Create directories for logs, static files, media, and backups
+RUN mkdir -p /app/logs /app/static /app/media /app/backups && \
     chown -R appuser:appuser /app
 
 # Switch to non-root user
@@ -98,8 +98,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Copy application code
 COPY --chown=appuser:appuser . .
 
-# Create directories for logs and static files
-RUN mkdir -p /app/logs /app/static /app/media && \
+# Create directories for logs, static files, media, and backups
+RUN mkdir -p /app/logs /app/static /app/media /app/backups && \
     chown -R appuser:appuser /app
 
 # Switch to non-root user
