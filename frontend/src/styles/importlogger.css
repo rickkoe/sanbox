@@ -1,0 +1,117 @@
+/* Import Logger Modal Theme Styling */
+
+/* Modal structure overrides */
+.import-logger-modal .modal-content {
+  background-color: var(--modal-bg) !important;
+  border-color: var(--modal-border) !important;
+}
+
+.import-logger-modal .modal-header {
+  background-color: var(--secondary-bg) !important;
+  border-bottom-color: var(--modal-border) !important;
+}
+
+.import-logger-modal .modal-footer {
+  background-color: var(--secondary-bg) !important;
+  border-top-color: var(--modal-border) !important;
+}
+
+.import-logger-modal .modal-title {
+  color: var(--primary-text) !important;
+}
+
+.import-logger-modal .modal-body {
+  background-color: var(--modal-bg) !important;
+  padding: 0 !important;
+}
+
+/* Close button for dark theme */
+.theme-dark .import-logger-modal .btn-close {
+  filter: invert(1) brightness(2) !important;
+}
+
+/* Log container background */
+.theme-dark .import-logs-container,
+.theme-light .import-logs-container {
+  background-color: var(--code-bg) !important;
+  color: var(--code-text) !important;
+}
+
+/* Log entry borders */
+.theme-dark .import-logs-container .border-bottom,
+.theme-light .import-logs-container .border-bottom {
+  border-bottom-color: var(--color-border-default) !important;
+}
+
+/* Error log background */
+.theme-dark .log-entry-error {
+  background-color: var(--alert-danger-bg) !important;
+}
+
+.theme-light .log-entry-error {
+  background-color: #ffe6e6 !important;
+}
+
+/* Warning log background */
+.theme-dark .log-entry-warning {
+  background-color: var(--alert-warning-bg) !important;
+}
+
+.theme-light .log-entry-warning {
+  background-color: #fff3cd !important;
+}
+
+/* Details summary (clickable) */
+.theme-dark .import-logs-container details summary,
+.theme-light .import-logs-container details summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--secondary-text) !important;
+}
+
+/* Details pre block */
+.theme-dark .import-logs-container details pre {
+  background-color: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+}
+
+.theme-light .import-logs-container details pre {
+  background-color: #ffffff !important;
+  border: 1px solid #dee2e6 !important;
+  color: var(--primary-text) !important;
+}
+
+/* Text-muted in log container */
+.theme-dark .import-logs-container .text-muted,
+.theme-light .import-logs-container .text-muted {
+  color: var(--muted-text) !important;
+}
+
+/* Log message text */
+.theme-dark .import-logs-container .log-message,
+.theme-light .import-logs-container .log-message {
+  color: var(--primary-text) !important;
+}
+
+/* Scroll to bottom button */
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--button-primary-bg) !important;
+  border: 1px solid var(--button-primary-border) !important;
+  color: var(--button-primary-text) !important;
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-3);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  cursor: pointer;
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+.scroll-to-bottom-btn:hover {
+  background-color: var(--button-primary-hover) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+}

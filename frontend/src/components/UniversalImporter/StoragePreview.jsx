@@ -259,14 +259,14 @@ const StoragePreview = ({ previewData }) => {
       {/* Ready to Import Message */}
       <div className="step-content" style={{ textAlign: 'center' }}>
         <CheckCircle size={48} style={{ color: 'var(--color-success-fg)', marginBottom: 'var(--space-3)' }} />
-        <h3>Preview Complete</h3>
-        <p style={{ color: 'var(--muted-text)', marginBottom: 'var(--space-2)' }}>
+        <h3 style={{ color: 'var(--primary-text)' }}>Preview Complete</h3>
+        <p style={{ color: 'var(--secondary-text)', marginBottom: 'var(--space-2)' }}>
           Ready to import {counts.storage_systems} storage system{counts.storage_systems !== 1 ? 's' : ''},
           {' '}{counts.volumes} volume{counts.volumes !== 1 ? 's' : ''}, and
           {' '}{counts.hosts} host{counts.hosts !== 1 ? 's' : ''}.
         </p>
-        <p style={{ color: 'var(--muted-text)' }}>
-          Click <strong>"Start Import"</strong> below to begin the import process.
+        <p style={{ color: 'var(--secondary-text)' }}>
+          Click <strong style={{ color: 'var(--primary-text)' }}>"Start Import"</strong> below to begin the import process.
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Card, Badge, Button } from 'react-bootstrap';
 import axios from 'axios';
+import '../styles/importlogger.css';
 
 const ImportLogger = ({ importId, isRunning, show, onHide }) => {
   const [logs, setLogs] = useState([]);
@@ -119,7 +120,7 @@ const ImportLogger = ({ importId, isRunning, show, onHide }) => {
   };
 
   return (
-    <Modal show={show} onHide={onHide} size="lg">
+    <Modal show={show} onHide={onHide} size="lg" dialogClassName="import-logger-modal">
       <Modal.Header closeButton>
         <Modal.Title className="d-flex align-items-center">
           <span className="me-3">Import Logs</span>
@@ -130,13 +131,13 @@ const ImportLogger = ({ importId, isRunning, show, onHide }) => {
         </Modal.Title>
       </Modal.Header>
       <Modal.Body style={{ padding: 0, position: 'relative' }}>
-        <div 
+        <div
           ref={logContainerRef}
           onScroll={handleScroll}
-          style={{ 
-            height: '400px', 
-            overflowY: 'auto', 
-            backgroundColor: '#f8f9fa',
+          className="import-logs-container"
+          style={{
+            height: '400px',
+            overflowY: 'auto',
             fontFamily: 'monospace',
             fontSize: '0.875rem'
           }}
@@ -150,13 +151,12 @@ const ImportLogger = ({ importId, isRunning, show, onHide }) => {
           ) : (
             <div>
               {logs.map((log, index) => (
-                <div 
+                <div
                   key={`${log.id}-${index}`}
-                  className="p-2 border-bottom"
-                  style={{ 
-                    backgroundColor: log.level === 'ERROR' ? '#ffe6e6' : 
-                                   log.level === 'WARNING' ? '#fff3cd' : 'transparent'
-                  }}
+                  className={`p-2 border-bottom ${
+                    log.level === 'ERROR' ? 'log-entry-error' :
+                    log.level === 'WARNING' ? 'log-entry-warning' : ''
+                  }`}
                 >
                   <div className="d-flex align-items-center mb-1">
                     <Badge 
@@ -171,19 +171,17 @@ const ImportLogger = ({ importId, isRunning, show, onHide }) => {
                       {formatTimestamp(log.timestamp)}
                     </small>
                   </div>
-                  <div style={{ marginLeft: '60px' }}>
+                  <div style={{ marginLeft: '60px' }} className="log-message">
                     {log.message}
                     {log.details && (
                       <details className="mt-1">
-                        <summary style={{ cursor: 'pointer', fontSize: '0.8rem', color: '#6c757d' }}>
+                        <summary style={{ cursor: 'pointer', fontSize: '0.8rem' }}>
                           Details
                         </summary>
-                        <pre 
-                          style={{ 
-                            fontSize: '0.75rem', 
-                            backgroundColor: '#ffffff', 
-                            padding: '0.5rem', 
-                            border: '1px solid #dee2e6',
+                        <pre
+                          style={{
+                            fontSize: '0.75rem',
+                            padding: '0.5rem',
                             borderRadius: '0.25rem',
                             marginTop: '0.5rem',
                             whiteSpace: 'pre-wrap'

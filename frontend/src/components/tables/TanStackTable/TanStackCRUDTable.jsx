@@ -5080,8 +5080,14 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
   const containerRef = useRef(null);
   const triggerRef = useRef(null);
 
-  // Sync localDomains when fabrics change
+  // Sync localDomains when fabrics change, but ONLY when dropdown is closed
+  // This prevents resetting user input while they're actively typing
   useEffect(() => {
+    // Don't sync if dropdown is open (user is actively editing)
+    if (isOpen) {
+      return;
+    }
+
     const domainsMap = {};
 
     selectedFabricNames.forEach(fabricName => {
@@ -5093,7 +5099,7 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
     });
 
     setLocalDomains(domainsMap);
-  }, [JSON.stringify(selectedFabricNames), JSON.stringify(fabricDomainDetails)]);
+  }, [JSON.stringify(selectedFabricNames), JSON.stringify(fabricDomainDetails), isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -5147,10 +5153,8 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
       [fabricName]: cleaned
     }));
 
-    // Auto-save after a brief delay
-    setTimeout(() => {
-      saveDomains();
-    }, 100);
+    // Don't auto-save while typing - only save on Enter, blur, or dropdown close
+    // This prevents re-renders that cause the input to lose focus/value
   };
 
   const handleKeyDown = (e, fabricId) => {
@@ -5204,7 +5208,20 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
         ref={triggerRef}
         onClick={(e) => {
           e.stopPropagation();
-          setIsOpen(!isOpen);
+          const willOpen = !isOpen;
+          setIsOpen(willOpen);
+
+          // When opening, initialize localDomains from current data
+          if (willOpen) {
+            const domainsMap = {};
+            selectedFabricNames.forEach(fabricName => {
+              const existingDetail = fabricDomainDetails.find(fd => fd.name === fabricName);
+              domainsMap[fabricName] = existingDetail?.domain_id !== null && existingDetail?.domain_id !== undefined
+                ? String(existingDetail.domain_id)
+                : '';
+            });
+            setLocalDomains(domainsMap);
+          }
         }}
         style={{
           width: '100%',
