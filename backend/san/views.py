@@ -861,9 +861,9 @@ def hosts_by_project_view(request, project_id):
     
     # Base queryset
     # Host is linked to Storage which is linked to Customer
-    # Project is also linked to Customer
-    # So filter hosts by storage's customer matching project's customer
-    hosts_queryset = Host.objects.filter(storage__customer=project.customer)
+    # Project has many-to-many relationship with customers
+    # So filter hosts by storage's customer being in project's customers
+    hosts_queryset = Host.objects.filter(storage__customer__in=project.customers.all())
     print(f"🔍 Found {hosts_queryset.count()} hosts for project {project_id}")
     
     # Apply storage filtering if provided
