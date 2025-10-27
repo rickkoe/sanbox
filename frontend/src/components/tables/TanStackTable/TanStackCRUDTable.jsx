@@ -10,7 +10,7 @@ import {
   getColumnResizeMode,
   flexRender,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Maximize2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Maximize2, Search } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import FilterDropdown from './components/FilterDropdown';
@@ -103,6 +103,7 @@ const TanStackCRUDTable = forwardRef(({
   const [selectionRange, setSelectionRange] = useState(null);
   const [currentCell, setCurrentCell] = useState({ row: 0, col: 0 });
   const [globalFilter, setGlobalFilter] = useState('');
+  const [pendingGlobalFilter, setPendingGlobalFilter] = useState(''); // Pending search that applies on Enter
   const [fillPreview, setFillPreview] = useState(null);
   const [invalidCells, setInvalidCells] = useState(new Set()); // Track cells with invalid dropdown values
 
@@ -1263,6 +1264,7 @@ const TanStackCRUDTable = forwardRef(({
     setActiveFilters({});
     setColumnFilters([]);
     setGlobalFilter('');
+    setPendingGlobalFilter('');
 
     // Reset pagination to first page AND reset page size to match current pageSize state
     setCurrentPage(1);
@@ -1655,6 +1657,43 @@ const TanStackCRUDTable = forwardRef(({
       }
     }
   });
+
+  // Calculate effective totals based on whether filters are active
+  const effectiveTotalItems = useMemo(() => {
+    if (hasActiveClientFilters) {
+      if (table && table.getFilteredRowModel) {
+        // When filtering, use the filtered count from TanStack Table
+        const filteredCount = table.getFilteredRowModel().rows.length;
+        console.log('🔢 effectiveTotalItems (filtered from table):', filteredCount, 'hasActiveClientFilters:', hasActiveClientFilters, 'totalItems:', totalItems);
+        return filteredCount;
+      } else {
+        // Fallback: if table isn't ready yet, use totalItems temporarily
+        console.log('🔢 effectiveTotalItems (fallback):', totalItems);
+        return totalItems;
+      }
+    }
+    console.log('🔢 effectiveTotalItems (server):', totalItems);
+    return totalItems; // Otherwise use server-provided count
+  }, [hasActiveClientFilters, table, totalItems, globalFilter, activeFilters, editableData]);
+
+  const effectiveTotalPages = useMemo(() => {
+    if (hasActiveClientFilters) {
+      if (table && table.getFilteredRowModel) {
+        // Calculate pages based on filtered results
+        const filteredCount = table.getFilteredRowModel().rows.length;
+        const effectivePageSize = pageSize === 'All' ? filteredCount : pageSize;
+        const pages = Math.max(1, Math.ceil(filteredCount / effectivePageSize));
+        console.log('📄 effectiveTotalPages (filtered):', pages, 'from', filteredCount, 'items, pageSize:', pageSize);
+        return pages;
+      } else {
+        // Fallback
+        console.log('📄 effectiveTotalPages (fallback):', totalPages);
+        return totalPages;
+      }
+    }
+    console.log('📄 effectiveTotalPages (server):', totalPages);
+    return totalPages; // Otherwise use server-provided pages
+  }, [hasActiveClientFilters, table, pageSize, totalPages, globalFilter, activeFilters, editableData]);
 
   // Capture sorted order when sorting changes (Excel-like behavior)
   useEffect(() => {
@@ -2696,9 +2735,10 @@ const TanStackCRUDTable = forwardRef(({
 
   // Pagination Footer Component
   const PaginationFooter = () => {
-    const actualPageSize = pageSize === 'All' ? totalItems : pageSize;
-    const startItem = totalItems === 0 ? 0 : ((currentPage - 1) * actualPageSize) + 1;
-    const endItem = Math.min(currentPage * actualPageSize, totalItems);
+    // Use effective values which account for filtering
+    const actualPageSize = pageSize === 'All' ? effectiveTotalItems : pageSize;
+    const startItem = effectiveTotalItems === 0 ? 0 : ((currentPage - 1) * actualPageSize) + 1;
+    const endItem = Math.min(currentPage * actualPageSize, effectiveTotalItems);
 
     const handlePageSizeChangeLocal = (e) => {
       const newSize = e.target.value === 'all' ? 'All' : parseInt(e.target.value);
@@ -2709,7 +2749,7 @@ const TanStackCRUDTable = forwardRef(({
       const buttons = [];
       const maxVisiblePages = 5;
       let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      let endPage = Math.min(effectiveTotalPages, startPage + maxVisiblePages - 1);
 
       // Adjust startPage if we're near the end
       if (endPage - startPage + 1 < maxVisiblePages) {
@@ -2781,8 +2821,8 @@ const TanStackCRUDTable = forwardRef(({
       }
 
       // Add ellipsis at the end if needed
-      if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
+      if (endPage < effectiveTotalPages) {
+        if (endPage < effectiveTotalPages - 1) {
           buttons.push(
             <span key="ellipsis-end" style={{ padding: '0 4px', color: 'var(--color-fg-muted)' }}>
               ...
@@ -2791,8 +2831,8 @@ const TanStackCRUDTable = forwardRef(({
         }
         buttons.push(
           <button
-            key={totalPages}
-            onClick={() => handlePageChange(totalPages)}
+            key={effectiveTotalPages}
+            onClick={() => handlePageChange(effectiveTotalPages)}
             className="pagination-btn"
             disabled={isLoading}
             style={{
@@ -2811,7 +2851,7 @@ const TanStackCRUDTable = forwardRef(({
               transition: 'all 0.2s'
             }}
           >
-            {totalPages}
+            {effectiveTotalPages}
           </button>
         );
       }
@@ -2848,7 +2888,7 @@ const TanStackCRUDTable = forwardRef(({
               color: 'var(--color-fg-default)',
               fontSize: '14px'
             }}>
-              Showing {startItem.toLocaleString()} to {endItem.toLocaleString()} of {totalItems.toLocaleString()} entries
+              Showing {startItem.toLocaleString()} to {endItem.toLocaleString()} of {effectiveTotalItems.toLocaleString()} entries
             </span>
           </div>
 
@@ -2863,7 +2903,7 @@ const TanStackCRUDTable = forwardRef(({
               margin: 0
             }}>Rows per page:</label>
             <select
-              value={pageSize === 'All' || pageSize >= totalItems ? 'all' : pageSize}
+              value={pageSize === 'All' || pageSize >= effectiveTotalItems ? 'all' : pageSize}
               onChange={handlePageSizeChangeLocal}
               disabled={isLoading}
               style={{
@@ -2944,7 +2984,7 @@ const TanStackCRUDTable = forwardRef(({
 
           <button
             onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages || isLoading}
+            disabled={currentPage === effectiveTotalPages || isLoading}
             title="Next page"
             style={{
               display: 'flex',
@@ -2954,10 +2994,10 @@ const TanStackCRUDTable = forwardRef(({
               height: '28px',
               border: '1px solid var(--table-pagination-button-border)',
               backgroundColor: 'var(--table-pagination-button-bg)',
-              color: currentPage === totalPages || isLoading ? 'var(--muted-text)' : 'var(--table-pagination-text)',
-              opacity: currentPage === totalPages || isLoading ? 0.5 : 1,
+              color: currentPage === effectiveTotalPages || isLoading ? 'var(--muted-text)' : 'var(--table-pagination-text)',
+              opacity: currentPage === effectiveTotalPages || isLoading ? 0.5 : 1,
               borderRadius: '4px',
-              cursor: currentPage === totalPages || isLoading ? 'not-allowed' : 'pointer',
+              cursor: currentPage === effectiveTotalPages || isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s'
             }}
           >
@@ -2965,8 +3005,8 @@ const TanStackCRUDTable = forwardRef(({
           </button>
 
           <button
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages || isLoading}
+            onClick={() => handlePageChange(effectiveTotalPages)}
+            disabled={currentPage === effectiveTotalPages || isLoading}
             title="Last page"
             style={{
               display: 'flex',
@@ -2976,10 +3016,10 @@ const TanStackCRUDTable = forwardRef(({
               height: '28px',
               border: '1px solid var(--table-pagination-button-border)',
               backgroundColor: 'var(--table-pagination-button-bg)',
-              color: currentPage === totalPages || isLoading ? 'var(--muted-text)' : 'var(--table-pagination-text)',
-              opacity: currentPage === totalPages || isLoading ? 0.5 : 1,
+              color: currentPage === effectiveTotalPages || isLoading ? 'var(--muted-text)' : 'var(--table-pagination-text)',
+              opacity: currentPage === effectiveTotalPages || isLoading ? 0.5 : 1,
               borderRadius: '4px',
-              cursor: currentPage === totalPages || isLoading ? 'not-allowed' : 'pointer',
+              cursor: currentPage === effectiveTotalPages || isLoading ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s'
             }}
           >
@@ -3036,14 +3076,32 @@ const TanStackCRUDTable = forwardRef(({
       }}>
         {/* Enhanced Search */}
         <div style={{ position: 'relative', minWidth: '300px', flex: '1 1 300px', maxWidth: '400px' }}>
+          {/* Search Icon */}
+          <div style={{
+            position: 'absolute',
+            left: '12px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            pointerEvents: 'none',
+            color: 'var(--muted-text)'
+          }}>
+            <Search size={16} />
+          </div>
           <input
             type="text"
-            placeholder="🔍 Search all columns..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
+            placeholder="Search all columns... (Press Enter to filter)"
+            value={pendingGlobalFilter}
+            onChange={(e) => setPendingGlobalFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setGlobalFilter(pendingGlobalFilter);
+              }
+            }}
             style={{
               width: '100%',
-              padding: '10px 36px 10px 16px',
+              padding: '10px 36px 10px 36px',
               border: '1px solid var(--form-input-border)',
               borderRadius: '6px',
               fontSize: '14px',
@@ -3061,9 +3119,12 @@ const TanStackCRUDTable = forwardRef(({
               e.target.style.boxShadow = 'none';
             }}
           />
-          {globalFilter && (
+          {(pendingGlobalFilter || globalFilter) && (
             <button
-              onClick={() => setGlobalFilter('')}
+              onClick={() => {
+                setGlobalFilter('');
+                setPendingGlobalFilter('');
+              }}
               style={{
                 position: 'absolute',
                 right: '8px',
@@ -3158,9 +3219,9 @@ const TanStackCRUDTable = forwardRef(({
 
         {/* Stats Container */}
         <StatsContainer
-          totalItems={totalItems}
+          totalItems={effectiveTotalItems}
           currentPage={currentPage}
-          totalPages={totalPages}
+          totalPages={effectiveTotalPages}
           pageSize={pageSize}
           displayedRows={hasActiveClientFilters ?
             table.getRowModel().rows.length : // Use TanStack Table's filtered/paginated count
@@ -3178,7 +3239,7 @@ const TanStackCRUDTable = forwardRef(({
           hasActiveFilters={Object.keys(activeFilters).filter(key => activeFilters[key].active).length > 0}
           hasUnsavedChanges={hasChanges}
           globalFilter={globalFilter}
-          isPaginated={totalPages > 1}
+          isPaginated={effectiveTotalPages > 1}
         />
       </div>
 

@@ -77,30 +77,6 @@ const StatsContainer = ({
         </>
       )}
 
-      {/* Showing Count (for paginated data) */}
-      {showPagination && displayedRows > 0 && (
-        <>
-          <div style={{
-            width: '1px',
-            height: '16px',
-            backgroundColor: 'var(--table-border)'
-          }}></div>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            <span style={{ color: 'var(--muted-text)' }}>Showing:</span>
-            <span style={{
-              color: 'var(--link-text)',
-              fontWeight: '600'
-            }}>
-              {displayedRows}
-            </span>
-          </div>
-        </>
-      )}
-
       {/* Selected Rows */}
       {selectedCellsCount > 0 && (
         <>
