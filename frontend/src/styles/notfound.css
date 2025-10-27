@@ -1,0 +1,34 @@
+/* 404 Not Found Page Theme Styling */
+
+/* Ensure text is visible in both themes */
+.theme-dark .container .display-1,
+.theme-dark .container .display-4,
+.theme-dark .container .display-2,
+.theme-dark .container .display-3,
+.theme-light .container .display-1,
+.theme-light .container .display-4,
+.theme-light .container .display-2,
+.theme-light .container .display-3 {
+  color: var(--primary-text) !important;
+}
+
+.theme-dark .container .lead,
+.theme-light .container .lead {
+  color: var(--secondary-text) !important;
+}
+
+.theme-dark .container h1,
+.theme-dark .container h2,
+.theme-dark .container h3,
+.theme-dark .container h4,
+.theme-light .container h1,
+.theme-light .container h2,
+.theme-light .container h3,
+.theme-light .container h4 {
+  color: var(--primary-text) !important;
+}
+
+.theme-dark .container p,
+.theme-light .container p {
+  color: var(--primary-text) !important;
+}

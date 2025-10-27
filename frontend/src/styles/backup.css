@@ -1,5 +1,116 @@
 /* Backup Management Page Theme Overrides */
 
+/* ========== GLOBAL MODAL OVERRIDES (for Bootstrap portals) ========== */
+/* Bootstrap modals render outside the page container, so we need global selectors */
+
+.theme-dark .modal-content,
+.theme-light .modal-content {
+  background-color: var(--modal-bg) !important;
+  border-color: var(--modal-border) !important;
+  color: var(--primary-text) !important;
+}
+
+.theme-dark .modal-header,
+.theme-light .modal-header {
+  background-color: var(--secondary-bg) !important;
+  border-bottom-color: var(--modal-border) !important;
+}
+
+.theme-dark .modal-title,
+.theme-light .modal-title {
+  color: var(--primary-text) !important;
+}
+
+.theme-dark .modal-footer,
+.theme-light .modal-footer {
+  background-color: var(--secondary-bg) !important;
+  border-top-color: var(--modal-border) !important;
+}
+
+.theme-dark .modal-body,
+.theme-light .modal-body {
+  background-color: var(--modal-bg) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Form controls in modals */
+.theme-dark .modal-body .form-control,
+.theme-dark .modal-body .form-select,
+.theme-light .modal-body .form-control,
+.theme-light .modal-body .form-select {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+.theme-dark .modal-body .form-control::placeholder,
+.theme-light .modal-body .form-control::placeholder {
+  color: var(--form-input-placeholder) !important;
+}
+
+.theme-dark .modal-body .form-control:focus,
+.theme-dark .modal-body .form-select:focus,
+.theme-light .modal-body .form-control:focus,
+.theme-light .modal-body .form-select:focus {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+  border-color: var(--form-input-focus-border) !important;
+  box-shadow: var(--form-input-focus-shadow) !important;
+}
+
+/* Form labels in modals */
+.theme-dark .modal-body .form-label,
+.theme-light .modal-body .form-label {
+  color: var(--primary-text) !important;
+  font-weight: 500;
+}
+
+/* Alerts in modals */
+.theme-dark .modal-body .alert-info,
+.theme-light .modal-body .alert-info {
+  background-color: var(--alert-info-bg) !important;
+  border-color: var(--alert-info-border) !important;
+  color: var(--alert-info-text) !important;
+}
+
+.theme-dark .modal-body .alert-warning,
+.theme-light .modal-body .alert-warning {
+  background-color: var(--alert-warning-bg) !important;
+  border-color: var(--alert-warning-border) !important;
+  color: var(--alert-warning-text) !important;
+}
+
+.theme-dark .modal-body .alert-danger,
+.theme-light .modal-body .alert-danger {
+  background-color: var(--alert-danger-bg) !important;
+  border-color: var(--alert-danger-border) !important;
+  color: var(--alert-danger-text) !important;
+}
+
+/* Checkboxes in modals */
+.theme-dark .modal-body .form-check-input,
+.theme-light .modal-body .form-check-input {
+  background-color: var(--form-input-bg) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+.theme-dark .modal-body .form-check-input:checked,
+.theme-light .modal-body .form-check-input:checked {
+  background-color: var(--color-accent-emphasis) !important;
+  border-color: var(--color-accent-emphasis) !important;
+}
+
+.theme-dark .modal-body .form-check-label,
+.theme-light .modal-body .form-check-label {
+  color: var(--primary-text) !important;
+}
+
+/* Close button for dark theme */
+.theme-dark .modal-header .btn-close,
+.theme-dark .btn-close {
+  filter: invert(1) brightness(2) !important;
+}
+
 /* Page Headers */
 #backup-management-page h2,
 #backup-dashboard-page h2,
@@ -201,6 +312,14 @@
 #backup-dashboard-page .form-control::placeholder,
 #restore-history-page .form-control::placeholder {
   color: var(--form-input-placeholder) !important;
+}
+
+/* Form Labels */
+#backup-management-page .form-label,
+#backup-dashboard-page .form-label,
+#restore-history-page .form-label {
+  color: var(--primary-text) !important;
+  font-weight: 500;
 }
 
 /* Input Groups */
@@ -645,24 +764,48 @@
   border-color: var(--link-text) !important;
 }
 
-/* Toggle Switch Specific */
-#backup-management-page .modal-body .form-switch .form-check-input,
-.backup-scheduler-card .form-switch .form-check-input {
+/* Toggle Switch Specific - Light Theme */
+.theme-light #backup-management-page .modal-body .form-switch .form-check-input,
+.theme-light .backup-scheduler-card .form-switch .form-check-input,
+.theme-light .modal-body .form-switch .form-check-input {
   background-color: var(--form-input-bg) !important;
   border-color: var(--form-input-border) !important;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(0,0,0,0.25)'/%3e%3c/svg%3e") !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(0,0,0,0.5)'/%3e%3c/svg%3e") !important;
 }
 
+/* Toggle Switch Specific - Dark Theme */
+.theme-dark #backup-management-page .modal-body .form-switch .form-check-input,
+.theme-dark .backup-scheduler-card .form-switch .form-check-input,
+.theme-dark .modal-body .form-switch .form-check-input {
+  background-color: var(--form-input-bg) !important;
+  border-color: var(--form-input-border) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.7)'/%3e%3c/svg%3e") !important;
+}
+
+/* Toggle Switch Checked State (both themes) */
 #backup-management-page .modal-body .form-switch .form-check-input:checked,
-.backup-scheduler-card .form-switch .form-check-input:checked {
-  background-color: var(--link-text) !important;
-  border-color: var(--link-text) !important;
+.backup-scheduler-card .form-switch .form-check-input:checked,
+.theme-dark .modal-body .form-switch .form-check-input:checked,
+.theme-light .modal-body .form-switch .form-check-input:checked {
+  background-color: var(--color-accent-emphasis) !important;
+  border-color: var(--color-accent-emphasis) !important;
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e") !important;
 }
 
-#backup-management-page .modal-body .form-switch .form-check-input:focus,
-.backup-scheduler-card .form-switch .form-check-input:focus {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(0,0,0,0.25)'/%3e%3c/svg%3e") !important;
+/* Toggle Switch Focus State - Light Theme */
+.theme-light #backup-management-page .modal-body .form-switch .form-check-input:focus,
+.theme-light .backup-scheduler-card .form-switch .form-check-input:focus,
+.theme-light .modal-body .form-switch .form-check-input:focus {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(0,0,0,0.5)'/%3e%3c/svg%3e") !important;
+  box-shadow: none !important;
+  border-color: var(--form-input-focus-border) !important;
+}
+
+/* Toggle Switch Focus State - Dark Theme */
+.theme-dark #backup-management-page .modal-body .form-switch .form-check-input:focus,
+.theme-dark .backup-scheduler-card .form-switch .form-check-input:focus,
+.theme-dark .modal-body .form-switch .form-check-input:focus {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.7)'/%3e%3c/svg%3e") !important;
   box-shadow: none !important;
   border-color: var(--form-input-focus-border) !important;
 }
@@ -706,6 +849,10 @@
   color: var(--table-header-text) !important;
 }
 
+.backup-scheduler-card .card-header .badge {
+  margin-left: var(--space-3);
+}
+
 .backup-scheduler-card .card-body {
   background-color: var(--table-bg) !important;
   color: var(--primary-text) !important;
@@ -728,5 +875,149 @@
 #restore-history-page h3,
 #restore-history-page h4,
 #restore-history-page h5 {
+  color: var(--primary-text) !important;
+}
+
+/* ========== BACKUP LOGS VIEWER MODAL ========== */
+/* Backup logs viewer is inside modals, needs theme overrides */
+
+/* Override bg-light class in logs viewer */
+.theme-dark .modal-body .bg-light,
+.theme-light .modal-body .bg-light {
+  background-color: var(--secondary-bg) !important;
+}
+
+/* Logs viewer cards */
+.theme-dark .modal-body .card,
+.theme-light .modal-body .card {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+.theme-dark .modal-body .card-header,
+.theme-light .modal-body .card-header {
+  background-color: var(--secondary-bg) !important;
+  border-bottom-color: var(--color-border-default) !important;
+}
+
+.theme-dark .modal-body .card-header h6,
+.theme-light .modal-body .card-header h6 {
+  color: var(--primary-text) !important;
+}
+
+.theme-dark .modal-body .card-body,
+.theme-light .modal-body .card-body {
+  background-color: var(--card-bg) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Border-bottom in filter section */
+.theme-dark .modal-body .border-bottom,
+.theme-light .modal-body .border-bottom {
+  border-bottom-color: var(--color-border-default) !important;
+}
+
+/* Buttons in logs viewer */
+.theme-dark .modal-body .btn-outline-secondary,
+.theme-light .modal-body .btn-outline-secondary {
+  color: var(--primary-text) !important;
+  border-color: var(--form-input-border) !important;
+  background-color: transparent !important;
+}
+
+.theme-dark .modal-body .btn-outline-secondary:hover:not(:disabled),
+.theme-light .modal-body .btn-outline-secondary:hover:not(:disabled) {
+  background-color: var(--secondary-bg) !important;
+  border-color: var(--color-accent-emphasis) !important;
+  color: var(--color-accent-emphasis) !important;
+}
+
+/* Spinner in dark theme */
+.theme-dark .modal-body .spinner-border {
+  border-color: var(--muted-text) !important;
+  border-right-color: transparent !important;
+}
+
+/* Make sure form switches in logs viewer work */
+.theme-dark .modal-body .form-check-input[type="checkbox"],
+.theme-light .modal-body .form-check-input[type="checkbox"] {
+  background-color: var(--form-input-bg) !important;
+  border-color: var(--form-input-border) !important;
+}
+
+.theme-dark .modal-body .form-check-input[type="checkbox"]:checked,
+.theme-light .modal-body .form-check-input[type="checkbox"]:checked {
+  background-color: var(--color-accent-emphasis) !important;
+  border-color: var(--color-accent-emphasis) !important;
+}
+
+/* Text-muted in logs viewer */
+.theme-dark .modal-body .text-muted,
+.theme-light .modal-body .text-muted {
+  color: var(--muted-text) !important;
+}
+
+/* Small text in logs viewer */
+.theme-dark .modal-body small,
+.theme-light .modal-body small {
+  color: var(--muted-text) !important;
+}
+
+/* ========== RESTORE & DETAILS MODALS ========== */
+/* Additional theming for Restore and Details modals */
+
+/* Headings in modal body */
+.theme-dark .modal-body h6,
+.theme-light .modal-body h6 {
+  color: var(--primary-text) !important;
+  font-weight: 600;
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+/* Tables in modal body */
+.theme-dark .modal-body .table,
+.theme-light .modal-body .table {
+  color: var(--primary-text) !important;
+  background-color: var(--table-bg) !important;
+}
+
+.theme-dark .modal-body .table td,
+.theme-light .modal-body .table td {
+  background-color: var(--table-bg) !important;
+  color: var(--table-cell-text) !important;
+  border-color: var(--table-border) !important;
+}
+
+.theme-dark .modal-body .table tbody tr,
+.theme-light .modal-body .table tbody tr {
+  background-color: var(--table-bg) !important;
+}
+
+.theme-dark .modal-body .table strong,
+.theme-light .modal-body .table strong {
+  color: var(--primary-text) !important;
+}
+
+/* Code elements in tables */
+.theme-dark .modal-body code,
+.theme-light .modal-body code {
+  background-color: var(--code-bg) !important;
+  color: var(--code-text) !important;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+/* Form.Text (help text) */
+.theme-dark .modal-body .form-text,
+.theme-light .modal-body .form-text {
+  color: var(--muted-text) !important;
+}
+
+/* Strong tags in modal body */
+.theme-dark .modal-body strong,
+.theme-light .modal-body strong {
   color: var(--primary-text) !important;
 }

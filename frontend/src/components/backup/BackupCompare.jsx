@@ -325,7 +325,7 @@ const BackupCompare = ({ show, onHide, backups }) => {
                 <h6><FaChartBar className="me-2" />Table Row Count Changes</h6>
                 <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                   <Table bordered size="sm" hover>
-                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white' }}>
+                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--table-header-bg)' }}>
                       <tr>
                         <th>Table</th>
                         <th>First Backup</th>
