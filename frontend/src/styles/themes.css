@@ -157,7 +157,7 @@
   --navbar-border: rgba(255, 255, 255, 0.1);
   --navbar-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
   --navbar-button-bg: rgba(255, 255, 255, 0.08);
-  --navbar-button-hover: rgba(255, 255, 255, 0.15);
+  --navbar-button-hover: transparent;
   --navbar-brand-color: #ffffff;
   --navbar-search-bg: rgba(255, 255, 255, 0.08);
   --navbar-search-border: rgba(255, 255, 255, 0.2);
@@ -383,7 +383,7 @@
   --navbar-border: var(--color-border-default);
   --navbar-shadow: inset 0 -1px 0 var(--color-border-default);
   --navbar-button-bg: rgba(240, 246, 252, 0.06);
-  --navbar-button-hover: rgba(240, 246, 252, 0.12);
+  --navbar-button-hover: transparent;
   --navbar-brand-color: #e6edf3;
   --navbar-search-bg: #0d1117;
   --navbar-search-border: var(--color-border-default);

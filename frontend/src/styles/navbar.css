@@ -333,6 +333,26 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
   box-shadow: none !important;
 }
 
+.navbar-context .dropdown-toggle:hover,
+.navbar-context .dropdown-toggle:focus,
+.navbar-context .dropdown-toggle:active {
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* When dropdown is open */
+.navbar-context .dropdown.show .dropdown-toggle,
+.navbar-context .dropdown.show .context-indicator,
+.navbar-context .show .dropdown-toggle,
+.navbar-context .show .context-indicator {
+  border: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
 .context-indicator {
   display: flex;
   align-items: center;
@@ -346,7 +366,16 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
 }
 
 .context-indicator:hover {
-  background: var(--navbar-button-hover);
+  background: transparent !important;
+  background-color: transparent !important;
+  cursor: pointer;
+}
+
+/* Keep transparent when dropdown is open */
+.dropdown.show .context-indicator,
+.show .context-indicator {
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .context-icon {
