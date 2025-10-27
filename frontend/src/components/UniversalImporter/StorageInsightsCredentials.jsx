@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, Alert, Spinner, Card } from 'react-bootstrap';
-import { Key, Database, CheckCircle, XCircle, Eye, EyeOff, Info } from 'lucide-react';
+import {
+  Key,
+  Database,
+  CheckCircle,
+  XCircle,
+  Eye,
+  EyeOff,
+  Info,
+  Loader
+} from 'lucide-react';
 import axios from 'axios';
-import './styles/StorageInsightsCredentials.css';
 
 const StorageInsightsCredentials = ({
   tenantId,
@@ -15,10 +22,9 @@ const StorageInsightsCredentials = ({
   setSelectedSystems,
   importOptions,
   setImportOptions,
-  customerId,
-  theme
+  customerId
 }) => {
-  const [fetchingSystemsloading, setFetchingLoading] = useState(false);
+  const [fetchingLoading, setFetchingLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [credentialsLoaded, setCredentialsLoaded] = useState(false);
@@ -27,7 +33,6 @@ const StorageInsightsCredentials = ({
   useEffect(() => {
     if (tenantId && apiKey) {
       setCredentialsLoaded(true);
-      // Hide the message after 5 seconds
       const timer = setTimeout(() => setCredentialsLoaded(false), 5000);
       return () => clearTimeout(timer);
     }
@@ -44,7 +49,6 @@ const StorageInsightsCredentials = ({
     setAvailableSystems([]);
 
     try {
-      // Fetch available storage systems from the backend
       const response = await axios.post('/api/importer/fetch-systems/', {
         customer_id: customerId,
         insights_tenant: tenantId,
@@ -53,10 +57,7 @@ const StorageInsightsCredentials = ({
 
       const systems = response.data.storage_systems || [];
       setAvailableSystems(systems);
-
-      // Auto-select all systems by default (use storage_system_id, not serial)
       setSelectedSystems(systems.map(s => s.storage_system_id || s.serial));
-
       setError(null);
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message || 'Failed to fetch storage systems';
@@ -93,205 +94,232 @@ const StorageInsightsCredentials = ({
   };
 
   return (
-    <div className={`storage-insights-credentials theme-${theme}`}>
-      <Card className="credentials-card">
-        <Card.Header>
+    <div className="configuration-panel">
+      {/* Credentials Section */}
+      <div className="step-content">
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Key size={20} />
-          <span>IBM Storage Insights API Credentials</span>
-        </Card.Header>
-        <Card.Body>
-          {credentialsLoaded && (
-            <Alert variant="info" className="mb-3 d-flex align-items-center">
-              <Info size={16} className="me-2" />
-              Credentials loaded from customer settings
-            </Alert>
-          )}
+          IBM Storage Insights API Credentials
+        </h2>
 
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Tenant ID</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Enter your IBM Storage Insights Tenant ID"
-                value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
-                disabled={fetchingSystemsloading}
-              />
-              <Form.Text className="text-muted">
-                Found in your IBM Storage Insights account settings
-              </Form.Text>
-            </Form.Group>
+        {credentialsLoaded && (
+          <div className="alert alert-info">
+            <Info className="alert-icon" size={18} />
+            <div className="alert-content">
+              <div className="alert-message">Credentials loaded from customer settings</div>
+            </div>
+          </div>
+        )}
 
-            <Form.Group className="mb-3">
-              <Form.Label>API Key</Form.Label>
-              <div className="api-key-input-group">
-                <Form.Control
-                  type={showApiKey ? "text" : "password"}
-                  placeholder="Enter your IBM Storage Insights API Key"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  disabled={fetchingSystemsloading}
-                />
-                <Button
-                  variant="outline-secondary"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="toggle-visibility-btn"
-                >
-                  {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                </Button>
-              </div>
-              <Form.Text className="text-muted">
-                Generated from IBM Storage Insights API settings
-              </Form.Text>
-            </Form.Group>
+        <div className="form-group">
+          <label className="form-label">Tenant ID</label>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Enter your IBM Storage Insights Tenant ID"
+            value={tenantId}
+            onChange={(e) => setTenantId(e.target.value)}
+            disabled={fetchingLoading}
+          />
+          <div style={{ marginTop: 'var(--space-1)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+            Found in your IBM Storage Insights account settings
+          </div>
+        </div>
 
-            <Button
-              variant="primary"
-              onClick={fetchStorageSystems}
-              disabled={fetchingSystemsloading || !tenantId || !apiKey}
-              className="fetch-systems-btn"
+        <div className="form-group">
+          <label className="form-label">API Key</label>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <input
+              type={showApiKey ? "text" : "password"}
+              className="form-input"
+              placeholder="Enter your IBM Storage Insights API Key"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              disabled={fetchingLoading}
+              style={{ flex: 1 }}
+            />
+            <button
+              className="nav-button secondary"
+              onClick={() => setShowApiKey(!showApiKey)}
+              style={{ padding: 'var(--space-3)' }}
             >
-              {fetchingSystemsloading ? (
-                <>
-                  <Spinner
-                    as="span"
-                    animation="border"
-                    size="sm"
-                    role="status"
-                    aria-hidden="true"
-                    className="me-2"
-                  />
-                  Fetching Systems...
-                </>
-              ) : (
-                <>
-                  <Database size={16} className="me-2" />
-                  Fetch Available Systems
-                </>
-              )}
-            </Button>
-          </Form>
+              {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          <div style={{ marginTop: 'var(--space-1)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+            Generated from IBM Storage Insights API settings
+          </div>
+        </div>
 
-          {error && (
-            <Alert variant="danger" className="mt-3">
-              <XCircle size={16} className="me-2" />
-              {error}
-            </Alert>
+        <button
+          className="nav-button primary"
+          onClick={fetchStorageSystems}
+          disabled={fetchingLoading || !tenantId || !apiKey}
+        >
+          {fetchingLoading ? (
+            <>
+              <Loader size={18} className="loading-spinner" style={{ width: '18px', height: '18px' }} />
+              Fetching Systems...
+            </>
+          ) : (
+            <>
+              <Database size={18} />
+              Fetch Available Systems
+            </>
           )}
-        </Card.Body>
-      </Card>
+        </button>
 
+        {error && (
+          <div className="alert alert-danger">
+            <XCircle className="alert-icon" size={18} />
+            <div className="alert-content">
+              <div className="alert-message">{error}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* System Selection */}
       {availableSystems.length > 0 && (
-        <>
-          <Card className="systems-selection-card mt-4">
-            <Card.Header>
+        <div className="step-content">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', margin: 0 }}>
               <Database size={20} />
-              <span>Select Storage Systems ({selectedSystems.length}/{availableSystems.length})</span>
-              <Button
-                variant="link"
-                size="sm"
-                onClick={handleSelectAll}
-                className="select-all-btn"
-              >
-                {selectedSystems.length === availableSystems.length ? 'Deselect All' : 'Select All'}
-              </Button>
-            </Card.Header>
-            <Card.Body>
-              <div className="systems-list">
-                {availableSystems.map((system) => {
-                  const systemId = system.storage_system_id || system.serial;
-                  const isSelected = selectedSystems.includes(systemId);
+              Select Storage Systems ({selectedSystems.length}/{availableSystems.length})
+            </h2>
+            <button className="select-all-btn" onClick={handleSelectAll}>
+              {selectedSystems.length === availableSystems.length ? 'Deselect All' : 'Select All'}
+            </button>
+          </div>
 
-                  return (
-                    <div
-                      key={systemId}
-                      className={`system-item ${isSelected ? 'selected' : ''}`}
-                      onClick={() => handleSystemToggle(systemId)}
-                    >
-                      <div className="system-checkbox">
-                        <Form.Check
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleSystemToggle(systemId)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                      <div className="system-info">
-                        <div className="system-name">{system.name || systemId}</div>
-                        <div className="system-details">
-                          <span className="system-type">{system.type || 'Unknown Type'}</span>
-                          <span className="system-serial">Serial: {systemId}</span>
-                          {system.status && (
-                            <span className={`system-status status-${system.status.toLowerCase()}`}>
-                              {system.status}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {isSelected && (
-                        <div className="system-selected-indicator">
-                          <CheckCircle size={20} />
-                        </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            {availableSystems.map((system) => {
+              const systemId = system.storage_system_id || system.serial;
+              const isSelected = selectedSystems.includes(systemId);
+
+              return (
+                <div
+                  key={systemId}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-3)',
+                    padding: 'var(--space-3)',
+                    background: isSelected ? 'var(--table-row-selected)' : 'var(--secondary-bg)',
+                    border: `1px solid ${isSelected ? 'var(--color-accent-emphasis)' : 'var(--color-border-default)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={() => handleSystemToggle(systemId)}
+                >
+                  <input
+                    type="checkbox"
+                    className="preview-checkbox"
+                    checked={isSelected}
+                    onChange={() => handleSystemToggle(systemId)}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', marginBottom: 'var(--space-1)' }}>
+                      {system.name || systemId}
+                    </div>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)', display: 'flex', gap: 'var(--space-3)' }}>
+                      <span>{system.type || 'Unknown Type'}</span>
+                      <span>Serial: {systemId}</span>
+                      {system.status && (
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--color-success-subtle)',
+                          color: 'var(--color-success-fg)',
+                          fontSize: 'var(--font-size-xs)'
+                        }}>
+                          {system.status}
+                        </span>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </Card.Body>
-          </Card>
+                  </div>
+                  {isSelected && (
+                    <CheckCircle size={20} style={{ color: 'var(--color-success-fg)' }} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-          <Card className="import-options-card mt-4">
-            <Card.Header>
-              <CheckCircle size={20} />
-              <span>Import Options</span>
-            </Card.Header>
-            <Card.Body>
-              <div className="import-options-list">
-                <Form.Check
+      {/* Import Options */}
+      {availableSystems.length > 0 && (
+        <div className="step-content">
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <CheckCircle size={20} />
+            Import Options
+          </h2>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'not-allowed', opacity: 0.6 }}>
+                <input
                   type="checkbox"
-                  label="Storage Systems"
+                  className="preview-checkbox"
                   checked={importOptions.storage_systems}
-                  onChange={() => handleOptionToggle('storage_systems')}
                   disabled
                 />
-                <Form.Text className="text-muted ms-4 d-block mb-2">
-                  Import storage system information and capacity data
-                </Form.Text>
+                <span style={{ fontWeight: '500' }}>Storage Systems</span>
+              </label>
+              <div style={{ marginLeft: 'var(--space-5)', marginTop: 'var(--space-1)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+                Import storage system information and capacity data (required)
+              </div>
+            </div>
 
-                <Form.Check
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                <input
                   type="checkbox"
-                  label="Volumes"
+                  className="preview-checkbox"
                   checked={importOptions.volumes}
                   onChange={() => handleOptionToggle('volumes')}
                 />
-                <Form.Text className="text-muted ms-4 d-block mb-2">
-                  Import volume configurations and capacity details
-                </Form.Text>
+                <span style={{ fontWeight: '500' }}>Volumes</span>
+              </label>
+              <div style={{ marginLeft: 'var(--space-5)', marginTop: 'var(--space-1)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+                Import volume configurations and capacity details
+              </div>
+            </div>
 
-                <Form.Check
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                <input
                   type="checkbox"
-                  label="Hosts"
+                  className="preview-checkbox"
                   checked={importOptions.hosts}
                   onChange={() => handleOptionToggle('hosts')}
                 />
-                <Form.Text className="text-muted ms-4 d-block mb-2">
-                  Import host connections and WWPNs
-                </Form.Text>
+                <span style={{ fontWeight: '500' }}>Hosts</span>
+              </label>
+              <div style={{ marginLeft: 'var(--space-5)', marginTop: 'var(--space-1)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+                Import host connections and WWPNs
+              </div>
+            </div>
 
-                <Form.Check
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'not-allowed', opacity: 0.6 }}>
+                <input
                   type="checkbox"
-                  label="Ports (Experimental)"
+                  className="preview-checkbox"
                   checked={importOptions.ports}
-                  onChange={() => handleOptionToggle('ports')}
                   disabled
                 />
-                <Form.Text className="text-muted ms-4 d-block mb-2">
-                  Import storage port information (coming soon)
-                </Form.Text>
+                <span style={{ fontWeight: '500' }}>Ports (Experimental)</span>
+              </label>
+              <div style={{ marginLeft: 'var(--space-5)', marginTop: 'var(--space-1)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+                Import storage port information (coming soon)
               </div>
-            </Card.Body>
-          </Card>
-        </>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

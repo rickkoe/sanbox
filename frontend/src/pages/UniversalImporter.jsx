@@ -1,7 +1,6 @@
 import React, { useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Modal, Button } from 'react-bootstrap';
 import { CheckCircle } from 'lucide-react';
 import { ConfigContext } from '../context/ConfigContext';
 import { useTheme } from '../context/ThemeContext';
@@ -465,6 +464,11 @@ const UniversalImporter = () => {
 
           // Check multiple possible locations for stats
           const extractStats = (data) => {
+            // Log the ENTIRE response to debug
+            console.log('=== FULL IMPORT RESPONSE DATA ===');
+            console.log('Full data object:', JSON.stringify(data, null, 2));
+            console.log('Keys in data:', Object.keys(data));
+
             // Log what we're working with
             console.log('Extracting stats from:', {
               direct: {
@@ -477,33 +481,47 @@ const UniversalImporter = () => {
               },
               stats: data.stats,
               result: data.result,
-              summary: data.summary
+              summary: data.summary,
+              metadata: data.metadata
             });
 
-            return {
-              // SAN stats
+            const extractedStats = {
+              // SAN stats - check ALL possible locations
               aliases: data.aliases_imported || data.aliases_count ||
                       data.stats?.aliases || data.stats?.aliases_imported ||
                       data.stats?.aliases_created || data.result?.aliases_imported ||
-                      data.summary?.aliases || 0,
+                      data.summary?.aliases || data.metadata?.aliases_imported ||
+                      data.metadata?.aliases_created || 0,
               zones: data.zones_imported || data.zones_count ||
                     data.stats?.zones || data.stats?.zones_imported ||
                     data.stats?.zones_created || data.result?.zones_imported ||
-                    data.summary?.zones || 0,
+                    data.summary?.zones || data.metadata?.zones_imported ||
+                    data.metadata?.zones_created || 0,
               fabrics: data.fabrics_created || data.fabrics_count ||
                       data.stats?.fabrics || data.stats?.fabrics_created ||
                       data.stats?.fabrics_updated || data.result?.fabrics_created ||
-                      data.summary?.fabrics || 0,
+                      data.summary?.fabrics || data.metadata?.fabrics_created || 0,
+              switches: data.switches_imported || data.switches_count ||
+                       data.stats?.switches || data.stats?.switches_imported ||
+                       data.stats?.switches_created || data.result?.switches_imported ||
+                       data.summary?.switches || data.metadata?.switches_imported ||
+                       data.metadata?.switches_created || 0,
               // Storage stats
               storage_systems_created: data.storage_systems_imported ||
-                                       data.stats?.storage_systems_created || 0,
-              storage_systems_updated: data.stats?.storage_systems_updated || 0,
+                                       data.stats?.storage_systems_created ||
+                                       data.metadata?.storage_systems_created || 0,
+              storage_systems_updated: data.stats?.storage_systems_updated ||
+                                       data.metadata?.storage_systems_updated || 0,
               volumes_created: data.volumes_imported ||
-                              data.stats?.volumes_created || 0,
-              volumes_updated: data.stats?.volumes_updated || 0,
+                              data.stats?.volumes_created ||
+                              data.metadata?.volumes_created || 0,
+              volumes_updated: data.stats?.volumes_updated ||
+                              data.metadata?.volumes_updated || 0,
               hosts_created: data.hosts_imported ||
-                            data.stats?.hosts_created || 0,
-              hosts_updated: data.stats?.hosts_updated || 0,
+                            data.stats?.hosts_created ||
+                            data.metadata?.hosts_created || 0,
+              hosts_updated: data.stats?.hosts_updated ||
+                            data.metadata?.hosts_updated || 0,
               duration: (() => {
                 if (!data.duration) return 0;
                 if (typeof data.duration === 'number') return Math.round(data.duration);
@@ -529,10 +547,13 @@ const UniversalImporter = () => {
                 return 0;
               })()
             };
+
+            console.log('=== EXTRACTED STATS ===', extractedStats);
+            return extractedStats;
           };
 
           const stats = extractStats(response.data);
-          console.log('Extracted stats:', stats);
+          console.log('Final stats to be used:', stats);
 
           // Create a proper success progress object
           const successProgress = {
@@ -640,6 +661,31 @@ const UniversalImporter = () => {
     setShowLogsModal(true);
   };
 
+  // Get tooltip message for disabled Next button
+  const getNextButtonTooltip = () => {
+    if (canProceed() || loading) return '';
+
+    switch (step) {
+      case 2:
+        if (importType === 'storage') {
+          if (availableSystems.length === 0) {
+            return 'Fetch available systems to continue';
+          }
+          if (selectedSystems.length === 0) {
+            return 'Select at least one system to continue';
+          }
+        }
+        if (sourceType === 'file') {
+          return 'Upload a file to continue';
+        }
+        return 'Paste configuration data to continue';
+      case 3:
+        return 'Complete configuration to continue';
+      default:
+        return '';
+    }
+  };
+
   // Check if can proceed to next step
   const canProceed = () => {
     switch (step) {
@@ -647,9 +693,9 @@ const UniversalImporter = () => {
         // Both SAN and Storage are available
         return importType === 'san' || importType === 'storage';
       case 2:
-        // For storage: credentials must be entered (validation happens in component)
+        // For storage: must have fetched systems and selected at least one
         if (importType === 'storage') {
-          return true; // Allow proceeding - StorageInsightsCredentials handles its own validation
+          return availableSystems.length > 0 && selectedSystems.length > 0;
         }
         // For SAN: need file or pasted text
         return (sourceType === 'file' && uploadedFiles.length > 0) ||
@@ -723,7 +769,7 @@ const UniversalImporter = () => {
     <div className={`universal-importer theme-${theme}`}>
       <div className="importer-container">
         {/* Step Indicator */}
-        <StepIndicator currentStep={step} theme={theme} />
+        <StepIndicator currentStep={step} importType={importType} />
 
         {/* Step Content */}
         <div className="step-content">
@@ -760,13 +806,13 @@ const UniversalImporter = () => {
                     theme={theme}
                   />
                   {availableSystems.length > 0 && selectedSystems.length > 0 && (
-                    <div className="d-flex justify-content-between mt-4">
-                      <Button variant="secondary" onClick={() => setStep(1)}>
+                    <div className="navigation-buttons">
+                      <button className="nav-button secondary" onClick={() => setStep(1)}>
                         Back
-                      </Button>
-                      <Button variant="primary" onClick={handleStoragePreview}>
+                      </button>
+                      <button className="nav-button primary" onClick={handleStoragePreview}>
                         Preview Import
-                      </Button>
+                      </button>
                     </div>
                   )}
                 </>
@@ -856,6 +902,7 @@ const UniversalImporter = () => {
                 importProgress={importProgress}
                 onViewLogs={handleViewLogs}
                 onViewFabrics={handleViewFabrics}
+                onNavigate={navigate}
                 onImportMore={handleReset}
                 onTryAgain={() => {
                   setStep(3);
@@ -884,6 +931,7 @@ const UniversalImporter = () => {
                 className="nav-button primary"
                 onClick={handleNext}
                 disabled={!canProceed() || loading}
+                title={getNextButtonTooltip()}
               >
                 {loading ? 'Processing...' : step === 3 ? 'Start Import' : 'Next'}
               </button>
@@ -903,258 +951,221 @@ const UniversalImporter = () => {
       )}
 
       {/* Import Completion Modal */}
-      <Modal
-        show={showCompletionModal}
-        onHide={() => setShowCompletionModal(false)}
-        size="md"
-        centered
-        className={`theme-${theme}`}
-      >
-        <Modal.Header
-          closeButton
-          style={{
-            borderBottom: `2px solid ${theme === 'dark' ? '#10b981' : '#10b981'}`,
-            padding: '1.5rem 2rem'
-          }}
-        >
-          <Modal.Title style={{
-            fontSize: '1.5rem',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem'
-          }}>
-            <CheckCircle size={28} style={{ color: '#10b981' }} />
-            Import Complete
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body
-          style={{
-            padding: '2rem'
-          }}
-        >
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <p style={{
-              fontSize: '1.1rem',
-              color: theme === 'dark' ? '#94a3b8' : '#64748b',
-              margin: 0
-            }}>
-              Your data has been successfully imported into the database.
-            </p>
-          </div>
-
-          {completionStats && (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                gap: '1rem',
-                marginBottom: '1.5rem'
-              }}>
-                {completionStats.fabrics !== undefined && (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '1.25rem',
-                    borderRadius: '8px',
-                    background: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
-                    border: `1px solid ${theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#86efac'}`
-                  }}>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: '700',
-                      color: '#10b981',
-                      marginBottom: '0.25rem'
-                    }}>
-                      {completionStats.fabrics || 0}
-                    </div>
-                    <div style={{
-                      fontSize: '0.85rem',
-                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      Fabric{completionStats.fabrics === 1 ? '' : 's'}
-                    </div>
-                  </div>
-                )}
-                {completionStats.aliases !== undefined && (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '1.25rem',
-                    borderRadius: '8px',
-                    background: theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff',
-                    border: `1px solid ${theme === 'dark' ? 'rgba(59, 130, 246, 0.2)' : '#93c5fd'}`
-                  }}>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: '700',
-                      color: '#3b82f6',
-                      marginBottom: '0.25rem'
-                    }}>
-                      {completionStats.aliases || 0}
-                    </div>
-                    <div style={{
-                      fontSize: '0.85rem',
-                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      Alias{completionStats.aliases === 1 ? '' : 'es'}
-                    </div>
-                  </div>
-                )}
-                {completionStats.zones !== undefined && (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '1.25rem',
-                    borderRadius: '8px',
-                    background: theme === 'dark' ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb',
-                    border: `1px solid ${theme === 'dark' ? 'rgba(245, 158, 11, 0.2)' : '#fcd34d'}`
-                  }}>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: '700',
-                      color: '#f59e0b',
-                      marginBottom: '0.25rem'
-                    }}>
-                      {completionStats.zones || 0}
-                    </div>
-                    <div style={{
-                      fontSize: '0.85rem',
-                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      Zone{completionStats.zones === 1 ? '' : 's'}
-                    </div>
-                  </div>
-                )}
-                {(completionStats.storage_systems_created !== undefined || completionStats.storage_systems_updated !== undefined) && (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '1.25rem',
-                    borderRadius: '8px',
-                    background: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : '#f0fdf4',
-                    border: `1px solid ${theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#86efac'}`
-                  }}>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: '700',
-                      color: '#10b981',
-                      marginBottom: '0.25rem'
-                    }}>
-                      {(completionStats.storage_systems_created || 0) + (completionStats.storage_systems_updated || 0)}
-                    </div>
-                    <div style={{
-                      fontSize: '0.85rem',
-                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      Storage System{((completionStats.storage_systems_created || 0) + (completionStats.storage_systems_updated || 0)) === 1 ? '' : 's'}
-                    </div>
-                  </div>
-                )}
-                {(completionStats.volumes_created !== undefined || completionStats.volumes_updated !== undefined) && (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '1.25rem',
-                    borderRadius: '8px',
-                    background: theme === 'dark' ? 'rgba(139, 92, 246, 0.1)' : '#faf5ff',
-                    border: `1px solid ${theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : '#c4b5fd'}`
-                  }}>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: '700',
-                      color: '#8b5cf6',
-                      marginBottom: '0.25rem'
-                    }}>
-                      {(completionStats.volumes_created || 0) + (completionStats.volumes_updated || 0)}
-                    </div>
-                    <div style={{
-                      fontSize: '0.85rem',
-                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      Volume{((completionStats.volumes_created || 0) + (completionStats.volumes_updated || 0)) === 1 ? '' : 's'}
-                    </div>
-                  </div>
-                )}
-                {(completionStats.hosts_created !== undefined || completionStats.hosts_updated !== undefined) && (
-                  <div style={{
-                    textAlign: 'center',
-                    padding: '1.25rem',
-                    borderRadius: '8px',
-                    background: theme === 'dark' ? 'rgba(236, 72, 153, 0.1)' : '#fdf2f8',
-                    border: `1px solid ${theme === 'dark' ? 'rgba(236, 72, 153, 0.2)' : '#f9a8d4'}`
-                  }}>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: '700',
-                      color: '#ec4899',
-                      marginBottom: '0.25rem'
-                    }}>
-                      {(completionStats.hosts_created || 0) + (completionStats.hosts_updated || 0)}
-                    </div>
-                    <div style={{
-                      fontSize: '0.85rem',
-                      color: theme === 'dark' ? '#94a3b8' : '#64748b',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      Host{((completionStats.hosts_created || 0) + (completionStats.hosts_updated || 0)) === 1 ? '' : 's'}
-                    </div>
-                  </div>
-                )}
+      {showCompletionModal && (
+        <div className="completion-modal-overlay" onClick={() => setShowCompletionModal(false)}>
+          <div className="completion-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="completion-modal-header">
+              <div className="completion-modal-title">
+                <CheckCircle size={28} />
+                Import Complete
               </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer
-          style={{
-            padding: '1rem 2rem',
-            borderTop: `1px solid ${theme === 'dark' ? '#334155' : '#e2e8f0'}`,
-            display: 'flex',
-            gap: '0.75rem',
-            justifyContent: 'flex-end'
-          }}
-        >
-          <Button
-            variant="outline-secondary"
-            onClick={() => setShowCompletionModal(false)}
-            style={{
-              padding: '0.5rem 1.5rem'
-            }}
-          >
-            Close
-          </Button>
-          <Button
-            variant="outline-primary"
-            onClick={() => {
-              setShowCompletionModal(false);
-              handleReset();
-            }}
-            style={{
-              padding: '0.5rem 1.5rem'
-            }}
-          >
-            Import More
-          </Button>
-          <Button
-            variant="success"
-            onClick={() => {
-              setShowCompletionModal(false);
-              navigate('/san/fabrics');
-            }}
-            style={{
-              padding: '0.5rem 1.5rem',
-              backgroundColor: '#10b981',
-              borderColor: '#10b981'
-            }}
-          >
-            View Fabrics
-          </Button>
-        </Modal.Footer>
-      </Modal>
+              <button
+                className="completion-modal-close"
+                onClick={() => setShowCompletionModal(false)}
+                aria-label="Close modal"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="completion-modal-body">
+              <div className="completion-modal-message">
+                <p>Your data has been successfully imported into the database.</p>
+              </div>
+
+              {completionStats && (
+                <div className="completion-stats-grid">
+                  {completionStats.fabrics !== undefined && (
+                    <div className="completion-stat-card">
+                      <div className="completion-stat-value">
+                        {completionStats.fabrics || 0}
+                      </div>
+                      <div className="completion-stat-label">
+                        Fabric{completionStats.fabrics === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                  )}
+                  {completionStats.switches !== undefined && completionStats.switches > 0 && (
+                    <div className="completion-stat-card">
+                      <div className="completion-stat-value">
+                        {completionStats.switches}
+                      </div>
+                      <div className="completion-stat-label">
+                        Switch{completionStats.switches === 1 ? '' : 'es'}
+                      </div>
+                    </div>
+                  )}
+                  {completionStats.aliases !== undefined && (
+                    <div className="completion-stat-card">
+                      <div className="completion-stat-value">
+                        {completionStats.aliases || 0}
+                      </div>
+                      <div className="completion-stat-label">
+                        Alias{completionStats.aliases === 1 ? '' : 'es'}
+                      </div>
+                    </div>
+                  )}
+                  {completionStats.zones !== undefined && (
+                    <div className="completion-stat-card">
+                      <div className="completion-stat-value">
+                        {completionStats.zones || 0}
+                      </div>
+                      <div className="completion-stat-label">
+                        Zone{completionStats.zones === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                  )}
+                  {(completionStats.storage_systems_created !== undefined ||
+                    completionStats.storage_systems_updated !== undefined) && (
+                    <div className="completion-stat-card">
+                      <div className="completion-stat-value">
+                        {(completionStats.storage_systems_created || 0) +
+                         (completionStats.storage_systems_updated || 0)}
+                      </div>
+                      <div className="completion-stat-label">
+                        System{((completionStats.storage_systems_created || 0) +
+                               (completionStats.storage_systems_updated || 0)) === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                  )}
+                  {(completionStats.volumes_created !== undefined ||
+                    completionStats.volumes_updated !== undefined) && (
+                    <div className="completion-stat-card">
+                      <div className="completion-stat-value">
+                        {(completionStats.volumes_created || 0) +
+                         (completionStats.volumes_updated || 0)}
+                      </div>
+                      <div className="completion-stat-label">
+                        Volume{((completionStats.volumes_created || 0) +
+                               (completionStats.volumes_updated || 0)) === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                  )}
+                  {(completionStats.hosts_created !== undefined ||
+                    completionStats.hosts_updated !== undefined) && (
+                    <div className="completion-stat-card">
+                      <div className="completion-stat-value">
+                        {(completionStats.hosts_created || 0) +
+                         (completionStats.hosts_updated || 0)}
+                      </div>
+                      <div className="completion-stat-label">
+                        Host{((completionStats.hosts_created || 0) +
+                             (completionStats.hosts_updated || 0)) === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="completion-modal-footer">
+              <button
+                className="nav-button secondary"
+                onClick={() => setShowCompletionModal(false)}
+              >
+                Close
+              </button>
+              <button
+                className="nav-button secondary"
+                onClick={() => {
+                  setShowCompletionModal(false);
+                  handleReset();
+                }}
+              >
+                Import More
+              </button>
+
+              {/* Dynamic buttons based on what was imported */}
+              {completionStats && (
+                <>
+                  {/* SAN entity buttons */}
+                  {completionStats.fabrics > 0 && (
+                    <button
+                      className="nav-button primary"
+                      onClick={() => {
+                        setShowCompletionModal(false);
+                        navigate('/san/fabrics');
+                      }}
+                    >
+                      View Fabrics
+                    </button>
+                  )}
+                  {completionStats.switches > 0 && (
+                    <button
+                      className="nav-button primary"
+                      onClick={() => {
+                        setShowCompletionModal(false);
+                        navigate('/san/switches');
+                      }}
+                    >
+                      View Switches
+                    </button>
+                  )}
+                  {completionStats.aliases > 0 && (
+                    <button
+                      className="nav-button primary"
+                      onClick={() => {
+                        setShowCompletionModal(false);
+                        navigate('/san/aliases');
+                      }}
+                    >
+                      View Aliases
+                    </button>
+                  )}
+                  {completionStats.zones > 0 && (
+                    <button
+                      className="nav-button primary"
+                      onClick={() => {
+                        setShowCompletionModal(false);
+                        navigate('/san/zones');
+                      }}
+                    >
+                      View Zones
+                    </button>
+                  )}
+
+                  {/* Storage entity buttons */}
+                  {((completionStats.storage_systems_created || 0) + (completionStats.storage_systems_updated || 0)) > 0 && (
+                    <button
+                      className="nav-button primary"
+                      onClick={() => {
+                        setShowCompletionModal(false);
+                        navigate('/storage/systems');
+                      }}
+                    >
+                      View Storage Systems
+                    </button>
+                  )}
+                  {((completionStats.volumes_created || 0) + (completionStats.volumes_updated || 0)) > 0 && (
+                    <button
+                      className="nav-button primary"
+                      onClick={() => {
+                        setShowCompletionModal(false);
+                        navigate('/storage/volumes');
+                      }}
+                    >
+                      View Volumes
+                    </button>
+                  )}
+                  {((completionStats.hosts_created || 0) + (completionStats.hosts_updated || 0)) > 0 && (
+                    <button
+                      className="nav-button primary"
+                      onClick={() => {
+                        setShowCompletionModal(false);
+                        navigate('/storage/hosts');
+                      }}
+                    >
+                      View Hosts
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

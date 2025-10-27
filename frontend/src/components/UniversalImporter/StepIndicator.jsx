@@ -1,40 +1,48 @@
 import React from 'react';
 import {
   Upload,
-  FileSearch,
+  Download,
   Settings,
   CheckCircle,
-  Database,
-  Server,
-  HardDrive
+  Database
 } from 'lucide-react';
-import './styles/StepIndicator.css';
 
-const StepIndicator = ({ currentStep, theme }) => {
+const StepIndicator = ({ currentStep, importType }) => {
+  // Step 2 changes based on import type
+  const step2Config = importType === 'storage'
+    ? {
+        label: 'Download Data',
+        description: 'Fetch data from Storage Insights',
+        icon: Download
+      }
+    : {
+        label: 'Upload Data',
+        description: 'Upload or paste your data',
+        icon: Upload
+      };
+
   const steps = [
     {
       id: 1,
       label: 'Select Type',
-      icon: Database,
-      description: 'Choose data to import'
+      description: 'Choose data to import',
+      icon: Database
     },
     {
       id: 2,
-      label: 'Upload Data',
-      icon: Upload,
-      description: 'Upload or paste your data'
+      ...step2Config
     },
     {
       id: 3,
       label: 'Configure',
-      icon: Settings,
-      description: 'Review and configure import'
+      description: 'Review and configure import',
+      icon: Settings
     },
     {
       id: 4,
       label: 'Execute',
-      icon: CheckCircle,
-      description: 'Import your data'
+      description: 'Import your data',
+      icon: CheckCircle
     }
   ];
 
@@ -45,65 +53,47 @@ const StepIndicator = ({ currentStep, theme }) => {
   };
 
   return (
-    <div className={`step-indicator-container theme-${theme}`}>
-      <div className="step-indicator">
-        {steps.map((step, index) => {
-          const status = getStepStatus(step.id);
-          const Icon = step.icon;
+    <>
+      {/* Desktop Step Indicator */}
+      <div className="step-indicator-container">
+        <div className="step-indicator">
+          {steps.map((step, index) => {
+            const status = getStepStatus(step.id);
+            const Icon = step.icon;
 
-          return (
-            <React.Fragment key={step.id}>
-              <div className={`step-item ${status}`}>
-                <div className="step-connector-left" />
-                <div className="step-connector-right" />
-
+            return (
+              <div key={step.id} className={`step-item ${status}`}>
                 <div className="step-icon-wrapper">
-                  <div className="step-icon-bg" />
-                  <div className="step-icon-ring" />
-                  <div className="step-icon">
-                    <Icon size={24} strokeWidth={2} />
-                  </div>
-                  {status === 'completed' && (
-                    <div className="step-check">
-                      <CheckCircle size={20} strokeWidth={2.5} />
-                    </div>
-                  )}
+                  <Icon size={24} strokeWidth={2} />
                 </div>
 
-                <div className="step-content">
+                <div className="step-content-text">
                   <div className="step-label">{step.label}</div>
                   <div className="step-description">{step.description}</div>
                 </div>
 
-                {/* Progress line animation */}
                 {index < steps.length - 1 && (
-                  <div className="step-line">
-                    <div
-                      className={`step-line-fill ${
-                        step.id < currentStep ? 'completed' : ''
-                      }`}
-                    />
-                  </div>
+                  <div className="step-connector" />
                 )}
               </div>
-            </React.Fragment>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
-      {/* Mobile progress bar */}
+      {/* Mobile Progress Bar */}
       <div className="mobile-progress">
+        <div className="mobile-progress-label">
+          Step {currentStep} of {steps.length}: {steps[currentStep - 1]?.label}
+        </div>
         <div className="mobile-progress-bar">
           <div
             className="mobile-progress-fill"
             style={{ width: `${(currentStep / steps.length) * 100}%` }}
           />
         </div>
-        <div className="mobile-progress-text">
-          Step {currentStep} of {steps.length}: {steps[currentStep - 1]?.label}
-        </div>
       </div>
-    </div>
+    </>
   );
 };
 

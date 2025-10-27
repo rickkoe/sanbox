@@ -122,8 +122,18 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
             fabric_mapping
         )
 
-        # Determine import type from stats
-        if 'storage_systems_created' in result['stats']:
+        # Determine import type from stats (check for non-zero values, not just key existence)
+        # Since orchestrator initializes all stats to 0, we need to check actual values
+        has_storage_data = (
+            result['stats'].get('storage_systems_created', 0) > 0 or
+            result['stats'].get('storage_systems_updated', 0) > 0 or
+            result['stats'].get('volumes_created', 0) > 0 or
+            result['stats'].get('volumes_updated', 0) > 0 or
+            result['stats'].get('hosts_created', 0) > 0 or
+            result['stats'].get('hosts_updated', 0) > 0
+        )
+
+        if has_storage_data:
             import_type = 'storage'
             import_record.storage_systems_imported = result['stats'].get('storage_systems_created', 0) + result['stats'].get('storage_systems_updated', 0)
             import_record.volumes_imported = result['stats'].get('volumes_created', 0) + result['stats'].get('volumes_updated', 0)

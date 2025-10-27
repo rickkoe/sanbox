@@ -1,9 +1,7 @@
 import React from 'react';
-import { Card, Badge, Table } from 'react-bootstrap';
 import { HardDrive, Database, Server, CheckCircle, AlertCircle } from 'lucide-react';
-import './styles/StoragePreview.css';
 
-const StoragePreview = ({ previewData, theme }) => {
+const StoragePreview = ({ previewData }) => {
   const { storage_systems = [], volumes = [], hosts = [], counts = {} } = previewData;
 
   const formatBytes = (bytes) => {
@@ -20,48 +18,51 @@ const StoragePreview = ({ previewData, theme }) => {
   };
 
   return (
-    <div className={`storage-preview theme-${theme}`}>
-      <Card className="preview-summary-card mb-4">
-        <Card.Header>
-          <Database size={20} />
-          <span>Import Summary</span>
-        </Card.Header>
-        <Card.Body>
-          <div className="summary-stats">
-            <div className="stat-item">
-              <HardDrive size={24} />
-              <div className="stat-content">
-                <div className="stat-value">{counts.storage_systems || 0}</div>
-                <div className="stat-label">Storage Systems</div>
-              </div>
+    <div className="data-preview">
+      {/* Import Summary Stats */}
+      <div className="preview-stats">
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon primary">
+              <HardDrive size={20} />
             </div>
-            <div className="stat-item">
-              <Database size={24} />
-              <div className="stat-content">
-                <div className="stat-value">{counts.volumes || 0}</div>
-                <div className="stat-label">Volumes</div>
-              </div>
-            </div>
-            <div className="stat-item">
-              <Server size={24} />
-              <div className="stat-content">
-                <div className="stat-value">{counts.hosts || 0}</div>
-                <div className="stat-label">Hosts</div>
-              </div>
-            </div>
+            <div className="stat-label">Storage Systems</div>
           </div>
-        </Card.Body>
-      </Card>
+          <div className="stat-value">{counts.storage_systems || 0}</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon info">
+              <Database size={20} />
+            </div>
+            <div className="stat-label">Volumes</div>
+          </div>
+          <div className="stat-value">{counts.volumes || 0}</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon success">
+              <Server size={20} />
+            </div>
+            <div className="stat-label">Hosts</div>
+          </div>
+          <div className="stat-value">{counts.hosts || 0}</div>
+        </div>
+      </div>
 
       {/* Storage Systems */}
       {storage_systems.length > 0 && (
-        <Card className="preview-section-card mb-4">
-          <Card.Header>
-            <HardDrive size={20} />
-            <span>Storage Systems ({storage_systems.length})</span>
-          </Card.Header>
-          <Card.Body>
-            <Table striped hover responsive>
+        <div className="preview-section">
+          <div className="preview-section-header">
+            <div className="preview-section-title">
+              <HardDrive size={18} />
+              <span>Storage Systems ({storage_systems.length})</span>
+            </div>
+          </div>
+          <div className="preview-table-container">
+            <table className="preview-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -82,32 +83,41 @@ const StoragePreview = ({ previewData, theme }) => {
                     <td><code>{sys.serial_number || 'N/A'}</code></td>
                     <td>{formatBytes(sys.capacity_bytes)}</td>
                     <td>
-                      <span className={sys.used_capacity_percent > 80 ? 'text-danger' : ''}>
+                      <span style={{ color: sys.used_capacity_percent > 80 ? 'var(--color-danger-fg)' : 'inherit' }}>
                         {formatPercent(sys.used_capacity_percent)}
                       </span>
                     </td>
                     <td>
-                      <Badge bg={sys.status === 'Online' || sys.status === 'ok' ? 'success' : 'warning'}>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: 'var(--font-size-xs)',
+                        fontWeight: '500',
+                        background: (sys.status === 'Online' || sys.status === 'ok') ? 'var(--color-success-subtle)' : 'var(--color-attention-subtle)',
+                        color: (sys.status === 'Online' || sys.status === 'ok') ? 'var(--color-success-fg)' : 'var(--color-attention-fg)'
+                      }}>
                         {sys.status || 'Unknown'}
-                      </Badge>
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </Table>
-          </Card.Body>
-        </Card>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* Volumes */}
       {volumes.length > 0 && (
-        <Card className="preview-section-card mb-4">
-          <Card.Header>
-            <Database size={20} />
-            <span>Volumes ({volumes.length > 10 ? `${volumes.length} - showing first 10` : volumes.length})</span>
-          </Card.Header>
-          <Card.Body>
-            <Table striped hover responsive>
+        <div className="preview-section">
+          <div className="preview-section-header">
+            <div className="preview-section-title">
+              <Database size={18} />
+              <span>Volumes ({volumes.length > 10 ? `${volumes.length} - showing first 10` : volumes.length})</span>
+            </div>
+          </div>
+          <div className="preview-table-container">
+            <table className="preview-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -127,32 +137,41 @@ const StoragePreview = ({ previewData, theme }) => {
                     <td>{formatBytes(vol.capacity_bytes)}</td>
                     <td>{formatBytes(vol.used_capacity_bytes)}</td>
                     <td>
-                      <Badge bg="info">
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: 'var(--font-size-xs)',
+                        fontWeight: '500',
+                        background: 'var(--color-info-subtle)',
+                        color: 'var(--color-info-fg)'
+                      }}>
                         {vol.thin_provisioned === 'Yes' ? 'Thin' : 'Thick'}
-                      </Badge>
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </Table>
+            </table>
             {volumes.length > 10 && (
-              <div className="text-muted text-center mt-2">
+              <div style={{ textAlign: 'center', marginTop: 'var(--space-2)', color: 'var(--muted-text)' }}>
                 ... and {volumes.length - 10} more volumes
               </div>
             )}
-          </Card.Body>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Hosts */}
       {hosts.length > 0 && (
-        <Card className="preview-section-card mb-4">
-          <Card.Header>
-            <Server size={20} />
-            <span>Hosts ({hosts.length > 10 ? `${hosts.length} - showing first 10` : hosts.length})</span>
-          </Card.Header>
-          <Card.Body>
-            <Table striped hover responsive>
+        <div className="preview-section">
+          <div className="preview-section-header">
+            <div className="preview-section-title">
+              <Server size={18} />
+              <span>Hosts ({hosts.length > 10 ? `${hosts.length} - showing first 10` : hosts.length})</span>
+            </div>
+          </div>
+          <div className="preview-table-container">
+            <table className="preview-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -167,84 +186,89 @@ const StoragePreview = ({ previewData, theme }) => {
                     <td><strong>{host.name}</strong></td>
                     <td>{host.host_type || 'N/A'}</td>
                     <td>
-                      <div className="wwpn-list">
-                        {host.wwpns && host.wwpns.length > 0 ? (
-                          <>
-                            {host.wwpns.slice(0, 3).map((wwpn, i) => (
-                              <code key={i} className="wwpn-code">{wwpn}</code>
-                            ))}
-                            {host.wwpn_count > 3 && (
-                              <Badge bg="secondary" className="ms-1">
-                                +{host.wwpn_count - 3} more
-                              </Badge>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-muted">No WWPNs</span>
-                        )}
-                      </div>
+                      {host.wwpns && host.wwpns.length > 0 ? (
+                        <>
+                          {host.wwpns.slice(0, 3).map((wwpn, i) => (
+                            <code key={i} style={{ marginRight: 'var(--space-1)', display: 'inline-block' }}>
+                              {wwpn}
+                            </code>
+                          ))}
+                          {host.wwpn_count > 3 && (
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: 'var(--font-size-xs)',
+                              background: 'var(--secondary-bg)',
+                              color: 'var(--secondary-text)'
+                            }}>
+                              +{host.wwpn_count - 3} more
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--muted-text)' }}>No WWPNs</span>
+                      )}
                     </td>
                     <td>
-                      <Badge bg={host.status === 'Online' ? 'success' : 'secondary'}>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: 'var(--font-size-xs)',
+                        fontWeight: '500',
+                        background: host.status === 'Online' ? 'var(--color-success-subtle)' : 'var(--secondary-bg)',
+                        color: host.status === 'Online' ? 'var(--color-success-fg)' : 'var(--secondary-text)'
+                      }}>
                         {host.status || 'Unknown'}
-                      </Badge>
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </Table>
+            </table>
             {hosts.length > 10 && (
-              <div className="text-muted text-center mt-2">
+              <div style={{ textAlign: 'center', marginTop: 'var(--space-2)', color: 'var(--muted-text)' }}>
                 ... and {hosts.length - 10} more hosts
               </div>
             )}
-          </Card.Body>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Warnings/Errors */}
       {(previewData.warnings?.length > 0 || previewData.errors?.length > 0) && (
-        <Card className="preview-messages-card">
-          <Card.Body>
-            {previewData.errors?.length > 0 && (
-              <div className="mb-3">
-                {previewData.errors.map((error, idx) => (
-                  <div key={idx} className="alert alert-danger d-flex align-items-center">
-                    <AlertCircle size={16} className="me-2" />
-                    {error}
-                  </div>
-                ))}
+        <div>
+          {previewData.errors?.map((error, idx) => (
+            <div key={idx} className="alert alert-danger">
+              <AlertCircle className="alert-icon" size={18} />
+              <div className="alert-content">
+                <div className="alert-message">{error}</div>
               </div>
-            )}
-            {previewData.warnings?.length > 0 && (
-              <div>
-                {previewData.warnings.map((warning, idx) => (
-                  <div key={idx} className="alert alert-warning d-flex align-items-center">
-                    <AlertCircle size={16} className="me-2" />
-                    {warning}
-                  </div>
-                ))}
+            </div>
+          ))}
+          {previewData.warnings?.map((warning, idx) => (
+            <div key={idx} className="alert alert-warning">
+              <AlertCircle className="alert-icon" size={18} />
+              <div className="alert-content">
+                <div className="alert-message">{warning}</div>
               </div>
-            )}
-          </Card.Body>
-        </Card>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Ready to Import Message */}
-      <Card className="ready-message-card mt-4">
-        <Card.Body className="text-center">
-          <CheckCircle size={48} className="text-success mb-3" />
-          <h4>Preview Complete</h4>
-          <p className="text-muted">
-            Ready to import {counts.storage_systems} storage system{counts.storage_systems !== 1 ? 's' : ''},
-            {' '}{counts.volumes} volume{counts.volumes !== 1 ? 's' : ''}, and
-            {' '}{counts.hosts} host{counts.hosts !== 1 ? 's' : ''}.
-          </p>
-          <p className="text-muted">
-            Click <strong>"Start Import"</strong> below to begin the import process.
-          </p>
-        </Card.Body>
-      </Card>
+      <div className="step-content" style={{ textAlign: 'center' }}>
+        <CheckCircle size={48} style={{ color: 'var(--color-success-fg)', marginBottom: 'var(--space-3)' }} />
+        <h3>Preview Complete</h3>
+        <p style={{ color: 'var(--muted-text)', marginBottom: 'var(--space-2)' }}>
+          Ready to import {counts.storage_systems} storage system{counts.storage_systems !== 1 ? 's' : ''},
+          {' '}{counts.volumes} volume{counts.volumes !== 1 ? 's' : ''}, and
+          {' '}{counts.hosts} host{counts.hosts !== 1 ? 's' : ''}.
+        </p>
+        <p style={{ color: 'var(--muted-text)' }}>
+          Click <strong>"Start Import"</strong> below to begin the import process.
+        </p>
+      </div>
     </div>
   );
 };

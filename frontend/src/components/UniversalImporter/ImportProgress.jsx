@@ -1,338 +1,280 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   CheckCircle,
   XCircle,
   Loader,
-  Clock,
   FileText,
-  ArrowRight,
-  RefreshCw,
-  Home,
-  SquareTerminal,
-  Activity,
-  Zap,
-  AlertTriangle
+  RefreshCw
 } from 'lucide-react';
-import './styles/ImportProgress.css';
 
 const ImportProgress = ({
   importStatus,
   importProgress,
   onViewLogs,
-  onViewFabrics,
+  onViewFabrics, // Deprecated - keeping for backward compatibility
   onImportMore,
   onTryAgain,
-  theme
+  onNavigate // New: function to navigate to different pages
 }) => {
-  const [animatedProgress, setAnimatedProgress] = useState(0);
-  const [showConfetti, setShowConfetti] = useState(false);
+  // Determine display status
+  const isRunning = importStatus === 'RUNNING' || importStatus === 'PENDING';
+  const isSuccess = importStatus === 'COMPLETED' || importProgress?.status === 'success';
+  const isError = importStatus === 'FAILED' || importProgress?.status === 'error';
 
-  // Helper function to safely render values that might be objects
-  const safeRender = (value, fallback = '') => {
-    if (value === null || value === undefined) return fallback;
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number') return value.toString();
-    if (typeof value === 'object') {
-      // If it has a message property, use that
-      if (value.message !== undefined) return safeRender(value.message, fallback);
-      // If it has a total property (for stats), use that
-      if (value.total !== undefined) return safeRender(value.total, fallback);
-      // If it has a current property (for progress), use that
-      if (value.current !== undefined) return safeRender(value.current, fallback);
-      // Otherwise stringify it
-      return JSON.stringify(value);
+  // Calculate progress percentage
+  const getProgressPercentage = () => {
+    if (isSuccess) return 100;
+    if (isError) return 0;
+    if (importProgress?.progress) {
+      if (typeof importProgress.progress === 'number') {
+        return importProgress.progress;
+      }
+      if (importProgress.progress.current && importProgress.progress.total) {
+        return (importProgress.progress.current / importProgress.progress.total) * 100;
+      }
     }
-    return fallback;
+    return 0;
   };
 
-  // Animate progress bar
-  useEffect(() => {
-    // Force progress to 100 when completed
-    if (importStatus === 'COMPLETED') {
-      setAnimatedProgress(100);
-    } else if (importProgress?.progress) {
-      const timer = setTimeout(() => {
-        // Handle both number and object formats for progress
-        const progressValue = typeof importProgress.progress === 'number'
-          ? importProgress.progress
-          : (importProgress.progress?.current && importProgress.progress?.total
-              ? Math.round((importProgress.progress.current / importProgress.progress.total) * 100)
-              : 0);
-        setAnimatedProgress(progressValue);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [importProgress, importStatus]);
+  const percentage = getProgressPercentage();
 
-  // Show confetti on success
-  useEffect(() => {
-    console.log('Confetti check:', {
-      importStatus,
-      progressStatus: importProgress?.status,
-      condition: importStatus === 'COMPLETED' && importProgress?.status === 'success'
-    });
-
-    if (importStatus === 'COMPLETED' && importProgress?.status === 'success') {
-      setShowConfetti(true);
-      const timer = setTimeout(() => setShowConfetti(false), 5000);
-      return () => clearTimeout(timer);
+  // Get status message
+  const getMessage = () => {
+    if (isSuccess) {
+      return 'Import completed successfully!';
     }
-  }, [importStatus, importProgress]);
-
-  // Get status configuration
-  const getStatusConfig = () => {
-    switch (importStatus) {
-      case 'PENDING':
-        return {
-          icon: Clock,
-          color: 'warning',
-          title: 'Preparing Import',
-          description: 'Initializing import process...'
-        };
-      case 'RUNNING':
-        return {
-          icon: Loader,
-          color: 'primary',
-          title: 'Import in Progress',
-          description: safeRender(importProgress?.message, 'Processing your data...')
-        };
-      case 'COMPLETED':
-        return importProgress?.status === 'success' ? {
-          icon: CheckCircle,
-          color: 'success',
-          title: 'Import Successful!',
-          description: 'Your data has been imported successfully'
-        } : {
-          icon: XCircle,
-          color: 'error',
-          title: 'Import Failed',
-          description: safeRender(importProgress?.error, 'An error occurred during import')
-        };
-      case 'FAILED':
-        return {
-          icon: XCircle,
-          color: 'error',
-          title: 'Import Failed',
-          description: safeRender(importProgress?.error, 'The import process encountered an error')
-        };
-      default:
-        return {
-          icon: Activity,
-          color: 'info',
-          title: 'Unknown Status',
-          description: 'Please check the logs for more information'
-        };
+    if (isError) {
+      return importProgress?.error || 'Import failed. Please try again.';
     }
+    if (importProgress?.message) {
+      return importProgress.message;
+    }
+    return 'Processing your data...';
   };
-
-  const statusConfig = getStatusConfig();
-  const StatusIcon = statusConfig.icon;
-
-  // Parse import stats
-  const stats = importProgress?.stats || {};
-
-  // Debug rendering state
-  console.log('ImportProgress rendering:', {
-    importStatus,
-    progressStatus: importProgress?.status,
-    showingProgressBar: importStatus === 'RUNNING',
-    showingSuccessStats: importStatus === 'COMPLETED' && importProgress?.status === 'success',
-    showingSuccessButtons: importStatus === 'COMPLETED' && importProgress?.status === 'success',
-    statusTitle: statusConfig.title,
-    statusColor: statusConfig.color,
-    importProgressFull: importProgress,
-    stats: stats
-  });
 
   return (
-    <div className={`import-progress theme-${theme}`}>
-      {/* Status Card */}
-      <div className={`status-card color-${statusConfig.color}`}>
-        <div className="status-icon-wrapper">
-          <div className="status-icon-bg" />
-          {importStatus === 'RUNNING' && <div className="status-icon-ring" />}
-          <StatusIcon
-            size={64}
-            className={importStatus === 'RUNNING' ? 'spinning' : importStatus === 'COMPLETED' && importProgress?.status === 'success' ? 'success-bounce' : ''}
-          />
-        </div>
-
-        <div className="status-content">
-          <h2 className="status-title">{statusConfig.title}</h2>
-          <p className="status-description">{statusConfig.description}</p>
-        </div>
+    <div className="import-progress">
+      {/* Status Badge */}
+      <div className={`progress-status-badge ${isSuccess ? 'success' : isError ? 'error' : 'running'}`}>
+        {isRunning && <Loader size={18} className="spinning" />}
+        {isSuccess && <CheckCircle size={18} />}
+        {isError && <XCircle size={18} />}
+        <span>
+          {isSuccess ? 'Completed' : isError ? 'Failed' : 'Running'}
+        </span>
       </div>
 
-      {/* Progress Bar (for running state) */}
-      {importStatus === 'RUNNING' && (
-        <div className="progress-section">
-          <div className="progress-header">
-            <span className="progress-label">Processing</span>
-            <span className="progress-percentage">{animatedProgress}%</span>
-          </div>
-          <div className="progress-bar-container">
-            <div className="progress-bar-bg" />
+      {/* Progress Bar (only show when running) */}
+      {isRunning && (
+        <div className="progress-bar-container">
+          <div className="progress-bar-bg">
             <div
               className="progress-bar-fill"
-              style={{ width: `${animatedProgress}%` }}
+              style={{ width: `${percentage}%` }}
             />
           </div>
-          {importProgress?.current_item && (
-            <div className="progress-details">
-              <Activity size={16} />
-              <span>{safeRender(importProgress.current_item, 'Processing...')}</span>
+          <div className="progress-percentage">{Math.round(percentage)}%</div>
+        </div>
+      )}
+
+      {/* Message */}
+      <div className="progress-message">{getMessage()}</div>
+
+      {/* Success Stats */}
+      {isSuccess && importProgress?.stats && (
+        <div className="success-stats">
+          {importProgress.stats.fabrics !== undefined && (
+            <div className="success-stat">
+              <div className="success-stat-value">{importProgress.stats.fabrics || 0}</div>
+              <div className="success-stat-label">Fabrics</div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Import Stats (for completed state) */}
-      {importStatus === 'COMPLETED' && importProgress?.status === 'success' && (
-        <div className="stats-section">
-          <div className="stats-grid">
-            {(stats.aliases_created !== undefined || stats.aliases !== undefined) && (
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <Zap size={20} />
-                </div>
-                <div className="stat-value">{stats.aliases_created || stats.aliases || 0}</div>
-                <div className="stat-label">Aliases Imported</div>
+          {importProgress.stats.switches !== undefined && importProgress.stats.switches > 0 && (
+            <div className="success-stat">
+              <div className="success-stat-value">{importProgress.stats.switches}</div>
+              <div className="success-stat-label">Switches</div>
+            </div>
+          )}
+          {importProgress.stats.aliases !== undefined && (
+            <div className="success-stat">
+              <div className="success-stat-value">{importProgress.stats.aliases || 0}</div>
+              <div className="success-stat-label">Aliases</div>
+            </div>
+          )}
+          {importProgress.stats.zones !== undefined && (
+            <div className="success-stat">
+              <div className="success-stat-value">{importProgress.stats.zones || 0}</div>
+              <div className="success-stat-label">Zones</div>
+            </div>
+          )}
+          {(importProgress.stats.storage_systems_created !== undefined ||
+            importProgress.stats.storage_systems_updated !== undefined) && (
+            <div className="success-stat">
+              <div className="success-stat-value">
+                {(importProgress.stats.storage_systems_created || 0) +
+                 (importProgress.stats.storage_systems_updated || 0)}
               </div>
-            )}
-            {(stats.zones_created !== undefined || stats.zones !== undefined) && (
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <Activity size={20} />
-                </div>
-                <div className="stat-value">{stats.zones_created || stats.zones || 0}</div>
-                <div className="stat-label">Zones Created</div>
+              <div className="success-stat-label">Systems</div>
+            </div>
+          )}
+          {(importProgress.stats.volumes_created !== undefined ||
+            importProgress.stats.volumes_updated !== undefined) && (
+            <div className="success-stat">
+              <div className="success-stat-value">
+                {(importProgress.stats.volumes_created || 0) +
+                 (importProgress.stats.volumes_updated || 0)}
               </div>
-            )}
-            {(stats.fabrics_created !== undefined || stats.fabrics_updated !== undefined || stats.fabrics !== undefined) && (
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <FileText size={20} />
-                </div>
-                <div className="stat-value">{stats.fabrics_created || stats.fabrics_updated || stats.fabrics || 0}</div>
-                <div className="stat-label">Fabrics {stats.fabrics_created ? 'Created' : 'Updated'}</div>
+              <div className="success-stat-label">Volumes</div>
+            </div>
+          )}
+          {(importProgress.stats.hosts_created !== undefined ||
+            importProgress.stats.hosts_updated !== undefined) && (
+            <div className="success-stat">
+              <div className="success-stat-value">
+                {(importProgress.stats.hosts_created || 0) +
+                 (importProgress.stats.hosts_updated || 0)}
               </div>
-            )}
-            {(stats.storage_systems_created !== undefined || stats.storage_systems_updated !== undefined) && (
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <FileText size={20} />
-                </div>
-                <div className="stat-value">
-                  {(stats.storage_systems_created || 0) + (stats.storage_systems_updated || 0)}
-                </div>
-                <div className="stat-label">Storage Systems</div>
-              </div>
-            )}
-            {(stats.volumes_created !== undefined || stats.volumes_updated !== undefined) && (
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <Activity size={20} />
-                </div>
-                <div className="stat-value">
-                  {(stats.volumes_created || 0) + (stats.volumes_updated || 0)}
-                </div>
-                <div className="stat-label">Volumes</div>
-              </div>
-            )}
-            {(stats.hosts_created !== undefined || stats.hosts_updated !== undefined) && (
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <Zap size={20} />
-                </div>
-                <div className="stat-value">
-                  {(stats.hosts_created || 0) + (stats.hosts_updated || 0)}
-                </div>
-                <div className="stat-label">Hosts</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Error Details (for failed state) */}
-      {(importStatus === 'FAILED' || (importStatus === 'COMPLETED' && importProgress?.status === 'error')) && (
-        <div className="error-section">
-          <div className="error-header">
-            <AlertTriangle size={20} />
-            <span>Error Details</span>
-          </div>
-          <div className="error-content">
-            <code>{safeRender(importProgress?.error, 'Unknown error occurred')}</code>
-          </div>
-          {importProgress?.details && (
-            <div className="error-details">
-              <pre>{JSON.stringify(importProgress.details, null, 2)}</pre>
+              <div className="success-stat-label">Hosts</div>
             </div>
           )}
         </div>
       )}
 
       {/* Action Buttons */}
-      <div className="action-section">
-        {importStatus === 'RUNNING' && (
-          <button className="action-button secondary" onClick={onViewLogs}>
-            <SquareTerminal size={18} />
-            <span>View Logs</span>
+      <div className="progress-actions">
+        {isRunning && onViewLogs && (
+          <button
+            className="nav-button secondary"
+            onClick={onViewLogs}
+          >
+            <FileText size={18} />
+            View Logs
           </button>
         )}
 
-        {importStatus === 'COMPLETED' && importProgress?.status === 'success' && (
+        {isSuccess && (
           <>
-            <button className="action-button primary" onClick={onViewFabrics}>
-              <ArrowRight size={18} />
-              <span>View Fabrics</span>
-            </button>
-            <button className="action-button secondary" onClick={onImportMore}>
-              <RefreshCw size={18} />
-              <span>Import More Data</span>
-            </button>
-            <button className="action-button outline" onClick={onViewLogs}>
-              <SquareTerminal size={18} />
-              <span>View Logs</span>
-            </button>
+            {/* Dynamic view buttons based on what was imported */}
+            {onNavigate && importProgress?.stats && (
+              <>
+                {/* SAN entity buttons */}
+                {importProgress.stats.fabrics > 0 && (
+                  <button
+                    className="nav-button primary"
+                    onClick={() => onNavigate('/san/fabrics')}
+                  >
+                    <CheckCircle size={18} />
+                    View Fabrics
+                  </button>
+                )}
+                {importProgress.stats.switches > 0 && (
+                  <button
+                    className="nav-button primary"
+                    onClick={() => onNavigate('/san/switches')}
+                  >
+                    <CheckCircle size={18} />
+                    View Switches
+                  </button>
+                )}
+                {importProgress.stats.aliases > 0 && (
+                  <button
+                    className="nav-button primary"
+                    onClick={() => onNavigate('/san/aliases')}
+                  >
+                    <CheckCircle size={18} />
+                    View Aliases
+                  </button>
+                )}
+                {importProgress.stats.zones > 0 && (
+                  <button
+                    className="nav-button primary"
+                    onClick={() => onNavigate('/san/zones')}
+                  >
+                    <CheckCircle size={18} />
+                    View Zones
+                  </button>
+                )}
+
+                {/* Storage entity buttons */}
+                {((importProgress.stats.storage_systems_created || 0) +
+                  (importProgress.stats.storage_systems_updated || 0)) > 0 && (
+                  <button
+                    className="nav-button primary"
+                    onClick={() => onNavigate('/storage/systems')}
+                  >
+                    <CheckCircle size={18} />
+                    View Storage Systems
+                  </button>
+                )}
+                {((importProgress.stats.volumes_created || 0) +
+                  (importProgress.stats.volumes_updated || 0)) > 0 && (
+                  <button
+                    className="nav-button primary"
+                    onClick={() => onNavigate('/storage/volumes')}
+                  >
+                    <CheckCircle size={18} />
+                    View Volumes
+                  </button>
+                )}
+                {((importProgress.stats.hosts_created || 0) +
+                  (importProgress.stats.hosts_updated || 0)) > 0 && (
+                  <button
+                    className="nav-button primary"
+                    onClick={() => onNavigate('/storage/hosts')}
+                  >
+                    <CheckCircle size={18} />
+                    View Hosts
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Fallback to legacy onViewFabrics if no onNavigate provided */}
+            {!onNavigate && onViewFabrics && (
+              <button
+                className="nav-button primary"
+                onClick={onViewFabrics}
+              >
+                <CheckCircle size={18} />
+                View Fabrics
+              </button>
+            )}
+
+            {onImportMore && (
+              <button
+                className="nav-button secondary"
+                onClick={onImportMore}
+              >
+                <RefreshCw size={18} />
+                Import More
+              </button>
+            )}
           </>
         )}
 
-        {(importStatus === 'FAILED' || (importStatus === 'COMPLETED' && importProgress?.status === 'error')) && (
+        {isError && (
           <>
-            <button className="action-button primary" onClick={onTryAgain}>
-              <RefreshCw size={18} />
-              <span>Try Again</span>
-            </button>
-            <button className="action-button secondary" onClick={onViewLogs}>
-              <SquareTerminal size={18} />
-              <span>View Error Logs</span>
-            </button>
-            <button className="action-button outline" onClick={onImportMore}>
-              <Home size={18} />
-              <span>Back to Start</span>
-            </button>
+            {onTryAgain && (
+              <button
+                className="nav-button primary"
+                onClick={onTryAgain}
+              >
+                <RefreshCw size={18} />
+                Try Again
+              </button>
+            )}
+            {onViewLogs && (
+              <button
+                className="nav-button secondary"
+                onClick={onViewLogs}
+              >
+                <FileText size={18} />
+                View Logs
+              </button>
+            )}
           </>
         )}
       </div>
-
-      {/* Timeline (optional enhancement) */}
-      {importProgress?.timeline && importProgress.timeline.length > 0 && (
-        <div className="timeline-section">
-          <h3>Import Timeline</h3>
-          <div className="timeline">
-            {importProgress.timeline.map((event, index) => (
-              <div key={index} className={`timeline-item ${event.status}`}>
-                <div className="timeline-marker" />
-                <div className="timeline-content">
-                  <div className="timeline-time">{safeRender(event.time)}</div>
-                  <div className="timeline-message">{safeRender(event.message)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
