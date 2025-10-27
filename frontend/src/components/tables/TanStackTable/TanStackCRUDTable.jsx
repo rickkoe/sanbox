@@ -1724,6 +1724,20 @@ const TanStackCRUDTable = forwardRef(({
     return visibleRows[visualIndex].index; // TanStack row.index is the original data index
   }, [table]);
 
+  // Helper to get column definition from visual column index (accounting for hidden columns)
+  // Visual column index is the position among visible columns (0, 1, 2, 3...)
+  // This maps it to the actual columnDef by looking at visible columns
+  const getVisibleColumnDef = useCallback((visualColIndex) => {
+    if (!table) return null;
+    const visibleColumns = table.getVisibleLeafColumns();
+    if (visualColIndex < 0 || visualColIndex >= visibleColumns.length) {
+      return null;
+    }
+    const column = visibleColumns[visualColIndex];
+    // Find the matching columnDef by accessorKey or id
+    return columnDefs.find(def => (def.accessorKey || def.id) === column.id);
+  }, [table, columnDefs]);
+
   // Excel-like features implementation
   const handleCellClick = useCallback((rowIndex, colIndex, event) => {
     const cellKey = `${rowIndex}-${colIndex}`;
@@ -2001,7 +2015,15 @@ const TanStackCRUDTable = forwardRef(({
 
         const firstCell = colCells[0];
         const firstDataRowIndex = firstCell.dataRowIndex;
-        const columnKey = columnDefs[colIndex]?.accessorKey;
+
+        // Get the actual column definition accounting for hidden columns
+        const columnDef = getVisibleColumnDef(parseInt(colIndex));
+        const columnKey = columnDef?.accessorKey;
+
+        if (!columnKey) {
+          console.warn(`⚠️ Could not find column definition for visual column ${colIndex}`);
+          return;
+        }
 
         console.log(`🔽 Fill Down Column ${colIndex} (${columnKey}): ${colCells.length} cells, visual row ${firstCell.visualIndex} (data row ${firstDataRowIndex})`);
         console.log(`🔽 First cell data:`, newData[firstDataRowIndex]);
@@ -2069,7 +2091,7 @@ const TanStackCRUDTable = forwardRef(({
 
     setHasChanges(true);
     console.log('🔽 Fill Down: Done, hasChanges set to true');
-  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData]);
+  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData, getVisibleColumnDef]);
 
   // Fill right operation
   const fillRight = useCallback(() => {
@@ -2121,7 +2143,15 @@ const TanStackCRUDTable = forwardRef(({
       const newData = [...currentData];
 
       // Get source value from editableData using nested accessor if needed (using data index)
-      const firstColumnKey = columnDefs[firstColIndex]?.accessorKey;
+      // Get the actual column definition accounting for hidden columns
+      const firstColumnDef = getVisibleColumnDef(firstColIndex);
+      const firstColumnKey = firstColumnDef?.accessorKey;
+
+      if (!firstColumnKey) {
+        console.warn(`⚠️ Could not find column definition for visual column ${firstColIndex}`);
+        return currentData;
+      }
+
       const sourceValue = getNestedValue(newData[firstDataRowIndex], firstColumnKey);
 
       if (sourceValue === undefined || sourceValue === null) return currentData;
@@ -2134,7 +2164,11 @@ const TanStackCRUDTable = forwardRef(({
       cellsWithVisual.slice(1).forEach(cell => {
         const dataRowIndex = cell.dataRowIndex;
         const colIndex = cell.colIndex;
-        const columnKey = columnDefs[colIndex]?.accessorKey;
+
+        // Get the actual column definition accounting for hidden columns
+        const columnDef = getVisibleColumnDef(colIndex);
+        const columnKey = columnDef?.accessorKey;
+
         if (!newData[dataRowIndex] || !columnKey) return;
 
         // Get filter function for this column if it exists
@@ -2172,7 +2206,7 @@ const TanStackCRUDTable = forwardRef(({
     });
 
     setHasChanges(true);
-  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData]);
+  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData, getVisibleColumnDef]);
 
   // Enhanced Copy functionality for Excel compatibility
   const handleCopy = useCallback(() => {
