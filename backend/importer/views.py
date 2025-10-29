@@ -646,12 +646,8 @@ def import_progress(request, import_id):
 @csrf_exempt
 @require_http_methods(['GET'])
 def my_imports(request):
-    """Get list of imports for the current user with filtering"""
+    """Get list of all imports across all users and customers with filtering"""
     try:
-        # Get user - for now, allow viewing all imports since we use @csrf_exempt
-        # In production, filter by request.user
-        user = request.user if request.user.is_authenticated else None
-
         # Get filter parameters
         status_filter = request.GET.get('status')  # running, completed, failed, cancelled
         import_type_filter = request.GET.get('import_type')  # san_config, storage_insights
@@ -659,12 +655,8 @@ def my_imports(request):
         date_to = request.GET.get('date_to')
         limit = int(request.GET.get('limit', 50))
 
-        # Build query
-        if user:
-            imports = StorageImport.objects.filter(initiated_by=user)
-        else:
-            # If no user (during development), show all imports
-            imports = StorageImport.objects.all()
+        # Build query - show all imports globally (not user-scoped)
+        imports = StorageImport.objects.all()
 
         # Apply filters
         if status_filter:
@@ -697,10 +689,16 @@ def my_imports(request):
         # Serialize data
         data = []
         for import_record in imports:
+            # Get username of who initiated the import
+            initiated_by_username = None
+            if import_record.initiated_by:
+                initiated_by_username = import_record.initiated_by.username
+
             item = {
                 'id': import_record.id,
                 'customer': import_record.customer.name,
                 'customer_id': import_record.customer.id,
+                'initiated_by': initiated_by_username,
                 'import_name': import_record.import_name,
                 'import_type': import_record.import_type,
                 'status': import_record.status,
@@ -759,19 +757,10 @@ def my_imports(request):
 @csrf_exempt
 @require_http_methods(['GET'])
 def active_imports_count(request):
-    """Get count of active/running imports for the current user"""
+    """Get count of active/running imports across all users"""
     try:
-        # Get user
-        user = request.user if request.user.is_authenticated else None
-
-        if user:
-            count = StorageImport.objects.filter(
-                initiated_by=user,
-                status='running'
-            ).count()
-        else:
-            # If no user (during development), count all running imports
-            count = StorageImport.objects.filter(status='running').count()
+        # Count all running imports globally (not user-scoped)
+        count = StorageImport.objects.filter(status='running').count()
 
         return JsonResponse({
             'count': count

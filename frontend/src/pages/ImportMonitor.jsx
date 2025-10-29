@@ -214,7 +214,7 @@ const ImportMonitor = () => {
             <Row className="mb-4">
                 <Col>
                     <h2>Import History</h2>
-                    <p className="text-muted">Monitor and manage your import jobs</p>
+                    <p className="text-muted">Monitor and manage all import jobs across the system</p>
                 </Col>
             </Row>
 
@@ -324,6 +324,7 @@ const ImportMonitor = () => {
                                     <th>Status</th>
                                     <th>Type</th>
                                     <th>Name</th>
+                                    <th>User</th>
                                     <th>Customer</th>
                                     <th>Started</th>
                                     <th>Duration</th>
@@ -354,6 +355,7 @@ const ImportMonitor = () => {
                                                     </div>
                                                 )}
                                             </td>
+                                            <td>{importRecord.initiated_by || <span className="text-muted">—</span>}</td>
                                             <td>{importRecord.customer}</td>
                                             <td>
                                                 <small>{formatRelativeTime(importRecord.started_at)}</small>
@@ -382,7 +384,7 @@ const ImportMonitor = () => {
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td colSpan="9" className="p-0">
+                                            <td colSpan="10" className="p-0">
                                                 <Collapse in={expandedRows.has(importRecord.id)}>
                                                     <div className="import-details-panel">
                                                         <Row>
@@ -391,6 +393,9 @@ const ImportMonitor = () => {
                                                                 <dl className="row">
                                                                     <dt className="col-sm-4">Import ID:</dt>
                                                                     <dd className="col-sm-8">{importRecord.id}</dd>
+
+                                                                    <dt className="col-sm-4">Initiated By:</dt>
+                                                                    <dd className="col-sm-8">{importRecord.initiated_by || <span className="text-muted">Unknown</span>}</dd>
 
                                                                     <dt className="col-sm-4">Started:</dt>
                                                                     <dd className="col-sm-8">{new Date(importRecord.started_at).toLocaleString()}</dd>
