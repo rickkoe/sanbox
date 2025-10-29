@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 
 const StepIndicator = ({ currentStep, importType, loading = false, importStatus = null }) => {
   // Step 2 changes based on import type
@@ -26,12 +26,16 @@ const StepIndicator = ({ currentStep, importType, loading = false, importStatus 
             style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
           />
 
-          {/* Loading animation overlay - shows on the next segment */}
-          {loading && currentStep < steps.length && (
+          {/* Loading animation overlay - shows on the next segment OR on step 4 */}
+          {loading && (
             <div
               className="step-indicator-line-loading"
               style={{
-                left: `${((currentStep - 1) / (steps.length - 1)) * 100}%`,
+                // For step 4, show on the last segment (step 3 to 4)
+                // For other steps, show on the next segment
+                left: currentStep === 4
+                  ? `${((steps.length - 2) / (steps.length - 1)) * 100}%`
+                  : `${((currentStep - 1) / (steps.length - 1)) * 100}%`,
                 width: `${(1 / (steps.length - 1)) * 100}%`
               }}
             />
@@ -43,6 +47,7 @@ const StepIndicator = ({ currentStep, importType, loading = false, importStatus 
           {steps.map((step, index) => {
             const isCompleted = step.id < currentStep || (step.id === 4 && isStep4Completed);
             const isActive = step.id === currentStep && !isStep4Completed;
+            const isActiveAndLoading = isActive && loading;
 
             return (
               <div key={step.id} className="step-indicator-step">
@@ -50,18 +55,21 @@ const StepIndicator = ({ currentStep, importType, loading = false, importStatus 
                 <div
                   className={`step-indicator-badge ${
                     isCompleted ? 'completed' : isActive ? 'active' : 'pending'
-                  }`}
+                  } ${isActiveAndLoading ? 'loading' : ''}`}
                 >
                   {isCompleted ? (
                     <Check size={18} strokeWidth={3} />
+                  ) : isActiveAndLoading ? (
+                    <Loader2 size={18} strokeWidth={3} className="step-spinner" />
                   ) : (
                     <span>{step.id}</span>
                   )}
                 </div>
 
                 {/* Label */}
-                <div className="step-indicator-label">
+                <div className={`step-indicator-label ${isActiveAndLoading ? 'loading' : ''}`}>
                   {step.label}
+                  {isActiveAndLoading && <span className="step-loading-dots">...</span>}
                 </div>
               </div>
             );

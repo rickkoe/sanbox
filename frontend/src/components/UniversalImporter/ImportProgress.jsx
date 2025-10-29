@@ -66,14 +66,13 @@ const ImportProgress = ({
 
       {/* Progress Bar (only show when running) */}
       {isRunning && (
-        <div className="progress-bar-container">
-          <div className="progress-bar-bg">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${percentage}%` }}
-            />
+        <div className="import-progress-bar">
+          <div
+            className="import-progress-fill"
+            style={{ width: `${percentage}%` }}
+          >
+            <div className="import-progress-shimmer"></div>
           </div>
-          <div className="progress-percentage">{Math.round(percentage)}%</div>
         </div>
       )}
 

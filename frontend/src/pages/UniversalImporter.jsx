@@ -790,7 +790,7 @@ const UniversalImporter = () => {
         <StepIndicator
           currentStep={step}
           importType={importType}
-          loading={loading}
+          loading={loading || importRunning}
           importStatus={importStatus}
         />
 

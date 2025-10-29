@@ -97,21 +97,24 @@
   transition: width 0.4s ease;
 }
 
-/* Loading animation on the line */
+/* Loading animation on the line - MORE OBVIOUS */
 .step-indicator-line-loading {
   position: absolute;
   top: 0;
-  height: 100%;
+  height: 3px; /* Thicker during loading */
   background: linear-gradient(
     90deg,
-    var(--color-accent-emphasis) 0%,
+    transparent 0%,
+    var(--color-accent-emphasis) 20%,
     var(--color-accent-fg) 50%,
-    var(--color-accent-emphasis) 100%
+    var(--color-accent-emphasis) 80%,
+    transparent 100%
   );
   background-size: 200% 100%;
-  border-radius: 2px;
+  border-radius: 3px;
   animation: shimmer 1.5s ease-in-out infinite;
-  opacity: 0.8;
+  opacity: 1;
+  box-shadow: 0 0 10px var(--color-accent-emphasis);
 }
 
 @keyframes shimmer {
@@ -137,6 +140,8 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
+  position: relative;
+  padding: 10px 0; /* Padding to accommodate expanding box-shadow */
 }
 
 /* Circle badges */
@@ -152,7 +157,8 @@
   border: 3px solid var(--color-border-default);
   background: var(--primary-bg);
   color: var(--muted-text);
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  flex-shrink: 0;
 }
 
 .step-indicator-badge.completed {
@@ -166,7 +172,34 @@
   border-color: var(--color-accent-emphasis);
   color: var(--color-fg-onEmphasis);
   box-shadow: 0 0 0 4px var(--color-accent-subtle);
-  transform: scale(1.1);
+}
+
+/* Loading state - pulsing badge */
+.step-indicator-badge.active.loading {
+  animation: pulse-badge 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% {
+    box-shadow: 0 0 0 4px var(--color-accent-subtle);
+  }
+  50% {
+    box-shadow: 0 0 0 8px var(--color-accent-subtle);
+  }
+}
+
+/* Spinning loader icon */
+.step-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .step-indicator-badge.pending {
@@ -182,7 +215,14 @@
   color: var(--secondary-text);
   text-align: center;
   white-space: nowrap;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease, font-weight 0.3s ease;
+  line-height: 1.2;
+  height: auto;
+}
+
+.step-indicator-label.loading {
+  /* Ensure loading state doesn't shift layout */
+  display: inline-block;
 }
 
 .step-indicator-step:has(.step-indicator-badge.active) .step-indicator-label {
@@ -192,6 +232,13 @@
 
 .step-indicator-step:has(.step-indicator-badge.completed) .step-indicator-label {
   color: var(--primary-text);
+}
+
+/* Loading dots - simple static display */
+.step-loading-dots {
+  display: inline;
+  margin-left: 0;
+  font-weight: 700;
 }
 
 /* Mobile step indicator */
@@ -903,23 +950,80 @@
 }
 
 .progress-bar-bg {
-  height: 12px;
-  background: var(--color-border-muted);
-  border-radius: 6px;
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
   overflow: hidden;
+  position: relative;
+  display: block;
 }
 
 .progress-bar-fill {
+  display: block;
+  height: 8px;
+  background: var(--color-accent-emphasis);
+  transition: width 0.3s ease;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+  line-height: 0;
+  font-size: 0;
+}
+
+/* NEW: Clean modern import progress bar */
+.import-progress-bar {
+  width: 100%;
+  max-width: 500px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  margin: var(--space-4) 0;
+}
+
+.import-progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--color-accent-emphasis), var(--color-accent-fg));
-  transition: width 0.3s ease;
   border-radius: 6px;
+  transition: width 0.4s ease-out;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 20px var(--color-accent-emphasis);
+}
+
+.import-progress-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer-slide 2s infinite;
+}
+
+@keyframes shimmer-slide {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 200%;
+  }
 }
 
 .progress-percentage {
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text);
-  margin-top: var(--space-2);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--color-accent-emphasis);
+  margin-top: var(--space-3);
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.5px;
 }
 
 .progress-message {
