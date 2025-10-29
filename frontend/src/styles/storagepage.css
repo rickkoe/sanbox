@@ -1,12 +1,43 @@
 /* ========== STORAGE PAGE STYLES ========== */
 
+/* ========== CRITICAL BOOTSTRAP OVERRIDES ========== */
+/* MUST come first in CSS file to prevent gray boxes on dark themes */
+
+/* Override ALL Bootstrap backgrounds within storage page */
+.scripts-page-container .card,
+.scripts-page-container .card-body,
+.scripts-page-container .row,
+.scripts-page-container [class*="col-"],
+.scripts-page-container .modal-content,
+.scripts-page-container .modal-header,
+.scripts-page-container .modal-body,
+.scripts-page-container .modal-footer {
+  background-color: transparent !important;
+  background-image: none !important;
+  background: transparent !important;
+}
+
+/* Override Bootstrap utility classes */
+.scripts-page-container .bg-white,
+.scripts-page-container .bg-light,
+.scripts-page-container .bg-secondary {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Override Bootstrap .text-muted to use primary text with opacity */
+.scripts-page-container .text-muted {
+  color: var(--primary-text) !important;
+  opacity: 0.7 !important;
+}
+
 /* Database Statistics Dashboard */
 .storage-stats-dashboard {
   margin-bottom: 2rem;
   padding: 1.5rem;
   border-radius: 12px;
   background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--card-border);
 }
 
 .stats-dashboard-title {
@@ -98,7 +129,7 @@
   padding: 1.5rem;
   border-radius: 12px;
   background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--card-border);
 }
 
 .properties-section-title {
@@ -209,8 +240,8 @@
 .property-input {
   padding: 0.625rem 0.875rem;
   border-radius: 8px;
-  border: 1px solid var(--input-border);
-  background: var(--input-bg);
+  border: 1px solid var(--form-input-border);
+  background: var(--form-input-bg);
   color: var(--primary-text);
   font-size: 0.875rem;
   transition: all 0.2s ease;
@@ -218,12 +249,12 @@
 
 .property-input:focus {
   outline: none;
-  border-color: var(--input-border-focus);
-  box-shadow: 0 0 0 3px var(--input-focus-shadow);
+  border-color: var(--form-input-focus-border);
+  box-shadow: var(--form-input-focus-shadow);
 }
 
 .property-input-readonly {
-  background: var(--input-readonly-bg);
+  background: var(--form-input-disabled-bg);
   color: var(--secondary-text);
   cursor: not-allowed;
 }
@@ -232,66 +263,38 @@
   padding: 0.625rem 0.875rem;
 }
 
-/* ========== DARK THEME ========== */
-.theme-dark {
-  --card-bg: rgba(15, 23, 42, 0.6);
-  --border-color: rgba(255, 255, 255, 0.1);
-  --primary-text: #e2e8f0;
-  --secondary-text: #94a3b8;
-
-  /* Stat Cards - Dark Theme */
-  --stat-card-bg-start: rgba(30, 41, 59, 0.8);
-  --stat-card-bg-end: rgba(15, 23, 42, 0.9);
-  --stat-card-border: rgba(100, 255, 218, 0.2);
-  --stat-card-border-hover: rgba(100, 255, 218, 0.5);
-  --stat-card-shadow-hover: rgba(100, 255, 218, 0.2);
-  --stat-icon-bg: rgba(100, 255, 218, 0.15);
-  --stat-icon-color: #64ffda;
-  --stat-arrow-color: #64ffda;
-
-  /* Categories - Dark Theme */
-  --category-bg: rgba(15, 23, 42, 0.3);
-  --category-border: rgba(255, 255, 255, 0.1);
-  --category-header-bg: rgba(30, 41, 59, 0.5);
-  --category-header-hover-bg: rgba(30, 41, 59, 0.7);
-
-  /* Inputs - Dark Theme */
-  --input-border: rgba(255, 255, 255, 0.2);
-  --input-border-focus: #64ffda;
-  --input-focus-shadow: rgba(100, 255, 218, 0.1);
-  --input-bg: rgba(15, 23, 42, 0.4);
-  --input-readonly-bg: rgba(15, 23, 42, 0.2);
+/* Field Filter Modal Styles */
+.field-filter-description {
+  color: var(--secondary-text);
+  margin-bottom: 1.5rem;
 }
 
-/* ========== LIGHT THEME ========== */
-.theme-light {
-  --card-bg: #ffffff;
-  --border-color: #e2e8f0;
-  --primary-text: #1e293b;
-  --secondary-text: #64748b;
+.search-input-wrapper {
+  position: relative;
+}
 
-  /* Stat Cards - Light Theme */
-  --stat-card-bg-start: #f8fafc;
-  --stat-card-bg-end: #f1f5f9;
-  --stat-card-border: rgba(91, 124, 153, 0.2);
-  --stat-card-border-hover: rgba(91, 124, 153, 0.5);
-  --stat-card-shadow-hover: rgba(91, 124, 153, 0.15);
-  --stat-icon-bg: rgba(91, 124, 153, 0.1);
-  --stat-icon-color: #5b7c99;
-  --stat-arrow-color: #5b7c99;
+.search-clear-button {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted-text);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  font-size: 1.25rem;
+  transition: color var(--transition-speed) ease;
+}
 
-  /* Categories - Light Theme */
-  --category-bg: #f8fafc;
-  --category-border: #e2e8f0;
-  --category-header-bg: #ffffff;
-  --category-header-hover-bg: #f1f5f9;
+.search-clear-button:hover {
+  color: var(--primary-text);
+}
 
-  /* Inputs - Light Theme */
-  --input-border: #cbd5e1;
-  --input-border-focus: #5b7c99;
-  --input-focus-shadow: rgba(91, 124, 153, 0.1);
-  --input-bg: #ffffff;
-  --input-readonly-bg: #f8fafc;
+.reset-fields-button {
+  width: 100%;
 }
 
 /* ========== RESPONSIVE DESIGN ========== */

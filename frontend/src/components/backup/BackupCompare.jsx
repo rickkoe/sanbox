@@ -4,6 +4,7 @@ import {
   FaSearch, FaDatabase, FaChartBar, FaSyncAlt, FaCode
 } from 'react-icons/fa';
 import backupService from '../../services/backupService';
+import './BackupCompare.css';
 
 /**
  * Compare two backups side-by-side
@@ -151,7 +152,7 @@ const BackupCompare = ({ show, onHide, backups }) => {
   const tableDiffs = compareTableCounts();
 
   return (
-    <Modal show={show} onHide={onHide} size="xl">
+    <Modal show={show} onHide={onHide} size="xl" className="backup-compare-modal">
       <Modal.Header closeButton>
         <Modal.Title><FaSearch className="me-2" />Compare Backups</Modal.Title>
       </Modal.Header>
@@ -188,65 +189,63 @@ const BackupCompare = ({ show, onHide, backups }) => {
           </div>
         </div>
 
-        {error && <Alert variant="danger">{error}</Alert>}
+        {error && <div className="backup-compare-error">{error}</div>}
 
         {loading && (
-          <div className="text-center py-5">
+          <div className="backup-compare-loading">
             <Spinner animation="border" />
-            <p className="mt-2">Loading backup details...</p>
+            <p>Loading backup details...</p>
           </div>
         )}
 
         {!loading && backup1 && backup2 && (
           <>
             {/* Basic Info Comparison */}
-            <Alert variant="info" className="mb-4">
+            <div className="backup-compare-info-alert">
               <strong>Comparing:</strong>
               <div className="row mt-2">
                 <div className="col-md-6">
-                  <div><FaDatabase className="me-2" /><strong>{backup1.name}</strong></div>
-                  <small className="text-muted">{backupService.formatDate(backup1.created_at)}</small>
+                  <div><FaDatabase className="backup-info-icon" /><span className="backup-info-name">{backup1.name}</span></div>
+                  <small className="backup-info-date">{backupService.formatDate(backup1.created_at)}</small>
                 </div>
                 <div className="col-md-6">
-                  <div><FaDatabase className="me-2" /><strong>{backup2.name}</strong></div>
-                  <small className="text-muted">{backupService.formatDate(backup2.created_at)}</small>
+                  <div><FaDatabase className="backup-info-icon" /><span className="backup-info-name">{backup2.name}</span></div>
+                  <small className="backup-info-date">{backupService.formatDate(backup2.created_at)}</small>
                 </div>
               </div>
-            </Alert>
+            </div>
 
             {/* Size Comparison */}
             {sizeDiff && (
-              <Alert variant={sizeDiff.percentChange > 0 ? 'warning' : 'success'} className="mb-4">
+              <div className={`backup-compare-size-alert ${sizeDiff.percentChange > 0 ? 'size-increase' : 'size-decrease'}`}>
                 <FaChartBar className="me-2" />
                 <strong>Size Comparison</strong>
                 <div className="row mt-2">
                   <div className="col-md-4">
-                    <small>First Backup:</small>
-                    <div><strong>{backupService.formatSize(sizeDiff.backup1Size)}</strong></div>
+                    <small className="comparison-grid-label">First Backup:</small>
+                    <div className="comparison-grid-value">{backupService.formatSize(sizeDiff.backup1Size)}</div>
                   </div>
                   <div className="col-md-4">
-                    <small>Second Backup:</small>
-                    <div><strong>{backupService.formatSize(sizeDiff.backup2Size)}</strong></div>
+                    <small className="comparison-grid-label">Second Backup:</small>
+                    <div className="comparison-grid-value">{backupService.formatSize(sizeDiff.backup2Size)}</div>
                   </div>
                   <div className="col-md-4">
-                    <small>Difference:</small>
-                    <div>
-                      <strong>
-                        {sizeDiff.difference > 0 ? '+' : ''}
-                        {backupService.formatSize(Math.abs(sizeDiff.difference))}
-                        {' '}({sizeDiff.percentChange > 0 ? '+' : ''}{sizeDiff.percentChange}%)
-                      </strong>
+                    <small className="comparison-grid-label">Difference:</small>
+                    <div className="comparison-grid-value">
+                      {sizeDiff.difference > 0 ? '+' : ''}
+                      {backupService.formatSize(Math.abs(sizeDiff.difference))}
+                      {' '}({sizeDiff.percentChange > 0 ? '+' : ''}{sizeDiff.percentChange}%)
                     </div>
                   </div>
                 </div>
-              </Alert>
+              </div>
             )}
 
             {/* Version Differences */}
             {versionDiffs && versionDiffs.length > 0 && (
               <div className="mb-4">
-                <h6><FaCode className="me-2" />Version Differences</h6>
-                <Table bordered size="sm">
+                <h6 className="backup-compare-section-header"><FaCode />Version Differences</h6>
+                <Table bordered size="sm" className="backup-compare-table">
                   <thead>
                     <tr>
                       <th>Component</th>
@@ -262,7 +261,7 @@ const BackupCompare = ({ show, onHide, backups }) => {
                         <td>
                           {diff.backup2}
                           {diff.backup1 !== diff.backup2 && (
-                            <Badge bg="warning" className="ms-2">Changed</Badge>
+                            <span className="backup-compare-badge badge-warning ms-2">Changed</span>
                           )}
                         </td>
                       </tr>
@@ -275,39 +274,37 @@ const BackupCompare = ({ show, onHide, backups }) => {
             {/* Migration Differences */}
             {migrationDiffs && (
               <div className="mb-4">
-                <h6><FaSyncAlt className="me-2" />Migration State Comparison</h6>
-                <Accordion>
+                <h6 className="backup-compare-section-header"><FaSyncAlt />Migration State Comparison</h6>
+                <Accordion className="backup-compare-accordion">
                   {migrationDiffs.map((diff, idx) => (
                     <Accordion.Item eventKey={idx.toString()} key={diff.app}>
                       <Accordion.Header>
-                        <div className="d-flex align-items-center w-100">
-                          <strong className="me-2">{diff.app}</strong>
+                        <div className="migration-header-content">
+                          <strong>{diff.app}</strong>
                           {diff.isDifferent && (
-                            <Badge bg="warning">Different</Badge>
+                            <span className="backup-compare-badge badge-warning">Different</span>
                           )}
                           {!diff.isDifferent && (
-                            <Badge bg="success">Same</Badge>
+                            <span className="backup-compare-badge badge-success">Same</span>
                           )}
-                          <span className="ms-auto me-3">
-                            <small className="text-muted">
-                              {diff.backup1Count} → {diff.backup2Count} migrations
-                            </small>
+                          <span className="migration-count">
+                            {diff.backup1Count} → {diff.backup2Count} migrations
                           </span>
                         </div>
                       </Accordion.Header>
                       <Accordion.Body>
                         <div className="row">
                           <div className="col-md-6">
-                            <small className="text-muted">First Backup</small>
-                            <div><strong>{diff.backup1Count} migrations</strong></div>
-                            <small style={{ fontFamily: 'monospace' }}>
+                            <div className="migration-detail-label">First Backup</div>
+                            <div className="migration-detail-value">{diff.backup1Count} migrations</div>
+                            <small className="migration-latest-code">
                               Latest: {diff.backup1Latest}
                             </small>
                           </div>
                           <div className="col-md-6">
-                            <small className="text-muted">Second Backup</small>
-                            <div><strong>{diff.backup2Count} migrations</strong></div>
-                            <small style={{ fontFamily: 'monospace' }}>
+                            <div className="migration-detail-label">Second Backup</div>
+                            <div className="migration-detail-value">{diff.backup2Count} migrations</div>
+                            <small className="migration-latest-code">
                               Latest: {diff.backup2Latest}
                             </small>
                           </div>
@@ -322,10 +319,10 @@ const BackupCompare = ({ show, onHide, backups }) => {
             {/* Table Count Differences */}
             {tableDiffs && tableDiffs.length > 0 && (
               <div className="mb-4">
-                <h6><FaChartBar className="me-2" />Table Row Count Changes</h6>
-                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                  <Table bordered size="sm" hover>
-                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--table-header-bg)' }}>
+                <h6 className="backup-compare-section-header"><FaChartBar />Table Row Count Changes</h6>
+                <div className="backup-compare-table-scroll">
+                  <Table bordered size="sm" hover className="backup-compare-table">
+                    <thead className="backup-compare-table-sticky-header">
                       <tr>
                         <th>Table</th>
                         <th>First Backup</th>
@@ -341,19 +338,14 @@ const BackupCompare = ({ show, onHide, backups }) => {
                           <td>{diff.backup2Count.toLocaleString()}</td>
                           <td>
                             {diff.difference !== 0 && (
-                              <span
-                                style={{
-                                  color: diff.difference > 0 ? 'var(--success-text)' : 'var(--error-text)',
-                                  fontWeight: 'bold'
-                                }}
-                              >
+                              <span className={diff.difference > 0 ? 'change-positive' : 'change-negative'}>
                                 {diff.difference > 0 ? '+' : ''}
                                 {diff.difference.toLocaleString()}
                                 {' '}({diff.percentChange > 0 ? '+' : ''}{diff.percentChange}%)
                               </span>
                             )}
                             {diff.difference === 0 && (
-                              <Badge bg="secondary">No change</Badge>
+                              <span className="backup-compare-badge badge-secondary">No change</span>
                             )}
                           </td>
                         </tr>
@@ -367,9 +359,9 @@ const BackupCompare = ({ show, onHide, backups }) => {
         )}
 
         {!loading && (!backup1Id || !backup2Id) && (
-          <Alert variant="info">
+          <div className="backup-compare-select-info">
             Select two backups to compare their details
-          </Alert>
+          </div>
         )}
       </Modal.Body>
       <Modal.Footer>

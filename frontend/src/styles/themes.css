@@ -261,6 +261,22 @@
   --card-shadow: var(--shadow-sm);
   --card-hover-shadow: var(--shadow-md);
 
+  /* Stat Cards (for dashboard statistics) */
+  --stat-card-bg-start: #f8fafc;
+  --stat-card-bg-end: #f1f5f9;
+  --stat-card-border: rgba(91, 124, 153, 0.2);
+  --stat-card-border-hover: rgba(91, 124, 153, 0.5);
+  --stat-card-shadow-hover: rgba(91, 124, 153, 0.15);
+  --stat-icon-bg: rgba(91, 124, 153, 0.1);
+  --stat-icon-color: #5b7c99;
+  --stat-arrow-color: #5b7c99;
+
+  /* Property Categories (for collapsible sections) */
+  --category-bg: #f8fafc;
+  --category-border: var(--color-border-default);
+  --category-header-bg: var(--color-canvas-default);
+  --category-header-hover-bg: #f1f5f9;
+
   /* Modals */
   --modal-bg: var(--color-canvas-overlay);
   --modal-backdrop: rgba(27, 31, 36, 0.5);
@@ -486,6 +502,22 @@
   --card-border: var(--color-border-default);
   --card-shadow: 0 0 transparent;
   --card-hover-shadow: 0 0 transparent;
+
+  /* Stat Cards (for dashboard statistics) */
+  --stat-card-bg-start: rgba(30, 41, 59, 0.8);
+  --stat-card-bg-end: rgba(15, 23, 42, 0.9);
+  --stat-card-border: rgba(88, 166, 255, 0.2);
+  --stat-card-border-hover: rgba(88, 166, 255, 0.5);
+  --stat-card-shadow-hover: rgba(88, 166, 255, 0.2);
+  --stat-icon-bg: rgba(88, 166, 255, 0.15);
+  --stat-icon-color: var(--color-accent-fg);
+  --stat-arrow-color: var(--color-accent-fg);
+
+  /* Property Categories (for collapsible sections) */
+  --category-bg: rgba(15, 23, 42, 0.3);
+  --category-border: var(--color-border-default);
+  --category-header-bg: rgba(30, 41, 59, 0.5);
+  --category-header-hover-bg: rgba(30, 41, 59, 0.7);
 
   /* Modals */
   --modal-bg: var(--color-canvas-overlay);

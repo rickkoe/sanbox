@@ -485,39 +485,25 @@ const StoragePage = () => {
           <Modal.Title>Field Filter</Modal.Title>
         </Modal.Header>
         <Modal.Body className="download-modal-body">
-          <p style={{ color: 'var(--secondary-text)', marginBottom: '1.5rem' }}>
+          <p className="field-filter-description">
             Choose which fields to display on the storage properties page. Your preferences will be saved.
           </p>
 
           {/* Search */}
           <div className="download-modal-section">
             <label className="download-modal-label">Search Fields</label>
-            <div style={{ position: 'relative' }}>
+            <div className="search-input-wrapper">
               <input
                 type="text"
                 className="download-filename-input"
                 placeholder="Search fields..."
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                style={{ paddingRight: searchText ? '2.5rem' : '1rem' }}
               />
               {searchText && (
                 <button
                   onClick={() => setSearchText("")}
-                  style={{
-                    position: 'absolute',
-                    right: '0.5rem',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--muted-text)',
-                    cursor: 'pointer',
-                    padding: '0.25rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    fontSize: '1.25rem'
-                  }}
+                  className="search-clear-button"
                 >
                   ×
                 </button>
@@ -528,9 +514,8 @@ const StoragePage = () => {
           {/* Reset Button */}
           <div className="download-modal-section">
             <button
-              className="modal-btn modal-btn-secondary"
+              className="modal-btn modal-btn-secondary reset-fields-button"
               onClick={handleResetToDefault}
-              style={{ width: '100%' }}
             >
               Reset to Default Fields
             </button>

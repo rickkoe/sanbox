@@ -1,0 +1,458 @@
+/* ========== BACKUP COMPARE STYLES ========== */
+
+/* ========== CRITICAL BOOTSTRAP OVERRIDES ========== */
+/* MUST come first in CSS file to prevent gray boxes on dark themes */
+
+/* Modal structure - MUST have opaque backgrounds */
+.backup-compare-modal .modal-content {
+  background-color: var(--modal-bg) !important;
+  background-image: none !important;
+  border: 1px solid var(--modal-border) !important;
+  box-shadow: var(--modal-shadow) !important;
+}
+
+.backup-compare-modal .modal-header {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  border-bottom: 1px solid var(--color-border-default) !important;
+}
+
+.backup-compare-modal .modal-header .btn-close {
+  filter: var(--close-button-filter, none);
+}
+
+.backup-compare-modal .modal-title {
+  color: var(--primary-text) !important;
+  font-weight: 600;
+}
+
+.backup-compare-modal .modal-body {
+  background-color: var(--modal-bg) !important;
+  background-image: none !important;
+}
+
+.backup-compare-modal .modal-footer {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  border-top: 1px solid var(--color-border-default) !important;
+}
+
+/* Override Bootstrap's default backgrounds for other elements */
+.backup-compare-modal .alert,
+.backup-compare-modal .card,
+.backup-compare-modal .card-body {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* Override Bootstrap utility classes */
+.backup-compare-modal .bg-white,
+.backup-compare-modal .bg-light {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Override Bootstrap .text-muted to use primary text with opacity */
+.backup-compare-modal .text-muted {
+  color: var(--primary-text) !important;
+  opacity: 0.7 !important;
+}
+
+/* ========== FORM CONTROLS ========== */
+.backup-compare-modal .form-label {
+  color: var(--primary-text) !important;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.backup-compare-modal .form-select {
+  background-color: var(--form-input-bg) !important;
+  background-image: none !important;
+  border: 1px solid var(--form-input-border) !important;
+  color: var(--form-input-text) !important;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-speed) ease;
+}
+
+.backup-compare-modal .form-select:focus {
+  border-color: var(--form-input-focus-border) !important;
+  box-shadow: var(--form-input-focus-shadow) !important;
+  outline: none !important;
+}
+
+.backup-compare-modal .form-select option {
+  background-color: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+}
+
+/* ========== BUTTON STYLING ========== */
+.backup-compare-modal .btn {
+  background-color: var(--button-bg) !important;
+  background-image: none !important;
+  border: 1px solid var(--button-border) !important;
+  color: var(--button-text) !important;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  transition: all var(--transition-speed) ease;
+}
+
+.backup-compare-modal .btn:hover {
+  background-color: var(--button-hover-bg) !important;
+  border-color: var(--button-hover-border) !important;
+}
+
+.backup-compare-modal .btn:focus {
+  box-shadow: var(--form-input-focus-shadow) !important;
+}
+
+.backup-compare-modal .btn-secondary {
+  background-color: var(--secondary-bg) !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--secondary-text) !important;
+}
+
+.backup-compare-modal .btn-secondary:hover {
+  background-color: var(--table-row-hover) !important;
+  color: var(--primary-text) !important;
+}
+
+/* ========== CUSTOM ALERT STYLING ========== */
+/* Replace Bootstrap's hardcoded Alert colors with theme variables */
+
+.backup-compare-info-alert {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.backup-compare-size-alert {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.backup-compare-size-alert.size-increase {
+  border-left: 4px solid var(--color-attention-emphasis) !important;
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
+}
+
+.backup-compare-size-alert.size-decrease {
+  border-left: 4px solid var(--color-success-emphasis) !important;
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
+}
+
+.backup-compare-info-alert strong,
+.backup-compare-size-alert strong {
+  color: var(--primary-text) !important;
+}
+
+/* ========== CUSTOM BADGE STYLING ========== */
+/* Replace Bootstrap's hardcoded Badge colors with theme variables */
+
+.backup-compare-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+.backup-compare-badge.badge-warning {
+  background: var(--color-attention-subtle) !important;
+  color: var(--color-attention-emphasis) !important;
+  border: 1px solid var(--color-attention-muted);
+}
+
+.backup-compare-badge.badge-success {
+  background: var(--color-success-subtle) !important;
+  color: var(--color-success-emphasis) !important;
+  border: 1px solid var(--color-success-muted);
+}
+
+.backup-compare-badge.badge-secondary {
+  background: var(--secondary-bg) !important;
+  color: var(--secondary-text) !important;
+  border: 1px solid var(--color-border-default);
+}
+
+/* ========== SECTION HEADERS ========== */
+.backup-compare-section-header {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-text);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ========== TABLE STYLING ========== */
+.backup-compare-table {
+  border: 1px solid var(--table-border) !important;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+.backup-compare-table thead {
+  background-color: var(--table-header-bg) !important;
+  background-image: none !important;
+  background: var(--table-header-bg) !important;
+}
+
+.backup-compare-table thead th {
+  color: var(--table-header-text) !important;
+  font-weight: 600;
+  border-bottom: 2px solid var(--table-border) !important;
+  padding: 0.75rem;
+  background-color: var(--table-header-bg) !important;
+}
+
+.backup-compare-table tbody {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+.backup-compare-table tbody tr {
+  border-bottom: 1px solid var(--table-border) !important;
+  transition: background-color var(--transition-speed) ease;
+  background-color: transparent !important;
+}
+
+.backup-compare-table tbody tr:hover {
+  background-color: var(--table-row-hover) !important;
+  background: var(--table-row-hover) !important;
+}
+
+.backup-compare-table tbody td {
+  padding: 0.75rem;
+  color: var(--primary-text) !important;
+  border-color: var(--table-border) !important;
+  background-color: transparent !important;
+}
+
+.backup-compare-table code {
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+/* ========== TABLE SCROLL CONTAINER ========== */
+.backup-compare-table-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--table-border);
+  background-color: transparent !important;
+}
+
+.backup-compare-table-sticky-header {
+  position: sticky;
+  top: 0;
+  background-color: var(--table-header-bg) !important;
+  background-image: none !important;
+  background: var(--table-header-bg) !important;
+  z-index: 10;
+}
+
+/* ========== ACCORDION STYLING ========== */
+.backup-compare-accordion .accordion-item {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+}
+
+.backup-compare-accordion .accordion-header {
+  background-color: transparent !important;
+  background-image: none !important;
+  background: transparent !important;
+}
+
+.backup-compare-accordion .accordion-button {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+  border: none !important;
+  padding: 1rem;
+  transition: background-color var(--transition-speed) ease;
+}
+
+.backup-compare-accordion .accordion-button:not(.collapsed) {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+  box-shadow: none !important;
+}
+
+.backup-compare-accordion .accordion-button:hover {
+  background-color: var(--table-row-hover) !important;
+  background: var(--table-row-hover) !important;
+}
+
+.backup-compare-accordion .accordion-button:focus {
+  box-shadow: none !important;
+  border-color: var(--color-border-default) !important;
+}
+
+.backup-compare-accordion .accordion-button::after {
+  filter: var(--close-button-filter, none);
+}
+
+.backup-compare-accordion .accordion-body {
+  background-color: var(--primary-bg) !important;
+  background-image: none !important;
+  background: var(--primary-bg) !important;
+  color: var(--primary-text) !important;
+  border-top: 1px solid var(--color-border-default) !important;
+  padding: 1rem;
+}
+
+/* ========== MIGRATION HEADER CONTENT ========== */
+.migration-header-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0.5rem;
+}
+
+.migration-header-content strong {
+  color: var(--primary-text);
+  flex-shrink: 0;
+}
+
+.migration-count {
+  margin-left: auto;
+  margin-right: 1rem;
+  color: var(--secondary-text) !important;
+  opacity: 0.7;
+  font-size: 0.875rem;
+}
+
+/* ========== MIGRATION DETAILS ========== */
+.migration-detail-label {
+  color: var(--secondary-text) !important;
+  opacity: 0.7;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.migration-detail-value {
+  color: var(--primary-text);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.migration-latest-code {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--secondary-text);
+  opacity: 0.85;
+}
+
+/* ========== CHANGE INDICATORS ========== */
+.change-positive {
+  color: var(--color-success-emphasis) !important;
+  font-weight: 600;
+}
+
+.change-negative {
+  color: var(--color-danger-emphasis) !important;
+  font-weight: 600;
+}
+
+/* ========== LOADING STATE ========== */
+.backup-compare-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.backup-compare-loading .spinner-border {
+  color: var(--color-accent-fg) !important;
+  border-color: var(--color-accent-muted) !important;
+  border-right-color: var(--color-accent-fg) !important;
+}
+
+.backup-compare-loading p {
+  color: var(--secondary-text);
+  margin-top: 1rem;
+}
+
+/* ========== SELECTION INFO ========== */
+.backup-compare-select-info {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+/* ========== ERROR ALERT ========== */
+.backup-compare-error {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-danger-muted) !important;
+  border-left: 4px solid var(--color-danger-emphasis) !important;
+  color: var(--color-danger-fg) !important;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+/* ========== COMPARISON GRID ========== */
+.comparison-grid-label {
+  color: var(--secondary-text);
+  opacity: 0.7;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.comparison-grid-value {
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+/* ========== BACKUP INFO LABELS ========== */
+.backup-info-icon {
+  color: var(--color-accent-fg);
+  margin-right: 0.5rem;
+}
+
+.backup-info-name {
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+.backup-info-date {
+  color: var(--secondary-text) !important;
+  opacity: 0.7;
+  font-size: 0.875rem;
+}
