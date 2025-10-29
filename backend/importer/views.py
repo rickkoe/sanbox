@@ -83,41 +83,43 @@ def cancel_import(request, import_id):
     """Cancel a running import"""
     try:
         import_record = get_object_or_404(StorageImport, id=import_id)
-        
+
+        # Check if user is authenticated and owns this import
+        # For now, we'll skip strict auth check since @csrf_exempt is used
+        # In production, implement proper authentication
+
         # Only allow canceling running imports
         if import_record.status != 'running':
             return JsonResponse(
-                {'error': f'Cannot cancel import with status: {import_record.status}'}, 
+                {'error': f'Cannot cancel import with status: {import_record.status}'},
                 status=400
             )
-        
-        # Try to revoke the Celery task
+
+        # Set cancellation flag for graceful shutdown
+        from django.utils import timezone
+        import_record.cancelled = True
+        import_record.cancelled_at = timezone.now()
+        import_record.save()
+
+        # Try to revoke the Celery task (will be handled gracefully by task)
         if import_record.celery_task_id:
             try:
                 from celery.result import AsyncResult
                 result = AsyncResult(import_record.celery_task_id)
-                result.revoke(terminate=True)
+                result.revoke(terminate=False)  # Don't force terminate, let task check flag
             except Exception as e:
-                # Log the error but continue with marking as cancelled
+                # Log the error but continue
                 print(f"Failed to revoke Celery task {import_record.celery_task_id}: {e}")
-        
-        # Mark import as failed/cancelled
-        from django.utils import timezone
-        import_record.status = 'failed'
-        import_record.error_message = 'Import cancelled by user'
-        import_record.completed_at = timezone.now()
-        import_record.save()
-        
+
         return JsonResponse({
-            'message': 'Import cancelled successfully',
+            'message': 'Import cancellation requested. The import will stop processing new items.',
             'import_id': import_record.id,
-            'status': import_record.status,
-            'cancelled_at': import_record.completed_at.isoformat() if import_record.completed_at else None
+            'cancelled_at': import_record.cancelled_at.isoformat() if import_record.cancelled_at else None
         })
-        
+
     except Exception as e:
         return JsonResponse(
-            {'error': f'Failed to cancel import: {str(e)}'}, 
+            {'error': f'Failed to cancel import: {str(e)}'},
             status=500
         )
 
@@ -484,6 +486,7 @@ def import_san_config(request):
     Request body:
     - customer_id: Required
     - data: Required (either text or JSON credentials)
+    - import_name: Optional user-provided name for this import
     - fabric_id, fabric_mapping: SAN-specific options
     - conflict_resolutions: Conflict handling
     - project_id: Optional project assignment
@@ -494,6 +497,7 @@ def import_san_config(request):
         data = json.loads(request.body)
         customer_id = data.get('customer_id')
         config_data = data.get('data')
+        import_name = data.get('import_name', '')
 
         # SAN-specific options (optional)
         fabric_id = data.get('fabric_id')
@@ -513,9 +517,31 @@ def import_san_config(request):
 
         customer = get_object_or_404(Customer, id=customer_id)
 
+        # Get user (if authenticated) - for now, set to None since we use @csrf_exempt
+        # In production, implement proper authentication
+        user = request.user if request.user.is_authenticated else None
+
+        # Check for concurrent imports (soft warning, not blocking)
+        if user:
+            active_imports = StorageImport.objects.filter(
+                initiated_by=user,
+                status='running'
+            ).count()
+
+            # Return warning if 3+ imports already running
+            if active_imports >= 3:
+                # Still allow the import but include a warning
+                warning = f'You currently have {active_imports} imports running. This may impact performance.'
+            else:
+                warning = None
+        else:
+            warning = None
+
         # Create import record to track this
         import_record = StorageImport.objects.create(
             customer=customer,
+            initiated_by=user,
+            import_name=import_name,
             status='pending'
         )
 
@@ -539,12 +565,17 @@ def import_san_config(request):
         import_record.status = 'running'
         import_record.save()
 
-        return JsonResponse({
+        response_data = {
             'success': True,
             'message': 'Import started',
             'import_id': import_record.id,
             'task_id': task.id
-        }, status=201)
+        }
+
+        if warning:
+            response_data['warning'] = warning
+
+        return JsonResponse(response_data, status=201)
 
     except Exception as e:
         return JsonResponse({
@@ -605,6 +636,146 @@ def import_progress(request, import_id):
                 }
 
         return JsonResponse(progress_data)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ===== User-Scoped Import Monitoring Endpoints =====
+
+@csrf_exempt
+@require_http_methods(['GET'])
+def my_imports(request):
+    """Get list of imports for the current user with filtering"""
+    try:
+        # Get user - for now, allow viewing all imports since we use @csrf_exempt
+        # In production, filter by request.user
+        user = request.user if request.user.is_authenticated else None
+
+        # Get filter parameters
+        status_filter = request.GET.get('status')  # running, completed, failed, cancelled
+        import_type_filter = request.GET.get('import_type')  # san_config, storage_insights
+        date_from = request.GET.get('date_from')
+        date_to = request.GET.get('date_to')
+        limit = int(request.GET.get('limit', 50))
+
+        # Build query
+        if user:
+            imports = StorageImport.objects.filter(initiated_by=user)
+        else:
+            # If no user (during development), show all imports
+            imports = StorageImport.objects.all()
+
+        # Apply filters
+        if status_filter:
+            imports = imports.filter(status=status_filter)
+
+        if import_type_filter:
+            imports = imports.filter(import_type=import_type_filter)
+
+        if date_from:
+            try:
+                from django.utils.dateparse import parse_datetime
+                date_from_dt = parse_datetime(date_from)
+                if date_from_dt:
+                    imports = imports.filter(started_at__gte=date_from_dt)
+            except:
+                pass
+
+        if date_to:
+            try:
+                from django.utils.dateparse import parse_datetime
+                date_to_dt = parse_datetime(date_to)
+                if date_to_dt:
+                    imports = imports.filter(started_at__lte=date_to_dt)
+            except:
+                pass
+
+        # Order by most recent first
+        imports = imports.order_by('-started_at')[:limit]
+
+        # Serialize data
+        data = []
+        for import_record in imports:
+            item = {
+                'id': import_record.id,
+                'customer': import_record.customer.name,
+                'customer_id': import_record.customer.id,
+                'import_name': import_record.import_name,
+                'import_type': import_record.import_type,
+                'status': import_record.status,
+                'started_at': import_record.started_at.isoformat() if import_record.started_at else None,
+                'completed_at': import_record.completed_at.isoformat() if import_record.completed_at else None,
+                'cancelled': import_record.cancelled,
+                'cancelled_at': import_record.cancelled_at.isoformat() if import_record.cancelled_at else None,
+                'duration': str(import_record.duration) if import_record.duration else None,
+                'error_message': import_record.error_message,
+            }
+
+            # Add stats based on import type
+            if import_record.api_response_summary:
+                import_type = import_record.api_response_summary.get('import_type')
+                if import_type == 'san_config':
+                    stats = import_record.api_response_summary.get('stats', {})
+                    item['stats'] = {
+                        'aliases_created': stats.get('aliases_created', 0),
+                        'zones_created': stats.get('zones_created', 0),
+                        'fabrics_created': stats.get('fabrics_created', 0)
+                    }
+                else:
+                    item['stats'] = {
+                        'storage_systems': import_record.storage_systems_imported,
+                        'volumes': import_record.volumes_imported,
+                        'hosts': import_record.hosts_imported
+                    }
+            else:
+                item['stats'] = {}
+
+            # Add progress if running
+            if import_record.status == 'running' and import_record.celery_task_id:
+                try:
+                    from celery.result import AsyncResult
+                    result = AsyncResult(import_record.celery_task_id)
+                    if result.state == 'PROGRESS':
+                        item['progress'] = {
+                            'current': result.info.get('current', 0),
+                            'total': result.info.get('total', 100),
+                            'message': result.info.get('status', 'Processing...')
+                        }
+                except:
+                    pass
+
+            data.append(item)
+
+        return JsonResponse({
+            'imports': data,
+            'count': len(data)
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['GET'])
+def active_imports_count(request):
+    """Get count of active/running imports for the current user"""
+    try:
+        # Get user
+        user = request.user if request.user.is_authenticated else None
+
+        if user:
+            count = StorageImport.objects.filter(
+                initiated_by=user,
+                status='running'
+            ).count()
+        else:
+            # If no user (during development), count all running imports
+            count = StorageImport.objects.filter(status='running').count()
+
+        return JsonResponse({
+            'count': count
+        })
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

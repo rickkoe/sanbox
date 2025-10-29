@@ -73,6 +73,7 @@ const UniversalImporter = () => {
   const [fabricMapping, setFabricMapping] = useState({});
 
   // Import execution
+  const [importName, setImportName] = useState('');
   const [importRunning, setImportRunning] = useState(false);
   const [importId, setImportId] = useState(null);
   const [importProgress, setImportProgress] = useState(null);
@@ -80,6 +81,7 @@ const UniversalImporter = () => {
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [completionStats, setCompletionStats] = useState(null);
+  const [concurrentWarning, setConcurrentWarning] = useState(null);
 
   // Fetch existing fabrics for dropdown
   const fetchExistingFabrics = async (vendorFilter = null) => {
@@ -396,10 +398,20 @@ const UniversalImporter = () => {
       const hasMultipleFabrics = previewData?.fabrics && previewData.fabrics.length > 1;
       const useFabricMapping = hasMultipleFabrics && Object.keys(fabricMapping).length > 0;
 
+      // Auto-generate import name if not provided
+      let finalImportName = importName;
+      if (!finalImportName || finalImportName.trim() === '') {
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
+        finalImportName = `${config.customer.name} Import - ${dateStr} ${timeStr}`;
+      }
+
       // Start import
       const response = await axios.post('/api/importer/import-san-config/', {
         customer_id: config.customer.id,
         data: dataToImport,
+        import_name: finalImportName,
         // Legacy single-fabric parameters
         fabric_id: !useFabricMapping && selectedFabricId === 'new' ? null : selectedFabricId,
         fabric_name: !useFabricMapping && selectedFabricId === 'new' ? fabricName : null,
@@ -412,6 +424,11 @@ const UniversalImporter = () => {
         conflict_resolutions: conflictResolutions,
         project_id: config.active_project?.id
       });
+
+      // Check for concurrent import warning
+      if (response.data.warning) {
+        setConcurrentWarning(response.data.warning);
+      }
 
       setImportId(response.data.import_id);
       setImportRunning(true);
@@ -782,6 +799,18 @@ const UniversalImporter = () => {
                 onTypeSelect={setImportType}
                 theme={theme}
               />
+              <div className="mt-4">
+                <label htmlFor="importName" className="form-label">Import Name (Optional)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="importName"
+                  placeholder="e.g., Monthly SAN Update, Storage Migration Phase 1"
+                  value={importName}
+                  onChange={(e) => setImportName(e.target.value)}
+                />
+                <small className="text-muted">Give this import a descriptive name to help identify it later</small>
+              </div>
             </>
           )}
 
@@ -886,6 +915,22 @@ const UniversalImporter = () => {
           {step === 4 && (
             <>
               <h2>Import Status</h2>
+              {concurrentWarning && (
+                <div className="alert alert-warning mt-3">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  {concurrentWarning}
+                </div>
+              )}
+              <div className="alert alert-info mt-3">
+                <i className="bi bi-info-circle me-2"></i>
+                You can navigate away from this page. Your import will continue in the background.
+                <a href="/import/monitor" className="alert-link ms-2" onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/import/monitor');
+                }}>
+                  View Import Monitor →
+                </a>
+              </div>
               <ImportProgress
                 key={`${importStatus}-${importProgress?.status}`} // Force re-render on status change
                 importStatus={importStatus}
@@ -912,6 +957,15 @@ const UniversalImporter = () => {
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button className="nav-button secondary" onClick={() => setStep(1)} disabled={loading}>
                 Back
+              </button>
+              <button
+                className="nav-button secondary"
+                onClick={handleImport}
+                disabled={loading}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}
+                title="Skip preview and import immediately"
+              >
+                Import Without Preview
               </button>
               <button
                 className="nav-button primary"

@@ -1,10 +1,29 @@
 /* ========== UNIVERSAL IMPORTER - CLEAN THEMED REBUILD ========== */
 /* Uses ONLY centralized theme variables from /frontend/src/styles/themes.css */
 
+/* ========== CRITICAL BOOTSTRAP OVERRIDES ========== */
+/* Override ALL Bootstrap backgrounds to prevent gray boxes */
+
+.universal-importer {
+  background: var(--primary-bg) !important;
+}
+
+/* Override ALL Bootstrap backgrounds within Universal Importer */
+.universal-importer .card,
+.universal-importer .card-body,
+.universal-importer .row,
+.universal-importer [class*="col-"],
+.universal-importer .form-control,
+.universal-importer input,
+.universal-importer select,
+.universal-importer textarea {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
 /* ===== ROOT CONTAINER ===== */
 .universal-importer {
   min-height: 100vh;
-  background: var(--primary-bg);
   padding: var(--space-4) var(--space-4) var(--space-6);
 }
 
@@ -15,12 +34,12 @@
 
 /* ===== STEP CONTENT CARD ===== */
 .step-content {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
+  background: transparent !important;
+  border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   margin-bottom: var(--space-4);
-  box-shadow: var(--card-shadow);
+  box-shadow: none;
 }
 
 .step-content h2 {
@@ -159,7 +178,7 @@
 }
 
 .import-type-card {
-  background: var(--card-bg);
+  background: transparent !important;
   border: 2px solid var(--color-border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
@@ -170,13 +189,14 @@
 
 .import-type-card:hover {
   border-color: var(--color-accent-fg);
-  box-shadow: var(--card-hover-shadow);
+  box-shadow: none;
   transform: translateY(-2px);
 }
 
 .import-type-card.selected {
   border-color: var(--color-accent-emphasis);
-  background: var(--color-accent-subtle);
+  background: transparent !important;
+  border-width: 3px;
 }
 
 .import-type-card.disabled {
@@ -378,7 +398,7 @@
   width: 100%;
   min-height: 400px;
   padding: var(--space-4);
-  background: var(--form-input-bg);
+  background: transparent !important;
   border: 1px solid var(--form-input-border);
   border-radius: var(--radius-md);
   color: var(--form-input-text);
@@ -391,7 +411,8 @@
 .text-input:focus {
   outline: none;
   border-color: var(--form-input-focus-border);
-  box-shadow: var(--form-input-focus-shadow);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
+  background: transparent !important;
 }
 
 .text-input::placeholder {
@@ -650,7 +671,7 @@
 .universal-importer select {
   width: 100%;
   padding: var(--space-3);
-  background: var(--form-input-bg);
+  background: transparent !important;
   border: 1px solid var(--form-input-border);
   border-radius: var(--radius-md);
   color: var(--form-input-text);
@@ -672,8 +693,8 @@
 .universal-importer select:focus {
   outline: none;
   border-color: var(--form-input-focus-border);
-  box-shadow: var(--form-input-focus-shadow);
-  background: var(--form-input-bg);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
+  background: transparent !important;
 }
 
 .universal-importer .form-input:disabled,

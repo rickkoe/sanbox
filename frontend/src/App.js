@@ -72,6 +72,7 @@ const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
 const CustomNamingPage = React.lazy(() => import("./pages/CustomNamingPage"));
 const UserProfile = React.lazy(() => import("./pages/UserProfile"));
 const UniversalImporter = React.lazy(() => import("./pages/UniversalImporter"));
+const ImportMonitor = React.lazy(() => import("./pages/ImportMonitor"));
 const WorksheetGeneratorPage = React.lazy(() => import("./pages/WorksheetGeneratorPage"));
 const BackupManagement = React.lazy(() => import("./pages/BackupManagement"));
 const BackupDashboard = React.lazy(() => import("./pages/BackupDashboard"));
@@ -229,6 +230,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/test" element={<TestFilters />} />
                     <Route path="/import" element={<div style={{padding: '2rem'}}><h2>Import Data</h2><p>Choose an import type from the Import dropdown in the navbar.</p></div>} />
                     <Route path="/import/universal" element={<UniversalImporter />} />
+                    <Route path="/import/monitor" element={<ImportMonitor />} />
                   <Route
                     path="/tools/wwpn-colonizer"
                     element={<WWPNFormatterTable />}

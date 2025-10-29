@@ -27,4 +27,8 @@ urlpatterns = [
     path('parse-preview/', views.parse_preview, name='parse_preview'),
     path('import-san-config/', views.import_san_config, name='import_san_config'),
     path('import-progress/<int:import_id>/', views.import_progress, name='import_progress'),
+
+    # User-scoped import monitoring
+    path('my-imports/', views.my_imports, name='my_imports'),
+    path('active-imports-count/', views.active_imports_count, name='active_imports_count'),
 ]

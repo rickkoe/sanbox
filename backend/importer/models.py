@@ -1,6 +1,9 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
 from customers.models import Customer
+
+User = get_user_model()
 
 
 class APICredentials(models.Model):
@@ -26,19 +29,30 @@ class APICredentials(models.Model):
 
 class StorageImport(models.Model):
     """Simple tracking for storage data imports"""
-    
+
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('running', 'Running'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
     ]
-    
+
+    IMPORT_TYPE_CHOICES = [
+        ('san_config', 'SAN Configuration'),
+        ('storage_insights', 'IBM Storage Insights'),
+    ]
+
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='storage_imports')
+    initiated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='initiated_imports', help_text="User who initiated this import")
+    import_type = models.CharField(max_length=20, choices=IMPORT_TYPE_CHOICES, null=True, blank=True, help_text="Type of import")
+    import_name = models.CharField(max_length=255, blank=True, help_text="Optional user-provided name for this import")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    
+    cancelled = models.BooleanField(default=False, help_text="Flag to request cancellation of running import")
+    cancelled_at = models.DateTimeField(null=True, blank=True, help_text="When the import was cancelled")
+
     # Celery task tracking
     celery_task_id = models.CharField(max_length=255, null=True, blank=True, help_text="Celery task ID for background processing")
     

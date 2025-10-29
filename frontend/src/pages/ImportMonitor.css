@@ -1,0 +1,746 @@
+/* ========== IMPORT MONITOR THEME-AWARE STYLES ========== */
+/*
+ * Import Monitor styling using centralized theme variables.
+ * All colors, spacing, and effects reference variables from themes.css.
+ * Overrides Bootstrap defaults to respect theme system.
+ *
+ * IMPORTANT: Bootstrap adds default backgrounds (white/gray) to Card, Table, etc.
+ * We override ALL of them to use transparent backgrounds so the dark theme shows through.
+ */
+
+/* ========== CRITICAL BOOTSTRAP OVERRIDES ========== */
+/* Scope everything to .import-monitor-page to avoid conflicts */
+
+/* Make the entire page container transparent/black */
+.import-monitor-page {
+  background: transparent !important;
+}
+
+/* Override ALL possible Bootstrap backgrounds within Import Monitor */
+.import-monitor-page .card,
+.import-monitor-page .card-body,
+.import-monitor-page .row,
+.import-monitor-page [class*="col-"],
+.import-monitor-page .table,
+.import-monitor-page .table tbody,
+.import-monitor-page .table thead,
+.import-monitor-page .table tbody tr,
+.import-monitor-page .table tbody td,
+.import-monitor-page .table thead th {
+  background-color: transparent !important;
+  background-image: none !important;
+  background: transparent !important;
+}
+
+/* Override any Bootstrap utility background classes */
+.import-monitor-page .bg-white,
+.import-monitor-page .bg-light,
+.import-monitor-page .bg-secondary {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* ========== CONTAINER & LAYOUT ========== */
+
+.import-monitor-container {
+  background: var(--primary-bg);
+  min-height: 100vh;
+  padding: var(--space-4);
+}
+
+/* ========== BOOTSTRAP CARD OVERRIDES ========== */
+/* All cards within Import Monitor must be transparent */
+
+.import-monitor-page .card {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg) !important;
+}
+
+.import-monitor-page .card-body {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: var(--primary-text) !important;
+  padding: var(--space-4) !important;
+}
+
+/* Row/Col should not add backgrounds */
+.import-monitor-page .row {
+  background: transparent !important;
+}
+
+.import-monitor-page .col,
+.import-monitor-page [class*="col-"] {
+  background: transparent !important;
+}
+
+/* ========== PAGE HEADERS ========== */
+
+/* Target the Container fluid's h2 (page title) */
+.container-fluid h2 {
+  color: var(--primary-text) !important;
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin: 0 0 var(--space-2) 0;
+}
+
+/* Target the subtitle paragraph - override Bootstrap's text-muted */
+.container-fluid > .row > .col .text-muted,
+.container-fluid > .row > .col p.text-muted,
+.container-fluid .text-muted,
+.container-fluid p.text-muted {
+  color: var(--primary-text) !important;
+  opacity: 0.85 !important;
+  font-size: var(--font-size-md) !important;
+  margin: 0 !important;
+}
+
+/* ========== SUMMARY STATS CARDS ========== */
+
+.import-monitor-page .stats-card {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: 2px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none !important;
+  transition: all var(--transition-speed) var(--transition-timing);
+  overflow: hidden;
+}
+
+.import-monitor-page .stats-card:hover {
+  border-color: var(--color-accent-muted) !important;
+  transform: translateY(-2px);
+}
+
+.import-monitor-page .stats-card .card-body {
+  background-color: transparent !important;
+  background: transparent !important;
+  padding: var(--space-4) !important;
+  color: var(--primary-text) !important;
+}
+
+.import-monitor-page .stats-card h3 {
+  color: var(--primary-text) !important;
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+}
+
+.import-monitor-page .stats-card small {
+  color: var(--primary-text) !important;
+  opacity: 0.7;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Status-specific card borders */
+.import-monitor-page .stats-card.border-primary {
+  border-width: 2px !important;
+  border-color: var(--color-accent-emphasis) !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.import-monitor-page .stats-card.border-primary h3 {
+  color: var(--color-accent-fg) !important;
+}
+
+.import-monitor-page .stats-card.border-success {
+  border-width: 2px !important;
+  border-color: var(--color-success-emphasis) !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.import-monitor-page .stats-card.border-success h3 {
+  color: var(--color-success-fg) !important;
+}
+
+.import-monitor-page .stats-card.border-danger {
+  border-width: 2px !important;
+  border-color: var(--color-danger-emphasis) !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.import-monitor-page .stats-card.border-danger h3 {
+  color: var(--color-danger-fg) !important;
+}
+
+.import-monitor-page .stats-card.border-warning {
+  border-width: 2px !important;
+  border-color: var(--color-attention-emphasis) !important;
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+.import-monitor-page .stats-card.border-warning h3 {
+  color: var(--color-attention-fg) !important;
+}
+
+/* ========== FILTER CARD ========== */
+
+.import-monitor-page .filter-card {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none !important;
+}
+
+.import-monitor-page .filter-card .card-body {
+  background-color: transparent !important;
+  background: transparent !important;
+  padding: var(--space-4) !important;
+}
+
+.filter-card .form-label {
+  color: var(--primary-text) !important;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-2);
+}
+
+.filter-card .form-select {
+  background: var(--form-input-bg) !important;
+  border: 1px solid var(--form-input-border) !important;
+  color: var(--form-input-text) !important;
+  border-radius: var(--radius-md) !important;
+  padding: var(--space-2) var(--space-3);
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+.filter-card .form-select:focus {
+  background: var(--form-input-bg) !important;
+  border-color: var(--form-input-focus-border) !important;
+  box-shadow: 0 0 0 3px var(--color-accent-subtle) !important;
+  outline: none !important;
+  color: var(--form-input-text) !important;
+}
+
+.filter-card .form-select option {
+  background: var(--form-input-bg) !important;
+  color: var(--form-input-text) !important;
+}
+
+/* ========== IMPORTS TABLE CARD ========== */
+
+.import-monitor-page .imports-table-card {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none !important;
+}
+
+.import-monitor-page .imports-table-card .card-body {
+  background-color: transparent !important;
+  background: transparent !important;
+  padding: var(--space-4) !important;
+}
+
+/* ========== TABLE OVERRIDES ========== */
+
+/* Override ALL Bootstrap table backgrounds */
+.import-monitor-page .table,
+.import-monitor-page table.table,
+.import-monitor-page .table-responsive .table {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: var(--table-text) !important;
+  border-color: var(--table-border) !important;
+  margin-bottom: 0 !important;
+}
+
+.import-monitor-page .table-responsive {
+  background: transparent !important;
+  border: none !important;
+}
+
+.import-monitor-page .table thead {
+  background-color: transparent !important;
+  background: transparent !important;
+  border-bottom: 2px solid var(--table-border) !important;
+}
+
+.import-monitor-page .table thead th {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: var(--table-header-text) !important;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: var(--space-3) var(--space-4) !important;
+  border-color: var(--table-border) !important;
+  border-bottom: none !important;
+}
+
+.import-monitor-page .table tbody tr,
+.import-monitor-page .table-hover tbody tr {
+  background-color: transparent !important;
+  background: transparent !important;
+  border-bottom: 1px solid var(--table-border) !important;
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+.import-monitor-page .table tbody tr:hover,
+.import-monitor-page .table-hover tbody tr:hover {
+  background-color: var(--table-row-hover) !important;
+  background: var(--table-row-hover) !important;
+  cursor: pointer;
+}
+
+.import-monitor-page .table tbody tr.table-active {
+  background: var(--table-row-selected) !important;
+}
+
+.import-monitor-page .table tbody td,
+.import-monitor-page .table-hover tbody td {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: var(--table-text) !important;
+  padding: var(--space-3) var(--space-4) !important;
+  vertical-align: middle !important;
+  border-color: var(--table-border) !important;
+}
+
+.table small {
+  color: var(--primary-text) !important;
+  opacity: 0.7;
+  font-size: var(--font-size-xs);
+}
+
+/* ========== BADGES (Override Bootstrap) ========== */
+
+.badge {
+  font-weight: 600 !important;
+  padding: var(--space-1) var(--space-3) !important;
+  border-radius: var(--radius-full) !important;
+  font-size: var(--font-size-xs) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: var(--space-1) !important;
+}
+
+.badge.bg-primary {
+  background: var(--color-accent-emphasis) !important;
+  color: var(--color-fg-onEmphasis) !important;
+}
+
+.badge.bg-success {
+  background: var(--color-success-emphasis) !important;
+  color: var(--color-fg-onEmphasis) !important;
+}
+
+.badge.bg-danger {
+  background: var(--color-danger-emphasis) !important;
+  color: var(--color-fg-onEmphasis) !important;
+}
+
+.badge.bg-warning {
+  background: var(--color-attention-emphasis) !important;
+  color: var(--color-fg-onEmphasis) !important;
+}
+
+.badge.bg-secondary {
+  background: var(--button-bg) !important;
+  color: var(--button-text) !important;
+  border: 1px solid var(--button-border);
+}
+
+.badge.bg-info {
+  background: var(--color-accent-subtle) !important;
+  color: var(--color-accent-fg) !important;
+  border: 1px solid var(--color-accent-muted);
+}
+
+/* Spinner in badge */
+.badge .spinner-border {
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+  border-width: 2px !important;
+}
+
+/* ========== PROGRESS BARS ========== */
+
+.progress {
+  background-color: var(--color-canvas-subtle) !important;
+  border-radius: var(--radius-full) !important;
+  height: 5px !important;
+  overflow: hidden;
+}
+
+.progress-bar {
+  background-color: var(--color-accent-emphasis) !important;
+  border-radius: var(--radius-full) !important;
+  transition: width 0.3s ease;
+}
+
+.progress-bar-striped {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+}
+
+.progress-bar-animated {
+  animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+  0% {
+    background-position: 1rem 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* ========== BUTTONS (Override Bootstrap) ========== */
+
+.btn {
+  border-radius: var(--radius-md) !important;
+  font-weight: 600 !important;
+  padding: var(--space-2) var(--space-4) !important;
+  transition: all var(--transition-speed) var(--transition-timing) !important;
+  border: 1px solid transparent !important;
+}
+
+.btn-primary {
+  background: var(--button-primary-bg) !important;
+  color: var(--button-primary-text) !important;
+  border-color: var(--button-primary-border) !important;
+}
+
+.btn-primary:hover {
+  background: var(--button-primary-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md) !important;
+}
+
+.btn-secondary {
+  background: var(--button-bg) !important;
+  color: var(--button-text) !important;
+  border-color: var(--button-border) !important;
+}
+
+.btn-secondary:hover {
+  background: var(--button-hover-bg) !important;
+  transform: translateY(-1px);
+}
+
+.btn-outline-secondary {
+  background: transparent !important;
+  color: var(--button-text) !important;
+  border-color: var(--button-border) !important;
+}
+
+.btn-outline-secondary:hover {
+  background: var(--button-bg) !important;
+  color: var(--button-text) !important;
+  border-color: var(--button-border) !important;
+}
+
+.btn-outline-danger {
+  background: transparent !important;
+  color: var(--color-danger-fg) !important;
+  border-color: var(--color-danger-muted) !important;
+}
+
+.btn-outline-danger:hover {
+  background: var(--color-danger-emphasis) !important;
+  color: var(--color-fg-onEmphasis) !important;
+  border-color: var(--color-danger-emphasis) !important;
+}
+
+.btn-danger {
+  background: var(--color-danger-emphasis) !important;
+  color: var(--color-fg-onEmphasis) !important;
+  border-color: var(--color-danger-emphasis) !important;
+}
+
+.btn-danger:hover {
+  background: var(--color-danger-fg) !important;
+  color: var(--color-fg-onEmphasis) !important;
+  border-color: var(--color-danger-fg) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md) !important;
+}
+
+.btn.btn-sm {
+  padding: var(--space-1) var(--space-3) !important;
+  font-size: var(--font-size-sm) !important;
+}
+
+/* ========== EXPANDABLE ROW DETAILS ========== */
+
+.import-details-panel {
+  background: transparent !important;
+  border-top: 1px solid var(--color-border-default) !important;
+  padding: var(--space-4) !important;
+}
+
+.import-details-panel h6 {
+  color: var(--primary-text) !important;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.import-details-panel dl {
+  margin-bottom: 0;
+}
+
+.import-details-panel dt {
+  color: var(--primary-text) !important;
+  opacity: 0.7;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+}
+
+.import-details-panel dd {
+  color: var(--primary-text) !important;
+  font-size: var(--font-size-sm);
+}
+
+/* ========== LOGS VIEWER ========== */
+
+.logs-container {
+  background: var(--color-canvas-default) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-md) !important;
+  padding: var(--space-3) !important;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: var(--font-mono) !important;
+  font-size: var(--font-size-sm);
+}
+
+/* Dark background for logs (code-like appearance) */
+.theme-light .logs-container {
+  background: #24292f !important;
+  color: #e6edf3 !important;
+  border-color: #30363d !important;
+}
+
+.theme-dark .logs-container {
+  background: #000000 !important;
+  color: #e6edf3 !important;
+  border-color: #30363d !important;
+}
+
+.theme-dark-plus .logs-container {
+  background: #000000 !important;
+  color: #f0f6fc !important;
+  border-color: #21262d !important;
+}
+
+.log-entry {
+  margin-bottom: var(--space-1);
+  line-height: 1.6;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.log-entry .text-muted {
+  color: #8b949e !important;
+  font-size: var(--font-size-xs);
+}
+
+.log-entry .badge {
+  font-size: 0.65rem !important;
+  padding: 1px 6px !important;
+}
+
+/* Logs container scrollbar theming */
+.logs-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+.logs-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* ========== ALERTS (Override Bootstrap) ========== */
+
+.alert {
+  border-radius: var(--radius-md) !important;
+  padding: var(--space-3) var(--space-4) !important;
+  border: 1px solid transparent !important;
+  font-size: var(--font-size-sm);
+}
+
+.alert-danger {
+  background: var(--color-danger-subtle) !important;
+  color: var(--color-danger-fg) !important;
+  border-color: var(--color-danger-muted) !important;
+}
+
+.alert-warning {
+  background: var(--color-attention-subtle) !important;
+  color: var(--color-attention-fg) !important;
+  border-color: var(--color-attention-muted) !important;
+}
+
+.alert-info {
+  background: var(--color-accent-subtle) !important;
+  color: var(--color-accent-fg) !important;
+  border-color: var(--color-accent-muted) !important;
+}
+
+.alert .alert-link {
+  color: var(--color-accent-fg) !important;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.alert .alert-link:hover {
+  opacity: 0.8;
+}
+
+/* ========== MODALS (Override Bootstrap) ========== */
+
+.modal-content {
+  background: var(--modal-bg) !important;
+  border: 1px solid var(--modal-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--modal-shadow) !important;
+}
+
+.modal-header {
+  background: var(--modal-header-bg) !important;
+  border-bottom: 1px solid var(--modal-border) !important;
+  padding: var(--space-4) !important;
+}
+
+.modal-title {
+  color: var(--primary-text) !important;
+  font-weight: 600;
+  font-size: var(--font-size-lg);
+}
+
+.modal-body {
+  background: var(--modal-bg) !important;
+  color: var(--primary-text) !important;
+  padding: var(--space-4) !important;
+}
+
+.modal-body p {
+  color: var(--primary-text) !important;
+}
+
+.modal-body ul {
+  color: var(--primary-text) !important;
+}
+
+.modal-body strong {
+  color: var(--primary-text) !important;
+}
+
+.modal-footer {
+  background: var(--modal-bg) !important;
+  border-top: 1px solid var(--modal-border) !important;
+  padding: var(--space-4) !important;
+}
+
+.modal-backdrop {
+  background-color: var(--modal-backdrop) !important;
+}
+
+.modal-backdrop.show {
+  opacity: 0.5 !important;
+}
+
+/* Close button */
+.btn-close {
+  filter: var(--close-button-filter);
+  opacity: 0.7;
+}
+
+.btn-close:hover {
+  opacity: 1;
+}
+
+/* ========== SPINNER ========== */
+
+.spinner-border {
+  border-color: var(--color-accent-muted) !important;
+  border-right-color: transparent !important;
+}
+
+/* ========== EMPTY STATE ========== */
+
+.empty-state {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.empty-state p {
+  color: var(--primary-text) !important;
+  opacity: 0.8;
+  font-size: var(--font-size-md);
+  margin-bottom: var(--space-4);
+}
+
+/* ========== CHEVRON ICONS ========== */
+
+.bi-chevron-down,
+.bi-chevron-right {
+  transition: transform var(--transition-speed);
+  color: var(--primary-text) !important;
+  opacity: 0.6;
+}
+
+/* ========== HOVER ANIMATIONS ========== */
+
+.stats-card,
+.btn,
+.table tbody tr {
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+/* ========== UTILITIES ========== */
+
+.text-muted {
+  color: var(--primary-text) !important;
+  opacity: 0.7 !important;
+}
+
+/* ========== RESPONSIVE ADJUSTMENTS ========== */
+
+@media (max-width: 768px) {
+  .stats-card {
+    margin-bottom: var(--space-3);
+  }
+
+  .table {
+    font-size: var(--font-size-sm);
+  }
+
+  .table thead th,
+  .table tbody td {
+    padding: var(--space-2) !important;
+  }
+}

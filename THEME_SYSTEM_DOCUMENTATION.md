@@ -17,7 +17,8 @@
 6. [Finding and Fixing Non-Themed Components](#finding-and-fixing-non-themed-components)
 7. [Rolling Out Theme Changes](#rolling-out-theme-changes)
 8. [Best Practices](#best-practices)
-9. [Troubleshooting](#troubleshooting)
+9. [⚠️ CRITICAL: Bootstrap Background Override Pattern](#️-critical-bootstrap-background-override-pattern) ⭐ **READ THIS FIRST FOR NEW PAGES**
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -742,6 +743,8 @@ For each page you fix:
 
 ## Best Practices
 
+> **⚠️ IMPORTANT: Before creating ANY new page component, read the [Bootstrap Background Override Pattern](#️-critical-bootstrap-background-override-pattern) section below. This is a MANDATORY pattern to prevent gray boxes on dark themes.**
+
 ### DO ✅
 
 1. **Always use CSS variables for colors**
@@ -842,6 +845,183 @@ Follow these patterns:
 --secondary-text
 --muted-text
 ```
+
+---
+
+## ⚠️ CRITICAL: Bootstrap Background Override Pattern
+
+### The Problem
+
+**Bootstrap React components (`Card`, `Table`, `Row`, `Col`, etc.) have built-in white/gray backgrounds** that create visible boxes on dark themes. This is a **RECURRING ISSUE** that happens with every new page.
+
+**Symptoms:**
+- Gray or blue-tinted boxes/cards on dark theme
+- White table backgrounds
+- Components don't look transparent/clean
+- Doesn't match the theme-demo style
+
+### The Root Cause
+
+Bootstrap's CSS has default backgrounds:
+```css
+/* Bootstrap defaults that override your theme */
+.card { background-color: #fff; }
+.card-body { background-color: rgba(0,0,0,.03); }
+.table { background-color: #fff; }
+.table-hover tbody tr { background-color: #f8f9fa; }
+```
+
+These have **higher specificity** than simple class selectors and are **loaded after** your custom CSS, so they override your transparent backgrounds.
+
+### The Solution Pattern (MANDATORY for all new pages)
+
+**Step 1: Wrap Your Page Component**
+
+```jsx
+// In your JSX component
+return (
+  <Container fluid className="your-component-page mt-4">
+    {/* All your content */}
+  </Container>
+);
+```
+
+**Step 2: Create Scoped CSS with Maximum Specificity**
+
+```css
+/* your-component.css */
+
+/* ========== CRITICAL BOOTSTRAP OVERRIDES ========== */
+/* MUST come first in CSS file */
+
+/* Scope everything to your page class */
+.your-component-page {
+  background: transparent !important;
+}
+
+/* Override ALL Bootstrap backgrounds within your page */
+.your-component-page .card,
+.your-component-page .card-body,
+.your-component-page .row,
+.your-component-page [class*="col-"],
+.your-component-page .table,
+.your-component-page .table tbody,
+.your-component-page .table thead,
+.your-component-page .table tbody tr,
+.your-component-page .table tbody td,
+.your-component-page .table thead th {
+  background-color: transparent !important;
+  background-image: none !important;
+  background: transparent !important;
+}
+
+/* Override Bootstrap utility classes */
+.your-component-page .bg-white,
+.your-component-page .bg-light,
+.your-component-page .bg-secondary {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+```
+
+**Step 3: Scope ALL Your Component Styles**
+
+```css
+/* All other styles MUST be scoped */
+.your-component-page .stats-card {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: 2px solid var(--color-border-default) !important;
+}
+
+.your-component-page .table tbody tr:hover {
+  background: var(--table-row-hover) !important;
+}
+```
+
+### Why This Works
+
+1. **Higher Specificity**: `.your-component-page .card` (specificity 0,2,0) beats `.card` (specificity 0,1,0)
+2. **Scoping**: Only affects your page, doesn't interfere with other components
+3. **Triple Override**: Uses `background-color`, `background-image`, AND `background` to catch all Bootstrap variations
+4. **!important**: Nuclear option to override Bootstrap's specificity tricks
+
+### Text Color Rules (Also Recurring Issue)
+
+**❌ NEVER use gray color variables:**
+```css
+/* WRONG - Creates dim text */
+color: var(--secondary-text);  /* ❌ Gray #6e7681 */
+color: var(--muted-text);      /* ❌ Gray #6e7681 */
+color: var(--color-fg-subtle); /* ❌ Gray #6e7681 */
+```
+
+**✅ ALWAYS use primary text with opacity:**
+```css
+/* CORRECT - Bright text with subtle dimming */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--primary-text) !important;  /* Full brightness */
+}
+
+small, .label, .descriptive-text {
+  color: var(--primary-text) !important;
+  opacity: 0.7;  /* Dimmed via opacity, not gray color */
+}
+
+.subtitle {
+  color: var(--primary-text) !important;
+  opacity: 0.85;  /* Slightly less dim */
+}
+```
+
+### Override Bootstrap's .text-muted
+
+Bootstrap's `.text-muted` class adds gray color. Override it:
+
+```css
+.your-component-page .text-muted {
+  color: var(--primary-text) !important;
+  opacity: 0.7 !important;
+}
+```
+
+### Complete Checklist for New Pages
+
+When creating a new page component, follow this checklist:
+
+- [ ] **1. Add wrapper class** to Container/root element (`.my-page-name`)
+- [ ] **2. Start CSS file** with Bootstrap override section (copy template above)
+- [ ] **3. Scope ALL selectors** to wrapper class (`.my-page-name .component`)
+- [ ] **4. Use transparent backgrounds** for all cards, tables, rows
+- [ ] **5. Use `--primary-text` for all text**, never `--secondary-text` or `--muted-text`
+- [ ] **6. Use `opacity`** for dimming, not gray colors
+- [ ] **7. Override `.text-muted`** class
+- [ ] **8. Add `!important`** to critical overrides (backgrounds, colors)
+- [ ] **9. Test in Dark theme** - should see black background, not gray boxes
+- [ ] **10. Compare to theme-demo** - should look similar (clean, transparent)
+
+### Example: Import Monitor Page
+
+See `/frontend/src/pages/ImportMonitor.css` and `/frontend/src/pages/ImportMonitor.jsx` for a complete working example of this pattern.
+
+Key elements:
+- Wrapper class: `.import-monitor-page`
+- Bootstrap overrides at top of CSS
+- All selectors scoped: `.import-monitor-page .stats-card`
+- Transparent backgrounds everywhere
+- Primary text with opacity for hierarchy
+
+### When to Use This Pattern
+
+**Always use this pattern when:**
+- Creating a new page component
+- Using Bootstrap React components (Card, Table, Modal, etc.)
+- Components should blend with dark background (not have visible boxes)
+- Following the clean, transparent aesthetic of theme-demo
+
+**Exception: When boxes are intentional**
+- Modals should have visible backgrounds (use `var(--modal-bg)`)
+- Certain cards that need to stand out (use sparingly)
 
 ---
 
@@ -1065,7 +1245,9 @@ This theme system provides a **maintainable, scalable, and user-friendly** way t
 
 **Key Takeaway:** Everything visual should use CSS variables from `themes.css`. If it doesn't, fix it. When in doubt, test in `/theme-demo` first.
 
+**CRITICAL:** For all new page components, follow the [Bootstrap Background Override Pattern](#️-critical-bootstrap-background-override-pattern) to prevent gray boxes on dark themes.
+
 ---
 
-**Last Updated:** 2025-01-25
+**Last Updated:** 2025-10-28 (Added Bootstrap Override Pattern section)
 **Next Review:** When adding new components or themes

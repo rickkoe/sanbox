@@ -10,6 +10,11 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
+class CancelledException(Exception):
+    """Exception raised when an import is cancelled by user"""
+    pass
+
+
 @shared_task
 def test_task():
     """Simple test task to verify Celery is working"""
@@ -93,8 +98,14 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
         import_record.status = 'running'
         import_record.save()
 
-        # Progress callback
+        # Progress callback with cancellation check
         def progress_callback(current, total, message):
+            # Check for cancellation flag
+            import_record.refresh_from_db()
+            if import_record.cancelled:
+                import_logger.info('Import cancellation detected, stopping...')
+                raise CancelledException('Import cancelled by user')
+
             import_logger.info(message)
             self.update_state(
                 state='PROGRESS',
@@ -156,6 +167,7 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
         # Update import record with results
         import_record.status = 'completed'
         import_record.completed_at = timezone.now()
+        import_record.import_type = 'storage_insights' if import_type == 'storage' else 'san_config'
         import_record.api_response_summary = {
             'import_type': import_type,
             'stats': result['stats'],
@@ -167,6 +179,29 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
             'import_id': import_record.id,
             'status': 'completed',
             'stats': result['stats']
+        }
+
+    except CancelledException as e:
+        # Handle cancellation gracefully
+        logger.info(f"Import {import_id} was cancelled by user")
+
+        try:
+            import_record = StorageImport.objects.get(id=import_id)
+            import_logger = ImportLogger(import_record)
+            import_logger.info('Import cancelled by user. Partial data may have been imported.')
+
+            import_record.status = 'cancelled'
+            import_record.error_message = 'Import cancelled by user. Partial data may have been imported.'
+            import_record.completed_at = timezone.now()
+            import_record.save()
+
+        except Exception as log_error:
+            logger.error(f"Failed to update cancelled import: {log_error}")
+
+        return {
+            'import_id': import_id,
+            'status': 'cancelled',
+            'message': 'Import cancelled by user'
         }
 
     except StorageImport.DoesNotExist:

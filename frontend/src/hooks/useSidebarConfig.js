@@ -23,6 +23,7 @@ import {
   Upload,
   FileSpreadsheet,
   Router,
+  History,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -120,6 +121,7 @@ const getSidebarLinks = (pathname) => {
         expandable: true,
         subLinks: [
           { path: "/import/universal", label: "Universal Importer", icon: Upload },
+          { path: "/import/monitor", label: "Import History", icon: History },
         ]
       },
       {
