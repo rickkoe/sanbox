@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 
-const StepIndicator = ({ currentStep, importType }) => {
+const StepIndicator = ({ currentStep, importType, loading = false, importStatus = null }) => {
   // Step 2 changes based on import type
   const step2Label = importType === 'storage' ? 'Download Data' : 'Upload Data';
 
@@ -12,6 +12,9 @@ const StepIndicator = ({ currentStep, importType }) => {
     { id: 4, label: 'Execute' }
   ];
 
+  // Check if step 4 is completed based on import status
+  const isStep4Completed = importStatus === 'COMPLETED' || importStatus === 'SUCCESS';
+
   return (
     <div className="step-indicator-sticky">
       <div className="step-indicator-container">
@@ -19,16 +22,27 @@ const StepIndicator = ({ currentStep, importType }) => {
         <div className="step-indicator-line">
           {/* Completed portion of the line */}
           <div
-            className="step-indicator-line-progress"
+            className={`step-indicator-line-progress ${loading ? 'loading' : ''}`}
             style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
           />
+
+          {/* Loading animation overlay - shows on the next segment */}
+          {loading && currentStep < steps.length && (
+            <div
+              className="step-indicator-line-loading"
+              style={{
+                left: `${((currentStep - 1) / (steps.length - 1)) * 100}%`,
+                width: `${(1 / (steps.length - 1)) * 100}%`
+              }}
+            />
+          )}
         </div>
 
         {/* Step nodes */}
         <div className="step-indicator-steps">
           {steps.map((step, index) => {
-            const isCompleted = step.id < currentStep;
-            const isActive = step.id === currentStep;
+            const isCompleted = step.id < currentStep || (step.id === 4 && isStep4Completed);
+            const isActive = step.id === currentStep && !isStep4Completed;
 
             return (
               <div key={step.id} className="step-indicator-step">

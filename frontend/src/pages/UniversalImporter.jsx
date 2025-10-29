@@ -787,7 +787,12 @@ const UniversalImporter = () => {
     <div className={`universal-importer theme-${theme}`}>
       <div className="importer-container">
         {/* Step Indicator */}
-        <StepIndicator currentStep={step} importType={importType} />
+        <StepIndicator
+          currentStep={step}
+          importType={importType}
+          loading={loading}
+          importStatus={importStatus}
+        />
 
         {/* Step Content */}
         <div className="step-content">
