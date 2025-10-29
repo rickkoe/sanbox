@@ -38,6 +38,7 @@
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
+  margin-top: 0;
   margin-bottom: var(--space-4);
   box-shadow: none;
 }
@@ -51,123 +52,163 @@
   border-bottom: 2px solid var(--color-border-default);
 }
 
-/* ===== STEP INDICATOR ===== */
-.step-indicator-container {
-  margin-bottom: var(--space-6);
+/* ===== STEP INDICATOR (Classic Stepper) ===== */
+.step-indicator-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--primary-bg);
+  padding: var(--space-5) 0;
+  margin: 0 0 var(--space-6) 0;
+  border-bottom: 1px solid var(--color-border-default);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  /* Prevent content shift when sticky activates */
+  will-change: transform;
+  transform: translateZ(0);
 }
 
-.step-indicator {
+.step-indicator-container {
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+}
+
+/* Horizontal connecting line */
+.step-indicator-line {
+  position: absolute;
+  top: 20px; /* Center with badge (40px height / 2) */
+  left: calc(12.5% + var(--space-6)); /* Start from center of first badge */
+  right: calc(12.5% + var(--space-6)); /* End at center of last badge */
+  height: 3px;
+  background: var(--color-border-muted);
+  border-radius: 2px;
+  z-index: 1;
+}
+
+/* Completed portion of the line */
+.step-indicator-line-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--color-success-emphasis);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* Step nodes container */
+.step-indicator-steps {
+  position: relative;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  position: relative;
-  padding: 0 var(--space-2);
+  z-index: 2;
 }
 
-.step-item {
+.step-indicator-step {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
-  flex: 1;
-  max-width: 180px;
+  gap: var(--space-3);
 }
 
-.step-icon-wrapper {
-  width: 56px;
-  height: 56px;
+/* Circle badges */
+.step-indicator-badge {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  background: var(--secondary-bg);
-  border: 2px solid var(--color-border-default);
-  margin-bottom: var(--space-2);
-  transition: all 0.2s ease;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  border: 3px solid var(--color-border-default);
+  background: var(--primary-bg);
+  color: var(--muted-text);
+  transition: all 0.3s ease;
 }
 
-.step-item.active .step-icon-wrapper {
-  background: var(--color-accent-subtle);
-  border-color: var(--color-accent-emphasis);
-  box-shadow: 0 0 0 4px var(--color-accent-muted);
-}
-
-.step-item.completed .step-icon-wrapper {
-  background: var(--color-success-subtle);
+.step-indicator-badge.completed {
+  background: var(--color-success-emphasis);
   border-color: var(--color-success-emphasis);
+  color: var(--color-fg-onEmphasis);
 }
 
-.step-icon-wrapper svg {
-  color: var(--secondary-text);
+.step-indicator-badge.active {
+  background: var(--color-accent-emphasis);
+  border-color: var(--color-accent-emphasis);
+  color: var(--color-fg-onEmphasis);
+  box-shadow: 0 0 0 4px var(--color-accent-subtle);
+  transform: scale(1.1);
 }
 
-.step-item.active .step-icon-wrapper svg {
-  color: var(--color-accent-emphasis);
-}
-
-.step-item.completed .step-icon-wrapper svg {
-  color: var(--color-success-emphasis);
-}
-
-.step-content-text {
-  text-align: center;
-}
-
-.step-label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--primary-text);
-  margin-bottom: var(--space-1);
-}
-
-.step-description {
-  font-size: var(--font-size-xs);
+.step-indicator-badge.pending {
+  background: var(--primary-bg);
+  border-color: var(--color-border-muted);
   color: var(--muted-text);
 }
 
-.step-connector {
-  position: absolute;
-  top: 28px;
-  left: calc(50% + 28px);
-  right: calc(-50% + 28px);
-  height: 2px;
-  background: var(--color-border-default);
-  z-index: -1;
-}
-
-.step-item.completed .step-connector {
-  background: var(--color-success-emphasis);
-}
-
-/* Mobile Step Indicator */
-.mobile-progress {
-  display: none;
-  padding: var(--space-3);
-  background: var(--card-bg);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-default);
-  margin-bottom: var(--space-4);
-}
-
-.mobile-progress-label {
+/* Step labels */
+.step-indicator-label {
   font-size: var(--font-size-sm);
+  font-weight: 600;
   color: var(--secondary-text);
-  margin-bottom: var(--space-2);
   text-align: center;
+  white-space: nowrap;
+  transition: all 0.3s ease;
 }
 
-.mobile-progress-bar {
-  height: 6px;
-  background: var(--color-border-muted);
-  border-radius: 3px;
-  overflow: hidden;
+.step-indicator-step:has(.step-indicator-badge.active) .step-indicator-label {
+  color: var(--primary-text);
+  font-weight: 700;
 }
 
-.mobile-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-accent-emphasis), var(--color-accent-fg));
-  transition: width 0.3s ease;
+.step-indicator-step:has(.step-indicator-badge.completed) .step-indicator-label {
+  color: var(--primary-text);
+}
+
+/* Mobile step indicator */
+.step-indicator-mobile {
+  display: none;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .step-indicator-container {
+    display: none;
+  }
+
+  .step-indicator-mobile {
+    display: block;
+    padding: 0 var(--space-4);
+  }
+
+  .step-indicator-mobile-text {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--primary-text);
+    margin-bottom: var(--space-2);
+    text-align: center;
+  }
+
+  .step-indicator-mobile-bar {
+    height: 6px;
+    background: var(--color-border-muted);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .step-indicator-mobile-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-accent-emphasis), var(--color-accent-fg));
+    transition: width 0.3s ease;
+    border-radius: 3px;
+  }
+
+  .step-indicator-sticky {
+    padding: var(--space-3) 0;
+  }
 }
 
 /* ===== IMPORT TYPE SELECTOR ===== */
@@ -1305,5 +1346,77 @@
 
   .completion-modal-footer .nav-button {
     width: 100%;
+  }
+}
+
+/* ===== SCROLL NAVIGATION BUTTONS ===== */
+.scroll-button {
+  position: fixed;
+  right: 32px; /* var(--space-6) equivalent */
+  width: 48px;
+  height: 48px;
+  border-radius: 50%; /* Perfect circle */
+  background: var(--color-accent-emphasis);
+  color: var(--color-fg-onEmphasis);
+  border: none;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 999;
+  opacity: 0;
+  animation: fadeInButton 0.3s ease forwards;
+}
+
+@keyframes fadeInButton {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.scroll-button:hover {
+  background: var(--color-accent-fg);
+  transform: scale(1.1);
+  box-shadow: var(--shadow-xl);
+}
+
+.scroll-button:active {
+  transform: scale(0.95);
+}
+
+.scroll-to-top {
+  bottom: 100px; /* Space for bottom button below it */
+}
+
+.scroll-to-bottom {
+  bottom: 32px; /* var(--space-6) equivalent */
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .scroll-button {
+    right: 16px; /* var(--space-4) equivalent */
+    width: 40px;
+    height: 40px;
+  }
+
+  .scroll-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .scroll-to-top {
+    bottom: 76px; /* Space for bottom button below it */
+  }
+
+  .scroll-to-bottom {
+    bottom: 16px; /* var(--space-4) equivalent */
   }
 }

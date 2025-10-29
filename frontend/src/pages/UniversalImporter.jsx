@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 
 // Import new modern components
 import StepIndicator from '../components/UniversalImporter/StepIndicator';
+import ScrollButtons from '../components/UniversalImporter/ScrollButtons';
 import ImportTypeSelector from '../components/UniversalImporter/ImportTypeSelector';
 import DataUploader from '../components/UniversalImporter/DataUploader';
 import DataPreview from '../components/UniversalImporter/DataPreview';
@@ -1237,6 +1238,9 @@ const UniversalImporter = () => {
           </div>
         </div>
       )}
+
+      {/* Scroll Navigation Buttons */}
+      <ScrollButtons />
     </div>
   );
 };
