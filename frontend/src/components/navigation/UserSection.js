@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Settings, HelpCircle, User, Sliders, Info, LogOut, Database, BookOpen } from "lucide-react";
+import { Settings, HelpCircle, User, Sliders, Info, LogOut, Database, BookOpen, Activity } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "../../context/AuthContext";
 
@@ -43,6 +43,10 @@ const UserSection = ({ onAboutClick }) => {
             <Dropdown.Item as={NavLink} to="/settings/backups">
               <Database size={16} className="me-2" />
               Backup & Restore
+            </Dropdown.Item>
+            <Dropdown.Item as={NavLink} to="/audit-log">
+              <Activity size={16} className="me-2" />
+              Activity Log
             </Dropdown.Item>
           </Dropdown.Menu>
         </Dropdown>

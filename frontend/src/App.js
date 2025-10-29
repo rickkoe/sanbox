@@ -79,6 +79,7 @@ const BackupDashboard = React.lazy(() => import("./pages/BackupDashboard"));
 const RestoreHistory = React.lazy(() => import("./pages/RestoreHistory"));
 const ThemeDemo = React.lazy(() => import("./pages/ThemeDemo"));
 const UserManual = React.lazy(() => import("./pages/UserManual"));
+const AuditLog = React.lazy(() => import("./pages/AuditLog"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -124,6 +125,7 @@ function AppContent() {
     '/settings/backups',
     '/settings/backups/dashboard',
     '/settings/backups/restore-history',
+    '/audit-log',
     '/manual'
   ];
 
@@ -262,6 +264,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/settings/backups" element={<BackupManagement />} />
                     <Route path="/settings/backups/dashboard" element={<BackupDashboard />} />
                     <Route path="/settings/backups/restore-history" element={<RestoreHistory />} />
+                    <Route path="/audit-log" element={<AuditLog />} />
                     <Route path="/manual" element={<UserManual />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

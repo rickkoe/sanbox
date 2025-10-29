@@ -15,6 +15,19 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 # Allowed hosts from environment
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
+# Middleware - Override to include AuditLogMiddleware
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.AuditLogMiddleware',  # Audit logging middleware
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
 # File upload settings - Allow large tech-support files (up to 100MB)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100MB in bytes
@@ -53,6 +66,10 @@ CELERY_BEAT_SCHEDULE = {
     'auto-backup-hourly': {
         'task': 'backup.tasks.auto_backup_task',
         'schedule': crontab(minute='0'),  # Run at the top of every hour
+    },
+    'auto-purge-audit-logs-daily': {
+        'task': 'core.auto_purge_audit_logs',
+        'schedule': crontab(hour='2', minute='0'),  # Run daily at 2 AM
     },
 }
 

@@ -9,6 +9,7 @@ from rest_framework import status
 import json
 
 from .serializers import UserSerializer, UserRegistrationSerializer, LoginSerializer
+from core.audit import log_login, log_logout
 
 
 @api_view(['POST'])
@@ -34,6 +35,9 @@ def login_view(request):
         # Create session
         login(request, user)
 
+        # Log successful login
+        log_login(user, request, status='SUCCESS')
+
         # Return user data with memberships
         user_serializer = UserSerializer(user)
         return Response({
@@ -41,6 +45,7 @@ def login_view(request):
             'message': 'Login successful'
         }, status=status.HTTP_200_OK)
     else:
+        # Don't log failed logins to avoid log spam from bots
         return Response({
             'error': 'Invalid username or password'
         }, status=status.HTTP_401_UNAUTHORIZED)
@@ -53,6 +58,11 @@ def logout_view(request):
     Logout endpoint - destroys session
     POST /api/auth/logout/
     """
+    user = request.user
+
+    # Log logout before destroying session
+    log_logout(user, request)
+
     logout(request)
     return Response({
         'message': 'Logout successful'

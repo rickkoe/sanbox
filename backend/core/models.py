@@ -345,6 +345,12 @@ class AppSettings(models.Model):
         help_text="Automatically grant superuser status (full admin privileges) to newly registered users"
     )
 
+    # Audit Log Settings
+    audit_log_retention_days = models.IntegerField(
+        default=90,
+        help_text="Number of days to retain audit logs before automatic purge"
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -400,6 +406,147 @@ class AppSettings(models.Model):
             defaults=settings_data
         )
         return settings
+
+
+class AuditLog(models.Model):
+    """
+    Stores high-level audit logs of user actions across the application.
+    Logs operations at the activity level, not per-object granularity.
+    """
+
+    ACTION_TYPE_CHOICES = [
+        ('LOGIN', 'User Login'),
+        ('LOGOUT', 'User Logout'),
+        ('IMPORT', 'Data Import'),
+        ('BACKUP', 'Database Backup'),
+        ('RESTORE', 'Database Restore'),
+        ('CREATE', 'Create'),
+        ('UPDATE', 'Update'),
+        ('DELETE', 'Delete'),
+        ('EXPORT', 'Data Export'),
+        ('CONFIG_CHANGE', 'Configuration Change'),
+    ]
+
+    STATUS_CHOICES = [
+        ('IN_PROGRESS', 'In Progress'),
+        ('SUCCESS', 'Success'),
+        ('FAILED', 'Failed'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+
+    ENTITY_TYPE_CHOICES = [
+        ('FABRIC', 'Fabric'),
+        ('ZONE', 'Zone'),
+        ('ALIAS', 'Alias'),
+        ('SWITCH', 'Switch'),
+        ('STORAGE_SYSTEM', 'Storage System'),
+        ('VOLUME', 'Volume'),
+        ('HOST', 'Host'),
+        ('BACKUP', 'Backup'),
+        ('CREDENTIALS', 'Credentials'),
+        ('SETTINGS', 'Settings'),
+        ('USER', 'User'),
+    ]
+
+    # User who performed the action
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        help_text="User who performed the action"
+    )
+
+    # When the action occurred
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text="When the action was initiated"
+    )
+
+    # Action classification
+    action_type = models.CharField(
+        max_length=20,
+        choices=ACTION_TYPE_CHOICES,
+        db_index=True,
+        help_text="Type of action performed"
+    )
+
+    entity_type = models.CharField(
+        max_length=20,
+        choices=ENTITY_TYPE_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Type of entity affected"
+    )
+
+    entity_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Name of specific entity affected (optional)"
+    )
+
+    # Customer context
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        db_index=True,
+        help_text="Customer this action affects"
+    )
+
+    # Action details
+    summary = models.TextField(
+        help_text="Human-readable summary of the action"
+    )
+
+    details = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Structured data about the action (counts, errors, etc.)"
+    )
+
+    # Status and duration
+    status = models.CharField(
+        max_length=15,
+        choices=STATUS_CHOICES,
+        db_index=True,
+        default='SUCCESS',
+        help_text="Status of the action"
+    )
+
+    duration_seconds = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Duration of the action in seconds"
+    )
+
+    # Network context
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address of the user"
+    )
+
+    class Meta:
+        verbose_name = "Audit Log"
+        verbose_name_plural = "Audit Logs"
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['-timestamp']),
+            models.Index(fields=['user', '-timestamp']),
+            models.Index(fields=['customer', '-timestamp']),
+            models.Index(fields=['action_type', '-timestamp']),
+            models.Index(fields=['status', '-timestamp']),
+        ]
+
+    def __str__(self):
+        user_name = self.user.username if self.user else "System"
+        return f"{user_name} - {self.action_type} - {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
 
 
 class CustomNamingRule(models.Model):

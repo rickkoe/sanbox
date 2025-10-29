@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, UserConfig, EquipmentType, WorksheetTemplate
+from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, UserConfig, EquipmentType, WorksheetTemplate, AuditLog
 from customers.models import Customer
 
 
@@ -346,3 +346,40 @@ class WorksheetTemplateSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError(f"Each equipment item must have '{key}' property")
 
         return value
+
+
+# ========== AUDIT LOG SERIALIZER ==========
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    """Serializer for audit logs"""
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    user_full_name = serializers.SerializerMethodField()
+    customer_name = serializers.CharField(source='customer.name', read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            'id',
+            'timestamp',
+            'user',
+            'user_username',
+            'user_full_name',
+            'action_type',
+            'entity_type',
+            'entity_name',
+            'customer',
+            'customer_name',
+            'summary',
+            'details',
+            'status',
+            'duration_seconds',
+            'ip_address'
+        ]
+        read_only_fields = fields  # All fields are read-only
+
+    def get_user_full_name(self, obj):
+        """Get user's full name or username"""
+        if not obj.user:
+            return "System"
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full_name if full_name else obj.user.username

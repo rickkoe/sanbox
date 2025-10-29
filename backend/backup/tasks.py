@@ -6,6 +6,7 @@ from celery import shared_task
 from django.utils import timezone
 from .models import BackupRecord, RestoreRecord
 from .service import BackupService, RestoreService
+from core.audit import log_backup, log_restore
 
 
 @shared_task(bind=True)
@@ -38,7 +39,25 @@ def create_backup_task(self, backup_id, include_media=False):
         # Create backup
         success, error = service.create_backup(include_media=include_media)
 
+        # Refresh to get updated values
+        backup.refresh_from_db()
+
+        # Calculate duration in seconds
+        duration_seconds = None
+        if backup.duration:
+            duration_seconds = int(backup.duration.total_seconds())
+
         if success:
+            # Log successful backup
+            log_backup(
+                user=backup.created_by,
+                backup_name=backup.name,
+                size_mb=backup.size_mb,
+                status='SUCCESS',
+                duration_seconds=duration_seconds,
+                details={'include_media': include_media}
+            )
+
             return {
                 'status': 'completed',
                 'backup_id': backup_id,
@@ -47,6 +66,15 @@ def create_backup_task(self, backup_id, include_media=False):
                 'duration': str(backup.duration)
             }
         else:
+            # Log failed backup
+            log_backup(
+                user=backup.created_by,
+                backup_name=backup.name,
+                status='FAILED',
+                duration_seconds=duration_seconds,
+                details={'error': error, 'include_media': include_media}
+            )
+
             return {
                 'status': 'failed',
                 'backup_id': backup_id,
@@ -95,7 +123,32 @@ def restore_backup_task(self, restore_id):
         # Perform restore
         success, error = service.restore_backup()
 
+        # Refresh to get updated values
+        restore.refresh_from_db()
+
+        # Calculate duration in seconds
+        duration_seconds = None
+        if restore.duration:
+            duration_seconds = int(restore.duration.total_seconds())
+
+        # Get details
+        details = {
+            'backup_name': restore.backup.name,
+            'schema_compatible': restore.schema_compatible
+        }
+        if restore.pre_restore_backup:
+            details['pre_restore_backup'] = restore.pre_restore_backup.name
+
         if success:
+            # Log successful restore
+            log_restore(
+                user=restore.initiated_by,
+                backup_name=restore.backup.name,
+                status='SUCCESS',
+                duration_seconds=duration_seconds,
+                details=details
+            )
+
             return {
                 'status': 'completed',
                 'restore_id': restore_id,
@@ -103,6 +156,16 @@ def restore_backup_task(self, restore_id):
                 'duration': str(restore.duration)
             }
         else:
+            # Log failed restore
+            details['error'] = error
+            log_restore(
+                user=restore.initiated_by,
+                backup_name=restore.backup.name,
+                status='FAILED',
+                duration_seconds=duration_seconds,
+                details=details
+            )
+
             return {
                 'status': 'failed',
                 'restore_id': restore_id,

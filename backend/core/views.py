@@ -7,13 +7,13 @@ from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password
-from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, UserConfig
+from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, UserConfig, AuditLog
 from customers.models import Customer
 from .serializers import (
     ConfigSerializer, ProjectSerializer, ActiveConfigSerializer,
     TableConfigurationSerializer, AppSettingsSerializer,
     CustomNamingRuleSerializer, CustomVariableSerializer,
-    UserSerializer, UserConfigSerializer
+    UserSerializer, UserConfigSerializer, AuditLogSerializer
 )
 from customers.serializers import CustomerSerializer 
 
@@ -2093,3 +2093,173 @@ def heartbeat_view(request):
         "success": True,
         "last_activity": user_config.last_activity_at.isoformat()
     })
+
+
+# ========== AUDIT LOG VIEWS ==========
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def audit_log_list(request):
+    """
+    Get list of audit logs with optional filtering and pagination.
+
+    GET /api/core/audit-log/
+
+    Query params:
+    - user_id: Filter by user ID
+    - customer_id: Filter by customer ID
+    - action_type: Filter by action type (LOGIN, LOGOUT, IMPORT, etc.)
+    - status: Filter by status (SUCCESS, FAILED, etc.)
+    - start_date: Filter by start date (ISO format)
+    - end_date: Filter by end date (ISO format)
+    - page: Page number (default: 1)
+    - page_size: Items per page (default: 50)
+
+    Response:
+    {
+        "count": 100,
+        "next": 2,
+        "previous": null,
+        "results": [...audit logs...]
+    }
+    """
+    user = request.user if request.user.is_authenticated else None
+    if not user or not user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
+    try:
+        # Start with all audit logs, ordered by most recent first
+        queryset = AuditLog.objects.all().order_by('-timestamp')
+
+        # Apply filters
+        user_id = request.GET.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        customer_id = request.GET.get('customer_id')
+        if customer_id:
+            queryset = queryset.filter(customer_id=customer_id)
+
+        action_type = request.GET.get('action_type')
+        if action_type:
+            queryset = queryset.filter(action_type=action_type)
+
+        status = request.GET.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+
+        start_date = request.GET.get('start_date')
+        if start_date:
+            from datetime import datetime
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            queryset = queryset.filter(timestamp__gte=start_dt)
+
+        end_date = request.GET.get('end_date')
+        if end_date:
+            from datetime import datetime
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            queryset = queryset.filter(timestamp__lte=end_dt)
+
+        # Pagination
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 50))
+
+        # Calculate pagination
+        total_count = queryset.count()
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+
+        # Get page of results
+        logs = queryset.select_related('user', 'customer')[start_index:end_index]
+
+        # Serialize
+        serializer = AuditLogSerializer(logs, many=True)
+
+        # Build response
+        response = {
+            'count': total_count,
+            'next': page + 1 if end_index < total_count else None,
+            'previous': page - 1 if page > 1 else None,
+            'page': page,
+            'page_size': page_size,
+            'results': serializer.data
+        }
+
+        return JsonResponse(response)
+
+    except ValueError as e:
+        return JsonResponse({'error': f'Invalid parameter value: {str(e)}'}, status=400)
+    except Exception as e:
+        print(f"❌ Error in audit_log_list: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def audit_log_purge(request):
+    """
+    Purge old audit logs based on retention policy.
+
+    POST /api/core/audit-log/purge/
+
+    Deletes logs older than the retention period configured in AppSettings.
+
+    Response:
+    {
+        "deleted_count": 123,
+        "retention_days": 90,
+        "cutoff_date": "2024-07-01T00:00:00Z"
+    }
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    # Require authentication and staff/superuser permissions
+    if not user or not user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
+    if not (user.is_staff or user.is_superuser):
+        return JsonResponse({'error': 'Staff or superuser permission required'}, status=403)
+
+    try:
+        from datetime import timedelta
+        from django.utils import timezone
+
+        # Get retention setting
+        settings = AppSettings.get_settings()
+        retention_days = settings.audit_log_retention_days
+
+        # Calculate cutoff date
+        cutoff_date = timezone.now() - timedelta(days=retention_days)
+
+        # Delete old logs
+        old_logs = AuditLog.objects.filter(timestamp__lt=cutoff_date)
+        deleted_count = old_logs.count()
+        old_logs.delete()
+
+        # Log the purge action
+        from .audit import log_audit_event
+        log_audit_event(
+            user=user,
+            action_type='DELETE',
+            entity_type='SETTINGS',
+            summary=f"Purged {deleted_count} audit logs older than {retention_days} days",
+            details={
+                'deleted_count': deleted_count,
+                'retention_days': retention_days,
+                'cutoff_date': cutoff_date.isoformat()
+            }
+        )
+
+        return JsonResponse({
+            'deleted_count': deleted_count,
+            'retention_days': retention_days,
+            'cutoff_date': cutoff_date.isoformat()
+        })
+
+    except Exception as e:
+        print(f"❌ Error in audit_log_purge: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)

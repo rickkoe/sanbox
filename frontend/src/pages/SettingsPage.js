@@ -11,6 +11,11 @@ const SettingsPage = () => {
     const [saveStatus, setSaveStatus] = useState("");
     const [saving, setSaving] = useState(false);
 
+    // Audit log state
+    const [auditLogCount, setAuditLogCount] = useState(0);
+    const [purging, setPurging] = useState(false);
+    const [purgeStatus, setPurgeStatus] = useState("");
+
 
     const handleInputChange = async (e) => {
         const { name, value, type, checked } = e.target;
@@ -75,10 +80,56 @@ const SettingsPage = () => {
             zone_ratio: 'one-to-one',
             alias_max_zones: 1
         };
-        
+
         // Auto-save the reset using context
         await autoSave(defaultSettings);
     };
+
+    // Fetch audit log count
+    const fetchAuditLogCount = async () => {
+        try {
+            const response = await axios.get('/api/core/audit-log/', { params: { page_size: 1 } });
+            setAuditLogCount(response.data.count || 0);
+        } catch (error) {
+            console.error('Error fetching audit log count:', error);
+        }
+    };
+
+    // Purge old audit logs
+    const handlePurgeAuditLogs = async () => {
+        const confirmed = window.confirm(
+            `This will delete all audit logs older than ${settings.audit_log_retention_days || 90} days. ` +
+            'This action cannot be undone. Continue?'
+        );
+
+        if (!confirmed) return;
+
+        setPurging(true);
+        setPurgeStatus('');
+
+        try {
+            const response = await axios.post('/api/core/audit-log/purge/');
+            setPurgeStatus(`Successfully deleted ${response.data.deleted_count} old audit logs`);
+
+            // Refresh count
+            await fetchAuditLogCount();
+
+            // Clear success message after 5 seconds
+            setTimeout(() => setPurgeStatus(''), 5000);
+        } catch (error) {
+            console.error('Error purging audit logs:', error);
+            setPurgeStatus(error.response?.data?.error || 'Error purging audit logs');
+            // Clear error message after 5 seconds
+            setTimeout(() => setPurgeStatus(''), 5000);
+        } finally {
+            setPurging(false);
+        }
+    };
+
+    // Initial fetch of audit log count
+    useEffect(() => {
+        fetchAuditLogCount();
+    }, []);
 
 
     if (loading) {
@@ -211,6 +262,78 @@ const SettingsPage = () => {
                                 />
                                 <small className="form-help">Maximum number of zones per alias</small>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Audit Log Settings */}
+                    <div className="settings-section">
+                        <h3>Activity Log Settings</h3>
+                        <p className="settings-description">Configure audit log retention and manage stored activity logs</p>
+
+                        <div className="settings-grid">
+                            <div className="form-group">
+                                <label className="form-label">Retention Period (Days)</label>
+                                <input
+                                    type="number"
+                                    className="form-select"
+                                    name="audit_log_retention_days"
+                                    value={settings.audit_log_retention_days || 90}
+                                    onChange={handleInputChange}
+                                    min="1"
+                                    max="365"
+                                />
+                                <small className="form-help">
+                                    Logs older than this will be automatically deleted daily at 2 AM
+                                </small>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Current Log Count</label>
+                                <div className="audit-log-stats">
+                                    <div className="stat-value">{auditLogCount.toLocaleString()}</div>
+                                    <small className="form-help">Total audit log entries stored</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="audit-log-actions" style={{ marginTop: '1rem' }}>
+                            <button
+                                type="button"
+                                className="purge-btn"
+                                onClick={handlePurgeAuditLogs}
+                                disabled={purging || auditLogCount === 0}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: 'var(--color-danger-emphasis)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-sm)',
+                                    cursor: purging || auditLogCount === 0 ? 'not-allowed' : 'pointer',
+                                    opacity: purging || auditLogCount === 0 ? 0.6 : 1,
+                                    fontWeight: 500,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {purging ? 'Purging...' : 'Purge Old Logs Now'}
+                            </button>
+
+                            {purgeStatus && (
+                                <div
+                                    className={`purge-status ${purgeStatus.includes('Successfully') ? 'success' : 'error'}`}
+                                    style={{
+                                        marginTop: '0.5rem',
+                                        padding: '0.5rem',
+                                        borderRadius: 'var(--radius-sm)',
+                                        backgroundColor: purgeStatus.includes('Successfully')
+                                            ? 'var(--color-success-emphasis)'
+                                            : 'var(--color-danger-emphasis)',
+                                        color: 'white',
+                                        fontSize: '0.875rem'
+                                    }}
+                                >
+                                    {purgeStatus}
+                                </div>
+                            )}
                         </div>
                     </div>
 

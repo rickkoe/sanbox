@@ -4,6 +4,7 @@ from .models import StorageImport
 # Legacy SimpleStorageImporter removed - now using unified ImportOrchestrator
 from .logger import ImportLogger
 from customers.models import Customer
+from core.audit import log_import
 import logging
 import traceback
 
@@ -175,6 +176,39 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
         }
         import_record.save()
 
+        # Calculate duration
+        duration_seconds = None
+        if import_record.started_at and import_record.completed_at:
+            duration_seconds = int((import_record.completed_at - import_record.started_at).total_seconds())
+
+        # Create audit log entry
+        if import_type == 'storage':
+            summary = (
+                f"Imported storage data: {result['stats']['storage_systems_created']} systems created, "
+                f"{result['stats']['storage_systems_updated']} updated, "
+                f"{result['stats']['volumes_created']} volumes created, "
+                f"{result['stats']['hosts_created']} hosts created"
+            )
+            entity_type = 'STORAGE_SYSTEM'
+        else:
+            summary = (
+                f"Imported SAN configuration: {result['stats']['zones_created']} zones created, "
+                f"{result['stats']['zones_updated']} updated, "
+                f"{result['stats']['aliases_created']} aliases created, "
+                f"{result['stats']['aliases_updated']} updated"
+            )
+            entity_type = 'ZONE'
+
+        log_import(
+            user=import_record.initiated_by,
+            customer=import_record.customer,
+            import_type=entity_type,
+            summary=summary,
+            details=result['stats'],
+            status='SUCCESS',
+            duration_seconds=duration_seconds
+        )
+
         return {
             'import_id': import_record.id,
             'status': 'completed',
@@ -194,6 +228,22 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
             import_record.error_message = 'Import cancelled by user. Partial data may have been imported.'
             import_record.completed_at = timezone.now()
             import_record.save()
+
+            # Calculate duration
+            duration_seconds = None
+            if import_record.started_at and import_record.completed_at:
+                duration_seconds = int((import_record.completed_at - import_record.started_at).total_seconds())
+
+            # Log cancellation
+            log_import(
+                user=import_record.initiated_by,
+                customer=import_record.customer,
+                import_type='IMPORT',
+                summary=f"Import cancelled by user (partial data may have been imported)",
+                details={'cancelled': True},
+                status='CANCELLED',
+                duration_seconds=duration_seconds
+            )
 
         except Exception as log_error:
             logger.error(f"Failed to update cancelled import: {log_error}")
@@ -222,6 +272,22 @@ def run_san_import_task(self, import_id, config_data, fabric_id=None, fabric_nam
             import_record.error_message = str(e)
             import_record.completed_at = timezone.now()
             import_record.save()
+
+            # Calculate duration
+            duration_seconds = None
+            if import_record.started_at and import_record.completed_at:
+                duration_seconds = int((import_record.completed_at - import_record.started_at).total_seconds())
+
+            # Log failure
+            log_import(
+                user=import_record.initiated_by,
+                customer=import_record.customer,
+                import_type='IMPORT',
+                summary=f"Import failed: {str(e)}",
+                details={'error': str(e)},
+                status='FAILED',
+                duration_seconds=duration_seconds
+            )
 
         except Exception as log_error:
             logger.error(f"Failed to log error: {log_error}")

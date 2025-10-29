@@ -34,6 +34,8 @@ from .views import (
     customer_add_member,
     active_users_view,
     heartbeat_view,
+    audit_log_list,
+    audit_log_purge,
 )
 # Removed: users_list, user_customer_memberships, customer_memberships_list, customer_invite_user,
 #          customer_membership_detail, project_groups_list, project_group_detail,
@@ -115,6 +117,10 @@ urlpatterns = [
     # User Presence and Activity endpoints
     path("active-users/", active_users_view, name="active-users"),
     path("heartbeat/", heartbeat_view, name="heartbeat"),
+
+    # ========== AUDIT LOG ENDPOINTS ==========
+    path("audit-log/", audit_log_list, name="audit-log-list"),
+    path("audit-log/purge/", audit_log_purge, name="audit-log-purge"),
 
     # ========== CUSTOMIZABLE DASHBOARD ENDPOINTS ==========
     # Dashboard Layout Management

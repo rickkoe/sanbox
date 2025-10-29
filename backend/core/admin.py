@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    Project, Config, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable,
+    Project, Config, TableConfiguration, AppSettings, AuditLog, CustomNamingRule, CustomVariable,
     DashboardLayout,
     DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType,
     UserConfig, EquipmentType, WorksheetTemplate
@@ -107,6 +107,10 @@ class AppSettingsAdmin(admin.ModelAdmin):
             "fields": ("new_users_are_staff", "new_users_are_superuser"),
             "description": "Controls whether newly registered users automatically receive Django admin access (staff status) and/or full admin privileges (superuser status)"
         }),
+        ("Audit Log Settings", {
+            "fields": ("audit_log_retention_days",),
+            "description": "Configure audit log retention policy"
+        }),
         ("Features & Notifications", {
             "fields": ("notifications", "show_advanced_features")
         }),
@@ -119,6 +123,56 @@ class AppSettingsAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Optimize queries with select_related"""
         return super().get_queryset(request).select_related('user')
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ("timestamp", "user", "action_type", "entity_type", "status", "customer", "summary_preview")
+    list_filter = ("action_type", "status", "entity_type", "timestamp", "customer")
+    search_fields = ("user__username", "summary", "entity_name", "customer__name")
+    readonly_fields = ("timestamp", "user", "action_type", "entity_type", "entity_name",
+                       "customer", "summary", "details", "status", "duration_seconds", "ip_address")
+    date_hierarchy = "timestamp"
+    ordering = ("-timestamp",)
+
+    fieldsets = (
+        ("Action Information", {
+            "fields": ("timestamp", "user", "ip_address")
+        }),
+        ("Action Type", {
+            "fields": ("action_type", "entity_type", "entity_name", "status")
+        }),
+        ("Context", {
+            "fields": ("customer", "summary")
+        }),
+        ("Details", {
+            "fields": ("details", "duration_seconds"),
+            "classes": ("collapse",)
+        })
+    )
+
+    def summary_preview(self, obj):
+        """Show truncated summary in list view"""
+        if len(obj.summary) > 60:
+            return obj.summary[:60] + "..."
+        return obj.summary
+    summary_preview.short_description = "Summary"
+
+    def has_add_permission(self, request):
+        """Prevent manual addition of audit logs"""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Make audit logs read-only"""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Only allow deletion via purge endpoint or superuser"""
+        return request.user.is_superuser
+
+    def get_queryset(self, request):
+        """Optimize queries with select_related"""
+        return super().get_queryset(request).select_related('user', 'customer')
 
 
 @admin.register(CustomNamingRule)

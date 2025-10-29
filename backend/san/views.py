@@ -15,13 +15,14 @@ from collections import defaultdict
 from .san_utils import generate_alias_commands, generate_zone_commands, generate_alias_deletion_only_commands, generate_zone_deletion_commands, generate_zone_creation_commands
 from django.utils import timezone
 from core.dashboard_views import clear_dashboard_cache_for_customer
+from core.audit import log_create, log_update, log_delete
 
 
 @csrf_exempt
 @require_http_methods(["GET", "POST", "PUT", "PATCH", "DELETE"])
 def fabric_management(request, pk=None):
     """Handle fabric CRUD operations with pagination and filtering."""
-    print(f"🔥 Fabric Management - Method: {request.method}, PK: {pk}")
+    print(f"🔥🔥🔥 FABRIC MANAGEMENT CALLED - Method: {request.method}, PK: {pk} 🔥🔥🔥")
 
     user = request.user if request.user.is_authenticated else None
 
@@ -193,6 +194,20 @@ def fabric_management(request, pk=None):
                         'message': f'Fabric "{fabric.name}" created successfully',
                         'fabric': FabricSerializer(fabric).data
                     }
+
+                    # Log the creation
+                    log_create(
+                        user=user,
+                        entity_type='FABRIC',
+                        entity_name=fabric.name,
+                        customer=fabric.customer,
+                        details={
+                            'zoneset_name': fabric.zoneset_name,
+                            'vsan': fabric.vsan,
+                            'san_vendor': fabric.san_vendor
+                        }
+                    )
+
                     print("✅ Step 8: Response data created, returning...")
                     return JsonResponse(response_data, status=201)
                 except Exception as inner_e:
@@ -258,6 +273,15 @@ def fabric_management(request, pk=None):
                 if fabric.customer_id:
                     clear_dashboard_cache_for_customer(fabric.customer_id)
 
+                # Log the update
+                log_update(
+                    user=user,
+                    entity_type='FABRIC',
+                    entity_name=fabric.name,
+                    customer=fabric.customer,
+                    details={'fields_updated': list(data.keys())}
+                )
+
                 return JsonResponse({
                     'message': f'Fabric "{fabric.name}" updated successfully',
                     'fabric': FabricSerializer(fabric).data
@@ -287,12 +311,26 @@ def fabric_management(request, pk=None):
                 }, status=403)
 
             customer_id = fabric.customer_id
+            customer = fabric.customer
             fabric_name = fabric.name
+
+            # Get zone count before deleting
+            zone_count = fabric.zones.count()
+
             fabric.delete()
 
             # Clear dashboard cache when fabric is deleted
             if customer_id:
                 clear_dashboard_cache_for_customer(customer_id)
+
+            # Log the deletion
+            log_delete(
+                user=user,
+                entity_type='FABRIC',
+                entity_name=fabric_name,
+                customer=customer,
+                details={'zones_affected': zone_count}
+            )
 
             return JsonResponse({
                 "message": f'Fabric "{fabric_name}" deleted successfully'
@@ -308,17 +346,32 @@ def fabric_management(request, pk=None):
 def fabric_delete_view(request, pk):
     """Delete a specific fabric."""
     print(f"🔥 Fabric Delete - PK: {pk}")
-    
+
+    user = request.user if request.user.is_authenticated else None
+
     try:
         fabric = Fabric.objects.get(pk=pk)
         customer_id = fabric.customer_id
+        customer = fabric.customer
         fabric_name = fabric.name
+        zone_count = fabric.zones.count()
+
         fabric.delete()
-        
+
         # Clear dashboard cache when fabric is deleted
         if customer_id:
             clear_dashboard_cache_for_customer(customer_id)
-            
+
+        # Log the deletion
+        if user:
+            log_delete(
+                user=user,
+                entity_type='FABRIC',
+                entity_name=fabric_name,
+                customer=customer,
+                details={'zones_affected': zone_count}
+            )
+
         return JsonResponse({
             "message": f'Fabric "{fabric_name}" deleted successfully'
         }, status=200)
