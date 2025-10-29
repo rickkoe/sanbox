@@ -116,7 +116,7 @@ const AuditLog = () => {
         <Container fluid className="audit-log-page mt-4">
             <Row className="mb-4">
                 <Col>
-                    <h1 className="audit-log-title">Activity Log</h1>
+                    <h1 className="audit-log-title">Audit Log</h1>
                     <p className="audit-log-subtitle">
                         View all user actions and system activities
                     </p>

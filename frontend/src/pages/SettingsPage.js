@@ -267,8 +267,8 @@ const SettingsPage = () => {
 
                     {/* Audit Log Settings */}
                     <div className="settings-section">
-                        <h3>Activity Log Settings</h3>
-                        <p className="settings-description">Configure audit log retention and manage stored activity logs</p>
+                        <h3>Audit Log Settings</h3>
+                        <p className="settings-description">Configure audit log retention and manage stored audit logs</p>
 
                         <div className="settings-grid">
                             <div className="form-group">

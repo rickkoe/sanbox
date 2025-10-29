@@ -46,7 +46,7 @@ const UserSection = ({ onAboutClick }) => {
             </Dropdown.Item>
             <Dropdown.Item as={NavLink} to="/audit-log">
               <Activity size={16} className="me-2" />
-              Activity Log
+              Audit Log
             </Dropdown.Item>
           </Dropdown.Menu>
         </Dropdown>
