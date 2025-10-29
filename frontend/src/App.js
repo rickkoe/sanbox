@@ -78,6 +78,7 @@ const BackupManagement = React.lazy(() => import("./pages/BackupManagement"));
 const BackupDashboard = React.lazy(() => import("./pages/BackupDashboard"));
 const RestoreHistory = React.lazy(() => import("./pages/RestoreHistory"));
 const ThemeDemo = React.lazy(() => import("./pages/ThemeDemo"));
+const UserManual = React.lazy(() => import("./pages/UserManual"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -122,7 +123,8 @@ function AppContent() {
     '/profile',
     '/settings/backups',
     '/settings/backups/dashboard',
-    '/settings/backups/restore-history'
+    '/settings/backups/restore-history',
+    '/manual'
   ];
 
   // Check for scrollable routes including dynamic routes
@@ -260,6 +262,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/settings/backups" element={<BackupManagement />} />
                     <Route path="/settings/backups/dashboard" element={<BackupDashboard />} />
                     <Route path="/settings/backups/restore-history" element={<RestoreHistory />} />
+                    <Route path="/manual" element={<UserManual />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

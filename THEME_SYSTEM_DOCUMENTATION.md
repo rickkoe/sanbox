@@ -1234,6 +1234,70 @@ Auto-switch theme based on time of day:
 
 ---
 
+## Alert Box Pattern (Mandatory for All New Components)
+
+### Overview
+
+**DO NOT use Bootstrap's default Alert components** (`.alert-info`, `.alert-warning`, etc.) as they use hardcoded colors that don't respect the theme system.
+
+**INSTEAD:** Use our custom alert box pattern with theme variables and colored left borders.
+
+### Complete Documentation
+
+**See:** `/Users/rickk/sanbox/ALERT_BOX_PATTERN.md` - Complete guide with examples, code templates, and visual references
+
+**Reference Implementation:** `/frontend/src/styles/backup.css` (lines 1025-1115) and `/frontend/src/components/backup/BackupScheduler.jsx`
+
+### Quick Pattern
+
+```css
+/* In your component CSS file */
+.your-component-info-alert {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-left: 4px solid var(--color-accent-emphasis) !important;
+  color: var(--primary-text) !important;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+```
+
+```jsx
+// In your component JSX
+<div className="your-component-info-alert">
+  <strong>Info:</strong> Your message here
+</div>
+```
+
+### Alert Types & Colors
+
+| Type | Left Border Color | Use Case |
+|------|------------------|----------|
+| **Info** | `--color-accent-emphasis` (blue) | Informational messages, schedules, tips |
+| **Warning** | `--color-attention-emphasis` (orange) | Warnings, important notes, retention policies |
+| **Success** | `--color-success-emphasis` (green) | Success confirmations, completed actions |
+| **Error** | `--color-danger-emphasis` (red) | Error messages, validation failures |
+
+### Key Features
+
+1. **Triple Background Declaration:** Ensures Bootstrap override
+2. **4px Colored Left Border:** Visual hierarchy and type identification
+3. **Theme Variables Only:** All colors from theme system
+4. **Component-Scoped Naming:** Prevents CSS conflicts
+5. **Works in All Themes:** Light, Dark, Dark+
+
+### Visual Reference
+
+To see these alerts in action, navigate to:
+- **Settings → Backup & Restore → Configure Schedule**
+
+Look at the "Next Scheduled Backup" (info alert) and "Retention Policy" (warning alert) boxes.
+
+---
+
 ## Conclusion
 
 This theme system provides a **maintainable, scalable, and user-friendly** way to manage visual themes across the entire Sanbox application. By following this documentation:
@@ -1249,5 +1313,5 @@ This theme system provides a **maintainable, scalable, and user-friendly** way t
 
 ---
 
-**Last Updated:** 2025-10-28 (Added Bootstrap Override Pattern section)
+**Last Updated:** 2025-10-29 (Added Alert Box Pattern section)
 **Next Review:** When adding new components or themes

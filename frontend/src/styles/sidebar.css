@@ -175,6 +175,9 @@
   flex: 1;
   padding: 0 var(--space-4);
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .modern-sidebar.collapsed .sidebar-nav {
@@ -185,6 +188,10 @@
   list-style: none;
   padding: 0;
   margin: var(--space-2) 0 0 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .sidebar-menu-item {
@@ -862,4 +869,24 @@
   flex: 1;
   display: flex;
   align-items: center;
+}
+
+/* ========== USER MANUAL AT BOTTOM ========== */
+/* Visually separate the last item (User Manual) at the bottom of sidebar */
+
+.sidebar-menu-item-bottom {
+  margin-top: auto !important;
+  border-top: 1px solid var(--sidebar-border);
+  padding-top: var(--space-3);
+}
+
+/* Add some extra spacing above the bottom item when not collapsed */
+.modern-sidebar:not(.collapsed) .sidebar-menu-item-bottom {
+  margin-top: var(--space-4) !important;
+}
+
+/* When collapsed, reduce the margin */
+.modern-sidebar.collapsed .sidebar-menu-item-bottom {
+  margin-top: var(--space-2) !important;
+  padding-top: var(--space-2);
 }

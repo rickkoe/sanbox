@@ -1,7 +1,7 @@
 import React from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Dropdown } from "react-bootstrap";
-import { Settings, HelpCircle, User, Sliders, Info, LogOut, Database } from "lucide-react";
+import { Settings, HelpCircle, User, Sliders, Info, LogOut, Database, BookOpen } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import { useAuth } from "../../context/AuthContext";
 
@@ -59,6 +59,10 @@ const UserSection = ({ onAboutClick }) => {
             <HelpCircle size={18} />
           </Dropdown.Toggle>
           <Dropdown.Menu>
+            <Dropdown.Item as={NavLink} to="/manual">
+              <BookOpen size={16} className="me-2" />
+              User Manual
+            </Dropdown.Item>
             <Dropdown.Item onClick={onAboutClick}>
               <Info size={16} className="me-2" />
               About

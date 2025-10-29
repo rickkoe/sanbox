@@ -65,10 +65,10 @@ const SidebarNavigation = ({ links, isCollapsed, headerTitle }) => {
     }));
   };
 
-  const renderLink = (link, key) => {
+  const renderLink = (link, key, isLastItem = false) => {
     const LinkIcon = link.icon;
     return (
-      <li key={key} className="sidebar-menu-item">
+      <li key={key} className={`sidebar-menu-item ${isLastItem ? 'sidebar-menu-item-bottom' : ''}`}>
         <NavLink
           to={link.path}
           end={link.label === "Properties"}
@@ -194,10 +194,11 @@ const SidebarNavigation = ({ links, isCollapsed, headerTitle }) => {
         )}
         <ul className="sidebar-menu">
           {links.map((link, index) => {
+            const isLastItem = index === links.length - 1;
             if (link.expandable) {
               return renderExpandableSection(link, index);
             } else {
-              return renderLink(link, link.path);
+              return renderLink(link, link.path, isLastItem);
             }
           })}
         </ul>
