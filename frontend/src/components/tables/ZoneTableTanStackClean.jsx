@@ -247,15 +247,19 @@ const ZoneTableTanStackClean = () => {
         zoneDelete: `${API_URL}/api/san/zones/delete/`
     };
 
-    // Base zone columns
+    // Base zone columns (main columns before member columns)
     const baseColumns = [
         { data: "name", title: "Name", required: true },
         { data: "fabric", title: "Fabric", type: "dropdown", required: true },
-        { data: "member_count", title: "Members", type: "numeric", readOnly: true },
+        { data: "zone_type", title: "Zone Type", type: "dropdown" }
+    ];
+
+    // Trailing columns (appear after member columns)
+    const trailingColumns = [
         { data: "create", title: "Create", type: "checkbox" },
         { data: "delete", title: "Delete", type: "checkbox" },
         { data: "exists", title: "Exists", type: "checkbox", readOnly: true },
-        { data: "zone_type", title: "Zone Type", type: "dropdown" },
+        { data: "member_count", title: "Members", type: "numeric", readOnly: true },
         { data: "imported", title: "Imported", readOnly: true },
         { data: "updated", title: "Updated", readOnly: true },
         { data: "notes", title: "Notes" }
@@ -367,10 +371,10 @@ const ZoneTableTanStackClean = () => {
         return columns;
     }, [memberColumnCounts, addTargetColumn, addInitiatorColumn, addAllAccessColumn, getPlusButtonStyle]);
 
-    // All columns (base + member)
+    // All columns (base + member + trailing)
     const allColumns = useMemo(() => {
-        return [...baseColumns, ...memberColumns];
-    }, [baseColumns, memberColumns]);
+        return [...baseColumns, ...memberColumns, ...trailingColumns];
+    }, [memberColumns]);
 
     const colHeaders = allColumns.map(col => col.title);
 
