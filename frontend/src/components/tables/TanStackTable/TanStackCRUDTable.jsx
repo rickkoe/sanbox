@@ -876,10 +876,10 @@ const TanStackCRUDTable = forwardRef(({
         clearTimeout(scrollTimeout);
       }
 
-      // Hide the panel after 2 seconds of no scrolling
+      // Hide the panel after 5 seconds of no scrolling
       const timeout = setTimeout(() => {
         setShowFloatingNav(false);
-      }, 2000);
+      }, 5000);
 
       setScrollTimeout(timeout);
     };
@@ -3916,11 +3916,11 @@ const TanStackCRUDTable = forwardRef(({
 
                   // Define solid background colors for column groups (no transparency)
                   let cellBg = 'transparent';
-                  if (!isSelected && !isInvalid) {
-                    if (isNameColumn) {
-                      // Name column gets solid background to prevent transparency when scrolling
-                      cellBg = 'var(--table-bg)';
-                    } else if (columnGroup === 'target') {
+                  // Name column always gets solid background to prevent transparency
+                  if (isNameColumn) {
+                    cellBg = 'var(--table-bg)';
+                  } else if (!isSelected && !isInvalid) {
+                    if (columnGroup === 'target') {
                       // Blue tint - solid color, lighter than header
                       cellBg = theme === 'dark' ? 'var(--color-info-subtle)' : 'var(--color-info-subtle)';
                     } else if (columnGroup === 'initiator') {
@@ -3942,7 +3942,7 @@ const TanStackCRUDTable = forwardRef(({
                         borderBottom: '1px solid var(--table-border)',
                         borderRight: '1px solid var(--table-border)',
                         width: cell.column.getSize(),
-                        backgroundColor: isInvalid ? 'var(--color-danger-subtle)' : (isSelected ? 'var(--table-row-selected)' : cellBg),
+                        backgroundColor: isInvalid ? 'var(--color-danger-subtle)' : (isSelected ? (isNameColumn ? cellBg : 'var(--table-row-selected)') : cellBg),
                         cursor: 'cell',
                         position: isNameColumn ? 'sticky' : 'relative',
                         left: isNameColumn ? 0 : undefined,
@@ -4026,36 +4026,12 @@ const TanStackCRUDTable = forwardRef(({
           alignItems: 'center',
           gap: '4px',
           zIndex: 1000,
-          opacity: showFloatingNav ? 0.9 : 0,
+          opacity: showFloatingNav ? 1 : 0,
           transform: showFloatingNav ? 'translateY(0)' : 'translateY(10px)',
           transition: 'opacity 0.3s ease, transform 0.3s ease',
           pointerEvents: showFloatingNav ? 'auto' : 'none'
         }}
         >
-        {/* Auto-size Columns Button */}
-        <button
-          onClick={autoSizeColumns}
-          title="Auto-size Columns"
-          style={{
-            width: '32px',
-            height: '32px',
-            backgroundColor: 'var(--table-pagination-button-bg)',
-            color: 'var(--table-pagination-text)',
-            border: '1px solid var(--table-pagination-button-border)',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-            transition: 'background-color 0.2s',
-            marginBottom: '4px'
-          }}
-        >
-          ⤢
-        </button>
-
         {/* Top Arrow */}
         <button
           onClick={scrollToTop}
@@ -4063,9 +4039,9 @@ const TanStackCRUDTable = forwardRef(({
           style={{
             width: '32px',
             height: '32px',
-            backgroundColor: 'var(--table-pagination-button-bg)',
-            color: 'var(--table-pagination-text)',
-            border: '1px solid var(--table-pagination-button-border)',
+            backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
+            color: theme === 'dark' ? '#e5e7eb' : '#1f2937',
+            border: `1px solid ${theme === 'dark' ? '#4b5563' : '#d1d5db'}`,
             borderRadius: '4px',
             cursor: 'pointer',
             fontSize: '12px',
@@ -4075,6 +4051,8 @@ const TanStackCRUDTable = forwardRef(({
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             transition: 'background-color 0.2s'
           }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4b5563' : '#e5e7eb'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#374151' : '#f3f4f6'}
         >
           ↑
         </button>
@@ -4088,9 +4066,9 @@ const TanStackCRUDTable = forwardRef(({
             style={{
               width: '32px',
               height: '32px',
-              backgroundColor: 'var(--table-pagination-button-bg)',
-              color: 'var(--table-pagination-text)',
-              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
+              color: theme === 'dark' ? '#e5e7eb' : '#1f2937',
+              border: `1px solid ${theme === 'dark' ? '#4b5563' : '#d1d5db'}`,
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
@@ -4100,6 +4078,8 @@ const TanStackCRUDTable = forwardRef(({
               boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
               transition: 'background-color 0.2s'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4b5563' : '#e5e7eb'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#374151' : '#f3f4f6'}
           >
             ←
           </button>
@@ -4111,9 +4091,9 @@ const TanStackCRUDTable = forwardRef(({
             style={{
               width: '32px',
               height: '32px',
-              backgroundColor: 'var(--table-pagination-button-bg)',
-              color: 'var(--table-pagination-text)',
-              border: '1px solid var(--table-pagination-button-border)',
+              backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
+              color: theme === 'dark' ? '#e5e7eb' : '#1f2937',
+              border: `1px solid ${theme === 'dark' ? '#4b5563' : '#d1d5db'}`,
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
@@ -4123,6 +4103,8 @@ const TanStackCRUDTable = forwardRef(({
               boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
               transition: 'background-color 0.2s'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4b5563' : '#e5e7eb'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#374151' : '#f3f4f6'}
           >
             →
           </button>
@@ -4135,9 +4117,9 @@ const TanStackCRUDTable = forwardRef(({
           style={{
             width: '32px',
             height: '32px',
-            backgroundColor: 'var(--table-pagination-button-bg)',
-            color: 'var(--table-pagination-text)',
-            border: '1px solid var(--table-pagination-button-border)',
+            backgroundColor: theme === 'dark' ? '#374151' : '#f3f4f6',
+            color: theme === 'dark' ? '#e5e7eb' : '#1f2937',
+            border: `1px solid ${theme === 'dark' ? '#4b5563' : '#d1d5db'}`,
             borderRadius: '4px',
             cursor: 'pointer',
             fontSize: '12px',
@@ -4147,6 +4129,8 @@ const TanStackCRUDTable = forwardRef(({
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             transition: 'background-color 0.2s'
           }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#4b5563' : '#e5e7eb'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme === 'dark' ? '#374151' : '#f3f4f6'}
         >
           ↓
         </button>
