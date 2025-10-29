@@ -32,6 +32,9 @@
   background: transparent !important;
 }
 
+/* ========== FORCE SIDEBAR HEIGHT/OVERFLOW - Override Bootstrap ========== */
+/* Removed - using inline styles in JSX instead to ensure they take precedence */
+
 /* ========== MAIN LAYOUT ========== */
 
 .user-manual-container {
@@ -97,14 +100,10 @@
 /* ========== TOC SIDEBAR (RIGHT SIDE) ========== */
 
 .manual-sidebar {
+  /* Layout controlled by inline styles in JSX for maximum control */
   width: 320px;
   background-color: var(--secondary-bg);
   border-left: 1px solid var(--color-border-default);
-  height: 100vh;
-  position: sticky;
-  top: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
   flex-shrink: 0;
   transition: transform var(--transition-speed) var(--transition-timing);
   order: 2; /* Places sidebar on the right */
@@ -135,9 +134,7 @@
   border-bottom: 1px solid var(--color-border-default);
   background-color: var(--secondary-bg);
   color: var(--primary-text);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  flex-shrink: 0; /* Don't shrink header */
 }
 
 .sidebar-header svg {
@@ -196,7 +193,8 @@
 /* ========== TABLE OF CONTENTS NAVIGATION ========== */
 
 .toc-navigation {
-  padding: var(--space-2) 0;
+  /* Layout controlled by inline styles in JSX */
+  padding-top: var(--space-2);
 }
 
 .toc-item-container {
@@ -484,22 +482,26 @@
 
 /* ========== SCROLLBAR STYLING ========== */
 
+.toc-navigation::-webkit-scrollbar,
 .manual-sidebar::-webkit-scrollbar,
 .manual-content::-webkit-scrollbar {
   width: 8px;
 }
 
+.toc-navigation::-webkit-scrollbar-track,
 .manual-sidebar::-webkit-scrollbar-track,
 .manual-content::-webkit-scrollbar-track {
   background: transparent;
 }
 
+.toc-navigation::-webkit-scrollbar-thumb,
 .manual-sidebar::-webkit-scrollbar-thumb,
 .manual-content::-webkit-scrollbar-thumb {
   background: var(--color-border-muted);
   border-radius: var(--radius-sm);
 }
 
+.toc-navigation::-webkit-scrollbar-thumb:hover,
 .manual-sidebar::-webkit-scrollbar-thumb:hover,
 .manual-content::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-default);

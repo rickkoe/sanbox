@@ -18,6 +18,20 @@ const UserManual = () => {
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // Force scrolling styles on TOC navigation
+  // Using JavaScript to override Bootstrap's stubborn CSS
+  useEffect(() => {
+    const tocNav = document.querySelector('.toc-navigation');
+    if (tocNav) {
+      tocNav.style.setProperty('overflow-y', 'scroll', 'important');
+      tocNav.style.setProperty('padding-bottom', '200px', 'important');
+      tocNav.style.setProperty('flex', '1 1 auto', 'important');
+      tocNav.style.setProperty('min-height', '0', 'important');
+      // Scroll TOC to the top on mount
+      tocNav.scrollTop = 0;
+    }
+  }, []);
+
   // Scroll to section when activeSection changes
   useEffect(() => {
     const element = document.getElementById(activeSection);
@@ -1627,15 +1641,39 @@ const UserManual = () => {
       </main>
 
       {/* TOC Sidebar - Right Side */}
-      <aside className={`manual-sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
+      <aside
+        className={`manual-sidebar ${isSidebarOpen ? 'open' : ''}`}
+        style={{
+          height: '100vh',
+          maxHeight: '100vh',
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'sticky',
+          top: '0',
+          width: '320px'
+        }}
+      >
+        <div className="sidebar-header" style={{ flexShrink: 0 }}>
           <BookOpen size={20} />
           <h2>Table of Contents</h2>
         </div>
 
-        <nav className="toc-navigation">
+        <div
+          className="toc-navigation"
+          style={{
+            flex: '1 1 auto',
+            overflowY: 'scroll',
+            overflowX: 'hidden',
+            minHeight: '0',
+            height: 'auto',
+            paddingBottom: '200px',
+            boxSizing: 'border-box'
+          }}
+        >
           {tableOfContents.map(item => renderTOCItem(item))}
-        </nav>
+        </div>
       </aside>
     </div>
   );
