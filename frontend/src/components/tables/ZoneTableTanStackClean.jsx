@@ -202,16 +202,15 @@ const ZoneTableTanStackClean = () => {
 
     // Helper function to get plus button styles based on theme
     const getPlusButtonStyle = useCallback(() => {
-        const isDark = theme === 'dark';
         return {
-            background: isDark ? '#14b8a6' : '#64748b', // teal for dark, slate for light
+            background: 'var(--color-success-emphasis)',
             border: 'none',
             cursor: 'pointer',
             padding: '0',
             width: '20px',
             height: '20px',
             borderRadius: '50%',
-            color: isDark ? '#000' : '#fff', // black for dark theme, white for light
+            color: 'var(--button-primary-text)',
             fontSize: '16px',
             fontWeight: 'bold',
             lineHeight: '1',
@@ -221,7 +220,7 @@ const ZoneTableTanStackClean = () => {
             opacity: 0.8,
             transition: 'opacity 0.2s, transform 0.2s'
         };
-    }, [theme]);
+    }, []);
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;

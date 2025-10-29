@@ -3366,15 +3366,16 @@ const TanStackCRUDTable = forwardRef(({
             <button
               onClick={saveChanges}
               disabled={!hasChanges || isLoading}
+              className={hasChanges && !isLoading ? 'btn-save-active' : 'btn-save-disabled'}
               style={{
                 padding: '10px 18px',
                 backgroundColor: hasChanges && !isLoading
-                  ? 'var(--table-pagination-button-active)'
-                  : 'var(--table-pagination-button-bg)',
+                  ? 'var(--button-primary-bg)'
+                  : 'var(--button-bg)',
                 color: hasChanges && !isLoading
-                  ? 'var(--content-bg)'
-                  : 'var(--table-toolbar-text)',
-                border: '1px solid var(--table-pagination-button-border)',
+                  ? 'var(--button-primary-text)'
+                  : 'var(--button-text)',
+                border: `1px solid ${hasChanges && !isLoading ? 'var(--button-primary-border)' : 'var(--button-border)'}`,
                 borderRadius: '6px',
                 cursor: hasChanges && !isLoading ? 'pointer' : 'not-allowed',
                 fontSize: '14px',
@@ -3382,7 +3383,18 @@ const TanStackCRUDTable = forwardRef(({
                 transition: 'all 0.2s ease',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                opacity: hasChanges && !isLoading ? 1 : 0.6
+              }}
+              onMouseEnter={(e) => {
+                if (hasChanges && !isLoading) {
+                  e.currentTarget.style.backgroundColor = 'var(--button-primary-hover)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (hasChanges && !isLoading) {
+                  e.currentTarget.style.backgroundColor = 'var(--button-primary-bg)';
+                }
               }}
             >
               {isLoading ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
