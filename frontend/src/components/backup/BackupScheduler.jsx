@@ -132,24 +132,26 @@ const BackupScheduler = ({ onSave }) => {
         <div className="d-flex align-items-center justify-content-between">
           <h6 className="mb-0"><FaCalendarAlt className="me-2" />Backup Schedule Configuration</h6>
           {formData.auto_backup_enabled && (
-            <Badge bg="success">Enabled</Badge>
+            <span className="backup-scheduler-badge badge-success">Enabled</span>
           )}
           {!formData.auto_backup_enabled && (
-            <Badge bg="secondary">Disabled</Badge>
+            <span className="backup-scheduler-badge badge-secondary">Disabled</span>
           )}
         </div>
       </Card.Header>
       <Card.Body>
         {error && (
-          <Alert variant="danger" dismissible onClose={() => setError(null)}>
+          <div className="backup-scheduler-error-alert">
+            <button className="backup-scheduler-alert-close" onClick={() => setError(null)}>×</button>
             {error}
-          </Alert>
+          </div>
         )}
 
         {success && (
-          <Alert variant="success" dismissible onClose={() => setSuccess(null)}>
+          <div className="backup-scheduler-success-alert">
+            <button className="backup-scheduler-alert-close" onClick={() => setSuccess(null)}>×</button>
             {success}
-          </Alert>
+          </div>
         )}
 
         {/* Enable/Disable Schedule */}
@@ -229,14 +231,14 @@ const BackupScheduler = ({ onSave }) => {
 
             {formData.auto_backup_frequency === 'hourly' && (
               <div className="mb-4">
-                <Alert variant="info">
+                <div className="backup-scheduler-info-alert">
                   <strong>Hourly Backups:</strong> A backup will be created at the top of every hour (e.g., 1:00, 2:00, 3:00, etc.)
-                </Alert>
+                </div>
               </div>
             )}
 
             {nextBackup && (
-              <Alert variant="info" className="mb-4">
+              <div className="backup-scheduler-info-alert mb-4">
                 <FaCalendarAlt className="me-2" />
                 <strong>Next Scheduled Backup ({formData.auto_backup_frequency === 'hourly' ? 'Hourly' : 'Daily'}):</strong>
                 <div className="mt-1">
@@ -249,14 +251,14 @@ const BackupScheduler = ({ onSave }) => {
                     minute: '2-digit'
                   })}
                 </div>
-                <small style={{ color: 'var(--muted-text)' }}>
+                <small className="backup-scheduler-muted-text">
                   {formData.auto_backup_frequency === 'hourly' ? (
                     `(${Math.ceil((nextBackup - new Date()) / (1000 * 60))} minutes from now)`
                   ) : (
                     `(${Math.ceil((nextBackup - new Date()) / (1000 * 60 * 60))} hours from now)`
                   )}
                 </small>
-              </Alert>
+              </div>
             )}
 
             <div className="mb-4">
@@ -340,7 +342,7 @@ const BackupScheduler = ({ onSave }) => {
         </div>
 
         {/* Retention Policy Summary */}
-        <Alert variant="warning">
+        <div className="backup-scheduler-retention-alert">
           <strong>⚠️ Retention Policy:</strong>
           <div className="mt-2">
             {formData.max_backups === 0 && formData.retention_days === 0 && (
@@ -365,7 +367,7 @@ const BackupScheduler = ({ onSave }) => {
               </p>
             )}
           </div>
-        </Alert>
+        </div>
 
         {/* Save Button */}
         <div className="d-flex gap-2">

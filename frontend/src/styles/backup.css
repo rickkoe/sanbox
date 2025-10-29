@@ -1021,3 +1021,122 @@
 .theme-light .modal-body strong {
   color: var(--primary-text) !important;
 }
+
+/* ========== BACKUP SCHEDULER CUSTOM THEMED ALERTS ========== */
+/* Replace Bootstrap Alert hardcoded colors with theme variables */
+
+.backup-scheduler-retention-alert {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-left: 4px solid var(--color-attention-emphasis) !important;
+  color: var(--primary-text) !important;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.backup-scheduler-retention-alert strong {
+  color: var(--primary-text) !important;
+}
+
+.backup-scheduler-retention-alert p {
+  color: var(--primary-text) !important;
+}
+
+.backup-scheduler-info-alert {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-left: 4px solid var(--color-accent-emphasis) !important;
+  color: var(--primary-text) !important;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.backup-scheduler-info-alert strong {
+  color: var(--primary-text) !important;
+}
+
+.backup-scheduler-error-alert {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-danger-muted) !important;
+  border-left: 4px solid var(--color-danger-emphasis) !important;
+  color: var(--color-danger-fg) !important;
+  padding: 1rem 1.25rem;
+  padding-right: 3rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.backup-scheduler-success-alert {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-success-muted) !important;
+  border-left: 4px solid var(--color-success-emphasis) !important;
+  color: var(--color-success-fg) !important;
+  padding: 1rem 1.25rem;
+  padding-right: 3rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.backup-scheduler-alert-close {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.5;
+  transition: opacity var(--transition-speed) ease;
+}
+
+.backup-scheduler-alert-close:hover {
+  opacity: 1;
+}
+
+.backup-scheduler-muted-text {
+  color: var(--secondary-text) !important;
+  opacity: 0.7;
+}
+
+/* ========== BACKUP SCHEDULER CUSTOM BADGES ========== */
+.backup-scheduler-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+}
+
+.backup-scheduler-badge.badge-success {
+  background-color: var(--color-success-subtle) !important;
+  background-image: none !important;
+  background: var(--color-success-subtle) !important;
+  color: var(--color-success-emphasis) !important;
+  border: 1px solid var(--color-success-muted);
+}
+
+.backup-scheduler-badge.badge-secondary {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  color: var(--secondary-text) !important;
+  border: 1px solid var(--color-border-default);
+}
