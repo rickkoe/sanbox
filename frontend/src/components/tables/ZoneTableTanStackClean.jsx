@@ -26,7 +26,6 @@ const ZoneTableTanStackClean = () => {
         allAccess: 1
     });
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
-    const isUpdatingProjectRef = useRef(false); // Flag to prevent data reload when updating project membership
     const memberColumnCountsRef = useRef(memberColumnCounts); // Store current counts for stable access
 
     // Project filter state (default: 'all' shows all customer zones)
@@ -938,13 +937,9 @@ const ZoneTableTanStackClean = () => {
     // Process data for display - convert fabric IDs to names and handle members
     // Using useCallback with stable reference - memberColumnCounts accessed via ref to avoid recreating function
     const preprocessData = useCallback((data) => {
-        // If we're in the middle of adding a column or updating project, return null to prevent reload
+        // If we're in the middle of adding a column, return null to prevent reload
         if (isAddingColumnRef.current) {
             console.log('⏸️ preprocessData skipped - adding column in progress');
-            return null;
-        }
-        if (isUpdatingProjectRef.current) {
-            console.log('⏸️ preprocessData skipped - updating project membership in progress');
             return null;
         }
 
@@ -1116,7 +1111,6 @@ const ZoneTableTanStackClean = () => {
         window.zoneTableRef = tableRef;
         window.zoneTableActiveProjectId = activeProjectId;
         window.zoneTableActiveProjectName = config?.active_project?.name || 'Current Project';
-        window.zoneTableIsUpdatingProjectRef = isUpdatingProjectRef;
 
         // Expose reload function
         window.zoneTableReload = () => {
@@ -1202,14 +1196,40 @@ const ZoneTableTanStackClean = () => {
                     window.zoneTableCloseDropdown();
 
                     console.log(`🎯 Dropdown option clicked: ${option.action} for zone ${zoneId}`);
+
+                    // Get current table data to preserve dirty changes
+                    const currentData = window.zoneTableRef?.current?.getTableData();
+                    console.log('💾 Preserving current table data before update');
+
                     const success = await handleAddZoneToProject(zoneId, option.action);
 
-                    if (success) {
-                        console.log('✅ Add complete, reloading table data from server...');
-                        // Reload from server to get updated data
-                        window.zoneTableReload();
-                    } else {
-                        console.error('❌ Add failed, not reloading');
+                    if (success && currentData) {
+                        console.log('✅ Add complete, updating table data without losing edits...');
+
+                        // Update just the affected row
+                        const updatedData = currentData.map(row => {
+                            if (row.id === zoneId) {
+                                return {
+                                    ...row,
+                                    in_active_project: true,
+                                    project_memberships: [
+                                        ...(row.project_memberships || []),
+                                        {
+                                            project_id: window.zoneTableActiveProjectId,
+                                            project_name: window.zoneTableActiveProjectName,
+                                            action: option.action
+                                        }
+                                    ]
+                                };
+                            }
+                            return row;
+                        });
+
+                        // Set updated data back (preserves dirty state)
+                        window.zoneTableRef?.current?.setTableData(updatedData);
+                        console.log('✅ Table data updated in place - dirty data preserved');
+                    } else if (!success) {
+                        console.error('❌ Add failed, not updating');
                     }
                 });
 
@@ -1240,7 +1260,6 @@ const ZoneTableTanStackClean = () => {
             delete window.zoneTableRef;
             delete window.zoneTableActiveProjectId;
             delete window.zoneTableActiveProjectName;
-            delete window.zoneTableIsUpdatingProjectRef;
         };
     }, [handleAddZoneToProject, handleRemoveZoneFromProject, activeProjectId, config]);
 

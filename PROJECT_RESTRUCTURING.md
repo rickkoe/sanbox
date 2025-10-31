@@ -389,6 +389,134 @@ Showing only aliases in "Project A" (same as before)
 
 ---
 
+### Phase 4 Enhancement Part 2: Project Actions Dropdown UX Improvements ✅ COMPLETED (2025-10-30)
+
+**Status**: Implemented and deployed
+**Priority**: High - Critical UX improvement for project membership management
+**Completed**: 2025-10-30
+
+#### Problem Statement
+The "Active Project" column (+Add dropdown and Remove button) had several UX issues:
+1. **Inconsistent styling**: Dropdown didn't match the theme system or other table dropdowns (like "init" dropdown)
+2. **Blue outline bug**: Clicking project-related columns caused unwanted blue outline on table container
+3. **No auto-refresh**: After adding alias/zone to project, table didn't update to show the change
+4. **Lost dirty data**: Initial reload approach wiped unsaved edits in other cells
+
+#### Implementation Summary
+
+**1. Theme-Based Dropdown Styling**
+- Updated dropdown to use centralized theme variables from THEME_SYSTEM_DOCUMENTATION.md
+- Changed from hardcoded colors to theme variables:
+  - `--secondary-bg` for background
+  - `--color-border-default` for borders
+  - `--radius-md` for border radius
+  - `--shadow-md` for shadows
+  - `--primary-text` for text color
+  - `--button-hover-bg` for hover effects
+  - `opacity: 0.7` for secondary text (following theme best practices)
+- Dropdown now adapts to all three themes (Light, Dark, Dark+)
+
+**2. Fixed Blue Outline Issue**
+- Added `onmousedown="event.stopPropagation()"` to all interactive elements in project columns:
+  - Project membership badges
+  - "✓ Created Here" badge
+  - "× Remove" button
+  - "+ Add ▽" dropdown button and container
+- Prevents click events from bubbling up to table container
+
+**3. Column Renamed**
+- Changed "Actions" column header to "Active Project" for clarity
+- Better describes the column's purpose (managing active project membership)
+
+**4. Added reloadData() Function to TanStackCRUDTable**
+- Root cause: `reloadData()` function didn't exist in TanStackCRUDTable
+- Solution: Added reload trigger mechanism
+  - New state: `const [reloadTrigger, setReloadTrigger] = useState(0)`
+  - Exposed function: `reloadData: () => setReloadTrigger(prev => prev + 1)`
+  - Updated useEffect to include `reloadTrigger` in dependencies
+- Now `tableRef.current.reloadData()` properly triggers data fetch
+
+**5. Local Data Update Pattern (Preserves Dirty Data)**
+- Implemented same pattern as WWPN column addition
+- After API call, updates data locally without server fetch:
+  ```javascript
+  // Get current table data (includes unsaved edits)
+  const currentData = window.aliasTableRef?.current?.getTableData();
+
+  // Update only the affected row
+  const updatedData = currentData.map(row => {
+      if (row.id === aliasId) {
+          return {
+              ...row,
+              in_active_project: true,
+              project_memberships: [...existing, newMembership]
+          };
+      }
+      return row; // All other rows unchanged
+  });
+
+  // Set data back (preserves dirty state)
+  window.aliasTableRef?.current?.setTableData(updatedData);
+  ```
+- Benefits:
+  - ✅ UI updates immediately
+  - ✅ All unsaved edits in other cells preserved
+  - ✅ Table still marked as "dirty" (has changes indicator)
+  - ✅ No server round-trip needed for display update
+
+**6. Vanilla JS Dropdown Implementation**
+- React component approach failed (doesn't render synchronously in table cells)
+- Implemented pure vanilla JS dropdown with DOM manipulation:
+  - Button with onclick handler creates dropdown menu
+  - Menu positioned with `getBoundingClientRect()`
+  - Rendered with `ReactDOM.createPortal()` to body
+  - Click-outside handler to close dropdown
+  - Hover effects with event listeners
+  - Theme variables applied via inline styles
+
+#### Files Modified
+- ✅ `frontend/src/components/tables/AliasTableTanStackClean.jsx`
+  - Renamed column to "Active Project" (line 151)
+  - Updated dropdown styling to use theme variables
+  - Added stopPropagation to prevent blue outline
+  - Implemented local data update on add/remove
+  - Window handlers: `aliasTableToggleAddMenu`, `aliasTableCloseDropdown`
+- ✅ `frontend/src/components/tables/ZoneTableTanStackClean.jsx`
+  - Same updates as AliasTableTanStackClean.jsx
+  - Window handlers: `zoneTableToggleAddMenu`, `zoneTableCloseDropdown`
+- ✅ `frontend/src/components/tables/TanStackTable/TanStackCRUDTable.jsx`
+  - Added `reloadTrigger` state (line 95)
+  - Exposed `reloadData()` function via useImperativeHandle (lines 3110-3113)
+  - Added `reloadTrigger` to data loading useEffect dependencies (line 643)
+
+#### User Experience After Implementation
+
+**Dropdown Interaction:**
+1. User clicks "+ Add ▽" in Active Project column
+2. Styled dropdown appears with three options:
+   - "Reference Only - Just track it"
+   - "Mark for Modification - You'll modify it"
+   - "Mark for Deletion - You'll delete it"
+3. User selects action
+4. API call adds alias/zone to project
+5. Table cell immediately updates to show new status (badge or Remove button)
+6. **All unsaved edits in other cells preserved** ✅
+7. Dropdown matches theme styling and table aesthetics
+
+**Visual Consistency:**
+- ✅ Dropdown styling matches "init" dropdown and other table elements
+- ✅ Adapts to Light/Dark/Dark+ themes
+- ✅ No blue outline when interacting with project columns
+- ✅ Clean, professional appearance
+
+**Technical Benefits:**
+- ✅ Reusable pattern for other tables that need local updates
+- ✅ TanStackCRUDTable now has reloadData() for all use cases
+- ✅ Theme-based styling ensures future theme changes apply automatically
+- ✅ Performance: No unnecessary server fetches
+
+---
+
 ### Phase 5: Testing & Documentation ✅ COMPLETED (2025-10-29)
 - [x] Core functionality tested via existing application workflows
 - [x] Backward compatibility maintained - existing code continues to work

@@ -19,7 +19,6 @@ const AliasTableTanStackClean = () => {
     const [errorModal, setErrorModal] = useState({ show: false, message: '', errors: null });
     const [wwpnColumnCount, setWwpnColumnCount] = useState(1); // Dynamic WWPN column count
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
-    const isUpdatingProjectRef = useRef(false); // Flag to prevent data reload when updating project membership
 
     // Project filter state (default: 'all' shows all customer aliases)
     const [projectFilter, setProjectFilter] = useState(
@@ -427,7 +426,6 @@ const AliasTableTanStackClean = () => {
         window.aliasTableRef = tableRef;
         window.aliasTableActiveProjectId = activeProjectId;
         window.aliasTableActiveProjectName = config?.active_project?.name || 'Current Project';
-        window.aliasTableIsUpdatingProjectRef = isUpdatingProjectRef;
 
         // Expose reload function
         window.aliasTableReload = () => {
@@ -513,14 +511,40 @@ const AliasTableTanStackClean = () => {
                     window.aliasTableCloseDropdown();
 
                     console.log(`🎯 Dropdown option clicked: ${option.action} for alias ${aliasId}`);
+
+                    // Get current table data to preserve dirty changes
+                    const currentData = window.aliasTableRef?.current?.getTableData();
+                    console.log('💾 Preserving current table data before update');
+
                     const success = await handleAddAliasToProject(aliasId, option.action);
 
-                    if (success) {
-                        console.log('✅ Add complete, reloading table data from server...');
-                        // Reload from server to get updated data
-                        window.aliasTableReload();
-                    } else {
-                        console.error('❌ Add failed, not reloading');
+                    if (success && currentData) {
+                        console.log('✅ Add complete, updating table data without losing edits...');
+
+                        // Update just the affected row
+                        const updatedData = currentData.map(row => {
+                            if (row.id === aliasId) {
+                                return {
+                                    ...row,
+                                    in_active_project: true,
+                                    project_memberships: [
+                                        ...(row.project_memberships || []),
+                                        {
+                                            project_id: window.aliasTableActiveProjectId,
+                                            project_name: window.aliasTableActiveProjectName,
+                                            action: option.action
+                                        }
+                                    ]
+                                };
+                            }
+                            return row;
+                        });
+
+                        // Set updated data back (preserves dirty state)
+                        window.aliasTableRef?.current?.setTableData(updatedData);
+                        console.log('✅ Table data updated in place - dirty data preserved');
+                    } else if (!success) {
+                        console.error('❌ Add failed, not updating');
                     }
                 });
 
@@ -551,7 +575,6 @@ const AliasTableTanStackClean = () => {
             delete window.aliasTableRef;
             delete window.aliasTableActiveProjectId;
             delete window.aliasTableActiveProjectName;
-            delete window.aliasTableIsUpdatingProjectRef;
         };
     }, [handleAddAliasToProject, handleRemoveAliasFromProject, activeProjectId, config]);
 
@@ -679,13 +702,9 @@ const AliasTableTanStackClean = () => {
     // Process data for display - convert IDs to names in nested properties and distribute WWPNs across columns
     // Using useCallback with stable reference - wwpnColumnCount accessed via ref to avoid recreating function
     const preprocessData = useCallback((data) => {
-        // If we're in the middle of adding a column or updating project, return null to prevent reload
+        // If we're in the middle of adding a column, return null to prevent reload
         if (isAddingColumnRef.current) {
             console.log('⏸️ preprocessData skipped - adding column in progress');
-            return null;
-        }
-        if (isUpdatingProjectRef.current) {
-            console.log('⏸️ preprocessData skipped - updating project membership in progress');
             return null;
         }
 
