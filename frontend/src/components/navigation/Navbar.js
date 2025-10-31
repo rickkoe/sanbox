@@ -6,7 +6,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useTheme } from "../../context/ThemeContext";
 import NavbarBrand from "./NavbarBrand";
-import NavbarContext from "./NavbarContext";
+import DualContextDropdown from "./DualContextDropdown";
 import UserSection from "./UserSection";
 import AboutModal from "../../pages/AboutPage";
 import axios from "axios";
@@ -48,10 +48,7 @@ const Navbar = () => {
       <div className="container-fluid">
         <NavbarBrand />
 
-        <NavbarContext 
-          config={config} 
-          loading={loading} 
-        />
+        <DualContextDropdown />
 
         <div className="collapse navbar-collapse" id="navbarNav">
           <ul className="navbar-nav ms-auto align-items-center d-flex">

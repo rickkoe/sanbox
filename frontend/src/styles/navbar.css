@@ -735,6 +735,10 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
   .context-indicator {
     min-width: 180px;
   }
+
+  .dual-context-dropdown {
+    margin-left: 40px;
+  }
 }
 
 @media (max-width: 992px) {
@@ -761,6 +765,10 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
   .context-customer,
   .context-project {
     font-size: var(--font-size-xs);
+  }
+
+  .dual-context-dropdown {
+    margin-left: 30px;
   }
 }
 
@@ -798,6 +806,10 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
     min-width: auto;
     width: 100%;
   }
+
+  .dual-context-dropdown {
+    margin-left: 16px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -823,6 +835,10 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
     height: 32px;
     font-size: var(--font-size-sm);
   }
+
+  .dual-context-dropdown {
+    margin-left: 8px;
+  }
 }
 
 /* ========== ADDITIONAL UTILITY CLASSES ========== */
@@ -836,4 +852,37 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
 .navbar-brand .logo-image {
   height: 32px;
   max-width: 120px;
+}
+
+/* ========== DUAL CONTEXT DROPDOWN STYLING ========== */
+/* Styling for the dual customer/project dropdown selector */
+
+.dual-context-dropdown {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: 60px;
+  margin-right: 16px;
+}
+
+.dual-context-dropdown .dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.dual-context-dropdown .dropdown-toggle:hover {
+  background-color: var(--color-accent-subtle) !important;
+}
+
+.dual-context-dropdown .dropdown-menu {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.dual-context-dropdown .dropdown-item:hover {
+  background-color: var(--color-accent-subtle);
 }

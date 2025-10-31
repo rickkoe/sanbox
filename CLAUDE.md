@@ -338,6 +338,43 @@ The application uses React Context for global state:
 - `ConfigContext` - Application configuration
 - `SanVendorContext` - SAN vendor-specific data
 
+## Dual Context System (Customer & Project Selection)
+
+The application uses a dual-dropdown system in the navbar for context selection:
+
+### Customer Dropdown
+- Always visible
+- Allows selecting active customer
+- Includes "+ Create New Customer" option
+- Stored in UserConfig per-user
+
+### Project Dropdown
+- Appears only when customer is selected
+- Includes "-- None --" option (allows customer without project)
+- Includes "+ Create New Project" option
+- Auto-clears when switching customers
+- Stored in UserConfig per-user
+
+### Customer View vs Project View
+
+**Customer View** (default):
+- Shows all entities across all projects for the active customer
+- Uses regular API endpoints
+- No field highlighting
+
+**Project View** (requires active project):
+- Shows ONLY entities in the active project (via junction tables)
+- Merges base entity data with field_overrides from project
+- Highlights modified fields with blue background
+- Uses `/project/{id}/view/` API endpoints
+- Disabled if no active project selected
+
+### Field Highlighting in Project View
+- Modified fields show light blue background with left border
+- Indicates field has overrides in project (stored in field_overrides JSON)
+- Only fields that differ from base value are highlighted
+- Legend displayed above table explaining highlighting
+
 ## Common Tasks
 
 1. **Adding a new table**: Create a new page component that uses GenericTable with appropriate API endpoints

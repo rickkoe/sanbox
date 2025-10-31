@@ -1,0 +1,46 @@
+PROMPT FOR NEW CONVERSATION
+============================
+
+Copy and paste this into a new Claude Code conversation:
+
+---
+
+I need you to implement a dual-dropdown context system and project view mode for my application.
+
+Please read the complete implementation guide at:
+/Users/rickk/sanbox/DUAL_DROPDOWN_IMPLEMENTATION.md
+
+This document contains:
+- All requirements and user answers to clarifying questions
+- Complete code snippets ready to implement
+- Exact file locations and line numbers
+- 5 phases of implementation (12-16 hours estimated)
+- Testing checklist
+- Documentation updates
+
+Key requirements summary:
+1. Replace single customer/project dropdown with TWO separate dropdowns
+2. Allow selecting customer WITHOUT requiring a project
+3. Add "Project View" mode that shows ONLY project entities with field_overrides applied
+4. Highlight modified cells (fields with overrides) using background color
+5. Auto-clear project when switching customers
+6. Add "+ Create New" options to both dropdowns
+
+Please implement this phase-by-phase following the guide. After each phase:
+- Show me what you've completed
+- Test the changes
+- Mark the phase as complete
+- Move to next phase
+
+Start with Phase 1 (Backend Changes) and proceed unattended through all phases unless you encounter issues.
+
+---
+
+CONTEXT:
+- Application: Django backend + React frontend
+- Database: PostgreSQL
+- Already implemented: Field override system (see FIELD_OVERRIDE_IMPLEMENTATION.md)
+- Active project: Customer has projects, projects have junction tables (ProjectAlias, ProjectZone, etc.)
+- Junction tables have field_overrides JSONField for tracking project-specific changes
+
+Ready to begin?

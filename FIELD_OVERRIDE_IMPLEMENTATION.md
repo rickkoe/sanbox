@@ -483,6 +483,59 @@ Navigate to the Projects table and choose:
 10. Junction tables deleted (clean slate)
 ```
 
+## Project View Mode
+
+### What is Project View?
+
+Project View is a special display mode that shows:
+1. **Only entities in the active project** (not all customer entities)
+2. **Merged data** (base object + field_overrides applied)
+3. **Visual highlighting** of modified fields
+
+### How to Use Project View
+
+1. Select a customer from the Customer dropdown
+2. Select a project from the Project dropdown
+3. Navigate to Aliases or Zones table
+4. Click "Project View" button
+
+### Visual Indicators
+
+**Modified Field Highlighting**:
+- Background: Light blue (`var(--color-accent-subtle)`)
+- Left Border: Dark blue (`var(--color-accent-emphasis)`)
+- Tooltip: "Modified in this project"
+
+**Legend**:
+- Displayed above table when in Project View
+- Shows example of highlighted cell
+- Explains what highlighting means
+
+### Technical Implementation
+
+**Backend**:
+- New endpoints: `/api/san/aliases/project/{id}/view/` and `/api/san/zones/project/{id}/view/`
+- Merges `Alias`/`Zone` base data with `ProjectAlias`/`ProjectZone.field_overrides`
+- Returns `modified_fields` array listing override field names
+
+**Frontend**:
+- Custom cell renderer checks `modified_fields` array
+- Applies highlighting only to fields in that array
+- Disabled when no active project selected
+
+### Switching Between Views
+
+- **Customer View**: Shows all customer data, no highlighting
+- **Project View**: Shows only project data, with highlighting
+- Toggle preserved in localStorage per-table
+- "Project View" disabled (grayed out) when no active project
+
+### Performance
+
+- Merging happens backend-side (efficient)
+- Only entities in project fetched (smaller dataset in Project View)
+- Uses select_related/prefetch_related for optimized queries
+
 ### For Developers
 
 #### Architecture Overview

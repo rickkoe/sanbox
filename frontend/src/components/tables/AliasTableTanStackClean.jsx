@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
-import axios from "axios";
+import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -30,6 +30,15 @@ const AliasTableTanStackClean = () => {
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
+
+    // Auto-switch to Customer View when no project is selected
+    useEffect(() => {
+        if (!activeProjectId && projectFilter === 'current') {
+            console.log('No active project - switching to Customer View');
+            setProjectFilter('all');
+            localStorage.setItem('aliasTableProjectFilter', 'all');
+        }
+    }, [activeProjectId, projectFilter]);
 
     // Handle filter toggle change
     const handleFilterChange = useCallback((newFilter) => {
@@ -133,14 +142,31 @@ const AliasTableTanStackClean = () => {
     const canModifyProject = !isViewer && (isProjectOwner || isAdmin);
     const isReadOnly = !canModifyProject;
 
-    // API endpoints
-    const API_ENDPOINTS = {
-        aliases: `${API_URL}/api/san/aliases/project/`,
-        fabrics: `${API_URL}/api/san/fabrics/`,
-        hosts: `${API_URL}/api/san/hosts/project/`,
-        aliasSave: `${API_URL}/api/san/aliases/save/`,
-        aliasDelete: `${API_URL}/api/san/aliases/delete/`
-    };
+    // API endpoints - Use different endpoint based on filter mode
+    const API_ENDPOINTS = useMemo(() => {
+        const baseUrl = `${API_URL}/api/san`;
+
+        // Use different endpoint based on filter mode and project availability
+        let aliasesUrl;
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project View: Use merged data endpoint (only project entities with overrides applied)
+            aliasesUrl = `${baseUrl}/aliases/project/${activeProjectId}/view/`;
+        } else if (activeProjectId) {
+            // Customer View with project: Use regular endpoint
+            aliasesUrl = `${baseUrl}/aliases/project/${activeProjectId}/?project_filter=${projectFilter}`;
+        } else {
+            // Customer View without project: Use customer-level endpoint
+            aliasesUrl = `${baseUrl}/aliases/?customer_id=${activeCustomerId}`;
+        }
+
+        return {
+            aliases: aliasesUrl,
+            fabrics: `${baseUrl}/fabrics/`,
+            hosts: `${baseUrl}/hosts/project/`,
+            aliasSave: `${baseUrl}/aliases/save/`,
+            aliasDelete: `${baseUrl}/aliases/delete/`
+        };
+    }, [API_URL, activeProjectId, activeCustomerId, projectFilter]);
 
     // Base alias columns (non-WWPN columns)
     const baseColumns = [
@@ -300,16 +326,21 @@ const AliasTableTanStackClean = () => {
     // Load fabrics, hosts, and calculate WWPN columns
     useEffect(() => {
         const loadData = async () => {
-            if (activeCustomerId && activeProjectId) {
+            if (activeCustomerId) {
                 try {
                     setLoading(true);
                     console.log('Loading dropdown data for alias table...');
 
+                    // Build hosts URL based on whether we have an active project
+                    const hostsUrl = activeProjectId
+                        ? `${API_ENDPOINTS.hosts}${activeProjectId}/`
+                        : `${API_URL}/api/san/hosts/?customer_id=${activeCustomerId}`;
+
                     // Use Promise.allSettled to handle partial failures gracefully
                     const results = await Promise.allSettled([
-                        axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
-                        axios.get(`${API_ENDPOINTS.hosts}${activeProjectId}/`),
-                        axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/`)
+                        api.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
+                        api.get(hostsUrl),
+                        api.get(`${API_ENDPOINTS.aliases}`)  // URL already complete in API_ENDPOINTS
                     ]);
 
                     // Handle fabrics
@@ -352,7 +383,7 @@ const AliasTableTanStackClean = () => {
         };
 
         loadData();
-    }, [activeCustomerId, activeProjectId, calculateWwpnColumns]);
+    }, [activeCustomerId, activeProjectId, calculateWwpnColumns, API_ENDPOINTS, API_URL]);
 
     // Dynamic dropdown sources (storage removed - now read-only lookup via WWPN)
     const dropdownSources = useMemo(() => ({
@@ -372,7 +403,7 @@ const AliasTableTanStackClean = () => {
             }
 
             console.log(`📤 Adding alias ${aliasId} to project ${projectId} with action: ${action}`);
-            const response = await axios.post(`${API_URL}/api/core/projects/${projectId}/add-alias/`, {
+            const response = await api.post(`${API_URL}/api/core/projects/${projectId}/add-alias/`, {
                 alias_id: aliasId,
                 action: action,
                 include_in_zoning: false,
@@ -403,7 +434,7 @@ const AliasTableTanStackClean = () => {
             const confirmed = window.confirm(`Remove "${aliasName}" from this project?\n\nThis will only remove it from your project - the alias itself will not be deleted.`);
             if (!confirmed) return;
 
-            const response = await axios.delete(`${API_URL}/api/core/projects/${projectId}/remove-alias/${aliasId}/`);
+            const response = await api.delete(`${API_URL}/api/core/projects/${projectId}/remove-alias/${aliasId}/`);
 
             if (response.data.success) {
                 console.log('✅ Alias removed from project');
@@ -758,9 +789,15 @@ const AliasTableTanStackClean = () => {
                 return formattedValue;
             };
         }
+
+        // NOTE: Field highlighting for modified fields is now handled via CSS in TanStackCRUDTable
+        // The table automatically applies background color and left border to cells where
+        // rowData.modified_fields includes the column accessor key
+        // No need for custom renderers here!
+
         console.log('✅ Custom renderers created:', Object.keys(renderers));
         return renderers;
-    }, [wwpnColumnCount, activeProjectId]);
+    }, [wwpnColumnCount, activeProjectId, projectFilter]);
 
     // Store wwpnColumnCount in a ref so preprocessData doesn't need to depend on it
     const wwpnColumnCountRef = useRef(wwpnColumnCount);
@@ -845,7 +882,7 @@ const AliasTableTanStackClean = () => {
                 console.log('🗑️ Processing deletions:', deletedRows);
                 for (const aliasId of deletedRows) {
                     try {
-                        await axios.delete(`${API_ENDPOINTS.aliasDelete}${aliasId}/`);
+                        await api.delete(`${API_ENDPOINTS.aliasDelete}${aliasId}/`);
                         console.log(`✅ Deleted alias ${aliasId}`);
                     } catch (error) {
                         console.error(`❌ Failed to delete alias ${aliasId}:`, error);
@@ -1036,7 +1073,7 @@ const AliasTableTanStackClean = () => {
                 console.log('🚀 Sending bulk alias save:', { project_id: activeProjectId, aliases: payload });
 
                 // Use the original bulk save endpoint
-                await axios.post(API_ENDPOINTS.aliasSave, {
+                await api.post(API_ENDPOINTS.aliasSave, {
                     project_id: activeProjectId,
                     aliases: payload,
                 });
@@ -1079,8 +1116,8 @@ const AliasTableTanStackClean = () => {
     // Transform data for saving - not used since we have custom save handler
     const saveTransform = (rows) => rows;
 
-    // Show empty config message if no active customer/project
-    if (!config || !activeCustomerId || !activeProjectId) {
+    // Show empty config message if no active customer
+    if (!config || !activeCustomerId) {
         return <EmptyConfigMessage entityName="aliases" />;
     }
 
@@ -1112,6 +1149,7 @@ const AliasTableTanStackClean = () => {
     // Project filter toggle buttons for toolbar
     const filterToggleButtons = (
         <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+            {/* Customer View Button */}
             <button
                 type="button"
                 className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
@@ -1121,24 +1159,33 @@ const AliasTableTanStackClean = () => {
                     fontSize: '14px',
                     fontWeight: '500',
                     borderRadius: '6px 0 0 6px',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    marginRight: '0',
+                    minWidth: '140px'
                 }}
             >
-                All Aliases
+                Customer View
             </button>
+
+            {/* Project View Button - Disabled if no active project */}
             <button
                 type="button"
                 className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
                 onClick={() => handleFilterChange('current')}
+                disabled={!activeProjectId}
                 style={{
                     padding: '10px 18px',
                     fontSize: '14px',
                     fontWeight: '500',
                     borderRadius: '0 6px 6px 0',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    opacity: activeProjectId ? 1 : 0.5,
+                    cursor: activeProjectId ? 'pointer' : 'not-allowed',
+                    minWidth: '140px'
                 }}
+                title={!activeProjectId ? 'Select a project to enable Project View' : 'Show only aliases in this project'}
             >
-                Current Project Only
+                Project View
             </button>
         </div>
     );
@@ -1155,7 +1202,7 @@ const AliasTableTanStackClean = () => {
                 ref={tableRef}
 
                 // API Configuration - uses custom save endpoint
-                apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/?project_filter=${projectFilter}`}
+                apiUrl={API_ENDPOINTS.aliases}
                 saveUrl={API_ENDPOINTS.aliasSave}
                 deleteUrl={API_ENDPOINTS.aliasDelete}
                 customerId={activeCustomerId}

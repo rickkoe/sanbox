@@ -7,6 +7,8 @@ from .views import (
     generate_zone_creation_scripts,
     generate_zone_deletion_scripts,
     alias_list_view,
+    alias_project_view,
+    alias_customer_list_view,
     alias_save_view,
     hosts_by_project_view,
     host_save_view,
@@ -14,6 +16,8 @@ from .views import (
     assign_host_to_alias_view,
     host_wwpn_reconciliation_view,
     zones_by_project_view,
+    zone_project_view,
+    zone_customer_list_view,
     zone_max_members_view,
     zone_column_requirements,
     zone_save_view,
@@ -34,7 +38,13 @@ from .views import (
 )
 
 urlpatterns = [
+    # Customer-level endpoints (no project required)
+    path("aliases/", alias_customer_list_view, name="alias-customer-list"),
+    path("zones/", zone_customer_list_view, name="zone-customer-list"),
+
+    # Project-level endpoints
     path("aliases/project/<int:project_id>/", alias_list_view, name="alias-list"),
+    path("aliases/project/<int:project_id>/view/", alias_project_view, name="alias-project-view"),
     path("aliases/save/", alias_save_view, name="save-aliases"),
     path("aliases/delete/<int:pk>/", alias_delete_view, name="alias-delete"),
     path("hosts/project/<int:project_id>/", hosts_by_project_view, name="hosts-by-project"),
@@ -45,6 +55,7 @@ urlpatterns = [
     path("aliases/fabric/<int:fabric_id>/", alias_by_fabric_view, name="aliases-by-fabric"),
     path("aliases/copy-to-project/", alias_copy_to_project_view, name="copy-aliases-to-project"),
     path("zones/project/<int:project_id>/", zones_by_project_view, name="zones-by-project"),
+    path("zones/project/<int:project_id>/view/", zone_project_view, name="zone-project-view"),
     path("zones/project/<int:project_id>/max-members/", zone_max_members_view, name="zone-max-members"),
     path("zones/project/<int:project_id>/column-requirements/", zone_column_requirements, name="zone-column-requirements"),
     path("zones/save/", zone_save_view, name="save-zones"),

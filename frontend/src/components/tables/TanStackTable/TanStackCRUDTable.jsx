@@ -3981,6 +3981,15 @@ const TanStackCRUDTable = forwardRef(({
                     }
                   }
 
+                  // Check for field modifications in Project View (field_overrides highlighting)
+                  const modifiedFields = rowData?.modified_fields || [];
+                  const isModifiedField = modifiedFields.includes(cell.column.id);
+
+                  // Override background color for modified fields
+                  if (isModifiedField && !isSelected && !isInvalid) {
+                    cellBg = 'var(--color-accent-subtle)';
+                  }
+
                   return (
                     <td
                       key={cell.id}
@@ -3990,6 +3999,7 @@ const TanStackCRUDTable = forwardRef(({
                         border: 'none',
                         borderBottom: '1px solid var(--table-border)',
                         borderRight: '1px solid var(--table-border)',
+                        borderLeft: isModifiedField ? '3px solid var(--color-accent-emphasis)' : 'none',
                         width: cell.column.getSize(),
                         backgroundColor: isInvalid ? 'var(--color-danger-subtle)' : (isSelected ? (isNameColumn ? cellBg : 'var(--table-row-selected)') : cellBg),
                         cursor: 'cell',

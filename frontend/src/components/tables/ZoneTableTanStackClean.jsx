@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
-import axios from "axios";
+import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -43,6 +43,15 @@ const ZoneTableTanStackClean = () => {
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
+
+    // Auto-switch to Customer View when no project is selected
+    useEffect(() => {
+        if (!activeProjectId && projectFilter === 'current') {
+            console.log('No active project - switching to Customer View');
+            setProjectFilter('all');
+            localStorage.setItem('zoneTableProjectFilter', 'all');
+        }
+    }, [activeProjectId, projectFilter]);
 
     // Handle filter toggle change
     const handleFilterChange = useCallback((newFilter) => {
@@ -252,14 +261,31 @@ const ZoneTableTanStackClean = () => {
     const canModifyProject = !isViewer && (isProjectOwner || isAdmin);
     const isReadOnly = !canModifyProject;
 
-    // API endpoints
-    const API_ENDPOINTS = {
-        zones: `${API_URL}/api/san/zones/project/`,
-        fabrics: `${API_URL}/api/san/fabrics/`,
-        aliases: `${API_URL}/api/san/aliases/project/`,
-        zoneSave: `${API_URL}/api/san/zones/save/`,
-        zoneDelete: `${API_URL}/api/san/zones/delete/`
-    };
+    // API endpoints - Use different endpoint based on filter mode
+    const API_ENDPOINTS = useMemo(() => {
+        const baseUrl = `${API_URL}/api/san`;
+
+        // Use different endpoint based on filter mode and project availability
+        let zonesUrl;
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project View: Use merged data endpoint (only project entities with overrides applied)
+            zonesUrl = `${baseUrl}/zones/project/${activeProjectId}/view/`;
+        } else if (activeProjectId) {
+            // Customer View with project: Use regular endpoint
+            zonesUrl = `${baseUrl}/zones/project/${activeProjectId}/?project_filter=${projectFilter}`;
+        } else {
+            // Customer View without project: Use customer-level endpoint
+            zonesUrl = `${baseUrl}/zones/?customer_id=${activeCustomerId}`;
+        }
+
+        return {
+            zones: zonesUrl,
+            fabrics: `${baseUrl}/fabrics/`,
+            aliases: `${baseUrl}/aliases/project/`,
+            zoneSave: `${baseUrl}/zones/save/`,
+            zoneDelete: `${baseUrl}/zones/delete/`
+        };
+    }, [API_URL, activeProjectId, activeCustomerId, projectFilter]);
 
     // Base zone columns (main columns before member columns)
     const baseColumns = [
@@ -500,15 +526,20 @@ const ZoneTableTanStackClean = () => {
     // Load fabrics, aliases, and zones to calculate member columns
     useEffect(() => {
         const loadData = async () => {
-            if (activeCustomerId && activeProjectId) {
+            if (activeCustomerId) {
                 try {
                     setLoading(true);
                     console.log('Loading zone dropdown data...');
 
+                    // Build alias URL based on whether we have an active project
+                    const aliasUrl = activeProjectId
+                        ? `${API_ENDPOINTS.aliases}${activeProjectId}/?page_size=10000`
+                        : `${API_URL}/api/san/aliases/?customer_id=${activeCustomerId}&page_size=10000`;
+
                     const [fabricResponse, aliasResponse, zoneResponse] = await Promise.all([
-                        axios.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
-                        axios.get(`${API_ENDPOINTS.aliases}${activeProjectId}/?page_size=10000`),
-                        axios.get(`${API_ENDPOINTS.zones}${activeProjectId}/?page_size=10000`)
+                        api.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
+                        api.get(aliasUrl),
+                        api.get(`${API_ENDPOINTS.zones}?page_size=10000`)  // URL already complete in API_ENDPOINTS
                     ]);
 
                     // Handle paginated responses
@@ -555,7 +586,7 @@ const ZoneTableTanStackClean = () => {
         };
 
         loadData();
-    }, [activeCustomerId, activeProjectId, calculateMemberColumnsByType]);
+    }, [activeCustomerId, activeProjectId, calculateMemberColumnsByType, API_ENDPOINTS, API_URL]);
 
     // Calculate used aliases to filter dropdowns
     const calculateUsedAliases = useCallback((tableData, currentRowIndex, currentMemberColumn) => {
@@ -838,8 +869,37 @@ const ZoneTableTanStackClean = () => {
             };
         });
 
+        // Cell renderer for highlighting modified fields in Project View
+        const highlightModifiedCell = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+            // Only apply highlighting in Project View
+            if (projectFilter !== 'current') {
+                return value;
+            }
+
+            const modifiedFields = rowData.modified_fields || [];
+
+            // Check if this field was modified via field_overrides
+            if (modifiedFields.includes(accessorKey)) {
+                // Return HTML with highlighted styling
+                return `<div style="
+                    background-color: var(--color-accent-subtle);
+                    border-left: 3px solid var(--color-accent-emphasis);
+                    padding: 4px;
+                    margin: -4px;
+                " title="Modified in this project">${value || ''}</div>`;
+            }
+
+            return value;
+        };
+
+        // Apply to all data columns (not project columns or member columns)
+        const dataColumns = ['name', 'zone_type', 'notes', 'exists', 'committed', 'deployed'];
+        dataColumns.forEach(colName => {
+            renderers[colName] = highlightModifiedCell;
+        });
+
         return renderers;
-    }, [getMemberDropdownOptions, memberColumnCounts, activeProjectId]); // Needs to recreate when columns added
+    }, [getMemberDropdownOptions, memberColumnCounts, activeProjectId, projectFilter]); // Needs to recreate when columns added
 
     // Dynamic dropdown sources that include member filtering
     const dropdownSources = useMemo(() => {
@@ -1126,7 +1186,7 @@ const ZoneTableTanStackClean = () => {
             }
 
             console.log(`📤 Adding zone ${zoneId} to project ${projectId} with action: ${action}`);
-            const response = await axios.post(`${API_URL}/api/core/projects/${projectId}/add-zone/`, {
+            const response = await api.post(`${API_URL}/api/core/projects/${projectId}/add-zone/`, {
                 zone_id: zoneId,
                 action: action,
                 notes: `Added via table UI with action: ${action}`
@@ -1156,7 +1216,7 @@ const ZoneTableTanStackClean = () => {
             const confirmed = window.confirm(`Remove "${zoneName}" from this project?\n\nThis will only remove it from your project - the zone itself will not be deleted.`);
             if (!confirmed) return;
 
-            const response = await axios.delete(`${API_URL}/api/core/projects/${projectId}/remove-zone/${zoneId}/`);
+            const response = await api.delete(`${API_URL}/api/core/projects/${projectId}/remove-zone/${zoneId}/`);
 
             if (response.data.success) {
                 console.log('✅ Zone removed from project');
@@ -1351,7 +1411,7 @@ const ZoneTableTanStackClean = () => {
                 console.log('🗑️ Processing zone deletions:', deletedRows);
                 for (const zoneId of deletedRows) {
                     try {
-                        await axios.delete(`${API_ENDPOINTS.zoneDelete}${zoneId}/`);
+                        await api.delete(`${API_ENDPOINTS.zoneDelete}${zoneId}/`);
                         console.log(`✅ Deleted zone ${zoneId}`);
                     } catch (error) {
                         console.error(`❌ Failed to delete zone ${zoneId}:`, error);
@@ -1544,7 +1604,7 @@ const ZoneTableTanStackClean = () => {
             if (payload.length > 0) {
                 console.log('🚀 Sending bulk zone save:', { project_id: activeProjectId, zones: payload });
 
-                await axios.post(API_ENDPOINTS.zoneSave, {
+                await api.post(API_ENDPOINTS.zoneSave, {
                     project_id: activeProjectId,
                     zones: payload
                 });
@@ -1583,8 +1643,8 @@ const ZoneTableTanStackClean = () => {
         }
     }, [fabricOptions, aliasOptions, activeProjectId, API_ENDPOINTS]); // memberColumnCounts accessed via ref
 
-    // Show empty config message if no active customer/project
-    if (!config || !activeCustomerId || !activeProjectId) {
+    // Show empty config message if no active customer
+    if (!config || !activeCustomerId) {
         return <EmptyConfigMessage entityName="zones" />;
     }
 
@@ -1616,6 +1676,7 @@ const ZoneTableTanStackClean = () => {
     // Project filter toggle buttons for toolbar
     const filterToggleButtons = (
         <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+            {/* Customer View Button */}
             <button
                 type="button"
                 className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
@@ -1625,24 +1686,33 @@ const ZoneTableTanStackClean = () => {
                     fontSize: '14px',
                     fontWeight: '500',
                     borderRadius: '6px 0 0 6px',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    marginRight: '0',
+                    minWidth: '140px'
                 }}
             >
-                All Zones
+                Customer View
             </button>
+
+            {/* Project View Button - Disabled if no active project */}
             <button
                 type="button"
                 className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
                 onClick={() => handleFilterChange('current')}
+                disabled={!activeProjectId}
                 style={{
                     padding: '10px 18px',
                     fontSize: '14px',
                     fontWeight: '500',
                     borderRadius: '0 6px 6px 0',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    opacity: activeProjectId ? 1 : 0.5,
+                    cursor: activeProjectId ? 'pointer' : 'not-allowed',
+                    minWidth: '140px'
                 }}
+                title={!activeProjectId ? 'Select a project to enable Project View' : 'Show only zones in this project'}
             >
-                Current Project Only
+                Project View
             </button>
         </div>
     );
@@ -1658,7 +1728,7 @@ const ZoneTableTanStackClean = () => {
             <TanStackCRUDTable
                 ref={tableRef}
                 // API Configuration
-                apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/?project_filter=${projectFilter}`}
+                apiUrl={API_ENDPOINTS.zones}
                 saveUrl={API_ENDPOINTS.zoneSave}
                 deleteUrl={API_ENDPOINTS.zoneDelete}
                 customerId={activeCustomerId}

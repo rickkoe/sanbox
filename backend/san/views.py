@@ -839,6 +839,284 @@ def alias_list_view(request, project_id):
 
 @csrf_exempt
 @require_http_methods(["GET"])
+def alias_project_view(request, project_id):
+    """
+    Get aliases in project with field_overrides applied (merged view).
+    Returns only aliases in the project with overrides merged into base data.
+    Adds 'modified_fields' array to track which fields have overrides.
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get all ProjectAlias entries for this project
+    project_aliases = ProjectAlias.objects.filter(
+        project=project
+    ).select_related(
+        'alias',
+        'alias__fabric',
+        'alias__host',
+        'alias__storage'
+    ).prefetch_related('alias__alias_wwpns')
+
+    merged_data = []
+
+    for pa in project_aliases:
+        # Serialize base alias
+        base_data = AliasSerializer(pa.alias).data
+
+        # Track which fields have overrides
+        modified_fields = []
+
+        # Apply field_overrides if they exist
+        if pa.field_overrides:
+            print(f"🔍 ProjectAlias {pa.id}: field_overrides = {pa.field_overrides}")
+            for field_name, override_value in pa.field_overrides.items():
+                # Only apply if value actually differs from base
+                if field_name in base_data:
+                    if base_data[field_name] != override_value:
+                        base_data[field_name] = override_value
+                        modified_fields.append(field_name)
+                        print(f"  ✅ Field '{field_name}' modified: {base_data.get(field_name)} -> {override_value}")
+                else:
+                    # New field from override
+                    base_data[field_name] = override_value
+                    modified_fields.append(field_name)
+                    print(f"  ✅ New field '{field_name}' added: {override_value}")
+
+        # Add metadata
+        base_data['modified_fields'] = modified_fields
+        base_data['project_action'] = pa.action
+        base_data['in_active_project'] = True
+
+        print(f"✨ Final modified_fields for alias {pa.alias.name}: {modified_fields}")
+
+        merged_data.append(base_data)
+
+    return JsonResponse({
+        'results': merged_data,
+        'count': len(merged_data)
+    })
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def alias_customer_list_view(request):
+    """
+    Fetch all aliases for a customer (without requiring a project).
+    Use this endpoint when viewing customer-level data without an active project.
+    """
+    print(f"🔥 Alias Customer List - Customer ID from query params")
+
+    # Get customer_id from query parameters
+    customer_id = request.GET.get('customer_id')
+    if not customer_id:
+        return JsonResponse({"error": "customer_id parameter is required"}, status=400)
+
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return JsonResponse({"error": f"Customer {customer_id} not found"}, status=404)
+
+    # Check permissions
+    user = request.user if request.user.is_authenticated else None
+    if user and user.is_authenticated:
+        from core.permissions import has_customer_access
+        if not has_customer_access(user, customer):
+            return JsonResponse({"error": "Permission denied"}, status=403)
+    else:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    # Get query parameters
+    search = request.GET.get('search', '').strip()
+    ordering = request.GET.get('ordering', 'name')
+
+    # Base queryset - filter by customer's fabrics
+    customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
+    aliases_queryset = Alias.objects.select_related('fabric', 'host').filter(
+        fabric_id__in=customer_fabric_ids
+    )
+
+    # Prefetch project memberships for badge display
+    aliases_queryset = aliases_queryset.prefetch_related(
+        Prefetch('project_memberships', queryset=ProjectAlias.objects.select_related('project'))
+    )
+
+    # Annotate with zoned_count (across all customer zones)
+    from django.db.models import Count, Q as Q_models
+    customer_zone_ids = Zone.objects.filter(fabric_id__in=customer_fabric_ids).values_list('id', flat=True)
+    aliases_queryset = aliases_queryset.annotate(
+        _zoned_count=Count('zone', filter=Q_models(zone__id__in=customer_zone_ids), distinct=True)
+    )
+
+    # Apply general search if provided
+    if search:
+        aliases_queryset = aliases_queryset.filter(
+            Q(name__icontains=search) |
+            Q(wwpn__icontains=search) |
+            Q(notes__icontains=search) |
+            Q(fabric__name__icontains=search) |
+            Q(use__icontains=search) |
+            Q(cisco_alias__icontains=search)
+        )
+
+    # Apply field-specific filters (same logic as project endpoint)
+    filter_params = {}
+    storage_filter_value = None
+
+    for param, value in request.GET.items():
+        if param.startswith(('storage_details.name__', 'storage__name__')) or param in ['storage_details.name', 'storage__name']:
+            storage_filter_value = (param, value)
+            continue
+
+        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'host__name__', 'cisco_alias__', 'notes__', 'logged_in__', 'committed__', 'deployed__', 'zoned_count__')) or param in ['zoned_count', 'fabric__name', 'host__name', 'use', 'cisco_alias', 'logged_in', 'committed', 'deployed']:
+            # Handle boolean fields
+            if any(param.startswith(f'{bool_field}__') for bool_field in ['logged_in', 'committed', 'deployed']):
+                if param.endswith('__in'):
+                    boolean_values = []
+                    for str_val in value.split(','):
+                        str_val = str_val.strip()
+                        if str_val.lower() == 'true':
+                            boolean_values.append(True)
+                        elif str_val.lower() == 'false':
+                            boolean_values.append(False)
+                    filter_params[param] = boolean_values
+                else:
+                    if value.lower() == 'true':
+                        filter_params[param] = True
+                    elif value.lower() == 'false':
+                        filter_params[param] = False
+            else:
+                # Handle calculated fields
+                if param.startswith('zoned_count__'):
+                    mapped_param = param.replace('zoned_count__', '_zoned_count__')
+                    if param.endswith('__in') and isinstance(value, str) and ',' in value:
+                        try:
+                            filter_params[mapped_param] = [int(v.strip()) for v in value.split(',')]
+                        except ValueError:
+                            filter_params[mapped_param] = value.split(',')
+                    elif param.endswith('__in') and isinstance(value, str):
+                        try:
+                            filter_params[mapped_param] = [int(value.strip())]
+                        except ValueError:
+                            filter_params[mapped_param] = [value.strip()]
+                    else:
+                        try:
+                            filter_params[mapped_param] = int(value) if str(value).isdigit() else value
+                        except (ValueError, AttributeError):
+                            filter_params[mapped_param] = value
+                elif param == 'zoned_count':
+                    try:
+                        filter_params['_zoned_count'] = int(value)
+                    except ValueError:
+                        filter_params['_zoned_count'] = value
+                else:
+                    filter_params[param] = value
+
+    if filter_params:
+        print(f"🔍 Applying filters: {filter_params}")
+        aliases_queryset = aliases_queryset.filter(**filter_params)
+
+    # Apply storage filter if present
+    if storage_filter_value:
+        from storage.models import Port
+        from san.models import AliasWWPN
+
+        param, value = storage_filter_value
+        print(f"🔍 Applying storage filter: {param} = {value}")
+
+        if param.endswith('__icontains'):
+            storage_names = Port.objects.filter(
+                storage__isnull=False,
+                storage__customer_id=customer_id,
+                storage__name__icontains=value
+            ).values_list('storage__name', flat=True).distinct()
+        elif param.endswith('__in'):
+            storage_list = [v.strip() for v in value.split(',')]
+            storage_names = storage_list
+        else:
+            storage_names = [value]
+
+        port_wwpns_query = Port.objects.filter(
+            wwpn__isnull=False,
+            storage__isnull=False,
+            storage__name__in=storage_names,
+            storage__customer_id=customer_id
+        )
+
+        port_wwpns = set()
+        for port in port_wwpns_query.values_list('wwpn', flat=True):
+            if port:
+                port_wwpns.add(port.replace(':', '').upper())
+
+        matching_wwpns = AliasWWPN.objects.filter(
+            alias__in=aliases_queryset
+        ).values_list('wwpn', 'alias_id')
+
+        matching_alias_ids = set()
+        for wwpn, alias_id in matching_wwpns:
+            if wwpn:
+                wwpn_normalized = wwpn.replace(':', '').upper()
+                if wwpn_normalized in port_wwpns:
+                    matching_alias_ids.add(alias_id)
+
+        aliases_queryset = aliases_queryset.filter(id__in=matching_alias_ids)
+
+    # Apply ordering
+    if ordering:
+        aliases_queryset = aliases_queryset.order_by(ordering)
+
+    # Pagination
+    from django.core.paginator import Paginator
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 50))
+
+    paginator = Paginator(aliases_queryset, page_size)
+    page_obj = paginator.get_page(page)
+
+    # Build WWPN→Storage map
+    wwpn_storage_map = {}
+    try:
+        from storage.models import Port
+        ports_query = Port.objects.select_related('storage').filter(
+            wwpn__isnull=False,
+            storage__isnull=False,
+            storage__customer_id=customer_id
+        )
+
+        for port in ports_query:
+            if port.wwpn and port.storage:
+                wwpn_normalized = port.wwpn.replace(':', '').upper()
+                wwpn_storage_map[wwpn_normalized] = {
+                    "id": port.storage.id,
+                    "name": port.storage.name
+                }
+    except Exception as e:
+        print(f"⚠️ Failed to build WWPN→Storage map: {e}")
+
+    serializer = AliasSerializer(
+        page_obj,
+        many=True,
+        context={
+            'customer_id': customer_id,
+            'wwpn_storage_map': wwpn_storage_map
+        }
+    )
+
+    return JsonResponse({
+        'results': serializer.data,
+        'count': paginator.count,
+        'num_pages': paginator.num_pages,
+        'current_page': page,
+        'page_size': page_size,
+        'has_next': page_obj.has_next(),
+        'has_previous': page_obj.has_previous()
+    })
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
 def get_unique_values_for_hosts(request, project, field_name):
     """Get unique values for a specific field from hosts in a project."""
     print(f"🔍 Getting unique values for host field: {field_name} in project {project.id}")
@@ -2079,6 +2357,207 @@ def zones_by_project_view(request, project_id):
         return JsonResponse({"error": "Project not found."}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def zone_project_view(request, project_id):
+    """
+    Get zones in project with field_overrides applied (merged view).
+    Returns only zones in the project with overrides merged into base data.
+    Adds 'modified_fields' array to track which fields have overrides.
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get all ProjectZone entries for this project
+    project_zones = ProjectZone.objects.filter(
+        project=project
+    ).select_related(
+        'zone',
+        'zone__fabric'
+    ).prefetch_related('zone__members')
+
+    merged_data = []
+
+    for pz in project_zones:
+        # Serialize base zone
+        base_data = ZoneSerializer(pz.zone).data
+
+        # Track which fields have overrides
+        modified_fields = []
+
+        # Apply field_overrides if they exist
+        if pz.field_overrides:
+            for field_name, override_value in pz.field_overrides.items():
+                # Skip member_ids (handled separately)
+                if field_name == 'member_ids':
+                    continue
+
+                # Only apply if value actually differs from base
+                if field_name in base_data:
+                    if base_data[field_name] != override_value:
+                        base_data[field_name] = override_value
+                        modified_fields.append(field_name)
+                else:
+                    base_data[field_name] = override_value
+                    modified_fields.append(field_name)
+
+        # Add metadata
+        base_data['modified_fields'] = modified_fields
+        base_data['project_action'] = pz.action
+        base_data['in_active_project'] = True
+
+        merged_data.append(base_data)
+
+    return JsonResponse({
+        'results': merged_data,
+        'count': len(merged_data)
+    })
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def zone_customer_list_view(request):
+    """
+    Fetch all zones for a customer (without requiring a project).
+    Use this endpoint when viewing customer-level data without an active project.
+    """
+    print(f"🔥 Zone Customer List - Customer ID from query params")
+
+    # Get customer_id from query parameters
+    customer_id = request.GET.get('customer_id')
+    if not customer_id:
+        return JsonResponse({"error": "customer_id parameter is required"}, status=400)
+
+    try:
+        customer = Customer.objects.get(id=customer_id)
+    except Customer.DoesNotExist:
+        return JsonResponse({"error": f"Customer {customer_id} not found"}, status=404)
+
+    # Check permissions
+    user = request.user if request.user.is_authenticated else None
+    if user and user.is_authenticated:
+        from core.permissions import has_customer_access
+        if not has_customer_access(user, customer):
+            return JsonResponse({"error": "Permission denied"}, status=403)
+    else:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
+    # Get query parameters
+    search = request.GET.get('search', '')
+    ordering = request.GET.get('ordering', 'id')
+
+    # Build queryset with optimized prefetching
+    optimized_members_prefetch = Prefetch(
+        'members',
+        queryset=Alias.objects.only('id', 'name', 'use', 'fabric_id')
+    )
+
+    # Base queryset - filter by customer's fabrics
+    customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
+    zones = Zone.objects.select_related('fabric').filter(fabric_id__in=customer_fabric_ids)
+
+    # Prefetch project memberships for badge display
+    zones = zones.prefetch_related(
+        Prefetch('project_memberships', queryset=ProjectZone.objects.select_related('project'))
+    )
+
+    # Build optimized query with prefetch_related
+    zones = zones.prefetch_related(optimized_members_prefetch).annotate(
+        _member_count=Count('members', distinct=True)
+    )
+
+    # Apply general search if provided
+    if search:
+        zones = zones.filter(
+            Q(name__icontains=search) |
+            Q(fabric__name__icontains=search) |
+            Q(zone_type__icontains=search) |
+            Q(notes__icontains=search) |
+            Q(members__name__icontains=search)
+        ).distinct()
+
+    # Apply field-specific filters
+    filter_params = {}
+    for param, value in request.GET.items():
+        if param.startswith(('name__', 'fabric__name__', 'zone_type__', 'notes__', 'exists__', 'committed__', 'deployed__', 'member_count__')) or param in ['fabric__name', 'zone_type', 'exists', 'committed', 'deployed', 'member_count']:
+            # Handle boolean fields
+            if any(param.startswith(f'{bool_field}__') for bool_field in ['exists', 'committed', 'deployed']):
+                if param.endswith('__in'):
+                    boolean_values = []
+                    for str_val in value.split(','):
+                        str_val = str_val.strip()
+                        if str_val.lower() == 'true':
+                            boolean_values.append(True)
+                        elif str_val.lower() == 'false':
+                            boolean_values.append(False)
+                    filter_params[param] = boolean_values
+                else:
+                    if value.lower() == 'true':
+                        filter_params[param] = True
+                    elif value.lower() == 'false':
+                        filter_params[param] = False
+            else:
+                # Handle calculated fields
+                if param.startswith('member_count__'):
+                    mapped_param = param.replace('member_count__', '_member_count__')
+                    if param.endswith('__in') and isinstance(value, str) and ',' in value:
+                        try:
+                            filter_params[mapped_param] = [int(v.strip()) for v in value.split(',')]
+                        except ValueError:
+                            filter_params[mapped_param] = value.split(',')
+                    elif param.endswith('__in') and isinstance(value, str):
+                        try:
+                            filter_params[mapped_param] = [int(value.strip())]
+                        except ValueError:
+                            filter_params[mapped_param] = [value.strip()]
+                    else:
+                        try:
+                            filter_params[mapped_param] = int(value) if str(value).isdigit() else value
+                        except (ValueError, AttributeError):
+                            filter_params[mapped_param] = value
+                elif param == 'member_count':
+                    try:
+                        filter_params['_member_count'] = int(value)
+                    except ValueError:
+                        filter_params['_member_count'] = value
+                else:
+                    filter_params[param] = value
+
+    if filter_params:
+        zones = zones.filter(**filter_params)
+
+    # Apply ordering
+    if ordering:
+        zones = zones.order_by(ordering)
+
+    # Pagination
+    from django.core.paginator import Paginator
+    page = int(request.GET.get('page', 1))
+    page_size = int(request.GET.get('page_size', 50))
+
+    paginator = Paginator(zones, page_size)
+    page_obj = paginator.get_page(page)
+
+    # Serialize paginated results
+    serializer = ZoneSerializer(
+        page_obj,
+        many=True,
+        context={'customer_id': customer_id}
+    )
+
+    return JsonResponse({
+        'results': serializer.data,
+        'count': paginator.count,
+        'num_pages': paginator.num_pages,
+        'current_page': page,
+        'page_size': page_size,
+        'has_next': page_obj.has_next(),
+        'has_previous': page_obj.has_previous()
+    })
 
 
 @csrf_exempt
