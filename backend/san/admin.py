@@ -99,20 +99,18 @@ class AliasAdmin(admin.ModelAdmin):
         "customer_name",
         "use",
         "cisco_alias",
-        "create",
-        "include_in_zoning",
-        "project_count",
+        "committed",
+        "deployed",
         "imported",
         "updated"
     ]
     list_filter = [
         "fabric__customer",  # Filter by customer through fabric
         "fabric",
-        "projects",  # Filter by projects
         "use",
         "cisco_alias",
-        "create",
-        "include_in_zoning",
+        "committed",
+        "deployed",
         ("storage", admin.EmptyFieldListFilter),  # Has storage or not
         ("host", admin.EmptyFieldListFilter),     # Has host or not
         ("imported", admin.DateFieldListFilter), # Filter by import date
@@ -125,21 +123,18 @@ class AliasAdmin(admin.ModelAdmin):
         "fabric__customer__name",
         "notes"
     ]
-    list_editable = ["use", "create", "include_in_zoning"]
+    list_editable = ["use", "committed", "deployed"]
     ordering = ["fabric__customer__name", "fabric__name", "name"]
     list_per_page = 100
 
-    # Add filter for projects
-    filter_horizontal = ["projects"]  # Better interface for many-to-many
-
     # Add inline for WWPNs
     inlines = [AliasWWPNInline]
-    
+
     # Custom fields
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(
-            project_count=Count('projects', distinct=True)
-        ).select_related('fabric', 'fabric__customer', 'storage', 'host').prefetch_related('alias_wwpns')
+        return super().get_queryset(request).select_related(
+            'fabric', 'fabric__customer', 'storage', 'host'
+        ).prefetch_related('alias_wwpns')
 
     def wwpn_display(self, obj):
         """Display WWPNs - show first one, indicate if there are more"""
@@ -156,45 +151,30 @@ class AliasAdmin(admin.ModelAdmin):
     customer_name.short_description = "Customer"
     customer_name.admin_order_field = "fabric__customer__name"
 
-    def project_count(self, obj):
-        return obj.project_count
-    project_count.short_description = "Projects"
-    project_count.admin_order_field = "project_count"
-    
     # Add actions
-    actions = ["mark_for_creation", "unmark_for_creation", "include_in_zoning", "exclude_from_zoning"]
-    
-    def mark_for_creation(self, request, queryset):
-        updated = queryset.update(create=True)
-        self.message_user(request, f"{updated} aliases marked for creation.")
-    mark_for_creation.short_description = "Mark selected aliases for creation"
-    
-    def unmark_for_creation(self, request, queryset):
-        updated = queryset.update(create=False)
-        self.message_user(request, f"{updated} aliases unmarked for creation.")
-    unmark_for_creation.short_description = "Unmark selected aliases for creation"
-    
-    def include_in_zoning(self, request, queryset):
-        updated = queryset.update(include_in_zoning=True)
-        self.message_user(request, f"{updated} aliases included in zoning.")
-    include_in_zoning.short_description = "Include selected aliases in zoning"
-    
-    def exclude_from_zoning(self, request, queryset):
-        updated = queryset.update(include_in_zoning=False)
-        self.message_user(request, f"{updated} aliases excluded from zoning.")
-    exclude_from_zoning.short_description = "Exclude selected aliases from zoning"
+    actions = ["mark_as_committed", "mark_as_deployed"]
+
+    def mark_as_committed(self, request, queryset):
+        updated = queryset.update(committed=True)
+        self.message_user(request, f"{updated} aliases marked as committed.")
+    mark_as_committed.short_description = "Mark selected aliases as committed"
+
+    def mark_as_deployed(self, request, queryset):
+        updated = queryset.update(deployed=True)
+        self.message_user(request, f"{updated} aliases marked as deployed.")
+    mark_as_deployed.short_description = "Mark selected aliases as deployed"
 
 @admin.register(Zone)
 class ZoneAdmin(admin.ModelAdmin):
     list_display = [
-        "name", 
-        "fabric", 
+        "name",
+        "fabric",
         "customer_name",
-        "zone_type", 
-        "create", 
+        "zone_type",
+        "committed",
+        "deployed",
         "exists",
         "member_count",
-        "project_count",
         "imported",
         "updated"
     ]
@@ -202,66 +182,61 @@ class ZoneAdmin(admin.ModelAdmin):
         "fabric__customer",  # Filter by customer through fabric
         "fabric",
         "zone_type",
-        "create",
-        "exists", 
+        "committed",
+        "deployed",
+        "exists",
         ("imported", admin.DateFieldListFilter),
         ("updated", admin.DateFieldListFilter),
     ]
     search_fields = [
-        "name", 
-        "fabric__name", 
+        "name",
+        "fabric__name",
         "fabric__customer__name",
         "notes",
         "members__name"  # Search by member alias names
     ]
-    list_editable = ["zone_type", "create", "exists"]
+    list_editable = ["zone_type", "committed", "deployed", "exists"]
     ordering = ["fabric__customer__name", "fabric__name", "name"]
     list_per_page = 100
-    
+
     # Better interface for many-to-many fields
-    filter_horizontal = ["projects", "members"]
-    
+    filter_horizontal = ["members"]
+
     # Custom fields
     def get_queryset(self, request):
         return super().get_queryset(request).annotate(
-            member_count=Count('members', distinct=True),
-            project_count=Count('projects', distinct=True)
+            member_count=Count('members', distinct=True)
         ).select_related('fabric', 'fabric__customer')
-    
+
     def customer_name(self, obj):
         return obj.fabric.customer.name
     customer_name.short_description = "Customer"
     customer_name.admin_order_field = "fabric__customer__name"
-    
+
     def member_count(self, obj):
         return obj.member_count
     member_count.short_description = "Members"
     member_count.admin_order_field = "member_count"
-    
-    def project_count(self, obj):
-        return obj.project_count
-    project_count.short_description = "Projects"
-    project_count.admin_order_field = "project_count"
-    
+
     # Add actions
-    actions = ["mark_for_creation", "unmark_for_creation", "mark_as_existing", "mark_as_not_existing"]
-    
-    def mark_for_creation(self, request, queryset):
-        updated = queryset.update(create=True)
-        self.message_user(request, f"{updated} zones marked for creation.")
-    mark_for_creation.short_description = "Mark selected zones for creation"
-    
-    def unmark_for_creation(self, request, queryset):
-        updated = queryset.update(create=False)
-        self.message_user(request, f"{updated} zones unmarked for creation.")
-    unmark_for_creation.short_description = "Unmark selected zones for creation"
-    
+    actions = ["mark_as_committed", "mark_as_deployed", "mark_as_existing", "mark_as_not_existing"]
+
+    def mark_as_committed(self, request, queryset):
+        updated = queryset.update(committed=True)
+        self.message_user(request, f"{updated} zones marked as committed.")
+    mark_as_committed.short_description = "Mark selected zones as committed"
+
+    def mark_as_deployed(self, request, queryset):
+        updated = queryset.update(deployed=True)
+        self.message_user(request, f"{updated} zones marked as deployed.")
+    mark_as_deployed.short_description = "Mark selected zones as deployed"
+
     def mark_as_existing(self, request, queryset):
         updated = queryset.update(exists=True)
         self.message_user(request, f"{updated} zones marked as existing.")
     mark_as_existing.short_description = "Mark selected zones as existing"
-    
-    def mark_as_not_existing(self, request, queryset):
+
+    def mark_as_not_existing(self, queryset, request):
         updated = queryset.update(exists=False)
         self.message_user(request, f"{updated} zones marked as not existing.")
     mark_as_not_existing.short_description = "Mark selected zones as not existing"

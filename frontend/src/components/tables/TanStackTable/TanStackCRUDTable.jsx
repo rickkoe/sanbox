@@ -73,6 +73,7 @@ const TanStackCRUDTable = forwardRef(({
 
   // Custom Actions
   customAddActions,
+  customToolbarContent, // Custom content to inject into toolbar (e.g., filter toggles)
 
   ...otherProps
 }, ref) => {
@@ -91,6 +92,7 @@ const TanStackCRUDTable = forwardRef(({
   const [error, setError] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [deletedRows, setDeletedRows] = useState([]);
+  const [reloadTrigger, setReloadTrigger] = useState(0); // Trigger for manual reloads
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -633,11 +635,12 @@ const TanStackCRUDTable = forwardRef(({
     const shouldWaitForConfig = hasTableConfig && !configLoaded;
 
     if (apiUrl && !shouldWaitForConfig) {
+      console.log('🔄 useEffect triggering loadData (reloadTrigger:', reloadTrigger, ')');
       loadData();
       // Also load complete dataset for filtering
       loadAllDataForFiltering();
     }
-  }, [loadData, loadAllDataForFiltering, apiUrl, configLoaded, tableName, customerId]);
+  }, [loadData, loadAllDataForFiltering, apiUrl, configLoaded, tableName, customerId, reloadTrigger]);
 
   // Reset to page 1 when search filter changes
   useEffect(() => {
@@ -1470,9 +1473,20 @@ const TanStackCRUDTable = forwardRef(({
               // Use row.original which contains the actual row data from TanStack Table
               const rowData = row.original || editableData[rowIndex] || {};
               renderResult = customRenderer(rowData, null, rowIndex, colIndex, accessorKey, value);
+
+              // Safety check: if renderResult is an array or object (not React element), convert to string
+              if (renderResult && typeof renderResult === 'object' && !renderResult.__isReactComponent) {
+                if (Array.isArray(renderResult)) {
+                  console.warn('Custom renderer returned array, converting to empty string:', accessorKey);
+                  renderResult = '';
+                } else if (!React.isValidElement(renderResult)) {
+                  console.warn('Custom renderer returned object, converting to empty string:', accessorKey);
+                  renderResult = '';
+                }
+              }
             } catch (error) {
               console.warn('Custom renderer error:', error);
-              renderResult = value;
+              renderResult = '';
             }
 
             // Check if result is a React component
@@ -1522,9 +1536,21 @@ const TanStackCRUDTable = forwardRef(({
           }
 
           // Default text cell
+          // Safety check: don't render objects/arrays directly
+          let safeValue = value;
+          if (value && typeof value === 'object') {
+            if (Array.isArray(value)) {
+              // Array value - likely missing custom renderer, convert to empty string
+              safeValue = '';
+            } else if (!React.isValidElement(value)) {
+              // Object value - convert to empty string
+              safeValue = '';
+            }
+          }
+
           return (
             <EditableTextCell
-              value={value}
+              value={safeValue}
               rowIndex={rowIndex}
               columnKey={accessorKey}
               updateCellData={updateCellData}
@@ -3082,6 +3108,10 @@ const TanStackCRUDTable = forwardRef(({
     setSorting: (sortState) => setSorting(sortState),
     hasChanges,
     autoSizeColumns,
+    reloadData: () => {
+      console.log('🔄 reloadData() called - triggering data reload');
+      setReloadTrigger(prev => prev + 1);
+    },
   }));
 
   return (
@@ -3736,22 +3766,29 @@ const TanStackCRUDTable = forwardRef(({
           )}
         </div>
 
-        {/* Status indicator and shortcuts */}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {selectedCells.size > 0 && (
-            <div style={{
-              padding: '6px 12px',
-              backgroundColor: 'var(--table-row-selected)',
-              border: '1px solid var(--link-text)',
-              borderRadius: '4px',
-              fontSize: '12px',
-              color: 'var(--link-text)',
-              fontWeight: '500'
-            }}>
-              {selectedCells.size} cell{selectedCells.size > 1 ? 's' : ''} selected
-            </div>
-          )}
-        </div>
+        {/* Cells selected indicator - moved to left side */}
+        {selectedCells.size > 0 && (
+          <div style={{
+            padding: '10px 18px',
+            backgroundColor: 'var(--table-row-selected)',
+            border: '1px solid var(--link-text)',
+            borderRadius: '6px',
+            fontSize: '14px',
+            color: 'var(--link-text)',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            {selectedCells.size} cell{selectedCells.size > 1 ? 's' : ''} selected
+          </div>
+        )}
+
+        {/* Custom toolbar content (e.g., filter toggles) */}
+        {customToolbarContent && (
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+            {customToolbarContent}
+          </div>
+        )}
       </div>
 
       {/* Professional Table */}

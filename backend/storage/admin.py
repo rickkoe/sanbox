@@ -135,11 +135,13 @@ class PortAdmin(admin.ModelAdmin):
         "use",
         "fabric",
         "alias",
+        "committed",
+        "deployed",
         "location",
     )
     search_fields = ("name", "storage__name", "location", "fabric__name", "alias__name")
-    list_filter = ("type", "use", "protocol", "storage", "fabric")
-    raw_id_fields = ("storage", "fabric", "alias", "project")
+    list_filter = ("type", "use", "protocol", "storage", "fabric", "committed", "deployed")
+    raw_id_fields = ("storage", "fabric", "alias")
     readonly_fields = ("created", "updated", "last_modified_at")
 
     fieldsets = (
@@ -150,7 +152,10 @@ class PortAdmin(admin.ModelAdmin):
             'fields': ('location', 'frame', 'io_enclosure')
         }),
         ("Network Configuration", {
-            'fields': ('fabric', 'alias', 'project')
+            'fields': ('fabric', 'alias')
+        }),
+        ("Lifecycle Tracking", {
+            'fields': ('committed', 'deployed', 'created_by_project')
         }),
         ("Audit Information", {
             'fields': ('last_modified_by', 'last_modified_at', 'version', 'created', 'updated'),

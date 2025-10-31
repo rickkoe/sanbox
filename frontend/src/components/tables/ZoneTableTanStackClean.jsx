@@ -26,7 +26,13 @@ const ZoneTableTanStackClean = () => {
         allAccess: 1
     });
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
+    const isUpdatingProjectRef = useRef(false); // Flag to prevent data reload when updating project membership
     const memberColumnCountsRef = useRef(memberColumnCounts); // Store current counts for stable access
+
+    // Project filter state (default: 'all' shows all customer zones)
+    const [projectFilter, setProjectFilter] = useState(
+        localStorage.getItem('zoneTableProjectFilter') || 'all'
+    );
 
     // Keep the ref in sync with state
     useEffect(() => {
@@ -35,6 +41,19 @@ const ZoneTableTanStackClean = () => {
 
     // Ref to access table methods
     const tableRef = useRef(null);
+
+    const activeProjectId = config?.active_project?.id;
+    const activeCustomerId = config?.customer?.id;
+
+    // Handle filter toggle change
+    const handleFilterChange = useCallback((newFilter) => {
+        setProjectFilter(newFilter);
+        localStorage.setItem('zoneTableProjectFilter', newFilter);
+        // Reload table data with new filter
+        if (tableRef.current?.reloadData) {
+            tableRef.current.reloadData();
+        }
+    }, []);
 
     // Functions to add new member columns - no dependencies to avoid recreation issues
     const addTargetColumn = useCallback(() => {
@@ -222,9 +241,6 @@ const ZoneTableTanStackClean = () => {
         };
     }, []);
 
-    const activeProjectId = config?.active_project?.id;
-    const activeCustomerId = config?.customer?.id;
-
     // Check permissions for modifying project data
     const userRole = getUserRole(activeCustomerId);
     const projectOwner = config?.active_project?.owner;
@@ -250,13 +266,15 @@ const ZoneTableTanStackClean = () => {
     const baseColumns = [
         { data: "name", title: "Name", required: true },
         { data: "fabric", title: "Fabric", type: "dropdown", required: true },
+        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
+        { data: "project_actions", title: "Active Project", type: "custom", readOnly: true, defaultVisible: true },
         { data: "zone_type", title: "Zone Type", type: "dropdown" }
     ];
 
     // Trailing columns (appear after member columns)
     const trailingColumns = [
-        { data: "create", title: "Create", type: "checkbox" },
-        { data: "delete", title: "Delete", type: "checkbox" },
+        { data: "committed", title: "Committed", type: "checkbox", defaultVisible: true },
+        { data: "deployed", title: "Deployed", type: "checkbox", defaultVisible: true },
         { data: "exists", title: "Exists", type: "checkbox", readOnly: true },
         { data: "member_count", title: "Members", type: "numeric", readOnly: true },
         { data: "imported", title: "Imported", readOnly: true },
@@ -614,9 +632,103 @@ const ZoneTableTanStackClean = () => {
         return filteredAliases.map(alias => alias.name);
     }, [aliasOptions, settings]);
 
-    // Custom renderers for member dropdowns
+    // Custom renderers for member dropdowns and project badges
     const customRenderers = useMemo(() => {
         const renderers = {};
+
+        // Add renderer for project_memberships column (badge pills)
+        renderers['project_memberships'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+            try {
+                if (!value || !Array.isArray(value) || value.length === 0) {
+                    return '';
+                }
+
+                // Render badge pills for each project
+                const badges = value.map(pm => {
+                    if (!pm || typeof pm !== 'object') {
+                        return '';
+                    }
+                    const isActive = pm.project_id === activeProjectId;
+                    const badgeClass = isActive ? 'bg-primary' : 'bg-secondary';
+                    const title = `Action: ${pm.action || 'unknown'}`;
+                    const projectName = pm.project_name || 'Unknown';
+                    return `<span class="badge ${badgeClass} me-1" title="${title}" onmousedown="event.stopPropagation()">${projectName}</span>`;
+                }).filter(badge => badge !== '').join('');
+
+                return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
+            } catch (error) {
+                console.error('Error rendering project_memberships:', error, value);
+                return '';
+            }
+        };
+
+        // Add renderer for project_actions column (HTML with styled dropdown)
+        renderers['project_actions'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+            try {
+                const zoneId = rowData.id;
+                const zoneName = rowData.name;
+                const inActiveProject = rowData.in_active_project;
+                const createdByProject = rowData.created_by_project;
+
+                // If in active project
+                if (inActiveProject) {
+                    // If created by this project, show badge only (can't remove)
+                    if (createdByProject === activeProjectId) {
+                        return `<span style="
+                            padding: 4px 8px;
+                            background-color: var(--color-success-subtle);
+                            color: var(--color-success-fg);
+                            border-radius: 4px;
+                            font-size: 12px;
+                            font-weight: 500;
+                        " title="This zone was created by this project" onmousedown="event.stopPropagation()">✓ Created Here</span>`;
+                    }
+                    // Otherwise show remove button
+                    return `<button
+                        onclick="window.zoneTableHandleRemove('${zoneId}', '${zoneName}')"
+                        onmousedown="event.stopPropagation()"
+                        style="
+                            padding: 4px 12px;
+                            border: 1px solid var(--color-danger-emphasis);
+                            border-radius: 6px;
+                            cursor: pointer;
+                            background-color: transparent;
+                            color: var(--color-danger-fg);
+                            font-size: 13px;
+                            font-weight: 500;
+                        "
+                        title="Remove from project">× Remove</button>`;
+                }
+
+                // Not in active project - show styled dropdown button
+                return `<div class="dropdown" style="position: relative;" onmousedown="event.stopPropagation()">
+                    <button
+                        class="zone-add-dropdown-btn"
+                        onclick="window.zoneTableToggleAddMenu(event, '${zoneId}', '${zoneName}')"
+                        onmousedown="event.stopPropagation()"
+                        style="
+                            padding: 6px 10px;
+                            border: none;
+                            cursor: pointer;
+                            background-color: transparent;
+                            color: var(--color-accent-fg);
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            font-size: 13px;
+                            font-weight: 500;
+                            width: 100%;
+                        "
+                        title="Add to project">
+                        <span>+ Add</span>
+                        <span style="color: var(--muted-text); margin-left: 8px;">▽</span>
+                    </button>
+                </div>`;
+            } catch (error) {
+                console.error('Error rendering project_actions:', error);
+                return '';
+            }
+        };
 
         // Get all member column keys for all types
         const allMemberColumns = [
@@ -659,7 +771,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return renderers;
-    }, [getMemberDropdownOptions, memberColumnCounts]); // Needs to recreate when columns added
+    }, [getMemberDropdownOptions, memberColumnCounts, activeProjectId]); // Needs to recreate when columns added
 
     // Dynamic dropdown sources that include member filtering
     const dropdownSources = useMemo(() => {
@@ -826,9 +938,13 @@ const ZoneTableTanStackClean = () => {
     // Process data for display - convert fabric IDs to names and handle members
     // Using useCallback with stable reference - memberColumnCounts accessed via ref to avoid recreating function
     const preprocessData = useCallback((data) => {
-        // If we're in the middle of adding a column, return null to prevent reload
+        // If we're in the middle of adding a column or updating project, return null to prevent reload
         if (isAddingColumnRef.current) {
             console.log('⏸️ preprocessData skipped - adding column in progress');
+            return null;
+        }
+        if (isUpdatingProjectRef.current) {
+            console.log('⏸️ preprocessData skipped - updating project membership in progress');
             return null;
         }
 
@@ -935,6 +1051,198 @@ const ZoneTableTanStackClean = () => {
             return processedZone;
         });
     }, [fabricsById]); // memberColumnCounts accessed via ref - not in deps to prevent reload
+
+    // API handlers for add/remove zone from project
+    const handleAddZoneToProject = useCallback(async (zoneId, action = 'reference') => {
+        try {
+            const projectId = activeProjectId;
+            if (!projectId) {
+                console.error('No active project selected');
+                return false;
+            }
+
+            console.log(`📤 Adding zone ${zoneId} to project ${projectId} with action: ${action}`);
+            const response = await axios.post(`${API_URL}/api/core/projects/${projectId}/add-zone/`, {
+                zone_id: zoneId,
+                action: action,
+                notes: `Added via table UI with action: ${action}`
+            });
+
+            console.log('📥 Response from add-zone:', response.data);
+            if (response.data.success) {
+                console.log('✅ Zone added to project with action:', action);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('❌ Error adding zone to project:', error);
+            alert(`Failed to add zone: ${error.response?.data?.error || error.message}`);
+            return false;
+        }
+    }, [activeProjectId, API_URL]);
+
+    const handleRemoveZoneFromProject = useCallback(async (zoneId, zoneName) => {
+        try {
+            const projectId = activeProjectId;
+            if (!projectId) {
+                console.error('No active project selected');
+                return;
+            }
+
+            const confirmed = window.confirm(`Remove "${zoneName}" from this project?\n\nThis will only remove it from your project - the zone itself will not be deleted.`);
+            if (!confirmed) return;
+
+            const response = await axios.delete(`${API_URL}/api/core/projects/${projectId}/remove-zone/${zoneId}/`);
+
+            if (response.data.success) {
+                console.log('✅ Zone removed from project');
+                // Reload table data
+                if (tableRef.current?.reloadData) {
+                    tableRef.current.reloadData();
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error removing zone from project:', error);
+            alert(`Failed to remove zone: ${error.response?.data?.error || error.message}`);
+        }
+    }, [activeProjectId, API_URL]);
+
+    // Expose handlers to window for onclick handlers in rendered HTML
+    useEffect(() => {
+        window.zoneTableHandleAdd = handleAddZoneToProject;
+        window.zoneTableHandleRemove = handleRemoveZoneFromProject;
+
+        // Expose tableRef and config for data updates
+        window.zoneTableRef = tableRef;
+        window.zoneTableActiveProjectId = activeProjectId;
+        window.zoneTableActiveProjectName = config?.active_project?.name || 'Current Project';
+        window.zoneTableIsUpdatingProjectRef = isUpdatingProjectRef;
+
+        // Expose reload function
+        window.zoneTableReload = () => {
+            console.log('🔄 zoneTableReload called');
+            console.log('🔄 tableRef.current:', tableRef.current);
+            console.log('🔄 reloadData function:', tableRef.current?.reloadData);
+            if (tableRef.current?.reloadData) {
+                console.log('🔄 Calling reloadData()...');
+                tableRef.current.reloadData();
+                console.log('🔄 reloadData() called successfully');
+            } else {
+                console.error('❌ reloadData function not available!');
+            }
+        };
+
+        // Close any open dropdown
+        window.zoneTableCloseDropdown = () => {
+            const existingMenu = document.querySelector('.zone-add-dropdown-menu');
+            if (existingMenu) {
+                existingMenu.remove();
+            }
+        };
+
+        // Toggle dropdown menu
+        window.zoneTableToggleAddMenu = (event, zoneId, zoneName) => {
+            event.stopPropagation();
+
+            // Close any existing menu
+            window.zoneTableCloseDropdown();
+
+            const button = event.currentTarget;
+            const rect = button.getBoundingClientRect();
+
+            // Create dropdown menu
+            const menu = document.createElement('div');
+            menu.className = 'zone-add-dropdown-menu';
+            menu.style.cssText = `
+                position: fixed;
+                top: ${rect.bottom + 4}px;
+                left: ${rect.left}px;
+                width: ${Math.max(rect.width, 180)}px;
+                background-color: var(--secondary-bg);
+                border: 1px solid var(--color-border-default);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-md);
+                z-index: 10000;
+                overflow: hidden;
+            `;
+
+            const options = [
+                { action: 'reference', label: 'Reference Only', description: 'Just track it' },
+                { action: 'modify', label: 'Mark for Modification', description: "You'll modify it" },
+                { action: 'delete', label: 'Mark for Deletion', description: "You'll delete it" }
+            ];
+
+            options.forEach((option, index) => {
+                const item = document.createElement('div');
+                item.style.cssText = `
+                    padding: 10px 12px;
+                    cursor: pointer;
+                    border-bottom: ${index < options.length - 1 ? '1px solid var(--color-border-default)' : 'none'};
+                    font-size: 14px;
+                    background-color: var(--secondary-bg);
+                    color: var(--primary-text);
+                    user-select: none;
+                `;
+
+                item.innerHTML = `
+                    <div style="font-weight: 500; color: var(--primary-text);">${option.label}</div>
+                    <div style="font-size: 12px; color: var(--primary-text); opacity: 0.7; margin-top: 2px;">${option.description}</div>
+                `;
+
+                item.addEventListener('mouseenter', () => {
+                    item.style.backgroundColor = 'var(--button-hover-bg)';
+                });
+
+                item.addEventListener('mouseleave', () => {
+                    item.style.backgroundColor = 'var(--secondary-bg)';
+                });
+
+                item.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    window.zoneTableCloseDropdown();
+
+                    console.log(`🎯 Dropdown option clicked: ${option.action} for zone ${zoneId}`);
+                    const success = await handleAddZoneToProject(zoneId, option.action);
+
+                    if (success) {
+                        console.log('✅ Add complete, reloading table data from server...');
+                        // Reload from server to get updated data
+                        window.zoneTableReload();
+                    } else {
+                        console.error('❌ Add failed, not reloading');
+                    }
+                });
+
+                menu.appendChild(item);
+            });
+
+            document.body.appendChild(menu);
+
+            // Close dropdown when clicking outside
+            const closeHandler = (e) => {
+                if (!menu.contains(e.target) && e.target !== button) {
+                    window.zoneTableCloseDropdown();
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+
+            setTimeout(() => {
+                document.addEventListener('click', closeHandler);
+            }, 100);
+        };
+
+        return () => {
+            delete window.zoneTableHandleAdd;
+            delete window.zoneTableHandleRemove;
+            delete window.zoneTableToggleAddMenu;
+            delete window.zoneTableCloseDropdown;
+            delete window.zoneTableReload;
+            delete window.zoneTableRef;
+            delete window.zoneTableActiveProjectId;
+            delete window.zoneTableActiveProjectName;
+            delete window.zoneTableIsUpdatingProjectRef;
+        };
+    }, [handleAddZoneToProject, handleRemoveZoneFromProject, activeProjectId, config]);
 
     // Custom save handler for zone bulk save
     const handleZoneSave = useCallback(async (allTableData, hasChanges, deletedRows = []) => {
@@ -1217,6 +1525,40 @@ const ZoneTableTanStackClean = () => {
         return "";
     };
 
+    // Project filter toggle buttons for toolbar
+    const filterToggleButtons = (
+        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+            <button
+                type="button"
+                className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('all')}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '6px 0 0 6px',
+                    transition: 'all 0.2s ease'
+                }}
+            >
+                All Zones
+            </button>
+            <button
+                type="button"
+                className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('current')}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '0 6px 6px 0',
+                    transition: 'all 0.2s ease'
+                }}
+            >
+                Current Project Only
+            </button>
+        </div>
+    );
+
     return (
         <div className="modern-table-container">
             {isReadOnly && (
@@ -1224,10 +1566,11 @@ const ZoneTableTanStackClean = () => {
                     <strong>Read-only access:</strong> {getReadOnlyMessage()}
                 </div>
             )}
+
             <TanStackCRUDTable
                 ref={tableRef}
                 // API Configuration
-                apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/`}
+                apiUrl={`${API_ENDPOINTS.zones}${activeProjectId}/?project_filter=${projectFilter}`}
                 saveUrl={API_ENDPOINTS.zoneSave}
                 deleteUrl={API_ENDPOINTS.zoneDelete}
                 customerId={activeCustomerId}
@@ -1243,9 +1586,13 @@ const ZoneTableTanStackClean = () => {
                 // Data Processing
                 preprocessData={preprocessData}
                 customValidation={customValidation}
+                customRenderers={customRenderers}
 
                 // Custom save handler for bulk zone operations
                 customSaveHandler={handleZoneSave}
+
+                // Custom toolbar content - filter toggle
+                customToolbarContent={filterToggleButtons}
 
                 // Table Settings
                 height="calc(100vh - 200px)"

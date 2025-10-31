@@ -59,6 +59,14 @@ from .worksheet_views import (
     WorksheetTemplateViewSet
 )
 
+# Import project management views
+from .project_views import (
+    project_add_alias, project_remove_alias,
+    project_add_zone, project_remove_zone,
+    project_finalize, project_close,
+    project_conflicts, project_summary
+)
+
 # Create router for ViewSets
 router = DefaultRouter()
 router.register(r'equipment-types', EquipmentTypeViewSet, basename='equipment-type')
@@ -121,6 +129,16 @@ urlpatterns = [
     # ========== AUDIT LOG ENDPOINTS ==========
     path("audit-log/", audit_log_list, name="audit-log-list"),
     path("audit-log/purge/", audit_log_purge, name="audit-log-purge"),
+
+    # ========== PROJECT MANAGEMENT ENDPOINTS ==========
+    path("projects/<int:project_id>/add-alias/", project_add_alias, name="project-add-alias"),
+    path("projects/<int:project_id>/remove-alias/<int:alias_id>/", project_remove_alias, name="project-remove-alias"),
+    path("projects/<int:project_id>/add-zone/", project_add_zone, name="project-add-zone"),
+    path("projects/<int:project_id>/remove-zone/<int:zone_id>/", project_remove_zone, name="project-remove-zone"),
+    path("projects/<int:project_id>/finalize/", project_finalize, name="project-finalize"),
+    path("projects/<int:project_id>/close/", project_close, name="project-close"),
+    path("projects/<int:project_id>/conflicts/", project_conflicts, name="project-conflicts"),
+    path("projects/<int:project_id>/summary/", project_summary, name="project-summary"),
 
     # ========== CUSTOMIZABLE DASHBOARD ENDPOINTS ==========
     # Dashboard Layout Management

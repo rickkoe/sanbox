@@ -36,6 +36,24 @@ class Switch(models.Model):
     location = models.CharField(max_length=200, blank=True, null=True, help_text="Physical location (datacenter/rack)")
     notes = models.TextField(null=True, blank=True)
 
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_switches',
+        help_text="Project that originally created this entity"
+    )
+
     # Audit fields
     last_modified_by = models.ForeignKey(
         User,
@@ -109,6 +127,24 @@ class Fabric(models.Model):
     exists = models.BooleanField(default=False)
     notes = models.TextField(null=True, blank=True)
 
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_fabrics',
+        help_text="Project that originally created this entity"
+    )
+
     # Audit fields for tracking modifications
     last_modified_by = models.ForeignKey(
         User,
@@ -130,7 +166,6 @@ class Fabric(models.Model):
 
 class Alias(models.Model):
     fabric = models.ForeignKey(Fabric, on_delete=models.CASCADE)
-    projects = models.ManyToManyField(Project, related_name='alias_projects')
     storage = models.ForeignKey(Storage, on_delete=models.CASCADE, related_name='aliases', null=True, blank=True)
     USE_CHOICES = [
         ('init', 'Initiator'),
@@ -149,14 +184,29 @@ class Alias(models.Model):
         default="device-alias",
     null=True,
     blank=True)
-    create = models.BooleanField(default=False, null=True, blank=True)
-    delete = models.BooleanField(default=False, null=True, blank=True)
-    include_in_zoning = models.BooleanField(default=False, null=True, blank=True)
     logged_in = models.BooleanField(default=False, null=True, blank=True)
     host = models.ForeignKey(Host, on_delete=models.SET_NULL, related_name='alias_host', null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
+
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_aliases',
+        help_text="Project that originally created this entity"
+    )
 
     # Optimistic locking and audit fields
     last_modified_by = models.ForeignKey(
@@ -292,9 +342,6 @@ class WwpnPrefix(models.Model):
 class Zone(models.Model):
     fabric = models.ForeignKey(Fabric, on_delete=models.CASCADE)
     name = models.CharField(max_length=100, unique=False)
-    projects = models.ManyToManyField(Project, related_name='zone_projects')
-    create = models.BooleanField(default=False, null=True, blank=True)
-    delete = models.BooleanField(default=False, null=True, blank=True)
     exists = models.BooleanField(default=False, null=True, blank=True)
     zone_type = models.CharField(
         max_length=100,
@@ -309,6 +356,24 @@ class Zone(models.Model):
     notes = models.TextField(null=True, blank=True)
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
+
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_zones',
+        help_text="Project that originally created this entity"
+    )
 
     # Optimistic locking and audit fields
     last_modified_by = models.ForeignKey(

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Alias, AliasWWPN, Zone, Fabric, WwpnPrefix, Switch, SwitchFabric
-from core.models import Project
+from core.models import Project, ProjectAlias, ProjectZone
 from storage.models import Host, Storage
 
 
@@ -105,10 +105,6 @@ class FabricSerializer(serializers.ModelSerializer):
 
 
 class AliasSerializer(serializers.ModelSerializer):
-    projects = serializers.PrimaryKeyRelatedField(
-        queryset=Project.objects.all(), many=True, required=False
-    )  # ✅ Allows multiple projects
-
     fabric = serializers.PrimaryKeyRelatedField(
         queryset=Fabric.objects.all(), required=True  # ✅ Allow writing fabric (ID) in request
     )
@@ -120,6 +116,10 @@ class AliasSerializer(serializers.ModelSerializer):
     storage = serializers.PrimaryKeyRelatedField(
         queryset=Storage.objects.all(), required=False, allow_null=True
     )  # ✅ Allow writing storage (ID) in request
+
+    created_by_project = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.all(), required=False, allow_null=True
+    )
 
     # Multi-WWPN support
     wwpns = serializers.SerializerMethodField()  # Read: list of WWPNs
@@ -135,17 +135,27 @@ class AliasSerializer(serializers.ModelSerializer):
     host_details = serializers.SerializerMethodField()  # ✅ Return host name for display
     storage_details = serializers.SerializerMethodField()  # ✅ Return storage name for display
 
-    # ADD THIS: Zoned count field
+    # Zoned count field
     zoned_count = serializers.SerializerMethodField()
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
+    # Junction table fields for active project (for easy access in UI)
+    action = serializers.SerializerMethodField()
+    include_in_zoning = serializers.SerializerMethodField()
 
     class Meta:
         model = Alias
         fields = [
-            'id', 'fabric', 'fabric_details', 'projects', 'storage', 'storage_details',
+            'id', 'fabric', 'fabric_details', 'storage', 'storage_details',
             'name', 'wwpns', 'wwpns_write', 'wwpn', 'use', 'cisco_alias',
-            'create', 'delete', 'include_in_zoning', 'logged_in',
-            'host', 'host_details', 'notes', 'imported', 'updated',
-            'last_modified_by', 'last_modified_at', 'version', 'zoned_count'
+            'logged_in', 'host', 'host_details', 'notes', 'imported', 'updated',
+            'committed', 'deployed', 'created_by_project',
+            'last_modified_by', 'last_modified_at', 'version', 'zoned_count',
+            'project_memberships', 'in_active_project',
+            'action', 'include_in_zoning'
         ]
 
     def get_wwpns(self, obj):
@@ -239,8 +249,11 @@ class AliasSerializer(serializers.ModelSerializer):
         if project_id:
             # Count zones in this project that contain this alias
             try:
+                from core.models import ProjectZone
+                # Use junction table to get zones for this project
+                project_zone_ids = ProjectZone.objects.filter(project_id=project_id).values_list('zone_id', flat=True)
                 count = Zone.objects.filter(
-                    projects__id=project_id,
+                    id__in=project_zone_ids,
                     members=obj
                 ).count()
                 return count
@@ -251,13 +264,63 @@ class AliasSerializer(serializers.ModelSerializer):
 
         return 0
 
+    def get_project_memberships(self, obj):
+        """Return list of projects this alias belongs to"""
+        memberships = []
+        try:
+            # Use prefetched data if available (from view's prefetch_related)
+            for pm in obj.project_memberships.all():
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': pm.action,
+                    'include_in_zoning': getattr(pm, 'include_in_zoning', False)
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for alias {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this alias is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            # Use prefetched data if available
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for alias {obj.name}: {e}")
+            return False
+
+    def get_action(self, obj):
+        """Get the action for this alias in the active project"""
+        active_project_id = self.context.get('active_project_id') or self.context.get('project_id')
+        if not active_project_id:
+            return 'reference'
+        try:
+            pm = obj.project_memberships.filter(project_id=active_project_id).first()
+            return pm.action if pm else 'reference'
+        except Exception as e:
+            print(f"Error getting action for alias {obj.name}: {e}")
+            return 'reference'
+
+    def get_include_in_zoning(self, obj):
+        """Get include_in_zoning flag for this alias in the active project"""
+        active_project_id = self.context.get('active_project_id') or self.context.get('project_id')
+        if not active_project_id:
+            return False
+        try:
+            pm = obj.project_memberships.filter(project_id=active_project_id).first()
+            return pm.include_in_zoning if pm else False
+        except Exception as e:
+            print(f"Error getting include_in_zoning for alias {obj.name}: {e}")
+            return False
+
     def create(self, validated_data):
-        """Create alias and properly handle many-to-many projects and WWPNs"""
-        projects = validated_data.pop("projects", [])
+        """Create alias and properly handle WWPNs"""
         wwpns_list = validated_data.pop("wwpns_write", [])
 
         alias = Alias.objects.create(**validated_data)
-        alias.projects.set(projects)  # ✅ Assign multiple projects
 
         # Create AliasWWPN entries
         for order, wwpn in enumerate(wwpns_list):
@@ -270,8 +333,7 @@ class AliasSerializer(serializers.ModelSerializer):
         return alias
 
     def update(self, instance, validated_data):
-        """Update alias and handle many-to-many projects and WWPNs"""
-        projects = validated_data.pop("projects", None)
+        """Update alias and handle WWPNs"""
         wwpns_list = validated_data.pop("wwpns_write", None)
 
         updated = False
@@ -288,9 +350,6 @@ class AliasSerializer(serializers.ModelSerializer):
 
         instance.save()
 
-        if projects is not None:
-            instance.projects.set(projects)
-
         # Update WWPNs if provided
         if wwpns_list is not None:
             # Clear existing WWPNs and recreate
@@ -305,10 +364,6 @@ class AliasSerializer(serializers.ModelSerializer):
         return instance
 
 class ZoneSerializer(serializers.ModelSerializer):
-    projects = serializers.PrimaryKeyRelatedField(
-        queryset=Project.objects.all(), many=True, required=False
-    )  # ✅ Allows multiple projects
-
     members = serializers.PrimaryKeyRelatedField(
         queryset=Alias.objects.all(), many=True, required=False
     )  # ✅ Allows multiple aliases as members
@@ -319,11 +374,29 @@ class ZoneSerializer(serializers.ModelSerializer):
         queryset=Fabric.objects.all(), required=True
     )  # ✅ Allows assigning fabric by ID
 
+    created_by_project = serializers.PrimaryKeyRelatedField(
+        queryset=Project.objects.all(), required=False, allow_null=True
+    )
+
     fabric_details = FabricSerializer(source="fabric", read_only=True)  # ✅ Return full fabric details
-    
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
+    # Junction table fields for active project (for easy access in UI)
+    action = serializers.SerializerMethodField()
+
     class Meta:
         model = Zone
-        fields = "__all__"
+        fields = [
+            'id', 'fabric', 'fabric_details', 'name', 'exists', 'zone_type',
+            'members', 'members_details', 'notes', 'imported', 'updated',
+            'committed', 'deployed', 'created_by_project',
+            'last_modified_by', 'last_modified_at', 'version',
+            'project_memberships', 'in_active_project',
+            'action'
+        ]
 
     def get_members_details(self, obj):
         """
@@ -337,29 +410,62 @@ class ZoneSerializer(serializers.ModelSerializer):
         # Using .all() on a prefetched relation does NOT trigger a new query
         members = obj.members.all()
         return [{"id": alias.id, "name": alias.name, "alias_details": {"use": alias.use}} for alias in members]
-    
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this zone belongs to"""
+        memberships = []
+        try:
+            # Use prefetched data if available (from view's prefetch_related)
+            for pm in obj.project_memberships.all():
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': pm.action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for zone {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this zone is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            # Use prefetched data if available
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for zone {obj.name}: {e}")
+            return False
+
+    def get_action(self, obj):
+        """Get the action for this zone in the active project"""
+        active_project_id = self.context.get('active_project_id') or self.context.get('project_id')
+        if not active_project_id:
+            return 'reference'
+        try:
+            pm = obj.project_memberships.filter(project_id=active_project_id).first()
+            return pm.action if pm else 'reference'
+        except Exception as e:
+            print(f"Error getting action for zone {obj.name}: {e}")
+            return 'reference'
+
     def create(self, validated_data):
         """Create zone and properly handle many-to-many fields"""
-        projects = validated_data.pop("projects", [])
         members = validated_data.pop("members", [])
 
         zone = Zone.objects.create(**validated_data)
-        zone.projects.add(*projects)  # ✅ Append projects instead of overwriting
         zone.members.add(*members)  # ✅ Append members instead of overwriting
         return zone
 
     def update(self, instance, validated_data):
         """Update zone and properly handle many-to-many fields"""
-        projects = validated_data.pop("projects", None)
         members = validated_data.pop("members", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         instance.save()
-
-        if projects is not None:
-            instance.projects.add(*projects)  # ✅ Append instead of overwriting
 
         if members is not None:
             instance.members.add(*members)  # ✅ Append instead of overwriting
@@ -369,9 +475,43 @@ class ZoneSerializer(serializers.ModelSerializer):
 
 class WwpnPrefixSerializer(serializers.ModelSerializer):
     wwpn_type_display = serializers.CharField(source='get_wwpn_type_display', read_only=True)
-    
+
     class Meta:
         model = WwpnPrefix
-        fields = ['id', 'prefix', 'wwpn_type', 'wwpn_type_display', 
+        fields = ['id', 'prefix', 'wwpn_type', 'wwpn_type_display',
                  'vendor', 'description', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at', 'wwpn_type_display']
+
+
+# ========== PROJECT-ENTITY JUNCTION TABLE SERIALIZERS ==========
+
+class ProjectAliasSerializer(serializers.ModelSerializer):
+    """Serializer for ProjectAlias junction table"""
+    alias_name = serializers.CharField(source='alias.name', read_only=True)
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    added_by_username = serializers.CharField(source='added_by.username', read_only=True)
+
+    class Meta:
+        model = ProjectAlias
+        fields = [
+            'id', 'project', 'project_name', 'alias', 'alias_name',
+            'action', 'field_overrides', 'include_in_zoning',
+            'added_by', 'added_by_username', 'added_at', 'updated_at', 'notes'
+        ]
+        read_only_fields = ['added_at', 'updated_at']
+
+
+class ProjectZoneSerializer(serializers.ModelSerializer):
+    """Serializer for ProjectZone junction table"""
+    zone_name = serializers.CharField(source='zone.name', read_only=True)
+    project_name = serializers.CharField(source='project.name', read_only=True)
+    added_by_username = serializers.CharField(source='added_by.username', read_only=True)
+
+    class Meta:
+        model = ProjectZone
+        fields = [
+            'id', 'project', 'project_name', 'zone', 'zone_name',
+            'action', 'field_overrides',
+            'added_by', 'added_by_username', 'added_at', 'updated_at', 'notes'
+        ]
+        read_only_fields = ['added_at', 'updated_at']

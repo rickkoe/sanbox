@@ -295,8 +295,21 @@ def generate_zone_commands(create_zones, delete_zones, project):
         delete_zones: QuerySet of zones to delete
         project: Project instance to generate commands for
     """
-    create_aliases = Alias.objects.filter(create=True, projects=project)
-    delete_aliases = Alias.objects.filter(delete=True, projects=project)
+    from core.models import ProjectAlias
+
+    # Get aliases for this project via junction table with action='create'
+    create_alias_ids = ProjectAlias.objects.filter(
+        project=project,
+        action='create'
+    ).values_list('alias_id', flat=True)
+    create_aliases = Alias.objects.filter(id__in=create_alias_ids)
+
+    # Get aliases for this project via junction table with action='delete'
+    delete_alias_ids = ProjectAlias.objects.filter(
+        project=project,
+        action='delete'
+    ).values_list('alias_id', flat=True)
+    delete_aliases = Alias.objects.filter(id__in=delete_alias_ids)
     alias_command_dict = defaultdict(list)
     zone_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     zoneset_command_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
@@ -307,12 +320,21 @@ def generate_zone_commands(create_zones, delete_zones, project):
     
     # Create Zone Commands
     all_zones = create_zones.select_related('fabric').prefetch_related('members').order_by('id')
-    
+
+    # Get all alias IDs that should be included in zoning for this project
+    zoning_alias_ids = set(
+        ProjectAlias.objects.filter(
+            project=project,
+            include_in_zoning=True
+        ).values_list('alias_id', flat=True)
+    )
+
     for zone in all_zones:
-        zone_members = zone.members.filter(include_in_zoning=True)
+        # Filter zone members to only those included in zoning for this project
         zone_member_list = []
-        for zone_member in zone_members:
-            zone_member_list.append(zone_member.name)
+        for zone_member in zone.members.all():
+            if zone_member.id in zoning_alias_ids:
+                zone_member_list.append(zone_member.name)
         zone_member_length = len(zone_member_list)
         key = zone.fabric.name
         
@@ -481,13 +503,27 @@ def generate_zone_deletion_commands(delete_zones, project):
         delete_zones: QuerySet of zones to delete
         project: Project instance to generate commands for
     """
+    from core.models import ProjectAlias
+
     print(f"🔍 Starting generate_zone_deletion_commands with {delete_zones.count()} zones")
 
     try:
-        # Get aliases that should be deleted
-        delete_aliases = Alias.objects.filter(delete=True, projects=project)
+        # Get aliases for this project via junction table with action='delete'
+        delete_alias_ids = ProjectAlias.objects.filter(
+            project=project,
+            action='delete'
+        ).values_list('alias_id', flat=True)
+        delete_aliases = Alias.objects.filter(id__in=delete_alias_ids)
         print(f"🔍 Found {delete_aliases.count()} aliases to delete")
-        
+
+        # Get all alias IDs that should be included in zoning for this project
+        zoning_alias_ids = set(
+            ProjectAlias.objects.filter(
+                project=project,
+                include_in_zoning=True
+            ).values_list('alias_id', flat=True)
+        )
+
         # Group everything by fabric
         fabric_scripts = defaultdict(lambda: {"commands": [], "fabric_info": None})
         
@@ -533,16 +569,19 @@ def generate_zone_deletion_commands(delete_zones, project):
                 
                 fabric_zones = all_zones.filter(fabric__name=fabric_key)
                 for zone in fabric_zones:
-                    if zone.members.filter(include_in_zoning=True).count() > 0:
+                    # Check if zone has any members included in zoning for this project
+                    has_zoning_members = any(member.id in zoning_alias_ids for member in zone.members.all())
+                    if has_zoning_members:
                         commands.append(f'  no member {zone.name}')
-                
+
                 # 2. DELETE ZONES
                 commands.append('')  # blank line before zone commands
                 commands.append(f'### ZONE DELETION COMMANDS FOR {fabric_key.upper()}')
-                
+
                 for zone in fabric_zones:
-                    zone_members = zone.members.filter(include_in_zoning=True)
-                    if zone_members.count() > 0:
+                    # Check if zone has any members included in zoning for this project
+                    has_zoning_members = any(member.id in zoning_alias_ids for member in zone.members.all())
+                    if has_zoning_members:
                         commands.append(f'no zone name {zone.name} vsan {fabric_info["vsan"]}')
                 
                 # 3. DELETE ALIASES
@@ -582,16 +621,19 @@ def generate_zone_deletion_commands(delete_zones, project):
                 
                 fabric_zones = all_zones.filter(fabric__name=fabric_key)
                 for zone in fabric_zones:
-                    if zone.members.filter(include_in_zoning=True).count() > 0:
+                    # Check if zone has any members included in zoning for this project
+                    has_zoning_members = any(member.id in zoning_alias_ids for member in zone.members.all())
+                    if has_zoning_members:
                         commands.append(f'cfgremove "{fabric_info["zoneset_name"]}", "{zone.name}"')
-                
+
                 # 2. DELETE ZONES
                 commands.append('')  # blank line before zone commands
                 commands.append(f'### ZONE DELETION COMMANDS FOR {fabric_key.upper()}')
-                
+
                 for zone in fabric_zones:
-                    zone_members = zone.members.filter(include_in_zoning=True)
-                    if zone_members.count() > 0:
+                    # Check if zone has any members included in zoning for this project
+                    has_zoning_members = any(member.id in zoning_alias_ids for member in zone.members.all())
+                    if has_zoning_members:
                         commands.append(f'zonedelete "{zone.name}"')
                 
                 # 3. DELETE ALIASES
@@ -628,16 +670,30 @@ def generate_zone_creation_commands(create_zones, project):
         create_zones: QuerySet of zones to create
         project: Project instance to generate commands for
     """
+    from core.models import ProjectAlias
+
     print(f"🔍 Starting generate_zone_creation_commands with {create_zones.count()} zones")
 
     try:
-        # Get aliases that should be created
-        create_aliases = Alias.objects.filter(create=True, projects=project)
+        # Get aliases for this project via junction table with action='create'
+        create_alias_ids = ProjectAlias.objects.filter(
+            project=project,
+            action='create'
+        ).values_list('alias_id', flat=True)
+        create_aliases = Alias.objects.filter(id__in=create_alias_ids)
         print(f"🔍 Found {create_aliases.count()} aliases to create")
-        
+
+        # Get all alias IDs that should be included in zoning for this project
+        zoning_alias_ids = set(
+            ProjectAlias.objects.filter(
+                project=project,
+                include_in_zoning=True
+            ).values_list('alias_id', flat=True)
+        )
+
         # Group everything by fabric
         fabric_scripts = defaultdict(lambda: {"commands": [], "fabric_info": None})
-        
+
         # Process create zones to get all unique fabrics
         all_zones = create_zones.select_related('fabric').prefetch_related('members').order_by('id')
         
@@ -696,11 +752,12 @@ def generate_zone_creation_commands(create_zones, project):
                 
                 fabric_zones = all_zones.filter(fabric__name=fabric_key)
                 for zone in fabric_zones:
-                    zone_members = zone.members.filter(include_in_zoning=True)
-                    if zone_members.count() > 0:
+                    # Get zone members that are included in zoning for this project
+                    zone_members = [member for member in zone.members.all() if member.id in zoning_alias_ids]
+                    if len(zone_members) > 0:
                         # Zone creation line with comment
                         commands.append(f'zone name {zone.name} vsan {fabric_info["vsan"]}')
-                        
+
                         # Add members
                         for member in zone_members:
                             if member.cisco_alias == 'fcalias':
@@ -723,10 +780,12 @@ def generate_zone_creation_commands(create_zones, project):
                 
                 if fabric_zones.exists():
                     commands.append(f'zoneset name {fabric_info["zoneset_name"]} vsan {fabric_info["vsan"]}')
-                    
+
                     # Add zone members to zoneset
                     for zone in fabric_zones:
-                        if zone.members.filter(include_in_zoning=True).count() > 0 and not zone.exists:
+                        # Check if zone has any members included in zoning for this project
+                        has_zoning_members = any(member.id in zoning_alias_ids for member in zone.members.all())
+                        if has_zoning_members and not zone.exists:
                             commands.append(f'  member {zone.name}')
                     
                     # Activate and commit
@@ -754,8 +813,9 @@ def generate_zone_creation_commands(create_zones, project):
                 
                 fabric_zones = all_zones.filter(fabric__name=fabric_key)
                 for zone in fabric_zones:
-                    zone_members = zone.members.filter(include_in_zoning=True)
-                    if zone_members.count() > 0:
+                    # Get zone members that are included in zoning for this project
+                    zone_members = [member for member in zone.members.all() if member.id in zoning_alias_ids]
+                    if len(zone_members) > 0:
                         if zone.zone_type == 'smart':
                             # Separate initiators and targets
                             initiators = [m.name for m in zone_members if m.use == 'init']
@@ -787,17 +847,26 @@ def generate_zone_creation_commands(create_zones, project):
                     fabric_exists = getattr(fabric_zones.first().fabric, 'exists', True)
                     if not fabric_exists:
                         # Use cfgcreate for first zone if fabric doesn't exist
-                        first_zone = fabric_zones.filter(members__include_in_zoning=True).first()
+                        # Find first zone with members included in zoning
+                        first_zone = None
+                        for zone in fabric_zones:
+                            if any(member.id in zoning_alias_ids for member in zone.members.all()):
+                                first_zone = zone
+                                break
                         if first_zone:
                             commands.append(f'cfgcreate "{fabric_info["zoneset_name"]}", "{first_zone.name}"')
                             # Add remaining zones with cfgadd
                             for zone in fabric_zones.exclude(id=first_zone.id):
-                                if zone.members.filter(include_in_zoning=True).count() > 0 and not zone.exists:
+                                # Check if zone has any members included in zoning for this project
+                                has_zoning_members = any(member.id in zoning_alias_ids for member in zone.members.all())
+                                if has_zoning_members and not zone.exists:
                                     commands.append(f'cfgadd "{fabric_info["zoneset_name"]}", "{zone.name}"')
                     else:
                         # Use cfgadd for all zones if fabric exists
                         for zone in fabric_zones:
-                            if zone.members.filter(include_in_zoning=True).count() > 0 and not zone.exists:
+                            # Check if zone has any members included in zoning for this project
+                            has_zoning_members = any(member.id in zoning_alias_ids for member in zone.members.all())
+                            if has_zoning_members and not zone.exists:
                                 commands.append(f'cfgadd "{fabric_info["zoneset_name"]}", "{zone.name}"')
                     
                     # Enable configuration

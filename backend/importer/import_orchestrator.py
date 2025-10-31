@@ -14,6 +14,7 @@ from django.utils import timezone
 from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix, Switch
 from storage.models import Storage, Volume, Host, HostWwpn
 from customers.models import Customer
+from core.models import ProjectAlias, ProjectZone, ProjectHost
 from .parsers.base_parser import (
     ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch,
     ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort
@@ -811,9 +812,19 @@ class ImportOrchestrator:
                 # Assign alias to project if project_id was provided
                 if self.project_id:
                     try:
-                        from san.models import Project
+                        from core.models import Project
                         project = Project.objects.get(id=self.project_id)
-                        alias.projects.add(project)
+                        # Use junction table instead of M2M
+                        ProjectAlias.objects.get_or_create(
+                            project=project,
+                            alias=alias,
+                            defaults={
+                                'action': 'create',
+                                'include_in_zoning': False,
+                                'added_by': None,
+                                'notes': 'Imported from SAN configuration'
+                            }
+                        )
                         logger.debug(f"Assigned alias {alias.name} to project {project.name}")
                     except Project.DoesNotExist:
                         self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
@@ -994,9 +1005,18 @@ class ImportOrchestrator:
                 # Assign zone to project if project_id was provided
                 if self.project_id:
                     try:
-                        from san.models import Project
+                        from core.models import Project
                         project = Project.objects.get(id=self.project_id)
-                        zone.projects.add(project)
+                        # Use junction table instead of M2M
+                        ProjectZone.objects.get_or_create(
+                            project=project,
+                            zone=zone,
+                            defaults={
+                                'action': 'create',
+                                'added_by': None,
+                                'notes': 'Imported from SAN configuration'
+                            }
+                        )
                         logger.info(f"Assigned zone {zone.name} to project {project.name}")
                     except Project.DoesNotExist:
                         self.stats['warnings'].append(f"Project with ID {self.project_id} not found")

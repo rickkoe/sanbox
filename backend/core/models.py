@@ -7,7 +7,20 @@ class Project(models.Model):
     Project model for organizing work within a customer.
     All users have full access to all projects - no ownership or visibility restrictions.
     """
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('active', 'Active'),
+        ('finalized', 'Finalized'),
+        ('closed', 'Closed'),
+    ]
+
     name = models.CharField(max_length=200)
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='draft',
+        help_text="Project lifecycle status"
+    )
     notes = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -998,3 +1011,507 @@ class WorksheetTemplate(models.Model):
         prefix = "Global: " if self.is_global else ""
         customer_part = f" ({self.customer.name})" if self.customer else ""
         return f"{prefix}{self.name}{customer_part}"
+
+
+# ========== PROJECT-ENTITY JUNCTION TABLES (Change Tracking) ==========
+
+class ProjectFabric(models.Model):
+    """Track what a project intends to do with a Fabric"""
+
+    ACTION_CHOICES = [
+        ('create', 'Create - Generate creation commands'),
+        ('delete', 'Delete - Generate deletion commands'),
+        ('modify', 'Modify - Generate modification commands'),
+        ('reference', 'Reference - Include in documentation only'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_fabrics'
+    )
+    fabric = models.ForeignKey(
+        'san.Fabric',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='reference'
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values (e.g., {'zoneset_name': 'proj_a_zoneset'})"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_fabrics'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'fabric']
+        ordering = ['project', 'fabric__name']
+        verbose_name = "Project Fabric"
+        verbose_name_plural = "Project Fabrics"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['fabric', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.fabric.name} ({self.action})"
+
+
+class ProjectSwitch(models.Model):
+    """Track what a project intends to do with a Switch"""
+
+    ACTION_CHOICES = [
+        ('create', 'Create - Generate creation commands'),
+        ('delete', 'Delete - Generate deletion commands'),
+        ('modify', 'Modify - Generate modification commands'),
+        ('reference', 'Reference - Include in documentation only'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_switches'
+    )
+    switch = models.ForeignKey(
+        'san.Switch',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='reference'
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_switches'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'switch']
+        ordering = ['project', 'switch__name']
+        verbose_name = "Project Switch"
+        verbose_name_plural = "Project Switches"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['switch', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.switch.name} ({self.action})"
+
+
+class ProjectAlias(models.Model):
+    """Track what a project intends to do with an Alias"""
+
+    ACTION_CHOICES = [
+        ('create', 'Create - Generate creation commands'),
+        ('delete', 'Delete - Generate deletion commands'),
+        ('modify', 'Modify - Generate modification commands'),
+        ('reference', 'Reference - Include in documentation only'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_aliases'
+    )
+    alias = models.ForeignKey(
+        'san.Alias',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='reference'
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values (e.g., {'use': 'target', 'notes': 'Project A notes'})"
+    )
+
+    # Alias-specific project flags
+    include_in_zoning = models.BooleanField(
+        default=False,
+        help_text="Include this alias in zone generation for this project"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_aliases'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'alias']
+        ordering = ['project', 'alias__name']
+        verbose_name = "Project Alias"
+        verbose_name_plural = "Project Aliases"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['alias', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.alias.name} ({self.action})"
+
+
+class ProjectZone(models.Model):
+    """Track what a project intends to do with a Zone"""
+
+    ACTION_CHOICES = [
+        ('create', 'Create - Generate creation commands'),
+        ('delete', 'Delete - Generate deletion commands'),
+        ('modify', 'Modify - Generate modification commands'),
+        ('reference', 'Reference - Include in documentation only'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_zones'
+    )
+    zone = models.ForeignKey(
+        'san.Zone',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='reference'
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_zones'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'zone']
+        ordering = ['project', 'zone__name']
+        verbose_name = "Project Zone"
+        verbose_name_plural = "Project Zones"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['zone', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.zone.name} ({self.action})"
+
+
+class ProjectStorage(models.Model):
+    """Track what a project intends to do with a Storage system"""
+
+    ACTION_CHOICES = [
+        ('create', 'Create - Generate creation commands'),
+        ('delete', 'Delete - Generate deletion commands'),
+        ('modify', 'Modify - Generate modification commands'),
+        ('reference', 'Reference - Include in documentation only'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_storage_systems'
+    )
+    storage = models.ForeignKey(
+        'storage.Storage',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='reference'
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_storage_systems'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'storage']
+        ordering = ['project', 'storage__name']
+        verbose_name = "Project Storage"
+        verbose_name_plural = "Project Storage Systems"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['storage', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.storage.name} ({self.action})"
+
+
+class ProjectHost(models.Model):
+    """Track what a project intends to do with a Host"""
+
+    ACTION_CHOICES = [
+        ('create', 'Create - Generate creation commands'),
+        ('delete', 'Delete - Generate deletion commands'),
+        ('modify', 'Modify - Generate modification commands'),
+        ('reference', 'Reference - Include in documentation only'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_hosts'
+    )
+    host = models.ForeignKey(
+        'storage.Host',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='reference'
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_hosts'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'host']
+        ordering = ['project', 'host__name']
+        verbose_name = "Project Host"
+        verbose_name_plural = "Project Hosts"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['host', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.host.name} ({self.action})"
+
+
+class ProjectVolume(models.Model):
+    """Track what a project intends to do with a Volume"""
+
+    ACTION_CHOICES = [
+        ('create', 'Create - Generate creation commands'),
+        ('delete', 'Delete - Generate deletion commands'),
+        ('modify', 'Modify - Generate modification commands'),
+        ('reference', 'Reference - Include in documentation only'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_volumes'
+    )
+    volume = models.ForeignKey(
+        'storage.Volume',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='reference'
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_volumes'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'volume']
+        ordering = ['project', 'volume__name']
+        verbose_name = "Project Volume"
+        verbose_name_plural = "Project Volumes"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['volume', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.volume.name} ({self.action})"
+
+
+class ProjectPort(models.Model):
+    """Track what a project intends to do with a Port"""
+
+    ACTION_CHOICES = [
+        ('create', 'Create - Generate creation commands'),
+        ('delete', 'Delete - Generate deletion commands'),
+        ('modify', 'Modify - Generate modification commands'),
+        ('reference', 'Reference - Include in documentation only'),
+    ]
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_ports'
+    )
+    port = models.ForeignKey(
+        'storage.Port',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='reference'
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_ports'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'port']
+        ordering = ['project', 'port__name']
+        verbose_name = "Project Port"
+        verbose_name_plural = "Project Ports"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['port', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.port.name} ({self.action})"

@@ -3,7 +3,9 @@ from .models import (
     Project, Config, TableConfiguration, AppSettings, AuditLog, CustomNamingRule, CustomVariable,
     DashboardLayout,
     DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType,
-    UserConfig, EquipmentType, WorksheetTemplate
+    UserConfig, EquipmentType, WorksheetTemplate,
+    ProjectFabric, ProjectSwitch, ProjectAlias, ProjectZone,
+    ProjectStorage, ProjectHost, ProjectVolume, ProjectPort
 )
 
 @admin.register(Project)
@@ -450,3 +452,106 @@ class WorksheetTemplateAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Optimize queries with select_related and prefetch_related"""
         return super().get_queryset(request).select_related('customer', 'user').prefetch_related('equipment_types')
+
+
+# ========== PROJECT-ENTITY JUNCTION TABLES ==========
+
+@admin.register(ProjectFabric)
+class ProjectFabricAdmin(admin.ModelAdmin):
+    list_display = ("project", "fabric", "action", "added_by", "added_at")
+    list_filter = ("action", "project", "fabric__customer", "added_at")
+    search_fields = ("project__name", "fabric__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "fabric", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('project', 'fabric', 'fabric__customer', 'added_by')
+
+
+@admin.register(ProjectSwitch)
+class ProjectSwitchAdmin(admin.ModelAdmin):
+    list_display = ("project", "switch", "action", "added_by", "added_at")
+    list_filter = ("action", "project", "switch__customer", "added_at")
+    search_fields = ("project__name", "switch__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "switch", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('project', 'switch', 'switch__customer', 'added_by')
+
+
+@admin.register(ProjectAlias)
+class ProjectAliasAdmin(admin.ModelAdmin):
+    list_display = ("project", "alias", "action", "include_in_zoning", "added_by", "added_at")
+    list_filter = ("action", "include_in_zoning", "project", "alias__fabric__customer", "added_at")
+    search_fields = ("project__name", "alias__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "alias", "added_by")
+    list_editable = ("include_in_zoning",)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'project', 'alias', 'alias__fabric', 'alias__fabric__customer', 'added_by'
+        )
+
+
+@admin.register(ProjectZone)
+class ProjectZoneAdmin(admin.ModelAdmin):
+    list_display = ("project", "zone", "action", "added_by", "added_at")
+    list_filter = ("action", "project", "zone__fabric__customer", "added_at")
+    search_fields = ("project__name", "zone__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "zone", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'project', 'zone', 'zone__fabric', 'zone__fabric__customer', 'added_by'
+        )
+
+
+@admin.register(ProjectStorage)
+class ProjectStorageAdmin(admin.ModelAdmin):
+    list_display = ("project", "storage", "action", "added_by", "added_at")
+    list_filter = ("action", "project", "storage__customer", "added_at")
+    search_fields = ("project__name", "storage__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "storage", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('project', 'storage', 'storage__customer', 'added_by')
+
+
+@admin.register(ProjectHost)
+class ProjectHostAdmin(admin.ModelAdmin):
+    list_display = ("project", "host", "action", "added_by", "added_at")
+    list_filter = ("action", "project", "host__storage__customer", "added_at")
+    search_fields = ("project__name", "host__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "host", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('project', 'host', 'host__storage', 'added_by')
+
+
+@admin.register(ProjectVolume)
+class ProjectVolumeAdmin(admin.ModelAdmin):
+    list_display = ("project", "volume", "action", "added_by", "added_at")
+    list_filter = ("action", "project", "volume__storage__customer", "added_at")
+    search_fields = ("project__name", "volume__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "volume", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('project', 'volume', 'volume__storage', 'added_by')
+
+
+@admin.register(ProjectPort)
+class ProjectPortAdmin(admin.ModelAdmin):
+    list_display = ("project", "port", "action", "added_by", "added_at")
+    list_filter = ("action", "project", "port__storage__customer", "added_at")
+    search_fields = ("project__name", "port__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "port", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('project', 'port', 'port__storage', 'added_by')

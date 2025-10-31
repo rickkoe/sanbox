@@ -7,7 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from .models import Alias, Zone, Fabric, WwpnPrefix, Switch
 from customers.models import Customer
-from core.models import Config, Project
+from core.models import Config, Project, UserConfig, ProjectAlias, ProjectZone, ProjectHost
 from storage.models import Host
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer, WwpnPrefixSerializer, SwitchSerializer
 from django.db import IntegrityError
@@ -466,7 +466,8 @@ def get_unique_values_for_aliases(request, project, field_name):
             customer_id = project.customers.first().id if project.customers.exists() else None
 
             # Get all aliases in this project with WWPNs (normalized for comparison)
-            aliases = Alias.objects.filter(projects=project, wwpn__isnull=False).exclude(wwpn='')
+            project_alias_ids = ProjectAlias.objects.filter(project=project).values_list('alias_id', flat=True)
+            aliases = Alias.objects.filter(id__in=project_alias_ids, wwpn__isnull=False).exclude(wwpn='')
             alias_wwpns = set()
             for alias in aliases:
                 if alias.wwpn:
@@ -576,10 +577,46 @@ def alias_list_view(request, project_id):
     ordering = request.GET.get('ordering', 'name')
     
     # Base queryset with optimizations and zoned_count annotation
-    from django.db.models import Count, Q as Q_models
-    aliases_queryset = Alias.objects.select_related('fabric').prefetch_related('projects').annotate(
-        _zoned_count=Count('zone', filter=Q_models(zone__projects=project), distinct=True)
-    ).filter(projects=project)
+    from django.db.models import Count, Q as Q_models, Prefetch
+
+    # Get customer for customer-scoped filtering
+    customer = project.customers.first()
+
+    # Get project filter parameter (default: 'all' shows all customer aliases)
+    project_filter = request.GET.get('project_filter', 'all')
+
+    # Get zones for this project via junction table (for zoned_count)
+    project_zone_ids = ProjectZone.objects.filter(project=project).values_list('zone_id', flat=True)
+
+    if project_filter == 'current':
+        # Filter to current project only (old behavior)
+        project_alias_ids = ProjectAlias.objects.filter(project=project).values_list('alias_id', flat=True)
+        aliases_queryset = Alias.objects.select_related('fabric').filter(
+            id__in=project_alias_ids
+        )
+    else:
+        # Show all customer aliases (new default behavior)
+        if customer:
+            customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
+            aliases_queryset = Alias.objects.select_related('fabric').filter(
+                fabric_id__in=customer_fabric_ids
+            )
+        else:
+            # Fallback if no customer (shouldn't happen but handle gracefully)
+            project_alias_ids = ProjectAlias.objects.filter(project=project).values_list('alias_id', flat=True)
+            aliases_queryset = Alias.objects.select_related('fabric').filter(
+                id__in=project_alias_ids
+            )
+
+    # Prefetch project memberships for badge display
+    aliases_queryset = aliases_queryset.prefetch_related(
+        Prefetch('project_memberships', queryset=ProjectAlias.objects.select_related('project'))
+    )
+
+    # Annotate with zoned_count
+    aliases_queryset = aliases_queryset.annotate(
+        _zoned_count=Count('zone', filter=Q_models(zone__id__in=project_zone_ids), distinct=True)
+    )
     
     # Apply general search if provided
     if search:
@@ -602,9 +639,9 @@ def alias_list_view(request, project_id):
             storage_filter_value = (param, value)
             continue  # Skip adding to filter_params, will handle separately
 
-        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'host__name__', 'cisco_alias__', 'notes__', 'create__', 'include_in_zoning__', 'logged_in__', 'delete__', 'zoned_count__')) or param in ['zoned_count', 'fabric__name', 'host__name', 'use', 'cisco_alias', 'create', 'include_in_zoning', 'logged_in', 'delete']:
+        if param.startswith(('name__', 'wwpn__', 'use__', 'fabric__name__', 'host__name__', 'cisco_alias__', 'notes__', 'logged_in__', 'committed__', 'deployed__', 'zoned_count__')) or param in ['zoned_count', 'fabric__name', 'host__name', 'use', 'cisco_alias', 'logged_in', 'committed', 'deployed']:
             # Handle boolean field filtering - convert string representations back to actual booleans
-            if any(param.startswith(f'{bool_field}__') for bool_field in ['create', 'delete', 'include_in_zoning', 'logged_in']):
+            if any(param.startswith(f'{bool_field}__') for bool_field in ['logged_in', 'committed', 'deployed']):
                 if param.endswith('__in'):
                     # Handle multi-select boolean filters (e.g., create__in=True,False)
                     boolean_values = []
@@ -783,6 +820,7 @@ def alias_list_view(request, project_id):
         context={
             'project_id': project_id,
             'customer_id': customer_id,
+            'active_project_id': project_id,
             'wwpn_storage_map': wwpn_storage_map
         }
     )
@@ -1685,16 +1723,34 @@ def alias_save_view(request):
             # Handle host assignment - check if it's a new hostname that needs to be created
             host_name = alias_data.get("host_name")
             if host_name and isinstance(host_name, str):
-                # Try to find existing host by name in the project
-                existing_host = Host.objects.filter(project=project, name=host_name).first()
+                # Try to find existing host by name with the same storage system
+                storage_id = alias_data.get("storage")
+                existing_host = None
+                if storage_id:
+                    existing_host = Host.objects.filter(storage_id=storage_id, name=host_name).first()
+
                 if existing_host:
                     alias_data["host"] = existing_host.id
                 else:
-                    # Create new host with the given name
-                    new_host = Host.objects.create(project=project, name=host_name)
-                    alias_data["host"] = new_host.id
-                    print(f"✅ Created new host: {host_name} (ID: {new_host.id})")
-                
+                    # Create new host - needs storage system
+                    if storage_id:
+                        new_host = Host.objects.create(
+                            storage_id=storage_id,
+                            name=host_name,
+                            committed=False,
+                            deployed=False,
+                            created_by_project=project
+                        )
+                        alias_data["host"] = new_host.id
+                        # Auto-add host to project
+                        ProjectHost.objects.create(
+                            project=project,
+                            host=new_host,
+                            action='create',
+                            added_by=user
+                        )
+                        print(f"✅ Created new host: {host_name} (ID: {new_host.id})")
+
                 # Remove host_name from alias_data as it's not a model field
                 alias_data.pop("host_name", None)
 
@@ -1736,6 +1792,16 @@ def alias_save_view(request):
                             if user:
                                 alias.last_modified_by = user
                             alias.save(update_fields=["updated", "version", "last_modified_by"])
+
+                            # Track modification in project
+                            ProjectAlias.objects.update_or_create(
+                                project=project,
+                                alias=alias,
+                                defaults={
+                                    'action': 'modify',
+                                    'added_by': user
+                                }
+                            )
                         saved_aliases.append(AliasSerializer(alias).data)
                     else:
                         errors.append({"alias": alias_data.get("name", "Unknown"), "errors": serializer.errors})
@@ -1743,10 +1809,26 @@ def alias_save_view(request):
                 # Create new alias
                 serializer = AliasSerializer(data=alias_data)
                 if serializer.is_valid():
-                    alias = serializer.save()
+                    alias = serializer.save(
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project
+                    )
                     alias.updated = timezone.now()
-                    alias.save(update_fields=["updated"])
-                    alias.projects.set(projects_list)  # Assign multiple projects
+                    if user:
+                        alias.last_modified_by = user
+                    alias.save(update_fields=["updated", "last_modified_by"])
+
+                    # Auto-add to current project via junction table
+                    ProjectAlias.objects.create(
+                        project=project,
+                        alias=alias,
+                        action='create',
+                        include_in_zoning=False,
+                        added_by=user,
+                        notes='Auto-created with alias'
+                    )
+
                     saved_aliases.append(serializer.data)
                 else:
                     errors.append({"alias": alias_data.get("name", "Unknown"), "errors": serializer.errors})
@@ -1779,18 +1861,16 @@ def alias_delete_view(request, pk):
 
         # Check permission on the first project this alias belongs to
         # Skip permission check if user is not authenticated (for development)
-        if user and alias.projects.exists():
-            project = alias.projects.first()
+        project_alias = ProjectAlias.objects.filter(alias=alias).select_related('project').first()
+        if user and project_alias:
+            project = project_alias.project
             from core.permissions import can_modify_project
             if not can_modify_project(user, project):
                 return JsonResponse({"error": "Only project owners, members, and admins can delete aliases. Viewers have read-only access."}, status=403)
         customer_id = None
-        # Get customer ID from any project the alias belongs to
-        if alias.projects.exists():
-            project = alias.projects.first()
-            customer = project.customers.first()
-            if customer:
-                customer_id = customer.id
+        # Get customer ID from fabric (aliases are customer-scoped via fabric)
+        if alias.fabric and alias.fabric.customer:
+            customer_id = alias.fabric.customer.id
         print(f'Deleting Alias: {alias.name}')
         Alias.objects.filter(pk=alias.pk).delete()
         
@@ -1832,11 +1912,33 @@ def zones_by_project_view(request, project_id):
             queryset=Alias.objects.only('id', 'name', 'use', 'fabric_id')
         )
 
+        # Get customer for customer-scoped filtering
+        customer = project.customers.first()
+
+        # Get project filter parameter (default: 'all' shows all customer zones)
+        project_filter = request.GET.get('project_filter', 'all')
+
+        if project_filter == 'current':
+            # Filter to current project only (old behavior)
+            project_zone_ids = ProjectZone.objects.filter(project=project).values_list('zone_id', flat=True)
+            zones = Zone.objects.select_related('fabric').filter(id__in=project_zone_ids)
+        else:
+            # Show all customer zones (new default behavior)
+            if customer:
+                customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
+                zones = Zone.objects.select_related('fabric').filter(fabric_id__in=customer_fabric_ids)
+            else:
+                # Fallback if no customer (shouldn't happen but handle gracefully)
+                project_zone_ids = ProjectZone.objects.filter(project=project).values_list('zone_id', flat=True)
+                zones = Zone.objects.select_related('fabric').filter(id__in=project_zone_ids)
+
+        # Prefetch project memberships for badge display
+        zones = zones.prefetch_related(
+            Prefetch('project_memberships', queryset=ProjectZone.objects.select_related('project'))
+        )
+
         # Build optimized query with prefetch_related to eliminate N+1 queries
-        zones = Zone.objects.select_related('fabric').prefetch_related(
-            optimized_members_prefetch,
-            'projects'
-        ).filter(projects=project).annotate(
+        zones = zones.prefetch_related(optimized_members_prefetch).annotate(
             _member_count=Count('members', distinct=True)
         )
         
@@ -1853,9 +1955,9 @@ def zones_by_project_view(request, project_id):
         # Apply field-specific filters
         filter_params = {}
         for param, value in request.GET.items():
-            if param.startswith(('name__', 'fabric__name__', 'zone_type__', 'notes__', 'create__', 'exists__', 'delete__', 'member_count__')) or param in ['fabric__name', 'zone_type', 'create', 'exists', 'delete', 'member_count']:
+            if param.startswith(('name__', 'fabric__name__', 'zone_type__', 'notes__', 'exists__', 'committed__', 'deployed__', 'member_count__')) or param in ['fabric__name', 'zone_type', 'exists', 'committed', 'deployed', 'member_count']:
                 # Handle boolean field filtering - convert string representations back to actual booleans
-                if any(param.startswith(f'{bool_field}__') for bool_field in ['create', 'delete', 'exists']):
+                if any(param.startswith(f'{bool_field}__') for bool_field in ['exists', 'committed', 'deployed']):
                     if param.endswith('__in'):
                         # Handle multi-select boolean filters (e.g., create__in=True,False)
                         boolean_values = []
@@ -1926,8 +2028,14 @@ def zones_by_project_view(request, project_id):
         page_obj = paginator.get_page(page)
         
         # Serialize paginated results
-        serializer = ZoneSerializer(page_obj, many=True)
-        
+        serializer = ZoneSerializer(
+            page_obj,
+            many=True,
+            context={
+                'active_project_id': project_id
+            }
+        )
+
         # Return paginated response with metadata
         return JsonResponse({
             'results': serializer.data,
@@ -1993,9 +2101,9 @@ def zone_column_requirements(request, project_id):
         project = Project.objects.get(pk=project_id)
         
         # Get zones with member counts, using prefetch for efficiency
-        zones = Zone.objects.filter(
-            projects=project
-        ).prefetch_related('members')
+        # Use junction table to get zones for this project
+        project_zone_ids = ProjectZone.objects.filter(project=project).values_list('zone_id', flat=True)
+        zones = Zone.objects.filter(id__in=project_zone_ids).prefetch_related('members')
         
         # Calculate maximum members across all zones
         max_members = 0
@@ -2112,7 +2220,16 @@ def zone_save_view(request):
                             if user:
                                 zone.last_modified_by = user
                             zone.save(update_fields=["updated", "version", "last_modified_by"])
-                        zone.projects.add(*projects_list)  # Append projects instead of overwriting
+
+                            # Track modification in project
+                            ProjectZone.objects.update_or_create(
+                                project=project,
+                                zone=zone,
+                                defaults={
+                                    'action': 'modify',
+                                    'added_by': user
+                                }
+                            )
                         member_ids = [member.get('alias') for member in members_list if member.get('alias')]
                         print(f"🎯 [UPDATE] Setting members for {zone_name}: {member_ids}")
                         zone.members.set(member_ids)
@@ -2123,10 +2240,25 @@ def zone_save_view(request):
             else:
                 serializer = ZoneSerializer(data=zone_data)
                 if serializer.is_valid():
-                    zone = serializer.save()
+                    zone = serializer.save(
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project
+                    )
                     zone.updated = timezone.now()
-                    zone.save(update_fields=["updated"])
-                    zone.projects.add(*projects_list)  # Append projects instead of overwriting
+                    if user:
+                        zone.last_modified_by = user
+                    zone.save(update_fields=["updated", "last_modified_by"])
+
+                    # Auto-add to current project via junction table
+                    ProjectZone.objects.create(
+                        project=project,
+                        zone=zone,
+                        action='create',
+                        added_by=user,
+                        notes='Auto-created with zone'
+                    )
+
                     member_ids = [member.get('alias') for member in members_list if member.get('alias')]
                     print(f"🎯 [CREATE] Setting members for {zone_name}: {member_ids}")
                     zone.members.set(member_ids)
@@ -2163,18 +2295,16 @@ def zone_delete_view(request, pk):
 
         # Check permission on the first project this zone belongs to
         # Skip permission check if user is not authenticated (for development)
-        if user and zone.projects.exists():
-            project = zone.projects.first()
+        project_zone = ProjectZone.objects.filter(zone=zone).select_related('project').first()
+        if user and project_zone:
+            project = project_zone.project
             from core.permissions import can_modify_project
             if not can_modify_project(user, project):
                 return JsonResponse({"error": "Only project owners, members, and admins can delete zones. Viewers have read-only access."}, status=403)
         customer_id = None
-        # Get customer ID from any project the zone belongs to
-        if zone.projects.exists():
-            project = zone.projects.first()
-            customer = project.customers.first()
-            if customer:
-                customer_id = customer.id
+        # Get customer ID from fabric (zones are customer-scoped via fabric)
+        if zone.fabric and zone.fabric.customer:
+            customer_id = zone.fabric.customer.id
         print(f'Deleting Zone: {zone.name}')
         Zone.objects.filter(pk=zone.pk).delete()
         
@@ -2374,12 +2504,18 @@ def generate_alias_scripts(request, project_id):
     except Project.DoesNotExist:
         return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
 
-    # Filter aliases by the actual project_id passed in the URL
+    # Filter aliases by the actual project_id passed in the URL using junction table
     try:
-        create_aliases = Alias.objects.filter(create=True, projects=project)
-        delete_aliases = Alias.objects.filter(delete=True, projects=project)
-        print(f"🔍 Found {create_aliases.count()} aliases with create=True for project {project_id}")
-        print(f"🔍 Found {delete_aliases.count()} aliases with delete=True for project {project_id}")
+        # Get aliases to create from junction table
+        create_alias_ids = ProjectAlias.objects.filter(project=project, action='create').values_list('alias_id', flat=True)
+        create_aliases = Alias.objects.filter(id__in=create_alias_ids)
+
+        # Get aliases to delete from junction table
+        delete_alias_ids = ProjectAlias.objects.filter(project=project, action='delete').values_list('alias_id', flat=True)
+        delete_aliases = Alias.objects.filter(id__in=delete_alias_ids)
+
+        print(f"🔍 Found {create_aliases.count()} aliases with action=create for project {project_id}")
+        print(f"🔍 Found {delete_aliases.count()} aliases with action=delete for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
@@ -2413,19 +2549,26 @@ def generate_zone_scripts(request, project_id):
     except Project.DoesNotExist:
         return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
 
-    # Filter zones by the actual project_id passed in the URL
+    # Filter zones by the actual project_id passed in the URL using junction table
     try:
-        create_zones = Zone.objects.filter(create=True, projects=project)
-        delete_zones = Zone.objects.filter(delete=True, projects=project)
-        print(f"🔍 Found {create_zones.count()} zones with create=True for project {project_id}")
-        print(f"🔍 Found {delete_zones.count()} zones with delete=True for project {project_id}")
+        # Get zones to create from junction table
+        create_zone_ids = ProjectZone.objects.filter(project=project, action='create').values_list('zone_id', flat=True)
+        create_zones = Zone.objects.filter(id__in=create_zone_ids)
+
+        # Get zones to delete from junction table
+        delete_zone_ids = ProjectZone.objects.filter(project=project, action='delete').values_list('zone_id', flat=True)
+        delete_zones = Zone.objects.filter(id__in=delete_zone_ids)
+
+        print(f"🔍 Found {create_zones.count()} zones with action=create for project {project_id}")
+        print(f"🔍 Found {delete_zones.count()} zones with action=delete for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
-    # Check for aliases with create=True that are missing cisco_alias for Cisco fabrics
+    # Check for aliases with action=create that are missing cisco_alias for Cisco fabrics
     warnings = []
     try:
-        create_aliases = Alias.objects.filter(create=True, projects=project).select_related('fabric')
+        create_alias_ids = ProjectAlias.objects.filter(project=project, action='create').values_list('alias_id', flat=True)
+        create_aliases = Alias.objects.filter(id__in=create_alias_ids).select_related('fabric')
         invalid_cisco_aliases = [
             alias for alias in create_aliases
             if alias.fabric and alias.fabric.san_vendor == 'CI' and not alias.cisco_alias
@@ -2480,10 +2623,11 @@ def generate_alias_deletion_scripts(request, project_id):
     except Project.DoesNotExist:
         return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
 
-    # Filter aliases by the actual project_id passed in the URL
+    # Filter aliases by the actual project_id passed in the URL using junction table
     try:
-        delete_aliases = Alias.objects.filter(delete=True, projects=project)
-        print(f"🔍 Found {delete_aliases.count()} aliases with delete=True for project {project_id}")
+        delete_alias_ids = ProjectAlias.objects.filter(project=project, action='delete').values_list('alias_id', flat=True)
+        delete_aliases = Alias.objects.filter(id__in=delete_alias_ids)
+        print(f"🔍 Found {delete_aliases.count()} aliases with action=delete for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
@@ -2516,10 +2660,11 @@ def generate_zone_deletion_scripts(request, project_id):
     except Project.DoesNotExist:
         return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
 
-    # Filter zones by the actual project_id passed in the URL
+    # Filter zones by the actual project_id passed in the URL using junction table
     try:
-        delete_zones = Zone.objects.filter(delete=True, projects=project)
-        print(f"🔍 Found {delete_zones.count()} zones with delete=True for project {project_id}")
+        delete_zone_ids = ProjectZone.objects.filter(project=project, action='delete').values_list('zone_id', flat=True)
+        delete_zones = Zone.objects.filter(id__in=delete_zone_ids)
+        print(f"🔍 Found {delete_zones.count()} zones with action=delete for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
@@ -2569,8 +2714,16 @@ def alias_copy_to_project_view(request):
         for alias_id in alias_ids:
             try:
                 alias = Alias.objects.get(id=alias_id)
-                # Add the project to the alias's projects (many-to-many)
-                alias.projects.add(project)
+                # Add the alias to the project via junction table
+                ProjectAlias.objects.get_or_create(
+                    project=project,
+                    alias=alias,
+                    defaults={
+                        'action': 'reference',
+                        'added_by': user,
+                        'notes': 'Copied to project'
+                    }
+                )
                 copied_count += 1
             except Alias.DoesNotExist:
                 errors.append(f"Alias with ID {alias_id} not found")
@@ -2722,10 +2875,11 @@ def generate_zone_creation_scripts(request, project_id):
     except Project.DoesNotExist:
         return JsonResponse({"error": f"Project with ID {project_id} not found."}, status=404)
 
-    # Filter zones by the actual project_id passed in the URL
+    # Filter zones by the actual project_id passed in the URL using junction table
     try:
-        create_zones = Zone.objects.filter(create=True, projects=project)
-        print(f"🔍 Found {create_zones.count()} zones with create=True for project {project_id}")
+        create_zone_ids = ProjectZone.objects.filter(project=project, action='create').values_list('zone_id', flat=True)
+        create_zones = Zone.objects.filter(id__in=create_zone_ids)
+        print(f"🔍 Found {create_zones.count()} zones with action=create for project {project_id}")
     except Exception as e:
         print(f"❌ Error fetching zones: {e}")
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
@@ -2745,36 +2899,43 @@ def generate_zone_creation_scripts(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def bulk_update_alias_boolean(request, project_id):
-    """Bulk update boolean fields for aliases in a project."""
+    """Bulk update boolean fields for aliases in a project via junction table."""
     print(f"🔥 Bulk Update Alias Boolean - Project ID: {project_id}")
-    
+
     try:
         data = json.loads(request.body)
         field = data.get('field')
         value = data.get('value')
         filters = data.get('filters', {})
-        
+
         print(f"📝 Bulk update request: field={field}, value={value}, filters={filters}")
-        
+
         if not field or value is None:
             return JsonResponse({"error": "Field and value are required"}, status=400)
-            
+
         # Validate field is a boolean field
         boolean_fields = ['create', 'delete', 'include_in_zoning', 'logged_in']
         if field not in boolean_fields:
             return JsonResponse({"error": f"Invalid boolean field: {field}"}, status=400)
-        
-        # Start with aliases in the project
-        queryset = Alias.objects.filter(projects__id=project_id)
-        
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": f"Project {project_id} not found"}, status=404)
+
+        # Start with aliases in the project via junction table
+        alias_ids = ProjectAlias.objects.filter(project=project).values_list('alias_id', flat=True)
+        queryset = Alias.objects.filter(id__in=alias_ids)
+
         # Apply server-side filters if provided
         if filters:
             for filter_key, filter_value in filters.items():
                 if filter_key == 'quick_search' and filter_value:
                     # Quick search across main fields
                     queryset = queryset.filter(
-                        Q(name__icontains=filter_value) | 
-                        Q(wwpn__icontains=filter_value) | 
+                        Q(name__icontains=filter_value) |
+                        Q(wwpn__icontains=filter_value) |
                         Q(use__icontains=filter_value)
                     )
                 elif '__' in filter_key:
@@ -2790,10 +2951,35 @@ def bulk_update_alias_boolean(request, project_id):
                 else:
                     # Simple field filter
                     queryset = queryset.filter(**{filter_key: filter_value})
-        
-        # Update the boolean field
-        updated_count = queryset.update(**{field: value, 'updated': timezone.now()})
-        
+
+        # Get the final list of alias IDs after filtering
+        filtered_alias_ids = list(queryset.values_list('id', flat=True))
+
+        # Update based on field type
+        if field in ['create', 'delete']:
+            # Map boolean to action field on junction table
+            if field == 'create':
+                new_action = 'create' if value else 'reference'
+            else:  # delete
+                new_action = 'delete' if value else 'reference'
+
+            # Update ProjectAlias junction table
+            updated_count = ProjectAlias.objects.filter(
+                project=project,
+                alias_id__in=filtered_alias_ids
+            ).update(action=new_action)
+
+        elif field == 'include_in_zoning':
+            # Update include_in_zoning field on junction table
+            updated_count = ProjectAlias.objects.filter(
+                project=project,
+                alias_id__in=filtered_alias_ids
+            ).update(include_in_zoning=value)
+
+        elif field == 'logged_in':
+            # logged_in stays on Alias model (not moved to junction table)
+            updated_count = queryset.update(logged_in=value, updated=timezone.now())
+
         # Clear dashboard cache
         try:
             if queryset.first():
@@ -2801,16 +2987,16 @@ def bulk_update_alias_boolean(request, project_id):
                 clear_dashboard_cache_for_customer(customer_id)
         except:
             pass
-        
-        print(f"✅ Updated {updated_count} aliases")
-        
+
+        print(f"✅ Updated {updated_count} alias records")
+
         return JsonResponse({
             "message": f"Successfully updated {updated_count} aliases",
             "updated_count": updated_count,
             "field": field,
             "value": value
         })
-        
+
     except Exception as e:
         print(f"❌ Error in bulk update: {e}")
         import traceback
@@ -2821,27 +3007,34 @@ def bulk_update_alias_boolean(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def bulk_update_zone_boolean(request, project_id):
-    """Bulk update boolean fields for zones in a project."""
+    """Bulk update boolean fields for zones in a project via junction table."""
     print(f"🔥 Bulk Update Zone Boolean - Project ID: {project_id}")
-    
+
     try:
         data = json.loads(request.body)
         field = data.get('field')
         value = data.get('value')
         filters = data.get('filters', {})
-        
+
         print(f"📝 Bulk update request: field={field}, value={value}, filters={filters}")
-        
+
         if not field or value is None:
             return JsonResponse({"error": "Field and value are required"}, status=400)
-            
+
         # Validate field is a boolean field
         boolean_fields = ['create', 'delete', 'exists']
         if field not in boolean_fields:
             return JsonResponse({"error": f"Invalid boolean field: {field}"}, status=400)
-        
-        # Start with zones in the project
-        queryset = Zone.objects.filter(projects__id=project_id)
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": f"Project {project_id} not found"}, status=404)
+
+        # Start with zones in the project via junction table
+        zone_ids = ProjectZone.objects.filter(project=project).values_list('zone_id', flat=True)
+        queryset = Zone.objects.filter(id__in=zone_ids)
         
         # Apply server-side filters if provided
         if filters:
@@ -2880,10 +3073,28 @@ def bulk_update_zone_boolean(request, project_id):
                 else:
                     # Simple field filter
                     queryset = queryset.filter(**{filter_key: filter_value})
-        
-        # Update the boolean field
-        updated_count = queryset.update(**{field: value, 'updated': timezone.now()})
-        
+
+        # Get the final list of zone IDs after filtering
+        filtered_zone_ids = list(queryset.values_list('id', flat=True))
+
+        # Update based on field type
+        if field in ['create', 'delete']:
+            # Map boolean to action field on junction table
+            if field == 'create':
+                new_action = 'create' if value else 'reference'
+            else:  # delete
+                new_action = 'delete' if value else 'reference'
+
+            # Update ProjectZone junction table
+            updated_count = ProjectZone.objects.filter(
+                project=project,
+                zone_id__in=filtered_zone_ids
+            ).update(action=new_action)
+
+        elif field == 'exists':
+            # exists stays on Zone model (not moved to junction table)
+            updated_count = queryset.update(exists=value, updated=timezone.now())
+
         # Clear dashboard cache
         try:
             if queryset.first():
@@ -2891,8 +3102,8 @@ def bulk_update_zone_boolean(request, project_id):
                 clear_dashboard_cache_for_customer(customer_id)
         except:
             pass
-        
-        print(f"✅ Updated {updated_count} zones")
+
+        print(f"✅ Updated {updated_count} zone records")
 
         return JsonResponse({
             "message": f"Successfully updated {updated_count} zones",
@@ -2911,7 +3122,7 @@ def bulk_update_zone_boolean(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def bulk_update_zones_create(request):
-    """Bulk update create field for specific zones by ID."""
+    """Bulk update create action for specific zones via junction table."""
     print("🔥 Bulk Update Zones Create")
 
     try:
@@ -2920,18 +3131,40 @@ def bulk_update_zones_create(request):
 
         if not zones:
             return JsonResponse({
-            "message": f"Skipping... No zones exist"
+                "message": "Skipping... No zones exist"
             })
+
+        # Get the user's active project from config (passed in request or session)
+        # For now, we'll require project_id to be passed in the request
+        project_id = data.get('project_id') or request.GET.get('project_id')
+
+        if not project_id:
+            # Try to get from user's session/config
+            return JsonResponse({"error": "project_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": f"Project {project_id} not found"}, status=404)
 
         updated_count = 0
         for zone_data in zones:
             zone_id = zone_data.get('id')
             create_value = zone_data.get('create', False)
 
+            # Map boolean to action
+            new_action = 'create' if create_value else 'reference'
+
             try:
-                zone = Zone.objects.get(id=zone_id)
-                zone.create = create_value
-                zone.save()
+                # Update ProjectZone junction table
+                project_zone, created = ProjectZone.objects.get_or_create(
+                    project=project,
+                    zone_id=zone_id,
+                    defaults={'action': new_action, 'added_by': request.user if request.user.is_authenticated else None}
+                )
+                if not created:
+                    project_zone.action = new_action
+                    project_zone.save()
                 updated_count += 1
             except Zone.DoesNotExist:
                 print(f"❌ Zone with ID {zone_id} not found")
@@ -2953,7 +3186,7 @@ def bulk_update_zones_create(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def bulk_update_aliases_create(request):
-    """Bulk update create field for specific aliases by ID."""
+    """Bulk update create action for specific aliases via junction table."""
     print("🔥 Bulk Update Aliases Create")
 
     try:
@@ -2962,18 +3195,38 @@ def bulk_update_aliases_create(request):
 
         if not aliases:
             return JsonResponse({
-            "message": f"Skipping... No aliases exist"
+                "message": "Skipping... No aliases exist"
             })
+
+        # Get the user's active project from config (passed in request or session)
+        project_id = data.get('project_id') or request.GET.get('project_id')
+
+        if not project_id:
+            return JsonResponse({"error": "project_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": f"Project {project_id} not found"}, status=404)
 
         updated_count = 0
         for alias_data in aliases:
             alias_id = alias_data.get('id')
             create_value = alias_data.get('create', False)
 
+            # Map boolean to action
+            new_action = 'create' if create_value else 'reference'
+
             try:
-                alias = Alias.objects.get(id=alias_id)
-                alias.create = create_value
-                alias.save()
+                # Update ProjectAlias junction table
+                project_alias, created = ProjectAlias.objects.get_or_create(
+                    project=project,
+                    alias_id=alias_id,
+                    defaults={'action': new_action, 'added_by': request.user if request.user.is_authenticated else None}
+                )
+                if not created:
+                    project_alias.action = new_action
+                    project_alias.save()
                 updated_count += 1
             except Alias.DoesNotExist:
                 print(f"❌ Alias with ID {alias_id} not found")

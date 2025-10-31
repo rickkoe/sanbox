@@ -118,6 +118,24 @@ class Storage(models.Model):
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
 
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_storage_systems',
+        help_text="Project that originally created this entity"
+    )
+
     # Audit fields for tracking modifications
     last_modified_by = models.ForeignKey(
         User,
@@ -188,9 +206,26 @@ class Host(models.Model):
     volume_group = models.CharField(max_length=100, blank=True, null=True)
     natural_key = models.CharField(max_length=64, blank=True, null=True)
     volumes = models.ManyToManyField('Volume', related_name='hosts', blank=True)
-    create = models.BooleanField(default=False)
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
+
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_hosts',
+        help_text="Project that originally created this entity"
+    )
 
     # Optimistic locking and audit fields
     last_modified_by = models.ForeignKey(
@@ -313,7 +348,24 @@ class Port(models.Model):
     alias = models.ForeignKey('san.Alias', on_delete=models.SET_NULL, null=True, blank=True, related_name='ports')
     protocol = models.CharField(max_length=20, choices=PROTOCOL_CHOICES, blank=True, null=True)
     use = models.CharField(max_length=20, choices=USE_CHOICES, blank=True, null=True)
-    project = models.ForeignKey('core.Project', related_name='ports', on_delete=models.CASCADE, null=True, blank=True)
+
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        'core.Project',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_ports',
+        help_text="Project that originally created this entity"
+    )
 
     # Audit fields for tracking modifications
     last_modified_by = models.ForeignKey(
@@ -410,6 +462,24 @@ class Volume(models.Model):
     deduplicated = models.CharField(max_length=10, blank=True, null=True)
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
+
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_volumes',
+        help_text="Project that originally created this entity"
+    )
 
     # Optimistic locking and audit fields
     last_modified_by = models.ForeignKey(

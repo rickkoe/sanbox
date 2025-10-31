@@ -191,12 +191,12 @@ const ZoneScriptsPage = () => {
 
       console.log("Loading create settings for project:", projectId);
 
-      // Fetch zones and aliases (fabrics already loaded on page load)
+      // Fetch zones and aliases for CURRENT PROJECT ONLY (fabrics already loaded on page load)
       // If fabrics haven't been loaded yet, fetch them too
       const customerId = config.customer?.id;
       const fetchPromises = [
-        axios.get(`/api/san/zones/project/${projectId}/?page_size=1000`),
-        axios.get(`/api/san/aliases/project/${projectId}/?page_size=1000`)
+        axios.get(`/api/san/zones/project/${projectId}/?page_size=1000&project_filter=current`),
+        axios.get(`/api/san/aliases/project/${projectId}/?page_size=1000&project_filter=current`)
       ];
 
       // Only fetch fabrics if they haven't been loaded yet
@@ -232,7 +232,7 @@ const ZoneScriptsPage = () => {
         zones[zone.id] = {
           id: zone.id,
           name: zone.name,
-          create: zone.create || false,
+          create: zone.action === 'create',
           fabric: zone.fabric,
           fabric_name: zone.fabric_details?.name || "Unknown"
         };
@@ -242,7 +242,7 @@ const ZoneScriptsPage = () => {
         aliases[alias.id] = {
           id: alias.id,
           name: alias.name,
-          create: alias.create || false,
+          create: alias.action === 'create',
           fabric: alias.fabric,
           fabric_name: alias.fabric_details?.name || "Unknown"
         };
@@ -321,14 +321,21 @@ const ZoneScriptsPage = () => {
     try {
       setIsSavingSettings(true);
 
+      const projectId = config.active_project?.id;
+      if (!projectId) {
+        alert("No active project found. Please select a project first.");
+        setIsSavingSettings(false);
+        return;
+      }
+
       // Prepare data for batch update
       const zonesToUpdate = Object.values(createSettings.zones).map(z => ({ id: z.id, create: z.create }));
       const aliasesToUpdate = Object.values(createSettings.aliases).map(a => ({ id: a.id, create: a.create }));
 
-      // Send updates to backend
+      // Send updates to backend with project_id
       await Promise.all([
-        axios.post('/api/san/zones/bulk-update-create/', { zones: zonesToUpdate }),
-        axios.post('/api/san/aliases/bulk-update-create/', { aliases: aliasesToUpdate })
+        axios.post('/api/san/zones/bulk-update-create/', { zones: zonesToUpdate, project_id: projectId }),
+        axios.post('/api/san/aliases/bulk-update-create/', { aliases: aliasesToUpdate, project_id: projectId })
       ]);
 
       setShowCreateModal(false);
@@ -338,7 +345,7 @@ const ZoneScriptsPage = () => {
       window.location.reload();
     } catch (error) {
       console.error("Error saving create settings:", error);
-      alert("Failed to save settings. Please try again.");
+      alert(`Failed to save settings: ${error.response?.data?.error || error.message}. Please try again.`);
       setIsSavingSettings(false);
     }
   };

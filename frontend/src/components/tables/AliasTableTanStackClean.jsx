@@ -19,12 +19,28 @@ const AliasTableTanStackClean = () => {
     const [errorModal, setErrorModal] = useState({ show: false, message: '', errors: null });
     const [wwpnColumnCount, setWwpnColumnCount] = useState(1); // Dynamic WWPN column count
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
+    const isUpdatingProjectRef = useRef(false); // Flag to prevent data reload when updating project membership
+
+    // Project filter state (default: 'all' shows all customer aliases)
+    const [projectFilter, setProjectFilter] = useState(
+        localStorage.getItem('aliasTableProjectFilter') || 'all'
+    );
 
     // Ref to access table methods
     const tableRef = useRef(null);
 
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
+
+    // Handle filter toggle change
+    const handleFilterChange = useCallback((newFilter) => {
+        setProjectFilter(newFilter);
+        localStorage.setItem('aliasTableProjectFilter', newFilter);
+        // Reload table data with new filter
+        if (tableRef.current?.reloadData) {
+            tableRef.current.reloadData();
+        }
+    }, []);
 
     // Function to add new WWPN column
     const addWwpnColumn = useCallback(() => {
@@ -132,12 +148,13 @@ const AliasTableTanStackClean = () => {
         { data: "name", title: "Name", required: true },
         { data: "use", title: "Use", type: "dropdown" },
         { data: "fabric_details.name", title: "Fabric", type: "dropdown", required: true },
+        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
+        { data: "project_actions", title: "Active Project", type: "custom", readOnly: true, defaultVisible: true },
         { data: "host_details.name", title: "Host", type: "dropdown" },
         { data: "storage_details.name", title: "Storage System", readOnly: true },
         { data: "cisco_alias", title: "Alias Type", type: "dropdown" },
-        { data: "create", title: "Create", type: "checkbox" },
-        { data: "delete", title: "Delete", type: "checkbox" },
-        { data: "include_in_zoning", title: "Include in Zoning", type: "checkbox" },
+        { data: "committed", title: "Committed", type: "checkbox", defaultVisible: true },
+        { data: "deployed", title: "Deployed", type: "checkbox", defaultVisible: true },
         { data: "logged_in", title: "Logged In", type: "checkbox", defaultVisible: false },
         { data: "zoned_count", title: "Zoned Count", type: "numeric", readOnly: true },
         { data: "imported", title: "Imported", readOnly: true, defaultVisible: false },
@@ -209,12 +226,13 @@ const AliasTableTanStackClean = () => {
             ...wwpnColumnNames,
             'use',
             'fabric_details.name',
+            'project_memberships',
+            'project_actions',
             'host_details.name',
             'storage_details.name',
             'cisco_alias',
-            'create',
-            'delete',
-            'include_in_zoning',
+            'committed',
+            'deployed',
             'zoned_count',
             'notes'
         ];
@@ -234,14 +252,15 @@ const AliasTableTanStackClean = () => {
             storage: "",
             storage_details: { name: "" },
             cisco_alias: "",
-            create: false,
-            delete: false,
-            include_in_zoning: false,
+            committed: false,
+            deployed: false,
             logged_in: false,
             notes: "",
             imported: null,
             updated: null,
-            zoned_count: 0
+            zoned_count: 0,
+            project_memberships: [],
+            in_active_project: false
         };
         // Add dynamic WWPN fields
         for (let i = 1; i <= wwpnColumnCount; i++) {
@@ -343,10 +362,297 @@ const AliasTableTanStackClean = () => {
         cisco_alias: ["device-alias", "fcalias", "wwpn"],
     }), [fabricOptions, hostOptions]);
 
-    // Custom renderers for WWPN formatting (applied to all WWPN columns)
+    // API handlers for add/remove alias from project
+    const handleAddAliasToProject = useCallback(async (aliasId, action = 'reference') => {
+        try {
+            const projectId = activeProjectId;
+            if (!projectId) {
+                console.error('No active project selected');
+                return;
+            }
+
+            console.log(`📤 Adding alias ${aliasId} to project ${projectId} with action: ${action}`);
+            const response = await axios.post(`${API_URL}/api/core/projects/${projectId}/add-alias/`, {
+                alias_id: aliasId,
+                action: action,
+                include_in_zoning: false,
+                notes: `Added via table UI with action: ${action}`
+            });
+
+            console.log('📥 Response from add-alias:', response.data);
+            if (response.data.success) {
+                console.log('✅ Alias added to project with action:', action);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('❌ Error adding alias to project:', error);
+            alert(`Failed to add alias: ${error.response?.data?.error || error.message}`);
+            return false;
+        }
+    }, [activeProjectId, API_URL]);
+
+    const handleRemoveAliasFromProject = useCallback(async (aliasId, aliasName) => {
+        try {
+            const projectId = activeProjectId;
+            if (!projectId) {
+                console.error('No active project selected');
+                return;
+            }
+
+            const confirmed = window.confirm(`Remove "${aliasName}" from this project?\n\nThis will only remove it from your project - the alias itself will not be deleted.`);
+            if (!confirmed) return;
+
+            const response = await axios.delete(`${API_URL}/api/core/projects/${projectId}/remove-alias/${aliasId}/`);
+
+            if (response.data.success) {
+                console.log('✅ Alias removed from project');
+                // Reload table data
+                if (tableRef.current?.reloadData) {
+                    tableRef.current.reloadData();
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error removing alias from project:', error);
+            alert(`Failed to remove alias: ${error.response?.data?.error || error.message}`);
+        }
+    }, [activeProjectId, API_URL]);
+
+    // Expose handlers to window for onclick handlers in rendered HTML
+    useEffect(() => {
+        window.aliasTableHandleAdd = handleAddAliasToProject;
+        window.aliasTableHandleRemove = handleRemoveAliasFromProject;
+
+        // Expose tableRef and config for data updates
+        window.aliasTableRef = tableRef;
+        window.aliasTableActiveProjectId = activeProjectId;
+        window.aliasTableActiveProjectName = config?.active_project?.name || 'Current Project';
+        window.aliasTableIsUpdatingProjectRef = isUpdatingProjectRef;
+
+        // Expose reload function
+        window.aliasTableReload = () => {
+            console.log('🔄 aliasTableReload called');
+            console.log('🔄 tableRef.current:', tableRef.current);
+            console.log('🔄 reloadData function:', tableRef.current?.reloadData);
+            if (tableRef.current?.reloadData) {
+                console.log('🔄 Calling reloadData()...');
+                tableRef.current.reloadData();
+                console.log('🔄 reloadData() called successfully');
+            } else {
+                console.error('❌ reloadData function not available!');
+            }
+        };
+
+        // Close any open dropdown
+        window.aliasTableCloseDropdown = () => {
+            const existingMenu = document.querySelector('.alias-add-dropdown-menu');
+            if (existingMenu) {
+                existingMenu.remove();
+            }
+        };
+
+        // Toggle dropdown menu
+        window.aliasTableToggleAddMenu = (event, aliasId, aliasName) => {
+            event.stopPropagation();
+
+            // Close any existing menu
+            window.aliasTableCloseDropdown();
+
+            const button = event.currentTarget;
+            const rect = button.getBoundingClientRect();
+
+            // Create dropdown menu
+            const menu = document.createElement('div');
+            menu.className = 'alias-add-dropdown-menu';
+            menu.style.cssText = `
+                position: fixed;
+                top: ${rect.bottom + 4}px;
+                left: ${rect.left}px;
+                width: ${Math.max(rect.width, 180)}px;
+                background-color: var(--secondary-bg);
+                border: 1px solid var(--color-border-default);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-md);
+                z-index: 10000;
+                overflow: hidden;
+            `;
+
+            const options = [
+                { action: 'reference', label: 'Reference Only', description: 'Just track it' },
+                { action: 'modify', label: 'Mark for Modification', description: "You'll modify it" },
+                { action: 'delete', label: 'Mark for Deletion', description: "You'll delete it" }
+            ];
+
+            options.forEach((option, index) => {
+                const item = document.createElement('div');
+                item.style.cssText = `
+                    padding: 10px 12px;
+                    cursor: pointer;
+                    border-bottom: ${index < options.length - 1 ? '1px solid var(--color-border-default)' : 'none'};
+                    font-size: 14px;
+                    background-color: var(--secondary-bg);
+                    color: var(--primary-text);
+                    user-select: none;
+                `;
+
+                item.innerHTML = `
+                    <div style="font-weight: 500; color: var(--primary-text);">${option.label}</div>
+                    <div style="font-size: 12px; color: var(--primary-text); opacity: 0.7; margin-top: 2px;">${option.description}</div>
+                `;
+
+                item.addEventListener('mouseenter', () => {
+                    item.style.backgroundColor = 'var(--button-hover-bg)';
+                });
+
+                item.addEventListener('mouseleave', () => {
+                    item.style.backgroundColor = 'var(--secondary-bg)';
+                });
+
+                item.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    window.aliasTableCloseDropdown();
+
+                    console.log(`🎯 Dropdown option clicked: ${option.action} for alias ${aliasId}`);
+                    const success = await handleAddAliasToProject(aliasId, option.action);
+
+                    if (success) {
+                        console.log('✅ Add complete, reloading table data from server...');
+                        // Reload from server to get updated data
+                        window.aliasTableReload();
+                    } else {
+                        console.error('❌ Add failed, not reloading');
+                    }
+                });
+
+                menu.appendChild(item);
+            });
+
+            document.body.appendChild(menu);
+
+            // Close dropdown when clicking outside
+            const closeHandler = (e) => {
+                if (!menu.contains(e.target) && e.target !== button) {
+                    window.aliasTableCloseDropdown();
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+
+            setTimeout(() => {
+                document.addEventListener('click', closeHandler);
+            }, 100);
+        };
+
+        return () => {
+            delete window.aliasTableHandleAdd;
+            delete window.aliasTableHandleRemove;
+            delete window.aliasTableToggleAddMenu;
+            delete window.aliasTableCloseDropdown;
+            delete window.aliasTableReload;
+            delete window.aliasTableRef;
+            delete window.aliasTableActiveProjectId;
+            delete window.aliasTableActiveProjectName;
+            delete window.aliasTableIsUpdatingProjectRef;
+        };
+    }, [handleAddAliasToProject, handleRemoveAliasFromProject, activeProjectId, config]);
+
+    // Custom renderers for WWPN formatting and project badges
     const customRenderers = useMemo(() => {
         console.log('🎨 Creating custom renderers for', wwpnColumnCount, 'WWPN columns');
         const renderers = {};
+
+        // Add renderer for project_memberships column (badge pills)
+        renderers['project_memberships'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+            try {
+                if (!value || !Array.isArray(value) || value.length === 0) {
+                    return '';
+                }
+
+                // Render badge pills for each project
+                const badges = value.map(pm => {
+                    if (!pm || typeof pm !== 'object') {
+                        return '';
+                    }
+                    const isActive = pm.project_id === activeProjectId;
+                    const badgeClass = isActive ? 'bg-primary' : 'bg-secondary';
+                    const title = `Action: ${pm.action || 'unknown'}${pm.include_in_zoning ? ' (in zoning)' : ''}`;
+                    const projectName = pm.project_name || 'Unknown';
+                    return `<span class="badge ${badgeClass} me-1" title="${title}" onmousedown="event.stopPropagation()">${projectName}</span>`;
+                }).filter(badge => badge !== '').join('');
+
+                return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
+            } catch (error) {
+                console.error('Error rendering project_memberships:', error, value);
+                return '';
+            }
+        };
+
+        // Add renderer for project_actions column (HTML with styled dropdown)
+        renderers['project_actions'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+            try {
+                const aliasId = rowData.id;
+                const aliasName = rowData.name;
+                const inActiveProject = rowData.in_active_project;
+                const createdByProject = rowData.created_by_project;
+
+                // If in active project
+                if (inActiveProject) {
+                    // If created by this project, show badge only (can't remove)
+                    if (createdByProject === activeProjectId) {
+                        return `<span style="
+                            padding: 4px 8px;
+                            background-color: var(--color-success-subtle);
+                            color: var(--color-success-fg);
+                            border-radius: 4px;
+                            font-size: 12px;
+                            font-weight: 500;
+                        " title="This alias was created by this project" onmousedown="event.stopPropagation()">✓ Created Here</span>`;
+                    }
+                    // Otherwise show remove button
+                    return `<button
+                        onclick="window.aliasTableHandleRemove('${aliasId}', '${aliasName}')"
+                        onmousedown="event.stopPropagation()"
+                        style="
+                            padding: 4px 12px;
+                            border: 1px solid var(--color-danger-emphasis);
+                            border-radius: 6px;
+                            cursor: pointer;
+                            background-color: transparent;
+                            color: var(--color-danger-fg);
+                            font-size: 13px;
+                            font-weight: 500;
+                        "
+                        title="Remove from project">× Remove</button>`;
+                }
+
+                // Not in active project - show styled dropdown button
+                return `<div class="dropdown" style="position: relative;" onmousedown="event.stopPropagation()">
+                    <button
+                        class="alias-add-dropdown-btn"
+                        onclick="window.aliasTableToggleAddMenu(event, '${aliasId}', '${aliasName}')"
+                        onmousedown="event.stopPropagation()"
+                        style="
+                            padding: 6px 10px;
+                            border: none;
+                            cursor: pointer;
+                            background-color: transparent;
+                            color: var(--color-accent-fg);
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            font-size: 13px;
+                            font-weight: 500;
+                            width: 100%;
+                        "
+                        title="Add to project">
+                        <span>+ Add</span>
+                        <span style="color: var(--muted-text); margin-left: 8px;">▽</span>
+                    </button>
+                </div>`;
+            } catch (error) {
+                console.error('Error rendering project_actions:', error);
+                return '';
+            }
+        };
 
         // Add renderer for each WWPN column - just format the value
         // TanStackCRUDTable calls: customRenderer(rowData, null, rowIndex, colIndex, accessorKey, value)
@@ -362,7 +668,7 @@ const AliasTableTanStackClean = () => {
         }
         console.log('✅ Custom renderers created:', Object.keys(renderers));
         return renderers;
-    }, [wwpnColumnCount]);
+    }, [wwpnColumnCount, activeProjectId]);
 
     // Store wwpnColumnCount in a ref so preprocessData doesn't need to depend on it
     const wwpnColumnCountRef = useRef(wwpnColumnCount);
@@ -373,9 +679,13 @@ const AliasTableTanStackClean = () => {
     // Process data for display - convert IDs to names in nested properties and distribute WWPNs across columns
     // Using useCallback with stable reference - wwpnColumnCount accessed via ref to avoid recreating function
     const preprocessData = useCallback((data) => {
-        // If we're in the middle of adding a column, return null to prevent reload
+        // If we're in the middle of adding a column or updating project, return null to prevent reload
         if (isAddingColumnRef.current) {
             console.log('⏸️ preprocessData skipped - adding column in progress');
+            return null;
+        }
+        if (isUpdatingProjectRef.current) {
+            console.log('⏸️ preprocessData skipped - updating project membership in progress');
             return null;
         }
 
@@ -711,6 +1021,40 @@ const AliasTableTanStackClean = () => {
         return "";
     };
 
+    // Project filter toggle buttons for toolbar
+    const filterToggleButtons = (
+        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+            <button
+                type="button"
+                className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('all')}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '6px 0 0 6px',
+                    transition: 'all 0.2s ease'
+                }}
+            >
+                All Aliases
+            </button>
+            <button
+                type="button"
+                className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('current')}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '0 6px 6px 0',
+                    transition: 'all 0.2s ease'
+                }}
+            >
+                Current Project Only
+            </button>
+        </div>
+    );
+
     return (
         <div className="modern-table-container">
             {isReadOnly && (
@@ -718,11 +1062,12 @@ const AliasTableTanStackClean = () => {
                     <strong>Read-only access:</strong> {getReadOnlyMessage().replace('Read-only access: ', '')}
                 </div>
             )}
+
             <TanStackCRUDTable
                 ref={tableRef}
 
                 // API Configuration - uses custom save endpoint
-                apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/`}
+                apiUrl={`${API_ENDPOINTS.aliases}${activeProjectId}/?project_filter=${projectFilter}`}
                 saveUrl={API_ENDPOINTS.aliasSave}
                 deleteUrl={API_ENDPOINTS.aliasDelete}
                 customerId={activeCustomerId}
@@ -747,6 +1092,9 @@ const AliasTableTanStackClean = () => {
 
                 // Custom save handler - bypass default CRUD and use bulk save
                 customSaveHandler={handleAliasSave}
+
+                // Custom toolbar content - filter toggle
+                customToolbarContent={filterToggleButtons}
 
                 // Event Handlers
                 onSave={(result) => {
