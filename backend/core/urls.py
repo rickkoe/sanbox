@@ -64,6 +64,7 @@ from .project_views import (
     project_add_alias, project_remove_alias,
     project_add_zone, project_remove_zone,
     project_finalize, project_close,
+    project_commit, project_commit_deletions, project_commit_and_close,
     project_conflicts, project_summary
 )
 
@@ -137,6 +138,9 @@ urlpatterns = [
     path("projects/<int:project_id>/remove-zone/<int:zone_id>/", project_remove_zone, name="project-remove-zone"),
     path("projects/<int:project_id>/finalize/", project_finalize, name="project-finalize"),
     path("projects/<int:project_id>/close/", project_close, name="project-close"),
+    path("projects/<int:project_id>/commit/", project_commit, name="project-commit"),
+    path("projects/<int:project_id>/commit-deletions/", project_commit_deletions, name="project-commit-deletions"),
+    path("projects/<int:project_id>/commit-and-close/", project_commit_and_close, name="project-commit-and-close"),
     path("projects/<int:project_id>/conflicts/", project_conflicts, name="project-conflicts"),
     path("projects/<int:project_id>/summary/", project_summary, name="project-summary"),
 

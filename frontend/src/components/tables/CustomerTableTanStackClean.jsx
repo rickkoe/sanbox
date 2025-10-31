@@ -12,14 +12,41 @@ const StorageInsightsPortalButton = ({ tenant, apiKey }) => {
         }
     };
 
+    const handleMouseEnter = (e) => {
+        if (hasValidCredentials) {
+            e.currentTarget.style.backgroundColor = 'var(--color-accent-muted)';
+        }
+    };
+
+    const handleMouseLeave = (e) => {
+        if (hasValidCredentials) {
+            e.currentTarget.style.backgroundColor = 'var(--color-accent-subtle)';
+        }
+    };
+
     return (
         <div style={{ textAlign: 'center' }}>
             <button
-                className={hasValidCredentials ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
                 disabled={!hasValidCredentials}
                 onClick={handleClick}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
                 style={{
+                    padding: '6px 12px',
+                    border: hasValidCredentials
+                        ? '1px solid var(--color-accent-emphasis)'
+                        : '1px solid var(--badge-border)',
+                    borderRadius: '6px',
                     cursor: hasValidCredentials ? 'pointer' : 'not-allowed',
+                    backgroundColor: hasValidCredentials
+                        ? 'var(--color-accent-subtle)'
+                        : 'var(--badge-bg)',
+                    color: hasValidCredentials
+                        ? 'var(--color-accent-fg)'
+                        : 'var(--badge-text)',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s',
                     minWidth: '110px'
                 }}
             >

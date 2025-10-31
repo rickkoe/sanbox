@@ -5,7 +5,7 @@ from django.db.models import Q as Q_models
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
-from .models import Alias, Zone, Fabric, WwpnPrefix, Switch
+from .models import Alias, Zone, Fabric, WwpnPrefix, Switch, AliasWWPN
 from customers.models import Customer
 from core.models import Config, Project, UserConfig, ProjectAlias, ProjectZone, ProjectHost
 from storage.models import Host
@@ -1772,36 +1772,64 @@ def alias_save_view(request):
                         })
                         continue
 
+                    # Validate the incoming data
                     serializer = AliasSerializer(alias, data=alias_data, partial=True)
                     if serializer.is_valid():
-                        # Manual dirty check (skip write-only fields that don't exist on model)
-                        dirty = False
-                        for field, value in serializer.validated_data.items():
-                            # Skip write-only fields like wwpns_write
-                            if field in ['wwpns_write']:
-                                dirty = True  # If wwpns_write is present, consider it dirty
-                                continue
-                            if getattr(alias, field, None) != value:
-                                dirty = True
-                                break
-                        alias = serializer.save()
-                        if dirty:
-                            alias.updated = timezone.now()
-                            # Increment version and set last_modified_by
-                            alias.version += 1
-                            if user:
-                                alias.last_modified_by = user
-                            alias.save(update_fields=["updated", "version", "last_modified_by"])
+                        # Extract only changed fields using field_merge utility
+                        from core.utils.field_merge import extract_changed_fields
 
-                            # Track modification in project
-                            ProjectAlias.objects.update_or_create(
+                        # Get validated data
+                        validated_data = serializer.validated_data.copy()
+
+                        # Remove write-only fields that shouldn't be compared
+                        write_only_fields = ['wwpns_write']
+                        for field in write_only_fields:
+                            validated_data.pop(field, None)
+
+                        # Extract only fields that actually changed
+                        changed_fields = extract_changed_fields(alias, validated_data)
+
+                        if changed_fields or 'wwpns_write' in serializer.validated_data:
+                            # Get or create ProjectAlias for this project
+                            project_alias, pa_created = ProjectAlias.objects.get_or_create(
                                 project=project,
                                 alias=alias,
                                 defaults={
-                                    'action': 'modify',
-                                    'added_by': user
+                                    'action': 'reference',
+                                    'added_by': user,
+                                    'field_overrides': {}
                                 }
                             )
+
+                            # Update field_overrides with new changes
+                            # Merge existing overrides with new changes
+                            current_overrides = project_alias.field_overrides or {}
+                            current_overrides.update(changed_fields)
+                            project_alias.field_overrides = current_overrides
+
+                            # Update action to 'modify' unless it's already 'create'
+                            if project_alias.action not in ['create', 'delete']:
+                                project_alias.action = 'modify'
+
+                            project_alias.added_by = user
+                            project_alias.save()
+
+                            # Handle WWPN updates if present (these still need to update the actual alias)
+                            if 'wwpns_write' in serializer.validated_data:
+                                wwpns_data = serializer.validated_data['wwpns_write']
+                                # Delete existing WWPNs
+                                alias.alias_wwpns.all().delete()
+                                # Create new WWPNs
+                                for order, wwpn_str in enumerate(wwpns_data):
+                                    AliasWWPN.objects.create(
+                                        alias=alias,
+                                        wwpn=wwpn_str,
+                                        order=order
+                                    )
+
+                            print(f"✏️ Stored field overrides for alias '{alias.name}' in project '{project.name}': {changed_fields}")
+
+                        # Return the base alias data (not modified)
                         saved_aliases.append(AliasSerializer(alias).data)
                     else:
                         errors.append({"alias": alias_data.get("name", "Unknown"), "errors": serializer.errors})
@@ -2204,36 +2232,61 @@ def zone_save_view(request):
                         })
                         continue
 
+                    # Validate the incoming data
                     serializer = ZoneSerializer(zone, data=zone_data, partial=True)
                     if serializer.is_valid():
-                        # Manual dirty check
-                        dirty = False
-                        for field, value in serializer.validated_data.items():
-                            if getattr(zone, field) != value:
-                                dirty = True
-                                break
-                        zone = serializer.save()
-                        if dirty:
-                            zone.updated = timezone.now()
-                            # Increment version and set last_modified_by
-                            zone.version += 1
-                            if user:
-                                zone.last_modified_by = user
-                            zone.save(update_fields=["updated", "version", "last_modified_by"])
+                        # Extract only changed fields using field_merge utility
+                        from core.utils.field_merge import extract_changed_fields
 
-                            # Track modification in project
-                            ProjectZone.objects.update_or_create(
+                        # Get validated data
+                        validated_data = serializer.validated_data.copy()
+
+                        # Extract only fields that actually changed
+                        changed_fields = extract_changed_fields(zone, validated_data)
+
+                        # Check if members changed
+                        current_member_ids = set(zone.members.values_list('id', flat=True))
+                        new_member_ids = set(member_ids)
+                        members_changed = current_member_ids != new_member_ids
+
+                        if changed_fields or members_changed:
+                            # Get or create ProjectZone for this project
+                            project_zone, pz_created = ProjectZone.objects.get_or_create(
                                 project=project,
                                 zone=zone,
                                 defaults={
-                                    'action': 'modify',
-                                    'added_by': user
+                                    'action': 'reference',
+                                    'added_by': user,
+                                    'field_overrides': {}
                                 }
                             )
-                        member_ids = [member.get('alias') for member in members_list if member.get('alias')]
-                        print(f"🎯 [UPDATE] Setting members for {zone_name}: {member_ids}")
-                        zone.members.set(member_ids)
-                        print(f"✅ [UPDATE] Members set for {zone_name}. Final count: {zone.members.count()}")
+
+                            # Update field_overrides with new changes
+                            current_overrides = project_zone.field_overrides or {}
+                            current_overrides.update(changed_fields)
+
+                            # Store member changes in field_overrides as well
+                            if members_changed:
+                                current_overrides['member_ids'] = member_ids
+
+                            project_zone.field_overrides = current_overrides
+
+                            # Update action to 'modify' unless it's already 'create'
+                            if project_zone.action not in ['create', 'delete']:
+                                project_zone.action = 'modify'
+
+                            project_zone.added_by = user
+                            project_zone.save()
+
+                            # Handle member updates (these still need to update the actual zone for now)
+                            # TODO: In future, members could also be stored in overrides only
+                            print(f"🎯 [UPDATE] Setting members for {zone_name}: {member_ids}")
+                            zone.members.set(member_ids)
+                            print(f"✅ [UPDATE] Members set for {zone_name}. Final count: {zone.members.count()}")
+
+                            print(f"✏️ Stored field overrides for zone '{zone.name}' in project '{project.name}': {changed_fields}")
+
+                        # Return the base zone data (not modified)
                         saved_zones.append(ZoneSerializer(zone).data)
                     else:
                         errors.append({"zone": zone_data["name"], "errors": serializer.errors})

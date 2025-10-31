@@ -352,8 +352,8 @@ def create_project_for_customer(request):
 
                 # Calculate counts for each project
                 fabric_count = Fabric.objects.filter(customer__projects=project).count()
-                alias_count = project.alias_projects.count()  # Direct ManyToMany
-                zone_count = project.zone_projects.count()    # Direct ManyToMany
+                alias_count = project.project_aliases.count()  # ProjectAlias junction table
+                zone_count = project.project_zones.count()    # ProjectZone junction table
                 storage_system_count = Storage.objects.filter(customer__projects=project).count()
                 host_count = Host.objects.filter(storage__customer__projects=project).count()  # Through Storage->Customer->Project
 

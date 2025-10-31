@@ -149,6 +149,7 @@ const AliasTableTanStackClean = () => {
         { data: "fabric_details.name", title: "Fabric", type: "dropdown", required: true },
         { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
         { data: "project_actions", title: "Active Project", type: "custom", readOnly: true, defaultVisible: true },
+        { data: "project_status", title: "Status", type: "custom", readOnly: true, width: 120, defaultVisible: true },
         { data: "host_details.name", title: "Host", type: "dropdown" },
         { data: "storage_details.name", title: "Storage System", readOnly: true },
         { data: "cisco_alias", title: "Alias Type", type: "dropdown" },
@@ -673,6 +674,74 @@ const AliasTableTanStackClean = () => {
                 </div>`;
             } catch (error) {
                 console.error('Error rendering project_actions:', error);
+                return '';
+            }
+        };
+
+        // Add renderer for project_status column (action badge)
+        renderers['project_status'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+            try {
+                // Get action from project_memberships for active project
+                const projectMemberships = rowData.project_memberships;
+                if (!projectMemberships || !Array.isArray(projectMemberships) || projectMemberships.length === 0) {
+                    return '';
+                }
+
+                // Find membership for active project
+                const activeMembership = projectMemberships.find(pm => pm.project_id === activeProjectId);
+                if (!activeMembership) {
+                    return '';
+                }
+
+                const action = activeMembership.action;
+                let badgeText, bgColor, textColor, borderColor, emoji;
+
+                switch (action) {
+                    case 'create':
+                        emoji = '🆕';
+                        badgeText = 'New';
+                        bgColor = 'var(--color-success-subtle)';
+                        textColor = 'var(--color-success-fg)';
+                        borderColor = 'var(--color-success-muted)';
+                        break;
+                    case 'modify':
+                        emoji = '✏️';
+                        badgeText = 'Modified';
+                        bgColor = 'var(--color-accent-subtle)';
+                        textColor = 'var(--color-accent-fg)';
+                        borderColor = 'var(--color-accent-muted)';
+                        break;
+                    case 'delete':
+                        emoji = '🗑️';
+                        badgeText = 'Delete';
+                        bgColor = 'var(--color-danger-subtle)';
+                        textColor = 'var(--color-danger-fg)';
+                        borderColor = 'var(--color-danger-muted)';
+                        break;
+                    case 'reference':
+                        emoji = '📄';
+                        badgeText = 'Reference';
+                        bgColor = 'var(--badge-bg)';
+                        textColor = 'var(--badge-text)';
+                        borderColor = 'var(--badge-border)';
+                        break;
+                    default:
+                        return '';
+                }
+
+                return `<span style="
+                    display: inline-block;
+                    padding: 4px var(--space-2);
+                    background: ${bgColor};
+                    color: ${textColor};
+                    border: 1px solid ${borderColor};
+                    border-radius: var(--radius-md);
+                    font-size: var(--font-size-xs);
+                    font-weight: 600;
+                    line-height: 1;
+                " onmousedown="event.stopPropagation()">${emoji} ${badgeText}</span>`;
+            } catch (error) {
+                console.error('Error rendering project_status:', error, rowData);
                 return '';
             }
         };

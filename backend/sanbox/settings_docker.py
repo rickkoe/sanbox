@@ -8,6 +8,16 @@ from .settings import *
 
 # Override settings with environment variables for containerization
 
+# DRF Configuration - Ensure SessionAuthentication works properly
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
+
 # Security
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', SECRET_KEY)
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'

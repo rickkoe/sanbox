@@ -46,16 +46,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // If 401 or 403, redirect to login page (unless already on login page)
-    if (
-      (error.response?.status === 401 || error.response?.status === 403) &&
-      !window.location.pathname.includes('/login')
-    ) {
-      // Store the current path to redirect back after login
-      localStorage.setItem('redirectAfterLogin', window.location.pathname);
+    // NOTE: Redirect handling is now done by ProtectedRoute component
+    // to avoid conflicts with React Router navigation.
+    // The interceptor just passes errors through.
 
-      // Redirect to login
-      window.location.href = '/login';
+    // If 401 or 403, just log it - ProtectedRoute will handle the redirect
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      console.log('Authentication error:', error.response.status, 'at', error.config?.url);
+      // ProtectedRoute will detect this and redirect appropriately
     }
 
     return Promise.reject(error);
