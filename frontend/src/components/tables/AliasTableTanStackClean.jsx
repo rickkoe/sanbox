@@ -553,46 +553,46 @@ const AliasTableTanStackClean = () => {
 
                     console.log(`🎯 Dropdown option clicked: ${option.action} for alias ${aliasId}`);
 
-                    // Check if there are dirty changes BEFORE the add operation
+                    // Get current table data and check for dirty changes
                     const hadDirtyChanges = window.aliasTableRef?.current?.hasChanges;
                     const currentData = window.aliasTableRef?.current?.getTableData();
                     console.log('💾 Table state before add:', { hadDirtyChanges, rowCount: currentData?.length });
 
                     const success = await handleAddAliasToProject(aliasId, option.action);
 
-                    if (success) {
-                        // If there were dirty changes, preserve them by updating data in place
-                        if (hadDirtyChanges && currentData) {
-                            console.log('✅ Add complete, updating table data without losing edits...');
+                    if (success && currentData) {
+                        console.log('✅ Add complete, updating table data in place...');
 
-                            // Update just the affected row
-                            const updatedData = currentData.map(row => {
-                                if (row.id === parseInt(aliasId)) {
-                                    return {
-                                        ...row,
-                                        in_active_project: true,
-                                        project_memberships: [
-                                            ...(row.project_memberships || []),
-                                            {
-                                                project_id: window.aliasTableActiveProjectId,
-                                                project_name: window.aliasTableActiveProjectName,
-                                                action: option.action
-                                            }
-                                        ]
-                                    };
-                                }
-                                return row;
-                            });
+                        // Update just the affected row
+                        const updatedData = currentData.map(row => {
+                            if (row.id === parseInt(aliasId)) {
+                                return {
+                                    ...row,
+                                    in_active_project: true,
+                                    project_memberships: [
+                                        ...(row.project_memberships || []),
+                                        {
+                                            project_id: window.aliasTableActiveProjectId,
+                                            project_name: window.aliasTableActiveProjectName,
+                                            action: option.action
+                                        }
+                                    ]
+                                };
+                            }
+                            return row;
+                        });
 
-                            // Set updated data back (preserves dirty state)
+                        // Use silent update if no dirty changes, otherwise preserve dirty state
+                        if (hadDirtyChanges) {
+                            // Preserve dirty state
                             window.aliasTableRef?.current?.setTableData(updatedData);
-                            console.log('✅ Table data updated in place - dirty data preserved');
+                            console.log('✅ Table updated - dirty state preserved');
                         } else {
-                            // No dirty changes - just reload from server (clean reload)
-                            console.log('✅ Add complete, reloading fresh data from server...');
-                            window.aliasTableReload();
+                            // Silent update (no dirty state triggered)
+                            window.aliasTableRef?.current?.updateTableDataSilently(updatedData);
+                            console.log('✅ Table updated silently - no dirty state');
                         }
-                    } else {
+                    } else if (!success) {
                         console.error('❌ Add failed, not updating');
                     }
                 });

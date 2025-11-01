@@ -298,6 +298,79 @@ The `GenericTable` component (frontend/src/components/tables/GenericTable/) is t
 - Inline editing with validation
 - Context menus and bulk operations
 
+### TanStackCRUDTable Patterns
+
+The `TanStackCRUDTable` component (`frontend/src/components/tables/TanStackTable/TanStackCRUDTable.jsx`) is the modern table implementation used throughout the application. It provides advanced features including dirty state tracking, in-place editing, and custom renderers.
+
+#### Updating Table Data Without Triggering Dirty State
+
+**Problem**: When updating display-only fields (badges, statuses, project memberships) after an API operation, calling `setTableData()` triggers the dirty state indicator, making it appear there are unsaved changes even though the operation already succeeded.
+
+**Solution**: Use `updateTableDataSilently()` for clean updates, or conditionally choose between silent and dirty updates based on whether the user has unsaved edits.
+
+**Available Methods**:
+1. `setTableData(data)` - Updates table data AND marks it as dirty (shows "Unsaved" indicator)
+2. `updateTableDataSilently(data)` - Updates table data WITHOUT marking as dirty (silent update)
+3. `reloadData()` - Fetches fresh data from server (causes table flash)
+
+**When to Use Each**:
+
+Use **`updateTableDataSilently()`** when:
+- Updating display-only fields after a successful API operation (badges, status indicators, etc.)
+- The data change was already persisted to the server
+- You want to avoid false "Unsaved changes" warnings
+
+Use **`setTableData()`** when:
+- Preserving user's unsaved edits during an update
+- The table already has dirty changes that should be maintained
+
+Use **`reloadData()`** when:
+- You need to fetch completely fresh data from the server
+- You're okay with a table flash/reload
+- You want to discard any local changes
+
+**Example: Adding Entity to Project**
+
+```javascript
+// After successful API call to add alias/zone to project
+const hadDirtyChanges = window.aliasTableRef?.current?.hasChanges;
+const currentData = window.aliasTableRef?.current?.getTableData();
+
+const success = await handleAddAliasToProject(aliasId, action);
+
+if (success && currentData) {
+    // Update just the affected row
+    const updatedData = currentData.map(row => {
+        if (row.id === parseInt(aliasId)) {
+            return {
+                ...row,
+                in_active_project: true,
+                project_memberships: [...(row.project_memberships || []), newMembership]
+            };
+        }
+        return row;
+    });
+
+    // Choose update method based on dirty state
+    if (hadDirtyChanges) {
+        // Preserve existing dirty state
+        window.aliasTableRef?.current?.setTableData(updatedData);
+    } else {
+        // Silent update - no dirty state triggered
+        window.aliasTableRef?.current?.updateTableDataSilently(updatedData);
+    }
+}
+```
+
+**Benefits**:
+- ✅ No table flash (updates in place)
+- ✅ No false dirty state when table is clean
+- ✅ Preserves unsaved edits when table is dirty
+- ✅ Clean, polished user experience
+
+**Implementation Location**:
+The `updateTableDataSilently()` method is exposed via `useImperativeHandle` in TanStackCRUDTable.jsx and can be called via the table ref from parent components.
+
 ### API Structure
 All API endpoints are prefixed with `/api/` and organized by app:
 - `/api/core/` - Core utilities

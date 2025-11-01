@@ -3104,6 +3104,12 @@ const TanStackCRUDTable = forwardRef(({
       setEditableData(data);
       setHasChanges(true);
     },
+    updateTableDataSilently: (data) => {
+      // Update table data without marking as dirty
+      // Useful for updating display-only fields (badges, statuses) after API operations
+      console.log('🔇 updateTableDataSilently() called - updating data without marking dirty');
+      setEditableData(data);
+    },
     getSorting: () => sorting,
     setSorting: (sortState) => setSorting(sortState),
     hasChanges,
