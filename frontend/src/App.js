@@ -80,6 +80,7 @@ const RestoreHistory = React.lazy(() => import("./pages/RestoreHistory"));
 const ThemeDemo = React.lazy(() => import("./pages/ThemeDemo"));
 const UserManual = React.lazy(() => import("./pages/UserManual"));
 const AuditLog = React.lazy(() => import("./pages/AuditLog"));
+const ProjectSummary = React.lazy(() => import("./pages/ProjectSummary"));
 
 // Main app content with routing-aware CSS classes
 function AppContent() {
@@ -223,6 +224,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/san/switches" element={<SwitchTable />} />
                     <Route path="/settings" element={<div style={{padding: '2rem'}}><h2>Settings</h2><p>Choose a settings category from the Settings dropdown in the navbar.</p></div>} />
                     <Route path="/settings/project-config" element={<ConfigForm />} />
+                    <Route path="/settings/project" element={<ProjectSummary />} />
                     <Route path="/settings/app-settings" element={<SettingsPage />} />
                     <Route path="/profile" element={<UserProfile />} />
                     <Route path="/tools" element={<ToolsPage />} />

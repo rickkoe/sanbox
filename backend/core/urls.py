@@ -36,6 +36,9 @@ from .views import (
     heartbeat_view,
     audit_log_list,
     audit_log_purge,
+    project_summary_view,
+    commit_project_view,
+    close_project_view,
 )
 # Removed: users_list, user_customer_memberships, customer_memberships_list, customer_invite_user,
 #          customer_membership_detail, project_groups_list, project_group_detail,
@@ -137,12 +140,12 @@ urlpatterns = [
     path("projects/<int:project_id>/add-zone/", project_add_zone, name="project-add-zone"),
     path("projects/<int:project_id>/remove-zone/<int:zone_id>/", project_remove_zone, name="project-remove-zone"),
     path("projects/<int:project_id>/finalize/", project_finalize, name="project-finalize"),
-    path("projects/<int:project_id>/close/", project_close, name="project-close"),
-    path("projects/<int:project_id>/commit/", project_commit, name="project-commit"),
+    path("projects/<int:project_id>/close/", close_project_view, name="project-close"),
+    path("projects/<int:project_id>/commit/", commit_project_view, name="project-commit"),
     path("projects/<int:project_id>/commit-deletions/", project_commit_deletions, name="project-commit-deletions"),
     path("projects/<int:project_id>/commit-and-close/", project_commit_and_close, name="project-commit-and-close"),
     path("projects/<int:project_id>/conflicts/", project_conflicts, name="project-conflicts"),
-    path("projects/<int:project_id>/summary/", project_summary, name="project-summary"),
+    path("projects/<int:project_id>/summary/", project_summary_view, name="project-summary"),
 
     # ========== CUSTOMIZABLE DASHBOARD ENDPOINTS ==========
     # Dashboard Layout Management

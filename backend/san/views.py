@@ -598,9 +598,13 @@ def alias_list_view(request, project_id):
         # Show all customer aliases (new default behavior)
         if customer:
             customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
-            aliases_queryset = Alias.objects.select_related('fabric').filter(
+            aliases_queryset = Alias.objects.select_related('fabric', 'created_by_project').filter(
                 fabric_id__in=customer_fabric_ids
             )
+
+            # Exclude aliases created by uncommitted projects
+            uncommitted_project_ids = Project.objects.exclude(status='finalized').values_list('id', flat=True)
+            aliases_queryset = aliases_queryset.exclude(created_by_project_id__in=uncommitted_project_ids)
         else:
             # Fallback if no customer (shouldn't happen but handle gracefully)
             project_alias_ids = ProjectAlias.objects.filter(project=project).values_list('alias_id', flat=True)
@@ -934,9 +938,15 @@ def alias_customer_list_view(request):
 
     # Base queryset - filter by customer's fabrics
     customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
-    aliases_queryset = Alias.objects.select_related('fabric', 'host').filter(
+    aliases_queryset = Alias.objects.select_related('fabric', 'host', 'created_by_project').filter(
         fabric_id__in=customer_fabric_ids
     )
+
+    # Exclude aliases created by uncommitted projects
+    # Only show aliases created by draft/active/closed projects (not finalized)
+    from core.models import Project
+    uncommitted_project_ids = Project.objects.exclude(status='finalized').values_list('id', flat=True)
+    aliases_queryset = aliases_queryset.exclude(created_by_project_id__in=uncommitted_project_ids)
 
     # Prefetch project memberships for badge display
     aliases_queryset = aliases_queryset.prefetch_related(
@@ -2232,7 +2242,11 @@ def zones_by_project_view(request, project_id):
             # Show all customer zones (new default behavior)
             if customer:
                 customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
-                zones = Zone.objects.select_related('fabric').filter(fabric_id__in=customer_fabric_ids)
+                zones = Zone.objects.select_related('fabric', 'created_by_project').filter(fabric_id__in=customer_fabric_ids)
+
+                # Exclude zones created by uncommitted projects
+                uncommitted_project_ids = Project.objects.exclude(status='finalized').values_list('id', flat=True)
+                zones = zones.exclude(created_by_project_id__in=uncommitted_project_ids)
             else:
                 # Fallback if no customer (shouldn't happen but handle gracefully)
                 project_zone_ids = ProjectZone.objects.filter(project=project).values_list('zone_id', flat=True)
@@ -2458,7 +2472,12 @@ def zone_customer_list_view(request):
 
     # Base queryset - filter by customer's fabrics
     customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
-    zones = Zone.objects.select_related('fabric').filter(fabric_id__in=customer_fabric_ids)
+    zones = Zone.objects.select_related('fabric', 'created_by_project').filter(fabric_id__in=customer_fabric_ids)
+
+    # Exclude zones created by uncommitted projects
+    from core.models import Project
+    uncommitted_project_ids = Project.objects.exclude(status='finalized').values_list('id', flat=True)
+    zones = zones.exclude(created_by_project_id__in=uncommitted_project_ids)
 
     # Prefetch project memberships for badge display
     zones = zones.prefetch_related(

@@ -657,14 +657,27 @@ class ImportOrchestrator:
                     logger.info(f"Created new fabric: {fabric_name} (zoneset: {zoneset_name}, vsan: {vsan})")
                 else:
                     # Try to find existing fabric or create new
+
+                    # Prepare defaults dict
+                    fabric_defaults = {
+                        'san_vendor': parsed_fabric.san_vendor,
+                        'zoneset_name': zoneset_name,
+                        'vsan': vsan
+                    }
+
+                    # If importing within a project, set created_by_project for new fabrics
+                    if self.project_id:
+                        try:
+                            from core.models import Project
+                            project = Project.objects.get(id=self.project_id)
+                            fabric_defaults['created_by_project'] = project
+                        except Project.DoesNotExist:
+                            pass  # Project not found, proceed without setting created_by_project
+
                     fabric, created = Fabric.objects.get_or_create(
                         customer=self.customer,
                         name=fabric_name,
-                        defaults={
-                            'san_vendor': parsed_fabric.san_vendor,
-                            'zoneset_name': zoneset_name,
-                            'vsan': vsan
-                        }
+                        defaults=fabric_defaults
                     )
 
                     if created:
@@ -785,13 +798,26 @@ class ImportOrchestrator:
                 # Create or update alias
                 # NOTE: Alias model now uses (fabric, name) as unique identifier
                 # WWPNs are stored in separate AliasWWPN junction table
+
+                # Prepare defaults dict
+                alias_defaults = {
+                    'cisco_alias': parsed_alias.alias_type,  # Field is 'cisco_alias' not 'alias_type'
+                    'use': parsed_alias.use or ''
+                }
+
+                # If importing within a project, set created_by_project for new aliases
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        alias_defaults['created_by_project'] = project
+                    except Project.DoesNotExist:
+                        pass  # Project not found, proceed without setting created_by_project
+
                 alias, created = Alias.objects.update_or_create(
                     fabric=fabric,
                     name=parsed_alias.name,
-                    defaults={
-                        'cisco_alias': parsed_alias.alias_type,  # Field is 'cisco_alias' not 'alias_type'
-                        'use': parsed_alias.use or ''
-                    }
+                    defaults=alias_defaults
                 )
 
                 if created:
@@ -923,12 +949,25 @@ class ImportOrchestrator:
                     continue
 
                 # Create or update zone
+
+                # Prepare defaults dict
+                zone_defaults = {
+                    'zone_type': parsed_zone.zone_type if parsed_zone.zone_type in ['smart', 'standard'] else 'standard'
+                }
+
+                # If importing within a project, set created_by_project for new zones
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        zone_defaults['created_by_project'] = project
+                    except Project.DoesNotExist:
+                        pass  # Project not found, proceed without setting created_by_project
+
                 zone, created = Zone.objects.update_or_create(
                     fabric=fabric,
                     name=parsed_zone.name,
-                    defaults={
-                        'zone_type': parsed_zone.zone_type if parsed_zone.zone_type in ['smart', 'standard'] else 'standard'
-                    }
+                    defaults=zone_defaults
                 )
 
                 if created:
@@ -1239,6 +1278,15 @@ class ImportOrchestrator:
                 defaults['imported'] = timezone.now()
                 defaults['updated'] = timezone.now()
 
+                # If importing within a project, set created_by_project for new storage systems
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        defaults['created_by_project'] = project
+                    except Project.DoesNotExist:
+                        pass  # Project not found, proceed without setting created_by_project
+
                 # Create or update storage system
                 storage, created = Storage.objects.update_or_create(
                     storage_system_id=system.storage_system_id,
@@ -1316,6 +1364,15 @@ class ImportOrchestrator:
                 # Create unique_id for volume
                 unique_id = f"{volume.storage_system_id}_{volume.volume_id}"
 
+                # If importing within a project, set created_by_project for new volumes
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        defaults['created_by_project'] = project
+                    except Project.DoesNotExist:
+                        pass  # Project not found, proceed without setting created_by_project
+
                 # Create or update volume
                 vol, created = Volume.objects.update_or_create(
                     unique_id=unique_id,
@@ -1374,6 +1431,15 @@ class ImportOrchestrator:
 
                 # Add timestamps
                 defaults['imported'] = timezone.now()
+
+                # If importing within a project, set created_by_project for new hosts
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        defaults['created_by_project'] = project
+                    except Project.DoesNotExist:
+                        pass  # Project not found, proceed without setting created_by_project
 
                 # Create or update host - lookup by name and storage
                 host_obj, created = Host.objects.update_or_create(

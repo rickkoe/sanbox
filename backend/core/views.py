@@ -2263,3 +2263,351 @@ def audit_log_purge(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ========== PROJECT SUMMARY AND COMMIT VIEWS ==========
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def project_summary_view(request, project_id):
+    """
+    Get summary information for a project before committing.
+    Shows counts of entities by action type (create, modify, delete, reference).
+
+    GET /api/core/projects/<id>/summary/
+
+    Response:
+    {
+        "project": {
+            "id": 1,
+            "name": "Project Name",
+            "owner_username": "john",
+            "created_at": "2025-01-15T10:00:00Z",
+            "is_committed": false,
+            "description": "..."
+        },
+        "summary": {
+            "aliases": {
+                "total": 10,
+                "by_action": [
+                    {"action": "create", "action_display": "Create", "count": 5},
+                    {"action": "modify", "action_display": "Modify", "count": 3}
+                ]
+            },
+            "zones": {...},
+            "fabrics": {...}
+        }
+    }
+    """
+    print(f"🔥 Project Summary - Project ID: {project_id}")
+
+    user = request.user if request.user.is_authenticated else None
+    if not user or not user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
+    try:
+        project = get_object_or_404(Project, id=project_id)
+
+        # Get counts by entity type and action
+        from san.models import Alias, Zone, Fabric
+        from core.models import ProjectAlias, ProjectZone, ProjectFabric
+        from django.db.models import Count
+
+        # Alias counts by action
+        alias_counts = ProjectAlias.objects.filter(
+            project=project
+        ).values('action').annotate(count=Count('id'))
+
+        alias_summary = {
+            'total': sum(item['count'] for item in alias_counts),
+            'by_action': [
+                {
+                    'action': item['action'],
+                    'action_display': dict(ProjectAlias.ACTION_CHOICES).get(item['action'], item['action']),
+                    'count': item['count']
+                }
+                for item in alias_counts
+            ]
+        }
+
+        # Zone counts by action
+        zone_counts = ProjectZone.objects.filter(
+            project=project
+        ).values('action').annotate(count=Count('id'))
+
+        zone_summary = {
+            'total': sum(item['count'] for item in zone_counts),
+            'by_action': [
+                {
+                    'action': item['action'],
+                    'action_display': dict(ProjectZone.ACTION_CHOICES).get(item['action'], item['action']),
+                    'count': item['count']
+                }
+                for item in zone_counts
+            ]
+        }
+
+        # Fabric counts by action
+        fabric_counts = ProjectFabric.objects.filter(
+            project=project
+        ).values('action').annotate(count=Count('id'))
+
+        fabric_summary = {
+            'total': sum(item['count'] for item in fabric_counts),
+            'by_action': [
+                {
+                    'action': item['action'],
+                    'action_display': dict(ProjectFabric.ACTION_CHOICES).get(item['action'], item['action']),
+                    'count': item['count']
+                }
+                for item in fabric_counts
+            ]
+        }
+
+        # Build response
+        response = {
+            'project': {
+                'id': project.id,
+                'name': project.name,
+                'owner_username': None,  # No owner field in current Project model
+                'created_at': project.created_at.isoformat() if project.created_at else None,
+                'is_committed': project.status == 'finalized',  # Use status field
+                'description': project.notes or ''  # Use notes field
+            },
+            'summary': {
+                'aliases': alias_summary,
+                'zones': zone_summary,
+                'fabrics': fabric_summary
+            }
+        }
+
+        return JsonResponse(response)
+
+    except Exception as e:
+        print(f"❌ Error in project_summary_view: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def commit_project_view(request, project_id):
+    """
+    Commit a project - applies all changes to customer data and locks the project.
+
+    POST /api/core/projects/<id>/commit/
+
+    This operation:
+    - Creates new entities marked as 'create'
+    - Modifies entities marked as 'modify'
+    - Deletes entities marked as 'delete'
+    - Marks the project as committed (is_committed=True)
+
+    Response:
+    {
+        "success": true,
+        "message": "Project committed successfully",
+        "stats": {
+            "aliases_created": 5,
+            "aliases_modified": 3,
+            "aliases_deleted": 1,
+            ...
+        }
+    }
+    """
+    print(f"🔥 Commit Project - Project ID: {project_id}")
+
+    user = request.user if request.user.is_authenticated else None
+    if not user or not user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
+    try:
+        project = get_object_or_404(Project, id=project_id)
+
+        # Check if already committed (finalized status)
+        if project.status == 'finalized':
+            return JsonResponse({'error': 'Project is already committed'}, status=400)
+
+        # Import models
+        from san.models import Alias, Zone, Fabric
+        from core.models import ProjectAlias, ProjectZone, ProjectFabric
+
+        stats = {
+            'aliases_created': 0,
+            'aliases_modified': 0,
+            'aliases_deleted': 0,
+            'zones_created': 0,
+            'zones_modified': 0,
+            'zones_deleted': 0,
+            'fabrics_created': 0,
+            'fabrics_modified': 0,
+            'fabrics_deleted': 0
+        }
+
+        # Process Aliases
+        alias_projects = ProjectAlias.objects.filter(project=project).select_related('alias')
+        for ap in alias_projects:
+            if ap.action == 'create':
+                # Entity already exists, just increment counter
+                stats['aliases_created'] += 1
+            elif ap.action == 'modify':
+                # Apply field overrides to base entity
+                if ap.field_overrides:
+                    alias = ap.alias
+                    for field, value in ap.field_overrides.items():
+                        if hasattr(alias, field):
+                            setattr(alias, field, value)
+                    alias.save()
+                stats['aliases_modified'] += 1
+            elif ap.action == 'delete':
+                # Mark for deletion (or actually delete based on requirements)
+                ap.alias.exists = False
+                ap.alias.save()
+                stats['aliases_deleted'] += 1
+
+        # Process Zones
+        zone_projects = ProjectZone.objects.filter(project=project).select_related('zone')
+        for zp in zone_projects:
+            if zp.action == 'create':
+                stats['zones_created'] += 1
+            elif zp.action == 'modify':
+                if zp.field_overrides:
+                    zone = zp.zone
+                    for field, value in zp.field_overrides.items():
+                        if hasattr(zone, field):
+                            setattr(zone, field, value)
+                    zone.save()
+                stats['zones_modified'] += 1
+            elif zp.action == 'delete':
+                zp.zone.exists = False
+                zp.zone.save()
+                stats['zones_deleted'] += 1
+
+        # Process Fabrics
+        fabric_projects = ProjectFabric.objects.filter(project=project).select_related('fabric')
+        for fp in fabric_projects:
+            if fp.action == 'create':
+                stats['fabrics_created'] += 1
+            elif fp.action == 'modify':
+                if fp.field_overrides:
+                    fabric = fp.fabric
+                    for field, value in fp.field_overrides.items():
+                        if hasattr(fabric, field):
+                            setattr(fabric, field, value)
+                    fabric.save()
+                stats['fabrics_modified'] += 1
+            elif fp.action == 'delete':
+                fp.fabric.exists = False
+                fp.fabric.save()
+                stats['fabrics_deleted'] += 1
+
+        # Mark project as committed (finalized status)
+        project.status = 'finalized'
+        project.save()
+
+        # Log audit event
+        try:
+            from .audit import log_audit_event
+            log_audit_event(
+                user=user,
+                action_type='UPDATE',
+                entity_type='PROJECT',
+                entity_id=project.id,
+                summary=f"Committed project '{project.name}'",
+                details=stats
+            )
+        except Exception as audit_error:
+            print(f"⚠️  Failed to log audit event: {audit_error}")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Project committed successfully',
+            'stats': stats
+        })
+
+    except Exception as e:
+        print(f"❌ Error in commit_project_view: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def close_project_view(request, project_id):
+    """
+    Close and delete a project.
+
+    POST /api/core/projects/<id>/close/
+
+    This operation permanently deletes the project and all its associations.
+    If the project is not committed, all uncommitted changes are lost.
+
+    Response:
+    {
+        "success": true,
+        "message": "Project deleted successfully"
+    }
+    """
+    print(f"🔥 Close/Delete Project - Project ID: {project_id}")
+
+    user = request.user if request.user.is_authenticated else None
+    if not user or not user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
+    try:
+        project = get_object_or_404(Project, id=project_id)
+        project_name = project.name
+        was_finalized = project.status == 'finalized'
+
+        # Delete all entities that were created by this project (not yet committed)
+        from san.models import Alias, Zone, Fabric
+
+        # Count entities to be deleted
+        aliases_count = Alias.objects.filter(created_by_project=project).count()
+        zones_count = Zone.objects.filter(created_by_project=project).count()
+        fabrics_count = Fabric.objects.filter(created_by_project=project).count()
+
+        # Delete entities created by this project
+        Alias.objects.filter(created_by_project=project).delete()
+        Zone.objects.filter(created_by_project=project).delete()
+        Fabric.objects.filter(created_by_project=project).delete()
+
+        print(f"🗑️  Deleted {aliases_count} aliases, {zones_count} zones, {fabrics_count} fabrics created by project '{project_name}'")
+
+        # Log audit event before deleting
+        try:
+            from .audit import log_audit_event
+            log_audit_event(
+                user=user,
+                action_type='DELETE',
+                entity_type='PROJECT',
+                entity_id=project.id,
+                summary=f"Deleted project '{project_name}'",
+                details={
+                    'was_committed': was_finalized,
+                    'project_name': project_name,
+                    'deleted_entities': {
+                        'aliases': aliases_count,
+                        'zones': zones_count,
+                        'fabrics': fabrics_count
+                    }
+                }
+            )
+        except Exception as audit_error:
+            print(f"⚠️  Failed to log audit event: {audit_error}")
+
+        # Delete the project (cascade will delete all ProjectAlias, ProjectZone, etc.)
+        project.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Project deleted successfully'
+        })
+
+    except Exception as e:
+        print(f"❌ Error in close_project_view: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)

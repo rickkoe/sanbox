@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
@@ -12,6 +13,7 @@ const AliasTableTanStackClean = () => {
     const { config } = useContext(ConfigContext);
     const { user, getUserRole } = useAuth();
     const { theme } = useTheme();
+    const navigate = useNavigate();
 
     const [fabricOptions, setFabricOptions] = useState([]);
     const [hostOptions, setHostOptions] = useState([]);
@@ -1194,7 +1196,7 @@ const AliasTableTanStackClean = () => {
                     padding: '10px 18px',
                     fontSize: '14px',
                     fontWeight: '500',
-                    borderRadius: '0 6px 6px 0',
+                    borderRadius: '0',
                     transition: 'all 0.2s ease',
                     opacity: activeProjectId ? 1 : 0.5,
                     cursor: activeProjectId ? 'pointer' : 'not-allowed',
@@ -1203,6 +1205,27 @@ const AliasTableTanStackClean = () => {
                 title={!activeProjectId ? 'Select a project to enable Project View' : 'Show only aliases in this project'}
             >
                 Project View
+            </button>
+
+            {/* Manage Project Button - Disabled if no active project */}
+            <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => navigate('/settings/project')}
+                disabled={!activeProjectId}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '0 6px 6px 0',
+                    transition: 'all 0.2s ease',
+                    opacity: activeProjectId ? 1 : 0.5,
+                    cursor: activeProjectId ? 'pointer' : 'not-allowed',
+                    minWidth: '140px'
+                }}
+                title={!activeProjectId ? 'Select a project to manage' : 'Manage active project'}
+            >
+                Manage Project
             </button>
         </div>
     );
