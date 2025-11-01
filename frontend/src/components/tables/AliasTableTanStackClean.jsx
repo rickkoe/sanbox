@@ -169,24 +169,33 @@ const AliasTableTanStackClean = () => {
     }, [API_URL, activeProjectId, activeCustomerId, projectFilter]);
 
     // Base alias columns (non-WWPN columns)
-    const baseColumns = [
-        { data: "name", title: "Name", required: true },
-        { data: "use", title: "Use", type: "dropdown" },
-        { data: "fabric_details.name", title: "Fabric", type: "dropdown", required: true },
-        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
-        { data: "project_actions", title: "Active Project", type: "custom", readOnly: true, defaultVisible: true },
-        { data: "project_status", title: "Status", type: "custom", readOnly: true, width: 120, defaultVisible: true },
-        { data: "host_details.name", title: "Host", type: "dropdown" },
-        { data: "storage_details.name", title: "Storage System", readOnly: true },
-        { data: "cisco_alias", title: "Alias Type", type: "dropdown" },
-        { data: "committed", title: "Committed", type: "checkbox", defaultVisible: true },
-        { data: "deployed", title: "Deployed", type: "checkbox", defaultVisible: true },
-        { data: "logged_in", title: "Logged In", type: "checkbox", defaultVisible: false },
-        { data: "zoned_count", title: "Zoned Count", type: "numeric", readOnly: true },
-        { data: "imported", title: "Imported", readOnly: true, defaultVisible: false },
-        { data: "updated", title: "Updated", readOnly: true, defaultVisible: false },
-        { data: "notes", title: "Notes" }
-    ];
+    const baseColumns = useMemo(() => {
+        const allColumns = [
+            { data: "name", title: "Name", required: true },
+            { data: "use", title: "Use", type: "dropdown" },
+            { data: "fabric_details.name", title: "Fabric", type: "dropdown", required: true },
+            { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
+            { data: "project_actions", title: "Active Project", type: "custom", readOnly: true, defaultVisible: true },
+            { data: "project_status", title: "Status", type: "custom", readOnly: true, width: 120, defaultVisible: true },
+            { data: "host_details.name", title: "Host", type: "dropdown" },
+            { data: "storage_details.name", title: "Storage System", readOnly: true },
+            { data: "cisco_alias", title: "Alias Type", type: "dropdown" },
+            { data: "committed", title: "Committed", type: "checkbox", defaultVisible: true },
+            { data: "deployed", title: "Deployed", type: "checkbox", defaultVisible: true },
+            { data: "logged_in", title: "Logged In", type: "checkbox", defaultVisible: false },
+            { data: "zoned_count", title: "Zoned Count", type: "numeric", readOnly: true },
+            { data: "imported", title: "Imported", readOnly: true, defaultVisible: false },
+            { data: "updated", title: "Updated", readOnly: true, defaultVisible: false },
+            { data: "notes", title: "Notes" }
+        ];
+
+        // Filter out Active Project and Status columns when no project is selected
+        if (!activeProjectId) {
+            return allColumns.filter(col => col.data !== 'project_actions' && col.data !== 'project_status');
+        }
+
+        return allColumns;
+    }, [activeProjectId]);
 
     // Generate dynamic WWPN columns
     const wwpnColumns = useMemo(() => {
@@ -242,7 +251,7 @@ const AliasTableTanStackClean = () => {
         const nameColumn = baseColumns.slice(0, 1); // "Name" column
         const otherColumns = baseColumns.slice(1);  // All other columns
         return [...nameColumn, ...wwpnColumns, ...otherColumns];
-    }, [wwpnColumns]);
+    }, [baseColumns, wwpnColumns]);
 
     // Generate list of default visible columns (includes all WWPN columns)
     const defaultVisibleColumns = useMemo(() => {

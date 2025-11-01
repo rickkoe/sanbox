@@ -528,14 +528,14 @@ def project_commit_deletions(request, project_id):
 @require_http_methods(["POST"])
 def project_commit_and_close(request, project_id):
     """
-    Commit all changes AND close the project (remove junction tables)
+    Commit all changes AND close the project (remove junction tables and delete project)
 
     Workflow:
     1. Execute commit (apply overrides, mark as committed)
     2. If deletions needed, require confirmation first
     3. Execute deletions if confirmed
     4. Delete all junction table entries
-    5. Set project status to 'closed'
+    5. Delete the project itself
     """
     try:
         try:
@@ -618,14 +618,14 @@ def project_commit_and_close(request, project_id):
         ProjectVolume.objects.filter(project=project).delete()
         ProjectPort.objects.filter(project=project).delete()
 
-        # 4. Close project
-        project.status = 'closed'
-        project.save(update_fields=['status'])
+        # 4. Delete the project itself
+        project_name = project.name
+        project.delete()
 
         return JsonResponse({
             "success": True,
-            "project_status": "closed",
-            "message": "Project committed and closed successfully."
+            "project_deleted": True,
+            "message": f"Project '{project_name}' committed and deleted successfully."
         })
 
     except Exception as e:

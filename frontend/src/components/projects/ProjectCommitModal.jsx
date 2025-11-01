@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { AlertTriangle, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import axios from 'axios';
-import '../theme-demo/SampleModals.css';
+import '../../styles/modals.css';
 
 /**
  * Project Commit Modal Component
@@ -62,26 +63,9 @@ const ProjectCommitModal = ({
     }, [isOpen]);
 
     const checkConflicts = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const response = await axios.get(`${API_URL}/api/core/projects/${projectId}/conflicts/`);
-
-            // Check if response has conflicts
-            if (response.data.conflict_count > 0 || (response.data.conflicts && response.data.conflicts.length > 0)) {
-                setConflicts(response.data.conflicts || []);
-                setStep('conflicts');
-            } else {
-                // No conflicts, proceed to commit
-                executeCommit();
-            }
-        } catch (err) {
-            console.error('Error checking conflicts:', err);
-            setError(err.response?.data?.error || 'Failed to check for conflicts');
-            setStep('error');
-        } finally {
-            setIsLoading(false);
-        }
+        // Skip conflict check - conflicts are detected during commit attempt
+        // Go straight to commit, which will return conflicts if any exist
+        executeCommit();
     };
 
     const executeCommit = async () => {
@@ -111,8 +95,15 @@ const ProjectCommitModal = ({
             }
         } catch (err) {
             console.error('Error committing project:', err);
-            setError(err.response?.data?.error || 'Failed to commit project changes');
-            setStep('error');
+
+            // Check if this is a conflict error (409 status)
+            if (err.response?.status === 409 && err.response?.data?.conflicts) {
+                setConflicts(err.response.data.conflicts);
+                setStep('conflicts');
+            } else {
+                setError(err.response?.data?.error || 'Failed to commit project changes');
+                setStep('error');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -157,10 +148,13 @@ const ProjectCommitModal = ({
 
     if (!isOpen) return null;
 
-    // Render based on step
-    return (
+    // Get current theme from document
+    const currentTheme = document.querySelector('.app-layout')?.className.match(/theme-(dark|light)/)?.[0] || 'theme-dark';
+
+    // Render modal content via portal to ensure it's on top
+    const modalContent = (
         <div
-            className="modal-overlay"
+            className={`modal-overlay ${currentTheme}`}
             onClick={handleBackdropClick}
             style={{ zIndex: 1050 }}
         >
@@ -188,7 +182,7 @@ const ProjectCommitModal = ({
             {step === 'conflicts' && (
                 <div className="modal-container modal-lg">
                     <div className="modal-header">
-                        <h3 className="modal-title" style={{ color: 'var(--alert-warning-text)' }}>
+                        <h3 className="modal-title" style={{ color: 'var(--color-attention-fg)' }}>
                             <AlertTriangle size={24} style={{ marginRight: '8px' }} />
                             Conflicts Detected
                         </h3>
@@ -197,42 +191,80 @@ const ProjectCommitModal = ({
                             onClick={handleClose}
                             aria-label="Close"
                         >
-                            <span style={{ fontSize: '24px' }}>×</span>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                style={{ display: 'block' }}
+                            >
+                                <path
+                                    d="M15 5L5 15M5 5L15 15"
+                                    stroke="#ffffff"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            </svg>
                         </button>
                     </div>
                     <div className="modal-body">
-                        <div style={{
-                            padding: 'var(--space-3)',
-                            background: 'var(--alert-warning-bg)',
-                            border: '1px solid var(--alert-warning-border)',
-                            borderRadius: 'var(--radius-md)',
-                            marginBottom: 'var(--space-4)'
-                        }}>
-                            <p style={{ color: 'var(--alert-warning-text)', margin: 0 }}>
-                                Cannot commit: field-level conflicts detected with other projects.
-                                Please resolve these conflicts before committing.
-                            </p>
+                        <div className="modal-alert-warning">
+                            <strong>Warning:</strong> Cannot commit: field-level conflicts detected with other projects.
+                            Please resolve these conflicts before committing.
                         </div>
 
                         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                             {conflicts.map((conflict, idx) => (
                                 <div key={idx} style={{
-                                    padding: 'var(--space-3)',
-                                    background: 'var(--card-bg)',
-                                    border: '1px solid var(--alert-warning-border)',
+                                    padding: 'var(--space-4)',
+                                    background: 'var(--color-canvas-subtle)',
+                                    border: '1px solid var(--color-border-default)',
                                     borderRadius: 'var(--radius-md)',
-                                    marginBottom: 'var(--space-2)'
+                                    marginBottom: 'var(--space-3)'
                                 }}>
-                                    <div style={{ fontWeight: 600, marginBottom: 'var(--space-2)', color: 'var(--primary-text)' }}>
+                                    <div style={{
+                                        fontWeight: 600,
+                                        marginBottom: 'var(--space-3)',
+                                        color: 'var(--color-fg-default)',
+                                        fontSize: 'var(--font-size-md)'
+                                    }}>
                                         {conflict.entity_type}: {conflict.entity_name}
                                     </div>
-                                    <div style={{ color: 'var(--secondary-text)', fontSize: 'var(--font-size-sm)' }}>
-                                        <div><strong>Field:</strong> {conflict.field}</div>
-                                        <div style={{ marginTop: 'var(--space-1)' }}>
-                                            <strong>Your value:</strong> <code>{JSON.stringify(conflict.this_value)}</code>
+                                    <div style={{
+                                        color: 'var(--color-fg-muted)',
+                                        fontSize: 'var(--font-size-sm)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 'var(--space-2)'
+                                    }}>
+                                        <div>
+                                            <strong style={{ color: 'var(--color-fg-default)' }}>Field:</strong>{' '}
+                                            <span style={{ color: 'var(--color-fg-default)' }}>{conflict.field}</span>
                                         </div>
-                                        <div style={{ marginTop: 'var(--space-1)' }}>
-                                            <strong>Conflict with {conflict.other_project_name}:</strong> <code>{JSON.stringify(conflict.other_value)}</code>
+                                        <div>
+                                            <strong style={{ color: 'var(--color-fg-default)' }}>Your value:</strong>{' '}
+                                            <code style={{
+                                                padding: '2px 6px',
+                                                background: 'var(--color-neutral-subtle)',
+                                                border: '1px solid var(--color-border-default)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                color: 'var(--color-fg-default)'
+                                            }}>
+                                                {JSON.stringify(conflict.this_value)}
+                                            </code>
+                                        </div>
+                                        <div>
+                                            <strong style={{ color: 'var(--color-fg-default)' }}>Conflict with {conflict.other_project_name}:</strong>{' '}
+                                            <code style={{
+                                                padding: '2px 6px',
+                                                background: 'var(--color-neutral-subtle)',
+                                                border: '1px solid var(--color-border-default)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                color: 'var(--color-fg-default)'
+                                            }}>
+                                                {JSON.stringify(conflict.other_value)}
+                                            </code>
                                         </div>
                                     </div>
                                 </div>
@@ -256,7 +288,7 @@ const ProjectCommitModal = ({
                     <div className="modal-header">
                         <h3 className="modal-title">
                             <Info size={24} style={{ marginRight: '8px', color: 'var(--color-accent-fg)' }} />
-                            {closeAfterCommit ? 'Committing and Closing' : 'Committing Changes'}
+                            {closeAfterCommit ? 'Committing and Deleting' : 'Committing Changes'}
                         </h3>
                     </div>
                     <div className="modal-body" style={{ textAlign: 'center', padding: 'var(--space-6)' }}>
@@ -264,7 +296,7 @@ const ProjectCommitModal = ({
                             <span className="visually-hidden">Loading...</span>
                         </div>
                         <p style={{ marginTop: 'var(--space-4)', color: 'var(--secondary-text)' }}>
-                            Applying changes to base objects...
+                            {closeAfterCommit ? 'Applying changes and deleting project...' : 'Applying changes to base objects...'}
                         </p>
                     </div>
                 </div>
@@ -284,20 +316,26 @@ const ProjectCommitModal = ({
                             aria-label="Close"
                             disabled={isLoading}
                         >
-                            <span style={{ fontSize: '24px' }}>×</span>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                style={{ display: 'block' }}
+                            >
+                                <path
+                                    d="M15 5L5 15M5 5L15 15"
+                                    stroke="#ffffff"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            </svg>
                         </button>
                     </div>
                     <div className="modal-body">
-                        <div style={{
-                            padding: 'var(--space-3)',
-                            background: 'var(--alert-danger-bg)',
-                            border: '1px solid var(--alert-danger-border)',
-                            borderRadius: 'var(--radius-md)',
-                            marginBottom: 'var(--space-4)'
-                        }}>
-                            <p style={{ color: 'var(--alert-danger-text)', margin: 0 }}>
-                                <strong>Warning:</strong> The following entities will be permanently deleted. This action cannot be undone.
-                            </p>
+                        <div className="modal-alert-danger">
+                            <strong>Warning:</strong> The following entities will be permanently deleted. This action cannot be undone.
                         </div>
 
                         <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
@@ -373,7 +411,21 @@ const ProjectCommitModal = ({
                             onClick={handleClose}
                             aria-label="Close"
                         >
-                            <span style={{ fontSize: '24px' }}>×</span>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                style={{ display: 'block' }}
+                            >
+                                <path
+                                    d="M15 5L5 15M5 5L15 15"
+                                    stroke="#ffffff"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            </svg>
                         </button>
                     </div>
                     <div className="modal-body" style={{ textAlign: 'center', padding: 'var(--space-6)' }}>
@@ -385,11 +437,11 @@ const ProjectCommitModal = ({
                             }}
                         />
                         <p style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--primary-text)', marginBottom: 'var(--space-2)' }}>
-                            {closeAfterCommit ? 'Project Committed and Closed' : 'Changes Committed Successfully'}
+                            {closeAfterCommit ? 'Project Committed and Deleted' : 'Changes Committed Successfully'}
                         </p>
                         <p style={{ color: 'var(--secondary-text)', marginBottom: 0 }}>
                             {closeAfterCommit
-                                ? `${projectName} has been committed and closed.`
+                                ? `${projectName} has been committed and deleted.`
                                 : 'All changes have been applied to base objects.'}
                         </p>
                         {commitResult && (
@@ -449,7 +501,21 @@ const ProjectCommitModal = ({
                             onClick={handleClose}
                             aria-label="Close"
                         >
-                            <span style={{ fontSize: '24px' }}>×</span>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                style={{ display: 'block' }}
+                            >
+                                <path
+                                    d="M15 5L5 15M5 5L15 15"
+                                    stroke="#ffffff"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                />
+                            </svg>
                         </button>
                     </div>
                     <div className="modal-body">
@@ -476,6 +542,9 @@ const ProjectCommitModal = ({
             )}
         </div>
     );
+
+    // Render via portal to ensure modal appears above all other content
+    return ReactDOM.createPortal(modalContent, document.body);
 };
 
 export default ProjectCommitModal;

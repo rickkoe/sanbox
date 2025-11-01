@@ -1,0 +1,342 @@
+/* Global Modal Styles - Based on Primer Theme System */
+
+/* ========== GLOBAL THEME OVERRIDES FOR ALL MODALS ========== */
+/* These apply to modals rendered anywhere in the app */
+
+.theme-dark .modal-content,
+.theme-light .modal-content {
+  background-color: var(--modal-bg) !important;
+  border-color: var(--modal-border) !important;
+  color: var(--primary-text) !important;
+}
+
+.theme-dark .modal-header,
+.theme-light .modal-header {
+  background-color: var(--modal-bg) !important;
+  border-bottom: none !important;
+}
+
+.theme-dark .modal-title,
+.theme-light .modal-title {
+  color: var(--primary-text) !important;
+}
+
+.theme-dark .modal-footer,
+.theme-light .modal-footer {
+  background-color: var(--modal-bg) !important;
+  border-top: none !important;
+}
+
+.theme-dark .modal-body,
+.theme-light .modal-body {
+  background-color: var(--modal-bg) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Close button for dark theme */
+.theme-dark .modal-header .btn-close,
+.theme-dark .btn-close {
+  filter: invert(1) brightness(2) !important;
+}
+
+/* Modal Overlay - Semi-transparent backdrop */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  animation: modalFadeIn 0.2s ease-out;
+  padding: var(--space-4);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Container - The actual modal box */
+.modal-container {
+  background-color: var(--modal-bg) !important;
+  background: var(--modal-bg) !important;
+  border: 1px solid var(--modal-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--modal-shadow);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* Theme-specific overrides for custom modal classes */
+.theme-dark .modal-container,
+.theme-light .modal-container {
+  background-color: var(--modal-bg) !important;
+  background-image: none !important;
+  background: var(--modal-bg) !important;
+  border-color: var(--modal-border) !important;
+}
+
+.theme-dark .modal-header,
+.theme-light .modal-header {
+  background-color: var(--modal-bg) !important;
+  background-image: none !important;
+  background: var(--modal-bg) !important;
+  border-bottom: none !important;
+}
+
+.theme-dark .modal-body,
+.theme-light .modal-body {
+  background-color: var(--modal-bg) !important;
+  background-image: none !important;
+  background: var(--modal-bg) !important;
+}
+
+.theme-dark .modal-footer,
+.theme-light .modal-footer {
+  background-color: var(--modal-bg) !important;
+  background-image: none !important;
+  background: var(--modal-bg) !important;
+  border-top: none !important;
+}
+
+.theme-dark .modal-title,
+.theme-light .modal-title {
+  color: var(--primary-text) !important;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Modal Sizes */
+.modal-sm {
+  width: 90%;
+  max-width: 400px;
+}
+
+.modal-md {
+  width: 90%;
+  max-width: 600px;
+}
+
+.modal-lg {
+  width: 90%;
+  max-width: 800px;
+}
+
+.modal-xl {
+  width: 90%;
+  max-width: 1000px;
+}
+
+/* Modal Header */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-5) var(--space-4) var(--space-5);
+  border-bottom: none;
+  background: var(--modal-bg) !important;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--primary-text);
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.modal-close-button {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  transition: all 0.2s ease;
+  width: 32px;
+  height: 32px;
+}
+
+.modal-close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.modal-close-button:hover svg path {
+  stroke: #ffffff;
+}
+
+.modal-close-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modal Body */
+.modal-body {
+  padding: var(--space-5);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Modal Footer */
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: none;
+  background-color: var(--modal-bg) !important;
+  background: var(--modal-bg) !important;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  flex-shrink: 0;
+}
+
+/* Modal Buttons */
+.modal-btn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.modal-btn-primary {
+  background: var(--color-btn-primary-bg);
+  color: var(--color-btn-primary-text);
+  border-color: var(--color-btn-primary-border);
+}
+
+.modal-btn-primary:hover:not(:disabled) {
+  background: var(--color-btn-primary-hover-bg);
+  border-color: var(--color-btn-primary-hover-border);
+}
+
+.modal-btn-secondary {
+  background: var(--color-btn-bg);
+  color: var(--color-btn-text);
+  border-color: var(--color-btn-border);
+}
+
+.modal-btn-secondary:hover:not(:disabled) {
+  background: var(--color-btn-hover-bg);
+  border-color: var(--color-btn-hover-border);
+}
+
+.modal-btn-danger {
+  background: var(--color-danger-emphasis);
+  color: var(--color-fg-onEmphasis);
+  border-color: var(--color-danger-emphasis);
+}
+
+.modal-btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-fg);
+  border-color: var(--color-danger-fg);
+}
+
+.modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Override Bootstrap modal styling if present */
+.modal.show .modal-dialog {
+  background: none !important;
+}
+
+.modal-backdrop.show {
+  background: var(--modal-backdrop) !important;
+  opacity: 1 !important;
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Alert Styles for Modals - Match backup.css system */
+.modal-alert-danger {
+  background-color: var(--secondary-bg) !important;
+  border: 1px solid var(--color-danger-muted) !important;
+  border-left: 4px solid var(--color-danger-emphasis) !important;
+  color: var(--color-danger-fg) !important;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.modal-alert-danger strong {
+  color: var(--color-danger-fg) !important;
+}
+
+.modal-alert-info {
+  background-color: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-left: 4px solid var(--color-accent-emphasis) !important;
+  color: var(--primary-text) !important;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.modal-alert-info strong {
+  color: var(--primary-text) !important;
+}
+
+.modal-alert-success {
+  background-color: var(--secondary-bg) !important;
+  border: 1px solid var(--color-success-muted) !important;
+  border-left: 4px solid var(--color-success-emphasis) !important;
+  color: var(--color-success-fg) !important;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.modal-alert-success strong {
+  color: var(--color-success-fg) !important;
+}
+
+.modal-alert-warning {
+  background-color: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-left: 4px solid var(--color-attention-emphasis) !important;
+  color: var(--primary-text) !important;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.modal-alert-warning strong {
+  color: var(--primary-text) !important;
+}

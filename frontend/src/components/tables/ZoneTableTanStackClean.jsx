@@ -288,14 +288,23 @@ const ZoneTableTanStackClean = () => {
     }, [API_URL, activeProjectId, activeCustomerId, projectFilter]);
 
     // Base zone columns (main columns before member columns)
-    const baseColumns = [
-        { data: "name", title: "Name", required: true },
-        { data: "fabric", title: "Fabric", type: "dropdown", required: true },
-        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
-        { data: "project_actions", title: "Active Project", type: "custom", readOnly: true, defaultVisible: true },
-        { data: "project_status", title: "Status", type: "custom", readOnly: true, width: 120, defaultVisible: true },
-        { data: "zone_type", title: "Zone Type", type: "dropdown" }
-    ];
+    const baseColumns = useMemo(() => {
+        const allColumns = [
+            { data: "name", title: "Name", required: true },
+            { data: "fabric", title: "Fabric", type: "dropdown", required: true },
+            { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
+            { data: "project_actions", title: "Active Project", type: "custom", readOnly: true, defaultVisible: true },
+            { data: "project_status", title: "Status", type: "custom", readOnly: true, width: 120, defaultVisible: true },
+            { data: "zone_type", title: "Zone Type", type: "dropdown" }
+        ];
+
+        // Filter out Active Project and Status columns when no project is selected
+        if (!activeProjectId) {
+            return allColumns.filter(col => col.data !== 'project_actions' && col.data !== 'project_status');
+        }
+
+        return allColumns;
+    }, [activeProjectId]);
 
     // Trailing columns (appear after member columns)
     const trailingColumns = [
@@ -417,7 +426,7 @@ const ZoneTableTanStackClean = () => {
     // All columns (base + member + trailing)
     const allColumns = useMemo(() => {
         return [...baseColumns, ...memberColumns, ...trailingColumns];
-    }, [memberColumns]);
+    }, [baseColumns, memberColumns, trailingColumns]);
 
     const colHeaders = allColumns.map(col => col.title);
 
