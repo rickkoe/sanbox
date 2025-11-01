@@ -2502,6 +2502,25 @@ def commit_project_view(request, project_id):
                 fp.fabric.save()
                 stats['fabrics_deleted'] += 1
 
+        # Clear created_by_project field on all entities created by this project
+        # This makes them permanent customer data, no longer tied to project lifecycle
+        print(f"🔓 Clearing created_by_project for entities created by project '{project.name}'")
+
+        # Import storage models too
+        from storage.models import Storage, Volume, Host
+
+        # Clear for SAN entities
+        Alias.objects.filter(created_by_project=project).update(created_by_project=None)
+        Zone.objects.filter(created_by_project=project).update(created_by_project=None)
+        Fabric.objects.filter(created_by_project=project).update(created_by_project=None)
+
+        # Clear for Storage entities
+        Storage.objects.filter(created_by_project=project).update(created_by_project=None)
+        Volume.objects.filter(created_by_project=project).update(created_by_project=None)
+        Host.objects.filter(created_by_project=project).update(created_by_project=None)
+
+        print(f"✅ Entities are now permanent customer data")
+
         # Mark project as committed (finalized status)
         project.status = 'finalized'
         project.save()
