@@ -564,7 +564,7 @@ const AliasTableTanStackClean = () => {
 
                         // Update just the affected row
                         const updatedData = currentData.map(row => {
-                            if (row.id === aliasId) {
+                            if (row.id === parseInt(aliasId)) {
                                 return {
                                     ...row,
                                     in_active_project: true,

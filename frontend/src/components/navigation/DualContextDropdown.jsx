@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { Dropdown } from 'react-bootstrap';
 import { Building2, FolderOpen, Plus } from 'lucide-react';
 import { ConfigContext } from '../../context/ConfigContext';
+import { useTheme } from '../../context/ThemeContext';
 import api from '../../api';
+import '../../styles/configform.css';
 
 const DualContextDropdown = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config, updateUserConfig, refreshConfig } = useContext(ConfigContext);
-    const navigate = useNavigate();
+    const { theme } = useTheme();
 
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -16,6 +18,12 @@ const DualContextDropdown = () => {
     const [selectedProject, setSelectedProject] = useState(null);
     const [loadingCustomers, setLoadingCustomers] = useState(true);
     const [loadingProjects, setLoadingProjects] = useState(false);
+
+    // Modal state
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [showProjectModal, setShowProjectModal] = useState(false);
+    const [newCustomerName, setNewCustomerName] = useState('');
+    const [newProjectName, setNewProjectName] = useState('');
 
     // Load all customers on mount
     useEffect(() => {
@@ -74,10 +82,66 @@ const DualContextDropdown = () => {
         }
     };
 
+    const handleAddCustomer = async () => {
+        try {
+            console.log("Adding new customer:", newCustomerName);
+            const response = await api.post(`${API_URL}/api/customers/`, {
+                name: newCustomerName
+            });
+            const newCustomer = response.data;
+
+            // Add to customers list
+            setCustomers(prev => [...prev, newCustomer]);
+
+            // Select the new customer and clear project
+            setSelectedCustomer(newCustomer);
+            setSelectedProject(null);
+
+            // Update backend config
+            await updateUserConfig(newCustomer.id, null);
+            await refreshConfig();
+
+            // Close modal and reset
+            setShowCustomerModal(false);
+            setNewCustomerName("");
+        } catch (error) {
+            console.error("❌ Error adding customer:", error);
+            alert(error.response?.data?.error || "Failed to create customer. Please try again.");
+        }
+    };
+
+    const handleAddProject = async () => {
+        try {
+            console.log("Adding new project:", newProjectName);
+            const response = await api.post(`${API_URL}/api/core/projects/`, {
+                name: newProjectName,
+                customer: selectedCustomer.id
+            });
+            const newProject = response.data;
+
+            // Add to projects list
+            setProjects(prev => [...prev, newProject]);
+
+            // Select the new project
+            setSelectedProject(newProject);
+
+            // Update backend config
+            await updateUserConfig(selectedCustomer.id, newProject.id);
+            await refreshConfig();
+
+            // Close modal and reset
+            setShowProjectModal(false);
+            setNewProjectName("");
+        } catch (error) {
+            console.error("❌ Error adding project:", error);
+            alert(error.response?.data?.error || "Failed to create project. Please try again.");
+        }
+    };
+
     const handleCustomerChange = async (customerId) => {
         console.log('🔍 handleCustomerChange called with ID:', customerId);
         if (customerId === 'create_new') {
-            navigate('/customers');
+            setShowCustomerModal(true);
             return;
         }
 
@@ -95,7 +159,7 @@ const DualContextDropdown = () => {
 
     const handleProjectChange = async (projectId) => {
         if (projectId === 'create_new') {
-            navigate('/projects');
+            setShowProjectModal(true);
             return;
         }
 
@@ -235,6 +299,94 @@ const DualContextDropdown = () => {
                         </Dropdown.Item>
                     </Dropdown.Menu>
                 </Dropdown>
+            )}
+
+            {/* Customer Modal */}
+            {showCustomerModal && createPortal(
+                <div className={`config-modal-overlay theme-${theme}`} onClick={() => setShowCustomerModal(false)}>
+                    <div className="config-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="config-modal-header">
+                            <h3>Add New Customer</h3>
+                            <button className="config-modal-close" onClick={() => setShowCustomerModal(false)}>×</button>
+                        </div>
+                        <div className="config-modal-body">
+                            <div className="config-form-group">
+                                <label className="config-form-label">Customer Name</label>
+                                <input
+                                    type="text"
+                                    value={newCustomerName}
+                                    onChange={(e) => setNewCustomerName(e.target.value)}
+                                    placeholder="Enter customer name"
+                                    className="config-form-input"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && newCustomerName.trim()) {
+                                            e.preventDefault();
+                                            handleAddCustomer();
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div className="config-modal-footer">
+                            <button className="config-modal-btn config-modal-btn-secondary" onClick={() => setShowCustomerModal(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="config-modal-btn config-modal-btn-primary"
+                                onClick={handleAddCustomer}
+                                disabled={!newCustomerName.trim()}
+                            >
+                                Add Customer
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Project Modal */}
+            {showProjectModal && createPortal(
+                <div className={`config-modal-overlay theme-${theme}`} onClick={() => setShowProjectModal(false)}>
+                    <div className="config-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="config-modal-header">
+                            <h3>Add New Project</h3>
+                            <button className="config-modal-close" onClick={() => setShowProjectModal(false)}>×</button>
+                        </div>
+                        <div className="config-modal-body">
+                            <div className="config-form-group">
+                                <label className="config-form-label">Project Name</label>
+                                <input
+                                    type="text"
+                                    value={newProjectName}
+                                    onChange={(e) => setNewProjectName(e.target.value)}
+                                    placeholder="Enter project name"
+                                    className="config-form-input"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && newProjectName.trim()) {
+                                            e.preventDefault();
+                                            handleAddProject();
+                                        }
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div className="config-modal-footer">
+                            <button className="config-modal-btn config-modal-btn-secondary" onClick={() => setShowProjectModal(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                className="config-modal-btn config-modal-btn-primary"
+                                onClick={handleAddProject}
+                                disabled={!newProjectName.trim()}
+                            >
+                                Add Project
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );

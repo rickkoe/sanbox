@@ -1346,7 +1346,7 @@ const ZoneTableTanStackClean = () => {
 
                         // Update just the affected row
                         const updatedData = currentData.map(row => {
-                            if (row.id === zoneId) {
+                            if (row.id === parseInt(zoneId)) {
                                 return {
                                     ...row,
                                     in_active_project: true,
