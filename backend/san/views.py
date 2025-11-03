@@ -848,11 +848,18 @@ def alias_project_view(request, project_id):
     Get aliases in project with field_overrides applied (merged view).
     Returns only aliases in the project with overrides merged into base data.
     Adds 'modified_fields' array to track which fields have overrides.
+
+    Performance optimized: Builds WWPN→Storage map and ProjectZone cache
+    to avoid N+1 queries during serialization.
     """
     try:
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get customer for the project (Project has ManyToMany customers relationship)
+    customer = project.customers.first()
+    customer_id = customer.id if customer else None
 
     # Get all ProjectAlias entries for this project
     project_aliases = ProjectAlias.objects.filter(
@@ -862,13 +869,96 @@ def alias_project_view(request, project_id):
         'alias__fabric',
         'alias__host',
         'alias__storage'
-    ).prefetch_related('alias__alias_wwpns')
+    ).prefetch_related(
+        'alias__alias_wwpns',
+        Prefetch('alias__project_memberships',
+                 queryset=ProjectAlias.objects.select_related('project'))
+    )
+
+    # ===== PAGINATION =====
+    from django.core.paginator import Paginator
+
+    # Get pagination parameters
+    page = int(request.GET.get('page', 1))
+    page_size_param = request.GET.get('page_size', 50)
+
+    # Handle "All" as a special case
+    if page_size_param == 'All':
+        page_size = None
+        page_obj = None
+        paginator = None
+        total_count = project_aliases.count()
+        project_aliases_page = project_aliases  # Use all results
+    else:
+        page_size = int(page_size_param)
+        paginator = Paginator(project_aliases, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+        except:
+            page_obj = paginator.get_page(1)
+            page = 1
+
+        project_aliases_page = page_obj.object_list  # Use only current page
+    # ===== END PAGINATION =====
+
+    # ===== PERFORMANCE OPTIMIZATION: Build maps before serialization =====
+    # Build WWPN→Storage map to avoid N+1 queries in get_storage_details()
+    from storage.models import Port
+    wwpn_storage_map = {}
+
+    # Only build WWPN map if we have a customer
+    if customer_id:
+        ports = Port.objects.select_related('storage').filter(
+            storage__customer_id=customer_id,
+            wwpn__isnull=False
+        )
+
+        for port in ports:
+            if port.wwpn and port.storage:
+                wwpn_normalized = port.wwpn.replace(':', '').upper()
+                wwpn_storage_map[wwpn_normalized] = {
+                    'id': port.storage.id,
+                    'name': port.storage.name
+                }
+
+    # Build ProjectZone IDs for this project (used by get_zoned_count())
+    project_zone_ids = set(
+        ProjectZone.objects.filter(project_id=project_id).values_list('zone_id', flat=True)
+    )
+
+    # Build alias→zones map to avoid N+1 queries in get_zoned_count()
+    # Query the Zone.members through-table once to get all alias-zone relationships
+    alias_zones_map = {}
+    if project_zone_ids:
+        # Get all zone membership pairs for zones in this project
+        zone_alias_pairs = Zone.members.through.objects.filter(
+            zone_id__in=project_zone_ids
+        ).values_list('alias_id', 'zone_id')
+
+        # Build map: alias_id → set of zone_ids
+        for alias_id, zone_id in zone_alias_pairs:
+            if alias_id not in alias_zones_map:
+                alias_zones_map[alias_id] = set()
+            alias_zones_map[alias_id].add(zone_id)
+
+    # Build serializer context with optimization data
+    serializer_context = {
+        'project_id': project_id,
+        'active_project_id': project_id,
+        'customer_id': customer_id,
+        'wwpn_storage_map': wwpn_storage_map,
+        'project_zone_ids': project_zone_ids,
+        'alias_zones_map': alias_zones_map,  # New: pre-built alias→zones mapping
+    }
+    # ===== END PERFORMANCE OPTIMIZATION =====
 
     merged_data = []
 
-    for pa in project_aliases:
-        # Serialize base alias
-        base_data = AliasSerializer(pa.alias).data
+    for pa in project_aliases_page:
+        # Serialize base alias WITH optimization context
+        base_data = AliasSerializer(pa.alias, context=serializer_context).data
 
         # Track which fields have overrides
         modified_fields = []
@@ -898,10 +988,23 @@ def alias_project_view(request, project_id):
 
         merged_data.append(base_data)
 
-    return JsonResponse({
+    # Return response with pagination metadata
+    response_data = {
         'results': merged_data,
-        'count': len(merged_data)
-    })
+        'count': total_count,
+    }
+
+    # Add pagination metadata if paginated
+    if paginator is not None:
+        response_data.update({
+            'num_pages': paginator.num_pages,
+            'current_page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    return JsonResponse(response_data)
 
 
 @csrf_exempt
@@ -2380,11 +2483,17 @@ def zone_project_view(request, project_id):
     Get zones in project with field_overrides applied (merged view).
     Returns only zones in the project with overrides merged into base data.
     Adds 'modified_fields' array to track which fields have overrides.
+
+    Performance optimized: Passes context to serializer to avoid N+1 queries.
     """
     try:
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get customer for the project (Project has ManyToMany customers relationship)
+    customer = project.customers.first()
+    customer_id = customer.id if customer else None
 
     # Get all ProjectZone entries for this project
     project_zones = ProjectZone.objects.filter(
@@ -2392,13 +2501,53 @@ def zone_project_view(request, project_id):
     ).select_related(
         'zone',
         'zone__fabric'
-    ).prefetch_related('zone__members')
+    ).prefetch_related(
+        'zone__members',
+        Prefetch('zone__project_memberships',
+                 queryset=ProjectZone.objects.select_related('project'))
+    )
+
+    # ===== PAGINATION =====
+    from django.core.paginator import Paginator
+
+    # Get pagination parameters
+    page = int(request.GET.get('page', 1))
+    page_size_param = request.GET.get('page_size', 50)
+
+    # Handle "All" as a special case
+    if page_size_param == 'All':
+        page_size = None
+        page_obj = None
+        paginator = None
+        total_count = project_zones.count()
+        project_zones_page = project_zones  # Use all results
+    else:
+        page_size = int(page_size_param)
+        paginator = Paginator(project_zones, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+        except:
+            page_obj = paginator.get_page(1)
+            page = 1
+
+        project_zones_page = page_obj.object_list  # Use only current page
+    # ===== END PAGINATION =====
+
+    # ===== PERFORMANCE OPTIMIZATION: Build serializer context =====
+    serializer_context = {
+        'project_id': project_id,
+        'active_project_id': project_id,
+        'customer_id': customer_id,
+    }
+    # ===== END PERFORMANCE OPTIMIZATION =====
 
     merged_data = []
 
-    for pz in project_zones:
-        # Serialize base zone
-        base_data = ZoneSerializer(pz.zone).data
+    for pz in project_zones_page:
+        # Serialize base zone WITH optimization context
+        base_data = ZoneSerializer(pz.zone, context=serializer_context).data
 
         # Track which fields have overrides
         modified_fields = []
@@ -2426,10 +2575,23 @@ def zone_project_view(request, project_id):
 
         merged_data.append(base_data)
 
-    return JsonResponse({
+    # Return response with pagination metadata
+    response_data = {
         'results': merged_data,
-        'count': len(merged_data)
-    })
+        'count': total_count,
+    }
+
+    # Add pagination metadata if paginated
+    if paginator is not None:
+        response_data.update({
+            'num_pages': paginator.num_pages,
+            'current_page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    return JsonResponse(response_data)
 
 
 @csrf_exempt

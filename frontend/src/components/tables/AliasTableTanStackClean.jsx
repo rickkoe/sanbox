@@ -334,7 +334,7 @@ const AliasTableTanStackClean = () => {
         return maxWwpns;
     }, []);
 
-    // Load fabrics, hosts, and calculate WWPN columns
+    // Load fabrics, hosts, and calculate WWPN columns from customer aliases
     useEffect(() => {
         const loadData = async () => {
             if (activeCustomerId) {
@@ -347,11 +347,15 @@ const AliasTableTanStackClean = () => {
                         ? `${API_ENDPOINTS.hosts}${activeProjectId}/`
                         : `${API_URL}/api/san/hosts/?customer_id=${activeCustomerId}`;
 
+                    // Load all customer aliases to calculate WWPN column count
+                    // This is a one-time load per customer change, not per table reload
+                    const aliasesUrl = `${API_URL}/api/san/aliases/?customer_id=${activeCustomerId}`;
+
                     // Use Promise.allSettled to handle partial failures gracefully
                     const results = await Promise.allSettled([
                         api.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
                         api.get(hostsUrl),
-                        api.get(`${API_ENDPOINTS.aliases}`)  // URL already complete in API_ENDPOINTS
+                        api.get(aliasesUrl)
                     ]);
 
                     // Handle fabrics
@@ -378,10 +382,14 @@ const AliasTableTanStackClean = () => {
                     if (results[2].status === 'fulfilled') {
                         const aliasesArray = results[2].value.data.results || results[2].value.data;
                         const requiredColumns = calculateWwpnColumns(aliasesArray);
+                        wwpnColumnCountRef.current = requiredColumns;
                         setWwpnColumnCount(requiredColumns);
-                        console.log(`✅ Loaded ${aliasesArray.length} aliases`);
+                        console.log(`✅ Calculated ${requiredColumns} WWPN columns from ${aliasesArray.length} aliases`);
                     } else {
-                        console.error('❌ Failed to load aliases:', results[2].reason);
+                        console.error('❌ Failed to load aliases for column calculation:', results[2].reason);
+                        // Default to 2 columns if we can't calculate
+                        wwpnColumnCountRef.current = 2;
+                        setWwpnColumnCount(2);
                     }
 
                     console.log('✅ Dropdown data loading completed');
@@ -833,7 +841,7 @@ const AliasTableTanStackClean = () => {
             return null;
         }
 
-        // Use ref value to avoid dependency on wwpnColumnCount
+        // Use ref value for stable column count during processing
         const columnCount = wwpnColumnCountRef.current;
 
         console.log(`🔄 preprocessData called with ${data?.length} aliases, ${columnCount} WWPN columns`);
@@ -881,7 +889,7 @@ const AliasTableTanStackClean = () => {
 
         console.log('📝 Sample of processed data (first row):', processed[0]);
         return processed;
-    }, []); // Empty deps - function never recreates!
+    }, []); // Empty deps - function uses refs for stable behavior
 
     // Custom save handler that matches the original AliasTable bulk save approach
     // Handles CREATE, UPDATE, and DELETE operations

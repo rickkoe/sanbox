@@ -238,7 +238,11 @@ class AliasSerializer(serializers.ModelSerializer):
             return None
 
     def get_zoned_count(self, obj):
-        """Count how many zones in the current project contain this alias"""
+        """Count how many zones in the current project contain this alias
+
+        Performance optimized: Uses pre-built project_zone_ids from context
+        to avoid repeated database queries.
+        """
         # Use prefetched data if available to avoid N+1 queries
         if hasattr(obj, '_zoned_count'):
             return obj._zoned_count
@@ -249,11 +253,47 @@ class AliasSerializer(serializers.ModelSerializer):
         if project_id:
             # Count zones in this project that contain this alias
             try:
+                # OPTIMIZATION: Check if view provided pre-built project_zone_ids
+                project_zone_ids = self.context.get('project_zone_ids')
+
+                if project_zone_ids is not None:
+                    # PERFORMANCE CRITICAL: Use pre-built alias_zones_map to avoid N+1 queries
+                    try:
+                        # Check if view provided pre-built alias→zones map
+                        alias_zones_map = self.context.get('alias_zones_map')
+
+                        if alias_zones_map is not None:
+                            # Ultra-fast path: O(1) lookup in pre-built map
+                            alias_zone_ids = alias_zones_map.get(obj.id, set())
+                            count = len(project_zone_ids & alias_zone_ids)
+                            return count
+
+                        # Fallback: Try to use prefetched data
+                        if hasattr(obj, '_prefetched_objects_cache') and 'zone_set' in obj._prefetched_objects_cache:
+                            alias_zone_ids = set(z.id for z in obj.zone_set.all())
+                            count = len(project_zone_ids & alias_zone_ids)
+                            return count
+
+                        # Last resort: Direct count query (one query per alias - slow!)
+                        count = Zone.objects.filter(
+                            id__in=project_zone_ids,
+                            members=obj
+                        ).count()
+                        return count
+
+                    except Exception as e:
+                        # Fallback to direct count
+                        count = Zone.objects.filter(
+                            id__in=project_zone_ids,
+                            members=obj
+                        ).count()
+                        return count
+
+                # Fallback: Query database (slower, for backward compatibility)
                 from core.models import ProjectZone
-                # Use junction table to get zones for this project
-                project_zone_ids = ProjectZone.objects.filter(project_id=project_id).values_list('zone_id', flat=True)
+                project_zone_ids_query = ProjectZone.objects.filter(project_id=project_id).values_list('zone_id', flat=True)
                 count = Zone.objects.filter(
-                    id__in=project_zone_ids,
+                    id__in=project_zone_ids_query,
                     members=obj
                 ).count()
                 return count
