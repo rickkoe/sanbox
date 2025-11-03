@@ -16,16 +16,26 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
     const [searchFilter, setSearchFilter] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [processing, setProcessing] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // Initialize selected IDs from items already in project
     useEffect(() => {
-        if (show && items) {
-            const initialSelected = new Set(
-                items
-                    .filter(item => item.in_active_project)
-                    .map(item => item.id)
-            );
-            setSelectedIds(initialSelected);
+        if (show) {
+            if (items && items.length > 0) {
+                const initialSelected = new Set(
+                    items
+                        .filter(item => item.in_active_project)
+                        .map(item => item.id)
+                );
+                setSelectedIds(initialSelected);
+                setLoading(false);
+            } else {
+                setLoading(true);
+            }
+        } else {
+            // Reset when modal closes
+            setLoading(true);
+            setSearchFilter('');
         }
     }, [show, items]);
 
@@ -208,7 +218,14 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                             padding: '8px',
                             maxHeight: '40vh'
                         }}>
-                            {filteredItems.length === 0 ? (
+                            {loading ? (
+                                <div className="d-flex flex-column align-items-center justify-content-center py-5">
+                                    <div className="spinner-border mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+                                        <span className="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p className="text-muted">Loading {itemTypePlural}...</p>
+                                </div>
+                            ) : filteredItems.length === 0 ? (
                                 <div className="text-center text-muted py-4">
                                     {searchFilter ? 'No items match your search' : `No ${itemTypePlural} available`}
                                 </div>
@@ -266,14 +283,20 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                     {/* Footer */}
                     <div className="modal-footer">
                         <div className="text-muted" style={{ fontSize: '14px' }}>
-                            <strong>{selectedCount}</strong> of <strong>{totalCount}</strong> {itemTypePlural} selected
+                            {loading ? (
+                                'Loading...'
+                            ) : (
+                                <>
+                                    <strong>{selectedCount}</strong> of <strong>{totalCount}</strong> {itemTypePlural} selected
+                                </>
+                            )}
                         </div>
                         <div>
                             <button
                                 type="button"
                                 className="btn btn-secondary"
                                 onClick={handleClose}
-                                disabled={processing}
+                                disabled={processing || loading}
                             >
                                 Cancel
                             </button>
@@ -281,7 +304,7 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                                 type="button"
                                 className="btn btn-primary"
                                 onClick={handleSave}
-                                disabled={processing}
+                                disabled={processing || loading}
                             >
                                 {processing ? (
                                     <>

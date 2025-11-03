@@ -213,5 +213,14 @@
 
 /* Spinner */
 .bulk-membership-modal .spinner-border {
+  color: var(--color-accent-emphasis) !important;
+}
+
+.bulk-membership-modal .spinner-border-sm {
   color: var(--primary-text) !important;
+}
+
+/* Loading container */
+.bulk-membership-modal .item-list-container .d-flex.py-5 {
+  min-height: 300px !important;
 }
