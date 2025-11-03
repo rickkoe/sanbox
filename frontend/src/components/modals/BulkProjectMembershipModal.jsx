@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import './BulkProjectMembershipModal.css';
 
 /**
  * Modal for bulk adding/removing items (aliases or zones) to/from a project
@@ -105,7 +106,7 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
 
     return (
         <div
-            className="modal show d-block"
+            className="modal show d-block bulk-membership-modal"
             tabIndex="-1"
             style={{
                 backgroundColor: 'rgba(0,0,0,0.7)',
@@ -123,16 +124,9 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
             }}
         >
             <div className="modal-dialog modal-dialog-centered modal-lg">
-                <div className="modal-content shadow-lg" style={{
-                    backgroundColor: 'var(--bs-body-bg, #fff)',
-                    color: 'var(--bs-body-color, #212529)',
-                    border: '1px solid var(--bs-border-color, #dee2e6)'
-                }}>
+                <div className="modal-content shadow-lg">
                     {/* Header */}
-                    <div className="modal-header" style={{
-                        borderBottom: '1px solid var(--bs-border-color, #dee2e6)',
-                        backgroundColor: 'var(--bs-body-bg, #fff)'
-                    }}>
+                    <div className="modal-header">
                         <h5 className="modal-title">
                             Add/Remove {itemTypePlural.charAt(0).toUpperCase() + itemTypePlural.slice(1)}
                         </h5>
@@ -148,8 +142,7 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                     <div className="modal-body" style={{
                         maxHeight: '70vh',
                         display: 'flex',
-                        flexDirection: 'column',
-                        backgroundColor: 'var(--bs-body-bg, #fff)'
+                        flexDirection: 'column'
                     }}>
                         {/* Project info */}
                         <div className="alert alert-info mb-3" style={{ fontSize: '14px' }}>
@@ -161,11 +154,7 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                         {/* Search filter */}
                         <div className="mb-3">
                             <div className="input-group">
-                                <span className="input-group-text" style={{
-                                    backgroundColor: 'var(--bs-body-bg, #fff)',
-                                    borderColor: 'var(--bs-border-color, #dee2e6)',
-                                    color: 'var(--bs-body-color, #212529)'
-                                }}>
+                                <span className="input-group-text">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <circle cx="11" cy="11" r="8"/>
                                         <path d="m21 21-4.35-4.35"/>
@@ -178,11 +167,6 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                                     value={searchFilter}
                                     onChange={(e) => setSearchFilter(e.target.value)}
                                     disabled={processing}
-                                    style={{
-                                        backgroundColor: 'var(--bs-body-bg, #fff)',
-                                        borderColor: 'var(--bs-border-color, #dee2e6)',
-                                        color: 'var(--bs-body-color, #212529)'
-                                    }}
                                 />
                                 {searchFilter && (
                                     <button
@@ -217,14 +201,12 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                         )}
 
                         {/* Item list */}
-                        <div style={{
+                        <div className="item-list-container" style={{
                             flex: 1,
                             overflowY: 'auto',
-                            border: '1px solid var(--bs-border-color, #dee2e6)',
                             borderRadius: '4px',
                             padding: '8px',
-                            maxHeight: '40vh',
-                            backgroundColor: 'var(--bs-body-bg, #fff)'
+                            maxHeight: '40vh'
                         }}>
                             {filteredItems.length === 0 ? (
                                 <div className="text-center text-muted py-4">
@@ -234,24 +216,11 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                                 filteredItems.map(item => (
                                     <div
                                         key={item.id}
-                                        className="form-check py-2 px-2"
+                                        className={`form-check py-2 px-2 ${selectedIds.has(item.id) ? 'selected' : ''}`}
                                         style={{
                                             cursor: 'pointer',
                                             borderRadius: '4px',
-                                            transition: 'background-color 0.15s',
-                                            backgroundColor: selectedIds.has(item.id)
-                                                ? 'var(--bs-primary-bg-subtle, #cfe2ff)'
-                                                : 'transparent'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (!selectedIds.has(item.id)) {
-                                                e.currentTarget.style.backgroundColor = 'var(--bs-secondary-bg, #f8f9fa)';
-                                            }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            if (!selectedIds.has(item.id)) {
-                                                e.currentTarget.style.backgroundColor = 'transparent';
-                                            }
+                                            transition: 'background-color 0.15s'
                                         }}
                                         onClick={() => !processing && handleToggle(item.id)}
                                     >
@@ -295,20 +264,14 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                     </div>
 
                     {/* Footer */}
-                    <div className="modal-footer" style={{
-                        borderTop: '1px solid var(--bs-border-color, #dee2e6)',
-                        backgroundColor: 'var(--bs-body-bg, #fff)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}>
-                        <div style={{ fontSize: '14px', color: 'var(--bs-secondary-color, #6c757d)' }}>
+                    <div className="modal-footer">
+                        <div className="text-muted" style={{ fontSize: '14px' }}>
                             <strong>{selectedCount}</strong> of <strong>{totalCount}</strong> {itemTypePlural} selected
                         </div>
                         <div>
                             <button
                                 type="button"
-                                className="btn btn-secondary me-2"
+                                className="btn btn-secondary"
                                 onClick={handleClose}
                                 disabled={processing}
                             >

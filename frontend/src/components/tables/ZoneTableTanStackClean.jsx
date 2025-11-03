@@ -1859,42 +1859,26 @@ const ZoneTableTanStackClean = () => {
             {/* Bulk Add/Remove Button - Disabled if no active project */}
             <button
                 type="button"
+                className="btn btn-outline-secondary"
                 onClick={() => setShowBulkModal(true)}
                 disabled={!activeProjectId}
                 style={{
-                    padding: '0',
-                    borderRadius: '50%',
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '0 6px 6px 0',
                     transition: 'all 0.2s ease',
+                    opacity: activeProjectId ? 1 : 0.5,
                     cursor: activeProjectId ? 'pointer' : 'not-allowed',
-                    width: '40px',
-                    height: '40px',
+                    minWidth: '50px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginLeft: '8px',
-                    border: activeProjectId ? '2px solid var(--bs-primary, #0d6efd)' : '2px solid #ccc',
-                    backgroundColor: activeProjectId ? 'var(--bs-primary, #0d6efd)' : '#f8f9fa',
-                    color: activeProjectId ? 'white' : '#999',
-                    outline: 'none',
-                    boxShadow: activeProjectId ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}
-                onMouseEnter={(e) => {
-                    if (activeProjectId) {
-                        e.currentTarget.style.transform = 'scale(1.05)';
-                        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-                    }
-                }}
-                onMouseLeave={(e) => {
-                    if (activeProjectId) {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                    }
+                    gap: '6px'
                 }}
                 title={!activeProjectId ? 'Select a project to add/remove zones' : 'Bulk add or remove zones from this project'}
             >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     {/* Checklist icon */}
                     <polyline points="9 11 12 14 22 4"></polyline>
                     <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>

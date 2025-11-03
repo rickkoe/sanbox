@@ -1,0 +1,217 @@
+/* ========== CRITICAL BOOTSTRAP OVERRIDES ========== */
+/* Following the Bootstrap Background Override Pattern from THEME_SYSTEM_DOCUMENTATION.md */
+
+/* Scope everything to the modal class */
+.bulk-membership-modal {
+  background: transparent !important;
+}
+
+/* Override ALL Bootstrap backgrounds within the modal */
+.bulk-membership-modal .modal-content,
+.bulk-membership-modal .modal-header,
+.bulk-membership-modal .modal-body,
+.bulk-membership-modal .modal-footer,
+.bulk-membership-modal .alert,
+.bulk-membership-modal .input-group,
+.bulk-membership-modal .input-group-text,
+.bulk-membership-modal .form-control,
+.bulk-membership-modal .btn,
+.bulk-membership-modal .form-check {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+/* Modal content */
+.bulk-membership-modal .modal-content {
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+}
+
+/* Modal header */
+.bulk-membership-modal .modal-header {
+  background: var(--secondary-bg) !important;
+  border-bottom: 1px solid var(--color-border-default) !important;
+}
+
+.bulk-membership-modal .modal-title {
+  color: var(--primary-text) !important;
+}
+
+/* Close button - use filter to invert color in dark mode */
+.bulk-membership-modal .btn-close {
+  filter: var(--btn-close-filter, none) !important;
+  opacity: 0.8 !important;
+}
+
+.bulk-membership-modal .btn-close:hover {
+  opacity: 1 !important;
+}
+
+/* Modal body */
+.bulk-membership-modal .modal-body {
+  background: var(--secondary-bg) !important;
+}
+
+/* Alert box */
+.bulk-membership-modal .alert-info {
+  background: var(--color-accent-subtle) !important;
+  border-color: var(--color-accent-muted) !important;
+  color: var(--primary-text) !important;
+}
+
+/* Input group */
+.bulk-membership-modal .input-group-text {
+  background: var(--input-bg) !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+}
+
+.bulk-membership-modal .form-control {
+  background: var(--input-bg) !important;
+  border-color: var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+}
+
+.bulk-membership-modal .form-control:focus {
+  background: var(--input-bg) !important;
+  border-color: var(--color-accent-emphasis) !important;
+  color: var(--primary-text) !important;
+  box-shadow: 0 0 0 0.2rem var(--color-accent-subtle) !important;
+}
+
+.bulk-membership-modal .form-control::placeholder {
+  color: var(--muted-text) !important;
+  opacity: 0.6 !important;
+}
+
+/* Item list container */
+.bulk-membership-modal .item-list-container {
+  background: var(--primary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  padding-left: 30px !important;
+}
+
+/* Form check items */
+.bulk-membership-modal .form-check {
+  background: transparent !important;
+  padding-left: 0.5rem !important;
+}
+
+.bulk-membership-modal .form-check:hover {
+  background: var(--table-row-hover) !important;
+}
+
+.bulk-membership-modal .form-check.selected {
+  background: var(--color-accent-subtle) !important;
+}
+
+.bulk-membership-modal .form-check-input {
+  background-color: var(--input-bg) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+.bulk-membership-modal .form-check-input:checked {
+  background-color: var(--color-accent-emphasis) !important;
+  border-color: var(--color-accent-emphasis) !important;
+}
+
+.bulk-membership-modal .form-check-label {
+  color: var(--primary-text) !important;
+}
+
+/* Badges */
+.bulk-membership-modal .badge {
+  background-color: var(--badge-bg) !important;
+  color: var(--badge-text) !important;
+  border: 1px solid var(--badge-border) !important;
+}
+
+/* Modal footer */
+.bulk-membership-modal .modal-footer {
+  background: var(--secondary-bg) !important;
+  border-top: 1px solid var(--color-border-default) !important;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  padding: 1rem !important;
+}
+
+/* Button container in footer */
+.bulk-membership-modal .modal-footer > div {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0.5rem !important;
+  align-items: center !important;
+}
+
+/* Buttons */
+.bulk-membership-modal .btn {
+  white-space: nowrap !important;
+}
+
+.bulk-membership-modal .btn-secondary {
+  background-color: var(--button-secondary-bg) !important;
+  border-color: var(--button-secondary-border) !important;
+  color: var(--button-secondary-text) !important;
+}
+
+.bulk-membership-modal .btn-secondary:hover:not(:disabled) {
+  background-color: var(--button-hover-bg) !important;
+  border-color: var(--button-hover-border) !important;
+  color: var(--button-hover-text) !important;
+}
+
+.bulk-membership-modal .btn-primary {
+  background-color: var(--button-primary-bg) !important;
+  border-color: var(--button-primary-border) !important;
+  color: var(--button-primary-text) !important;
+}
+
+.bulk-membership-modal .btn-primary:hover:not(:disabled) {
+  background-color: var(--button-primary-hover-bg) !important;
+  border-color: var(--button-primary-hover-border) !important;
+  color: var(--button-primary-hover-text) !important;
+}
+
+.bulk-membership-modal .btn-outline-secondary {
+  background-color: transparent !important;
+  border-color: var(--button-secondary-border) !important;
+  color: var(--primary-text) !important;
+}
+
+.bulk-membership-modal .btn-outline-secondary:hover:not(:disabled) {
+  background-color: var(--button-hover-bg) !important;
+  border-color: var(--button-hover-border) !important;
+  color: var(--button-hover-text) !important;
+}
+
+.bulk-membership-modal .btn-outline-primary {
+  background-color: transparent !important;
+  border-color: var(--color-accent-emphasis) !important;
+  color: var(--color-accent-fg) !important;
+}
+
+.bulk-membership-modal .btn-outline-primary:hover:not(:disabled) {
+  background-color: var(--color-accent-emphasis) !important;
+  border-color: var(--color-accent-emphasis) !important;
+  color: white !important;
+}
+
+/* Text colors */
+.bulk-membership-modal .text-muted {
+  color: var(--muted-text) !important;
+}
+
+.bulk-membership-modal .text-center {
+  color: var(--muted-text) !important;
+}
+
+/* Spinner */
+.bulk-membership-modal .spinner-border {
+  color: var(--primary-text) !important;
+}
