@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
+import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 
 // Clean TanStack Table implementation for Alias management
 const AliasTableTanStackClean = () => {
@@ -21,6 +22,8 @@ const AliasTableTanStackClean = () => {
     const [errorModal, setErrorModal] = useState({ show: false, message: '', errors: null });
     const [wwpnColumnCount, setWwpnColumnCount] = useState(1); // Dynamic WWPN column count
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
+    const [showBulkModal, setShowBulkModal] = useState(false); // Bulk add/remove modal
+    const [allCustomerAliases, setAllCustomerAliases] = useState([]); // All customer aliases for bulk modal
 
     // Project filter state (default: 'all' shows all customer aliases)
     const [projectFilter, setProjectFilter] = useState(
@@ -467,6 +470,104 @@ const AliasTableTanStackClean = () => {
             alert(`Failed to remove alias: ${error.response?.data?.error || error.message}`);
         }
     }, [activeProjectId, API_URL]);
+
+    // Load all customer aliases when modal opens
+    useEffect(() => {
+        const loadAllCustomerAliases = async () => {
+            if (showBulkModal && activeCustomerId && activeProjectId) {
+                try {
+                    console.log('📥 Loading all customer aliases for bulk modal...');
+                    // Fetch all customer aliases with project membership info
+                    const response = await api.get(
+                        `${API_URL}/api/san/aliases/project/${activeProjectId}/?project_filter=all&page_size=10000`
+                    );
+                    const aliases = response.data.results || response.data;
+                    setAllCustomerAliases(aliases);
+                    console.log(`✅ Loaded ${aliases.length} customer aliases for modal`);
+                } catch (error) {
+                    console.error('❌ Error loading customer aliases:', error);
+                    setAllCustomerAliases([]);
+                }
+            }
+        };
+
+        loadAllCustomerAliases();
+    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
+
+    // Handler for bulk add/remove aliases from modal
+    const handleBulkAliasSave = useCallback(async (selectedIds) => {
+        try {
+            console.log('🔄 Bulk alias save started with selected IDs:', selectedIds);
+
+            if (!allCustomerAliases || allCustomerAliases.length === 0) {
+                console.error('No customer aliases available');
+                return;
+            }
+
+            // Get current aliases in project
+            const currentInProject = new Set(
+                allCustomerAliases
+                    .filter(alias => alias.in_active_project)
+                    .map(alias => alias.id)
+            );
+
+            // Determine adds and removes
+            const selectedSet = new Set(selectedIds);
+            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
+            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
+
+            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process additions
+            for (const aliasId of toAdd) {
+                try {
+                    const success = await handleAddAliasToProject(aliasId, 'reference');
+                    if (success) successCount++;
+                    else errorCount++;
+                } catch (error) {
+                    console.error(`Failed to add alias ${aliasId}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Process removals
+            for (const aliasId of toRemove) {
+                try {
+                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-alias/${aliasId}/`);
+                    if (response.data.success) {
+                        successCount++;
+                        console.log(`✅ Removed alias ${aliasId} from project`);
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error(`Failed to remove alias ${aliasId}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Show results
+            if (errorCount > 0) {
+                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
+            } else if (successCount > 0) {
+                alert(`Successfully updated ${successCount} aliases`);
+            }
+
+            // Reload table to get fresh data
+            if (tableRef.current?.reloadData) {
+                tableRef.current.reloadData();
+            }
+
+            console.log('✅ Bulk operation completed:', { successCount, errorCount });
+
+        } catch (error) {
+            console.error('❌ Bulk alias save error:', error);
+            alert(`Error during bulk operation: ${error.message}`);
+        }
+    }, [activeProjectId, API_URL, handleAddAliasToProject, allCustomerAliases]);
 
     // Expose handlers to window for onclick handlers in rendered HTML
     useEffect(() => {
@@ -1225,7 +1326,7 @@ const AliasTableTanStackClean = () => {
                     padding: '10px 18px',
                     fontSize: '14px',
                     fontWeight: '500',
-                    borderRadius: '0 6px 6px 0',
+                    borderRadius: '0',
                     transition: 'all 0.2s ease',
                     opacity: activeProjectId ? 1 : 0.5,
                     cursor: activeProjectId ? 'pointer' : 'not-allowed',
@@ -1234,6 +1335,51 @@ const AliasTableTanStackClean = () => {
                 title={!activeProjectId ? 'Select a project to manage' : 'Manage active project'}
             >
                 Manage Project
+            </button>
+
+            {/* Bulk Add/Remove Button - Disabled if no active project */}
+            <button
+                type="button"
+                onClick={() => setShowBulkModal(true)}
+                disabled={!activeProjectId}
+                style={{
+                    padding: '0',
+                    borderRadius: '50%',
+                    transition: 'all 0.2s ease',
+                    cursor: activeProjectId ? 'pointer' : 'not-allowed',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginLeft: '8px',
+                    border: activeProjectId ? '2px solid var(--bs-primary, #0d6efd)' : '2px solid #ccc',
+                    backgroundColor: activeProjectId ? 'var(--bs-primary, #0d6efd)' : '#f8f9fa',
+                    color: activeProjectId ? 'white' : '#999',
+                    outline: 'none',
+                    boxShadow: activeProjectId ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}
+                onMouseEnter={(e) => {
+                    if (activeProjectId) {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                    }
+                }}
+                onMouseLeave={(e) => {
+                    if (activeProjectId) {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    }
+                }}
+                title={!activeProjectId ? 'Select a project to add/remove aliases' : 'Bulk add or remove aliases from this project'}
+            >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    {/* Checklist icon */}
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
             </button>
         </div>
     );
@@ -1413,6 +1559,16 @@ const AliasTableTanStackClean = () => {
                     </div>
                 </div>
             )}
+
+            {/* Bulk Project Membership Modal */}
+            <BulkProjectMembershipModal
+                show={showBulkModal}
+                onClose={() => setShowBulkModal(false)}
+                onSave={handleBulkAliasSave}
+                items={allCustomerAliases}
+                itemType="alias"
+                projectName={config?.active_project?.name || ''}
+            />
         </div>
     );
 };
