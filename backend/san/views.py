@@ -7,7 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
 from .models import Alias, Zone, Fabric, WwpnPrefix, Switch, AliasWWPN
 from customers.models import Customer
-from core.models import Config, Project, UserConfig, ProjectAlias, ProjectZone, ProjectHost
+from core.models import Config, Project, UserConfig, ProjectAlias, ProjectZone, ProjectHost, ProjectSwitch, ProjectFabric
 from storage.models import Host
 from .serializers import AliasSerializer, ZoneSerializer, FabricSerializer, WwpnPrefixSerializer, SwitchSerializer
 from django.db import IntegrityError
@@ -3058,8 +3058,10 @@ def fabric_management(request, pk=None):
         ordering = request.GET.get('ordering', 'id')
         
         # Build queryset with optimizations
-        qs = Fabric.objects.select_related('customer').all()
-        
+        qs = Fabric.objects.select_related('customer').prefetch_related(
+            Prefetch('project_memberships', queryset=ProjectFabric.objects.select_related('project'))
+        ).all()
+
         # Filter by customer if provided
         if customer_id:
             qs = qs.filter(customer_id=customer_id)
@@ -4024,7 +4026,9 @@ def switch_management(request, pk=None):
         ordering = request.GET.get('ordering', 'id')
 
         # Build queryset with optimizations
-        qs = Switch.objects.select_related('customer').all()
+        qs = Switch.objects.select_related('customer').prefetch_related(
+            Prefetch('project_memberships', queryset=ProjectSwitch.objects.select_related('project'))
+        ).all()
 
         # Filter by customer if provided
         if customer_id:
@@ -4169,3 +4173,206 @@ def switches_by_customer_view(request, customer_id):
         return JsonResponse(data, safe=False)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def switch_project_view(request, project_id):
+    """
+    Get switches in project with field_overrides applied (merged view).
+    Returns only switches in the project with overrides merged into base data.
+    Adds 'modified_fields' array to track which fields have overrides.
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get customer for the project
+    customer = project.customers.first()
+    customer_id = customer.id if customer else None
+
+    # Get all ProjectSwitch entries for this project
+    project_switches = ProjectSwitch.objects.filter(
+        project=project
+    ).select_related(
+        'switch',
+        'switch__customer'
+    ).prefetch_related(
+        'switch__fabrics',
+        'switch__switch_fabrics',
+        Prefetch('switch__project_memberships',
+                 queryset=ProjectSwitch.objects.select_related('project'))
+    )
+
+    # ===== PAGINATION =====
+    page = int(request.GET.get('page', 1))
+    page_size_param = request.GET.get('page_size', 50)
+
+    # Handle "All" as a special case
+    if page_size_param == 'All':
+        page_size = None
+        page_obj = None
+        paginator = None
+        total_count = project_switches.count()
+        project_switches_page = project_switches  # Use all results
+    else:
+        page_size = int(page_size_param)
+        paginator = Paginator(project_switches, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            project_switches_page = page_obj.object_list
+        except:
+            project_switches_page = []
+
+    merged_data = []
+
+    for ps in project_switches_page:
+        # Serialize base switch
+        base_data = SwitchSerializer(ps.switch).data
+
+        # Track which fields have overrides
+        modified_fields = []
+
+        # Apply field_overrides if they exist
+        if ps.field_overrides:
+            for field_name, override_value in ps.field_overrides.items():
+                # Only apply if value actually differs from base
+                if field_name in base_data:
+                    if base_data[field_name] != override_value:
+                        base_data[field_name] = override_value
+                        modified_fields.append(field_name)
+                else:
+                    # New field from override
+                    base_data[field_name] = override_value
+                    modified_fields.append(field_name)
+
+        # Add metadata
+        base_data['modified_fields'] = modified_fields
+        base_data['project_action'] = ps.action
+        base_data['in_active_project'] = True
+
+        merged_data.append(base_data)
+
+    # Return response with pagination metadata
+    response_data = {
+        'results': merged_data,
+        'count': total_count,
+    }
+
+    # Add pagination metadata if paginated
+    if paginator and page_obj:
+        response_data.update({
+            'next': page_obj.has_next(),
+            'previous': page_obj.has_previous(),
+            'page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    return JsonResponse(response_data, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def fabric_project_view(request, project_id):
+    """
+    Get fabrics in project with field_overrides applied (merged view).
+    Returns only fabrics in the project with overrides merged into base data.
+    Adds 'modified_fields' array to track which fields have overrides.
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get customer for the project
+    customer = project.customers.first()
+    customer_id = customer.id if customer else None
+
+    # Get all ProjectFabric entries for this project
+    project_fabrics = ProjectFabric.objects.filter(
+        project=project
+    ).select_related(
+        'fabric',
+        'fabric__customer'
+    ).prefetch_related(
+        'fabric__alias_set',
+        'fabric__zone_set',
+        'fabric__fabric_switches__switch',
+        Prefetch('fabric__project_memberships',
+                 queryset=ProjectFabric.objects.select_related('project'))
+    )
+
+    # ===== PAGINATION =====
+    page = int(request.GET.get('page', 1))
+    page_size_param = request.GET.get('page_size', 50)
+
+    # Handle "All" as a special case
+    if page_size_param == 'All':
+        page_size = None
+        page_obj = None
+        paginator = None
+        total_count = project_fabrics.count()
+        project_fabrics_page = project_fabrics  # Use all results
+    else:
+        page_size = int(page_size_param)
+        paginator = Paginator(project_fabrics, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            project_fabrics_page = page_obj.object_list
+        except:
+            project_fabrics_page = []
+
+    merged_data = []
+
+    for pf in project_fabrics_page:
+        # Serialize base fabric
+        base_data = FabricSerializer(pf.fabric).data
+
+        # Track which fields have overrides
+        modified_fields = []
+
+        # Apply field_overrides if they exist
+        if pf.field_overrides:
+            for field_name, override_value in pf.field_overrides.items():
+                # Only apply if value actually differs from base
+                if field_name in base_data:
+                    if base_data[field_name] != override_value:
+                        base_data[field_name] = override_value
+                        modified_fields.append(field_name)
+                else:
+                    # New field from override
+                    base_data[field_name] = override_value
+                    modified_fields.append(field_name)
+
+        # Add metadata
+        base_data['modified_fields'] = modified_fields
+        base_data['project_action'] = pf.action
+        base_data['in_active_project'] = True
+
+        merged_data.append(base_data)
+
+    # Return response with pagination metadata
+    response_data = {
+        'results': merged_data,
+        'count': total_count,
+    }
+
+    # Add pagination metadata if paginated
+    if paginator and page_obj:
+        response_data.update({
+            'next': page_obj.has_next(),
+            'previous': page_obj.has_previous(),
+            'page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    return JsonResponse(response_data, safe=False)

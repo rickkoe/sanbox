@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useContext, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
+import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
+import api from "../../api";
 
 // Clean TanStack Table implementation for Volume management
 // Props:
@@ -13,22 +16,42 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
     const { getUserRole } = useAuth();
+    const navigate = useNavigate();
+
+    const tableRef = useRef(null);
 
     const [storageOptions, setStorageOptions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [projectFilter, setProjectFilter] = useState(
+        localStorage.getItem('volumeTableProjectFilter') || 'all'
+    );
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [allCustomerVolumes, setAllCustomerVolumes] = useState([]);
 
     const activeCustomerId = config?.customer?.id;
+    const activeProjectId = config?.active_project?.id;
 
     // Check if user can edit infrastructure (members and admins only)
     const userRole = getUserRole(activeCustomerId);
     const canEditInfrastructure = userRole === 'member' || userRole === 'admin';
     const isReadOnly = !canEditInfrastructure;
 
-    // API endpoints
-    const API_ENDPOINTS = {
-        volumes: `${API_URL}/api/storage/volumes/`,
-        storage: `${API_URL}/api/storage/`
-    };
+    // API endpoints - dynamically determined based on filter mode
+    const API_ENDPOINTS = useMemo(() => {
+        const baseUrl = `${API_URL}/api/storage`;
+        let volumesUrl;
+        if (projectFilter === 'current' && activeProjectId) {
+            volumesUrl = `${baseUrl}/project/${activeProjectId}/view/volumes/`;
+        } else {
+            volumesUrl = `${baseUrl}/volumes/`;
+        }
+        return {
+            volumes: volumesUrl,
+            storage: `${baseUrl}/`,
+            saveUrl: `${baseUrl}/volumes/`,
+            deleteUrl: `${baseUrl}/volumes/`
+        };
+    }, [API_URL, activeProjectId, projectFilter]);
 
     // Helper function to format bytes to human-readable format
     const formatBytes = useCallback((bytes) => {
@@ -48,6 +71,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const allColumns = [
         { data: "name", title: "Volume Name", required: true, width: 200 },
         { data: "storage", title: "Storage System", type: "dropdown", required: true, width: 180 },
+        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
         { data: "volume_id", title: "Volume ID", width: 120 },
         { data: "volume_number", title: "Volume Number", type: "numeric", width: 120 },
         { data: "volser", title: "Volser", width: 100 },
@@ -160,6 +184,81 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         loadStorageSystems();
     }, [activeCustomerId]);
 
+    // Auto-switch to Customer View when no project is selected
+    useEffect(() => {
+        if (!activeProjectId && projectFilter === 'current') {
+            setProjectFilter('all');
+            localStorage.setItem('volumeTableProjectFilter', 'all');
+        }
+    }, [activeProjectId, projectFilter]);
+
+    // Handle filter toggle change
+    const handleFilterChange = useCallback((newFilter) => {
+        setProjectFilter(newFilter);
+        localStorage.setItem('volumeTableProjectFilter', newFilter);
+        if (tableRef.current && tableRef.current.reloadData) {
+            tableRef.current.reloadData();
+        }
+    }, []);
+
+    // Load all customer volumes when modal opens
+    useEffect(() => {
+        const loadAllCustomerVolumes = async () => {
+            if (showBulkModal && activeCustomerId && activeProjectId) {
+                try {
+                    const response = await api.get(`${API_URL}/api/storage/volumes/?customer=${activeCustomerId}&project_id=${activeProjectId}&page_size=1000`);
+                    if (response.data && response.data.results) {
+                        setAllCustomerVolumes(response.data.results);
+                    }
+                } catch (error) {
+                    console.error('Error loading customer volumes:', error);
+                }
+            }
+        };
+        loadAllCustomerVolumes();
+    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
+
+    // Handle adding volume to project
+    const handleAddVolumeToProject = useCallback(async (volumeId, action = 'reference') => {
+        try {
+            if (!activeProjectId) return false;
+            const response = await api.post(`${API_URL}/api/core/projects/${activeProjectId}/add-volume/`, {
+                volume_id: volumeId,
+                action: action,
+                notes: `Added via table UI with action: ${action}`
+            });
+            return response.data.success;
+        } catch (error) {
+            console.error('Error adding volume to project:', error);
+            return false;
+        }
+    }, [activeProjectId, API_URL]);
+
+    // Handle bulk volume save
+    const handleBulkVolumeSave = useCallback(async (selectedIds) => {
+        try {
+            if (!allCustomerVolumes || allCustomerVolumes.length === 0) return;
+            const currentInProject = new Set(allCustomerVolumes.filter(v => v.in_active_project).map(v => v.id));
+            const selectedSet = new Set(selectedIds);
+            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
+            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
+
+            for (const volumeId of toAdd) {
+                await handleAddVolumeToProject(volumeId, 'reference');
+            }
+            for (const volumeId of toRemove) {
+                await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-volume/${volumeId}/`);
+            }
+
+            if (tableRef.current && tableRef.current.reloadData) {
+                tableRef.current.reloadData();
+            }
+            setShowBulkModal(false);
+        } catch (error) {
+            console.error('Error in bulk volume save:', error);
+        }
+    }, [allCustomerVolumes, activeProjectId, API_URL, handleAddVolumeToProject]);
+
     // Dynamic dropdown sources
     const dropdownSources = useMemo(() => ({
         storage: storageOptions.map(s => s.name)
@@ -167,6 +266,25 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     // Custom renderers for special formatting
     const customRenderers = useMemo(() => ({
+        project_memberships: (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+            try {
+                if (!value || !Array.isArray(value) || value.length === 0) {
+                    return '';
+                }
+                const badges = value.map(pm => {
+                    if (!pm || typeof pm !== 'object') return '';
+                    const isActive = pm.project_id === activeProjectId;
+                    const badgeClass = isActive ? 'bg-primary' : 'bg-secondary';
+                    const title = `Action: ${pm.action || 'unknown'}`;
+                    const projectName = pm.project_name || 'Unknown';
+                    return `<span class="badge ${badgeClass} me-1" title="${title}" onmousedown="event.stopPropagation()">${projectName}</span>`;
+                }).filter(badge => badge !== '').join('');
+                return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
+            } catch (error) {
+                console.error('Error rendering project_memberships:', error, value);
+                return '';
+            }
+        },
         imported: (rowData, td, row, col, prop, value) => {
             return value ? new Date(value).toLocaleString() : "";
         },
@@ -197,7 +315,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         name: (rowData, td, row, col, prop, value) => {
             return value || "";
         }
-    }), [formatBytes]);
+    }), [formatBytes, activeProjectId]);
 
     // Process data for display
     const preprocessData = useCallback((data) => {
@@ -267,6 +385,38 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         });
     }, [storageOptions]);
 
+    // Project filter toggle buttons for toolbar
+    const filterToggleButtons = (
+        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+            <button type="button" className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('all')}
+                style={{ borderRadius: '6px 0 0 6px', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', marginRight: '0', minWidth: '140px' }}>
+                Customer View
+            </button>
+            <button type="button" className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('current')} disabled={!activeProjectId}
+                style={{ borderRadius: '0', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '140px' }}
+                title={!activeProjectId ? 'Select a project to enable Project View' : 'Show only volumes in this project'}>
+                Project View
+            </button>
+            <button type="button" className="btn btn-outline-secondary"
+                onClick={() => navigate('/settings/project')} disabled={!activeProjectId}
+                style={{ borderRadius: '0', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '140px' }}
+                title={!activeProjectId ? 'Select a project to manage' : 'Manage active project'}>
+                Manage Project
+            </button>
+            <button type="button" className="btn btn-outline-secondary"
+                onClick={() => setShowBulkModal(true)} disabled={!activeProjectId}
+                style={{ padding: '10px 18px', fontSize: '14px', fontWeight: '500', borderRadius: '0 6px 6px 0', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                title={!activeProjectId ? 'Select a project to add/remove volumes' : 'Bulk add or remove volumes from this project'}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+            </button>
+        </div>
+    );
+
     // Show empty config message if no active customer
     if (!config || !activeCustomerId) {
         return <EmptyConfigMessage entityName="volumes" />;
@@ -294,13 +444,16 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 </div>
             )}
             <TanStackCRUDTable
+                ref={tableRef}
+
                 // API Configuration
-                apiUrl={storageId
-                    ? `${API_ENDPOINTS.volumes}?customer=${activeCustomerId}&storage_id=${storageId}`
-                    : `${API_ENDPOINTS.volumes}?customer=${activeCustomerId}`
+                apiUrl={
+                    projectFilter === 'current' && activeProjectId
+                        ? (storageId ? `${API_ENDPOINTS.volumes}?storage_id=${storageId}` : API_ENDPOINTS.volumes)
+                        : (storageId ? `${API_ENDPOINTS.volumes}?customer=${activeCustomerId}&storage_id=${storageId}` : `${API_ENDPOINTS.volumes}?customer=${activeCustomerId}`)
                 }
-                saveUrl={API_ENDPOINTS.volumes}
-                deleteUrl={API_ENDPOINTS.volumes}
+                saveUrl={API_ENDPOINTS.saveUrl}
+                deleteUrl={API_ENDPOINTS.deleteUrl}
                 customerId={activeCustomerId}
                 tableName="volumes"
                 readOnly={isReadOnly}
@@ -320,17 +473,31 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 // Custom Renderers
                 customRenderers={customRenderers}
 
+                // Custom toolbar content - filter toggle
+                customToolbarContent={filterToggleButtons}
+
                 // Table Settings
                 height="calc(100vh - 250px)"
                 stretchH="all"
                 autoColumnSize={true}
                 manualColumnResize={true}
+                storageKey={`volumes-table-${activeCustomerId || 'default'}-${projectFilter}`}
 
                 // Feature Flags
                 enableFilters={true}
                 enableExport={true}
                 enablePagination={true}
                 defaultPageSize={50}
+            />
+
+            {/* Bulk Project Membership Modal */}
+            <BulkProjectMembershipModal
+                show={showBulkModal}
+                onClose={() => setShowBulkModal(false)}
+                onSave={handleBulkVolumeSave}
+                items={allCustomerVolumes}
+                itemType="volume"
+                projectName={config?.active_project?.name || ''}
             />
         </div>
     );

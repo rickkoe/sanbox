@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useContext, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
+import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
+import api from "../../api";
 
 // Clean TanStack Table implementation for Port management
 // Props:
@@ -13,6 +16,9 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
     const { getUserRole } = useAuth();
+    const navigate = useNavigate();
+
+    const tableRef = useRef(null);
 
     const activeCustomerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
@@ -27,13 +33,31 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const [storageOptions, setStorageOptions] = useState([]);
     const [aliasOptions, setAliasOptions] = useState([]);
 
-    // API endpoints
-    const API_ENDPOINTS = {
-        ports: `${API_URL}/api/storage/ports/`,
-        fabrics: `${API_URL}/api/san/fabrics/`,
-        storage: `${API_URL}/api/storage/`,
-        aliases: `${API_URL}/api/san/aliases/`
-    };
+    // Project filter state
+    const [projectFilter, setProjectFilter] = useState(
+        localStorage.getItem('portTableProjectFilter') || 'all'
+    );
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [allCustomerPorts, setAllCustomerPorts] = useState([]);
+
+    // API endpoints - dynamically determined based on filter mode
+    const API_ENDPOINTS = useMemo(() => {
+        const baseUrl = `${API_URL}/api/storage`;
+        let portsUrl;
+        if (projectFilter === 'current' && activeProjectId) {
+            portsUrl = `${baseUrl}/project/${activeProjectId}/view/ports/`;
+        } else {
+            portsUrl = `${baseUrl}/ports/?customer=${activeCustomerId}`;
+        }
+        return {
+            ports: portsUrl,
+            fabrics: `${API_URL}/api/san/fabrics/`,
+            storage: `${baseUrl}/`,
+            aliases: `${API_URL}/api/san/aliases/`,
+            saveUrl: `${baseUrl}/ports/`,
+            deleteUrl: `${baseUrl}/ports/`
+        };
+    }, [API_URL, activeProjectId, activeCustomerId, projectFilter]);
 
     // Speed options based on port type
     const getSpeedOptions = useCallback((portType) => {
@@ -112,6 +136,81 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         fetchAliases();
     }, [activeProjectId, API_URL]);
 
+    // Auto-switch to Customer View when no project is selected
+    useEffect(() => {
+        if (!activeProjectId && projectFilter === 'current') {
+            setProjectFilter('all');
+            localStorage.setItem('portTableProjectFilter', 'all');
+        }
+    }, [activeProjectId, projectFilter]);
+
+    // Handle filter toggle change
+    const handleFilterChange = useCallback((newFilter) => {
+        setProjectFilter(newFilter);
+        localStorage.setItem('portTableProjectFilter', newFilter);
+        if (tableRef.current && tableRef.current.reloadData) {
+            tableRef.current.reloadData();
+        }
+    }, []);
+
+    // Load all customer ports when modal opens
+    useEffect(() => {
+        const loadAllCustomerPorts = async () => {
+            if (showBulkModal && activeCustomerId && activeProjectId) {
+                try {
+                    const response = await api.get(`${API_URL}/api/storage/ports/?customer=${activeCustomerId}&project_id=${activeProjectId}&page_size=1000`);
+                    if (response.data && response.data.results) {
+                        setAllCustomerPorts(response.data.results);
+                    }
+                } catch (error) {
+                    console.error('Error loading customer ports:', error);
+                }
+            }
+        };
+        loadAllCustomerPorts();
+    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
+
+    // Handle adding port to project
+    const handleAddPortToProject = useCallback(async (portId, action = 'reference') => {
+        try {
+            if (!activeProjectId) return false;
+            const response = await api.post(`${API_URL}/api/core/projects/${activeProjectId}/add-port/`, {
+                port_id: portId,
+                action: action,
+                notes: `Added via table UI with action: ${action}`
+            });
+            return response.data.success;
+        } catch (error) {
+            console.error('Error adding port to project:', error);
+            return false;
+        }
+    }, [activeProjectId, API_URL]);
+
+    // Handle bulk port save
+    const handleBulkPortSave = useCallback(async (selectedIds) => {
+        try {
+            if (!allCustomerPorts || allCustomerPorts.length === 0) return;
+            const currentInProject = new Set(allCustomerPorts.filter(p => p.in_active_project).map(p => p.id));
+            const selectedSet = new Set(selectedIds);
+            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
+            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
+
+            for (const portId of toAdd) {
+                await handleAddPortToProject(portId, 'reference');
+            }
+            for (const portId of toRemove) {
+                await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-port/${portId}/`);
+            }
+
+            if (tableRef.current && tableRef.current.reloadData) {
+                tableRef.current.reloadData();
+            }
+            setShowBulkModal(false);
+        } catch (error) {
+            console.error('Error in bulk port save:', error);
+        }
+    }, [allCustomerPorts, activeProjectId, API_URL, handleAddPortToProject]);
+
     // WWPN formatting utilities (same as AliasTable)
     const formatWWPN = useCallback((value) => {
         if (!value) return "";
@@ -136,6 +235,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             required: true,
             width: 200
         },
+        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
         { data: "wwpn", title: "WWPN", width: 180 },
         {
             data: "type",
@@ -281,6 +381,25 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     // Custom renderers
     const customRenderers = useMemo(() => ({
+        project_memberships: (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
+            try {
+                if (!value || !Array.isArray(value) || value.length === 0) {
+                    return '';
+                }
+                const badges = value.map(pm => {
+                    if (!pm || typeof pm !== 'object') return '';
+                    const isActive = pm.project_id === activeProjectId;
+                    const badgeClass = isActive ? 'bg-primary' : 'bg-secondary';
+                    const title = `Action: ${pm.action || 'unknown'}`;
+                    const projectName = pm.project_name || 'Unknown';
+                    return `<span class="badge ${badgeClass} me-1" title="${title}" onmousedown="event.stopPropagation()">${projectName}</span>`;
+                }).filter(badge => badge !== '').join('');
+                return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
+            } catch (error) {
+                console.error('Error rendering project_memberships:', error, value);
+                return '';
+            }
+        },
         name: (rowData, td, row, col, prop, value) => {
             return value || "";
         },
@@ -290,7 +409,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             }
             return value || "";
         }
-    }), [formatWWPN, isValidWWPNFormat]);
+    }), [formatWWPN, isValidWWPNFormat, activeProjectId]);
 
     // Process data for display - convert IDs to labels
     const preprocessData = useCallback((data) => {
@@ -462,6 +581,38 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         });
     }, [storageOptions, fabricOptions, aliasOptions, activeProjectId, formatWWPN]);
 
+    // Project filter toggle buttons for toolbar
+    const filterToggleButtons = (
+        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+            <button type="button" className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('all')}
+                style={{ borderRadius: '6px 0 0 6px', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', marginRight: '0', minWidth: '140px' }}>
+                Customer View
+            </button>
+            <button type="button" className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('current')} disabled={!activeProjectId}
+                style={{ borderRadius: '0', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '140px' }}
+                title={!activeProjectId ? 'Select a project to enable Project View' : 'Show only ports in this project'}>
+                Project View
+            </button>
+            <button type="button" className="btn btn-outline-secondary"
+                onClick={() => navigate('/settings/project')} disabled={!activeProjectId}
+                style={{ borderRadius: '0', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '140px' }}
+                title={!activeProjectId ? 'Select a project to manage' : 'Manage active project'}>
+                Manage Project
+            </button>
+            <button type="button" className="btn btn-outline-secondary"
+                onClick={() => setShowBulkModal(true)} disabled={!activeProjectId}
+                style={{ padding: '10px 18px', fontSize: '14px', fontWeight: '500', borderRadius: '0 6px 6px 0', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                title={!activeProjectId ? 'Select a project to add/remove ports' : 'Bulk add or remove ports from this project'}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+            </button>
+        </div>
+    );
+
     // Show empty config message if no active customer
     if (!config || !activeCustomerId) {
         return <EmptyConfigMessage entityName="ports" />;
@@ -475,16 +626,15 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 </div>
             )}
             <TanStackCRUDTable
+                ref={tableRef}
+
                 // API Configuration
-                // Ports belong to storage systems (customer-level), so we filter by customer
-                // Optionally filter by specific storage system if storageId prop is provided
-                // Alias lookup happens client-side using the active project
                 apiUrl={storageId
-                    ? `${API_ENDPOINTS.ports}?customer=${activeCustomerId}&storage_id=${storageId}`
-                    : `${API_ENDPOINTS.ports}?customer=${activeCustomerId}`
+                    ? `${API_ENDPOINTS.ports}?storage_id=${storageId}`
+                    : API_ENDPOINTS.ports
                 }
-                saveUrl={API_ENDPOINTS.ports}
-                deleteUrl={API_ENDPOINTS.ports}
+                saveUrl={API_ENDPOINTS.saveUrl}
+                deleteUrl={API_ENDPOINTS.deleteUrl}
                 customerId={activeCustomerId}
                 tableName="ports"
                 readOnly={isReadOnly}
@@ -505,17 +655,31 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 // Custom Renderers
                 customRenderers={customRenderers}
 
+                // Custom toolbar content - filter toggle
+                customToolbarContent={filterToggleButtons}
+
                 // Table Settings
                 height="calc(100vh - 250px)"
                 stretchH="all"
                 autoColumnSize={true}
                 manualColumnResize={true}
+                storageKey={`port-table-${storageId || activeCustomerId || 'default'}-${projectFilter}`}
 
                 // Feature Flags
                 enableFilters={true}
                 enableExport={true}
                 enablePagination={true}
                 defaultPageSize={50}
+            />
+
+            {/* Bulk Project Membership Modal */}
+            <BulkProjectMembershipModal
+                show={showBulkModal}
+                onClose={() => setShowBulkModal(false)}
+                onSave={handleBulkPortSave}
+                items={allCustomerPorts}
+                itemType="port"
+                projectName={config?.active_project?.name || ''}
             />
         </div>
     );

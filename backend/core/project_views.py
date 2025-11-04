@@ -147,6 +147,402 @@ def project_remove_zone(request, project_id, zone_id):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def project_add_switch(request, project_id):
+    """Add a switch to a project with specified action"""
+    try:
+        data = json.loads(request.body)
+        switch_id = data.get('switch_id')
+        action = data.get('action', 'reference')
+        notes = data.get('notes', '')
+
+        if not switch_id:
+            return JsonResponse({"error": "switch_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+            switch = Switch.objects.get(id=switch_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+        except Switch.DoesNotExist:
+            return JsonResponse({"error": "Switch not found"}, status=404)
+
+        # Create or update the junction entry
+        project_switch, created = ProjectSwitch.objects.update_or_create(
+            project=project,
+            switch=switch,
+            defaults={
+                'action': action,
+                'added_by': request.user if request.user.is_authenticated else None,
+                'notes': notes
+            }
+        )
+
+        return JsonResponse({
+            "success": True,
+            "created": created,
+            "project_switch": {
+                "id": project_switch.id,
+                "switch_id": project_switch.switch.id,
+                "switch_name": project_switch.switch.name,
+                "action": project_switch.action
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def project_remove_switch(request, project_id, switch_id):
+    """Remove a switch from a project"""
+    try:
+        deleted_count, _ = ProjectSwitch.objects.filter(
+            project_id=project_id,
+            switch_id=switch_id
+        ).delete()
+
+        return JsonResponse({
+            "success": True,
+            "deleted": deleted_count > 0
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def project_add_fabric(request, project_id):
+    """Add a fabric to a project with specified action"""
+    try:
+        data = json.loads(request.body)
+        fabric_id = data.get('fabric_id')
+        action = data.get('action', 'reference')
+        notes = data.get('notes', '')
+
+        if not fabric_id:
+            return JsonResponse({"error": "fabric_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+            fabric = Fabric.objects.get(id=fabric_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+        except Fabric.DoesNotExist:
+            return JsonResponse({"error": "Fabric not found"}, status=404)
+
+        # Create or update the junction entry
+        project_fabric, created = ProjectFabric.objects.update_or_create(
+            project=project,
+            fabric=fabric,
+            defaults={
+                'action': action,
+                'added_by': request.user if request.user.is_authenticated else None,
+                'notes': notes
+            }
+        )
+
+        return JsonResponse({
+            "success": True,
+            "created": created,
+            "project_fabric": {
+                "id": project_fabric.id,
+                "fabric_id": project_fabric.fabric.id,
+                "fabric_name": project_fabric.fabric.name,
+                "action": project_fabric.action
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def project_remove_fabric(request, project_id, fabric_id):
+    """Remove a fabric from a project"""
+    try:
+        deleted_count, _ = ProjectFabric.objects.filter(
+            project_id=project_id,
+            fabric_id=fabric_id
+        ).delete()
+
+        return JsonResponse({
+            "success": True,
+            "deleted": deleted_count > 0
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def project_add_storage(request, project_id):
+    """Add a storage system to a project with specified action"""
+    try:
+        data = json.loads(request.body)
+        storage_id = data.get('storage_id')
+        action = data.get('action', 'reference')
+        notes = data.get('notes', '')
+
+        if not storage_id:
+            return JsonResponse({"error": "storage_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+            storage = Storage.objects.get(id=storage_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+        except Storage.DoesNotExist:
+            return JsonResponse({"error": "Storage not found"}, status=404)
+
+        # Create or update the junction entry
+        project_storage, created = ProjectStorage.objects.update_or_create(
+            project=project,
+            storage=storage,
+            defaults={
+                'action': action,
+                'added_by': request.user if request.user.is_authenticated else None,
+                'notes': notes
+            }
+        )
+
+        return JsonResponse({
+            "success": True,
+            "created": created,
+            "project_storage": {
+                "id": project_storage.id,
+                "storage_id": project_storage.storage.id,
+                "storage_name": project_storage.storage.name,
+                "action": project_storage.action
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def project_remove_storage(request, project_id, storage_id):
+    """Remove a storage system from a project"""
+    try:
+        deleted_count, _ = ProjectStorage.objects.filter(
+            project_id=project_id,
+            storage_id=storage_id
+        ).delete()
+
+        return JsonResponse({
+            "success": True,
+            "deleted": deleted_count > 0
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def project_add_volume(request, project_id):
+    """Add a volume to a project with specified action"""
+    try:
+        data = json.loads(request.body)
+        volume_id = data.get('volume_id')
+        action = data.get('action', 'reference')
+        notes = data.get('notes', '')
+
+        if not volume_id:
+            return JsonResponse({"error": "volume_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+            volume = Volume.objects.get(id=volume_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+        except Volume.DoesNotExist:
+            return JsonResponse({"error": "Volume not found"}, status=404)
+
+        # Create or update the junction entry
+        project_volume, created = ProjectVolume.objects.update_or_create(
+            project=project,
+            volume=volume,
+            defaults={
+                'action': action,
+                'added_by': request.user if request.user.is_authenticated else None,
+                'notes': notes
+            }
+        )
+
+        return JsonResponse({
+            "success": True,
+            "created": created,
+            "project_volume": {
+                "id": project_volume.id,
+                "volume_id": project_volume.volume.id,
+                "volume_name": project_volume.volume.name,
+                "action": project_volume.action
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def project_remove_volume(request, project_id, volume_id):
+    """Remove a volume from a project"""
+    try:
+        deleted_count, _ = ProjectVolume.objects.filter(
+            project_id=project_id,
+            volume_id=volume_id
+        ).delete()
+
+        return JsonResponse({
+            "success": True,
+            "deleted": deleted_count > 0
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def project_add_host(request, project_id):
+    """Add a host to a project with specified action"""
+    try:
+        data = json.loads(request.body)
+        host_id = data.get('host_id')
+        action = data.get('action', 'reference')
+        notes = data.get('notes', '')
+
+        if not host_id:
+            return JsonResponse({"error": "host_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+            host = Host.objects.get(id=host_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+        except Host.DoesNotExist:
+            return JsonResponse({"error": "Host not found"}, status=404)
+
+        # Create or update the junction entry
+        project_host, created = ProjectHost.objects.update_or_create(
+            project=project,
+            host=host,
+            defaults={
+                'action': action,
+                'added_by': request.user if request.user.is_authenticated else None,
+                'notes': notes
+            }
+        )
+
+        return JsonResponse({
+            "success": True,
+            "created": created,
+            "project_host": {
+                "id": project_host.id,
+                "host_id": project_host.host.id,
+                "host_name": project_host.host.name,
+                "action": project_host.action
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def project_remove_host(request, project_id, host_id):
+    """Remove a host from a project"""
+    try:
+        deleted_count, _ = ProjectHost.objects.filter(
+            project_id=project_id,
+            host_id=host_id
+        ).delete()
+
+        return JsonResponse({
+            "success": True,
+            "deleted": deleted_count > 0
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def project_add_port(request, project_id):
+    """Add a port to a project with specified action"""
+    try:
+        data = json.loads(request.body)
+        port_id = data.get('port_id')
+        action = data.get('action', 'reference')
+        notes = data.get('notes', '')
+
+        if not port_id:
+            return JsonResponse({"error": "port_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+            port = Port.objects.get(id=port_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+        except Port.DoesNotExist:
+            return JsonResponse({"error": "Port not found"}, status=404)
+
+        # Create or update the junction entry
+        project_port, created = ProjectPort.objects.update_or_create(
+            project=project,
+            port=port,
+            defaults={
+                'action': action,
+                'added_by': request.user if request.user.is_authenticated else None,
+                'notes': notes
+            }
+        )
+
+        return JsonResponse({
+            "success": True,
+            "created": created,
+            "project_port": {
+                "id": project_port.id,
+                "port_id": project_port.port.id,
+                "port_name": project_port.port.name,
+                "action": project_port.action
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def project_remove_port(request, project_id, port_id):
+    """Remove a port from a project"""
+    try:
+        deleted_count, _ = ProjectPort.objects.filter(
+            project_id=project_id,
+            port_id=port_id
+        ).delete()
+
+        return JsonResponse({
+            "success": True,
+            "deleted": deleted_count > 0
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def project_finalize(request, project_id):
     """
     Finalize a project - sets committed=True on all entities in the project

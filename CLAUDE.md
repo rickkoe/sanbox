@@ -475,6 +475,25 @@ The application uses a dual-dropdown system in the navbar for context selection:
    - Browser DevTools work normally
    - React DevTools extension works
 
+7. **Styling pages and components**:
+   - **CRITICAL**: Always read `THEME_SYSTEM_DOCUMENTATION.md` before styling any page or component
+   - **NO EMOJIS**: Never use emojis in this project - always use SVG icons instead
+   - Follow the Bootstrap Background Override Pattern for all new pages
+   - Use custom alert classes (not Bootstrap's `.alert-*`) - see Theme-Aware Alert Styling Pattern section
+   - All pages must work in both light and dark themes
+   - Key patterns to follow:
+     - Wrap page in container with unique class name (e.g., `.my-page-name`)
+     - Start CSS file with Bootstrap overrides (copy template from docs)
+     - Use theme CSS variables for all colors (never hardcoded colors)
+     - Use `var(--secondary-bg)` with 4px colored left border for alerts
+     - Use SVG icons, not emojis (emojis render inconsistently across platforms)
+     - Test in both themes before committing
+   - **Reference**: `/THEME_SYSTEM_DOCUMENTATION.md` (comprehensive styling guide)
+   - **Examples**:
+     - Bootstrap overrides: `/frontend/src/styles/project-summary.css`
+     - Alert styling: `/frontend/src/styles/backup.css` (search for `backup-scheduler-*-alert`)
+     - SVG icons: `/frontend/src/pages/ProjectSummary.jsx` (see `getActionIcon` function)
+
 ## Accessing Services
 
 When containers are running:

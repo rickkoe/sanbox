@@ -1,8 +1,10 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
+import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import api from "../../api";
 
 // TanStack Table implementation for Switch management
@@ -10,7 +12,16 @@ const SwitchTableTanStack = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config, loading: configLoading } = useContext(ConfigContext);
     const { getUserRole } = useAuth();
+    const navigate = useNavigate();
     const customerId = config?.customer?.id;
+    const activeProjectId = config?.active_project?.id;  // FIX: Use active_project, not project
+
+    // Project filter state: 'all' = customer view, 'current' = project view
+    const [projectFilter, setProjectFilter] = useState('all');
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [allCustomerSwitches, setAllCustomerSwitches] = useState([]);
+
+    const tableRef = useRef(null);
 
     // Check if user can edit infrastructure (members and admins only)
     const userRole = getUserRole(customerId);
@@ -20,6 +31,52 @@ const SwitchTableTanStack = () => {
     // State for fabrics dropdown
     const [fabrics, setFabrics] = useState([]);
     const [fabricsLoading, setFabricsLoading] = useState(false);
+
+    // Load filter preference from localStorage
+    useEffect(() => {
+        const savedFilter = localStorage.getItem('switchTableProjectFilter');
+        if (savedFilter && ['all', 'current'].includes(savedFilter)) {
+            setProjectFilter(savedFilter);
+        }
+    }, []);
+
+    // Auto-switch to 'all' when project is deselected
+    useEffect(() => {
+        if (!activeProjectId && projectFilter === 'current') {
+            setProjectFilter('all');
+            localStorage.setItem('switchTableProjectFilter', 'all');
+        }
+    }, [activeProjectId, projectFilter]);
+
+    // Load all customer switches when modal opens
+    useEffect(() => {
+        const loadAllCustomerSwitches = async () => {
+            if (showBulkModal && customerId && activeProjectId) {
+                try {
+                    console.log('📥 Loading all customer switches for bulk modal...');
+                    const response = await api.get(`${API_URL}/api/san/switches/?customer_id=${customerId}&project_id=${activeProjectId}&project_filter=all&page_size=10000`);
+                    const switches = response.data.results || response.data;
+                    setAllCustomerSwitches(switches);
+                    console.log(`✅ Loaded ${switches.length} customer switches for modal`);
+                } catch (error) {
+                    console.error('❌ Error loading customer switches:', error);
+                    setAllCustomerSwitches([]);
+                }
+            }
+        };
+
+        loadAllCustomerSwitches();
+    }, [showBulkModal, customerId, activeProjectId, API_URL]);
+
+    // Handle filter change
+    const handleFilterChange = (newFilter) => {
+        setProjectFilter(newFilter);
+        localStorage.setItem('switchTableProjectFilter', newFilter);
+        // Reload table data
+        if (tableRef.current?.reloadData) {
+            tableRef.current.reloadData();
+        }
+    };
 
     // Fetch fabrics for the active customer
     useEffect(() => {
@@ -64,9 +121,10 @@ const SwitchTableTanStack = () => {
     };
 
     // All possible switch columns
-    const columns = [
+    const baseColumns = [
         { data: "name", title: "Name", required: true },
         { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
+        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
         { data: "fabrics", title: "Fabrics", type: "dropdown", allowMultiple: true },
         { data: "domain_ids", title: "Domain IDs" },  // Custom editable cell component
         { data: "wwnn", title: "WWNN" },
@@ -80,6 +138,13 @@ const SwitchTableTanStack = () => {
         { data: "location", title: "Location" },
         { data: "notes", title: "Notes" }
     ];
+
+    // Add project-specific columns when project is active
+    const columns = activeProjectId ? [
+        ...baseColumns,
+        { data: "in_active_project", title: "In Project", type: "custom", readOnly: true, defaultVisible: true },
+        { data: "project_actions", title: "Add/Remove", type: "custom", readOnly: true, defaultVisible: true }
+    ] : baseColumns;
 
     const colHeaders = columns.map(col => col.title);
 
@@ -106,15 +171,220 @@ const SwitchTableTanStack = () => {
         notes: ""
     };
 
-    // Custom renderers for WWNN formatting
+    // Custom renderers for WWNN formatting and project columns
     const customRenderers = {
         wwnn: (rowData, td, row, col, prop, value) => {
             if (value && isValidWWNNFormat(value)) {
                 return formatWWNN(value);
             }
             return value || "";
+        },
+        project_memberships: (_rowData, _prop, _rowIndex, _colIndex, _accessorKey, value) => {
+            try {
+                if (!value || !Array.isArray(value) || value.length === 0) {
+                    return '';
+                }
+
+                // Render badge pills for each project
+                const badges = value.map(pm => {
+                    if (!pm || typeof pm !== 'object') {
+                        return '';
+                    }
+                    const isActive = pm.project_id === activeProjectId;
+                    const badgeClass = isActive ? 'bg-primary' : 'bg-secondary';
+                    const title = `Action: ${pm.action || 'unknown'}`;
+                    const projectName = pm.project_name || 'Unknown';
+                    return `<span class="badge ${badgeClass} me-1" title="${title}" onmousedown="event.stopPropagation()">${projectName}</span>`;
+                }).filter(badge => badge !== '').join('');
+
+                return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
+            } catch (error) {
+                console.error('Error rendering project_memberships:', error, value);
+                return '';
+            }
+        },
+        in_active_project: (rowData, td, row, col, prop, value) => {
+            if (!activeProjectId) return "";
+            const isInProject = rowData.in_active_project === true;
+            return isInProject ?
+                '<span class="badge bg-success">Yes</span>' :
+                '<span class="badge bg-secondary">No</span>';
+        },
+        project_actions: (rowData, td, row, col, prop, value) => {
+            if (!activeProjectId || isReadOnly) return "";
+            const isInProject = rowData.in_active_project === true;
+
+            if (isInProject) {
+                return `<button class="btn btn-sm btn-danger remove-switch-btn" data-switch-id="${rowData.id}">Remove</button>`;
+            } else {
+                return `<div class="dropdown d-inline">
+                    <button class="btn btn-sm btn-primary dropdown-toggle add-switch-btn" type="button" data-bs-toggle="dropdown" data-switch-id="${rowData.id}">
+                        Add to Project
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" data-action="reference">Reference Only</a></li>
+                        <li><a class="dropdown-item" href="#" data-action="modify">Mark for Modification</a></li>
+                        <li><a class="dropdown-item" href="#" data-action="delete">Mark for Deletion</a></li>
+                    </ul>
+                </div>`;
+            }
         }
     };
+
+    // Handle add switch to project
+    const handleAddSwitchToProject = async (switchId, action) => {
+        try {
+            const response = await api.post(`/api/core/projects/${activeProjectId}/add-switch/`, {
+                switch_id: switchId,
+                action: action,
+                notes: ''
+            });
+
+            if (response.data.success) {
+                console.log('✅ Switch added to project');
+
+                // Smart table update
+                const hadDirtyChanges = tableRef.current?.hasChanges;
+                const currentData = tableRef.current?.getTableData();
+
+                if (currentData) {
+                    const updatedData = currentData.map(row => {
+                        if (row.id === parseInt(switchId)) {
+                            return {
+                                ...row,
+                                in_active_project: true
+                            };
+                        }
+                        return row;
+                    });
+
+                    if (hadDirtyChanges) {
+                        tableRef.current.setTableData(updatedData);
+                    } else {
+                        tableRef.current.updateTableDataSilently(updatedData);
+                    }
+                }
+
+                return true;
+            }
+        } catch (error) {
+            console.error('Error adding switch to project:', error);
+            alert('Failed to add switch to project: ' + (error.response?.data?.error || error.message));
+        }
+        return false;
+    };
+
+    // Handle remove switch from project
+    const handleRemoveSwitchFromProject = async (switchId) => {
+        if (!window.confirm('Remove this switch from the project?')) {
+            return false;
+        }
+
+        try {
+            const response = await api.delete(`/api/core/projects/${activeProjectId}/remove-switch/${switchId}/`);
+
+            if (response.data.success) {
+                console.log('✅ Switch removed from project');
+
+                // Smart table update
+                const hadDirtyChanges = tableRef.current?.hasChanges;
+                const currentData = tableRef.current?.getTableData();
+
+                if (currentData) {
+                    const updatedData = currentData.map(row => {
+                        if (row.id === parseInt(switchId)) {
+                            return {
+                                ...row,
+                                in_active_project: false
+                            };
+                        }
+                        return row;
+                    });
+
+                    if (hadDirtyChanges) {
+                        tableRef.current.setTableData(updatedData);
+                    } else {
+                        tableRef.current.updateTableDataSilently(updatedData);
+                    }
+                }
+
+                return true;
+            }
+        } catch (error) {
+            console.error('Error removing switch from project:', error);
+            alert('Failed to remove switch from project: ' + (error.response?.data?.error || error.message));
+        }
+        return false;
+    };
+
+    // Handle bulk switch save from modal
+    const handleBulkSwitchSave = async (selectedIds) => {
+        try {
+            console.log('🔄 Bulk switch save started with selected IDs:', selectedIds);
+
+            if (!allCustomerSwitches || allCustomerSwitches.length === 0) {
+                console.error('No customer switches available');
+                alert('No switches data available. Please try again.');
+                return;
+            }
+
+            // Get current switches in project
+            const currentProjectSwitchIds = allCustomerSwitches
+                .filter(s => s.in_active_project)
+                .map(s => s.id);
+
+            // Determine changes
+            const toAdd = selectedIds.filter(id => !currentProjectSwitchIds.includes(id));
+            const toRemove = currentProjectSwitchIds.filter(id => !selectedIds.includes(id));
+
+            console.log('📊 To Add:', toAdd, 'To Remove:', toRemove);
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process additions
+            for (const switchId of toAdd) {
+                const success = await handleAddSwitchToProject(switchId, 'reference');
+                if (success) successCount++;
+                else errorCount++;
+            }
+
+            // Process removals
+            for (const switchId of toRemove) {
+                try {
+                    const response = await api.delete(`/api/core/projects/${activeProjectId}/remove-switch/${switchId}/`);
+                    if (response.data.success) successCount++;
+                    else errorCount++;
+                } catch (error) {
+                    console.error('Error removing switch:', error);
+                    errorCount++;
+                }
+            }
+
+            // Show result
+            alert(`Bulk operation complete!\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}`);
+
+            // Reload table
+            if (tableRef.current?.reloadData) {
+                tableRef.current.reloadData();
+            }
+
+        } catch (error) {
+            console.error('❌ Bulk switch save error:', error);
+            alert('Failed to perform bulk operation: ' + error.message);
+        }
+    };
+
+    // Expose handlers to window for HTML onclick
+    useEffect(() => {
+        window.handleAddSwitchToProject = handleAddSwitchToProject;
+        window.handleRemoveSwitchFromProject = handleRemoveSwitchFromProject;
+
+        return () => {
+            delete window.handleAddSwitchToProject;
+            delete window.handleRemoveSwitchFromProject;
+        };
+    }, [activeProjectId, handleAddSwitchToProject, handleRemoveSwitchFromProject]);
 
     // Process data for display - convert vendor codes to names, format fabrics, and domain IDs
     const preprocessData = (data) => {
@@ -125,7 +395,8 @@ const SwitchTableTanStack = () => {
             domain_ids: switchItem.fabric_domain_details?.map(f => {
                 const domainStr = f.domain_id !== null && f.domain_id !== undefined ? f.domain_id : '';
                 return `${f.name}: ${domainStr}`;
-            }).join('\n') || ""
+            }).join('\n') || "",
+            in_active_project: switchItem.in_active_project || false
         }));
     };
 
@@ -170,7 +441,7 @@ const SwitchTableTanStack = () => {
                 }
 
                 // Exclude read-only/computed fields
-                const { domain_ids, fabric_domain_details, fabrics_details, ...switchData } = row;
+                const { domain_ids, fabric_domain_details, fabrics_details, in_active_project, project_actions, modified_fields, project_action, ...switchData } = row;
 
                 return {
                     ...switchData,
@@ -187,6 +458,113 @@ const SwitchTableTanStack = () => {
                     location: switchData.location === "" ? null : switchData.location
                 };
             });
+
+    // Determine API URL based on filter
+    const getApiUrl = () => {
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project view: merged data with overrides
+            return `${API_URL}/api/san/switches/project/${activeProjectId}/view/`;
+        } else if (activeProjectId) {
+            // Customer view with project: includes in_active_project flag
+            return `${API_URL}/api/san/switches/?customer_id=${customerId}&project_id=${activeProjectId}&project_filter=${projectFilter}`;
+        } else {
+            // Customer view without project
+            return `${API_URL}/api/san/switches/?customer_id=${customerId}`;
+        }
+    };
+
+    // Custom toolbar buttons - match AliasTable exactly
+    const filterToggleButtons = (
+        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+            {/* Customer View Button */}
+            <button
+                type="button"
+                className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('all')}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '6px 0 0 6px',
+                    transition: 'all 0.2s ease',
+                    marginRight: '0',
+                    minWidth: '140px'
+                }}
+            >
+                Customer View
+            </button>
+
+            {/* Project View Button - Disabled if no active project */}
+            <button
+                type="button"
+                className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => handleFilterChange('current')}
+                disabled={!activeProjectId}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '0',
+                    transition: 'all 0.2s ease',
+                    opacity: activeProjectId ? 1 : 0.5,
+                    cursor: activeProjectId ? 'pointer' : 'not-allowed',
+                    minWidth: '140px'
+                }}
+                title={!activeProjectId ? 'Select a project to enable Project View' : 'Show only switches in this project'}
+            >
+                Project View
+            </button>
+
+            {/* Manage Project Button - Disabled if no active project */}
+            <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => navigate('/settings/project')}
+                disabled={!activeProjectId}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '0',
+                    transition: 'all 0.2s ease',
+                    opacity: activeProjectId ? 1 : 0.5,
+                    cursor: activeProjectId ? 'pointer' : 'not-allowed',
+                    minWidth: '140px'
+                }}
+                title={!activeProjectId ? 'Select a project to manage' : 'Manage active project'}
+            >
+                Manage Project
+            </button>
+
+            {/* Bulk Add/Remove Button - Disabled if no active project */}
+            <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => setShowBulkModal(true)}
+                disabled={!activeProjectId}
+                style={{
+                    padding: '10px 18px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    borderRadius: '0 6px 6px 0',
+                    transition: 'all 0.2s ease',
+                    opacity: activeProjectId ? 1 : 0.5,
+                    cursor: activeProjectId ? 'pointer' : 'not-allowed',
+                    minWidth: '50px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                }}
+                title={!activeProjectId ? 'Select a project to add/remove switches' : 'Bulk add or remove switches from this project'}
+            >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+            </button>
+        </div>
+    );
 
     // Show loading while config is being fetched
     if (configLoading) {
@@ -214,9 +592,11 @@ const SwitchTableTanStack = () => {
                     <strong>Read-only access:</strong> You have viewer permissions for this customer. Only members and admins can modify infrastructure (Switches and Fabrics).
                 </div>
             )}
+
             <TanStackCRUDTable
+                ref={tableRef}
                 // API Configuration
-                apiUrl={`${API_URL}/api/san/switches/`}
+                apiUrl={getApiUrl()}
                 saveUrl={`${API_URL}/api/san/switches/`}
                 deleteUrl={`${API_URL}/api/san/switches/delete/`}
                 customerId={customerId}
@@ -234,8 +614,11 @@ const SwitchTableTanStack = () => {
                 saveTransform={saveTransform}
                 vendorOptions={vendorOptions}
 
+                // Custom Toolbar
+                customToolbarContent={filterToggleButtons}
+
                 // Table Settings
-                height="calc(100vh - 200px)"
+                height="calc(100vh - 280px)"
                 storageKey={`switch-table-${customerId || 'default'}`}
                 readOnly={isReadOnly}
 
@@ -249,6 +632,17 @@ const SwitchTableTanStack = () => {
                     }
                 }}
             />
+
+            {showBulkModal && (
+                <BulkProjectMembershipModal
+                    show={showBulkModal}
+                    onHide={() => setShowBulkModal(false)}
+                    items={allCustomerSwitches.length > 0 ? allCustomerSwitches : (tableRef.current?.getTableData() || [])}
+                    onSave={handleBulkSwitchSave}
+                    itemType="switch"
+                    projectName={config?.active_project?.name || ''}
+                />
+            )}
         </div>
     );
 };

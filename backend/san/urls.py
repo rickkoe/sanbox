@@ -3,6 +3,7 @@ from .views import (
     alias_copy_to_project_view,
     fabric_management,
     fabric_delete_view,
+    fabric_project_view,
     generate_zone_scripts,
     generate_zone_creation_scripts,
     generate_zone_deletion_scripts,
@@ -34,6 +35,7 @@ from .views import (
     bulk_update_hosts_create,
     switch_management,
     switch_delete_view,
+    switch_project_view,
     switches_by_customer_view
 )
 
@@ -87,4 +89,8 @@ urlpatterns = [
     path("switches/<int:pk>/", switch_management, name="switch-detail"),
     path("switches/delete/<int:pk>/", switch_delete_view, name="switch-delete"),
     path("switches/customer/<int:customer_id>/", switches_by_customer_view, name="switches-by-customer"),
+    path("switches/project/<int:project_id>/view/", switch_project_view, name="switch-project-view"),
+
+    # Fabric project view endpoint
+    path("fabrics/project/<int:project_id>/view/", fabric_project_view, name="fabric-project-view"),
 ]

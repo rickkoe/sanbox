@@ -10,15 +10,73 @@ class StorageSerializer(serializers.ModelSerializer):
     db_aliases_count = serializers.IntegerField(read_only=True)
     db_ports_count = serializers.IntegerField(read_only=True)
 
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
     class Meta:
         model = Storage
         fields = '__all__'
 
+    def get_project_memberships(self, obj):
+        """Return list of projects this storage system belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': pm.action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for storage {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this storage system is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for storage {obj.name}: {e}")
+            return False
+
 
 class VolumeSerializer(serializers.ModelSerializer):
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
     class Meta:
         model = Volume
         fields = '__all__'
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this volume belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': pm.action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for volume {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this volume is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for volume {obj.name}: {e}")
+            return False
 
 
 class HostWwpnSerializer(serializers.ModelSerializer):
@@ -33,6 +91,10 @@ class HostSerializer(serializers.ModelSerializer):
     wwpn_details = serializers.SerializerMethodField()
     wwpn_display = serializers.SerializerMethodField()
 
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
     class Meta:
         model = Host
         fields = '__all__'
@@ -45,6 +107,31 @@ class HostSerializer(serializers.ModelSerializer):
         """Return comma-separated WWPN string for table display"""
         return obj.get_wwpn_display_string()
 
+    def get_project_memberships(self, obj):
+        """Return list of projects this host belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': pm.action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for host {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this host is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for host {obj.name}: {e}")
+            return False
+
 
 class PortSerializer(serializers.ModelSerializer):
     # Read-only nested serializers for display
@@ -55,6 +142,10 @@ class PortSerializer(serializers.ModelSerializer):
 
     # Include storage_type for frontend dynamic dropdown logic
     storage_type = serializers.CharField(source='storage.storage_type', read_only=True)
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
 
     class Meta:
         model = Port
@@ -97,6 +188,31 @@ class PortSerializer(serializers.ModelSerializer):
                 "name": obj.project.name
             }
         return None
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this port belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': pm.action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for port {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this port is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for port {obj.name}: {e}")
+            return False
 
 
 class StorageFieldPreferenceSerializer(serializers.Serializer):

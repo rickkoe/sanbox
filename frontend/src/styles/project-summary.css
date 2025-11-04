@@ -1,14 +1,44 @@
-/* Project Summary Page Styles */
+/* ========== CRITICAL BOOTSTRAP OVERRIDES ========== */
+/* Following the Bootstrap Background Override Pattern from THEME_SYSTEM_DOCUMENTATION.md */
+/* MUST come first in CSS file */
 
+/* Scope everything to the page class */
 .project-summary-container {
+    background: var(--content-bg) !important;
     min-height: 100vh;
-    background-color: var(--content-bg);
     padding: 0;
+}
+
+/* Override ALL Bootstrap backgrounds within the page */
+.project-summary-container .card,
+.project-summary-container .card-body,
+.project-summary-container .card-header,
+.project-summary-container .row,
+.project-summary-container [class*="col-"],
+.project-summary-container .alert,
+.project-summary-container .badge,
+.project-summary-container .btn,
+.project-summary-container .modal,
+.project-summary-container .modal-content,
+.project-summary-container .modal-header,
+.project-summary-container .modal-body,
+.project-summary-container .modal-footer {
+    background-color: transparent !important;
+    background-image: none !important;
+    background: transparent !important;
+}
+
+/* Override Bootstrap utility classes */
+.project-summary-container .bg-white,
+.project-summary-container .bg-light,
+.project-summary-container .bg-secondary {
+    background-color: transparent !important;
+    background: transparent !important;
 }
 
 /* Header */
 .summary-header {
-    background: var(--primary-bg);
+    background: var(--primary-bg) !important;
     border-bottom: 1px solid var(--color-border-default);
     padding: var(--space-6) var(--space-6);
 }
@@ -90,7 +120,7 @@
 
 /* Cards */
 .summary-card {
-    background: var(--table-bg);
+    background: var(--table-bg) !important;
     border-radius: var(--border-radius);
     box-shadow: var(--shadow-light);
     border: 1px solid var(--table-border);
@@ -110,6 +140,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
+    background: transparent !important;
 }
 
 .card-header h2 {
@@ -134,6 +165,7 @@
 
 .card-body {
     padding: var(--space-5);
+    background: transparent !important;
 }
 
 /* Project Info Grid */
@@ -216,18 +248,24 @@
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-3);
-    background: var(--secondary-bg);
+    background: var(--secondary-bg) !important;
     border-radius: var(--radius-md);
     transition: background-color 0.2s ease;
 }
 
 .action-item:hover {
-    background: var(--table-row-hover);
+    background: var(--table-row-hover) !important;
 }
 
 .action-icon {
-    font-size: var(--font-size-xl);
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-icon svg {
+    color: inherit;
 }
 
 .action-label {
@@ -250,18 +288,21 @@
     margin: var(--space-4) 0;
 }
 
-/* Warning Card */
+/* Warning Card - Styled like BackupScheduler alerts */
 .warning-card {
-    background: var(--warning-bg);
-    border-color: var(--warning-border);
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-border-default) !important;
+    border-left: 4px solid var(--color-attention-emphasis) !important;
 }
 
 .warning-card .card-header {
-    border-bottom-color: var(--warning-border);
+    border-bottom-color: var(--color-border-default) !important;
+    background: transparent !important;
 }
 
 .warning-card .card-body {
-    color: var(--primary-text);
+    color: var(--primary-text) !important;
+    background: transparent !important;
 }
 
 .warning-card ul {
@@ -271,21 +312,103 @@
 
 .warning-card li {
     margin-bottom: var(--space-2);
-    color: var(--primary-text);
+    color: var(--primary-text) !important;
 }
 
 .warning-note {
     margin-top: var(--space-4);
     padding: var(--space-3);
-    background: var(--info-bg);
-    border: 1px solid var(--info-border);
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-border-default) !important;
+    border-left: 4px solid var(--color-accent-emphasis) !important;
     border-radius: var(--radius-md);
-    color: var(--primary-text);
+    color: var(--primary-text) !important;
 }
 
 .warning-text {
-    color: var(--error-color);
+    color: var(--color-danger-fg) !important;
     font-weight: 600;
+}
+
+/* ========== CUSTOM THEMED ALERTS (matching BackupScheduler) ========== */
+.project-summary-info-alert {
+    background-color: var(--secondary-bg) !important;
+    background-image: none !important;
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-border-default) !important;
+    border-left: 4px solid var(--color-accent-emphasis) !important;
+    color: var(--primary-text) !important;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+
+.project-summary-info-alert strong {
+    color: var(--primary-text) !important;
+}
+
+.project-summary-warning-alert {
+    background-color: var(--secondary-bg) !important;
+    background-image: none !important;
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-border-default) !important;
+    border-left: 4px solid var(--color-attention-emphasis) !important;
+    color: var(--primary-text) !important;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+
+.project-summary-warning-alert strong {
+    color: var(--primary-text) !important;
+}
+
+.project-summary-error-alert {
+    background-color: var(--secondary-bg) !important;
+    background-image: none !important;
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-danger-muted) !important;
+    border-left: 4px solid var(--color-danger-emphasis) !important;
+    color: var(--color-danger-fg) !important;
+    padding: 1rem 1.25rem;
+    padding-right: 3rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.project-summary-success-alert {
+    background-color: var(--secondary-bg) !important;
+    background-image: none !important;
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-success-muted) !important;
+    border-left: 4px solid var(--color-success-emphasis) !important;
+    color: var(--color-success-fg) !important;
+    padding: 1rem 1.25rem;
+    padding-right: 3rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.project-summary-alert-close {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.project-summary-alert-close:hover {
+    opacity: 1;
 }
 
 /* Buttons */
@@ -364,7 +487,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: var(--modal-backdrop);
+    background: var(--modal-backdrop) !important;
     backdrop-filter: blur(10px);
     z-index: 100002;
     display: flex;
@@ -380,7 +503,7 @@
 }
 
 .modal-content {
-    background: var(--table-bg);
+    background: var(--table-bg) !important;
     border-radius: var(--border-radius);
     box-shadow: var(--modal-shadow);
     max-width: 500px;
@@ -409,15 +532,16 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: transparent !important;
 }
 
 .modal-header.commit-header {
-    background: var(--color-success-subtle);
+    background: var(--color-success-subtle) !important;
     border-bottom-color: var(--color-success-muted);
 }
 
 .modal-header.close-header {
-    background: var(--color-danger-subtle);
+    background: var(--color-danger-subtle) !important;
     border-bottom-color: var(--color-danger-muted);
 }
 
@@ -453,6 +577,7 @@
 .modal-body {
     padding: var(--space-5);
     color: var(--primary-text);
+    background: transparent !important;
 }
 
 .modal-body p {
@@ -474,6 +599,7 @@
     display: flex;
     gap: var(--space-3);
     justify-content: flex-end;
+    background: transparent !important;
 }
 
 /* Empty/Loading/Error States */

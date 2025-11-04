@@ -10,6 +10,8 @@ class SwitchSerializer(serializers.ModelSerializer):
     )  # For writing: [{"fabric_id": 1, "domain_id": 123}, ...]
     fabrics_details = serializers.SerializerMethodField()  # For reading
     fabric_domain_details = serializers.SerializerMethodField()  # For reading with domain IDs
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
 
     class Meta:
         model = Switch
@@ -30,6 +32,31 @@ class SwitchSerializer(serializers.ModelSerializer):
             }
             for sf in switch_fabrics
         ]
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this switch belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': pm.action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for switch {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this switch is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for switch {obj.name}: {e}")
+            return False
 
     def create(self, validated_data):
         """Create switch and handle fabric-domain associations"""
@@ -75,6 +102,8 @@ class FabricSerializer(serializers.ModelSerializer):
     switches_details = serializers.SerializerMethodField()  # For displaying switch details with domain IDs
     alias_count = serializers.SerializerMethodField()  # Count of aliases in this fabric
     zone_count = serializers.SerializerMethodField()  # Count of zones in this fabric
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
 
     class Meta:
         model = Fabric
@@ -99,6 +128,31 @@ class FabricSerializer(serializers.ModelSerializer):
     def get_zone_count(self, obj):
         """Return count of zones in this fabric"""
         return obj.zone_set.count()
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this fabric belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': pm.action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for fabric {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this fabric is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for fabric {obj.name}: {e}")
+            return False
 
     # Note: Switch-fabric relationships with domain IDs are managed through
     # the SwitchSerializer or the SwitchFabric model directly

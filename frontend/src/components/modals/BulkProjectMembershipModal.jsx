@@ -2,21 +2,25 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './BulkProjectMembershipModal.css';
 
 /**
- * Modal for bulk adding/removing items (aliases or zones) to/from a project
+ * Modal for bulk adding/removing items to/from a project
  *
  * Props:
  * - show: boolean - whether modal is visible
- * - onClose: function - callback when modal is closed
+ * - onClose OR onHide: function - callback when modal is closed
  * - onSave: function(selectedIds) - callback when OK is clicked with array of selected item IDs
  * - items: array - list of all items to display
- * - itemType: string - "alias" or "zone" for display purposes
- * - projectName: string - name of the active project
+ * - itemType: string - "alias", "zone", "switch", "fabric", "storage", "volume", "host", "port"
+ * - projectName: string - name of the active project (optional)
+ * - entityDisplayField: string - field name to display (optional, defaults to "name")
  */
-const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, projectName }) => {
+const BulkProjectMembershipModal = ({ show, onClose, onHide, onSave, items, itemType, projectName, entityDisplayField = "name" }) => {
     const [searchFilter, setSearchFilter] = useState('');
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [processing, setProcessing] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    // Support both onClose and onHide for compatibility
+    const handleModalClose = onHide || onClose;
 
     // Initialize selected IDs from items already in project
     useEffect(() => {
@@ -90,7 +94,7 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
         setProcessing(true);
         try {
             await onSave(Array.from(selectedIds));
-            onClose();
+            handleModalClose();
         } catch (error) {
             console.error('Error saving project membership:', error);
             alert(`Error: ${error.message}`);
@@ -103,13 +107,28 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
     const handleClose = () => {
         if (!processing) {
             setSearchFilter('');
-            onClose();
+            handleModalClose();
         }
     };
 
     if (!show) return null;
 
-    const itemTypePlural = itemType === 'alias' ? 'aliases' : 'zones';
+    // Pluralize entity types properly
+    const pluralizeType = (type) => {
+        const plurals = {
+            'alias': 'aliases',
+            'zone': 'zones',
+            'switch': 'switches',
+            'fabric': 'fabrics',
+            'storage': 'storage systems',
+            'volume': 'volumes',
+            'host': 'hosts',
+            'port': 'ports'
+        };
+        return plurals[type] || type + 's';
+    };
+
+    const itemTypePlural = pluralizeType(itemType);
     const selectedCount = selectedIds.size;
     const totalCount = items?.length || 0;
     const filteredCount = filteredItems.length;
@@ -155,11 +174,18 @@ const BulkProjectMembershipModal = ({ show, onClose, onSave, items, itemType, pr
                         flexDirection: 'column'
                     }}>
                         {/* Project info */}
-                        <div className="alert alert-info mb-3" style={{ fontSize: '14px' }}>
-                            <strong>Project:</strong> {projectName}
-                            <br />
-                            Check {itemTypePlural} to add them to the project. Uncheck to remove them.
-                        </div>
+                        {projectName && (
+                            <div className="alert alert-info mb-3" style={{ fontSize: '14px' }}>
+                                <strong>Project:</strong> {projectName}
+                                <br />
+                                Check {itemTypePlural} to add them to the project. Uncheck to remove them.
+                            </div>
+                        )}
+                        {!projectName && (
+                            <div className="alert alert-info mb-3" style={{ fontSize: '14px' }}>
+                                Check {itemTypePlural} to add them to the active project. Uncheck to remove them.
+                            </div>
+                        )}
 
                         {/* Search filter */}
                         <div className="mb-3">

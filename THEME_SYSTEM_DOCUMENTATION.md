@@ -1025,6 +1025,292 @@ Key elements:
 
 ---
 
+## Theme-Aware Alert Styling Pattern
+
+### The Problem
+
+Bootstrap Alert components (`Alert`, `.alert-info`, `.alert-warning`, `.alert-danger`, `.alert-success`) use hardcoded background colors that don't work well with custom themes. They create jarring color boxes that don't match your theme's aesthetic.
+
+**Symptoms:**
+- Bright blue/yellow/red boxes that stand out too much
+- Colors don't adjust with theme changes
+- Inconsistent styling across the application
+
+### The Solution: Custom Alert Classes
+
+Instead of using Bootstrap's `.alert-*` classes, create custom alert classes that use theme CSS variables with a **distinctive left border** pattern.
+
+**Pattern Template:**
+
+```css
+/* Your Page CSS File */
+
+.your-page-info-alert {
+    background-color: var(--secondary-bg) !important;
+    background-image: none !important;
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-border-default) !important;
+    border-left: 4px solid var(--color-accent-emphasis) !important;
+    color: var(--primary-text) !important;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+
+.your-page-info-alert strong {
+    color: var(--primary-text) !important;
+}
+
+.your-page-warning-alert {
+    background-color: var(--secondary-bg) !important;
+    background-image: none !important;
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-border-default) !important;
+    border-left: 4px solid var(--color-attention-emphasis) !important;
+    color: var(--primary-text) !important;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+
+.your-page-warning-alert strong {
+    color: var(--primary-text) !important;
+}
+
+.your-page-error-alert {
+    background-color: var(--secondary-bg) !important;
+    background-image: none !important;
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-danger-muted) !important;
+    border-left: 4px solid var(--color-danger-emphasis) !important;
+    color: var(--color-danger-fg) !important;
+    padding: 1rem 1.25rem;
+    padding-right: 3rem;  /* Space for close button if needed */
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.your-page-success-alert {
+    background-color: var(--secondary-bg) !important;
+    background-image: none !important;
+    background: var(--secondary-bg) !important;
+    border: 1px solid var(--color-success-muted) !important;
+    border-left: 4px solid var(--color-success-emphasis) !important;
+    color: var(--color-success-fg) !important;
+    padding: 1rem 1.25rem;
+    padding-right: 3rem;  /* Space for close button if needed */
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+/* Optional: Dismissible alert close button */
+.your-page-alert-close {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.your-page-alert-close:hover {
+    opacity: 1;
+}
+```
+
+### Alert Color Guide
+
+| Alert Type | Left Border Color | Text Color | Use Case |
+|-----------|------------------|------------|----------|
+| **Info** | `--color-accent-emphasis` (blue) | `--primary-text` | Informational messages |
+| **Warning** | `--color-attention-emphasis` (yellow/orange) | `--primary-text` | Warnings, important notices |
+| **Error** | `--color-danger-emphasis` (red) | `--color-danger-fg` | Errors, critical issues |
+| **Success** | `--color-success-emphasis` (green) | `--color-success-fg` | Success confirmations |
+
+### Key Design Elements
+
+1. **Subtle Background**: Uses `var(--secondary-bg)` for a gentle contrast
+2. **Thin Border**: `1px solid var(--color-border-default)` around entire box
+3. **Thick Left Border**: `4px solid` in accent color - the **signature** of the alert type
+4. **Theme-Aware Text**: Uses appropriate foreground colors that work in both themes
+5. **Consistent Padding**: `1rem 1.25rem` for comfortable spacing
+
+### Usage in JSX
+
+```jsx
+// Info Alert
+<div className="your-page-info-alert">
+    <strong>Note:</strong> This is an informational message
+</div>
+
+// Warning Alert
+<div className="your-page-warning-alert">
+    <strong>⚠️ Warning:</strong> This action cannot be undone
+</div>
+
+// Error Alert (dismissible)
+<div className="your-page-error-alert">
+    <button className="your-page-alert-close" onClick={() => setError(null)}>×</button>
+    Error: {errorMessage}
+</div>
+
+// Success Alert (dismissible)
+<div className="your-page-success-alert">
+    <button className="your-page-alert-close" onClick={() => setSuccess(null)}>×</button>
+    ✓ Operation completed successfully!
+</div>
+```
+
+### Example Implementations
+
+See these files for complete working examples:
+- `/frontend/src/styles/backup.css` - `.backup-scheduler-*-alert` classes
+- `/frontend/src/components/backup/BackupScheduler.jsx` - Usage in component
+- `/frontend/src/styles/project-summary.css` - `.project-summary-*-alert` classes
+
+### Why This Works
+
+1. **Theme Consistency**: All colors come from theme variables
+2. **Visual Hierarchy**: The 4px left border provides instant visual recognition
+3. **Subtle Design**: Doesn't overpower the page like Bootstrap's bright boxes
+4. **Dark Theme Friendly**: Works perfectly in both light and dark themes
+5. **Accessible**: Maintains good contrast ratios while looking polished
+
+### Alert Styling Checklist
+
+When adding alerts to a page:
+- [ ] Create custom alert classes with your page prefix (e.g., `.my-page-info-alert`)
+- [ ] Use `var(--secondary-bg)` for background
+- [ ] Use `1px solid var(--color-border-default)` for main border
+- [ ] Use `4px solid var(--color-*-emphasis)` for left border (matching severity)
+- [ ] Use appropriate text color (`--primary-text` or `--color-*-fg`)
+- [ ] Add triple background override (`background-color`, `background-image`, `background`)
+- [ ] Add `!important` to all overrides
+- [ ] Test in both light and dark themes
+
+---
+
+## ⛔ NO EMOJIS POLICY
+
+### The Rule
+
+**NEVER use emojis in this project.** Always use SVG icons instead.
+
+### Why No Emojis?
+
+1. **Inconsistent Rendering**: Emojis render differently across operating systems, browsers, and devices
+   - Windows, macOS, Linux, iOS, and Android all have different emoji designs
+   - Creates visual inconsistency and unprofessional appearance
+2. **Size & Alignment Issues**: Emojis don't scale well or align properly with text
+3. **Limited Control**: Can't change colors, size, or styling to match theme
+4. **Accessibility**: Screen readers handle SVG icons better than emojis
+5. **Theme Compatibility**: SVG icons use `currentColor` and adapt to light/dark themes
+
+### Use SVG Icons Instead
+
+**Pattern Template:**
+
+```jsx
+// ❌ WRONG - Using emoji
+const getIcon = (type) => {
+    switch (type) {
+        case 'create': return '🆕';
+        case 'edit': return '✏️';
+        case 'delete': return '🗑️';
+    }
+};
+
+// ✅ CORRECT - Using SVG icons
+const getIcon = (type) => {
+    switch (type) {
+        case 'create':
+            return (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="16"/>
+                    <line x1="8" y1="12" x2="16" y2="12"/>
+                </svg>
+            );
+        case 'edit':
+            return (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+            );
+        case 'delete':
+            return (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+            );
+    }
+};
+```
+
+### SVG Icon Best Practices
+
+1. **Use `stroke="currentColor"`**: Icons inherit text color and adapt to themes
+2. **Consistent sizing**: Use 16px, 18px, or 20px for inline icons, 24px for larger
+3. **Set viewBox**: Always use `viewBox="0 0 24 24"` for consistency
+4. **Round line caps**: Use `strokeLinecap="round"` and `strokeLinejoin="round"` for smooth appearance
+5. **Appropriate stroke width**: Use `strokeWidth="2"` for most icons, `strokeWidth="2.5"` for emphasis
+
+### Common Icon Types
+
+| Purpose | Icon Type | Example |
+|---------|-----------|---------|
+| Create/Add | Circle with plus | See `getActionIcon` in ProjectSummary.jsx |
+| Edit/Modify | Pen/pencil | See `getActionIcon` in ProjectSummary.jsx |
+| Delete/Remove | Trash can | See `getActionIcon` in ProjectSummary.jsx |
+| Info | Circle with 'i' | Used in modals and alerts |
+| Warning | Triangle with '!' | Used in warning cards |
+| Success | Circle with checkmark | Used in success messages |
+| Error | Circle with 'x' | Used in error messages |
+| Document | Paper sheet | See reference action icon |
+
+### Example Implementation
+
+See `/frontend/src/pages/ProjectSummary.jsx` - `getActionIcon()` function for a complete working example of replacing emojis with SVG icons.
+
+### Styling SVG Icons
+
+```css
+/* Container for icon */
+.action-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Icon inherits color from parent */
+.action-icon svg {
+    color: inherit;
+}
+```
+
+### Icon Resources
+
+Common SVG icon libraries compatible with this pattern:
+- **Feather Icons**: Simple, clean line icons (recommended)
+- **Heroicons**: Designed by Tailwind team
+- **Lucide**: Fork of Feather with more icons
+
+**Note**: Copy the SVG code directly into JSX - don't use icon libraries that add dependencies.
+
+---
+
 ## Troubleshooting
 
 ### Issue: Component Not Changing with Theme

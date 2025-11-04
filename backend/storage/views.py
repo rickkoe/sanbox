@@ -11,9 +11,10 @@ from .models import Storage, Volume, Host, HostWwpn, Port
 from .serializers import StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer, StorageFieldPreferenceSerializer
 import logging
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from urllib.parse import urlencode
 from core.dashboard_views import clear_dashboard_cache_for_customer
+from core.models import Project, ProjectStorage, ProjectVolume, ProjectHost, ProjectPort
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,10 @@ def storage_list(request):
                 page_size = 100
 
             # Build queryset with optimizations
-            storages = Storage.objects.select_related('customer').all()
+            storages = Storage.objects.select_related('customer').prefetch_related(
+                Prefetch('project_memberships',
+                         queryset=ProjectStorage.objects.select_related('project'))
+            ).all()
 
             # Filter by user's customer access
             # Skip filtering if user is not authenticated (for development)
@@ -96,29 +100,35 @@ def storage_list(request):
             
             # Get total count before pagination
             total_count = storages.count()
-            
+
+            # Get active project ID from query params (for bulk modal)
+            project_id = request.GET.get('project_id')
+            context = {}
+            if project_id:
+                context['active_project_id'] = int(project_id)
+
             # Handle "All" page size
             if page_size is None:
                 # Return all results without pagination
-                serializer = StorageSerializer(storages, many=True)
+                serializer = StorageSerializer(storages, many=True, context=context)
                 return JsonResponse({
                     'count': total_count,
                     'next': None,
                     'previous': None,
                     'results': serializer.data
                 })
-            
+
             # Create paginator
             paginator = Paginator(storages, page_size)
-            
+
             # Get the requested page
             try:
                 page_obj = paginator.get_page(page_number)
             except:
                 page_obj = paginator.get_page(1)
-            
+
             # Serialize the page data
-            serializer = StorageSerializer(page_obj.object_list, many=True)
+            serializer = StorageSerializer(page_obj.object_list, many=True, context=context)
             
             # Build next/previous URLs
             base_url = request.build_absolute_uri(request.path)
@@ -632,7 +642,10 @@ def volume_list(request):
         ordering = request.GET.get('ordering', 'name')
 
         # Base queryset with optimizations
-        volumes = Volume.objects.select_related('storage').all()
+        volumes = Volume.objects.select_related('storage').prefetch_related(
+            Prefetch('project_memberships',
+                     queryset=ProjectVolume.objects.select_related('project'))
+        ).all()
 
         # Filter by user's customer access
         if user and user.is_authenticated:
@@ -699,10 +712,16 @@ def volume_list(request):
         # Apply pagination
         paginator = Paginator(volumes, page_size)
         page_obj = paginator.get_page(page)
-        
-        # Serialize paginated results
-        serializer = VolumeSerializer(page_obj, many=True)
-        
+
+        # Get active project ID from query params (for bulk modal)
+        project_id = request.GET.get('project_id')
+
+        # Serialize paginated results with context
+        context = {}
+        if project_id:
+            context['active_project_id'] = int(project_id)
+        serializer = VolumeSerializer(page_obj, many=True, context=context)
+
         # Return paginated response with metadata
         return JsonResponse({
             'results': serializer.data,
@@ -743,7 +762,10 @@ def _handle_host_list_get(request, user):
         ordering = request.GET.get('ordering', 'name')
 
         # Base queryset with optimizations
-        hosts = Host.objects.select_related('storage', 'storage__customer').all()
+        hosts = Host.objects.select_related('storage', 'storage__customer').prefetch_related(
+            Prefetch('project_memberships',
+                     queryset=ProjectHost.objects.select_related('project'))
+        ).all()
 
         # Filter by user's customer access
         if user and user.is_authenticated:
@@ -802,8 +824,14 @@ def _handle_host_list_get(request, user):
         paginator = Paginator(hosts, page_size)
         page_obj = paginator.get_page(page)
 
-        # Serialize paginated results
-        serializer = HostSerializer(page_obj, many=True)
+        # Get active project ID from query params (for bulk modal)
+        project_id = request.GET.get('project_id')
+
+        # Serialize paginated results with context
+        context = {}
+        if project_id:
+            context['active_project_id'] = int(project_id)
+        serializer = HostSerializer(page_obj, many=True, context=context)
 
         # Return paginated response with metadata
         return JsonResponse({
@@ -1200,7 +1228,10 @@ def port_list(request):
                 page_size = 100
 
             # Build queryset with optimizations
-            ports = Port.objects.select_related('storage', 'fabric', 'alias', 'project').all()
+            ports = Port.objects.select_related('storage', 'fabric', 'alias', 'project').prefetch_related(
+                Prefetch('project_memberships',
+                         queryset=ProjectPort.objects.select_related('project'))
+            ).all()
 
             # Filter by user's project access
             if user and user.is_authenticated:
@@ -1250,9 +1281,15 @@ def port_list(request):
             # Get total count before pagination
             total_count = ports.count()
 
+            # Get active project ID from query params (for bulk modal)
+            project_id = request.GET.get('project_id')
+            context = {}
+            if project_id:
+                context['active_project_id'] = int(project_id)
+
             # Handle "All" page size
             if page_size is None:
-                serializer = PortSerializer(ports, many=True)
+                serializer = PortSerializer(ports, many=True, context=context)
                 return JsonResponse({
                     'count': total_count,
                     'next': None,
@@ -1270,7 +1307,7 @@ def port_list(request):
                 page_obj = paginator.get_page(1)
 
             # Serialize the page data
-            serializer = PortSerializer(page_obj.object_list, many=True)
+            serializer = PortSerializer(page_obj.object_list, many=True, context=context)
 
             # Build next/previous URLs
             base_url = request.build_absolute_uri(request.path)
@@ -1441,3 +1478,393 @@ def port_detail(request, pk):
         except Exception as e:
             logger.exception("Error deleting port")
             return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def storage_project_view(request, project_id):
+    """
+    Get storage systems in project with field_overrides applied (merged view).
+    Returns only storage systems in the project with overrides merged into base data.
+    Adds 'modified_fields' array to track which fields have overrides.
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get customer for the project
+    customer = project.customers.first()
+    customer_id = customer.id if customer else None
+
+    # Get all ProjectStorage entries for this project
+    project_storages = ProjectStorage.objects.filter(
+        project=project
+    ).select_related(
+        'storage',
+        'storage__customer'
+    ).prefetch_related(
+        Prefetch('storage__project_memberships',
+                 queryset=ProjectStorage.objects.select_related('project'))
+    )
+
+    # ===== PAGINATION =====
+    page = int(request.GET.get('page', 1))
+    page_size_param = request.GET.get('page_size', 50)
+
+    # Handle "All" as a special case
+    if page_size_param == 'All':
+        page_size = None
+        page_obj = None
+        paginator = None
+        total_count = project_storages.count()
+        project_storages_page = project_storages
+    else:
+        page_size = int(page_size_param)
+        paginator = Paginator(project_storages, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            project_storages_page = page_obj.object_list
+        except:
+            project_storages_page = []
+
+    merged_data = []
+
+    for ps in project_storages_page:
+        # Serialize base storage
+        base_data = StorageSerializer(ps.storage).data
+
+        # Track which fields have overrides
+        modified_fields = []
+
+        # Apply field_overrides if they exist
+        if ps.field_overrides:
+            for field_name, override_value in ps.field_overrides.items():
+                if field_name in base_data:
+                    if base_data[field_name] != override_value:
+                        base_data[field_name] = override_value
+                        modified_fields.append(field_name)
+                else:
+                    base_data[field_name] = override_value
+                    modified_fields.append(field_name)
+
+        # Add metadata
+        base_data['modified_fields'] = modified_fields
+        base_data['project_action'] = ps.action
+        base_data['in_active_project'] = True
+
+        merged_data.append(base_data)
+
+    # Return response with pagination metadata
+    response_data = {
+        'results': merged_data,
+        'count': total_count,
+    }
+
+    if paginator and page_obj:
+        response_data.update({
+            'next': page_obj.has_next(),
+            'previous': page_obj.has_previous(),
+            'page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    return JsonResponse(response_data, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def volume_project_view(request, project_id):
+    """
+    Get volumes in project with field_overrides applied (merged view).
+    Returns only volumes in the project with overrides merged into base data.
+    Adds 'modified_fields' array to track which fields have overrides.
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get customer for the project
+    customer = project.customers.first()
+    customer_id = customer.id if customer else None
+
+    # Get all ProjectVolume entries for this project
+    project_volumes = ProjectVolume.objects.filter(
+        project=project
+    ).select_related(
+        'volume',
+        'volume__storage',
+        'volume__storage__customer'
+    ).prefetch_related(
+        Prefetch('volume__project_memberships',
+                 queryset=ProjectVolume.objects.select_related('project'))
+    )
+
+    # ===== PAGINATION =====
+    page = int(request.GET.get('page', 1))
+    page_size_param = request.GET.get('page_size', 50)
+
+    # Handle "All" as a special case
+    if page_size_param == 'All':
+        page_size = None
+        page_obj = None
+        paginator = None
+        total_count = project_volumes.count()
+        project_volumes_page = project_volumes
+    else:
+        page_size = int(page_size_param)
+        paginator = Paginator(project_volumes, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            project_volumes_page = page_obj.object_list
+        except:
+            project_volumes_page = []
+
+    merged_data = []
+
+    for pv in project_volumes_page:
+        # Serialize base volume
+        base_data = VolumeSerializer(pv.volume).data
+
+        # Track which fields have overrides
+        modified_fields = []
+
+        # Apply field_overrides if they exist
+        if pv.field_overrides:
+            for field_name, override_value in pv.field_overrides.items():
+                if field_name in base_data:
+                    if base_data[field_name] != override_value:
+                        base_data[field_name] = override_value
+                        modified_fields.append(field_name)
+                else:
+                    base_data[field_name] = override_value
+                    modified_fields.append(field_name)
+
+        # Add metadata
+        base_data['modified_fields'] = modified_fields
+        base_data['project_action'] = pv.action
+        base_data['in_active_project'] = True
+
+        merged_data.append(base_data)
+
+    # Return response with pagination metadata
+    response_data = {
+        'results': merged_data,
+        'count': total_count,
+    }
+
+    if paginator and page_obj:
+        response_data.update({
+            'next': page_obj.has_next(),
+            'previous': page_obj.has_previous(),
+            'page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    return JsonResponse(response_data, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def host_project_view(request, project_id):
+    """
+    Get hosts in project with field_overrides applied (merged view).
+    Returns only hosts in the project with overrides merged into base data.
+    Adds 'modified_fields' array to track which fields have overrides.
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get customer for the project
+    customer = project.customers.first()
+    customer_id = customer.id if customer else None
+
+    # Get all ProjectHost entries for this project
+    project_hosts = ProjectHost.objects.filter(
+        project=project
+    ).select_related(
+        'host',
+        'host__storage',
+        'host__storage__customer'
+    ).prefetch_related(
+        'host__host_wwpns',
+        Prefetch('host__project_memberships',
+                 queryset=ProjectHost.objects.select_related('project'))
+    )
+
+    # ===== PAGINATION =====
+    page = int(request.GET.get('page', 1))
+    page_size_param = request.GET.get('page_size', 50)
+
+    # Handle "All" as a special case
+    if page_size_param == 'All':
+        page_size = None
+        page_obj = None
+        paginator = None
+        total_count = project_hosts.count()
+        project_hosts_page = project_hosts
+    else:
+        page_size = int(page_size_param)
+        paginator = Paginator(project_hosts, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            project_hosts_page = page_obj.object_list
+        except:
+            project_hosts_page = []
+
+    merged_data = []
+
+    for ph in project_hosts_page:
+        # Serialize base host
+        base_data = HostSerializer(ph.host).data
+
+        # Track which fields have overrides
+        modified_fields = []
+
+        # Apply field_overrides if they exist
+        if ph.field_overrides:
+            for field_name, override_value in ph.field_overrides.items():
+                if field_name in base_data:
+                    if base_data[field_name] != override_value:
+                        base_data[field_name] = override_value
+                        modified_fields.append(field_name)
+                else:
+                    base_data[field_name] = override_value
+                    modified_fields.append(field_name)
+
+        # Add metadata
+        base_data['modified_fields'] = modified_fields
+        base_data['project_action'] = ph.action
+        base_data['in_active_project'] = True
+
+        merged_data.append(base_data)
+
+    # Return response with pagination metadata
+    response_data = {
+        'results': merged_data,
+        'count': total_count,
+    }
+
+    if paginator and page_obj:
+        response_data.update({
+            'next': page_obj.has_next(),
+            'previous': page_obj.has_previous(),
+            'page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    return JsonResponse(response_data, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def port_project_view(request, project_id):
+    """
+    Get ports in project with field_overrides applied (merged view).
+    Returns only ports in the project with overrides merged into base data.
+    Adds 'modified_fields' array to track which fields have overrides.
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    # Get customer for the project
+    customer = project.customers.first()
+    customer_id = customer.id if customer else None
+
+    # Get all ProjectPort entries for this project
+    project_ports = ProjectPort.objects.filter(
+        project=project
+    ).select_related(
+        'port',
+        'port__storage',
+        'port__fabric',
+        'port__alias',
+        'port__project'
+    ).prefetch_related(
+        Prefetch('port__project_memberships',
+                 queryset=ProjectPort.objects.select_related('project'))
+    )
+
+    # ===== PAGINATION =====
+    page = int(request.GET.get('page', 1))
+    page_size_param = request.GET.get('page_size', 50)
+
+    # Handle "All" as a special case
+    if page_size_param == 'All':
+        page_size = None
+        page_obj = None
+        paginator = None
+        total_count = project_ports.count()
+        project_ports_page = project_ports
+    else:
+        page_size = int(page_size_param)
+        paginator = Paginator(project_ports, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            project_ports_page = page_obj.object_list
+        except:
+            project_ports_page = []
+
+    merged_data = []
+
+    for pp in project_ports_page:
+        # Serialize base port
+        base_data = PortSerializer(pp.port).data
+
+        # Track which fields have overrides
+        modified_fields = []
+
+        # Apply field_overrides if they exist
+        if pp.field_overrides:
+            for field_name, override_value in pp.field_overrides.items():
+                if field_name in base_data:
+                    if base_data[field_name] != override_value:
+                        base_data[field_name] = override_value
+                        modified_fields.append(field_name)
+                else:
+                    base_data[field_name] = override_value
+                    modified_fields.append(field_name)
+
+        # Add metadata
+        base_data['modified_fields'] = modified_fields
+        base_data['project_action'] = pp.action
+        base_data['in_active_project'] = True
+
+        merged_data.append(base_data)
+
+    # Return response with pagination metadata
+    response_data = {
+        'results': merged_data,
+        'count': total_count,
+    }
+
+    if paginator and page_obj:
+        response_data.update({
+            'next': page_obj.has_next(),
+            'previous': page_obj.has_previous(),
+            'page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
+
+    return JsonResponse(response_data, safe=False)

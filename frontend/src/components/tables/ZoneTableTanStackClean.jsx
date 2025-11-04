@@ -298,18 +298,11 @@ const ZoneTableTanStackClean = () => {
             { data: "name", title: "Name", required: true },
             { data: "fabric", title: "Fabric", type: "dropdown", required: true },
             { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
-            { data: "project_actions", title: "Active Project", type: "custom", readOnly: true, defaultVisible: true },
-            { data: "project_status", title: "Status", type: "custom", readOnly: true, width: 120, defaultVisible: true },
             { data: "zone_type", title: "Zone Type", type: "dropdown" }
         ];
 
-        // Filter out Active Project and Status columns when no project is selected
-        if (!activeProjectId) {
-            return allColumns.filter(col => col.data !== 'project_actions' && col.data !== 'project_status');
-        }
-
         return allColumns;
-    }, [activeProjectId]);
+    }, []);
 
     // Trailing columns (appear after member columns)
     const trailingColumns = [
@@ -703,142 +696,6 @@ const ZoneTableTanStackClean = () => {
                 return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
             } catch (error) {
                 console.error('Error rendering project_memberships:', error, value);
-                return '';
-            }
-        };
-
-        // Add renderer for project_actions column (HTML with styled dropdown)
-        renderers['project_actions'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
-            try {
-                const zoneId = rowData.id;
-                const zoneName = rowData.name;
-                const inActiveProject = rowData.in_active_project;
-                const createdByProject = rowData.created_by_project;
-
-                // If in active project
-                if (inActiveProject) {
-                    // If created by this project, show badge only (can't remove)
-                    if (createdByProject === activeProjectId) {
-                        return `<span style="
-                            padding: 4px 8px;
-                            background-color: var(--color-success-subtle);
-                            color: var(--color-success-fg);
-                            border-radius: 4px;
-                            font-size: 12px;
-                            font-weight: 500;
-                        " title="This zone was created by this project" onmousedown="event.stopPropagation()">✓ Created Here</span>`;
-                    }
-                    // Otherwise show remove button
-                    return `<button
-                        onclick="window.zoneTableHandleRemove('${zoneId}', '${zoneName}')"
-                        onmousedown="event.stopPropagation()"
-                        style="
-                            padding: 4px 12px;
-                            border: 1px solid var(--color-danger-emphasis);
-                            border-radius: 6px;
-                            cursor: pointer;
-                            background-color: transparent;
-                            color: var(--color-danger-fg);
-                            font-size: 13px;
-                            font-weight: 500;
-                        "
-                        title="Remove from project">× Remove</button>`;
-                }
-
-                // Not in active project - show styled dropdown button
-                return `<div class="dropdown" style="position: relative;" onmousedown="event.stopPropagation()">
-                    <button
-                        class="zone-add-dropdown-btn"
-                        onclick="window.zoneTableToggleAddMenu(event, '${zoneId}', '${zoneName}')"
-                        onmousedown="event.stopPropagation()"
-                        style="
-                            padding: 6px 10px;
-                            border: none;
-                            cursor: pointer;
-                            background-color: transparent;
-                            color: var(--color-accent-fg);
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            font-size: 13px;
-                            font-weight: 500;
-                            width: 100%;
-                        "
-                        title="Add to project">
-                        <span>+ Add</span>
-                        <span style="color: var(--muted-text); margin-left: 8px;">▽</span>
-                    </button>
-                </div>`;
-            } catch (error) {
-                console.error('Error rendering project_actions:', error);
-                return '';
-            }
-        };
-
-        // Add renderer for project_status column (action badge)
-        renderers['project_status'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
-            try {
-                // Get action from project_memberships for active project
-                const projectMemberships = rowData.project_memberships;
-                if (!projectMemberships || !Array.isArray(projectMemberships) || projectMemberships.length === 0) {
-                    return '';
-                }
-
-                // Find membership for active project
-                const activeMembership = projectMemberships.find(pm => pm.project_id === activeProjectId);
-                if (!activeMembership) {
-                    return '';
-                }
-
-                const action = activeMembership.action;
-                let badgeText, bgColor, textColor, borderColor, emoji;
-
-                switch (action) {
-                    case 'create':
-                        emoji = '🆕';
-                        badgeText = 'New';
-                        bgColor = 'var(--color-success-subtle)';
-                        textColor = 'var(--color-success-fg)';
-                        borderColor = 'var(--color-success-muted)';
-                        break;
-                    case 'modify':
-                        emoji = '✏️';
-                        badgeText = 'Modified';
-                        bgColor = 'var(--color-accent-subtle)';
-                        textColor = 'var(--color-accent-fg)';
-                        borderColor = 'var(--color-accent-muted)';
-                        break;
-                    case 'delete':
-                        emoji = '🗑️';
-                        badgeText = 'Delete';
-                        bgColor = 'var(--color-danger-subtle)';
-                        textColor = 'var(--color-danger-fg)';
-                        borderColor = 'var(--color-danger-muted)';
-                        break;
-                    case 'reference':
-                        emoji = '📄';
-                        badgeText = 'Reference';
-                        bgColor = 'var(--badge-bg)';
-                        textColor = 'var(--badge-text)';
-                        borderColor = 'var(--badge-border)';
-                        break;
-                    default:
-                        return '';
-                }
-
-                return `<span style="
-                    display: inline-block;
-                    padding: 4px var(--space-2);
-                    background: ${bgColor};
-                    color: ${textColor};
-                    border: 1px solid ${borderColor};
-                    border-radius: var(--radius-md);
-                    font-size: var(--font-size-xs);
-                    font-weight: 600;
-                    line-height: 1;
-                " onmousedown="event.stopPropagation()">${emoji} ${badgeText}</span>`;
-            } catch (error) {
-                console.error('Error rendering project_status:', error, rowData);
                 return '';
             }
         };
