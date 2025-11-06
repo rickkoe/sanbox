@@ -65,6 +65,245 @@ def project_add_alias(request, project_id):
 
 
 @csrf_exempt
+@require_http_methods(["POST"])
+def mark_alias_deletion(request, project_id):
+    """Mark an alias for deletion by updating the junction table action field"""
+    try:
+        data = json.loads(request.body)
+        alias_id = data.get('alias_id')
+        action = data.get('action', 'delete')
+
+        if not alias_id:
+            return JsonResponse({"error": "alias_id is required"}, status=400)
+
+        # Update the action field in the junction table
+        updated_count = ProjectAlias.objects.filter(
+            project_id=project_id,
+            alias_id=alias_id
+        ).update(action=action)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Alias marked for {action}",
+                "alias_id": alias_id,
+                "action": action
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Alias not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def mark_zone_deletion(request, project_id):
+    """Mark a zone for deletion by updating the junction table action field"""
+    try:
+        data = json.loads(request.body)
+        zone_id = data.get('zone_id')
+        action = data.get('action', 'delete')
+
+        if not zone_id:
+            return JsonResponse({"error": "zone_id is required"}, status=400)
+
+        updated_count = ProjectZone.objects.filter(
+            project_id=project_id,
+            zone_id=zone_id
+        ).update(action=action)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Zone marked for {action}",
+                "zone_id": zone_id,
+                "action": action
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Zone not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def mark_fabric_deletion(request, project_id):
+    """Mark a fabric for deletion by updating the junction table action field"""
+    try:
+        data = json.loads(request.body)
+        fabric_id = data.get('fabric_id')
+        action = data.get('action', 'delete')
+
+        if not fabric_id:
+            return JsonResponse({"error": "fabric_id is required"}, status=400)
+
+        updated_count = ProjectFabric.objects.filter(
+            project_id=project_id,
+            fabric_id=fabric_id
+        ).update(action=action)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Fabric marked for {action}",
+                "fabric_id": fabric_id,
+                "action": action
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Fabric not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def mark_storage_deletion(request, project_id):
+    """Mark a storage system for deletion by updating the junction table action field"""
+    try:
+        data = json.loads(request.body)
+        storage_id = data.get('storage_id')
+        action = data.get('action', 'delete')
+
+        if not storage_id:
+            return JsonResponse({"error": "storage_id is required"}, status=400)
+
+        updated_count = ProjectStorage.objects.filter(
+            project_id=project_id,
+            storage_id=storage_id
+        ).update(action=action)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Storage system marked for {action}",
+                "storage_id": storage_id,
+                "action": action
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Storage system not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def mark_volume_deletion(request, project_id):
+    """Mark a volume for deletion by updating the junction table action field"""
+    try:
+        data = json.loads(request.body)
+        volume_id = data.get('volume_id')
+        action = data.get('action', 'delete')
+
+        if not volume_id:
+            return JsonResponse({"error": "volume_id is required"}, status=400)
+
+        updated_count = ProjectVolume.objects.filter(
+            project_id=project_id,
+            volume_id=volume_id
+        ).update(action=action)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Volume marked for {action}",
+                "volume_id": volume_id,
+                "action": action
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Volume not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def mark_host_deletion(request, project_id):
+    """Mark a host for deletion by updating the junction table action field"""
+    try:
+        data = json.loads(request.body)
+        host_id = data.get('host_id')
+        action = data.get('action', 'delete')
+
+        if not host_id:
+            return JsonResponse({"error": "host_id is required"}, status=400)
+
+        updated_count = ProjectHost.objects.filter(
+            project_id=project_id,
+            host_id=host_id
+        ).update(action=action)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Host marked for {action}",
+                "host_id": host_id,
+                "action": action
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Host not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def mark_port_deletion(request, project_id):
+    """Mark a port for deletion by updating the junction table action field"""
+    try:
+        data = json.loads(request.body)
+        port_id = data.get('port_id')
+        action = data.get('action', 'delete')
+
+        if not port_id:
+            return JsonResponse({"error": "port_id is required"}, status=400)
+
+        updated_count = ProjectPort.objects.filter(
+            project_id=project_id,
+            port_id=port_id
+        ).update(action=action)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Port marked for {action}",
+                "port_id": port_id,
+                "action": action
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Port not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
 @require_http_methods(["DELETE"])
 def project_remove_alias(request, project_id, alias_id):
     """Remove an alias from a project"""

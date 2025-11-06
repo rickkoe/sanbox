@@ -7,6 +7,7 @@ import { useTheme } from '../../../../context/ThemeContext';
  * - Total rows count
  * - Current page / total pages (for paginated data)
  * - Selected cells count
+ * - Checkbox selected rows count (via _selected column)
  * - Filter status indicator
  * - Unsaved changes indicator
  */
@@ -17,6 +18,7 @@ const StatsContainer = ({
   pageSize = 25,
   displayedRows = 0,
   selectedCellsCount = 0,
+  checkboxSelectedCount = 0,
   hasActiveFilters = false,
   hasUnsavedChanges = false,
   globalFilter = '',
@@ -77,7 +79,35 @@ const StatsContainer = ({
         </>
       )}
 
-      {/* Selected Rows */}
+      {/* Checkbox Selected Rows (via _selected column) */}
+      {checkboxSelectedCount > 0 && (
+        <>
+          <div style={{
+            width: '1px',
+            height: '16px',
+            backgroundColor: 'var(--table-border)'
+          }}></div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--link-text)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 11 12 14 22 4"></polyline>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+            <span style={{ color: 'var(--muted-text)' }}>Selected:</span>
+            <span style={{
+              color: 'var(--link-text)',
+              fontWeight: '600'
+            }}>
+              {checkboxSelectedCount.toLocaleString()}
+            </span>
+          </div>
+        </>
+      )}
+
+      {/* Selected Cells (for cell selection) */}
       {selectedCellsCount > 0 && (
         <>
           <div style={{
@@ -90,7 +120,7 @@ const StatsContainer = ({
             alignItems: 'center',
             gap: '4px'
           }}>
-            <span style={{ color: 'var(--muted-text)' }}>Selected:</span>
+            <span style={{ color: 'var(--muted-text)' }}>Cells:</span>
             <span style={{
               color: 'var(--link-text)',
               fontWeight: '600'

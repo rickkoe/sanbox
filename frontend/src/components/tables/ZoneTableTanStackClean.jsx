@@ -32,6 +32,10 @@ const ZoneTableTanStackClean = () => {
     const memberColumnCountsRef = useRef(memberColumnCounts); // Store current counts for stable access
     const [showBulkModal, setShowBulkModal] = useState(false); // Bulk add/remove modal
     const [allCustomerZones, setAllCustomerZones] = useState([]); // All customer zones for bulk modal
+    const [selectedRows, setSelectedRows] = useState(new Set()); // Selected row IDs for bulk actions
+    const [showActionsDropdown, setShowActionsDropdown] = useState(false); // Actions dropdown state
+    const [showSelectAllBanner, setShowSelectAllBanner] = useState(false); // Show banner to select all pages
+    const [totalRowCount, setTotalRowCount] = useState(0); // Total rows in table
 
     // Project filter state (default: 'all' shows all customer zones)
     const [projectFilter, setProjectFilter] = useState(
@@ -46,17 +50,50 @@ const ZoneTableTanStackClean = () => {
     // Ref to access table methods
     const tableRef = useRef(null);
 
+    // Ref to track selected rows for preprocessData
+    const selectedRowsRef = useRef(new Set());
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        selectedRowsRef.current = selectedRows;
+    }, [selectedRows]);
+
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
 
     // Auto-switch to Customer View when no project is selected
     useEffect(() => {
         if (!activeProjectId && projectFilter === 'current') {
-            console.log('No active project - switching to Customer View');
             setProjectFilter('all');
             localStorage.setItem('zoneTableProjectFilter', 'all');
         }
     }, [activeProjectId, projectFilter]);
+
+    // API endpoints - Use different endpoint based on filter mode
+    const API_ENDPOINTS = useMemo(() => {
+        const baseUrl = `${API_URL}/api/san`;
+
+        // Use different endpoint based on filter mode and project availability
+        let zonesUrl;
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project View: Use merged data endpoint (only project entities with overrides applied)
+            zonesUrl = `${baseUrl}/zones/project/${activeProjectId}/view/`;
+        } else if (activeProjectId) {
+            // Customer View with project: Use regular endpoint
+            zonesUrl = `${baseUrl}/zones/project/${activeProjectId}/?project_filter=${projectFilter}`;
+        } else {
+            // Customer View without project: Use customer-level endpoint
+            zonesUrl = `${baseUrl}/zones/?customer_id=${activeCustomerId}`;
+        }
+
+        return {
+            zones: zonesUrl,
+            fabrics: `${baseUrl}/fabrics/`,
+            aliases: `${baseUrl}/aliases/project/`,
+            zoneSave: `${baseUrl}/zones/save/`,
+            zoneDelete: `${baseUrl}/zones/delete/`
+        };
+    }, [API_URL, projectFilter, activeProjectId, activeCustomerId]);
 
     // Handle filter toggle change
     const handleFilterChange = useCallback((newFilter) => {
@@ -67,6 +104,93 @@ const ZoneTableTanStackClean = () => {
             tableRef.current.reloadData();
         }
     }, []);
+
+    // Handler to select all rows across all pages
+    const handleSelectAllPages = useCallback(async () => {
+        try {
+            // Build URL to fetch all rows (add page_size parameter)
+            const fetchAllUrl = API_ENDPOINTS.zones.includes('?')
+                ? `${API_ENDPOINTS.zones}&page_size=10000`
+                : `${API_ENDPOINTS.zones}?page_size=10000`;
+
+            const response = await api.get(fetchAllUrl);
+            const allData = response.data.results || response.data;
+
+            // Get all IDs
+            const allIds = allData.map(row => row.id).filter(id => id);
+
+            // Update table data to set _selected = true for all rows on current page
+            const currentData = tableRef.current?.getTableData();
+            if (currentData) {
+                const updatedData = currentData.map(row => ({
+                    ...row,
+                    _selected: true // Select all rows on current page
+                }));
+                tableRef.current?.updateTableDataSilently(updatedData);
+            }
+
+            // Update selectedRows state with ALL IDs from all pages
+            setSelectedRows(new Set(allIds));
+
+            // Hide the banner
+            setShowSelectAllBanner(false);
+        } catch (error) {
+            console.error('Error selecting all pages:', error);
+            alert('Failed to select all rows. Please try again.');
+        }
+    }, [API_ENDPOINTS.zones]);
+
+    // Handler to clear all selections
+    const handleClearSelection = useCallback(() => {
+        // Update table data to set _selected = false for all rows
+        const currentData = tableRef.current?.getTableData();
+        if (currentData) {
+            const clearedData = currentData.map(row => ({
+                ...row,
+                _selected: false
+            }));
+            tableRef.current?.updateTableDataSilently(clearedData);
+        }
+
+        setSelectedRows(new Set());
+        setShowSelectAllBanner(false);
+    }, []);
+
+    // Handler for marking selected rows for deletion
+    const handleMarkForDeletion = useCallback(async () => {
+        if (selectedRows.size === 0) {
+            alert('Please select at least one item to mark for deletion.');
+            return;
+        }
+
+        try {
+            const selectedIds = Array.from(selectedRows);
+            console.log('Marking zones for deletion:', selectedIds);
+
+            // Call API to update junction table action to 'delete'
+            const promises = selectedIds.map(zoneId =>
+                api.post(`${API_URL}/api/core/projects/${activeProjectId}/mark-zone-deletion/`, {
+                    zone_id: zoneId,
+                    action: 'delete'
+                })
+            );
+
+            await Promise.all(promises);
+
+            // Clear selection
+            handleClearSelection();
+
+            // Reload table to show updated data
+            if (tableRef.current?.reloadData) {
+                tableRef.current.reloadData();
+            }
+
+            alert(`Successfully marked ${selectedIds.length} item(s) for deletion.`);
+        } catch (error) {
+            console.error('Error marking items for deletion:', error);
+            alert('Failed to mark items for deletion. Please try again.');
+        }
+    }, [selectedRows, activeProjectId, API_URL, handleClearSelection]);
 
     // Functions to add new member columns - no dependencies to avoid recreation issues
     const addTargetColumn = useCallback(() => {
@@ -264,45 +388,35 @@ const ZoneTableTanStackClean = () => {
     const isAdmin = userRole === 'admin';
 
     const canModifyProject = !isViewer && (isProjectOwner || isAdmin);
-    const isReadOnly = !canModifyProject;
-
-    // API endpoints - Use different endpoint based on filter mode
-    const API_ENDPOINTS = useMemo(() => {
-        const baseUrl = `${API_URL}/api/san`;
-
-        // Use different endpoint based on filter mode and project availability
-        let zonesUrl;
-        if (projectFilter === 'current' && activeProjectId) {
-            // Project View: Use merged data endpoint (only project entities with overrides applied)
-            zonesUrl = `${baseUrl}/zones/project/${activeProjectId}/view/`;
-        } else if (activeProjectId) {
-            // Customer View with project: Use regular endpoint
-            zonesUrl = `${baseUrl}/zones/project/${activeProjectId}/?project_filter=${projectFilter}`;
-        } else {
-            // Customer View without project: Use customer-level endpoint
-            zonesUrl = `${baseUrl}/zones/?customer_id=${activeCustomerId}`;
-        }
-
-        return {
-            zones: zonesUrl,
-            fabrics: `${baseUrl}/fabrics/`,
-            aliases: `${baseUrl}/aliases/project/`,
-            zoneSave: `${baseUrl}/zones/save/`,
-            zoneDelete: `${baseUrl}/zones/delete/`
-        };
-    }, [API_URL, activeProjectId, activeCustomerId, projectFilter]);
+    const canEditInfrastructure = canModifyProject; // Alias for consistency
+    // Make read-only if: 1) user doesn't have permissions, OR 2) viewing customer view (not project view)
+    const isReadOnly = !canModifyProject || projectFilter === 'all';
 
     // Base zone columns (main columns before member columns)
     const baseColumns = useMemo(() => {
-        const allColumns = [
+        const allColumns = [];
+
+        // Add selection checkbox column ONLY in Project View
+        if (projectFilter === 'current') {
+            allColumns.push({
+                data: "_selected",
+                title: "Select",
+                type: "checkbox",
+                readOnly: false,
+                width: 60,
+                defaultVisible: true,
+                accessorKey: "_selected"
+            });
+        }
+
+        allColumns.push(
             { data: "name", title: "Name", required: true },
             { data: "fabric", title: "Fabric", type: "dropdown", required: true },
-            { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
             { data: "zone_type", title: "Zone Type", type: "dropdown" }
-        ];
+        );
 
         return allColumns;
-    }, []);
+    }, [projectFilter]);
 
     // Trailing columns (appear after member columns)
     const trailingColumns = [
@@ -432,6 +546,7 @@ const ZoneTableTanStackClean = () => {
         const template = {
             id: null,
             name: "",
+            _selected: false, // Selection checkbox state
             fabric: "",
             member_count: 0,
             create: false,
@@ -595,6 +710,81 @@ const ZoneTableTanStackClean = () => {
         loadData();
     }, [activeCustomerId, activeProjectId, calculateMemberColumnsByType, API_ENDPOINTS, API_URL]);
 
+    // Track total row count from table
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const paginationInfo = tableRef.current?.getPaginationInfo?.();
+                if (paginationInfo && paginationInfo.totalItems !== totalRowCount) {
+                    setTotalRowCount(paginationInfo.totalItems);
+                }
+            }, 500);
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, totalRowCount]);
+
+    // Sync selectedRows with table data - runs when checkbox values change
+    // This updates the Actions button count without reloading the table
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const currentData = tableRef.current?.getTableData();
+                if (currentData && currentData.length > 0) {
+                    // Merge approach: start with existing selectedRows, then update based on current page
+                    const updatedSelectedRows = new Set(selectedRows);
+
+                    // Get current page IDs
+                    const currentPageIds = new Set(currentData.map(row => row.id).filter(id => id));
+
+                    // For each row on current page, add or remove from selection based on checkbox
+                    currentData.forEach(row => {
+                        if (row.id) {
+                            if (row._selected) {
+                                updatedSelectedRows.add(row.id);
+                            } else if (currentPageIds.has(row.id)) {
+                                // Only remove if this ID is on the current page (user explicitly unchecked it)
+                                updatedSelectedRows.delete(row.id);
+                            }
+                        }
+                    });
+
+                    // Check if all rows on current page are selected
+                    const allCurrentPageSelected = currentData.every(row => row._selected);
+                    const hasSelectionsOnPage = currentData.some(row => row._selected);
+
+                    // Show banner if: all current page rows selected, but not all total rows
+                    if (allCurrentPageSelected && hasSelectionsOnPage && updatedSelectedRows.size < totalRowCount && totalRowCount > 0) {
+                        setShowSelectAllBanner(true);
+                    } else if (updatedSelectedRows.size === 0) {
+                        // Hide banner when nothing is selected
+                        setShowSelectAllBanner(false);
+                    } else if (updatedSelectedRows.size === totalRowCount) {
+                        // Hide banner when all rows are already selected
+                        setShowSelectAllBanner(false);
+                    }
+
+                    // Only update if different (avoid unnecessary re-renders)
+                    if (updatedSelectedRows.size !== selectedRows.size ||
+                        [...updatedSelectedRows].some(id => !selectedRows.has(id))) {
+                        setSelectedRows(updatedSelectedRows);
+                    }
+                }
+            }, 200); // Check every 200ms
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, selectedRows, totalRowCount]);
+
+    // Close actions dropdown when clicking outside
+    useEffect(() => {
+        if (showActionsDropdown) {
+            const handleClickOutside = () => setShowActionsDropdown(false);
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [showActionsDropdown]);
+
     // Calculate used aliases to filter dropdowns
     const calculateUsedAliases = useCallback((tableData, currentRowIndex, currentMemberColumn) => {
         const usedAliases = new Set();
@@ -670,35 +860,9 @@ const ZoneTableTanStackClean = () => {
         return filteredAliases.map(alias => alias.name);
     }, [aliasOptions, settings]);
 
-    // Custom renderers for member dropdowns and project badges
+    // Custom renderers for member dropdowns
     const customRenderers = useMemo(() => {
         const renderers = {};
-
-        // Add renderer for project_memberships column (badge pills)
-        renderers['project_memberships'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
-            try {
-                if (!value || !Array.isArray(value) || value.length === 0) {
-                    return '';
-                }
-
-                // Render badge pills for each project
-                const badges = value.map(pm => {
-                    if (!pm || typeof pm !== 'object') {
-                        return '';
-                    }
-                    const isActive = pm.project_id === activeProjectId;
-                    const badgeClass = isActive ? 'bg-primary' : 'bg-secondary';
-                    const title = `Action: ${pm.action || 'unknown'}`;
-                    const projectName = pm.project_name || 'Unknown';
-                    return `<span class="badge ${badgeClass} me-1" title="${title}" onmousedown="event.stopPropagation()">${projectName}</span>`;
-                }).filter(badge => badge !== '').join('');
-
-                return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
-            } catch (error) {
-                console.error('Error rendering project_memberships:', error, value);
-                return '';
-            }
-        };
 
         // Get all member column keys for all types
         const allMemberColumns = [
@@ -948,9 +1112,16 @@ const ZoneTableTanStackClean = () => {
 
         console.log('🔄 Preprocessing zone data:', data.length, 'zones');
         return data.map(zone => {
+            // Check if this row should be selected (either from data or from selectedRowsRef)
+            const shouldBeSelected = zone._selected !== undefined
+                ? zone._selected
+                : (zone.id && selectedRowsRef.current.has(zone.id));
+
             const processedZone = {
                 ...zone,
-                fabric: fabricsById[zone.fabric] || zone.fabric || ''
+                fabric: fabricsById[zone.fabric] || zone.fabric || '',
+                // Selection state - check if ID is in selectedRowsRef
+                _selected: shouldBeSelected
             };
 
             // Clear all member columns first
@@ -1310,15 +1481,7 @@ const ZoneTableTanStackClean = () => {
                             if (row.id === parseInt(zoneId)) {
                                 return {
                                     ...row,
-                                    in_active_project: true,
-                                    project_memberships: [
-                                        ...(row.project_memberships || []),
-                                        {
-                                            project_id: window.zoneTableActiveProjectId,
-                                            project_name: window.zoneTableActiveProjectName,
-                                            action: option.action
-                                        }
-                                    ]
+                                    in_active_project: true
                                 };
                             }
                             return row;
@@ -1650,26 +1813,101 @@ const ZoneTableTanStackClean = () => {
         return "";
     };
 
-    // Project filter toggle buttons for toolbar
+    // Project filter toggle buttons and Actions dropdown for toolbar
     const filterToggleButtons = (
-        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
-            {/* Customer View Button */}
-            <button
-                type="button"
-                className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => handleFilterChange('all')}
-                style={{
-                    padding: '10px 18px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    borderRadius: '6px 0 0 6px',
-                    transition: 'all 0.2s ease',
-                    marginRight: '0',
-                    minWidth: '140px'
-                }}
-            >
-                Customer View
-            </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Actions Dropdown - Only show in Project View */}
+            {projectFilter === 'current' && (
+                <div style={{ position: 'relative' }}>
+                    <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (selectedRows.size > 0) {
+                                setShowActionsDropdown(!showActionsDropdown);
+                            }
+                        }}
+                        style={{
+                            padding: '10px 18px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            borderRadius: '6px',
+                            transition: 'all 0.2s ease',
+                            minWidth: '120px',
+                            opacity: selectedRows.size === 0 ? 0.5 : 1,
+                            cursor: selectedRows.size === 0 ? 'not-allowed' : 'pointer'
+                        }}
+                        disabled={selectedRows.size === 0}
+                    >
+                        Actions ({selectedRows.size}) {selectedRows.size > 0 && (showActionsDropdown ? '▲' : '▼')}
+                    </button>
+                    {showActionsDropdown && selectedRows.size > 0 && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                marginTop: '4px',
+                                backgroundColor: 'var(--secondary-bg)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                zIndex: 1000,
+                                minWidth: '200px'
+                            }}
+                        >
+                            <button
+                                onClick={() => {
+                                    handleMarkForDeletion();
+                                    setShowActionsDropdown(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    color: 'var(--text-color)',
+                                    fontSize: '14px',
+                                    transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Mark for Deletion
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+                {/* Customer View Button */}
+                <button
+                    type="button"
+                    className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => handleFilterChange('all')}
+                    style={{
+                        padding: '10px 18px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        borderRadius: '6px 0 0 6px',
+                        transition: 'all 0.2s ease',
+                        marginRight: '0',
+                        minWidth: '140px'
+                    }}
+                >
+                    Customer View
+                </button>
 
             {/* Project View Button - Disabled if no active project */}
             <button
@@ -1741,14 +1979,80 @@ const ZoneTableTanStackClean = () => {
                     <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
                 </svg>
             </button>
+            </div>
         </div>
     );
 
     return (
         <div className="modern-table-container">
-            {isReadOnly && (
+            {isReadOnly && !canEditInfrastructure && (
                 <div className="alert alert-info mb-3" role="alert">
                     <strong>Read-only access:</strong> {getReadOnlyMessage()}
+                </div>
+            )}
+            {isReadOnly && canEditInfrastructure && projectFilter === 'all' && (
+                <div className="alert alert-warning mb-3" role="alert">
+                    <strong>Customer View is read-only.</strong> Switch to Project View to add, edit, or delete zones.
+                </div>
+            )}
+
+            {/* Select All Pages Banner */}
+            {showSelectAllBanner && projectFilter === 'current' && (
+                <div
+                    style={{
+                        backgroundColor: 'var(--color-accent-subtle)',
+                        border: '1px solid var(--color-accent-muted)',
+                        borderRadius: '6px',
+                        padding: '12px 16px',
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px'
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
+                            All <strong>{selectedRows.size}</strong> items on this page are selected.{' '}
+                            <button
+                                onClick={handleSelectAllPages}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--link-text)',
+                                    textDecoration: 'underline',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    font: 'inherit',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Select all {totalRowCount} items
+                            </button>
+                        </span>
+                    </div>
+                    <button
+                        onClick={handleClearSelection}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary-text)',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            fontSize: '14px',
+                            opacity: 0.7,
+                            transition: 'opacity 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                        title="Clear selection"
+                    >
+                        ✕
+                    </button>
                 </div>
             )}
 
@@ -1778,6 +2082,10 @@ const ZoneTableTanStackClean = () => {
 
                 // Custom toolbar content - filter toggle
                 customToolbarContent={filterToggleButtons}
+
+                // Selection tracking - pass total selected count across all pages
+                totalCheckboxSelected={selectedRows.size}
+                onClearAllCheckboxes={handleClearSelection}
 
                 // Table Settings
                 height="calc(100vh - 200px)"

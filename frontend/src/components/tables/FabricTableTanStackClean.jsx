@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useContext, useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useAuth } from "../../context/AuthContext";
@@ -20,13 +20,24 @@ const FabricTableTanStackClean = () => {
     const [projectFilter, setProjectFilter] = useState('all');
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerFabrics, setAllCustomerFabrics] = useState([]);
+    const [selectedRows, setSelectedRows] = useState(new Set());
+    const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+    const [showSelectAllBanner, setShowSelectAllBanner] = useState(false);
+    const [totalRowCount, setTotalRowCount] = useState(0);
 
     const tableRef = useRef(null);
+    const selectedRowsRef = useRef(new Set());
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        selectedRowsRef.current = selectedRows;
+    }, [selectedRows]);
 
     // Check if user can edit infrastructure
     const userRole = getUserRole(customerId);
     const canEditInfrastructure = userRole === 'member' || userRole === 'admin';
-    const isReadOnly = !canEditInfrastructure;
+    // Make read-only if: 1) user doesn't have permissions, OR 2) viewing customer view (not project view)
+    const isReadOnly = !canEditInfrastructure || projectFilter === 'all';
 
     // Load filter preference
     useEffect(() => {
@@ -43,6 +54,94 @@ const FabricTableTanStackClean = () => {
             localStorage.setItem('fabricTableProjectFilter', 'all');
         }
     }, [activeProjectId, projectFilter]);
+
+    // Handler to select all rows across all pages
+    const handleSelectAllPages = useCallback(async () => {
+        try {
+            // Build URL to fetch all rows (add page_size parameter)
+            const apiUrl = getApiUrl();
+            const fetchAllUrl = apiUrl.includes('?')
+                ? `${apiUrl}&page_size=10000`
+                : `${apiUrl}?page_size=10000`;
+
+            const response = await api.get(fetchAllUrl);
+            const allData = response.data.results || response.data;
+
+            // Get all IDs
+            const allIds = allData.map(row => row.id).filter(id => id);
+
+            // Update table data to set _selected = true for all rows on current page
+            const currentData = tableRef.current?.getTableData();
+            if (currentData) {
+                const updatedData = currentData.map(row => ({
+                    ...row,
+                    _selected: true // Select all rows on current page
+                }));
+                tableRef.current?.updateTableDataSilently(updatedData);
+            }
+
+            // Update selectedRows state with ALL IDs from all pages
+            setSelectedRows(new Set(allIds));
+
+            // Hide the banner
+            setShowSelectAllBanner(false);
+        } catch (error) {
+            console.error('Error selecting all pages:', error);
+            alert('Failed to select all rows. Please try again.');
+        }
+    }, []);
+
+    // Handler to clear all selections
+    const handleClearSelection = useCallback(() => {
+        // Update table data to set _selected = false for all rows
+        const currentData = tableRef.current?.getTableData();
+        if (currentData) {
+            const clearedData = currentData.map(row => ({
+                ...row,
+                _selected: false
+            }));
+            tableRef.current?.updateTableDataSilently(clearedData);
+        }
+
+        setSelectedRows(new Set());
+        setShowSelectAllBanner(false);
+    }, []);
+
+    // Handler for marking selected rows for deletion
+    const handleMarkForDeletion = useCallback(async () => {
+        if (selectedRows.size === 0) {
+            alert('Please select at least one item to mark for deletion.');
+            return;
+        }
+
+        try {
+            const selectedIds = Array.from(selectedRows);
+            console.log('Marking fabrics for deletion:', selectedIds);
+
+            // Call API to update junction table action to 'delete'
+            const promises = selectedIds.map(fabricId =>
+                api.post(`${API_URL}/api/core/projects/${activeProjectId}/mark-fabric-deletion/`, {
+                    fabric_id: fabricId,
+                    action: 'delete'
+                })
+            );
+
+            await Promise.all(promises);
+
+            // Clear selection
+            handleClearSelection();
+
+            // Reload table to show updated data
+            if (tableRef.current?.reloadData) {
+                tableRef.current.reloadData();
+            }
+
+            alert(`Successfully marked ${selectedIds.length} item(s) for deletion.`);
+        } catch (error) {
+            console.error('Error marking items for deletion:', error);
+            alert('Failed to mark items for deletion. Please try again.');
+        }
+    }, [selectedRows, activeProjectId, API_URL, handleClearSelection]);
 
     // Load all customer fabrics when modal opens
     useEffect(() => {
@@ -80,18 +179,37 @@ const FabricTableTanStackClean = () => {
     ];
 
     // All possible fabric columns
-    const baseColumns = [
-        { data: "name", title: "Name", required: true },
-        { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
-        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
-        { data: "switches", title: "Switches", readOnly: true },
-        { data: "zoneset_name", title: "Zoneset Name" },
-        { data: "vsan", title: "VSAN", type: "numeric", defaultVisible: false },
-        { data: "alias_count", title: "Aliases", type: "numeric", readOnly: true },
-        { data: "zone_count", title: "Zones", type: "numeric", readOnly: true },
-        { data: "exists", title: "Exists", type: "checkbox" },
-        { data: "notes", title: "Notes" }
-    ];
+    const baseColumns = (() => {
+        const allColumns = [];
+
+        // Add selection checkbox column only in Project View
+        if (projectFilter === 'current') {
+            allColumns.push({
+                data: "_selected",
+                title: "Select",
+                type: "checkbox",
+                readOnly: false,
+                width: 60,
+                defaultVisible: true,
+                accessorKey: "_selected"
+            });
+        }
+
+        allColumns.push(
+            { data: "name", title: "Name", required: true },
+            { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
+            { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
+            { data: "switches", title: "Switches", readOnly: true },
+            { data: "zoneset_name", title: "Zoneset Name" },
+            { data: "vsan", title: "VSAN", type: "numeric", defaultVisible: false },
+            { data: "alias_count", title: "Aliases", type: "numeric", readOnly: true },
+            { data: "zone_count", title: "Zones", type: "numeric", readOnly: true },
+            { data: "exists", title: "Exists", type: "checkbox" },
+            { data: "notes", title: "Notes" }
+        );
+
+        return allColumns;
+    })();
 
     // Add project-specific columns when project is active
     const columns = activeProjectId ? [
@@ -319,17 +437,25 @@ const FabricTableTanStackClean = () => {
     }, [activeProjectId, handleAddFabricToProject, handleRemoveFabricFromProject]);
 
     // Process data for display
-    const preprocessData = (data) => {
-        return data.map(fabric => ({
-            ...fabric,
-            san_vendor: vendorOptions.find(v => v.code === fabric.san_vendor)?.name || fabric.san_vendor,
-            switches: fabric.switches_details?.map(s => {
-                const domainStr = s.domain_id !== null && s.domain_id !== undefined ? ` (${s.domain_id})` : '';
-                return `${s.name}${domainStr}`;
-            }).join(', ') || "",
-            in_active_project: fabric.in_active_project || false
-        }));
-    };
+    const preprocessData = useCallback((data) => {
+        return data.map(fabric => {
+            // Check if this row should be selected (either from data or from selectedRowsRef)
+            const shouldBeSelected = fabric._selected !== undefined
+                ? fabric._selected
+                : (fabric.id && selectedRowsRef.current.has(fabric.id));
+
+            return {
+                ...fabric,
+                san_vendor: vendorOptions.find(v => v.code === fabric.san_vendor)?.name || fabric.san_vendor,
+                switches: fabric.switches_details?.map(s => {
+                    const domainStr = s.domain_id !== null && s.domain_id !== undefined ? ` (${s.domain_id})` : '';
+                    return `${s.name}${domainStr}`;
+                }).join(', ') || "",
+                in_active_project: fabric.in_active_project || false,
+                _selected: shouldBeSelected
+            };
+        });
+    }, [vendorOptions]);
 
     // Transform data for saving
     const saveTransform = (rows) =>
@@ -363,26 +489,175 @@ const FabricTableTanStackClean = () => {
         }
     };
 
+    // Track total row count from table
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const paginationInfo = tableRef.current?.getPaginationInfo?.();
+                if (paginationInfo && paginationInfo.totalItems !== totalRowCount) {
+                    setTotalRowCount(paginationInfo.totalItems);
+                }
+            }, 500);
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, totalRowCount]);
+
+    // Sync selectedRows with table data - runs when checkbox values change
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const currentData = tableRef.current?.getTableData();
+                if (currentData && currentData.length > 0) {
+                    // Merge approach: start with existing selectedRows, then update based on current page
+                    const updatedSelectedRows = new Set(selectedRows);
+
+                    // Get current page IDs
+                    const currentPageIds = new Set(currentData.map(row => row.id).filter(id => id));
+
+                    // For each row on current page, add or remove from selection based on checkbox
+                    currentData.forEach(row => {
+                        if (row.id) {
+                            if (row._selected) {
+                                updatedSelectedRows.add(row.id);
+                            } else if (currentPageIds.has(row.id)) {
+                                // Only remove if this ID is on the current page (user explicitly unchecked it)
+                                updatedSelectedRows.delete(row.id);
+                            }
+                        }
+                    });
+
+                    // Check if all rows on current page are selected
+                    const allCurrentPageSelected = currentData.every(row => row._selected);
+                    const hasSelectionsOnPage = currentData.some(row => row._selected);
+
+                    // Show banner if: all current page rows selected, but not all total rows
+                    if (allCurrentPageSelected && hasSelectionsOnPage && updatedSelectedRows.size < totalRowCount && totalRowCount > 0) {
+                        setShowSelectAllBanner(true);
+                    } else if (updatedSelectedRows.size === 0) {
+                        // Hide banner when nothing is selected
+                        setShowSelectAllBanner(false);
+                    } else if (updatedSelectedRows.size === totalRowCount) {
+                        // Hide banner when all rows are already selected
+                        setShowSelectAllBanner(false);
+                    }
+
+                    // Only update if different (avoid unnecessary re-renders)
+                    if (updatedSelectedRows.size !== selectedRows.size ||
+                        [...updatedSelectedRows].some(id => !selectedRows.has(id))) {
+                        setSelectedRows(updatedSelectedRows);
+                    }
+                }
+            }, 200); // Check every 200ms
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, selectedRows, totalRowCount]);
+
+    // Close actions dropdown when clicking outside
+    useEffect(() => {
+        if (showActionsDropdown) {
+            const handleClickOutside = () => setShowActionsDropdown(false);
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [showActionsDropdown]);
+
     // Custom toolbar buttons - match AliasTable exactly
     const filterToggleButtons = (
-        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
-            {/* Customer View Button */}
-            <button
-                type="button"
-                className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => handleFilterChange('all')}
-                style={{
-                    padding: '10px 18px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    borderRadius: '6px 0 0 6px',
-                    transition: 'all 0.2s ease',
-                    marginRight: '0',
-                    minWidth: '140px'
-                }}
-            >
-                Customer View
-            </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Actions Dropdown - Only show in Project View */}
+            {projectFilter === 'current' && (
+                <div style={{ position: 'relative' }}>
+                    <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (selectedRows.size > 0) {
+                                setShowActionsDropdown(!showActionsDropdown);
+                            }
+                        }}
+                        style={{
+                            padding: '10px 18px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            borderRadius: '6px',
+                            transition: 'all 0.2s ease',
+                            minWidth: '120px',
+                            opacity: selectedRows.size === 0 ? 0.5 : 1,
+                            cursor: selectedRows.size === 0 ? 'not-allowed' : 'pointer'
+                        }}
+                        disabled={selectedRows.size === 0}
+                    >
+                        Actions ({selectedRows.size}) {selectedRows.size > 0 && (showActionsDropdown ? '▲' : '▼')}
+                    </button>
+                    {showActionsDropdown && selectedRows.size > 0 && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                marginTop: '4px',
+                                backgroundColor: 'var(--secondary-bg)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                zIndex: 1000,
+                                minWidth: '200px'
+                            }}
+                        >
+                            <button
+                                onClick={() => {
+                                    handleMarkForDeletion();
+                                    setShowActionsDropdown(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    color: 'var(--text-color)',
+                                    fontSize: '14px',
+                                    transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Mark for Deletion
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+                {/* Customer View Button */}
+                <button
+                    type="button"
+                    className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => handleFilterChange('all')}
+                    style={{
+                        padding: '10px 18px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        borderRadius: '6px 0 0 6px',
+                        transition: 'all 0.2s ease',
+                        marginRight: '0',
+                        minWidth: '140px'
+                    }}
+                >
+                    Customer View
+                </button>
 
             {/* Project View Button - Disabled if no active project */}
             <button
@@ -453,6 +728,7 @@ const FabricTableTanStackClean = () => {
                     <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
                 </svg>
             </button>
+            </div>
         </div>
     );
 
@@ -477,9 +753,74 @@ const FabricTableTanStackClean = () => {
 
     return (
         <div className="modern-table-container">
-            {isReadOnly && (
+            {isReadOnly && !canEditInfrastructure && (
                 <div className="alert alert-info mb-3" role="alert">
                     <strong>Read-only access:</strong> You have viewer permissions for this customer. Only members and admins can modify infrastructure (Fabrics and Storage).
+                </div>
+            )}
+            {isReadOnly && canEditInfrastructure && projectFilter === 'all' && (
+                <div className="alert alert-warning mb-3" role="alert">
+                    <strong>Customer View is read-only.</strong> Switch to Project View to add, edit, or delete fabrics.
+                </div>
+            )}
+
+            {/* Select All Pages Banner */}
+            {showSelectAllBanner && projectFilter === 'current' && (
+                <div
+                    style={{
+                        backgroundColor: 'var(--color-accent-subtle)',
+                        border: '1px solid var(--color-accent-muted)',
+                        borderRadius: '6px',
+                        padding: '12px 16px',
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px'
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
+                            All <strong>{selectedRows.size}</strong> items on this page are selected.{' '}
+                            <button
+                                onClick={handleSelectAllPages}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--link-text)',
+                                    textDecoration: 'underline',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    font: 'inherit',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Select all {totalRowCount} items
+                            </button>
+                        </span>
+                    </div>
+                    <button
+                        onClick={handleClearSelection}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary-text)',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            fontSize: '14px',
+                            opacity: 0.7,
+                            transition: 'opacity 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                        title="Clear selection"
+                    >
+                        ✕
+                    </button>
                 </div>
             )}
 
@@ -511,6 +852,10 @@ const FabricTableTanStackClean = () => {
                 height="calc(100vh - 280px)"
                 storageKey={`fabric-table-${customerId || 'default'}`}
                 readOnly={isReadOnly}
+
+                // Selection tracking - pass total selected count across all pages
+                totalCheckboxSelected={selectedRows.size}
+                onClearAllCheckboxes={handleClearSelection}
 
                 // Event Handlers
                 onSave={(result) => {

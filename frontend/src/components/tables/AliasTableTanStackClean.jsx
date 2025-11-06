@@ -24,6 +24,10 @@ const AliasTableTanStackClean = () => {
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
     const [showBulkModal, setShowBulkModal] = useState(false); // Bulk add/remove modal
     const [allCustomerAliases, setAllCustomerAliases] = useState([]); // All customer aliases for bulk modal
+    const [selectedRows, setSelectedRows] = useState(new Set()); // Selected row IDs for bulk actions
+    const [showActionsDropdown, setShowActionsDropdown] = useState(false); // Actions dropdown state
+    const [showSelectAllBanner, setShowSelectAllBanner] = useState(false); // Show banner to select all pages
+    const [totalRowCount, setTotalRowCount] = useState(0); // Total rows in table
 
     // Project filter state (default: 'all' shows all customer aliases)
     const [projectFilter, setProjectFilter] = useState(
@@ -33,17 +37,53 @@ const AliasTableTanStackClean = () => {
     // Ref to access table methods
     const tableRef = useRef(null);
 
+    // Ref to track selected rows for preprocessData
+    const selectedRowsRef = useRef(new Set());
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        selectedRowsRef.current = selectedRows;
+    }, [selectedRows]);
+
     const activeProjectId = config?.active_project?.id;
     const activeCustomerId = config?.customer?.id;
 
     // Auto-switch to Customer View when no project is selected
     useEffect(() => {
         if (!activeProjectId && projectFilter === 'current') {
-            console.log('No active project - switching to Customer View');
             setProjectFilter('all');
             localStorage.setItem('aliasTableProjectFilter', 'all');
         }
     }, [activeProjectId, projectFilter]);
+
+    // Force _selected column to be visible when switching to Project View
+    // Run multiple times to catch both initial load and database state load
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const checkAndForceVisibility = () => {
+                const currentVisibility = tableRef.current?.getColumnVisibility?.();
+                // Check if _selected is either missing or explicitly false
+                if (currentVisibility && (currentVisibility['_selected'] === false || currentVisibility['_selected'] === undefined)) {
+                    // Silently force visibility - no console log needed
+                    tableRef.current?.setColumnVisibility?.({ ...currentVisibility, '_selected': true });
+                }
+            };
+
+            // Run immediately
+            checkAndForceVisibility();
+
+            // Run again after short delay (for initial render)
+            const timer1 = setTimeout(checkAndForceVisibility, 100);
+
+            // Run again after longer delay (for database state load)
+            const timer2 = setTimeout(checkAndForceVisibility, 500);
+
+            return () => {
+                clearTimeout(timer1);
+                clearTimeout(timer2);
+            };
+        }
+    }, [projectFilter]);
 
     // Handle filter toggle change
     const handleFilterChange = useCallback((newFilter) => {
@@ -61,10 +101,6 @@ const AliasTableTanStackClean = () => {
         const currentData = tableRef.current?.getTableData();
         const currentSorting = tableRef.current?.getSorting();
         const hadChanges = tableRef.current?.hasChanges;
-        console.log('💾 Preserving table data before adding WWPN column:', {
-            rows: currentData?.length,
-            hadChanges: hadChanges
-        });
 
         // Create a deep copy to ensure data isn't lost
         const dataCopy = currentData ? JSON.parse(JSON.stringify(currentData)) : null;
@@ -78,14 +114,11 @@ const AliasTableTanStackClean = () => {
             newColumnIndex = prev + 1;
             return prev + 1;
         });
-        console.log('➕ Added new WWPN column');
 
         // Restore data and sorting after column is added
         // Use longer timeout to ensure table has re-rendered with new columns
         setTimeout(() => {
             if (dataCopy && dataCopy.length > 0) {
-                console.log('♻️ Restoring preserved table data and sorting');
-
                 // Extend each row with the new WWPN column field
                 const extendedData = dataCopy.map(row => ({
                     ...row,
@@ -97,14 +130,12 @@ const AliasTableTanStackClean = () => {
 
                 // Auto-size columns after restoration
                 setTimeout(() => {
-                    console.log('📏 Auto-sizing columns after adding new column');
                     tableRef.current?.autoSizeColumns();
 
                     // Clear the flag after everything is done
                     isAddingColumnRef.current = false;
                 }, 50);
             } else {
-                console.log('📏 Auto-sizing columns after adding new column (no data to restore)');
                 tableRef.current?.autoSizeColumns();
 
                 // Clear the flag
@@ -145,7 +176,9 @@ const AliasTableTanStackClean = () => {
     const isAdmin = userRole === 'admin';
 
     const canModifyProject = !isViewer && (isProjectOwner || isAdmin);
-    const isReadOnly = !canModifyProject;
+    const canEditInfrastructure = canModifyProject; // Alias for consistency
+    // Make read-only if: 1) user doesn't have permissions, OR 2) viewing customer view (not project view)
+    const isReadOnly = !canModifyProject || projectFilter === 'all';
 
     // API endpoints - Use different endpoint based on filter mode
     const API_ENDPOINTS = useMemo(() => {
@@ -175,11 +208,26 @@ const AliasTableTanStackClean = () => {
 
     // Base alias columns (non-WWPN columns)
     const baseColumns = useMemo(() => {
-        const allColumns = [
+        const allColumns = [];
+
+        // Add selection checkbox column only in Project View
+        if (projectFilter === 'current') {
+            allColumns.push({
+                data: "_selected",
+                title: "Select",  // Single space to prevent fallback to column.data
+                type: "checkbox",
+                readOnly: false,
+                width: 60,
+                defaultVisible: true,
+                // Ensure this column is treated as a checkbox column
+                accessorKey: "_selected"
+            });
+        }
+
+        allColumns.push(
             { data: "name", title: "Name", required: true },
             { data: "use", title: "Use", type: "dropdown" },
             { data: "fabric_details.name", title: "Fabric", type: "dropdown", required: true },
-            { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
             { data: "host_details.name", title: "Host", type: "dropdown" },
             { data: "storage_details.name", title: "Storage System", readOnly: true },
             { data: "cisco_alias", title: "Alias Type", type: "dropdown" },
@@ -190,10 +238,10 @@ const AliasTableTanStackClean = () => {
             { data: "imported", title: "Imported", readOnly: true, defaultVisible: false },
             { data: "updated", title: "Updated", readOnly: true, defaultVisible: false },
             { data: "notes", title: "Notes" }
-        ];
+        );
 
         return allColumns;
-    }, []);
+    }, [projectFilter]);
 
     // Generate dynamic WWPN columns
     const wwpnColumns = useMemo(() => {
@@ -226,7 +274,6 @@ const AliasTableTanStackClean = () => {
                                     e.currentTarget.style.transform = 'scale(1)';
                                 }}
                                 onClick={(e) => {
-                                    console.log('🔘 Plus button clicked in header!');
                                     e.preventDefault();
                                     e.stopPropagation();
                                     addWwpnColumn();
@@ -246,20 +293,30 @@ const AliasTableTanStackClean = () => {
 
     // Combine base columns with WWPN columns (WWPNs come after name)
     const columns = useMemo(() => {
-        const nameColumn = baseColumns.slice(0, 1); // "Name" column
-        const otherColumns = baseColumns.slice(1);  // All other columns
-        return [...nameColumn, ...wwpnColumns, ...otherColumns];
-    }, [baseColumns, wwpnColumns]);
+        // In Project View, _selected is first column, then name, then WWPNs, then rest
+        // In Customer View, name is first, then WWPNs, then rest
+        let finalColumns;
+        if (projectFilter === 'current') {
+            const selectionColumn = baseColumns.slice(0, 1); // "_selected" column
+            const nameColumn = baseColumns.slice(1, 2); // "name" column
+            const otherColumns = baseColumns.slice(2);  // All other columns
+            finalColumns = [...selectionColumn, ...nameColumn, ...wwpnColumns, ...otherColumns];
+        } else {
+            const nameColumn = baseColumns.slice(0, 1); // "name" column
+            const otherColumns = baseColumns.slice(1);  // All other columns
+            finalColumns = [...nameColumn, ...wwpnColumns, ...otherColumns];
+        }
+        return finalColumns;
+    }, [baseColumns, wwpnColumns, projectFilter]);
 
-    // Generate list of default visible columns (includes all WWPN columns)
+    // Generate list of default visible columns (includes all WWPN columns and _selected in Project View)
     const defaultVisibleColumns = useMemo(() => {
         const wwpnColumnNames = Array.from({ length: wwpnColumnCount }, (_, i) => `wwpn_${i + 1}`);
-        return [
+        const visibleColumns = [
             'name',
             ...wwpnColumnNames,
             'use',
             'fabric_details.name',
-            'project_memberships',
             'host_details.name',
             'storage_details.name',
             'cisco_alias',
@@ -268,7 +325,14 @@ const AliasTableTanStackClean = () => {
             'zoned_count',
             'notes'
         ];
-    }, [wwpnColumnCount]);
+
+        // Add _selected column to visible columns in Project View
+        if (projectFilter === 'current') {
+            return ['_selected', ...visibleColumns];
+        }
+
+        return visibleColumns;
+    }, [wwpnColumnCount, projectFilter]);
 
     const colHeaders = columns.map(col => col.title);
 
@@ -277,6 +341,7 @@ const AliasTableTanStackClean = () => {
             id: null,
             name: "",
             use: "",
+            _selected: false, // Selection checkbox state
             fabric: "",
             fabric_details: { name: "" },
             host: "",
@@ -290,9 +355,7 @@ const AliasTableTanStackClean = () => {
             notes: "",
             imported: null,
             updated: null,
-            zoned_count: 0,
-            project_memberships: [],
-            in_active_project: false
+            zoned_count: 0
         };
         // Add dynamic WWPN fields
         for (let i = 1; i <= wwpnColumnCount; i++) {
@@ -325,7 +388,6 @@ const AliasTableTanStackClean = () => {
                 maxWwpns = Math.max(maxWwpns, alias.wwpns.length);
             }
         });
-        console.log(`📊 Calculated ${maxWwpns} WWPN columns needed`);
         return maxWwpns;
     }, []);
 
@@ -335,7 +397,6 @@ const AliasTableTanStackClean = () => {
             if (activeCustomerId) {
                 try {
                     setLoading(true);
-                    console.log('Loading dropdown data for alias table...');
 
                     // Build hosts URL based on whether we have an active project
                     const hostsUrl = activeProjectId
@@ -357,9 +418,8 @@ const AliasTableTanStackClean = () => {
                     if (results[0].status === 'fulfilled') {
                         const fabricsArray = results[0].value.data.results || results[0].value.data;
                         setFabricOptions(fabricsArray.map(f => ({ id: f.id, name: f.name })));
-                        console.log(`✅ Loaded ${fabricsArray.length} fabrics`);
                     } else {
-                        console.error('❌ Failed to load fabrics:', results[0].reason);
+                        console.error('Failed to load fabrics:', results[0].reason);
                         setFabricOptions([]);
                     }
 
@@ -367,9 +427,8 @@ const AliasTableTanStackClean = () => {
                     if (results[1].status === 'fulfilled') {
                         const hostsArray = results[1].value.data.results || results[1].value.data;
                         setHostOptions(hostsArray.map(h => ({ id: h.id, name: h.name })));
-                        console.log(`✅ Loaded ${hostsArray.length} hosts`);
                     } else {
-                        console.error('❌ Failed to load hosts:', results[1].reason);
+                        console.error('Failed to load hosts:', results[1].reason);
                         setHostOptions([]);
                     }
 
@@ -379,18 +438,16 @@ const AliasTableTanStackClean = () => {
                         const requiredColumns = calculateWwpnColumns(aliasesArray);
                         wwpnColumnCountRef.current = requiredColumns;
                         setWwpnColumnCount(requiredColumns);
-                        console.log(`✅ Calculated ${requiredColumns} WWPN columns from ${aliasesArray.length} aliases`);
                     } else {
-                        console.error('❌ Failed to load aliases for column calculation:', results[2].reason);
+                        console.error('Failed to load aliases for column calculation:', results[2].reason);
                         // Default to 2 columns if we can't calculate
                         wwpnColumnCountRef.current = 2;
                         setWwpnColumnCount(2);
                     }
 
-                    console.log('✅ Dropdown data loading completed');
                     setLoading(false);
                 } catch (error) {
-                    console.error('❌ Error loading dropdown data:', error);
+                    console.error('Error loading dropdown data:', error);
                     setLoading(false);
                 }
             }
@@ -413,10 +470,9 @@ const AliasTableTanStackClean = () => {
             const projectId = activeProjectId;
             if (!projectId) {
                 console.error('No active project selected');
-                return;
+                return false;
             }
 
-            console.log(`📤 Adding alias ${aliasId} to project ${projectId} with action: ${action}`);
             const response = await api.post(`${API_URL}/api/core/projects/${projectId}/add-alias/`, {
                 alias_id: aliasId,
                 action: action,
@@ -424,14 +480,12 @@ const AliasTableTanStackClean = () => {
                 notes: `Added via table UI with action: ${action}`
             });
 
-            console.log('📥 Response from add-alias:', response.data);
             if (response.data.success) {
-                console.log('✅ Alias added to project with action:', action);
                 return true;
             }
             return false;
         } catch (error) {
-            console.error('❌ Error adding alias to project:', error);
+            console.error('Error adding alias to project:', error);
             alert(`Failed to add alias: ${error.response?.data?.error || error.message}`);
             return false;
         }
@@ -451,14 +505,13 @@ const AliasTableTanStackClean = () => {
             const response = await api.delete(`${API_URL}/api/core/projects/${projectId}/remove-alias/${aliasId}/`);
 
             if (response.data.success) {
-                console.log('✅ Alias removed from project');
                 // Reload table data
                 if (tableRef.current?.reloadData) {
                     tableRef.current.reloadData();
                 }
             }
         } catch (error) {
-            console.error('❌ Error removing alias from project:', error);
+            console.error('Error removing alias from project:', error);
             alert(`Failed to remove alias: ${error.response?.data?.error || error.message}`);
         }
     }, [activeProjectId, API_URL]);
@@ -468,16 +521,14 @@ const AliasTableTanStackClean = () => {
         const loadAllCustomerAliases = async () => {
             if (showBulkModal && activeCustomerId && activeProjectId) {
                 try {
-                    console.log('📥 Loading all customer aliases for bulk modal...');
                     // Fetch all customer aliases with project membership info
                     const response = await api.get(
                         `${API_URL}/api/san/aliases/project/${activeProjectId}/?project_filter=all&page_size=10000`
                     );
                     const aliases = response.data.results || response.data;
                     setAllCustomerAliases(aliases);
-                    console.log(`✅ Loaded ${aliases.length} customer aliases for modal`);
                 } catch (error) {
-                    console.error('❌ Error loading customer aliases:', error);
+                    console.error('Error loading customer aliases:', error);
                     setAllCustomerAliases([]);
                 }
             }
@@ -486,11 +537,96 @@ const AliasTableTanStackClean = () => {
         loadAllCustomerAliases();
     }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
 
+    // Handler to select all rows across all pages
+    const handleSelectAllPages = useCallback(async () => {
+        try {
+            // Build URL to fetch all rows (add page_size parameter)
+            const fetchAllUrl = API_ENDPOINTS.aliases.includes('?')
+                ? `${API_ENDPOINTS.aliases}&page_size=10000`
+                : `${API_ENDPOINTS.aliases}?page_size=10000`;
+
+            const response = await api.get(fetchAllUrl);
+            const allData = response.data.results || response.data;
+
+            // Get all IDs
+            const allIds = allData.map(row => row.id).filter(id => id);
+
+            // Update table data to set _selected = true for all rows on current page
+            const currentData = tableRef.current?.getTableData();
+            if (currentData) {
+                const updatedData = currentData.map(row => ({
+                    ...row,
+                    _selected: true // Select all rows on current page
+                }));
+                tableRef.current?.updateTableDataSilently(updatedData);
+            }
+
+            // Update selectedRows state with ALL IDs from all pages
+            setSelectedRows(new Set(allIds));
+
+            // Hide the banner
+            setShowSelectAllBanner(false);
+        } catch (error) {
+            console.error('Error selecting all pages:', error);
+            alert('Failed to select all rows. Please try again.');
+        }
+    }, [API_ENDPOINTS.aliases]);
+
+    // Handler to clear all selections
+    const handleClearSelection = useCallback(() => {
+        // Update table data to set _selected = false for all rows
+        const currentData = tableRef.current?.getTableData();
+        if (currentData) {
+            const clearedData = currentData.map(row => ({
+                ...row,
+                _selected: false
+            }));
+            tableRef.current?.updateTableDataSilently(clearedData);
+        }
+
+        setSelectedRows(new Set());
+        setShowSelectAllBanner(false);
+    }, []);
+
+    // Handler for marking selected rows for deletion
+    const handleMarkForDeletion = useCallback(async () => {
+        if (selectedRows.size === 0) {
+            alert('Please select at least one item to mark for deletion.');
+            return;
+        }
+
+        try {
+            const selectedIds = Array.from(selectedRows);
+            console.log('Marking aliases for deletion:', selectedIds);
+
+            // Call API to update junction table action to 'delete'
+            const promises = selectedIds.map(aliasId =>
+                api.post(`${API_URL}/api/core/projects/${activeProjectId}/mark-alias-deletion/`, {
+                    alias_id: aliasId,
+                    action: 'delete'
+                })
+            );
+
+            await Promise.all(promises);
+
+            // Clear selection
+            handleClearSelection();
+
+            // Reload table to show updated data
+            if (tableRef.current?.reloadData) {
+                tableRef.current.reloadData();
+            }
+
+            alert(`Successfully marked ${selectedIds.length} item(s) for deletion.`);
+        } catch (error) {
+            console.error('Error marking items for deletion:', error);
+            alert('Failed to mark items for deletion. Please try again.');
+        }
+    }, [selectedRows, activeProjectId, API_URL, handleClearSelection]);
+
     // Handler for bulk add/remove aliases from modal
     const handleBulkAliasSave = useCallback(async (selectedIds) => {
         try {
-            console.log('🔄 Bulk alias save started with selected IDs:', selectedIds);
-
             if (!allCustomerAliases || allCustomerAliases.length === 0) {
                 console.error('No customer aliases available');
                 return;
@@ -507,8 +643,6 @@ const AliasTableTanStackClean = () => {
             const selectedSet = new Set(selectedIds);
             const toAdd = selectedIds.filter(id => !currentInProject.has(id));
             const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
-
-            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
 
             let successCount = 0;
             let errorCount = 0;
@@ -531,7 +665,6 @@ const AliasTableTanStackClean = () => {
                     const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-alias/${aliasId}/`);
                     if (response.data.success) {
                         successCount++;
-                        console.log(`✅ Removed alias ${aliasId} from project`);
                     } else {
                         errorCount++;
                     }
@@ -553,10 +686,8 @@ const AliasTableTanStackClean = () => {
                 tableRef.current.reloadData();
             }
 
-            console.log('✅ Bulk operation completed:', { successCount, errorCount });
-
         } catch (error) {
-            console.error('❌ Bulk alias save error:', error);
+            console.error('Bulk alias save error:', error);
             alert(`Error during bulk operation: ${error.message}`);
         }
     }, [activeProjectId, API_URL, handleAddAliasToProject, allCustomerAliases]);
@@ -573,15 +704,10 @@ const AliasTableTanStackClean = () => {
 
         // Expose reload function
         window.aliasTableReload = () => {
-            console.log('🔄 aliasTableReload called');
-            console.log('🔄 tableRef.current:', tableRef.current);
-            console.log('🔄 reloadData function:', tableRef.current?.reloadData);
             if (tableRef.current?.reloadData) {
-                console.log('🔄 Calling reloadData()...');
                 tableRef.current.reloadData();
-                console.log('🔄 reloadData() called successfully');
             } else {
-                console.error('❌ reloadData function not available!');
+                console.error('reloadData function not available');
             }
         };
 
@@ -654,32 +780,19 @@ const AliasTableTanStackClean = () => {
                     e.stopPropagation();
                     window.aliasTableCloseDropdown();
 
-                    console.log(`🎯 Dropdown option clicked: ${option.action} for alias ${aliasId}`);
-
                     // Get current table data and check for dirty changes
                     const hadDirtyChanges = window.aliasTableRef?.current?.hasChanges;
                     const currentData = window.aliasTableRef?.current?.getTableData();
-                    console.log('💾 Table state before add:', { hadDirtyChanges, rowCount: currentData?.length });
 
                     const success = await handleAddAliasToProject(aliasId, option.action);
 
                     if (success && currentData) {
-                        console.log('✅ Add complete, updating table data in place...');
-
                         // Update just the affected row
                         const updatedData = currentData.map(row => {
                             if (row.id === parseInt(aliasId)) {
                                 return {
                                     ...row,
-                                    in_active_project: true,
-                                    project_memberships: [
-                                        ...(row.project_memberships || []),
-                                        {
-                                            project_id: window.aliasTableActiveProjectId,
-                                            project_name: window.aliasTableActiveProjectName,
-                                            action: option.action
-                                        }
-                                    ]
+                                    in_active_project: true
                                 };
                             }
                             return row;
@@ -689,14 +802,12 @@ const AliasTableTanStackClean = () => {
                         if (hadDirtyChanges) {
                             // Preserve dirty state
                             window.aliasTableRef?.current?.setTableData(updatedData);
-                            console.log('✅ Table updated - dirty state preserved');
                         } else {
                             // Silent update (no dirty state triggered)
                             window.aliasTableRef?.current?.updateTableDataSilently(updatedData);
-                            console.log('✅ Table updated silently - no dirty state');
                         }
                     } else if (!success) {
-                        console.error('❌ Add failed, not updating');
+                        console.error('Add failed, not updating');
                     }
                 });
 
@@ -730,36 +841,9 @@ const AliasTableTanStackClean = () => {
         };
     }, [handleAddAliasToProject, handleRemoveAliasFromProject, activeProjectId, config]);
 
-    // Custom renderers for WWPN formatting and project badges
+    // Custom renderers for WWPN formatting
     const customRenderers = useMemo(() => {
-        console.log('🎨 Creating custom renderers for', wwpnColumnCount, 'WWPN columns');
         const renderers = {};
-
-        // Add renderer for project_memberships column (badge pills)
-        renderers['project_memberships'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
-            try {
-                if (!value || !Array.isArray(value) || value.length === 0) {
-                    return '';
-                }
-
-                // Render badge pills for each project
-                const badges = value.map(pm => {
-                    if (!pm || typeof pm !== 'object') {
-                        return '';
-                    }
-                    const isActive = pm.project_id === activeProjectId;
-                    const badgeClass = isActive ? 'bg-primary' : 'bg-secondary';
-                    const title = `Action: ${pm.action || 'unknown'}${pm.include_in_zoning ? ' (in zoning)' : ''}`;
-                    const projectName = pm.project_name || 'Unknown';
-                    return `<span class="badge ${badgeClass} me-1" title="${title}" onmousedown="event.stopPropagation()">${projectName}</span>`;
-                }).filter(badge => badge !== '').join('');
-
-                return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
-            } catch (error) {
-                console.error('Error rendering project_memberships:', error, value);
-                return '';
-            }
-        };
 
         // Add renderer for each WWPN column - just format the value
         // TanStackCRUDTable calls: customRenderer(rowData, null, rowIndex, colIndex, accessorKey, value)
@@ -779,7 +863,6 @@ const AliasTableTanStackClean = () => {
         // rowData.modified_fields includes the column accessor key
         // No need for custom renderers here!
 
-        console.log('✅ Custom renderers created:', Object.keys(renderers));
         return renderers;
     }, [wwpnColumnCount, activeProjectId, projectFilter]);
 
@@ -794,15 +877,18 @@ const AliasTableTanStackClean = () => {
     const preprocessData = useCallback((data) => {
         // If we're in the middle of adding a column, return null to prevent reload
         if (isAddingColumnRef.current) {
-            console.log('⏸️ preprocessData skipped - adding column in progress');
             return null;
         }
 
         // Use ref value for stable column count during processing
         const columnCount = wwpnColumnCountRef.current;
 
-        console.log(`🔄 preprocessData called with ${data?.length} aliases, ${columnCount} WWPN columns`);
         const processed = data.map((alias, idx) => {
+            // Check if this row should be selected (either from data or from selectedRowsRef)
+            const shouldBeSelected = alias._selected !== undefined
+                ? alias._selected
+                : (alias.id && selectedRowsRef.current.has(alias.id));
+
             const processedAlias = {
                 ...alias,
                 // Keep nested structure for display
@@ -812,7 +898,9 @@ const AliasTableTanStackClean = () => {
                 // Add flattened version for easier filtering (helps FilterDropdown extract values)
                 'storage_details.name': alias.storage_details?.name || '',
                 // Ensure zoned_count defaults to 0 if not set
-                zoned_count: alias.zoned_count || 0
+                zoned_count: alias.zoned_count || 0,
+                // Selection state - check if ID is in selectedRowsRef
+                _selected: shouldBeSelected
             };
 
             // Distribute WWPNs across dynamic columns
@@ -830,46 +918,102 @@ const AliasTableTanStackClean = () => {
                 }
             });
 
-            // Log first 3 aliases for debugging
-            if (idx < 3) {
-                console.log(`📝 Processed alias ${idx}:`, {
-                    name: alias.name,
-                    wwpns: wwpns,
-                    wwpn_1: processedAlias.wwpn_1,
-                    wwpn_2: processedAlias.wwpn_2,
-                    allKeys: Object.keys(processedAlias).filter(k => k.startsWith('wwpn'))
-                });
-            }
-
             return processedAlias;
         });
 
-        console.log('📝 Sample of processed data (first row):', processed[0]);
         return processed;
-    }, []); // Empty deps - function uses refs for stable behavior
+    }, []); // Empty deps - checkbox state managed by table data itself
+
+    // Track total row count from table
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const paginationInfo = tableRef.current?.getPaginationInfo?.();
+                if (paginationInfo && paginationInfo.totalItems !== totalRowCount) {
+                    setTotalRowCount(paginationInfo.totalItems);
+                }
+            }, 500);
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, totalRowCount]);
+
+    // Sync selectedRows with table data - runs when checkbox values change
+    // This updates the Actions button count without reloading the table
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const currentData = tableRef.current?.getTableData();
+                if (currentData && currentData.length > 0) {
+                    // Merge approach: start with existing selectedRows, then update based on current page
+                    const updatedSelectedRows = new Set(selectedRows);
+
+                    // Get current page IDs
+                    const currentPageIds = new Set(currentData.map(row => row.id).filter(id => id));
+
+                    // For each row on current page, add or remove from selection based on checkbox
+                    currentData.forEach(row => {
+                        if (row.id) {
+                            if (row._selected) {
+                                updatedSelectedRows.add(row.id);
+                            } else if (currentPageIds.has(row.id)) {
+                                // Only remove if this ID is on the current page (user explicitly unchecked it)
+                                updatedSelectedRows.delete(row.id);
+                            }
+                        }
+                    });
+
+                    // Check if all rows on current page are selected
+                    const allCurrentPageSelected = currentData.every(row => row._selected);
+                    const hasSelectionsOnPage = currentData.some(row => row._selected);
+
+                    // Show banner if: all current page rows selected, but not all total rows
+                    if (allCurrentPageSelected && hasSelectionsOnPage && updatedSelectedRows.size < totalRowCount && totalRowCount > 0) {
+                        setShowSelectAllBanner(true);
+                    } else if (updatedSelectedRows.size === 0) {
+                        // Hide banner when nothing is selected
+                        setShowSelectAllBanner(false);
+                    } else if (updatedSelectedRows.size === totalRowCount) {
+                        // Hide banner when all rows are already selected
+                        setShowSelectAllBanner(false);
+                    }
+
+                    // Only update if different (avoid unnecessary re-renders)
+                    if (updatedSelectedRows.size !== selectedRows.size ||
+                        [...updatedSelectedRows].some(id => !selectedRows.has(id))) {
+                        setSelectedRows(updatedSelectedRows);
+                    }
+                }
+            }, 200); // Check every 200ms
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, selectedRows, totalRowCount]);
+
+    // Close actions dropdown when clicking outside
+    useEffect(() => {
+        if (showActionsDropdown) {
+            const handleClickOutside = () => setShowActionsDropdown(false);
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [showActionsDropdown]);
 
     // Custom save handler that matches the original AliasTable bulk save approach
     // Handles CREATE, UPDATE, and DELETE operations
     const handleAliasSave = async (allTableData, hasChanges, deletedRows = []) => {
         if (!hasChanges) {
-            console.log('⚠️ No changes to save');
             return { success: true, message: 'No changes to save' };
         }
 
         try {
-            console.log('🔥 Custom alias save with data:', allTableData);
-            console.log('🗑️ Deletions to process:', deletedRows);
-            console.log('🔍 Data types in save:', allTableData.map(row => ({ name: row.name, id: row.id, type: typeof row.id })));
-
             // Handle deletions first
             if (deletedRows && deletedRows.length > 0) {
-                console.log('🗑️ Processing deletions:', deletedRows);
                 for (const aliasId of deletedRows) {
                     try {
                         await api.delete(`${API_ENDPOINTS.aliasDelete}${aliasId}/`);
-                        console.log(`✅ Deleted alias ${aliasId}`);
                     } catch (error) {
-                        console.error(`❌ Failed to delete alias ${aliasId}:`, error);
+                        console.error(`Failed to delete alias ${aliasId}:`, error);
 
                         // Check if it's a permission error
                         if (error.response?.status === 403) {
@@ -954,16 +1098,6 @@ const AliasTableTanStackClean = () => {
             const payload = allTableData
                 .filter(alias => alias.id || (alias.name && alias.name.trim() !== ""))
                 .map(row => {
-                    console.log('🔍 Processing row for save:', {
-                        name: row.name,
-                        fabric_details: row.fabric_details,
-                        'fabric_details?.name': row.fabric_details?.name,
-                        'row["fabric_details.name"]': row['fabric_details.name'],
-                        'row.fabric': row.fabric,
-                        'Full row keys:': Object.keys(row),
-                        availableFabrics: fabricOptions.map(f => f.name)
-                    });
-
                     // Find IDs from names - check nested structure first (new behavior), then flat property (legacy)
                     // Use explicit checks to handle empty strings properly
                     let fabricName = (row.fabric_details?.name && row.fabric_details.name.trim() !== '')
@@ -990,15 +1124,6 @@ const AliasTableTanStackClean = () => {
                     const host = hostOptions.find(h =>
                         h.name.toLowerCase() === (hostName || '').toLowerCase()
                     );
-
-                    console.log('🎯 Found references:', {
-                        fabricName: fabricName,
-                        fabric: fabric,
-                        hostName: hostName,
-                        host: host,
-                        'row.use': row.use,
-                        'Will set host?': (row.host_details?.name && (row.use === 'init' || row.use === 'both') && host)
-                    });
 
                     if (!fabric) {
                         console.error('❌ Fabric lookup failed for row:', row);
@@ -1054,15 +1179,11 @@ const AliasTableTanStackClean = () => {
 
             // Only call bulk save if there are rows to save
             if (payload.length > 0) {
-                console.log('🚀 Sending bulk alias save:', { project_id: activeProjectId, aliases: payload });
-
                 // Use the original bulk save endpoint
                 await api.post(API_ENDPOINTS.aliasSave, {
                     project_id: activeProjectId,
                     aliases: payload,
                 });
-            } else {
-                console.log('✅ No data to save, only deletions were processed');
             }
 
             const totalOperations = payload.length + (deletedRows ? deletedRows.length : 0);
@@ -1130,28 +1251,103 @@ const AliasTableTanStackClean = () => {
         return "";
     };
 
-    // Project filter toggle buttons for toolbar
+    // Project filter toggle buttons and Actions dropdown for toolbar
     const filterToggleButtons = (
-        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
-            {/* Customer View Button */}
-            <button
-                type="button"
-                className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => handleFilterChange('all')}
-                style={{
-                    padding: '10px 18px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    borderRadius: '6px 0 0 6px',
-                    transition: 'all 0.2s ease',
-                    marginRight: '0',
-                    minWidth: '140px'
-                }}
-            >
-                Customer View
-            </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Actions Dropdown - Only show in Project View */}
+            {projectFilter === 'current' && (
+                <div style={{ position: 'relative' }}>
+                    <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (selectedRows.size > 0) {
+                                setShowActionsDropdown(!showActionsDropdown);
+                            }
+                        }}
+                        style={{
+                            padding: '10px 18px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            borderRadius: '6px',
+                            transition: 'all 0.2s ease',
+                            minWidth: '120px',
+                            opacity: selectedRows.size === 0 ? 0.5 : 1,
+                            cursor: selectedRows.size === 0 ? 'not-allowed' : 'pointer'
+                        }}
+                        disabled={selectedRows.size === 0}
+                    >
+                        Actions ({selectedRows.size}) {selectedRows.size > 0 && (showActionsDropdown ? '▲' : '▼')}
+                    </button>
+                    {showActionsDropdown && selectedRows.size > 0 && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                marginTop: '4px',
+                                backgroundColor: 'var(--secondary-bg)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                zIndex: 1000,
+                                minWidth: '200px'
+                            }}
+                        >
+                            <button
+                                onClick={() => {
+                                    handleMarkForDeletion();
+                                    setShowActionsDropdown(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    color: 'var(--text-color)',
+                                    fontSize: '14px',
+                                    transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Mark for Deletion
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
-            {/* Project View Button - Disabled if no active project */}
+            <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+                {/* Customer View Button */}
+                <button
+                    type="button"
+                    className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => handleFilterChange('all')}
+                    style={{
+                        padding: '10px 18px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        borderRadius: '6px 0 0 6px',
+                        transition: 'all 0.2s ease',
+                        marginRight: '0',
+                        minWidth: '140px'
+                    }}
+                >
+                    Customer View
+                </button>
+
+                {/* Project View Button - Disabled if no active project */}
             <button
                 type="button"
                 className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
@@ -1221,14 +1417,80 @@ const AliasTableTanStackClean = () => {
                     <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
                 </svg>
             </button>
+            </div>
         </div>
     );
 
     return (
         <div className="modern-table-container">
-            {isReadOnly && (
+            {isReadOnly && !canEditInfrastructure && (
                 <div className="alert alert-info mb-3" role="alert">
                     <strong>Read-only access:</strong> {getReadOnlyMessage().replace('Read-only access: ', '')}
+                </div>
+            )}
+            {isReadOnly && canEditInfrastructure && projectFilter === 'all' && (
+                <div className="alert alert-warning mb-3" role="alert">
+                    <strong>Customer View is read-only.</strong> Switch to Project View to add, edit, or delete aliases.
+                </div>
+            )}
+
+            {/* Select All Pages Banner */}
+            {showSelectAllBanner && projectFilter === 'current' && (
+                <div
+                    style={{
+                        backgroundColor: 'var(--color-accent-subtle)',
+                        border: '1px solid var(--color-accent-muted)',
+                        borderRadius: '6px',
+                        padding: '12px 16px',
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px'
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
+                            All <strong>{selectedRows.size}</strong> items on this page are selected.{' '}
+                            <button
+                                onClick={handleSelectAllPages}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--link-text)',
+                                    textDecoration: 'underline',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    font: 'inherit',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Select all {totalRowCount} items
+                            </button>
+                        </span>
+                    </div>
+                    <button
+                        onClick={handleClearSelection}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary-text)',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            fontSize: '14px',
+                            opacity: 0.7,
+                            transition: 'opacity 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                        title="Clear selection"
+                    >
+                        ✕
+                    </button>
                 </div>
             )}
 
@@ -1256,7 +1518,7 @@ const AliasTableTanStackClean = () => {
 
                 // Table Settings
                 height="calc(100vh - 200px)"
-                storageKey={`alias-table-${activeProjectId || 'default'}`}
+                storageKey={`alias-table-${activeProjectId || 'default'}-${projectFilter}`}
                 readOnly={isReadOnly}
 
                 // Custom save handler - bypass default CRUD and use bulk save
@@ -1265,12 +1527,14 @@ const AliasTableTanStackClean = () => {
                 // Custom toolbar content - filter toggle
                 customToolbarContent={filterToggleButtons}
 
+                // Selection tracking - pass total selected count across all pages
+                totalCheckboxSelected={selectedRows.size}
+                onClearAllCheckboxes={handleClearSelection}
+
                 // Event Handlers
                 onSave={(result) => {
-                    if (result.success) {
-                        console.log('✅ Alias save successful:', result.message);
-                    } else {
-                        console.error('❌ Alias save failed:', result.message);
+                    if (!result.success) {
+                        console.error('Alias save failed:', result.message);
                         setErrorModal({
                             show: true,
                             message: result.message,

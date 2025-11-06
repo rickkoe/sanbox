@@ -89,8 +89,8 @@ const getSidebarLinks = (pathname) => {
         icon: Network,
         expandable: true,
         subLinks: [
-          { path: "/san/switches", label: "Switches", icon: Router },
           { path: "/san/fabrics", label: "Fabrics", icon: GitBranch },
+          { path: "/san/switches", label: "Switches", icon: Router },
           { path: "/san/aliases", label: "Aliases", icon: Tags },
           { path: "/san/zones", label: "Zones", icon: Layers },
         ]

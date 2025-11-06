@@ -65,17 +65,14 @@ const DualContextDropdown = () => {
     };
 
     const loadProjectsForCustomer = async (customerId) => {
-        console.log('🔍 Loading projects for customer ID:', customerId);
         setLoadingProjects(true);
-        try {
+        try{
             const url = `${API_URL}/api/core/projects/${customerId}/`;
-            console.log('🔍 Fetching from URL:', url);
             const response = await api.get(url);
-            console.log('✅ Projects response:', response.data);
             setProjects(response.data);
         } catch (error) {
-            console.error('❌ Error loading projects:', error);
-            console.error('❌ Error response:', error.response);
+            console.error('Error loading projects:', error);
+            console.error('Error response:', error.response);
             setProjects([]);
         } finally {
             setLoadingProjects(false);
@@ -84,7 +81,6 @@ const DualContextDropdown = () => {
 
     const handleAddCustomer = async () => {
         try {
-            console.log("Adding new customer:", newCustomerName);
             const response = await api.post(`${API_URL}/api/customers/`, {
                 name: newCustomerName
             });
@@ -112,7 +108,6 @@ const DualContextDropdown = () => {
 
     const handleAddProject = async () => {
         try {
-            console.log("Adding new project:", newProjectName);
             const response = await api.post(`${API_URL}/api/core/projects/`, {
                 name: newProjectName,
                 customer: selectedCustomer.id
@@ -139,14 +134,12 @@ const DualContextDropdown = () => {
     };
 
     const handleCustomerChange = async (customerId) => {
-        console.log('🔍 handleCustomerChange called with ID:', customerId);
         if (customerId === 'create_new') {
             setShowCustomerModal(true);
             return;
         }
 
         const customer = customers.find(c => c.id === parseInt(customerId));
-        console.log('🔍 Found customer:', customer);
         setSelectedCustomer(customer);
 
         // Auto-clear project when switching customers (Requirement 7A)

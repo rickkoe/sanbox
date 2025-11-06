@@ -40,9 +40,6 @@ const Navbar = () => {
     return () => clearInterval(interval);
   }, [fetchActiveImportsCount]);
 
-  // Debug theme application
-  console.log('Navbar theme class:', `navbar navbar-expand-lg theme-${theme}`);
-  
   return (
     <nav className={`navbar navbar-expand-lg theme-${theme}`}>
       <div className="container-fluid">

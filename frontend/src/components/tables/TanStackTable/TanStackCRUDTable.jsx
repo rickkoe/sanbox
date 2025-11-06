@@ -75,6 +75,10 @@ const TanStackCRUDTable = forwardRef(({
   customAddActions,
   customToolbarContent, // Custom content to inject into toolbar (e.g., filter toggles)
 
+  // Selection tracking
+  totalCheckboxSelected, // Total count of selected rows (for _selected column across all pages)
+  onClearAllCheckboxes, // Callback when user unchecks header checkbox with all pages selected
+
   ...otherProps
 }, ref) => {
 
@@ -217,7 +221,6 @@ const TanStackCRUDTable = forwardRef(({
       }
     });
 
-    console.log(`🌐 Built API URL with filters: ${url}`);
     return url;
   }, [apiUrl, customerId]);
 
@@ -239,13 +242,10 @@ const TanStackCRUDTable = forwardRef(({
   useEffect(() => {
     const fetchActiveCustomer = async () => {
       if (user && customerId === null) {
-        console.log('🔍 Fetching active customer for global table...');
         try {
           const API_URL = process.env.REACT_APP_API_URL || '';
           const response = await api.get(`${API_URL}/api/core/user-config/`);
-          console.log('📥 User config response:', response.data);
           if (response.data?.active_customer?.id) {
-            console.log('✅ Setting activeCustomerId:', response.data.active_customer.id);
             setActiveCustomerId(response.data.active_customer.id);
           } else {
             console.warn('⚠️ No customer ID in user config');
@@ -268,16 +268,9 @@ const TanStackCRUDTable = forwardRef(({
     // For global tables (customerId === null), use the user's active customer
     const effectiveCustomerId = customerId !== null ? customerId : activeCustomerId;
 
-    console.log('🔧 loadTableConfig:', {
-      tableName,
-      customerId,
-      activeCustomerId,
-      effectiveCustomerId
-    });
 
     // If we still don't have a customer ID, skip config loading
     if (!effectiveCustomerId) {
-      console.log('⏸️ Skipping config load - no effective customer ID');
       setConfigLoaded(true);
       return;
     }
@@ -296,30 +289,25 @@ const TanStackCRUDTable = forwardRef(({
       if (response.data) {
         setTableConfig(response.data);
         if (response.data.column_widths && Object.keys(response.data.column_widths).length > 0) {
-          console.log('📊 Loading saved column widths:', response.data.column_widths);
           setColumnSizing(response.data.column_widths);
         }
         // Load page_size from direct field
         if (response.data.page_size) {
-          console.log('📊 Loading saved page size:', response.data.page_size);
           setPageSize(response.data.page_size);
         }
 
         // Load filters from config
         if (response.data.filters && Object.keys(response.data.filters).length > 0) {
-          console.log('📊 Loading saved filters:', response.data.filters);
           setActiveFilters(response.data.filters);
         }
 
         // Load current_page from additional_settings
         if (response.data.additional_settings?.current_page) {
-          console.log('📊 Loading saved current page:', response.data.additional_settings.current_page);
           setCurrentPage(response.data.additional_settings.current_page);
         }
 
         // Load visible_columns from config
         if (response.data.visible_columns && response.data.visible_columns.length > 0) {
-          console.log('📊 Loading saved visible columns:', response.data.visible_columns);
 
           // Migrate old WWPN column names to new dynamic column names
           // This handles transition from single 'wwpn' to multiple 'wwpn_1', 'wwpn_2', etc.
@@ -328,7 +316,6 @@ const TanStackCRUDTable = forwardRef(({
           // Check if saved config has old 'wwpn' column
           const hasOldWwpnColumn = migratedColumns.includes('wwpn');
           if (hasOldWwpnColumn) {
-            console.log('🔄 Migrating old "wwpn" column to new dynamic WWPN columns');
 
             // Remove old 'wwpn' column
             migratedColumns = migratedColumns.filter(col => col !== 'wwpn');
@@ -339,7 +326,6 @@ const TanStackCRUDTable = forwardRef(({
               .filter(colId => colId && colId.match(/^wwpn_\d+$/));
 
             if (wwpnColumns.length > 0) {
-              console.log(`🔄 Adding ${wwpnColumns.length} new WWPN columns:`, wwpnColumns);
               // Insert WWPN columns after 'name' column to maintain logical order
               const nameIndex = migratedColumns.indexOf('name');
               if (nameIndex >= 0) {
@@ -361,17 +347,13 @@ const TanStackCRUDTable = forwardRef(({
             visibilityMap[colId] = migratedColumns.includes(colId);
           });
 
-          console.log('📊 Setting column visibility from saved config:', visibilityMap);
           setColumnVisibility(visibilityMap);
         }
-        console.log('📊 Loaded table configuration:', response.data);
       }
     } catch (error) {
-      console.log('⚠️ No existing table configuration found or error loading:', error.message);
     } finally {
       // Mark config as loaded regardless of success/failure
       setConfigLoaded(true);
-      console.log('📊 Table configuration loading completed');
     }
   }, [tableName, customerId, user, activeCustomerId]);
 
@@ -383,17 +365,9 @@ const TanStackCRUDTable = forwardRef(({
     // For global tables (customerId === null), use the user's active customer
     const effectiveCustomerId = customerId !== null ? customerId : activeCustomerId;
 
-    console.log('💾 saveTableConfig called:', {
-      tableName,
-      customerId,
-      activeCustomerId,
-      effectiveCustomerId,
-      configUpdate
-    });
 
     // If we still don't have a customer ID, skip config saving
     if (!effectiveCustomerId) {
-      console.log('⏸️ Skipping config save - no effective customer ID');
       return;
     }
 
@@ -407,21 +381,14 @@ const TanStackCRUDTable = forwardRef(({
         ...configUpdate
       };
 
-      console.log('💾 Saving table configuration:', {
-        url: tableConfig?.id ? `${API_URL}/api/core/table-config/${tableConfig.id}/` : `${API_URL}/api/core/table-config/`,
-        method: tableConfig?.id ? 'PUT' : 'POST',
-        data: configData
-      });
 
       if (tableConfig?.id) {
         // Update existing config
         await api.put(`${API_URL}/api/core/table-config/${tableConfig.id}/`, configData);
-        console.log('✅ Updated existing table configuration');
       } else {
         // Create new config
         const response = await api.post(`${API_URL}/api/core/table-config/`, configData);
         setTableConfig(response.data);
-        console.log('✅ Created new table configuration:', response.data);
       }
     } catch (error) {
       console.error('❌ Error saving table configuration:', error);
@@ -432,15 +399,8 @@ const TanStackCRUDTable = forwardRef(({
 
   // Initialize column visibility from column defaults when config is loaded
   useEffect(() => {
-    console.log('🔍 Column visibility initialization check:', {
-      configLoaded,
-      columnsLength: columns.length,
-      columnVisibilityKeys: Object.keys(columnVisibility).length,
-      willInitialize: configLoaded && columns.length > 0 && Object.keys(columnVisibility).length === 0
-    });
 
     if (configLoaded && columns.length > 0 && Object.keys(columnVisibility).length === 0) {
-      console.log('🎯 Initializing column visibility from column defaults (NO saved config found)');
       const initialVisibility = {};
 
       columns.forEach((column, index) => {
@@ -460,10 +420,8 @@ const TanStackCRUDTable = forwardRef(({
         }
       });
 
-      console.log('🎯 Setting initial column visibility:', initialVisibility);
       setColumnVisibility(initialVisibility);
     } else if (configLoaded && Object.keys(columnVisibility).length > 0) {
-      console.log('✅ Skipping initialization - column visibility already loaded from config');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configLoaded, columns.length]);
@@ -478,7 +436,6 @@ const TanStackCRUDTable = forwardRef(({
       if (visibleColumns.length > 0) {
         // Debounce the save to avoid blocking UI during rapid changes
         const timeoutId = setTimeout(() => {
-          console.log('💾 Saving column visibility:', visibleColumns);
           saveTableConfig({ visible_columns: visibleColumns });
         }, 300);
 
@@ -493,13 +450,6 @@ const TanStackCRUDTable = forwardRef(({
     const hasGlobalFilter = globalFilter && globalFilter.trim().length > 0;
     const hasActiveSorting = sorting && sorting.length > 0;
     const result = !useServerSideFiltering && (hasActiveFilters || hasGlobalFilter || hasActiveSorting);
-    console.log('🔍 hasActiveClientFilters calculation:', {
-      useServerSideFiltering,
-      hasActiveFilters,
-      hasGlobalFilter,
-      hasActiveSorting,
-      result
-    });
     return result;
   }, [useServerSideFiltering, activeFilters, globalFilter, sorting]);
 
@@ -514,19 +464,11 @@ const TanStackCRUDTable = forwardRef(({
     const effectivePageSize = hasActiveClientFilters ? 10000 : pageSize;
     const effectivePage = hasActiveClientFilters ? 1 : currentPage;
 
-    console.log('🔄 loadData parameters:', {
-      hasActiveClientFilters,
-      effectivePageSize,
-      effectivePage,
-      pageSize,
-      currentPage
-    });
 
     const url = buildApiUrl(effectivePage, effectivePageSize,
                            useServerSideFiltering ? globalFilter : '',
                            filtersToPass);
     if (!url) {
-      console.log('⚠️ No API URL available');
       return;
     }
 
@@ -534,7 +476,6 @@ const TanStackCRUDTable = forwardRef(({
     if (preprocessData) {
       const testResult = preprocessData([]);
       if (testResult === null) {
-        console.log('⏸️ Load data skipped - preprocessing blocked (table reconfiguration in progress)');
         return;
       }
     }
@@ -543,7 +484,6 @@ const TanStackCRUDTable = forwardRef(({
     setError(null);
 
     try {
-      console.log(`🔄 Loading page ${currentPage} (size: ${pageSize}) from:`, url);
       // Use longer timeout for large dataset requests (when fetching all data for filtering)
       const response = await api.get(url, {
         timeout: effectivePageSize >= 10000 ? 30000 : undefined // 30s for large requests
@@ -553,14 +493,12 @@ const TanStackCRUDTable = forwardRef(({
       let dataList = response.data.results || response.data;
       let totalCount = response.data.count || dataList.length;
 
-      console.log(`📥 Loaded ${dataList.length} records from server (total: ${totalCount})`);
 
       // Process data if preprocessing function provided
       const processedData = preprocessData ? preprocessData(dataList) : dataList;
 
       // If preprocessData returns null, skip this data load (table is being reconfigured)
       if (processedData === null) {
-        console.log('⏸️ Data load skipped - table reconfiguration in progress');
         setIsLoading(false);
         return;
       }
@@ -603,7 +541,6 @@ const TanStackCRUDTable = forwardRef(({
     try {
       // Load all data without filters (using a large page size)
       const url = buildApiUrl(1, 10000, '', {});
-      console.log('🔍 Loading complete dataset for filtering from:', url);
 
       // Use longer timeout for large dataset requests
       const response = await api.get(url, {
@@ -616,12 +553,10 @@ const TanStackCRUDTable = forwardRef(({
 
       // If preprocessData returns null, skip this data load (table is being reconfigured)
       if (processedData === null) {
-        console.log('⏸️ Filter data load skipped - table reconfiguration in progress');
         return;
       }
 
       setAllData(processedData);
-      console.log(`📊 Loaded ${processedData.length} total records for filtering`);
 
     } catch (error) {
       console.error('❌ Error loading complete dataset:', error);
@@ -635,7 +570,6 @@ const TanStackCRUDTable = forwardRef(({
     const shouldWaitForConfig = hasTableConfig && !configLoaded;
 
     if (apiUrl && !shouldWaitForConfig) {
-      console.log('🔄 useEffect triggering loadData (reloadTrigger:', reloadTrigger, ')');
       loadData();
       // Also load complete dataset for filtering
       loadAllDataForFiltering();
@@ -662,7 +596,6 @@ const TanStackCRUDTable = forwardRef(({
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       if (Object.keys(columnSizing).length > 0) {
-        console.log('💾 Saving column widths:', columnSizing);
         saveTableConfig({ column_widths: columnSizing });
       }
     }, 1000); // Debounce for 1 second
@@ -674,7 +607,6 @@ const TanStackCRUDTable = forwardRef(({
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       if (tableName && customerId) {
-        console.log('💾 Saving pagination state:', { currentPage, pageSize });
 
         // Merge with existing additional_settings to avoid overwriting other settings
         const existingAdditionalSettings = tableConfig?.additional_settings || {};
@@ -707,7 +639,6 @@ const TanStackCRUDTable = forwardRef(({
         }));
 
       if (newColumnFilters.length > 0) {
-        console.log('📊 Applying loaded filters to table:', newColumnFilters);
         setColumnFilters(newColumnFilters);
         setFiltersInitialized(true);
       }
@@ -725,7 +656,6 @@ const TanStackCRUDTable = forwardRef(({
 
     const debounceTimer = setTimeout(() => {
       if (tableName && customerId && user && configLoaded && filtersInitialized) {
-        console.log('💾 Saving filters:', activeFilters);
         saveTableConfig({
           filters: activeFilters
         });
@@ -737,13 +667,11 @@ const TanStackCRUDTable = forwardRef(({
 
   // Current table data (server-side pagination means we show what we loaded)
   const currentTableData = useMemo(() => {
-    console.log(`📄 Displaying ${editableData.length} rows from server`);
     return editableData;
   }, [editableData]);
 
   // Auto-size columns function (defined after currentTableData)
   const autoSizeColumns = useCallback(() => {
-    console.log('📏 Auto-sizing columns...');
 
     // Reset all column widths to auto-calculated sizes
     const newSizing = {};
@@ -781,7 +709,6 @@ const TanStackCRUDTable = forwardRef(({
             maxContentWidth = Math.max(maxContentWidth, optionWidth);
           }
         });
-        console.log(`📏 Dropdown column "${accessorKey}" - longest option width:`, maxContentWidth);
       }
 
       if (currentTableData && currentTableData.length > 0) {
@@ -806,17 +733,9 @@ const TanStackCRUDTable = forwardRef(({
 
       // Debug logging for name column
       if (accessorKey === 'name') {
-        console.log(`📏 Name column sizing details:`, {
-          headerWidth,
-          maxContentWidth,
-          finalWidth,
-          sampleSize: currentTableData ? Math.min(100, currentTableData.length) : 0,
-          sampleData: currentTableData ? currentTableData.slice(0, 3).map(row => getNestedValue(row, accessorKey)) : []
-        });
       }
     });
 
-    console.log('📏 Setting new column sizes:', newSizing);
     setColumnSizing(newSizing);
 
     // Save to database
@@ -832,7 +751,6 @@ const TanStackCRUDTable = forwardRef(({
         Object.keys(columnSizing).length === 0 && // No existing column sizes
         !isLoading) { // Not currently loading
 
-      console.log('🎯 First time loading table with no saved configuration - running auto-sizer');
       // Small delay to ensure table is fully rendered
       setTimeout(() => {
         autoSizeColumns();
@@ -937,14 +855,12 @@ const TanStackCRUDTable = forwardRef(({
       if (columnKey.includes('.')) {
         // Use helper to set nested value
         setNestedValue(newData[rowIndex], columnKey, newValue);
-        console.log(`📝 Updated nested ${columnKey} for row ${rowIndex} to: "${newValue}"`);
       } else {
         // Simple flat property
         newData[rowIndex] = {
           ...newData[rowIndex],
           [columnKey]: newValue
         };
-        console.log(`📝 Updated ${columnKey} for row ${rowIndex} to: "${newValue}"`);
       }
 
       return newData;
@@ -962,7 +878,6 @@ const TanStackCRUDTable = forwardRef(({
               const newData = [...currentData];
               if (newData[row]) {
                 newData[row][prop] = value;
-                console.log(`📝 afterChange callback updated ${prop} for row ${row} to: "${value}"`);
               }
               return newData;
             });
@@ -974,6 +889,59 @@ const TanStackCRUDTable = forwardRef(({
     }
 
     setHasChanges(true);
+  }, [setNestedValue, getNestedValue, afterChange]);
+
+  // Silent version of updateCellData - doesn't trigger dirty state
+  // Used for selection checkboxes and other UI-only state changes
+  const updateCellDataSilently = useCallback((rowIndex, columnKey, newValue) => {
+    let oldValue;
+
+    setEditableData(currentData => {
+      const newData = [...currentData];
+
+      // Get old value for the callback
+      oldValue = columnKey.includes('.')
+        ? getNestedValue(newData[rowIndex], columnKey)
+        : newData[rowIndex][columnKey];
+
+      // Check if this is a nested property (contains a dot)
+      if (columnKey.includes('.')) {
+        // Use helper to set nested value
+        setNestedValue(newData[rowIndex], columnKey, newValue);
+      } else {
+        // Simple flat property
+        newData[rowIndex] = {
+          ...newData[rowIndex],
+          [columnKey]: newValue
+        };
+      }
+
+      return newData;
+    });
+
+    // Call afterChange callback if provided (after state update)
+    if (afterChange && typeof afterChange === 'function') {
+      // Use setTimeout to ensure state is updated first and to allow
+      // the callback to trigger additional state updates
+      setTimeout(() => {
+        // Create a mock Handsontable instance with setDataAtRowProp
+        const hotInstance = {
+          setDataAtRowProp: (row, prop, value) => {
+            setEditableData(currentData => {
+              const newData = [...currentData];
+              if (newData[row]) {
+                newData[row][prop] = value;
+              }
+              return newData;
+            });
+          }
+        };
+
+        afterChange([[rowIndex, columnKey, oldValue, newValue]], 'edit', hotInstance);
+      }, 0);
+    }
+
+    // NOTE: setHasChanges(true) is NOT called - this is a silent update
   }, [setNestedValue, getNestedValue, afterChange]);
 
   // Navigation functions for floating panel
@@ -1008,14 +976,12 @@ const TanStackCRUDTable = forwardRef(({
   // Pagination handlers
   const handlePageChange = useCallback((page) => {
     setCurrentPage(page);
-    console.log(`📄 Changed to page ${page}`);
     // Data will be reloaded automatically via useEffect when currentPage changes
   }, []);
 
   const handlePageSizeChange = useCallback((newPageSize) => {
     setPageSize(newPageSize);
     setCurrentPage(1); // Reset to first page when changing page size
-    console.log(`📄 Changed page size to ${newPageSize}`);
     // Data will be reloaded automatically via useEffect when pageSize changes
   }, []);
 
@@ -1030,16 +996,13 @@ const TanStackCRUDTable = forwardRef(({
     setEditableData(newData);
     setHasChanges(true);
 
-    console.log('➕ Added new row:', newRow);
 
     // Auto-scroll to bottom to show the new row
     setTimeout(() => {
       const tableWrapper = document.querySelector('.table-wrapper');
       if (tableWrapper) {
         tableWrapper.scrollTop = tableWrapper.scrollHeight;
-        console.log('📜 Auto-scrolled to bottom after adding new row');
       } else {
-        console.log('⚠️ Table wrapper not found for auto-scroll');
       }
     }, 100); // Small delay to ensure the row is rendered
   }, [editableData, newRowTemplate]);
@@ -1056,7 +1019,6 @@ const TanStackCRUDTable = forwardRef(({
     });
 
     const rowsToDelete = Array.from(rowIndices).sort((a, b) => b - a); // Delete from end to beginning
-    console.log('🗑️ Deleting', rowsToDelete.length, 'rows:', rowsToDelete);
 
     // Track IDs for backend deletion
     const idsToDelete = [];
@@ -1075,24 +1037,19 @@ const TanStackCRUDTable = forwardRef(({
     setSelectedCells(new Set());
     setHasChanges(true);
 
-    console.log('🗑️ Marked for deletion:', idsToDelete);
-    console.log('✅ Deleted rows, remaining:', newData.length);
   }, [selectedCells, editableData]);
 
   // Save changes to database
   const saveChanges = useCallback(async () => {
     if (!hasChanges) {
-      console.log('⚠️ No changes to save');
       return;
     }
 
     try {
-      console.log('💾 Starting save process...');
       setIsLoading(true);
 
       // Use custom save handler if provided (for bulk save scenarios like AliasTable)
       if (customSaveHandler) {
-        console.log('🔧 Using custom save handler with deletions:', deletedRows);
         const result = await customSaveHandler(editableData, hasChanges, deletedRows);
 
         if (result.success) {
@@ -1101,7 +1058,6 @@ const TanStackCRUDTable = forwardRef(({
           setHasChanges(false);
           setDeletedRows([]);
 
-          console.log('✅ Custom save completed successfully');
           if (onSave) onSave(result);
         } else {
           console.error('❌ Custom save failed:', result.message);
@@ -1115,23 +1071,17 @@ const TanStackCRUDTable = forwardRef(({
       const newRows = editableData.filter(row => !row.id || row.id === null);
       const existingRows = editableData.filter(row => row.id && row.id !== null);
 
-      console.log('➕ New rows to create:', newRows.length);
-      console.log('✏️ Existing rows to update:', existingRows.length);
-      console.log('🗑️ Rows to delete:', deletedRows.length);
 
       // Delete rows first (individual DELETE requests)
       const uniqueDeletedRows = [...new Set(deletedRows)]; // Remove duplicates
       for (const deletedId of uniqueDeletedRows) {
-        console.log('🗑️ Deleting record ID:', deletedId);
 
         if (onDelete) {
           // Use custom delete handler if provided
           const deleteResult = await onDelete(deletedId);
-          console.log('✅ Custom delete result:', deleteResult);
         } else {
           // Use default axios delete
           const response = await api.delete(getDeleteUrl(deletedId));
-          console.log('✅ Deleted record response:', response.data);
         }
       }
 
@@ -1152,9 +1102,7 @@ const TanStackCRUDTable = forwardRef(({
           }
         }
 
-        console.log('📤 Creating new record:', rowData);
         const response = await api.post(saveUrl || apiUrl, rowData);
-        console.log('✅ Created record with ID:', response.data.id);
       }
 
       // Save existing rows (PUT requests)
@@ -1162,18 +1110,13 @@ const TanStackCRUDTable = forwardRef(({
         let rowData = { ...existingRow };
 
         // Apply transform if provided
-        console.log('🔍 saveTransform exists?', !!saveTransform, 'type:', typeof saveTransform);
         if (saveTransform) {
-          console.log('🔧 Calling saveTransform for row:', rowData.id);
           const transformed = saveTransform([rowData]);
-          console.log('🔧 Transform result:', transformed);
           if (transformed.length > 0) {
             rowData = transformed[0];
-            console.log('🔧 Using transformed row:', rowData);
           }
         }
 
-        console.log('📤 Updating record ID:', existingRow.id);
 
         // Construct proper PUT URL - use updateUrl if provided, otherwise default pattern
         let putUrl;
@@ -1186,18 +1129,14 @@ const TanStackCRUDTable = forwardRef(({
           putUrl = baseUrl.endsWith('/') ? `${baseUrl}${existingRow.id}/` : `${baseUrl}/${existingRow.id}/`;
         }
 
-        console.log('📤 PUT URL:', putUrl);
         const response = await api.put(putUrl, rowData);
-        console.log('✅ Updated record response:', response.data);
       }
 
       // Reload data from server to get fresh state
-      console.log('🔄 Reloading data from server...');
       await loadData();
       setDeletedRows([]);
       setHasChanges(false);
 
-      console.log('✅ All changes saved successfully!');
 
       // Call onSave callback if provided
       if (onSave) {
@@ -1228,7 +1167,6 @@ const TanStackCRUDTable = forwardRef(({
 
   // Advanced filter handling functions
   const handleFiltersChange = useCallback((newActiveFilters) => {
-    console.log('🔍 Updating active filters:', newActiveFilters);
 
     // Clean invalid filters
     const cleanedFilters = cleanInvalidFilters(newActiveFilters);
@@ -1251,9 +1189,7 @@ const TanStackCRUDTable = forwardRef(({
       }));
 
     setColumnFilters(newColumnFilters);
-    console.log('✅ Column filters updated:', newColumnFilters);
 
-    console.log('✅ Active filters updated:', cleanedFilters);
   }, [useServerSideFiltering]);
 
   const toggleFilterDropdown = useCallback((show) => {
@@ -1261,7 +1197,6 @@ const TanStackCRUDTable = forwardRef(({
   }, [showFilterDropdown]);
 
   const clearAllFilters = useCallback(() => {
-    console.log('🧹 Clearing all filters and resetting to normal pagination');
 
     // Clear all filter states
     setActiveFilters({});
@@ -1278,7 +1213,6 @@ const TanStackCRUDTable = forwardRef(({
 
     // The useEffect for loadData will automatically trigger when activeFilters and globalFilter change
     // No need to manually call loadData here as it will cause the right data loading behavior
-    console.log('🧹 All filters cleared, data will reload automatically');
   }, [pageSize]);
 
   // Sync activeFilters when columnFilters change from other sources
@@ -1291,20 +1225,12 @@ const TanStackCRUDTable = forwardRef(({
 
   // Create enhanced column definitions with our custom cell components
   const columnDefs = useMemo(() => {
-    // console.log('🏗️ Building column definitions with dropdownSources:', dropdownSources);
 
     return columns.map((column, index) => {
       const headerName = colHeaders[index] || column.header || column.data || `Column ${index + 1}`;
       const accessorKey = column.data || column.accessorKey || `column_${index}`;
       const dropdownSource = dropdownSources[accessorKey] || dropdownSources[headerName];
 
-      console.log(`🏗️ Column ${index} (${accessorKey}):`, {
-        headerName,
-        accessorKey,
-        columnType: column.type,
-        dropdownSource,
-        hasDropdownSource: !!dropdownSource
-      });
 
       // Check if this is a checkbox column
       const actualColumnConfig = columns[index];
@@ -1327,6 +1253,8 @@ const TanStackCRUDTable = forwardRef(({
               setHasChanges={setHasChanges}
               hasActiveClientFilters={hasActiveClientFilters}
               table={tableInstance}
+              totalCheckboxSelected={totalCheckboxSelected}
+              onClearAllCheckboxes={onClearAllCheckboxes}
             />
           );
         } : headerName,
@@ -1345,7 +1273,6 @@ const TanStackCRUDTable = forwardRef(({
             (accessorKey.startsWith('member_') && !accessorKey.includes('count'));
           const isMultiSelect = actualColumnConfig?.allowMultiple === true;
 
-          // console.log(`🔍 Cell [${rowIndex}, ${colIndex}] ${accessorKey}:`, {
           //   value,
           //   isCheckbox,
           //   isDropdown,
@@ -1360,12 +1287,15 @@ const TanStackCRUDTable = forwardRef(({
 
           // Checkbox cell
           if (isCheckbox) {
+            // Use silent updater for _selected column (doesn't trigger dirty state)
+            const updateFn = accessorKey === '_selected' ? updateCellDataSilently : updateCellData;
             return (
               <ExistsCheckboxCell
                 value={value}
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
-                updateCellData={updateCellData}
+                updateCellData={updateFn}
+                readOnly={readOnly}
               />
             );
           }
@@ -1382,6 +1312,7 @@ const TanStackCRUDTable = forwardRef(({
                 rowData={row.original}
                 allTableData={tableData}
                 theme={theme}
+                readOnly={readOnly}
               />
             );
           }
@@ -1419,6 +1350,7 @@ const TanStackCRUDTable = forwardRef(({
                 invalidCells={invalidCells}
                 setInvalidCells={setInvalidCells}
                 theme={theme}
+                readOnly={readOnly}
               />
             );
           }
@@ -1442,7 +1374,6 @@ const TanStackCRUDTable = forwardRef(({
               }
             }
 
-            // console.log(`📋 Dropdown ${accessorKey} options:`, Array.isArray(options) ? options.length : 'function');
 
             return (
               <VendorDropdownCell
@@ -1459,6 +1390,7 @@ const TanStackCRUDTable = forwardRef(({
                 invalidCells={invalidCells}
                 setInvalidCells={setInvalidCells}
                 theme={theme}
+                readOnly={readOnly}
               />
             );
           }
@@ -1520,6 +1452,7 @@ const TanStackCRUDTable = forwardRef(({
                   rowIndex={rowIndex}
                   columnKey={accessorKey}
                   updateCellData={updateCellData}
+                  readOnly={readOnly}
                 />
               );
             }
@@ -1531,6 +1464,7 @@ const TanStackCRUDTable = forwardRef(({
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
                 updateCellData={updateCellData}
+                readOnly={readOnly}
               />
             );
           }
@@ -1554,6 +1488,7 @@ const TanStackCRUDTable = forwardRef(({
               rowIndex={rowIndex}
               columnKey={accessorKey}
               updateCellData={updateCellData}
+              readOnly={readOnly}
             />
           );
         },
@@ -1598,7 +1533,6 @@ const TanStackCRUDTable = forwardRef(({
       return 0;
     });
 
-    console.log('📋 Applied frozen sort order, sorted', sorted.length, 'rows');
     return sorted;
   }, [editableData, frozenSortOrder]);
 
@@ -1632,7 +1566,6 @@ const TanStackCRUDTable = forwardRef(({
     },
     onColumnVisibilityChange: setColumnVisibility,
     onColumnSizingChange: (updater) => {
-      console.log('🔧 Column sizing changed:', updater);
       setColumnSizing(updater);
     },
     onSortingChange: setSorting,
@@ -1690,15 +1623,12 @@ const TanStackCRUDTable = forwardRef(({
       if (table && table.getFilteredRowModel) {
         // When filtering, use the filtered count from TanStack Table
         const filteredCount = table.getFilteredRowModel().rows.length;
-        console.log('🔢 effectiveTotalItems (filtered from table):', filteredCount, 'hasActiveClientFilters:', hasActiveClientFilters, 'totalItems:', totalItems);
         return filteredCount;
       } else {
         // Fallback: if table isn't ready yet, use totalItems temporarily
-        console.log('🔢 effectiveTotalItems (fallback):', totalItems);
         return totalItems;
       }
     }
-    console.log('🔢 effectiveTotalItems (server):', totalItems);
     return totalItems; // Otherwise use server-provided count
   }, [hasActiveClientFilters, table, totalItems, globalFilter, activeFilters, editableData]);
 
@@ -1709,15 +1639,12 @@ const TanStackCRUDTable = forwardRef(({
         const filteredCount = table.getFilteredRowModel().rows.length;
         const effectivePageSize = pageSize === 'All' ? filteredCount : pageSize;
         const pages = Math.max(1, Math.ceil(filteredCount / effectivePageSize));
-        console.log('📄 effectiveTotalPages (filtered):', pages, 'from', filteredCount, 'items, pageSize:', pageSize);
         return pages;
       } else {
         // Fallback
-        console.log('📄 effectiveTotalPages (fallback):', totalPages);
         return totalPages;
       }
     }
-    console.log('📄 effectiveTotalPages (server):', totalPages);
     return totalPages; // Otherwise use server-provided pages
   }, [hasActiveClientFilters, table, pageSize, totalPages, globalFilter, activeFilters, editableData]);
 
@@ -1732,11 +1659,9 @@ const TanStackCRUDTable = forwardRef(({
       }).filter(id => id !== null);
 
       setFrozenSortOrder(order);
-      console.log('📌 Frozen sort order captured:', order.length, 'rows');
     } else if (!sorting || sorting.length === 0) {
       // No sorting - clear frozen order
       setFrozenSortOrder(null);
-      console.log('❌ Cleared frozen sort order');
     }
   }, [sorting, table]);
 
@@ -1952,14 +1877,12 @@ const TanStackCRUDTable = forwardRef(({
       }
     }, 0);
 
-    console.log(`🔄 Navigated to cell [${clampedRow}, ${clampedCol}] (visual index in sorted table)`);
   }, [table, columnDefs]);
 
   // Clear selected cells
   const clearCells = useCallback(() => {
     if (selectedCells.size === 0) return;
 
-    console.log('🧹 Clearing selected cells');
 
     setEditableData(currentData => {
       const newData = [...currentData];
@@ -1983,10 +1906,8 @@ const TanStackCRUDTable = forwardRef(({
 
   // Fill down operation
   const fillDown = useCallback(() => {
-    console.log('🔽 Fill Down: Starting with selectedCells:', selectedCells.size);
 
     if (selectedCells.size <= 1) {
-      console.log('⚠️ Fill Down: Not enough cells selected (need > 1)');
       return;
     }
 
@@ -2026,7 +1947,6 @@ const TanStackCRUDTable = forwardRef(({
       }
     });
 
-    console.log(`🔽 Fill Down: Processing ${Object.keys(cellsByColumn).length} columns`);
 
     // Update the actual data
     setEditableData(currentData => {
@@ -2051,20 +1971,15 @@ const TanStackCRUDTable = forwardRef(({
           return;
         }
 
-        console.log(`🔽 Fill Down Column ${colIndex} (${columnKey}): ${colCells.length} cells, visual row ${firstCell.visualIndex} (data row ${firstDataRowIndex})`);
-        console.log(`🔽 First cell data:`, newData[firstDataRowIndex]);
 
         // Get source value from the first row in this column (using data index)
         const sourceValue = getNestedValue(newData[firstDataRowIndex], columnKey);
 
-        console.log(`🔽 Source value from newData[${firstDataRowIndex}].${columnKey}:`, sourceValue);
 
         if (sourceValue === undefined || sourceValue === null || sourceValue === '') {
-          console.log(`⚠️ Column ${colIndex}: Source value is empty/null/undefined ("${sourceValue}"), skipping column`);
           return;
         }
 
-        console.log(`🔽 Column ${colIndex}: Copying "${sourceValue}" to ${colCells.length - 1} cells`);
 
         // Get filter function and dropdown options for this column
         const filterFunction = dropdownFilters?.[columnKey];
@@ -2076,7 +1991,6 @@ const TanStackCRUDTable = forwardRef(({
           const dataRowIndex = cell.dataRowIndex;
 
           if (!newData[dataRowIndex]) {
-            console.log(`  ⚠️ Data row ${dataRowIndex} doesn't exist`);
             return;
           }
 
@@ -2090,7 +2004,6 @@ const TanStackCRUDTable = forwardRef(({
               );
 
               if (!isValidOption) {
-                console.log(`⚠️ Skipping [data ${dataRowIndex}, col ${colIndex}]: "${sourceValue}" not valid for this row`);
                 skippedInColumn++;
                 return;
               }
@@ -2102,21 +2015,17 @@ const TanStackCRUDTable = forwardRef(({
         });
 
         if (skippedInColumn > 0) {
-          console.log(`⚠️ Column ${colIndex}: Skipped ${skippedInColumn} cells due to filter validation`);
           totalSkipped += skippedInColumn;
         }
       });
 
       if (totalSkipped > 0) {
-        console.log(`⚠️ Total skipped: ${totalSkipped} cells`);
       }
 
-      console.log('🔽 Fill Down: Complete, returning newData with', newData.length, 'rows');
       return newData;
     });
 
     setHasChanges(true);
-    console.log('🔽 Fill Down: Done, hasChanges set to true');
   }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData, getVisibleColumnDef]);
 
   // Fill right operation
@@ -2182,7 +2091,6 @@ const TanStackCRUDTable = forwardRef(({
 
       if (sourceValue === undefined || sourceValue === null) return currentData;
 
-      console.log(`➡️ Fill Right: Copying "${sourceValue}" from visual row ${firstCell.visualIndex} (data row ${firstDataRowIndex}) to ${selectedCells.size - 1} cells`);
 
       let skippedCells = 0;
 
@@ -2213,7 +2121,6 @@ const TanStackCRUDTable = forwardRef(({
             );
 
             if (!isValidOption) {
-              console.log(`⚠️ Skipping cell [data ${dataRowIndex}, col ${colIndex}]: "${sourceValue}" not valid for this row's context. Available options:`, availableOptions.slice(0, 5));
               skippedCells++;
               return;
             }
@@ -2225,7 +2132,6 @@ const TanStackCRUDTable = forwardRef(({
       });
 
       if (skippedCells > 0) {
-        console.log(`⚠️ Skipped ${skippedCells} cells due to filter validation`);
       }
 
       return newData;
@@ -2244,7 +2150,6 @@ const TanStackCRUDTable = forwardRef(({
     const dataRowIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[0])))].sort((a, b) => a - b);
     const colIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[1])))].sort((a, b) => a - b);
 
-    console.log('📋 Copy operation: data rows', dataRowIndices, 'cols', colIndices);
 
     // Build a 2D grid of the selected data (using data indices)
     const copyGrid = dataRowIndices.map(dataRowIndex => {
@@ -2275,7 +2180,6 @@ const TanStackCRUDTable = forwardRef(({
     const copyText = copyGrid.map(row => row.join('\t')).join('\n');
 
     navigator.clipboard.writeText(copyText);
-    console.log('📋 Copied to clipboard (Excel format):', copyText);
 
     // Show brief success feedback
     setFillPreview({
@@ -2304,7 +2208,6 @@ const TanStackCRUDTable = forwardRef(({
 
       const clipboardText = await navigator.clipboard.readText();
       if (!clipboardText.trim()) {
-        console.log('📋 Clipboard is empty');
         return;
       }
 
@@ -2312,7 +2215,6 @@ const TanStackCRUDTable = forwardRef(({
       const rows = clipboardText.split('\n').filter(row => row.length > 0);
       const pasteData = rows.map(row => row.split('\t'));
 
-      console.log('📋 Pasting data:', pasteData);
 
       // Calculate paste dimensions
       const pasteRowCount = pasteData.length;
@@ -2337,12 +2239,10 @@ const TanStackCRUDTable = forwardRef(({
         targetEndDataRow = selectionEndDataRow;
         targetEndCol = selectionEndCol;
 
-        console.log(`📋 Paste with repeat: selection [data ${selectionStartDataRow}-${selectionEndDataRow}, ${selectionStartCol}-${selectionEndCol}], data size [${pasteRowCount}x${pasteColCount}]`);
       } else {
         // Standard paste: use paste data dimensions
         targetEndDataRow = targetStartDataRow + pasteRowCount - 1;
         targetEndCol = targetStartCol + pasteColCount - 1;
-        console.log(`📋 Standard paste: [data ${targetStartDataRow}-${targetEndDataRow}, ${targetStartCol}-${targetEndCol}]`);
       }
 
       // Auto-extend table rows if needed (using data row count)
@@ -2350,7 +2250,6 @@ const TanStackCRUDTable = forwardRef(({
       const neededRows = Math.max(0, (targetEndDataRow + 1) - currentRowCount);
 
       if (neededRows > 0) {
-        console.log(`➕ Auto-extending table with ${neededRows} new rows`);
         const newRows = Array.from({ length: neededRows }, () => ({
           ...JSON.parse(JSON.stringify(newRowTemplate)),  // Deep copy to avoid shared object references
           id: null  // Use null for new rows like original FabricTable
@@ -2414,13 +2313,11 @@ const TanStackCRUDTable = forwardRef(({
               // Use nested property setter if needed - use data index for actual data update
               if (columnKey.includes('.')) {
                 setNestedValue(newData[targetDataRowIndex], columnKey, convertedValue);
-                console.log(`📝 Pasted "${cellValue}" → nested "${convertedValue}" to [data ${targetDataRowIndex}, col ${targetColIndex}] (${columnKey})`);
               } else {
                 newData[targetDataRowIndex] = {
                   ...newData[targetDataRowIndex],
                   [columnKey]: convertedValue
                 };
-                console.log(`📝 Pasted "${cellValue}" → "${convertedValue}" to [data ${targetDataRowIndex}, col ${targetColIndex}] (${columnKey})`);
               }
             }
           }
@@ -2458,7 +2355,6 @@ const TanStackCRUDTable = forwardRef(({
                 const newData = [...currentData];
                 if (newData[row]) {
                   newData[row][prop] = value;
-                  console.log(`📝 afterChange callback updated ${prop} for row ${row} to: "${value}"`);
                 }
                 return newData;
               });
@@ -2521,11 +2417,9 @@ const TanStackCRUDTable = forwardRef(({
   // Clear cell contents (set to empty string)
   const clearCellContents = useCallback(() => {
     if (selectedCells.size === 0) {
-      console.log('⚠️ No cells selected to clear');
       return;
     }
 
-    console.log(`🗑️ Clearing contents of ${selectedCells.size} cells`);
 
     setEditableData(currentData => {
       const newData = [...currentData];
@@ -2538,10 +2432,8 @@ const TanStackCRUDTable = forwardRef(({
           // Check if this is a nested property (contains a dot)
           if (columnKey.includes('.')) {
             setNestedValue(newData[rowIndex], columnKey, '');
-            console.log(`  🗑️ Cleared nested ${columnKey} for row ${rowIndex}`);
           } else {
             newData[rowIndex][columnKey] = '';
-            console.log(`  🗑️ Cleared ${columnKey} for row ${rowIndex}`);
           }
         }
       });
@@ -2550,7 +2442,6 @@ const TanStackCRUDTable = forwardRef(({
     });
 
     setHasChanges(true);
-    console.log('✅ Cell contents cleared');
   }, [selectedCells, columnDefs, setNestedValue]);
 
   // Context menu action handlers
@@ -2599,22 +2490,18 @@ const TanStackCRUDTable = forwardRef(({
         case 'c':
           e.preventDefault();
           handleCopy();
-          console.log('📋 Copy shortcut triggered');
           break;
         case 'v':
           e.preventDefault();
           handlePaste();
-          console.log('📋 Paste shortcut triggered');
           break;
         case 'd':
           e.preventDefault();
           fillDown();
-          console.log('🔽 Fill down shortcut triggered');
           break;
         case 'r':
           e.preventDefault();
           fillRight();
-          console.log('➡️ Fill right shortcut triggered');
           break;
         case 'a':
           e.preventDefault();
@@ -2626,7 +2513,6 @@ const TanStackCRUDTable = forwardRef(({
             }
           }
           setSelectedCells(allCells);
-          console.log('🔄 Select all triggered');
           break;
       }
     } else {
@@ -2637,11 +2523,9 @@ const TanStackCRUDTable = forwardRef(({
           if (e.shiftKey) {
             // Shift+Delete: Delete rows
             deleteSelectedRows();
-            console.log('🗑️ Delete rows shortcut triggered');
           } else {
             // Delete: Clear cell contents
             clearCells();
-            console.log('🧹 Clear cells shortcut triggered');
           }
           break;
 
@@ -2713,13 +2597,11 @@ const TanStackCRUDTable = forwardRef(({
           // Clear selection
           setSelectedCells(new Set());
           setSelectionRange(null);
-          console.log('⏹️ Selection cleared');
           break;
 
         case 'F2':
           e.preventDefault();
           // Start editing current cell (if it's a text cell)
-          console.log('✏️ Edit mode triggered for current cell');
           break;
 
         default:
@@ -2790,7 +2672,6 @@ const TanStackCRUDTable = forwardRef(({
       endCol
     });
 
-    console.log(`📐 Extended selection to [${minRow}-${maxRow}, ${minCol}-${maxCol}]`);
   }, []);
 
   // Pagination Footer Component
@@ -3107,15 +2988,21 @@ const TanStackCRUDTable = forwardRef(({
     updateTableDataSilently: (data) => {
       // Update table data without marking as dirty
       // Useful for updating display-only fields (badges, statuses) after API operations
-      console.log('🔇 updateTableDataSilently() called - updating data without marking dirty');
       setEditableData(data);
     },
     getSorting: () => sorting,
     setSorting: (sortState) => setSorting(sortState),
+    getColumnVisibility: () => columnVisibility,
+    setColumnVisibility: (visibility) => setColumnVisibility(visibility),
+    getPaginationInfo: () => ({
+      currentPage,
+      pageSize,
+      totalItems,
+      totalPages
+    }),
     hasChanges,
     autoSizeColumns,
     reloadData: () => {
-      console.log('🔄 reloadData() called - triggering data reload');
       setReloadTrigger(prev => prev + 1);
     },
   }));
@@ -3305,6 +3192,14 @@ const TanStackCRUDTable = forwardRef(({
               rowIndices.add(rowIndex);
             });
             return rowIndices.size;
+          })()}
+          checkboxSelectedCount={(() => {
+            // Use totalCheckboxSelected if provided (for cross-page selection)
+            // Otherwise count rows where _selected column is true on current page
+            if (totalCheckboxSelected !== undefined) {
+              return totalCheckboxSelected;
+            }
+            return editableData.filter(row => row._selected === true).length;
           })()}
           hasActiveFilters={Object.keys(activeFilters).filter(key => activeFilters[key].active).length > 0}
           hasUnsavedChanges={hasChanges}
@@ -3732,7 +3627,6 @@ const TanStackCRUDTable = forwardRef(({
               const handleToggle = (e) => {
                 e.stopPropagation();
                 if (!isRequired) {
-                  console.log('🔄 Toggling column:', column.id);
                   // Use the toggle function with explicit value to avoid state timing issues
                   const newVisibility = !column.getIsVisible();
                   column.toggleVisibility(newVisibility);
@@ -3833,6 +3727,8 @@ const TanStackCRUDTable = forwardRef(({
                   const columnConfig = columns.find(c => (c.data || c.accessorKey) === header.column.id);
                   const columnGroup = columnConfig?.columnGroup;
                   const isNameColumn = header.id === 'name' || columnConfig?.data === 'name';
+                  const isSelectedColumn = header.id === '_selected' || columnConfig?.data === '_selected';
+                  const hasSelectedColumn = columns.some(c => (c.data || c.accessorKey) === '_selected');
 
                   // Define solid background colors for column groups (no transparency)
                   // Default header: subtle difference from table background (like dark theme)
@@ -3867,11 +3763,11 @@ const TanStackCRUDTable = forwardRef(({
                         cursor: header.column.getCanSort() ? 'pointer' : 'default',
                         position: 'sticky',
                         top: 0,
-                        left: isNameColumn ? 0 : undefined,
-                        zIndex: isNameColumn ? 20 : 10,
+                        left: isSelectedColumn ? 0 : (isNameColumn ? (hasSelectedColumn ? '60px' : 0) : undefined),
+                        zIndex: isSelectedColumn ? 21 : (isNameColumn ? 20 : 10),
                         userSelect: 'none',
                         transition: 'background-color 0.2s',
-                        boxShadow: isNameColumn ? '2px 0 4px rgba(0, 0, 0, 0.1)' : 'none'
+                        boxShadow: (isSelectedColumn || isNameColumn) ? '2px 0 4px rgba(0, 0, 0, 0.1)' : 'none'
                       }}
                       onClick={header.column.getToggleSortingHandler()}
                     >
@@ -3958,7 +3854,6 @@ const TanStackCRUDTable = forwardRef(({
 
                   // Debug: Log the mapping for the first few rows
                   if (visualRowIndex < 3 && cell.column.id === 'use') {
-                    console.log(`📍 Cell render: visual row ${visualRowIndex}, rowId ${rowId}, sortedIndex ${row.index}, found at data index ${dataRowIndex}, passing rowIndex=${rowIndex}, editableData.length=${editableData.length}`);
                   }
 
                   // Get column group for styling - use column.id to find the config
@@ -3966,13 +3861,15 @@ const TanStackCRUDTable = forwardRef(({
                   const columnConfig = columns.find(c => (c.data || c.accessorKey) === cell.column.id);
                   const columnGroup = columnConfig?.columnGroup;
                   const isNameColumn = cell.column.id === 'name' || columnConfig?.data === 'name';
+                  const isSelectedColumn = cell.column.id === '_selected' || columnConfig?.data === '_selected';
+                  const hasSelectedColumn = columns.some(c => (c.data || c.accessorKey) === '_selected');
                   const rowData = row.original;
                   const isSavedRow = rowData && rowData.id != null;
 
                   // Define solid background colors for column groups (no transparency)
                   let cellBg = 'transparent';
-                  // Name column always gets solid background to prevent transparency
-                  if (isNameColumn) {
+                  // Name and _selected columns always get solid background to prevent transparency
+                  if (isNameColumn || isSelectedColumn) {
                     cellBg = 'var(--table-bg)';
                   } else if (!isSelected && !isInvalid) {
                     if (columnGroup === 'target') {
@@ -4007,11 +3904,11 @@ const TanStackCRUDTable = forwardRef(({
                         borderRight: '1px solid var(--table-border)',
                         borderLeft: isModifiedField ? '3px solid var(--color-accent-emphasis)' : 'none',
                         width: cell.column.getSize(),
-                        backgroundColor: isInvalid ? 'var(--color-danger-subtle)' : (isSelected ? (isNameColumn ? cellBg : 'var(--table-row-selected)') : cellBg),
+                        backgroundColor: isInvalid ? 'var(--color-danger-subtle)' : (isSelected ? ((isNameColumn || isSelectedColumn) ? cellBg : 'var(--table-row-selected)') : cellBg),
                         cursor: 'cell',
-                        position: isNameColumn ? 'sticky' : 'relative',
-                        left: isNameColumn ? 0 : undefined,
-                        zIndex: isNameColumn ? 15 : 1,
+                        position: (isSelectedColumn || isNameColumn) ? 'sticky' : 'relative',
+                        left: isSelectedColumn ? 0 : (isNameColumn ? (hasSelectedColumn ? '60px' : 0) : undefined),
+                        zIndex: isSelectedColumn ? 16 : (isNameColumn ? 15 : 1),
                         transition: 'background-color 0.15s, border-color 0.15s',
                         outline: isSelected ? '2px solid var(--link-text)' : (isInvalid ? '2px solid var(--color-danger-emphasis)' : 'none'),
                         outlineOffset: '-2px',
@@ -4019,7 +3916,7 @@ const TanStackCRUDTable = forwardRef(({
                         maxWidth: '300px',
                         overflow: 'hidden',
                         fontWeight: isNameColumn && isSavedRow ? '600' : 'normal',
-                        boxShadow: isNameColumn ? '2px 0 4px rgba(0, 0, 0, 0.1)' : 'none'
+                        boxShadow: (isSelectedColumn || isNameColumn) ? '2px 0 4px rgba(0, 0, 0, 0.1)' : 'none'
                       }}
                       onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
                       onContextMenu={(e) => handleCellRightClick(rowIndex, colIndex, e)}
@@ -4348,7 +4245,7 @@ const TanStackCRUDTable = forwardRef(({
 // Enhanced Cell Components
 
 // Enhanced searchable dropdown cell component
-const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, allTableData, filterFunction, invalidCells, setInvalidCells, theme = 'dark' }) => {
+const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, allTableData, filterFunction, invalidCells, setInvalidCells, theme = 'dark', readOnly = false }) => {
   const [localValue, setLocalValue] = useState(value || '');
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -4361,7 +4258,6 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   // Debug: Log rowIndex when component mounts or rowIndex changes
   useEffect(() => {
     if (columnKey === 'use') {
-      console.log(`🔍 VendorDropdownCell (${columnKey}): rowIndex=${rowIndex}, rowId=${rowData?.id}, value="${value}"`);
     }
   }, [rowIndex, columnKey, rowData?.id, value]);
 
@@ -4380,7 +4276,6 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
-        console.log('🖱️ Click outside detected, closing dropdown');
         setIsOpen(false);
         setSearchText('');
         setSelectedIndex(-1);
@@ -4406,7 +4301,6 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   let availableOptions = options;
   if (filterFunction && rowData) {
     availableOptions = filterFunction(options, rowData, columnKey, allTableData);
-    console.log(`🔍 Filtered ${columnKey} options from ${options.length} to ${availableOptions.length} for row data:`, rowData);
   }
 
   const filteredOptions = availableOptions.filter(option =>
@@ -4416,11 +4310,9 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   );
 
   const handleSelect = (selectedOption) => {
-    console.log('🖱️ handleSelect called with:', selectedOption);
 
     const newValue = typeof selectedOption === 'string' ? selectedOption : (selectedOption.name || selectedOption.label);
 
-    console.log(`📝 Setting ${columnKey} to: "${newValue}" for row ${rowIndex}`);
 
     setLocalValue(newValue);
     updateCellData(rowIndex, columnKey, newValue);
@@ -4446,11 +4338,9 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
       }
     }, 0);
 
-    console.log('✅ Dropdown closed after selection');
   };
 
   const handleClear = () => {
-    console.log(`🗑️ Clearing ${columnKey} for row ${rowIndex}`);
     setLocalValue('');
     updateCellData(rowIndex, columnKey, '');
 
@@ -4470,6 +4360,11 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   };
 
   const handleKeyDown = (e) => {
+    // If read-only, don't allow any editing
+    if (readOnly) {
+      return;
+    }
+
     // Handle delete/backspace when dropdown is closed
     if (!isOpen) {
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -4552,7 +4447,6 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
   // Determine dropdown position with safety checks
   const getDropdownStyle = () => {
     if (!containerRef.current) {
-      console.log('⚠️ containerRef not available, using fallback positioning');
       return {
         position: 'absolute',
         top: '100%',
@@ -4599,7 +4493,6 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
         style.top = rect.bottom + 2;
       }
 
-      console.log('📍 Dropdown positioning:', style);
       return style;
     } catch (error) {
       console.error('❌ Error calculating dropdown position:', error);
@@ -4654,19 +4547,22 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
         <span
           onClick={(e) => {
             e.stopPropagation();
-            setIsOpen(!isOpen);
+            if (!readOnly) {
+              setIsOpen(!isOpen);
+            }
           }}
           style={{
             color: 'var(--muted-text)',
             marginLeft: '8px',
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s',
-            cursor: 'pointer',
+            cursor: readOnly ? 'default' : 'pointer',
             padding: '4px 8px',
             margin: '-4px -8px -4px 0',
             display: 'inline-flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            opacity: readOnly ? 0.5 : 1
           }}
         >▽</span>
       </div>
@@ -4721,7 +4617,6 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('🖱️ Option clicked:', displayText);
                     handleSelect(option);
                   }}
                   onMouseDown={(e) => {
@@ -4766,7 +4661,7 @@ const VendorDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey
 };
 
 // Multi-Select Dropdown Cell for selecting multiple values
-const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, allTableData, filterFunction, invalidCells, setInvalidCells, theme = 'dark' }) => {
+const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, columnKey, updateCellData, rowData, allTableData, filterFunction, invalidCells, setInvalidCells, theme = 'dark', readOnly = false }) => {
   // value should be an array of selected items
   const [selectedValues, setSelectedValues] = useState(Array.isArray(value) ? value : []);
   const [isOpen, setIsOpen] = useState(false);
@@ -4795,7 +4690,6 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
       const isOutsideDropdown = dropdownRef.current && !dropdownRef.current.contains(event.target);
 
       if (isOutsideContainer && isOutsideDropdown) {
-        console.log('🖱️ Click outside multi-select dropdown, closing');
         setIsOpen(false);
         setSearchText('');
       }
@@ -4830,18 +4724,11 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
   const toggleOption = (selectedOption) => {
     const optionValue = typeof selectedOption === 'string' ? selectedOption : (selectedOption.name || selectedOption.label);
 
-    console.log(`🖱️ toggleOption called for ${columnKey}:`, {
-      selectedOption,
-      optionValue,
-      currentSelectedValues: selectedValues,
-      isCurrentlySelected: selectedValues.includes(optionValue)
-    });
 
     const newSelectedValues = selectedValues.includes(optionValue)
       ? selectedValues.filter(v => v !== optionValue)
       : [...selectedValues, optionValue];
 
-    console.log(`📝 Multi-select ${columnKey} updated from:`, selectedValues, 'to:', newSelectedValues, 'for row', rowIndex);
 
     setSelectedValues(newSelectedValues);
     updateCellData(rowIndex, columnKey, newSelectedValues);
@@ -4858,7 +4745,6 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
   };
 
   const handleClearAll = () => {
-    console.log(`🗑️ Clearing all ${columnKey} selections for row ${rowIndex}`);
     setSelectedValues([]);
     updateCellData(rowIndex, columnKey, []);
 
@@ -4874,6 +4760,11 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
   };
 
   const handleKeyDown = (e) => {
+    // If read-only, don't allow any editing
+    if (readOnly) {
+      return;
+    }
+
     if (!isOpen) {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
@@ -4941,7 +4832,9 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
         ref={triggerRef}
         onClick={(e) => {
           e.stopPropagation();
-          setIsOpen(!isOpen);
+          if (!readOnly) {
+            setIsOpen(!isOpen);
+          }
         }}
         onKeyDown={handleKeyDown}
         style={{
@@ -4953,17 +4846,19 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
           border: 'none',
           background: 'transparent',
           textAlign: 'left',
-          cursor: 'pointer',
+          cursor: readOnly ? 'default' : 'pointer',
           fontSize: '13px',
           color: 'var(--color-fg-default)',
           outline: 'none',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          opacity: readOnly ? 0.6 : 1
         }}
         tabIndex={0}
         aria-label={`Select ${columnKey}`}
         aria-expanded={isOpen}
+        disabled={readOnly}
       >
         <span style={{
           overflow: 'hidden',
@@ -5050,7 +4945,6 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('🖱️ Option clicked:', optionValue);
                       toggleOption(option);
                     }}
                     onMouseDown={(e) => {
@@ -5117,7 +5011,7 @@ const MultiSelectDropdownCell = ({ value, options = [], rowIndex, colIndex, colu
 };
 
 // Domain IDs Cell - Simplified inline editor showing fabric:domain pairs
-const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, allTableData, theme = 'dark' }) => {
+const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, allTableData, theme = 'dark', readOnly = false }) => {
   // Get the current table data to access fabrics column
   const currentRow = allTableData?.[rowIndex] || rowData;
   const selectedFabricNames = Array.isArray(currentRow.fabrics) ? currentRow.fabrics : [];
@@ -5178,7 +5072,6 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
     // Need to build fabric_domain_details with fabric IDs from the selected fabric names
     // Since we don't have access to fabrics list here, we'll update when inputs change
     // The parent will read fabric_domain_details in saveTransform
-    console.log('💾 Saving domain IDs for fabrics:', selectedFabricNames, 'with domains:', localDomains);
 
     // We need to trigger update with fabric names and domain IDs
     // The saveTransform will convert these to fabric IDs
@@ -5257,6 +5150,8 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
         ref={triggerRef}
         onClick={(e) => {
           e.stopPropagation();
+          if (readOnly) return;
+
           const willOpen = !isOpen;
           setIsOpen(willOpen);
 
@@ -5281,17 +5176,19 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
           border: 'none',
           background: 'transparent',
           textAlign: 'left',
-          cursor: 'pointer',
+          cursor: readOnly ? 'default' : 'pointer',
           fontSize: '13px',
           color: 'var(--color-fg-default)',
           outline: 'none',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          opacity: readOnly ? 0.6 : 1
         }}
         tabIndex={0}
         aria-label="Edit Domain IDs"
         aria-expanded={isOpen}
+        disabled={readOnly}
       >
         <span style={{
           overflow: 'hidden',
@@ -5412,7 +5309,17 @@ const DomainIDsCell = ({ value, rowIndex, columnKey, updateCellData, rowData, al
 };
 
 // Checkbox header cell with check/uncheck all functionality
-const CheckboxHeaderCell = ({ columnKey, headerName, editableData, setEditableData, setHasChanges, hasActiveClientFilters, table }) => {
+const CheckboxHeaderCell = ({
+  columnKey,
+  headerName,
+  editableData,
+  setEditableData,
+  setHasChanges,
+  hasActiveClientFilters,
+  table,
+  totalCheckboxSelected,
+  onClearAllCheckboxes
+}) => {
   // Helper function to get nested value
   const getNestedValue = (obj, path) => {
     if (!path || !obj) return undefined;
@@ -5459,6 +5366,18 @@ const CheckboxHeaderCell = ({ columnKey, headerName, editableData, setEditableDa
   const handleCheckAll = (e) => {
     e.stopPropagation(); // Prevent sorting
 
+    // Check if we're unchecking with all pages selected
+    const isUnchecking = allChecked;
+    const hasAllPagesSelected = totalCheckboxSelected !== undefined &&
+      totalCheckboxSelected > 0 &&
+      columnKey === '_selected';
+
+    // If unchecking with all pages selected, use the callback to clear all
+    if (isUnchecking && hasAllPagesSelected && onClearAllCheckboxes) {
+      onClearAllCheckboxes();
+      return;
+    }
+
     // Batch update all rows in a single state change
     setEditableData(currentData => {
       const newData = [...currentData];
@@ -5475,7 +5394,6 @@ const CheckboxHeaderCell = ({ columnKey, headerName, editableData, setEditableDa
 
       const newValue = !currentAllChecked;
 
-      console.log('🔲 Check All:', { columnKey, hasFilters, currentAllChecked, newValue, rowCount: currentRowsToCheck.length, visibleRowCount: visibleRows?.length });
 
       if (hasFilters && visibleRows) {
         // Update only filtered rows
@@ -5509,7 +5427,10 @@ const CheckboxHeaderCell = ({ columnKey, headerName, editableData, setEditableDa
       return newData;
     });
 
-    setHasChanges(true);
+    // Don't trigger dirty state for _selected column (UI-only state)
+    if (columnKey !== '_selected') {
+      setHasChanges(true);
+    }
   };
 
   return (
@@ -5532,13 +5453,13 @@ const CheckboxHeaderCell = ({ columnKey, headerName, editableData, setEditableDa
           accentColor: 'var(--link-text)'
         }}
       />
-      <span>{headerName}</span>
+      {headerName && <span>{headerName}</span>}
     </div>
   );
 };
 
 // Enhanced checkbox cell component
-const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
+const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData, readOnly = false }) => {
   const [checked, setChecked] = useState(Boolean(value));
   const containerRef = useRef(null);
 
@@ -5547,12 +5468,14 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
   }, [value]);
 
   const handleChange = (e) => {
+    if (readOnly) return;
     const newValue = e.target.checked;
     setChecked(newValue);
     updateCellData(rowIndex, columnKey, newValue);
   };
 
   const handleKeyDown = (e) => {
+    if (readOnly) return;
     if (e.key === ' ' || e.key === 'Spacebar') {
       e.preventDefault();
       e.stopPropagation();
@@ -5579,7 +5502,7 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
       <label style={{
         display: 'flex',
         alignItems: 'center',
-        cursor: 'pointer',
+        cursor: readOnly ? 'default' : 'pointer',
         padding: '4px',
         borderRadius: '4px',
         transition: 'background-color 0.2s'
@@ -5589,6 +5512,7 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
           type="checkbox"
           checked={checked}
           onChange={handleChange}
+          disabled={readOnly}
           tabIndex={-1}
           style={{
             cursor: 'pointer',
@@ -5603,7 +5527,7 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData }) => {
 };
 
 // Enhanced editable text cell component
-const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
+const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData, readOnly = false }) => {
   const [localValue, setLocalValue] = useState(value || '');
   const [isEditing, setIsEditing] = useState(false);
   const [initialTypedChar, setInitialTypedChar] = useState('');
@@ -5616,7 +5540,9 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
   }, [value, isEditing]);
 
   const handleDoubleClick = () => {
-    setIsEditing(true);
+    if (!readOnly) {
+      setIsEditing(true);
+    }
   };
 
   const handleClick = () => {
@@ -5678,6 +5604,11 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
   };
 
   const handleCellKeyDown = (e) => {
+    // If read-only, don't allow any editing
+    if (readOnly) {
+      return;
+    }
+
     // Check if it's a printable character (not a modifier or navigation key)
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
@@ -5748,7 +5679,7 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
         display: 'block',
         width: '100%',
         padding: '6px 8px',
-        cursor: 'text',
+        cursor: readOnly ? 'default' : 'text',
         minHeight: '20px',
         borderRadius: '4px',
         transition: 'background-color 0.2s',
@@ -5767,7 +5698,7 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData }) => {
 };
 
 // Password-like cell that shows asterisks but reveals value on double-click
-const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updateCellData }) => {
+const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updateCellData, readOnly = false }) => {
   const [localValue, setLocalValue] = useState(actualValue || '');
   const [isEditing, setIsEditing] = useState(false);
   const [isRevealed, setIsRevealed] = useState(false);
@@ -5783,8 +5714,8 @@ const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updat
       // First double-click reveals the password
       setIsRevealed(true);
       setTimeout(() => setIsRevealed(false), 3000); // Hide after 3 seconds
-    } else {
-      // Second double-click (while revealed) starts editing
+    } else if (!readOnly) {
+      // Second double-click (while revealed) starts editing (only if not read-only)
       setIsEditing(true);
     }
   };
@@ -5847,7 +5778,7 @@ const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updat
         display: 'block',
         width: '100%',
         padding: '6px 8px',
-        cursor: 'pointer',
+        cursor: readOnly ? 'default' : 'pointer',
         minHeight: '20px',
         borderRadius: '4px',
         transition: 'background-color 0.2s',
@@ -5860,7 +5791,7 @@ const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updat
         backgroundColor: isRevealed ? 'var(--warning-color)' : 'var(--table-bg)',
         border: isRevealed ? '1px solid var(--warning-color)' : '1px solid transparent'
       }}
-      title={isRevealed ? "Double-click to edit" : "Double-click to reveal"}
+      title={isRevealed ? (readOnly ? "Value revealed" : "Double-click to edit") : "Double-click to reveal"}
     >
       {displayValue || (
         <span style={{ color: 'var(--muted-text)', fontStyle: 'italic' }}>

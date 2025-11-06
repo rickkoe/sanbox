@@ -26,23 +26,17 @@ export const ImportStatusProvider = ({ children }) => {
     try {
       const response = await axios.get('/api/importer/history/');
       const runningImport = response.data.find(imp => imp.status === 'running');
-      
-      console.log('Checking for running imports, found:', runningImport ? 'YES' : 'NO');
-      if (response.data.length > 0) {
-        console.log('Most recent import status:', response.data[0].status);
-      }
-      
+
       if (runningImport) {
         setCurrentImport(runningImport);
         setIsImportRunning(true);
-        
+
         // If we have a task ID, start monitoring progress
         if (runningImport.celery_task_id) {
           startProgressMonitoring(runningImport.celery_task_id, runningImport.id);
         }
       } else {
         // No running imports found, clear running state
-        console.log('No running imports found, clearing running state');
         setIsImportRunning(false);
         setImportProgress(null);
         
@@ -78,7 +72,6 @@ export const ImportStatusProvider = ({ children }) => {
           
           // If import is no longer running in database, stop monitoring
           if (importStatus.status !== 'running') {
-            console.log('Import no longer running in database, status:', importStatus.status);
             setIsImportRunning(false);
             setImportProgress(null);
             if (progressInterval) clearInterval(progressInterval);
@@ -104,12 +97,10 @@ export const ImportStatusProvider = ({ children }) => {
             setIsImportRunning(true);
           } else if (progress.state === 'PROGRESS') {
             // Task is actively running
-            console.log('Task is in PROGRESS state, updating UI');
             setImportProgress(progress);
             setIsImportRunning(true);
           } else if (progress.state === 'SUCCESS') {
             // Task completed successfully - immediately clear running state
-            console.log('Task completed successfully, clearing import status');
             setImportProgress({
               state: 'SUCCESS',
               current: 100,
@@ -199,7 +190,6 @@ export const ImportStatusProvider = ({ children }) => {
     });
     
     if (importData.task_id && importData.import_id) {
-      console.log('Starting progress monitoring for task:', importData.task_id, 'import:', importData.import_id);
       startProgressMonitoring(importData.task_id, importData.import_id);
     } else {
       console.error('Missing task_id or import_id in import data:', importData);

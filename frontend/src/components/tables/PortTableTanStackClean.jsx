@@ -23,20 +23,35 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const activeCustomerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
 
+    // Project filter state - must be declared before isReadOnly
+    const [projectFilter, setProjectFilter] = useState(
+        localStorage.getItem('portTableProjectFilter') || 'all'
+    );
+
+    // State for row selection (bulk actions)
+    const [selectedRows, setSelectedRows] = useState(new Set());
+    const [showActionsDropdown, setShowActionsDropdown] = useState(false);
+    const [showSelectAllBanner, setShowSelectAllBanner] = useState(false);
+    const [totalRowCount, setTotalRowCount] = useState(0);
+
+    // Ref to track selected rows for preprocessData
+    const selectedRowsRef = useRef(new Set());
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        selectedRowsRef.current = selectedRows;
+    }, [selectedRows]);
+
     // Check if user can edit infrastructure (members and admins only)
     const userRole = getUserRole(activeCustomerId);
     const canEditInfrastructure = userRole === 'member' || userRole === 'admin';
-    const isReadOnly = !canEditInfrastructure;
+    // Make read-only if: 1) user doesn't have permissions, OR 2) viewing customer view (not project view)
+    const isReadOnly = !canEditInfrastructure || projectFilter === 'all';
 
     // State for dropdown options
     const [fabricOptions, setFabricOptions] = useState([]);
     const [storageOptions, setStorageOptions] = useState([]);
     const [aliasOptions, setAliasOptions] = useState([]);
-
-    // Project filter state
-    const [projectFilter, setProjectFilter] = useState(
-        localStorage.getItem('portTableProjectFilter') || 'all'
-    );
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerPorts, setAllCustomerPorts] = useState([]);
 
@@ -153,6 +168,91 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         }
     }, []);
 
+    // Force _selected column to be visible when switching to Project View
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const checkAndForceVisibility = () => {
+                const currentVisibility = tableRef.current?.getColumnVisibility?.();
+                if (currentVisibility && (currentVisibility['_selected'] === false || currentVisibility['_selected'] === undefined)) {
+                    tableRef.current?.setColumnVisibility?.({ ...currentVisibility, '_selected': true });
+                }
+            };
+
+            checkAndForceVisibility();
+            const timer1 = setTimeout(checkAndForceVisibility, 100);
+            const timer2 = setTimeout(checkAndForceVisibility, 500);
+
+            return () => {
+                clearTimeout(timer1);
+                clearTimeout(timer2);
+            };
+        }
+    }, [projectFilter]);
+
+    // Track total row count from table
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const paginationInfo = tableRef.current?.getPaginationInfo?.();
+                if (paginationInfo && paginationInfo.totalItems !== totalRowCount) {
+                    setTotalRowCount(paginationInfo.totalItems);
+                }
+            }, 500);
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, totalRowCount]);
+
+    // Sync selectedRows with table data
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const currentData = tableRef.current?.getTableData();
+                if (currentData && currentData.length > 0) {
+                    const updatedSelectedRows = new Set(selectedRows);
+                    const currentPageIds = new Set(currentData.map(row => row.id).filter(id => id));
+
+                    currentData.forEach(row => {
+                        if (row.id) {
+                            if (row._selected) {
+                                updatedSelectedRows.add(row.id);
+                            } else if (currentPageIds.has(row.id)) {
+                                updatedSelectedRows.delete(row.id);
+                            }
+                        }
+                    });
+
+                    const allCurrentPageSelected = currentData.every(row => row._selected);
+                    const hasSelectionsOnPage = currentData.some(row => row._selected);
+
+                    if (allCurrentPageSelected && hasSelectionsOnPage && updatedSelectedRows.size < totalRowCount && totalRowCount > 0) {
+                        setShowSelectAllBanner(true);
+                    } else if (updatedSelectedRows.size === 0) {
+                        setShowSelectAllBanner(false);
+                    } else if (updatedSelectedRows.size === totalRowCount) {
+                        setShowSelectAllBanner(false);
+                    }
+
+                    if (updatedSelectedRows.size !== selectedRows.size ||
+                        [...updatedSelectedRows].some(id => !selectedRows.has(id))) {
+                        setSelectedRows(updatedSelectedRows);
+                    }
+                }
+            }, 200);
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, selectedRows, totalRowCount]);
+
+    // Close actions dropdown when clicking outside
+    useEffect(() => {
+        if (showActionsDropdown) {
+            const handleClickOutside = () => setShowActionsDropdown(false);
+            document.addEventListener('click', handleClickOutside);
+            return () => document.removeEventListener('click', handleClickOutside);
+        }
+    }, [showActionsDropdown]);
+
     // Load all customer ports when modal opens
     useEffect(() => {
         const loadAllCustomerPorts = async () => {
@@ -185,6 +285,82 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             return false;
         }
     }, [activeProjectId, API_URL]);
+
+    // Handler to select all rows across all pages
+    const handleSelectAllPages = useCallback(async () => {
+        try {
+            const fetchAllUrl = API_ENDPOINTS.ports.includes('?')
+                ? `${API_ENDPOINTS.ports}&page_size=10000`
+                : `${API_ENDPOINTS.ports}?page_size=10000`;
+
+            const response = await api.get(fetchAllUrl);
+            const allData = response.data.results || response.data;
+            const allIds = allData.map(row => row.id).filter(id => id);
+
+            const currentData = tableRef.current?.getTableData();
+            if (currentData) {
+                const updatedData = currentData.map(row => ({
+                    ...row,
+                    _selected: true
+                }));
+                tableRef.current?.updateTableDataSilently(updatedData);
+            }
+
+            setSelectedRows(new Set(allIds));
+            setShowSelectAllBanner(false);
+        } catch (error) {
+            console.error('Error selecting all pages:', error);
+            alert('Failed to select all rows. Please try again.');
+        }
+    }, [API_ENDPOINTS.ports]);
+
+    // Handler to clear all selections
+    const handleClearSelection = useCallback(() => {
+        const currentData = tableRef.current?.getTableData();
+        if (currentData) {
+            const clearedData = currentData.map(row => ({
+                ...row,
+                _selected: false
+            }));
+            tableRef.current?.updateTableDataSilently(clearedData);
+        }
+
+        setSelectedRows(new Set());
+        setShowSelectAllBanner(false);
+    }, []);
+
+    // Handler for marking selected rows for deletion
+    const handleMarkForDeletion = useCallback(async () => {
+        if (selectedRows.size === 0) {
+            alert('Please select at least one item to mark for deletion.');
+            return;
+        }
+
+        try {
+            const selectedIds = Array.from(selectedRows);
+            console.log('Marking ports for deletion:', selectedIds);
+
+            const promises = selectedIds.map(portId =>
+                api.post(`${API_URL}/api/core/projects/${activeProjectId}/mark-port-deletion/`, {
+                    port_id: portId,
+                    action: 'delete'
+                })
+            );
+
+            await Promise.all(promises);
+
+            handleClearSelection();
+
+            if (tableRef.current?.reloadData) {
+                tableRef.current.reloadData();
+            }
+
+            alert(`Successfully marked ${selectedIds.length} item(s) for deletion.`);
+        } catch (error) {
+            console.error('Error marking items for deletion:', error);
+            alert('Failed to mark items for deletion. Please try again.');
+        }
+    }, [selectedRows, activeProjectId, API_URL, handleClearSelection]);
 
     // Handle bulk port save
     const handleBulkPortSave = useCallback(async (selectedIds) => {
@@ -226,7 +402,23 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, []);
 
     // Core port columns - all available columns
-    const allColumns = [
+    const allColumns = useMemo(() => {
+        const baseColumns = [];
+
+        // Add selection checkbox column only in Project View
+        if (projectFilter === 'current') {
+            baseColumns.push({
+                data: "_selected",
+                title: "Select",
+                type: "checkbox",
+                readOnly: false,
+                width: 60,
+                defaultVisible: true,
+                accessorKey: "_selected"
+            });
+        }
+
+        baseColumns.push(
         { data: "name", title: "Name", required: true, width: 150 },
         {
             data: "storage",
@@ -235,7 +427,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             required: true,
             width: 200
         },
-        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
         { data: "wwpn", title: "WWPN", width: 180 },
         {
             data: "type",
@@ -276,17 +467,20 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             title: "Alias",
             readOnly: true,
             width: 150
-        },
-    ];
+        });
+
+        return baseColumns;
+    }, [projectFilter]);
 
     // Filter columns based on hideColumns prop
     const columns = allColumns.filter(col => !hideColumns.includes(col.data));
 
     const colHeaders = columns.map(col => col.title);
 
-    const NEW_PORT_TEMPLATE = {
+    const NEW_PORT_TEMPLATE = useMemo(() => ({
         id: null,
         name: "",
+        _selected: false,
         storage: storageId || null, // Pre-populate storage if filtering by storage system
         wwpn: "",
         type: "Fibre Channel", // Display value, will be converted to 'fc' on save
@@ -301,7 +495,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         alias: null
         // Note: Port belongs to storage system (customer-level), not project
         // Alias lookup happens via active project based on WWPN matching
-    };
+    }), [storageId]);
 
     // Dropdown sources with all options (fabric and alias are read-only, auto-populated from WWPN)
     const dropdownSources = useMemo(() => {
@@ -381,25 +575,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     // Custom renderers
     const customRenderers = useMemo(() => ({
-        project_memberships: (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
-            try {
-                if (!value || !Array.isArray(value) || value.length === 0) {
-                    return '';
-                }
-                const badges = value.map(pm => {
-                    if (!pm || typeof pm !== 'object') return '';
-                    const isActive = pm.project_id === activeProjectId;
-                    const badgeClass = isActive ? 'bg-primary' : 'bg-secondary';
-                    const title = `Action: ${pm.action || 'unknown'}`;
-                    const projectName = pm.project_name || 'Unknown';
-                    return `<span class="badge ${badgeClass} me-1" title="${title}" onmousedown="event.stopPropagation()">${projectName}</span>`;
-                }).filter(badge => badge !== '').join('');
-                return badges ? `<div onmousedown="event.stopPropagation()">${badges}</div>` : '';
-            } catch (error) {
-                console.error('Error rendering project_memberships:', error, value);
-                return '';
-            }
-        },
         name: (rowData, td, row, col, prop, value) => {
             return value || "";
         },
@@ -414,6 +589,10 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Process data for display - convert IDs to labels
     const preprocessData = useCallback((data) => {
         return data.map(port => {
+            // Check if this row should be selected
+            const shouldBeSelected = port._selected !== undefined
+                ? port._selected
+                : (port.id && selectedRowsRef.current.has(port.id));
             // Convert type value to display value
             const typeDisplay = port.type === 'fc' ? 'Fibre Channel' :
                                port.type === 'ethernet' ? 'Ethernet' : port.type;
@@ -462,6 +641,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
             return {
                 ...port,
+                _selected: shouldBeSelected,
                 storage_id: port.storage, // Keep original ID
                 storage: storageDisplay, // Display name in the storage column
                 storage_type: port.storage_details?.storage_type || storageObj?.storage_type,
@@ -583,33 +763,109 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     // Project filter toggle buttons for toolbar
     const filterToggleButtons = (
-        <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
-            <button type="button" className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => handleFilterChange('all')}
-                style={{ borderRadius: '6px 0 0 6px', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', marginRight: '0', minWidth: '140px' }}>
-                Customer View
-            </button>
-            <button type="button" className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => handleFilterChange('current')} disabled={!activeProjectId}
-                style={{ borderRadius: '0', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '140px' }}
-                title={!activeProjectId ? 'Select a project to enable Project View' : 'Show only ports in this project'}>
-                Project View
-            </button>
-            <button type="button" className="btn btn-outline-secondary"
-                onClick={() => navigate('/settings/project')} disabled={!activeProjectId}
-                style={{ borderRadius: '0', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '140px' }}
-                title={!activeProjectId ? 'Select a project to manage' : 'Manage active project'}>
-                Manage Project
-            </button>
-            <button type="button" className="btn btn-outline-secondary"
-                onClick={() => setShowBulkModal(true)} disabled={!activeProjectId}
-                style={{ padding: '10px 18px', fontSize: '14px', fontWeight: '500', borderRadius: '0 6px 6px 0', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                title={!activeProjectId ? 'Select a project to add/remove ports' : 'Bulk add or remove ports from this project'}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 11 12 14 22 4"></polyline>
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                </svg>
-            </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Actions Dropdown - Only show in Project View */}
+            {projectFilter === 'current' && (
+                <div style={{ position: 'relative' }}>
+                    <button
+                        className="btn btn-outline-secondary"
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (selectedRows.size > 0) {
+                                setShowActionsDropdown(!showActionsDropdown);
+                            }
+                        }}
+                        style={{
+                            padding: '10px 18px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            borderRadius: '6px',
+                            transition: 'all 0.2s ease',
+                            minWidth: '120px',
+                            opacity: selectedRows.size === 0 ? 0.5 : 1,
+                            cursor: selectedRows.size === 0 ? 'not-allowed' : 'pointer'
+                        }}
+                        disabled={selectedRows.size === 0}
+                    >
+                        Actions ({selectedRows.size}) {selectedRows.size > 0 && (showActionsDropdown ? '▲' : '▼')}
+                    </button>
+                    {showActionsDropdown && selectedRows.size > 0 && (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                marginTop: '4px',
+                                backgroundColor: 'var(--secondary-bg)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                zIndex: 1000,
+                                minWidth: '200px'
+                            }}
+                        >
+                            <button
+                                onClick={() => {
+                                    handleMarkForDeletion();
+                                    setShowActionsDropdown(false);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 16px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    color: 'var(--text-color)',
+                                    fontSize: '14px',
+                                    transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Mark for Deletion
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="btn-group" role="group" aria-label="Project filter" style={{ height: '100%' }}>
+                <button type="button" className={`btn ${projectFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => handleFilterChange('all')}
+                    style={{ borderRadius: '6px 0 0 6px', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', marginRight: '0', minWidth: '140px' }}>
+                    Customer View
+                </button>
+                <button type="button" className={`btn ${projectFilter === 'current' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => handleFilterChange('current')} disabled={!activeProjectId}
+                    style={{ borderRadius: '0', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '140px' }}
+                    title={!activeProjectId ? 'Select a project to enable Project View' : 'Show only ports in this project'}>
+                    Project View
+                </button>
+                <button type="button" className="btn btn-outline-secondary"
+                    onClick={() => navigate('/settings/project')} disabled={!activeProjectId}
+                    style={{ borderRadius: '0', fontWeight: '500', fontSize: '14px', padding: '6px 16px', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '140px' }}
+                    title={!activeProjectId ? 'Select a project to manage' : 'Manage active project'}>
+                    Manage Project
+                </button>
+                <button type="button" className="btn btn-outline-secondary"
+                    onClick={() => setShowBulkModal(true)} disabled={!activeProjectId}
+                    style={{ padding: '10px 18px', fontSize: '14px', fontWeight: '500', borderRadius: '0 6px 6px 0', transition: 'all 0.2s ease', opacity: activeProjectId ? 1 : 0.5, cursor: activeProjectId ? 'pointer' : 'not-allowed', minWidth: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    title={!activeProjectId ? 'Select a project to add/remove ports' : 'Bulk add or remove ports from this project'}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 11 12 14 22 4"></polyline>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                </button>
+            </div>
         </div>
     );
 
@@ -620,11 +876,77 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     return (
         <div className="modern-table-container">
-            {isReadOnly && (
+            {isReadOnly && !canEditInfrastructure && (
                 <div className="alert alert-info mb-3" role="alert">
                     <strong>Read-only access:</strong> You have viewer permissions for this customer. Only members and admins can modify infrastructure.
                 </div>
             )}
+            {isReadOnly && canEditInfrastructure && projectFilter === 'all' && (
+                <div className="alert alert-warning mb-3" role="alert">
+                    <strong>Customer View is read-only.</strong> Switch to Project View to add, edit, or delete ports.
+                </div>
+            )}
+
+            {/* Select All Pages Banner */}
+            {showSelectAllBanner && projectFilter === 'current' && (
+                <div
+                    style={{
+                        backgroundColor: 'var(--color-accent-subtle)',
+                        border: '1px solid var(--color-accent-muted)',
+                        borderRadius: '6px',
+                        padding: '12px 16px',
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px'
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
+                            All <strong>{selectedRows.size}</strong> items on this page are selected.{' '}
+                            <button
+                                onClick={handleSelectAllPages}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--link-text)',
+                                    textDecoration: 'underline',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    font: 'inherit',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Select all {totalRowCount} items
+                            </button>
+                        </span>
+                    </div>
+                    <button
+                        onClick={handleClearSelection}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--primary-text)',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            fontSize: '14px',
+                            opacity: 0.7,
+                            transition: 'opacity 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                        title="Clear selection"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
+
             <TanStackCRUDTable
                 ref={tableRef}
 
@@ -657,6 +979,10 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
                 // Custom toolbar content - filter toggle
                 customToolbarContent={filterToggleButtons}
+
+                // Selection tracking - pass total selected count across all pages
+                totalCheckboxSelected={selectedRows.size}
+                onClearAllCheckboxes={handleClearSelection}
 
                 // Table Settings
                 height="calc(100vh - 250px)"

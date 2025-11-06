@@ -258,11 +258,27 @@ const SidebarNavigation = ({ links, isCollapsed, headerTitle }) => {
 
 SidebarNavigation.propTypes = {
   links: PropTypes.arrayOf(
-    PropTypes.shape({
-      path: PropTypes.string.isRequired,
-      label: PropTypes.string.isRequired,
-      icon: PropTypes.elementType,
-    })
+    PropTypes.oneOfType([
+      // Regular link with path
+      PropTypes.shape({
+        path: PropTypes.string.isRequired,
+        label: PropTypes.string.isRequired,
+        icon: PropTypes.elementType,
+      }),
+      // Expandable section without path
+      PropTypes.shape({
+        label: PropTypes.string.isRequired,
+        icon: PropTypes.elementType,
+        expandable: PropTypes.bool.isRequired,
+        subLinks: PropTypes.arrayOf(
+          PropTypes.shape({
+            path: PropTypes.string.isRequired,
+            label: PropTypes.string.isRequired,
+            icon: PropTypes.elementType,
+          })
+        ).isRequired,
+      })
+    ])
   ).isRequired,
   isCollapsed: PropTypes.bool.isRequired,
   headerTitle: PropTypes.string,
