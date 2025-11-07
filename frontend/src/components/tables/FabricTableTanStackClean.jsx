@@ -8,7 +8,7 @@ import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn } from "../../utils/projectStatusRenderer";
+import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
 
 // Clean TanStack Table implementation for Fabric management
 const FabricTableTanStackClean = () => {
@@ -177,6 +177,7 @@ const FabricTableTanStackClean = () => {
 
     // Custom renderers
     const customRenderers = {
+        project_action: projectStatusRenderer,
         project_memberships: (_rowData, _prop, _rowIndex, _colIndex, _accessorKey, value) => {
             try {
                 if (!value || !Array.isArray(value) || value.length === 0) {

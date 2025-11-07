@@ -9,7 +9,7 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn } from "../../utils/projectStatusRenderer";
+import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
 
 // TanStack Table implementation for Switch management
 const SwitchTableTanStack = () => {
@@ -241,6 +241,7 @@ const SwitchTableTanStack = () => {
 
     // Custom renderers for WWNN formatting and project columns
     const customRenderers = {
+        project_action: projectStatusRenderer,
         wwnn: (rowData, td, row, col, prop, value) => {
             if (value && isValidWWNNFormat(value)) {
                 return formatWWNN(value);

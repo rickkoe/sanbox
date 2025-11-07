@@ -10,7 +10,7 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn } from "../../utils/projectStatusRenderer";
+import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
 
 // Clean TanStack Table implementation for Host management
 // Props:
@@ -277,6 +277,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     // Custom renderers for special formatting
     const customRenderers = useMemo(() => ({
+        project_action: projectStatusRenderer,
         imported: (rowData, td, row, col, prop, value) => {
             return value ? new Date(value).toLocaleString() : "";
         },

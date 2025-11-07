@@ -12,7 +12,7 @@
  */
 export const getProjectStatusBadge = (action) => {
     const statusMap = {
-        'new': { label: 'Created', color: 'success' },
+        'new': { label: 'New', color: 'success' },
         'delete': { label: 'Delete', color: 'danger' },
         'modified': { label: 'Modified', color: 'warning' },
         'unmodified': { label: 'Unmodified', color: 'secondary' }
@@ -20,6 +20,33 @@ export const getProjectStatusBadge = (action) => {
 
     const status = statusMap[action] || { label: action, color: 'secondary' };
     return `<span class="badge bg-${status.color}">${status.label}</span>`;
+};
+
+/**
+ * React component version for TanStack tables
+ * @param {string} action - The action value ('new', 'delete', 'modified', 'unmodified')
+ * @returns {JSX.Element} Badge component
+ */
+export const ProjectStatusBadge = ({ action }) => {
+    const statusMap = {
+        'new': { label: 'New', color: 'success' },
+        'delete': { label: 'Delete', color: 'danger' },
+        'modified': { label: 'Modified', color: 'warning' },
+        'unmodified': { label: 'Unmodified', color: 'secondary' }
+    };
+
+    const status = statusMap[action] || { label: action, color: 'secondary' };
+    return <span className={`badge bg-${status.color}`}>{status.label}</span>;
+};
+
+/**
+ * Custom renderer function for TanStack tables
+ * Use this in the customRenderers prop
+ */
+export const projectStatusRenderer = (rowData) => {
+    const action = rowData?.project_action;
+    if (!action) return '';
+    return <ProjectStatusBadge action={action} />;
 };
 
 /**

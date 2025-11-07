@@ -11,7 +11,7 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn } from "../../utils/projectStatusRenderer";
+import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
 
 // Clean TanStack Table implementation for Zone management
 const ZoneTableTanStackClean = () => {
@@ -726,7 +726,9 @@ const ZoneTableTanStackClean = () => {
 
     // Custom renderers for member dropdowns
     const customRenderers = useMemo(() => {
-        const renderers = {};
+        const renderers = {
+            project_action: projectStatusRenderer
+        };
 
         // Get all member column keys for all types
         const allMemberColumns = [

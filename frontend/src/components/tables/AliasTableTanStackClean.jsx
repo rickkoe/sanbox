@@ -10,7 +10,7 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn } from "../../utils/projectStatusRenderer";
+import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
 
 // Clean TanStack Table implementation for Alias management
 const AliasTableTanStackClean = () => {
@@ -734,7 +734,9 @@ const AliasTableTanStackClean = () => {
 
     // Custom renderers for WWPN formatting
     const customRenderers = useMemo(() => {
-        const renderers = {};
+        const renderers = {
+            project_action: projectStatusRenderer
+        };
 
         // Add renderer for each WWPN column - just format the value
         // TanStackCRUDTable calls: customRenderer(rowData, null, rowIndex, colIndex, accessorKey, value)
