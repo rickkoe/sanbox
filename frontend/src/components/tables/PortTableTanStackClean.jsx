@@ -63,8 +63,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
-        SelectAllBanner,
-        CustomerViewBanner,
+        BannerSlot,
         ActionsDropdown
     } = useProjectViewSelection({
         tableRef,
@@ -652,11 +651,8 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     return (
         <div className="modern-table-container">
-            {/* Customer View Banner - shown in Customer View (read-only mode) */}
-            <CustomerViewBanner />
-
-            {/* Select All Banner - shown in Project View when all page items selected */}
-            <SelectAllBanner />
+            {/* Banner Slot - shows Customer View or Select All banner without layout shift */}
+            <BannerSlot />
 
             <TanStackCRUDTable
                 ref={tableRef}

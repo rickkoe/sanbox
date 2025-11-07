@@ -283,117 +283,117 @@ export const useProjectViewSelection = ({
         }
     }, [selectedRows, activeProjectId, entityType, API_URL, handleClearSelection, tableRef]);
 
-    // Select All Banner Component
-    const SelectAllBanner = useCallback(() => {
-        if (!showSelectAllBanner || projectFilter !== 'current') {
-            return null;
-        }
+    // Banner Slot Component - Always reserves space to prevent layout shift
+    const BannerSlot = useCallback(() => {
+        // Determine which banner to show (if any)
+        const showCustomerViewBanner = projectFilter !== 'current';
+        const showSelectAllBannerContent = showSelectAllBanner && projectFilter === 'current';
 
+        // Always render container with fixed min-height to reserve space
         return (
             <div style={{
-                backgroundColor: 'var(--secondary-bg)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                padding: '14px 18px',
-                marginBottom: '16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                minHeight: '52px',
+                visibility: (showCustomerViewBanner || showSelectAllBannerContent) ? 'visible' : 'hidden'
             }}>
-                <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
-                    {isSelectingAllPages ? (
-                        <>
-                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            <strong>Selecting all {totalRowCount} {entityType} across all pages...</strong>
-                        </>
-                    ) : (
-                        <>
-                            All <strong>{selectedRows.size}</strong> items on this page are selected.{' '}
-                            <a
-                                href="#"
+                {/* Customer View Banner (Read-only mode notification) */}
+                {showCustomerViewBanner && (
+                    <div style={{
+                        backgroundColor: 'var(--secondary-bg)',
+                        border: '1px solid var(--border-color)',
+                        borderLeft: '4px solid var(--color-accent-emphasis)',
+                        borderRadius: '6px',
+                        padding: '14px 18px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <svg
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="var(--color-accent-emphasis)"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
+                                <strong>Customer View is read-only.</strong> Switch to <strong>Project View</strong> to edit cells.
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Select All Banner (shown in Project View when all page items selected) */}
+                {showSelectAllBannerContent && (
+                    <div style={{
+                        backgroundColor: 'var(--secondary-bg)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        padding: '14px 18px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
+                            {isSelectingAllPages ? (
+                                <>
+                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <strong>Selecting all {totalRowCount} {entityType} across all pages...</strong>
+                                </>
+                            ) : (
+                                <>
+                                    All <strong>{selectedRows.size}</strong> items on this page are selected.{' '}
+                                    <a
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            console.log('🔗 Select all pages link clicked');
+                                            handleSelectAllPages();
+                                        }}
+                                        style={{
+                                            color: 'var(--link-text)',
+                                            textDecoration: 'underline',
+                                            cursor: 'pointer',
+                                            fontWeight: '500'
+                                        }}
+                                    >
+                                        Select all {totalRowCount} {entityType} across all pages?
+                                    </a>
+                                </>
+                            )}
+                        </span>
+                        {!isSelectingAllPages && (
+                            <button
                                 onClick={(e) => {
                                     e.preventDefault();
-                                    console.log('🔗 Select all pages link clicked');
-                                    handleSelectAllPages();
+                                    console.log('🔗 Clear selection clicked');
+                                    handleClearSelection();
                                 }}
                                 style={{
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
                                     color: 'var(--link-text)',
-                                    textDecoration: 'underline',
                                     cursor: 'pointer',
-                                    fontWeight: '500'
+                                    textDecoration: 'underline',
+                                    fontSize: '14px',
+                                    padding: '4px 8px'
                                 }}
                             >
-                                Select all {totalRowCount} {entityType} across all pages?
-                            </a>
-                        </>
-                    )}
-                </span>
-                {!isSelectingAllPages && (
-                    <button
-                        onClick={(e) => {
-                            e.preventDefault();
-                            console.log('🔗 Clear selection clicked');
-                            handleClearSelection();
-                        }}
-                        style={{
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            color: 'var(--link-text)',
-                            cursor: 'pointer',
-                            textDecoration: 'underline',
-                            fontSize: '14px',
-                            padding: '4px 8px'
-                        }}
-                    >
-                        Clear selection
-                    </button>
+                                Clear selection
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
         );
-    }, [showSelectAllBanner, projectFilter, selectedRows.size, totalRowCount, entityType, handleSelectAllPages, handleClearSelection, isSelectingAllPages]);
-
-    // Customer View Banner Component (Read-only mode notification)
-    const CustomerViewBanner = useCallback(() => {
-        // Only show in Customer View (not Project View)
-        if (projectFilter === 'current') {
-            return null;
-        }
-
-        return (
-            <div style={{
-                backgroundColor: 'var(--secondary-bg)',
-                border: '1px solid var(--border-color)',
-                borderLeft: '4px solid var(--color-accent-emphasis)',
-                borderRadius: '6px',
-                padding: '14px 18px',
-                marginBottom: '16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="var(--color-accent-emphasis)"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    >
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                    <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
-                        <strong>Customer View is read-only.</strong> Switch to <strong>Project View</strong> to edit cells.
-                    </span>
-                </div>
-            </div>
-        );
-    }, [projectFilter]);
+    }, [projectFilter, showSelectAllBanner, selectedRows.size, totalRowCount, entityType, handleSelectAllPages, handleClearSelection, isSelectingAllPages]);
 
     // Actions Dropdown Component
     const ActionsDropdown = useCallback(() => {
@@ -457,8 +457,7 @@ export const useProjectViewSelection = ({
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
-        SelectAllBanner,
-        CustomerViewBanner,
+        BannerSlot,
         ActionsDropdown
     };
 };
