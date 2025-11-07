@@ -61,7 +61,6 @@ const AliasTableTanStackClean = () => {
     // Use centralized selection hook
     const {
         selectedRows,
-        selectedRowsRef,
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
@@ -775,11 +774,6 @@ const AliasTableTanStackClean = () => {
         const columnCount = wwpnColumnCountRef.current;
 
         const processed = data.map((alias, idx) => {
-            // Check if this row should be selected (either from data or from selectedRowsRef)
-            const shouldBeSelected = alias._selected !== undefined
-                ? alias._selected
-                : (alias.id && selectedRowsRef.current.has(alias.id));
-
             const processedAlias = {
                 ...alias,
                 // Keep nested structure for display
@@ -790,8 +784,8 @@ const AliasTableTanStackClean = () => {
                 'storage_details.name': alias.storage_details?.name || '',
                 // Ensure zoned_count defaults to 0 if not set
                 zoned_count: alias.zoned_count || 0,
-                // Selection state - check if ID is in selectedRowsRef
-                _selected: shouldBeSelected
+                // Selection state - use API value or default to false
+                _selected: alias._selected || false
             };
 
             // Distribute WWPNs across dynamic columns

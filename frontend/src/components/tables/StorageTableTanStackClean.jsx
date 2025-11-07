@@ -53,7 +53,6 @@ const StorageTableTanStackClean = () => {
     // Use centralized selection hook
     const {
         selectedRows,
-        selectedRowsRef,
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
@@ -363,16 +362,11 @@ const StorageTableTanStackClean = () => {
     // Process data for display
     const preprocessData = useCallback((data) => {
         return data.map(storage => {
-            // Check if this row should be selected (either from data or from selectedRowsRef)
-            const shouldBeSelected = storage._selected !== undefined
-                ? storage._selected
-                : (storage.id && selectedRowsRef.current.has(storage.id));
-
             return {
                 ...storage,
                 saved: !!storage.id,
-                // Selection state - check if ID is in selectedRowsRef
-                _selected: shouldBeSelected
+                // Selection state - use API value or default to false
+                _selected: storage._selected || false
             };
         });
     }, []);

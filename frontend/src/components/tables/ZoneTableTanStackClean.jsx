@@ -74,7 +74,6 @@ const ZoneTableTanStackClean = () => {
     // Use centralized selection hook
     const {
         selectedRows,
-        selectedRowsRef,
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
@@ -976,16 +975,11 @@ const ZoneTableTanStackClean = () => {
 
         console.log('🔄 Preprocessing zone data:', data.length, 'zones');
         return data.map(zone => {
-            // Check if this row should be selected (either from data or from selectedRowsRef)
-            const shouldBeSelected = zone._selected !== undefined
-                ? zone._selected
-                : (zone.id && selectedRowsRef.current.has(zone.id));
-
             const processedZone = {
                 ...zone,
                 fabric: fabricsById[zone.fabric] || zone.fabric || '',
-                // Selection state - check if ID is in selectedRowsRef
-                _selected: shouldBeSelected
+                // Selection state - use API value or default to false
+                _selected: zone._selected || false
             };
 
             // Clear all member columns first

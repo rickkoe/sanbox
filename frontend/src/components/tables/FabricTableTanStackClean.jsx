@@ -51,7 +51,6 @@ const FabricTableTanStackClean = () => {
     // Use centralized selection hook
     const {
         selectedRows,
-        selectedRowsRef,
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
@@ -347,11 +346,6 @@ const FabricTableTanStackClean = () => {
     // Process data for display
     const preprocessData = useCallback((data) => {
         return data.map(fabric => {
-            // Check if this row should be selected (either from data or from selectedRowsRef)
-            const shouldBeSelected = fabric._selected !== undefined
-                ? fabric._selected
-                : (fabric.id && selectedRowsRef.current.has(fabric.id));
-
             return {
                 ...fabric,
                 san_vendor: vendorOptions.find(v => v.code === fabric.san_vendor)?.name || fabric.san_vendor,
@@ -360,7 +354,7 @@ const FabricTableTanStackClean = () => {
                     return `${s.name}${domainStr}`;
                 }).join(', ') || "",
                 in_active_project: fabric.in_active_project || false,
-                _selected: shouldBeSelected
+                _selected: fabric._selected || false // Use API value or default to false
             };
         });
     }, [vendorOptions]);

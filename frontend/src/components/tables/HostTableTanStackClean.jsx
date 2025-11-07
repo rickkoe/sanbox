@@ -56,7 +56,6 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Use centralized selection hook
     const {
         selectedRows,
-        selectedRowsRef,
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
@@ -295,18 +294,13 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Process data for display
     const preprocessData = useCallback((data) => {
         let processedData = data.map(host => {
-            // Check if this row should be selected (either from data or from selectedRowsRef)
-            const shouldBeSelected = host._selected !== undefined
-                ? host._selected
-                : (host.id && selectedRowsRef.current.has(host.id));
-
             return {
                 ...host,
                 // Map wwpn_display to wwpns for table display
                 wwpns: host.wwpn_display || host.wwpns || '',
                 saved: !!host.id,
-                // Selection state - check if ID is in selectedRowsRef
-                _selected: shouldBeSelected
+                // Selection state - use API value or default to false
+                _selected: host._selected || false
             };
         });
 

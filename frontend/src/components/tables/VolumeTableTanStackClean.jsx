@@ -56,7 +56,6 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Use centralized selection hook
     const {
         selectedRows,
-        selectedRowsRef,
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
@@ -356,11 +355,6 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Process data for display
     const preprocessData = useCallback((data) => {
         let processedData = data.map(volume => {
-            // Check if this row should be selected
-            const shouldBeSelected = volume._selected !== undefined
-                ? volume._selected
-                : (volume.id && selectedRowsRef.current.has(volume.id));
-
             // Get storage name from ID
             const storageObj = storageOptions.find(s => s.id === volume.storage);
             const storageName = storageObj ? storageObj.name : '';
@@ -370,7 +364,8 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 storage_id: volume.storage, // Keep original ID
                 storage: storageName, // Display name
                 saved: !!volume.id,
-                _selected: shouldBeSelected
+                // Selection state - use API value or default to false
+                _selected: volume._selected || false
             };
         });
 

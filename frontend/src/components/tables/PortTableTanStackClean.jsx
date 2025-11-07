@@ -60,7 +60,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Use centralized selection hook
     const {
         selectedRows,
-        selectedRowsRef,
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
@@ -463,10 +462,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Process data for display - convert IDs to labels
     const preprocessData = useCallback((data) => {
         return data.map(port => {
-            // Check if this row should be selected
-            const shouldBeSelected = port._selected !== undefined
-                ? port._selected
-                : (port.id && selectedRowsRef.current.has(port.id));
             // Convert type value to display value
             const typeDisplay = port.type === 'fc' ? 'Fibre Channel' :
                                port.type === 'ethernet' ? 'Ethernet' : port.type;
@@ -515,7 +510,8 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
             return {
                 ...port,
-                _selected: shouldBeSelected,
+                // Selection state - use API value or default to false
+                _selected: port._selected || false,
                 storage_id: port.storage, // Keep original ID
                 storage: storageDisplay, // Display name in the storage column
                 storage_type: port.storage_details?.storage_type || storageObj?.storage_type,

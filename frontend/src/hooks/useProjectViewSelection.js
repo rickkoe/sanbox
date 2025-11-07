@@ -64,12 +64,15 @@ export const useProjectViewSelection = ({
     }, [projectFilter, tableRef]);
 
     // Sync selectedRows with table data when checkbox values change
+    // Poll every 300ms to detect checkbox changes
     useEffect(() => {
         if (projectFilter === 'current') {
-            const currentData = tableRef.current?.getTableData();
-            if (currentData && currentData.length > 0) {
+            const checkCheckboxChanges = () => {
+                const currentData = tableRef.current?.getTableData();
+                if (!currentData || currentData.length === 0) return;
+
                 // Merge approach: start with existing selectedRows, then update based on current page
-                const updatedSelectedRows = new Set(selectedRows);
+                const updatedSelectedRows = new Set(selectedRowsRef.current);
 
                 currentData.forEach(row => {
                     if (row._selected && row.id) {
@@ -80,23 +83,68 @@ export const useProjectViewSelection = ({
                 });
 
                 // Update state only if there are actual changes
-                if (updatedSelectedRows.size !== selectedRows.size ||
-                    [...updatedSelectedRows].some(id => !selectedRows.has(id))) {
+                if (updatedSelectedRows.size !== selectedRowsRef.current.size ||
+                    [...updatedSelectedRows].some(id => !selectedRowsRef.current.has(id))) {
                     setSelectedRows(updatedSelectedRows);
                 }
-            }
 
-            // Show banner if some rows selected but not all
-            const pageSize = currentData?.length || 0;
-            const selectedOnPage = currentData?.filter(row => row._selected).length || 0;
-            setShowSelectAllBanner(
-                selectedOnPage > 0 &&
-                selectedOnPage === pageSize &&
-                totalRowCount &&
-                selectedRows.size < totalRowCount
-            );
+                // Show banner if all rows on page selected but not all across all pages
+                const pageSize = currentData.length;
+                const selectedOnPage = currentData.filter(row => row._selected).length;
+                const shouldShowBanner =
+                    selectedOnPage > 0 &&
+                    selectedOnPage === pageSize &&
+                    totalRowCount &&
+                    updatedSelectedRows.size < totalRowCount;
+
+                // Debug logging
+                if (selectedOnPage > 0 || updatedSelectedRows.size > 0) {
+                    console.log('🔔 Banner check:', {
+                        pageSize,
+                        selectedOnPage,
+                        totalRowCount,
+                        selectedRowsSize: updatedSelectedRows.size,
+                        shouldShowBanner,
+                        conditions: {
+                            hasSelected: selectedOnPage > 0,
+                            allOnPageSelected: selectedOnPage === pageSize,
+                            hasTotalCount: !!totalRowCount,
+                            notAllPagesSelected: updatedSelectedRows.size < totalRowCount
+                        }
+                    });
+                }
+
+                if (shouldShowBanner !== showSelectAllBanner) {
+                    console.log('🔔 Setting banner visibility to:', shouldShowBanner);
+                    setShowSelectAllBanner(shouldShowBanner);
+                }
+
+                // Close actions dropdown if no items selected
+                if (updatedSelectedRows.size === 0 && showActionsDropdown) {
+                    setShowActionsDropdown(false);
+                }
+            };
+
+            // Initial check
+            checkCheckboxChanges();
+
+            // Poll for changes
+            const intervalId = setInterval(checkCheckboxChanges, 300);
+
+            return () => clearInterval(intervalId);
+        } else {
+            // Clear selection when not in Project View
+            if (selectedRows.size > 0) {
+                setSelectedRows(new Set());
+            }
+            if (showSelectAllBanner) {
+                setShowSelectAllBanner(false);
+            }
+            if (showActionsDropdown) {
+                setShowActionsDropdown(false);
+            }
         }
-    }, [projectFilter, selectedRows, totalRowCount, tableRef]);
+    }, [projectFilter, totalRowCount, tableRef]);
 
     // Handler to select all rows across all pages
     const handleSelectAllPages = useCallback(async () => {
@@ -113,13 +161,23 @@ export const useProjectViewSelection = ({
             const allIds = allData.map(row => row.id).filter(id => id);
 
             // Update table data to set _selected = true for all rows on current page
+            // Follow CLAUDE.md pattern: check for dirty state first
+            const hadDirtyChanges = tableRef.current?.hasChanges;
             const currentData = tableRef.current?.getTableData();
             if (currentData) {
                 const updatedData = currentData.map(row => ({
                     ...row,
                     _selected: true
                 }));
-                tableRef.current?.updateTableDataSilently(updatedData);
+
+                // Choose update method based on dirty state
+                if (hadDirtyChanges) {
+                    // Preserve existing dirty state
+                    tableRef.current?.setTableData(updatedData);
+                } else {
+                    // Silent update - no dirty state triggered
+                    tableRef.current?.updateTableDataSilently(updatedData);
+                }
             }
 
             // Update selectedRows state with ALL IDs from all pages
@@ -135,14 +193,23 @@ export const useProjectViewSelection = ({
 
     // Handler to clear all selections
     const handleClearSelection = useCallback(() => {
-        // Update table data to set _selected = false for all rows
+        // Follow CLAUDE.md pattern: check for dirty state first
+        const hadDirtyChanges = tableRef.current?.hasChanges;
         const currentData = tableRef.current?.getTableData();
         if (currentData) {
             const clearedData = currentData.map(row => ({
                 ...row,
                 _selected: false
             }));
-            tableRef.current?.updateTableDataSilently(clearedData);
+
+            // Choose update method based on dirty state
+            if (hadDirtyChanges) {
+                // Preserve existing dirty state
+                tableRef.current?.setTableData(clearedData);
+            } else {
+                // Silent update - no dirty state triggered
+                tableRef.current?.updateTableDataSilently(clearedData);
+            }
         }
 
         setSelectedRows(new Set());
@@ -171,13 +238,36 @@ export const useProjectViewSelection = ({
 
             await Promise.all(promises);
 
-            // Clear selection
-            handleClearSelection();
+            // Update table data in-place to reflect the deletion marker
+            // Follow CLAUDE.md pattern: update without reloading to preserve dirty data
+            const hadDirtyChanges = tableRef.current?.hasChanges;
+            const currentData = tableRef.current?.getTableData();
+            if (currentData) {
+                const updatedData = currentData.map(row => {
+                    if (selectedIds.includes(row.id)) {
+                        return {
+                            ...row,
+                            project_action: 'delete',
+                            _selected: false
+                        };
+                    }
+                    return row;
+                });
 
-            // Reload table to show updated data
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
+                // Choose update method based on dirty state
+                if (hadDirtyChanges) {
+                    // Preserve existing dirty state
+                    tableRef.current?.setTableData(updatedData);
+                } else {
+                    // Silent update - no dirty state triggered
+                    tableRef.current?.updateTableDataSilently(updatedData);
+                }
             }
+
+            // Clear selection state
+            setSelectedRows(new Set());
+            setShowSelectAllBanner(false);
+            setShowActionsDropdown(false);
 
             alert(`Successfully marked ${selectedIds.length} item(s) for deletion.`);
         } catch (error) {
@@ -194,40 +284,49 @@ export const useProjectViewSelection = ({
 
         return (
             <div style={{
-                backgroundColor: 'var(--table-header-bg)',
+                backgroundColor: 'var(--secondary-bg)',
                 border: '1px solid var(--border-color)',
-                borderRadius: '4px',
-                padding: '12px 16px',
-                marginBottom: '12px',
+                borderRadius: '6px',
+                padding: '14px 18px',
+                marginBottom: '16px',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center'
+                alignItems: 'center',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
             }}>
-                <span style={{ color: 'var(--primary-text)' }}>
+                <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
                     All <strong>{selectedRows.size}</strong> items on this page are selected.{' '}
                     <a
                         href="#"
                         onClick={(e) => {
                             e.preventDefault();
+                            console.log('🔗 Select all pages link clicked');
                             handleSelectAllPages();
                         }}
                         style={{
-                            color: 'var(--link-color)',
+                            color: 'var(--link-text)',
                             textDecoration: 'underline',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            fontWeight: '500'
                         }}
                     >
-                        Select all {totalRowCount} {entityType}s across all pages?
+                        Select all {totalRowCount} {entityType} across all pages?
                     </a>
                 </span>
                 <button
-                    onClick={handleClearSelection}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        console.log('🔗 Clear selection clicked');
+                        handleClearSelection();
+                    }}
                     style={{
                         backgroundColor: 'transparent',
                         border: 'none',
-                        color: 'var(--link-color)',
+                        color: 'var(--link-text)',
                         cursor: 'pointer',
-                        textDecoration: 'underline'
+                        textDecoration: 'underline',
+                        fontSize: '14px',
+                        padding: '4px 8px'
                     }}
                 >
                     Clear selection

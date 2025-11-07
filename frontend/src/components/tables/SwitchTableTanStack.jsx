@@ -55,7 +55,6 @@ const SwitchTableTanStack = () => {
     // Use centralized selection hook
     const {
         selectedRows,
-        selectedRowsRef,
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
@@ -471,11 +470,6 @@ const SwitchTableTanStack = () => {
     // Process data for display - convert vendor codes to names, format fabrics, and domain IDs
     const preprocessData = (data) => {
         return data.map(switchItem => {
-            // Check if this row should be selected (either from data or from selectedRowsRef)
-            const shouldBeSelected = switchItem._selected !== undefined
-                ? switchItem._selected
-                : (switchItem.id && selectedRowsRef.current.has(switchItem.id));
-
             return {
                 ...switchItem,
                 san_vendor: vendorOptions.find(v => v.code === switchItem.san_vendor)?.name || switchItem.san_vendor,
@@ -485,8 +479,8 @@ const SwitchTableTanStack = () => {
                     return `${f.name}: ${domainStr}`;
                 }).join('\n') || "",
                 in_active_project: switchItem.in_active_project || false,
-                // Selection state - check if ID is in selectedRowsRef
-                _selected: shouldBeSelected
+                // Selection state - use API value or default to false
+                _selected: switchItem._selected || false
             };
         });
     };

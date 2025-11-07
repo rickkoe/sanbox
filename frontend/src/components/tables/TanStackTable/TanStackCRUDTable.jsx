@@ -473,8 +473,8 @@ const TanStackCRUDTable = forwardRef(({
     }
 
     // Check if preprocessing is blocked BEFORE setting loading state
-    if (preprocessData) {
-      const testResult = preprocessData([]);
+    if (preprocessDataRef.current) {
+      const testResult = preprocessDataRef.current([]);
       if (testResult === null) {
         return;
       }
@@ -495,7 +495,7 @@ const TanStackCRUDTable = forwardRef(({
 
 
       // Process data if preprocessing function provided
-      const processedData = preprocessData ? preprocessData(dataList) : dataList;
+      const processedData = preprocessDataRef.current ? preprocessDataRef.current(dataList) : dataList;
 
       // If preprocessData returns null, skip this data load (table is being reconfigured)
       if (processedData === null) {
@@ -532,7 +532,7 @@ const TanStackCRUDTable = forwardRef(({
     } finally {
       setIsLoading(false);
     }
-  }, [buildApiUrl, currentPage, pageSize, globalFilter, activeFilters, useServerSideFiltering, preprocessData, hasActiveClientFilters]);
+  }, [buildApiUrl, currentPage, pageSize, globalFilter, activeFilters, useServerSideFiltering, hasActiveClientFilters]);
 
   // Load complete dataset for filter dropdown items
   const loadAllDataForFiltering = useCallback(async () => {
@@ -549,7 +549,7 @@ const TanStackCRUDTable = forwardRef(({
       let dataList = response.data.results || response.data;
 
       // Process data if preprocessing function provided
-      const processedData = preprocessData ? preprocessData(dataList) : dataList;
+      const processedData = preprocessDataRef.current ? preprocessDataRef.current(dataList) : dataList;
 
       // If preprocessData returns null, skip this data load (table is being reconfigured)
       if (processedData === null) {
@@ -561,7 +561,19 @@ const TanStackCRUDTable = forwardRef(({
     } catch (error) {
       console.error('❌ Error loading complete dataset:', error);
     }
-  }, [apiUrl, buildApiUrl, preprocessData]);
+  }, [apiUrl, buildApiUrl]);
+
+  // Ref to track if we should allow automatic reloads
+  const hasChangesRef = useRef(false);
+  useEffect(() => {
+    hasChangesRef.current = hasChanges;
+  }, [hasChanges]);
+
+  // Ref for preprocessData to prevent it from triggering reloads
+  const preprocessDataRef = useRef(preprocessData);
+  useEffect(() => {
+    preprocessDataRef.current = preprocessData;
+  }, [preprocessData]);
 
   // Load data when dependencies change, but wait for table config to load first (if table has config)
   useEffect(() => {
@@ -569,7 +581,10 @@ const TanStackCRUDTable = forwardRef(({
     const hasTableConfig = Boolean(tableName);
     const shouldWaitForConfig = hasTableConfig && !configLoaded;
 
-    if (apiUrl && !shouldWaitForConfig) {
+    // CRITICAL: Don't reload if there are unsaved changes
+    // This prevents wiping out user's dirty data when checkboxes are clicked or other state changes occur
+    // Check the ref so we don't trigger reload when hasChanges transitions from true to false
+    if (apiUrl && !shouldWaitForConfig && !hasChangesRef.current) {
       loadData();
       // Also load complete dataset for filtering
       loadAllDataForFiltering();
@@ -1289,13 +1304,15 @@ const TanStackCRUDTable = forwardRef(({
           if (isCheckbox) {
             // Use silent updater for _selected column (doesn't trigger dirty state)
             const updateFn = accessorKey === '_selected' ? updateCellDataSilently : updateCellData;
+            // _selected column should always be editable (for row selection), regardless of table readOnly state
+            const isSelectionCheckbox = accessorKey === '_selected';
             return (
               <ExistsCheckboxCell
                 value={value}
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
                 updateCellData={updateFn}
-                readOnly={readOnly}
+                readOnly={isSelectionCheckbox ? false : readOnly}
               />
             );
           }
