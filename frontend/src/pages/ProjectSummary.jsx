@@ -118,7 +118,7 @@ const ProjectSummary = () => {
 
     const getActionIcon = (action) => {
         switch (action) {
-            case 'create':
+            case 'new':
                 return (
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"/>
@@ -165,7 +165,7 @@ const ProjectSummary = () => {
 
     const getActionColor = (action) => {
         switch (action) {
-            case 'create':
+            case 'new':
                 return 'var(--color-success-fg)';
             case 'modify':
                 return 'var(--color-accent-fg)';
@@ -359,7 +359,7 @@ const ProjectSummary = () => {
                         <div className="card-body">
                             <p>Committing this project will:</p>
                             <ul>
-                                <li><strong>Create:</strong> Add {summaryData.aliases.by_action.find(a => a.action === 'create')?.count || 0} new aliases, {summaryData.zones.by_action.find(a => a.action === 'create')?.count || 0} new zones to the customer's data</li>
+                                <li><strong>New:</strong> Add {summaryData.aliases.by_action.find(a => a.action === 'new')?.count || 0} new aliases, {summaryData.zones.by_action.find(a => a.action === 'new')?.count || 0} new zones to the customer's data</li>
                                 <li><strong>Modify:</strong> Update {summaryData.aliases.by_action.find(a => a.action === 'modify')?.count || 0} aliases, {summaryData.zones.by_action.find(a => a.action === 'modify')?.count || 0} zones in the customer's data</li>
                                 <li><strong>Delete:</strong> Remove {summaryData.aliases.by_action.find(a => a.action === 'delete')?.count || 0} aliases, {summaryData.zones.by_action.find(a => a.action === 'delete')?.count || 0} zones from the customer's data</li>
                                 <li><strong>Lock the project:</strong> No further changes can be made after commit</li>

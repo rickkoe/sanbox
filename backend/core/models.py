@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from customers.models import Customer
+from .constants import PROJECT_ACTION_CHOICES
 
 class Project(models.Model):
     """
@@ -1018,13 +1019,6 @@ class WorksheetTemplate(models.Model):
 class ProjectFabric(models.Model):
     """Track what a project intends to do with a Fabric"""
 
-    ACTION_CHOICES = [
-        ('create', 'Create - Generate creation commands'),
-        ('delete', 'Delete - Generate deletion commands'),
-        ('modify', 'Modify - Generate modification commands'),
-        ('reference', 'Reference - Include in documentation only'),
-    ]
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -1037,7 +1031,7 @@ class ProjectFabric(models.Model):
     )
     action = models.CharField(
         max_length=10,
-        choices=ACTION_CHOICES,
+        choices=PROJECT_ACTION_CHOICES,
         default='reference'
     )
 
@@ -1080,13 +1074,6 @@ class ProjectFabric(models.Model):
 class ProjectSwitch(models.Model):
     """Track what a project intends to do with a Switch"""
 
-    ACTION_CHOICES = [
-        ('create', 'Create - Generate creation commands'),
-        ('delete', 'Delete - Generate deletion commands'),
-        ('modify', 'Modify - Generate modification commands'),
-        ('reference', 'Reference - Include in documentation only'),
-    ]
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -1099,7 +1086,7 @@ class ProjectSwitch(models.Model):
     )
     action = models.CharField(
         max_length=10,
-        choices=ACTION_CHOICES,
+        choices=PROJECT_ACTION_CHOICES,
         default='reference'
     )
 
@@ -1142,13 +1129,6 @@ class ProjectSwitch(models.Model):
 class ProjectAlias(models.Model):
     """Track what a project intends to do with an Alias"""
 
-    ACTION_CHOICES = [
-        ('create', 'Create - Generate creation commands'),
-        ('delete', 'Delete - Generate deletion commands'),
-        ('modify', 'Modify - Generate modification commands'),
-        ('reference', 'Reference - Include in documentation only'),
-    ]
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -1161,7 +1141,7 @@ class ProjectAlias(models.Model):
     )
     action = models.CharField(
         max_length=10,
-        choices=ACTION_CHOICES,
+        choices=PROJECT_ACTION_CHOICES,
         default='reference'
     )
 
@@ -1210,13 +1190,6 @@ class ProjectAlias(models.Model):
 class ProjectZone(models.Model):
     """Track what a project intends to do with a Zone"""
 
-    ACTION_CHOICES = [
-        ('create', 'Create - Generate creation commands'),
-        ('delete', 'Delete - Generate deletion commands'),
-        ('modify', 'Modify - Generate modification commands'),
-        ('reference', 'Reference - Include in documentation only'),
-    ]
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -1229,7 +1202,7 @@ class ProjectZone(models.Model):
     )
     action = models.CharField(
         max_length=10,
-        choices=ACTION_CHOICES,
+        choices=PROJECT_ACTION_CHOICES,
         default='reference'
     )
 
@@ -1272,13 +1245,6 @@ class ProjectZone(models.Model):
 class ProjectStorage(models.Model):
     """Track what a project intends to do with a Storage system"""
 
-    ACTION_CHOICES = [
-        ('create', 'Create - Generate creation commands'),
-        ('delete', 'Delete - Generate deletion commands'),
-        ('modify', 'Modify - Generate modification commands'),
-        ('reference', 'Reference - Include in documentation only'),
-    ]
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -1291,7 +1257,7 @@ class ProjectStorage(models.Model):
     )
     action = models.CharField(
         max_length=10,
-        choices=ACTION_CHOICES,
+        choices=PROJECT_ACTION_CHOICES,
         default='reference'
     )
 
@@ -1334,13 +1300,6 @@ class ProjectStorage(models.Model):
 class ProjectHost(models.Model):
     """Track what a project intends to do with a Host"""
 
-    ACTION_CHOICES = [
-        ('create', 'Create - Generate creation commands'),
-        ('delete', 'Delete - Generate deletion commands'),
-        ('modify', 'Modify - Generate modification commands'),
-        ('reference', 'Reference - Include in documentation only'),
-    ]
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -1353,7 +1312,7 @@ class ProjectHost(models.Model):
     )
     action = models.CharField(
         max_length=10,
-        choices=ACTION_CHOICES,
+        choices=PROJECT_ACTION_CHOICES,
         default='reference'
     )
 
@@ -1396,13 +1355,6 @@ class ProjectHost(models.Model):
 class ProjectVolume(models.Model):
     """Track what a project intends to do with a Volume"""
 
-    ACTION_CHOICES = [
-        ('create', 'Create - Generate creation commands'),
-        ('delete', 'Delete - Generate deletion commands'),
-        ('modify', 'Modify - Generate modification commands'),
-        ('reference', 'Reference - Include in documentation only'),
-    ]
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -1415,7 +1367,7 @@ class ProjectVolume(models.Model):
     )
     action = models.CharField(
         max_length=10,
-        choices=ACTION_CHOICES,
+        choices=PROJECT_ACTION_CHOICES,
         default='reference'
     )
 
@@ -1458,13 +1410,6 @@ class ProjectVolume(models.Model):
 class ProjectPort(models.Model):
     """Track what a project intends to do with a Port"""
 
-    ACTION_CHOICES = [
-        ('create', 'Create - Generate creation commands'),
-        ('delete', 'Delete - Generate deletion commands'),
-        ('modify', 'Modify - Generate modification commands'),
-        ('reference', 'Reference - Include in documentation only'),
-    ]
-
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
@@ -1477,7 +1422,7 @@ class ProjectPort(models.Model):
     )
     action = models.CharField(
         max_length=10,
-        choices=ACTION_CHOICES,
+        choices=PROJECT_ACTION_CHOICES,
         default='reference'
     )
 
