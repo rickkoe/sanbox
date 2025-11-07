@@ -3201,15 +3201,7 @@ const TanStackCRUDTable = forwardRef(({
             table.getRowModel().rows.length : // Use TanStack Table's filtered/paginated count
             editableData.length  // Use server-provided count for normal pagination
           }
-          selectedCellsCount={(() => {
-            // Calculate unique row count from selected cells
-            const rowIndices = new Set();
-            selectedCells.forEach(cellKey => {
-              const [rowIndex] = cellKey.split('-').map(Number);
-              rowIndices.add(rowIndex);
-            });
-            return rowIndices.size;
-          })()}
+          selectedCellsCount={selectedCells.size}
           checkboxSelectedCount={(() => {
             // Use totalCheckboxSelected if provided (for cross-page selection)
             // Otherwise count rows where _selected column is true on current page
@@ -3683,22 +3675,6 @@ const TanStackCRUDTable = forwardRef(({
           )}
         </div>
 
-        {/* Cells selected indicator - moved to left side */}
-        {selectedCells.size > 0 && (
-          <div style={{
-            padding: '10px 18px',
-            backgroundColor: 'var(--table-row-selected)',
-            border: '1px solid var(--link-text)',
-            borderRadius: '6px',
-            fontSize: '14px',
-            color: 'var(--link-text)',
-            fontWeight: '500',
-            display: 'flex',
-            alignItems: 'center'
-          }}>
-            {selectedCells.size} cell{selectedCells.size > 1 ? 's' : ''} selected
-          </div>
-        )}
 
         {/* Custom toolbar content (e.g., filter toggles) */}
         {customToolbarContent && (

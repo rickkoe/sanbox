@@ -78,6 +78,7 @@ const ZoneTableTanStackClean = () => {
         handleClearSelection,
         handleMarkForDeletion,
         SelectAllBanner,
+        CustomerViewBanner,
         ActionsDropdown
     } = useProjectViewSelection({
         tableRef,
@@ -304,7 +305,8 @@ const ZoneTableTanStackClean = () => {
     }, []);
 
     // Check permissions - All authenticated users have full access
-    const isReadOnly = projectFilter === 'current' ? !canEdit : false;
+    // Customer View is always read-only; Project View depends on permissions
+    const isReadOnly = projectFilter !== 'current' || !canEdit;
 
     // Base zone columns (main columns before member columns)
     const baseColumns = useMemo(() => {
@@ -1674,7 +1676,10 @@ const ZoneTableTanStackClean = () => {
 
     return (
         <div className="modern-table-container">
-            {/* Select All Banner from hook */}
+            {/* Customer View Banner - shown in Customer View (read-only mode) */}
+            <CustomerViewBanner />
+
+            {/* Select All Banner - shown in Project View when all page items selected */}
             <SelectAllBanner />
 
             <TanStackCRUDTable

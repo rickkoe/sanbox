@@ -63,7 +63,8 @@ def fabric_management(request, pk=None):
                     page_size = 50
 
                 # Build queryset with optimizations
-                fabrics = Fabric.objects.select_related('customer').all()
+                from django.db.models import Q, Count
+                fabrics = Fabric.objects.select_related('customer', 'created_by_project').all()
 
                 # Filter by user's customer access
                 if user and user.is_authenticated:
@@ -72,10 +73,22 @@ def fabric_management(request, pk=None):
                 else:
                     # Unauthenticated users see nothing
                     fabrics = Fabric.objects.none()
-                
+
+                # Customer View filtering: Show fabrics that are either:
+                # 1. Committed (committed=True), OR
+                # 2. Not referenced by any project (no junction table entries)
+                print(f"DEBUG: Before filter - count: {fabrics.count()}")
+                fabrics = fabrics.annotate(
+                    project_count=Count('project_memberships')
+                ).filter(
+                    Q(committed=True) | Q(project_count=0)
+                )
+                print(f"DEBUG: After filter - count: {fabrics.count()}")
+
                 # Filter by customer if provided
                 if customer_id:
                     fabrics = fabrics.filter(customer=customer_id)
+                    print(f"DEBUG: After customer filter - count: {fabrics.count()}")
                 
                 # Apply search if provided
                 if search:
@@ -597,14 +610,20 @@ def alias_list_view(request, project_id):
     else:
         # Show all customer aliases (new default behavior)
         if customer:
+            from django.db.models import Q, Count
             customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
             aliases_queryset = Alias.objects.select_related('fabric', 'created_by_project').filter(
                 fabric_id__in=customer_fabric_ids
             )
 
-            # Exclude aliases created by uncommitted projects
-            uncommitted_project_ids = Project.objects.exclude(status='finalized').values_list('id', flat=True)
-            aliases_queryset = aliases_queryset.exclude(created_by_project_id__in=uncommitted_project_ids)
+            # Customer View filtering: Show aliases that are either:
+            # 1. Committed (committed=True), OR
+            # 2. Not referenced by any project (no junction table entries)
+            aliases_queryset = aliases_queryset.annotate(
+                project_count=Count('project_aliases')  # Correct relationship name
+            ).filter(
+                Q(committed=True) | Q(project_count=0)
+            )
         else:
             # Fallback if no customer (shouldn't happen but handle gracefully)
             project_alias_ids = ProjectAlias.objects.filter(project=project).values_list('alias_id', flat=True)
@@ -1040,16 +1059,20 @@ def alias_customer_list_view(request):
     ordering = request.GET.get('ordering', 'name')
 
     # Base queryset - filter by customer's fabrics
+    from django.db.models import Q, Count
     customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
     aliases_queryset = Alias.objects.select_related('fabric', 'host', 'created_by_project').filter(
         fabric_id__in=customer_fabric_ids
     )
 
-    # Exclude aliases created by uncommitted projects
-    # Only show aliases created by draft/active/closed projects (not finalized)
-    from core.models import Project
-    uncommitted_project_ids = Project.objects.exclude(status='finalized').values_list('id', flat=True)
-    aliases_queryset = aliases_queryset.exclude(created_by_project_id__in=uncommitted_project_ids)
+    # Customer View filtering: Show aliases that are either:
+    # 1. Committed (committed=True), OR
+    # 2. Not referenced by any project (no junction table entries)
+    aliases_queryset = aliases_queryset.annotate(
+        project_count=Count('project_aliases')  # Correct relationship name
+    ).filter(
+        Q(committed=True) | Q(project_count=0)
+    )
 
     # Prefetch project memberships for badge display
     aliases_queryset = aliases_queryset.prefetch_related(
@@ -2344,12 +2367,18 @@ def zones_by_project_view(request, project_id):
         else:
             # Show all customer zones (new default behavior)
             if customer:
+                from django.db.models import Q, Count
                 customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
                 zones = Zone.objects.select_related('fabric', 'created_by_project').filter(fabric_id__in=customer_fabric_ids)
 
-                # Exclude zones created by uncommitted projects
-                uncommitted_project_ids = Project.objects.exclude(status='finalized').values_list('id', flat=True)
-                zones = zones.exclude(created_by_project_id__in=uncommitted_project_ids)
+                # Customer View filtering: Show zones that are either:
+                # 1. Committed (committed=True), OR
+                # 2. Not referenced by any project (no junction table entries)
+                zones = zones.annotate(
+                    project_count=Count('project_zones')  # Correct relationship name
+                ).filter(
+                    Q(committed=True) | Q(project_count=0)
+                )
             else:
                 # Fallback if no customer (shouldn't happen but handle gracefully)
                 project_zone_ids = ProjectZone.objects.filter(project=project).values_list('zone_id', flat=True)
@@ -2633,13 +2662,18 @@ def zone_customer_list_view(request):
     )
 
     # Base queryset - filter by customer's fabrics
+    from django.db.models import Q, Count
     customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
     zones = Zone.objects.select_related('fabric', 'created_by_project').filter(fabric_id__in=customer_fabric_ids)
 
-    # Exclude zones created by uncommitted projects
-    from core.models import Project
-    uncommitted_project_ids = Project.objects.exclude(status='finalized').values_list('id', flat=True)
-    zones = zones.exclude(created_by_project_id__in=uncommitted_project_ids)
+    # Customer View filtering: Show zones that are either:
+    # 1. Committed (committed=True), OR
+    # 2. Not referenced by any project (no junction table entries)
+    zones = zones.annotate(
+        project_count=Count('project_zones')  # Correct relationship name
+    ).filter(
+        Q(committed=True) | Q(project_count=0)
+    )
 
     # Prefetch project memberships for badge display
     zones = zones.prefetch_related(
@@ -3061,6 +3095,16 @@ def fabric_management(request, pk=None):
         qs = Fabric.objects.select_related('customer').prefetch_related(
             Prefetch('project_memberships', queryset=ProjectFabric.objects.select_related('project'))
         ).all()
+
+        # Customer View filtering: Show fabrics that are either:
+        # 1. Committed (committed=True), OR
+        # 2. Not referenced by any project (no junction table entries)
+        from django.db.models import Count
+        qs = qs.annotate(
+            project_count=Count('project_memberships')
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
+        )
 
         # Filter by customer if provided
         if customer_id:
@@ -4026,13 +4070,23 @@ def switch_management(request, pk=None):
         ordering = request.GET.get('ordering', 'id')
 
         # Build queryset with optimizations
-        qs = Switch.objects.select_related('customer').prefetch_related(
+        from django.db.models import Q, Count
+        qs = Switch.objects.select_related('customer', 'created_by_project').prefetch_related(
             Prefetch('project_memberships', queryset=ProjectSwitch.objects.select_related('project'))
         ).all()
 
         # Filter by customer if provided
         if customer_id:
             qs = qs.filter(customer_id=customer_id)
+
+        # Customer View filtering: Show switches that are either:
+        # 1. Committed (committed=True), OR
+        # 2. Not referenced by any project (no junction table entries)
+        qs = qs.annotate(
+            project_count=Count('project_memberships')  # Correct relationship name
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
+        )
 
         # Apply search if provided
         if search:
@@ -4168,7 +4222,18 @@ def switches_by_customer_view(request, customer_id):
     print(f"🔥 Switches by Customer - Customer ID: {customer_id}")
 
     try:
-        switches = Switch.objects.filter(customer_id=customer_id).order_by('name')
+        from django.db.models import Q, Count
+        switches = Switch.objects.filter(customer_id=customer_id)
+
+        # Customer View filtering: Show switches that are either:
+        # 1. Committed (committed=True), OR
+        # 2. Not referenced by any project (no junction table entries)
+        switches = switches.annotate(
+            project_count=Count('project_memberships')
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
+        ).order_by('name')
+
         data = SwitchSerializer(switches, many=True).data
         return JsonResponse(data, safe=False)
     except Exception as e:
@@ -4376,3 +4441,132 @@ def fabric_project_view(request, project_id):
         })
 
     return JsonResponse(response_data, safe=False)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def fabric_save_view(request):
+    """Save or update fabrics with field override support for projects."""
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        data = json.loads(request.body)
+        project_id = data.get("project_id")
+        fabrics_data = data.get("fabrics", [])
+
+        if not project_id or not fabrics_data:
+            return JsonResponse({"error": "Project ID and fabrics data are required."}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found."}, status=404)
+
+        # Check if user has permission to modify fabrics
+        if user:
+            from core.permissions import can_modify_project
+            if not can_modify_project(user, project):
+                return JsonResponse({"error": "Only project owners, members, and admins can modify fabrics. Viewers have read-only access."}, status=403)
+
+        saved_fabrics = []
+        errors = []
+
+        for fabric_data in fabrics_data:
+            fabric_id = fabric_data.get("id")
+
+            if fabric_id:
+                fabric = Fabric.objects.filter(id=fabric_id).first()
+                if fabric:
+                    # Optimistic locking - check version
+                    client_version = fabric_data.get('version')
+                    if client_version is not None and fabric.version != client_version:
+                        errors.append({
+                            "fabric": fabric_data.get("name", "Unknown"),
+                            "errors": {
+                                "version": f"Conflict: This fabric was modified by {fabric.last_modified_by.username if fabric.last_modified_by else 'another user'} at {fabric.last_modified_at}. Please refresh and try again.",
+                                "current_version": fabric.version,
+                                "last_modified_by": fabric.last_modified_by.username if fabric.last_modified_by else None,
+                                "last_modified_at": fabric.last_modified_at.isoformat() if fabric.last_modified_at else None
+                            }
+                        })
+                        continue
+
+                    # Validate the incoming data
+                    serializer = FabricSerializer(fabric, data=fabric_data, partial=True)
+                    if serializer.is_valid():
+                        # Extract only changed fields
+                        from core.utils.field_merge import extract_changed_fields
+
+                        # Get validated data
+                        validated_data = serializer.validated_data.copy()
+
+                        # Extract only fields that actually changed
+                        changed_fields = extract_changed_fields(fabric, validated_data)
+
+                        if changed_fields:
+                            # Get or create ProjectFabric for this project
+                            project_fabric, pf_created = ProjectFabric.objects.get_or_create(
+                                project=project,
+                                fabric=fabric,
+                                defaults={
+                                    'action': 'reference',
+                                    'added_by': user,
+                                    'field_overrides': {}
+                                }
+                            )
+
+                            # Update field_overrides with new changes
+                            current_overrides = project_fabric.field_overrides or {}
+                            current_overrides.update(changed_fields)
+                            project_fabric.field_overrides = current_overrides
+
+                            # Update action to 'modify' unless it's already 'create'
+                            if project_fabric.action not in ['create', 'delete']:
+                                project_fabric.action = 'modify'
+
+                            project_fabric.added_by = user
+                            project_fabric.save()
+
+                            print(f"✏️ Stored field overrides for fabric '{fabric.name}' in project '{project.name}': {changed_fields}")
+
+                        # Return the base fabric data (not modified)
+                        saved_fabrics.append(FabricSerializer(fabric).data)
+                    else:
+                        errors.append({"fabric": fabric_data.get("name", "Unknown"), "errors": serializer.errors})
+            else:
+                # Create new fabric
+                serializer = FabricSerializer(data=fabric_data)
+                if serializer.is_valid():
+                    fabric = serializer.save(
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project
+                    )
+                    if user:
+                        fabric.last_modified_by = user
+                        fabric.save(update_fields=["last_modified_by"])
+
+                    # Auto-add to current project via junction table
+                    ProjectFabric.objects.create(
+                        project=project,
+                        fabric=fabric,
+                        action='create',
+                        added_by=user,
+                        notes='Auto-created with fabric'
+                    )
+
+                    saved_fabrics.append(serializer.data)
+                else:
+                    errors.append({"fabric": fabric_data.get("name", "Unknown"), "errors": serializer.errors})
+
+        if errors:
+            return JsonResponse({"error": "Some fabrics could not be saved.", "details": errors}, status=400)
+
+        # Clear dashboard cache when fabrics are saved
+        customer = project.customers.first()
+        if customer:
+            clear_dashboard_cache_for_customer(customer.id)
+
+        return JsonResponse({"message": "Fabrics saved successfully!", "fabrics": saved_fabrics})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

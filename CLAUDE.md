@@ -430,23 +430,82 @@ The application uses a dual-dropdown system in the navbar for context selection:
 
 ### Customer View vs Project View
 
+**IMPORTANT ARCHITECTURE**:
+- **Project View** is where ALL work happens (creating, editing, deleting entities)
+- **Customer View** is READ-ONLY and shows committed/deployed data only
+- Changes made in Project View are committed to Customer View when ready
+
 **Customer View** (default):
-- Shows all entities across all projects for the active customer
-- Uses regular API endpoints
+- Shows entities that are either **committed** (`committed=True`) OR **not in any project**
+- **READ-ONLY** - No creating, editing, or deleting allowed
+- Displays stable, finalized production data
+- **IMPORTANT**: Hides uncommitted work-in-progress from projects
+- Uses regular API endpoints with commit/membership filtering
 - No field highlighting
+- Banner displays: "Customer View is read-only. Switch to Project View to edit cells."
 
 **Project View** (requires active project):
 - Shows ONLY entities in the active project (via junction tables)
+- **EDITABLE** - This is where all work happens (based on user permissions)
+- Create new entities, edit existing ones, mark for deletion
 - Merges base entity data with field_overrides from project
 - Highlights modified fields with blue background
 - Uses `/project/{id}/view/` API endpoints
 - Disabled if no active project selected
+- Changes are committed to Customer View when ready
 
 ### Field Highlighting in Project View
 - Modified fields show light blue background with left border
 - Indicates field has overrides in project (stored in field_overrides JSON)
 - Only fields that differ from base value are highlighted
 - Legend displayed above table explaining highlighting
+
+### Table Read-Only Behavior (ALL Tables)
+
+**Implementation Pattern**:
+All tables follow this consistent read-only logic:
+```javascript
+// Customer View is always read-only; Project View depends on permissions
+const isReadOnly = projectFilter !== 'current' || !canEdit;
+```
+
+This ensures:
+- **Customer View**: Always read-only (no Save/Add buttons, cells not editable)
+- **Project View**: Editable only if user has edit permissions
+- Banner notification in Customer View explains the read-only state
+
+**Tables affected**: Alias, Zone, Fabric, Storage, Volume, Host, Port, Switch
+
+### Customer View Filtering Logic
+
+**Customer View shows entities that meet EITHER of these conditions:**
+1. **Committed entities** (`committed=True`) - Finalized/deployed data
+2. **Orphaned entities** (no project membership) - Not referenced by any project
+
+**Backend Implementation:**
+All entity list views apply this filter:
+```python
+from django.db.models import Q, Count
+
+# Show entities that are either committed OR not in any project
+entities = entities.annotate(
+    project_count=Count('project_memberships')
+).filter(
+    Q(committed=True) | Q(project_count=0)
+)
+```
+
+**What this means:**
+- ✅ **Committed entities show in Customer View** - Regardless of which project created them
+- ✅ **Entities not in any project show in Customer View** - Legacy data or manually created items
+- ❌ **Uncommitted entities in projects are hidden** - Work-in-progress stays in Project View only
+- When you create an entity in Project View, it's marked `committed=False` and added to the project
+- Entity appears in Project View immediately, but not in Customer View until committed
+- Once committed (`committed=True`), entity appears in Customer View
+
+**Entities with this filtering:**
+- Fabrics, Aliases, Zones, Switches (SAN entities)
+- Storage, Volumes, Hosts, Ports (Storage entities)
 
 ## Common Tasks
 

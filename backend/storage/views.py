@@ -51,7 +51,8 @@ def storage_list(request):
                 page_size = 100
 
             # Build queryset with optimizations
-            storages = Storage.objects.select_related('customer').prefetch_related(
+            from django.db.models import Q, Count
+            storages = Storage.objects.select_related('customer', 'created_by_project').prefetch_related(
                 Prefetch('project_memberships',
                          queryset=ProjectStorage.objects.select_related('project'))
             ).all()
@@ -61,10 +62,19 @@ def storage_list(request):
             if user and user.is_authenticated:
                 from core.permissions import filter_by_customer_access
                 storages = filter_by_customer_access(storages, user)
-            
+
             # Filter by customer if provided
             if customer_id:
                 storages = storages.filter(customer=customer_id)
+
+            # Customer View filtering: Show storage systems that are either:
+            # 1. Committed (committed=True), OR
+            # 2. Not referenced by any project (no junction table entries)
+            storages = storages.annotate(
+                project_count=Count('project_storage_systems')  # Correct relationship name
+            ).filter(
+                Q(committed=True) | Q(project_count=0)
+            )
             
             # Apply search if provided
             if search:
@@ -642,7 +652,8 @@ def volume_list(request):
         ordering = request.GET.get('ordering', 'name')
 
         # Base queryset with optimizations
-        volumes = Volume.objects.select_related('storage').prefetch_related(
+        from django.db.models import Q, Count
+        volumes = Volume.objects.select_related('storage', 'created_by_project').prefetch_related(
             Prefetch('project_memberships',
                      queryset=ProjectVolume.objects.select_related('project'))
         ).all()
@@ -667,6 +678,15 @@ def volume_list(request):
         # Filter by customer
         if customer_id:
             volumes = volumes.filter(storage__customer_id=customer_id)
+
+        # Customer View filtering: Show volumes that are either:
+        # 1. Committed (committed=True), OR
+        # 2. Not referenced by any project (no junction table entries)
+        volumes = volumes.annotate(
+            project_count=Count('project_volumes')  # Correct relationship name
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
+        )
         
         # Apply general search if provided
         if search:
@@ -762,7 +782,8 @@ def _handle_host_list_get(request, user):
         ordering = request.GET.get('ordering', 'name')
 
         # Base queryset with optimizations
-        hosts = Host.objects.select_related('storage', 'storage__customer').prefetch_related(
+        from django.db.models import Q, Count
+        hosts = Host.objects.select_related('storage', 'storage__customer', 'created_by_project').prefetch_related(
             Prefetch('project_memberships',
                      queryset=ProjectHost.objects.select_related('project'))
         ).all()
@@ -783,6 +804,15 @@ def _handle_host_list_get(request, user):
         # Filter by specific storage if provided
         if storage_id:
             hosts = hosts.filter(storage_id=storage_id)
+
+        # Customer View filtering: Show hosts that are either:
+        # 1. Committed (committed=True), OR
+        # 2. Not referenced by any project (no junction table entries)
+        hosts = hosts.annotate(
+            project_count=Count('project_hosts')  # Correct relationship name
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
+        )
 
         # Apply general search if provided
         if search:
@@ -1228,7 +1258,8 @@ def port_list(request):
                 page_size = 100
 
             # Build queryset with optimizations
-            ports = Port.objects.select_related('storage', 'fabric', 'alias', 'project').prefetch_related(
+            from django.db.models import Q, Count
+            ports = Port.objects.select_related('storage', 'fabric', 'alias', 'project', 'created_by_project').prefetch_related(
                 Prefetch('project_memberships',
                          queryset=ProjectPort.objects.select_related('project'))
             ).all()
@@ -1249,6 +1280,15 @@ def port_list(request):
             # Filter by project if provided
             if project_id:
                 ports = ports.filter(project_id=project_id)
+
+            # Customer View filtering: Show ports that are either:
+            # 1. Committed (committed=True), OR
+            # 2. Not referenced by any project (no junction table entries)
+            ports = ports.annotate(
+                project_count=Count('project_ports')  # Correct relationship name
+            ).filter(
+                Q(committed=True) | Q(project_count=0)
+            )
 
             # Apply search if provided
             if search:

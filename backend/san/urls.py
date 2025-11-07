@@ -4,6 +4,7 @@ from .views import (
     fabric_management,
     fabric_delete_view,
     fabric_project_view,
+    fabric_save_view,
     generate_zone_scripts,
     generate_zone_creation_scripts,
     generate_zone_deletion_scripts,
@@ -68,8 +69,9 @@ urlpatterns = [
     # Unified fabric management endpoints
     path("fabrics/", fabric_management, name="fabric-list"),
     path("fabrics/<int:pk>/", fabric_management, name="fabric-detail"),
+    path("fabrics/save/", fabric_save_view, name="save-fabrics"),
     path("fabrics/delete/<int:pk>/", fabric_delete_view, name="fabric-delete"),
-    
+
     # WWPN Prefix management endpoints
     path("wwpn-prefixes/", wwpn_prefix_list_view, name="wwpn-prefix-list"),
     path("wwpn-prefixes/<int:pk>/", wwpn_prefix_detail_view, name="wwpn-prefix-detail"),

@@ -6,7 +6,6 @@ import EmptyConfigMessage from "../common/EmptyConfigMessage";
 import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
-import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
 import { projectStatusColumn } from "../../utils/projectStatusRenderer";
@@ -18,7 +17,6 @@ const FabricTableTanStackClean = () => {
     const navigate = useNavigate();
     const customerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
-    const activeCustomerId = config?.customer?.id;
 
     // Project filter state
     const [projectFilter, setProjectFilter] = useState(
@@ -30,16 +28,21 @@ const FabricTableTanStackClean = () => {
 
     const tableRef = useRef(null);
 
-    // Use centralized API hook
-    const { apiUrl } = useProjectViewAPI({
-        projectFilter,
-        setProjectFilter,
-        activeProjectId,
-        activeCustomerId,
-        entityType: 'fabrics',
-        baseUrl: `${API_URL}/api/san`,
-        localStorageKey: 'fabricTableProjectFilter'
-    });
+    // Determine API URL based on filter (Fabrics use query parameters, not path-based URLs)
+    const getApiUrl = () => {
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project view: merged data with overrides
+            return `${API_URL}/api/san/fabrics/project/${activeProjectId}/view/`;
+        } else if (activeProjectId) {
+            // Customer view with project: includes in_active_project flag
+            return `${API_URL}/api/san/fabrics/?customer_id=${customerId}&project_id=${activeProjectId}&project_filter=${projectFilter}`;
+        } else {
+            // Customer view without project
+            return `${API_URL}/api/san/fabrics/?customer_id=${customerId}`;
+        }
+    };
+
+    const apiUrl = getApiUrl();
 
     // Use centralized permissions hook
     const { canEdit, canDelete, isViewer, isProjectOwner, isAdmin, readOnlyMessage } = useProjectViewPermissions({
@@ -55,6 +58,7 @@ const FabricTableTanStackClean = () => {
         handleClearSelection,
         handleMarkForDeletion,
         SelectAllBanner,
+        CustomerViewBanner,
         ActionsDropdown
     } = useProjectViewSelection({
         tableRef,
@@ -69,8 +73,10 @@ const FabricTableTanStackClean = () => {
     // Selection state and actions dropdown are now managed by useProjectViewSelection hook
     // Auto-switch and force visibility are now handled by hooks
 
-    // Check permissions - All authenticated users have full access
-    const isReadOnly = projectFilter === 'current' ? !canEdit : false;
+    // Check permissions
+    // Customer View is always read-only (shows committed/deployed data)
+    // Project View is where work happens (editable based on permissions)
+    const isReadOnly = projectFilter !== 'current' || !canEdit;
 
     // Load all customer fabrics when modal opens
     useEffect(() => {
@@ -370,7 +376,7 @@ const FabricTableTanStackClean = () => {
                 });
             })
             .map(row => {
-                const { alias_count, zone_count, switches, in_active_project, project_actions, modified_fields, project_action, ...fabricData } = row;
+                const { alias_count, zone_count, switches, in_active_project, project_actions, modified_fields, project_action, ...fabricData} = row;
 
                 return {
                     ...fabricData,
@@ -379,6 +385,72 @@ const FabricTableTanStackClean = () => {
                     vsan: fabricData.vsan === "" ? null : fabricData.vsan
                 };
             });
+
+    // Custom save handler to automatically add new fabrics to project when in Project View
+    const handleFabricSave = async (allTableData, hasChanges, deletedRows = []) => {
+        if (!hasChanges) {
+            return { success: true, message: 'No changes to save' };
+        }
+
+        try {
+            // Handle deletions first
+            if (deletedRows && deletedRows.length > 0) {
+                for (const fabricId of deletedRows) {
+                    try {
+                        await api.delete(`${API_URL}/api/san/fabrics/delete/${fabricId}/`);
+                    } catch (error) {
+                        console.error(`Failed to delete fabric ${fabricId}:`, error);
+                        if (error.response?.status === 403) {
+                            return {
+                                success: false,
+                                message: error.response?.data?.error || 'You do not have permission to delete fabrics.'
+                            };
+                        }
+                        return {
+                            success: false,
+                            message: `Failed to delete fabric: ${error.response?.data?.error || error.message}`
+                        };
+                    }
+                }
+            }
+
+            // Build payload for saving fabrics
+            const payload = saveTransform(allTableData)
+                .filter(fabric => fabric.id || (fabric.name && fabric.name.trim() !== ""));
+
+            // Use the new bulk save endpoint with field override support
+            if (payload.length > 0) {
+                await api.post(`${API_URL}/api/san/fabrics/save/`, {
+                    project_id: activeProjectId,
+                    fabrics: payload,
+                });
+            }
+
+            const totalOperations = payload.length + (deletedRows ? deletedRows.length : 0);
+            const operations = [];
+            if (payload.length > 0) operations.push(`saved ${payload.length} fabric(s)`);
+            if (deletedRows && deletedRows.length > 0) operations.push(`deleted ${deletedRows.length} fabric(s)`);
+
+            const message = operations.length > 0
+                ? `Successfully ${operations.join(' and ')}`
+                : 'No changes to save';
+
+            return { success: true, message };
+
+        } catch (error) {
+            console.error('❌ Fabric save error:', error);
+            if (error.response?.status === 403) {
+                return {
+                    success: false,
+                    message: error.response?.data?.error || 'You do not have permission to modify fabrics.'
+                };
+            }
+            return {
+                success: false,
+                message: `Error saving fabrics: ${error.response?.data?.error || error.message}`
+            };
+        }
+    };
 
     // Track total row count from table
     useEffect(() => {
@@ -427,7 +499,10 @@ const FabricTableTanStackClean = () => {
 
     return (
         <div className="modern-table-container">
-            {/* Select All Banner from hook */}
+            {/* Customer View Banner - shown in Customer View (read-only mode) */}
+            <CustomerViewBanner />
+
+            {/* Select All Banner - shown in Project View when all page items selected */}
             <SelectAllBanner />
 
             <TanStackCRUDTable
@@ -450,6 +525,9 @@ const FabricTableTanStackClean = () => {
                 preprocessData={preprocessData}
                 saveTransform={saveTransform}
                 vendorOptions={vendorOptions}
+
+                // Custom save handler - auto-add to project in Project View
+                customSaveHandler={handleFabricSave}
 
                 // Custom Toolbar
                 customToolbarContent={filterToggleButtons}

@@ -169,6 +169,40 @@ def mark_fabric_deletion(request, project_id):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def mark_switch_deletion(request, project_id):
+    """Mark a switch for deletion by updating the junction table action field"""
+    try:
+        data = json.loads(request.body)
+        switch_id = data.get('switch_id')
+        action = data.get('action', 'delete')
+
+        if not switch_id:
+            return JsonResponse({"error": "switch_id is required"}, status=400)
+
+        updated_count = ProjectSwitch.objects.filter(
+            project_id=project_id,
+            switch_id=switch_id
+        ).update(action=action)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Switch marked for {action}",
+                "switch_id": switch_id,
+                "action": action
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Switch not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def mark_storage_deletion(request, project_id):
     """Mark a storage system for deletion by updating the junction table action field"""
     try:

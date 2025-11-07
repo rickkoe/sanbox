@@ -66,7 +66,7 @@ from .worksheet_views import (
 from .project_views import (
     project_add_alias, project_remove_alias, mark_alias_deletion,
     project_add_zone, project_remove_zone, mark_zone_deletion,
-    project_add_switch, project_remove_switch,
+    project_add_switch, project_remove_switch, mark_switch_deletion,
     project_add_fabric, project_remove_fabric, mark_fabric_deletion,
     project_add_storage, project_remove_storage, mark_storage_deletion,
     project_add_volume, project_remove_volume, mark_volume_deletion,
@@ -148,6 +148,7 @@ urlpatterns = [
     path("projects/<int:project_id>/mark-zone-deletion/", mark_zone_deletion, name="mark-zone-deletion"),
     path("projects/<int:project_id>/remove-zone/<int:zone_id>/", project_remove_zone, name="project-remove-zone"),
     path("projects/<int:project_id>/add-switch/", project_add_switch, name="project-add-switch"),
+    path("projects/<int:project_id>/mark-switch-deletion/", mark_switch_deletion, name="mark-switch-deletion"),
     path("projects/<int:project_id>/remove-switch/<int:switch_id>/", project_remove_switch, name="project-remove-switch"),
     path("projects/<int:project_id>/add-fabric/", project_add_fabric, name="project-add-fabric"),
     path("projects/<int:project_id>/mark-fabric-deletion/", mark_fabric_deletion, name="mark-fabric-deletion"),

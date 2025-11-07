@@ -59,6 +59,7 @@ const SwitchTableTanStack = () => {
         handleClearSelection,
         handleMarkForDeletion,
         SelectAllBanner,
+        CustomerViewBanner,
         ActionsDropdown
     } = useProjectViewSelection({
         tableRef,
@@ -74,7 +75,8 @@ const SwitchTableTanStack = () => {
     // Auto-switch and force visibility are now handled by hooks
 
     // Check permissions - All authenticated users have full access
-    const isReadOnly = projectFilter === 'current' ? !canEdit : false;
+    // Customer View is always read-only; Project View depends on permissions
+    const isReadOnly = projectFilter !== 'current' || !canEdit;
 
     // Load all customer switches when modal opens
     useEffect(() => {
@@ -577,7 +579,10 @@ const SwitchTableTanStack = () => {
 
     return (
         <div className="modern-table-container">
-            {/* Select All Banner from hook */}
+            {/* Customer View Banner - shown in Customer View (read-only mode) */}
+            <CustomerViewBanner />
+
+            {/* Select All Banner - shown in Project View when all page items selected */}
             <SelectAllBanner />
 
             <TanStackCRUDTable
