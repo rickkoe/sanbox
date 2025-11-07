@@ -616,8 +616,8 @@ button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
 .table-dropdown-menu {
   position: absolute;
   top: 100%;
-  right: 0;
-  z-index: 1000;
+  left: 0;
+  z-index: 1050;
   display: block;
   min-width: 280px;
   max-height: 500px;

@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { Trash2, Edit3 } from 'lucide-react';
 import api from '../api';
 
 /**
@@ -288,12 +289,13 @@ export const useProjectViewSelection = ({
         // Determine which banner to show (if any)
         const showCustomerViewBanner = projectFilter !== 'current';
         const showSelectAllBannerContent = showSelectAllBanner && projectFilter === 'current';
+        const showProjectWorkBanner = projectFilter === 'current' && !showSelectAllBanner;
 
         // Always render container with fixed min-height to reserve space
         return (
             <div style={{
                 minHeight: '52px',
-                visibility: (showCustomerViewBanner || showSelectAllBannerContent) ? 'visible' : 'hidden'
+                visibility: (showCustomerViewBanner || showSelectAllBannerContent || showProjectWorkBanner) ? 'visible' : 'hidden'
             }}>
                 {/* Customer View Banner (Read-only mode notification) */}
                 {showCustomerViewBanner && (
@@ -391,6 +393,32 @@ export const useProjectViewSelection = ({
                         )}
                     </div>
                 )}
+
+                {/* Project Work Banner (shown in Project View when not selecting all) */}
+                {showProjectWorkBanner && (
+                    <div style={{
+                        backgroundColor: 'var(--secondary-bg)',
+                        border: '1px solid var(--border-color)',
+                        borderLeft: '4px solid var(--color-accent-emphasis)',
+                        borderRadius: '6px',
+                        padding: '14px 18px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Edit3
+                                size={20}
+                                color="var(--color-accent-emphasis)"
+                                strokeWidth={2}
+                            />
+                            <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
+                                <strong>Project View:</strong> Edit items here. Commit changes to deploy to Customer View.
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }, [projectFilter, showSelectAllBanner, selectedRows.size, totalRowCount, entityType, handleSelectAllPages, handleClearSelection, isSelectingAllPages]);
@@ -402,49 +430,68 @@ export const useProjectViewSelection = ({
         }
 
         return (
-            <div style={{ position: 'relative' }}>
+            <div className="table-dropdown">
                 <button
-                    className="btn btn-outline-secondary"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        opacity: selectedRows.size === 0 ? 0.5 : 1,
-                        cursor: selectedRows.size === 0 ? 'not-allowed' : 'pointer'
-                    }}
-                    disabled={selectedRows.size === 0}
+                    type="button"
                     onClick={(e) => {
                         e.stopPropagation();
                         if (selectedRows.size > 0) {
                             setShowActionsDropdown(!showActionsDropdown);
                         }
                     }}
+                    disabled={selectedRows.size === 0}
+                    style={{
+                        padding: '8px 16px',
+                        backgroundColor: selectedRows.size === 0
+                            ? 'var(--table-toolbar-bg)'
+                            : 'var(--button-secondary-bg)',
+                        color: selectedRows.size === 0
+                            ? 'var(--muted-text)'
+                            : 'var(--table-toolbar-text)',
+                        border: '1px solid var(--table-pagination-button-border)',
+                        borderRadius: '6px',
+                        cursor: selectedRows.size === 0 ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        opacity: selectedRows.size === 0 ? 0.6 : 1
+                    }}
+                    title={selectedRows.size === 0 ? 'Select items to perform actions' : 'Bulk actions'}
                 >
                     Actions ({selectedRows.size}) {selectedRows.size > 0 && (showActionsDropdown ? '▲' : '▼')}
                 </button>
                 {showActionsDropdown && selectedRows.size > 0 && (
-                    <div
-                        className="dropdown-menu show"
-                        style={{
-                            position: 'absolute',
-                            top: '100%',
-                            right: 0,
-                            zIndex: 1050,
-                            marginTop: '4px',
-                            minWidth: '200px'
-                        }}
+                    <ul
+                        className="table-dropdown-menu"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <button
-                            className="dropdown-item"
-                            onClick={() => {
-                                setShowActionsDropdown(false);
-                                handleMarkForDeletion();
-                            }}
-                        >
-                            <span style={{ color: 'var(--color-danger-fg)' }}>Mark for Deletion</span>
-                        </button>
-                    </div>
+                        <li>
+                            <button
+                                className="table-dropdown-item"
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowActionsDropdown(false);
+                                    handleMarkForDeletion();
+                                }}
+                                style={{
+                                    color: 'var(--color-danger-fg)'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'var(--color-danger-subtle)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
+                            >
+                                <Trash2 size={16} />
+                                Mark for Deletion
+                            </button>
+                        </li>
+                    </ul>
                 )}
             </div>
         );
