@@ -6,8 +6,7 @@ Centralized constants for the core app.
 # Used by: ProjectFabric, ProjectSwitch, ProjectAlias, ProjectZone,
 #          ProjectStorage, ProjectHost, ProjectVolume, ProjectPort
 PROJECT_ACTION_CHOICES = [
-    ('new', 'New - Generate creation commands'),
-    ('delete', 'Delete - Generate deletion commands'),
-    ('modify', 'Modify - Generate modification commands'),
-    ('reference', 'Reference - Include in documentation only'),
+    ('new', 'Created in this project'),
+    ('modified', 'Existed but modified in this project'),
+    ('unmodified', 'Existed and has not been modified in this project'),
 ]

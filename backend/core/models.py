@@ -1032,7 +1032,11 @@ class ProjectFabric(models.Model):
     action = models.CharField(
         max_length=10,
         choices=PROJECT_ACTION_CHOICES,
-        default='reference'
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
     )
 
     # Project-specific settings (overrides base model values)
@@ -1087,7 +1091,11 @@ class ProjectSwitch(models.Model):
     action = models.CharField(
         max_length=10,
         choices=PROJECT_ACTION_CHOICES,
-        default='reference'
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
     )
 
     # Project-specific settings (overrides base model values)
@@ -1142,7 +1150,11 @@ class ProjectAlias(models.Model):
     action = models.CharField(
         max_length=10,
         choices=PROJECT_ACTION_CHOICES,
-        default='reference'
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
     )
 
     # Project-specific settings (overrides base model values)
@@ -1203,7 +1215,11 @@ class ProjectZone(models.Model):
     action = models.CharField(
         max_length=10,
         choices=PROJECT_ACTION_CHOICES,
-        default='reference'
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
     )
 
     # Project-specific settings (overrides base model values)
@@ -1258,7 +1274,11 @@ class ProjectStorage(models.Model):
     action = models.CharField(
         max_length=10,
         choices=PROJECT_ACTION_CHOICES,
-        default='reference'
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
     )
 
     # Project-specific settings (overrides base model values)
@@ -1313,7 +1333,11 @@ class ProjectHost(models.Model):
     action = models.CharField(
         max_length=10,
         choices=PROJECT_ACTION_CHOICES,
-        default='reference'
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
     )
 
     # Project-specific settings (overrides base model values)
@@ -1368,7 +1392,11 @@ class ProjectVolume(models.Model):
     action = models.CharField(
         max_length=10,
         choices=PROJECT_ACTION_CHOICES,
-        default='reference'
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
     )
 
     # Project-specific settings (overrides base model values)
@@ -1423,7 +1451,11 @@ class ProjectPort(models.Model):
     action = models.CharField(
         max_length=10,
         choices=PROJECT_ACTION_CHOICES,
-        default='reference'
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
     )
 
     # Project-specific settings (overrides base model values)

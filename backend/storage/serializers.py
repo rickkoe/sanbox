@@ -23,10 +23,12 @@ class StorageSerializer(serializers.ModelSerializer):
         memberships = []
         try:
             for pm in obj.project_memberships.all():
+                # If delete_me is True, return 'delete' regardless of action
+                action = 'delete' if pm.delete_me else pm.action
                 memberships.append({
                     'project_id': pm.project.id,
                     'project_name': pm.project.name,
-                    'action': pm.action
+                    'action': action
                 })
         except Exception as e:
             print(f"Error getting project_memberships for storage {obj.name}: {e}")
@@ -58,10 +60,12 @@ class VolumeSerializer(serializers.ModelSerializer):
         memberships = []
         try:
             for pm in obj.project_memberships.all():
+                # If delete_me is True, return 'delete' regardless of action
+                action = 'delete' if pm.delete_me else pm.action
                 memberships.append({
                     'project_id': pm.project.id,
                     'project_name': pm.project.name,
-                    'action': pm.action
+                    'action': action
                 })
         except Exception as e:
             print(f"Error getting project_memberships for volume {obj.name}: {e}")
@@ -112,10 +116,12 @@ class HostSerializer(serializers.ModelSerializer):
         memberships = []
         try:
             for pm in obj.project_memberships.all():
+                # If delete_me is True, return 'delete' regardless of action
+                action = 'delete' if pm.delete_me else pm.action
                 memberships.append({
                     'project_id': pm.project.id,
                     'project_name': pm.project.name,
-                    'action': pm.action
+                    'action': action
                 })
         except Exception as e:
             print(f"Error getting project_memberships for host {obj.name}: {e}")
@@ -194,10 +200,12 @@ class PortSerializer(serializers.ModelSerializer):
         memberships = []
         try:
             for pm in obj.project_memberships.all():
+                # If delete_me is True, return 'delete' regardless of action
+                action = 'delete' if pm.delete_me else pm.action
                 memberships.append({
                     'project_id': pm.project.id,
                     'project_name': pm.project.name,
-                    'action': pm.action
+                    'action': action
                 })
         except Exception as e:
             print(f"Error getting project_memberships for port {obj.name}: {e}")

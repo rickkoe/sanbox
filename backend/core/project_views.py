@@ -67,27 +67,26 @@ def project_add_alias(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def mark_alias_deletion(request, project_id):
-    """Mark an alias for deletion by updating the junction table action field"""
+    """Mark an alias for deletion by setting delete_me=True (action field remains unchanged)"""
     try:
         data = json.loads(request.body)
         alias_id = data.get('alias_id')
-        action = data.get('action', 'delete')
 
         if not alias_id:
             return JsonResponse({"error": "alias_id is required"}, status=400)
 
-        # Update the action field in the junction table
+        # Update delete_me field in the junction table (action stays unchanged)
         updated_count = ProjectAlias.objects.filter(
             project_id=project_id,
             alias_id=alias_id
-        ).update(action=action)
+        ).update(delete_me=True)
 
         if updated_count > 0:
             return JsonResponse({
                 "status": "success",
-                "message": f"Alias marked for {action}",
+                "message": "Alias marked for deletion",
                 "alias_id": alias_id,
-                "action": action
+                "delete_me": True
             })
         else:
             return JsonResponse({
@@ -102,11 +101,10 @@ def mark_alias_deletion(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def mark_zone_deletion(request, project_id):
-    """Mark a zone for deletion by updating the junction table action field"""
+    """Mark a zone for deletion by setting delete_me=True (action field remains unchanged)"""
     try:
         data = json.loads(request.body)
         zone_id = data.get('zone_id')
-        action = data.get('action', 'delete')
 
         if not zone_id:
             return JsonResponse({"error": "zone_id is required"}, status=400)
@@ -114,14 +112,14 @@ def mark_zone_deletion(request, project_id):
         updated_count = ProjectZone.objects.filter(
             project_id=project_id,
             zone_id=zone_id
-        ).update(action=action)
+        ).update(delete_me=True)
 
         if updated_count > 0:
             return JsonResponse({
                 "status": "success",
-                "message": f"Zone marked for {action}",
+                "message": "Zone marked for deletion",
                 "zone_id": zone_id,
-                "action": action
+                "delete_me": True
             })
         else:
             return JsonResponse({
@@ -136,11 +134,10 @@ def mark_zone_deletion(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def mark_fabric_deletion(request, project_id):
-    """Mark a fabric for deletion by updating the junction table action field"""
+    """Mark a fabric for deletion by setting delete_me=True (action field remains unchanged)"""
     try:
         data = json.loads(request.body)
         fabric_id = data.get('fabric_id')
-        action = data.get('action', 'delete')
 
         if not fabric_id:
             return JsonResponse({"error": "fabric_id is required"}, status=400)
@@ -148,14 +145,14 @@ def mark_fabric_deletion(request, project_id):
         updated_count = ProjectFabric.objects.filter(
             project_id=project_id,
             fabric_id=fabric_id
-        ).update(action=action)
+        ).update(delete_me=True)
 
         if updated_count > 0:
             return JsonResponse({
                 "status": "success",
-                "message": f"Fabric marked for {action}",
+                "message": "Fabric marked for deletion",
                 "fabric_id": fabric_id,
-                "action": action
+                "delete_me": True
             })
         else:
             return JsonResponse({
@@ -170,11 +167,10 @@ def mark_fabric_deletion(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def mark_switch_deletion(request, project_id):
-    """Mark a switch for deletion by updating the junction table action field"""
+    """Mark a switch for deletion by setting delete_me=True (action field remains unchanged)"""
     try:
         data = json.loads(request.body)
         switch_id = data.get('switch_id')
-        action = data.get('action', 'delete')
 
         if not switch_id:
             return JsonResponse({"error": "switch_id is required"}, status=400)
@@ -182,14 +178,14 @@ def mark_switch_deletion(request, project_id):
         updated_count = ProjectSwitch.objects.filter(
             project_id=project_id,
             switch_id=switch_id
-        ).update(action=action)
+        ).update(delete_me=True)
 
         if updated_count > 0:
             return JsonResponse({
                 "status": "success",
-                "message": f"Switch marked for {action}",
+                "message": "Switch marked for deletion",
                 "switch_id": switch_id,
-                "action": action
+                "delete_me": True
             })
         else:
             return JsonResponse({
@@ -204,11 +200,10 @@ def mark_switch_deletion(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def mark_storage_deletion(request, project_id):
-    """Mark a storage system for deletion by updating the junction table action field"""
+    """Mark a storage system for deletion by setting delete_me=True (action field remains unchanged)"""
     try:
         data = json.loads(request.body)
         storage_id = data.get('storage_id')
-        action = data.get('action', 'delete')
 
         if not storage_id:
             return JsonResponse({"error": "storage_id is required"}, status=400)
@@ -216,14 +211,14 @@ def mark_storage_deletion(request, project_id):
         updated_count = ProjectStorage.objects.filter(
             project_id=project_id,
             storage_id=storage_id
-        ).update(action=action)
+        ).update(delete_me=True)
 
         if updated_count > 0:
             return JsonResponse({
                 "status": "success",
-                "message": f"Storage system marked for {action}",
+                "message": "Storage system marked for deletion",
                 "storage_id": storage_id,
-                "action": action
+                "delete_me": True
             })
         else:
             return JsonResponse({
@@ -238,11 +233,10 @@ def mark_storage_deletion(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def mark_volume_deletion(request, project_id):
-    """Mark a volume for deletion by updating the junction table action field"""
+    """Mark a volume for deletion by setting delete_me=True (action field remains unchanged)"""
     try:
         data = json.loads(request.body)
         volume_id = data.get('volume_id')
-        action = data.get('action', 'delete')
 
         if not volume_id:
             return JsonResponse({"error": "volume_id is required"}, status=400)
@@ -250,14 +244,14 @@ def mark_volume_deletion(request, project_id):
         updated_count = ProjectVolume.objects.filter(
             project_id=project_id,
             volume_id=volume_id
-        ).update(action=action)
+        ).update(delete_me=True)
 
         if updated_count > 0:
             return JsonResponse({
                 "status": "success",
-                "message": f"Volume marked for {action}",
+                "message": "Volume marked for deletion",
                 "volume_id": volume_id,
-                "action": action
+                "delete_me": True
             })
         else:
             return JsonResponse({
@@ -272,11 +266,10 @@ def mark_volume_deletion(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def mark_host_deletion(request, project_id):
-    """Mark a host for deletion by updating the junction table action field"""
+    """Mark a host for deletion by setting delete_me=True (action field remains unchanged)"""
     try:
         data = json.loads(request.body)
         host_id = data.get('host_id')
-        action = data.get('action', 'delete')
 
         if not host_id:
             return JsonResponse({"error": "host_id is required"}, status=400)
@@ -284,14 +277,14 @@ def mark_host_deletion(request, project_id):
         updated_count = ProjectHost.objects.filter(
             project_id=project_id,
             host_id=host_id
-        ).update(action=action)
+        ).update(delete_me=True)
 
         if updated_count > 0:
             return JsonResponse({
                 "status": "success",
-                "message": f"Host marked for {action}",
+                "message": "Host marked for deletion",
                 "host_id": host_id,
-                "action": action
+                "delete_me": True
             })
         else:
             return JsonResponse({
@@ -306,11 +299,10 @@ def mark_host_deletion(request, project_id):
 @csrf_exempt
 @require_http_methods(["POST"])
 def mark_port_deletion(request, project_id):
-    """Mark a port for deletion by updating the junction table action field"""
+    """Mark a port for deletion by setting delete_me=True (action field remains unchanged)"""
     try:
         data = json.loads(request.body)
         port_id = data.get('port_id')
-        action = data.get('action', 'delete')
 
         if not port_id:
             return JsonResponse({"error": "port_id is required"}, status=400)
@@ -318,14 +310,278 @@ def mark_port_deletion(request, project_id):
         updated_count = ProjectPort.objects.filter(
             project_id=project_id,
             port_id=port_id
-        ).update(action=action)
+        ).update(delete_me=True)
 
         if updated_count > 0:
             return JsonResponse({
                 "status": "success",
-                "message": f"Port marked for {action}",
+                "message": "Port marked for deletion",
                 "port_id": port_id,
-                "action": action
+                "delete_me": True
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Port not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unmark_alias_deletion(request, project_id):
+    """Unmark an alias for deletion by setting delete_me=False (action field remains unchanged)"""
+    try:
+        data = json.loads(request.body)
+        alias_id = data.get('alias_id')
+
+        if not alias_id:
+            return JsonResponse({"error": "alias_id is required"}, status=400)
+
+        updated_count = ProjectAlias.objects.filter(
+            project_id=project_id,
+            alias_id=alias_id
+        ).update(delete_me=False)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": "Alias unmarked for deletion",
+                "alias_id": alias_id,
+                "delete_me": False
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Alias not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unmark_zone_deletion(request, project_id):
+    """Unmark a zone for deletion by setting delete_me=False (action field remains unchanged)"""
+    try:
+        data = json.loads(request.body)
+        zone_id = data.get('zone_id')
+
+        if not zone_id:
+            return JsonResponse({"error": "zone_id is required"}, status=400)
+
+        updated_count = ProjectZone.objects.filter(
+            project_id=project_id,
+            zone_id=zone_id
+        ).update(delete_me=False)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": "Zone unmarked for deletion",
+                "zone_id": zone_id,
+                "delete_me": False
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Zone not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unmark_fabric_deletion(request, project_id):
+    """Unmark a fabric for deletion by setting delete_me=False (action field remains unchanged)"""
+    try:
+        data = json.loads(request.body)
+        fabric_id = data.get('fabric_id')
+
+        if not fabric_id:
+            return JsonResponse({"error": "fabric_id is required"}, status=400)
+
+        updated_count = ProjectFabric.objects.filter(
+            project_id=project_id,
+            fabric_id=fabric_id
+        ).update(delete_me=False)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": "Fabric unmarked for deletion",
+                "fabric_id": fabric_id,
+                "delete_me": False
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Fabric not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unmark_switch_deletion(request, project_id):
+    """Unmark a switch for deletion by setting delete_me=False (action field remains unchanged)"""
+    try:
+        data = json.loads(request.body)
+        switch_id = data.get('switch_id')
+
+        if not switch_id:
+            return JsonResponse({"error": "switch_id is required"}, status=400)
+
+        updated_count = ProjectSwitch.objects.filter(
+            project_id=project_id,
+            switch_id=switch_id
+        ).update(delete_me=False)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": "Switch unmarked for deletion",
+                "switch_id": switch_id,
+                "delete_me": False
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Switch not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unmark_storage_deletion(request, project_id):
+    """Unmark a storage system for deletion by setting delete_me=False (action field remains unchanged)"""
+    try:
+        data = json.loads(request.body)
+        storage_id = data.get('storage_id')
+
+        if not storage_id:
+            return JsonResponse({"error": "storage_id is required"}, status=400)
+
+        updated_count = ProjectStorage.objects.filter(
+            project_id=project_id,
+            storage_id=storage_id
+        ).update(delete_me=False)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": "Storage system unmarked for deletion",
+                "storage_id": storage_id,
+                "delete_me": False
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Storage system not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unmark_volume_deletion(request, project_id):
+    """Unmark a volume for deletion by setting delete_me=False (action field remains unchanged)"""
+    try:
+        data = json.loads(request.body)
+        volume_id = data.get('volume_id')
+
+        if not volume_id:
+            return JsonResponse({"error": "volume_id is required"}, status=400)
+
+        updated_count = ProjectVolume.objects.filter(
+            project_id=project_id,
+            volume_id=volume_id
+        ).update(delete_me=False)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": "Volume unmarked for deletion",
+                "volume_id": volume_id,
+                "delete_me": False
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Volume not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unmark_host_deletion(request, project_id):
+    """Unmark a host for deletion by setting delete_me=False (action field remains unchanged)"""
+    try:
+        data = json.loads(request.body)
+        host_id = data.get('host_id')
+
+        if not host_id:
+            return JsonResponse({"error": "host_id is required"}, status=400)
+
+        updated_count = ProjectHost.objects.filter(
+            project_id=project_id,
+            host_id=host_id
+        ).update(delete_me=False)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": "Host unmarked for deletion",
+                "host_id": host_id,
+                "delete_me": False
+            })
+        else:
+            return JsonResponse({
+                "status": "error",
+                "message": "Host not found in project"
+            }, status=404)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unmark_port_deletion(request, project_id):
+    """Unmark a port for deletion by setting delete_me=False (action field remains unchanged)"""
+    try:
+        data = json.loads(request.body)
+        port_id = data.get('port_id')
+
+        if not port_id:
+            return JsonResponse({"error": "port_id is required"}, status=400)
+
+        updated_count = ProjectPort.objects.filter(
+            project_id=project_id,
+            port_id=port_id
+        ).update(delete_me=False)
+
+        if updated_count > 0:
+            return JsonResponse({
+                "status": "success",
+                "message": "Port unmarked for deletion",
+                "port_id": port_id,
+                "delete_me": False
             })
         else:
             return JsonResponse({

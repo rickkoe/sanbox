@@ -7,15 +7,15 @@
 
 /**
  * Returns a formatted badge HTML string for the given action
- * @param {string} action - The action value ('new', 'delete', 'modify', 'reference')
+ * @param {string} action - The action value ('new', 'delete', 'modified', 'unmodified')
  * @returns {string} HTML string for the badge
  */
 export const getProjectStatusBadge = (action) => {
     const statusMap = {
-        'new': { label: 'New', color: 'success' },
+        'new': { label: 'Created', color: 'success' },
         'delete': { label: 'Delete', color: 'danger' },
-        'modify': { label: 'Modified', color: 'warning' },
-        'reference': { label: 'Unmodified', color: 'secondary' }
+        'modified': { label: 'Modified', color: 'warning' },
+        'unmodified': { label: 'Unmodified', color: 'secondary' }
     };
 
     const status = statusMap[action] || { label: action, color: 'secondary' };

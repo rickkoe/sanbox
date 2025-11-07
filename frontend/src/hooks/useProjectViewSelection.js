@@ -284,6 +284,51 @@ export const useProjectViewSelection = ({
         }
     }, [selectedRows, activeProjectId, entityType, API_URL, handleClearSelection, tableRef]);
 
+    /**
+     * Unmark selected items for deletion (sets delete_me=false)
+     * Updates table data in-place to reflect the change
+     */
+    const handleUnmarkForDeletion = useCallback(async () => {
+        if (selectedRows.size === 0) {
+            alert('Please select at least one item to unmark for deletion.');
+            return;
+        }
+
+        try {
+            const selectedIds = Array.from(selectedRows);
+            console.log(`Unmarking ${entityType}s for deletion:`, selectedIds);
+
+            // Call API to update junction table delete_me to false
+            const promises = selectedIds.map(entityId =>
+                api.post(`${API_URL}/api/core/projects/${activeProjectId}/unmark-${entityType}-deletion/`, {
+                    [`${entityType}_id`]: entityId
+                })
+            );
+
+            await Promise.all(promises);
+
+            // Update table data in-place to reflect the change
+            // The project_action will be restored to the original action value
+            const hadDirtyChanges = tableRef.current?.hasChanges;
+            const currentData = tableRef.current?.getTableData();
+            if (currentData) {
+                // Reload the data to get the correct action value from the server
+                // We don't know what the original action was, so we need to fetch it
+                await tableRef.current?.reloadData();
+            }
+
+            // Clear selection state
+            setSelectedRows(new Set());
+            setShowSelectAllBanner(false);
+            setShowActionsDropdown(false);
+
+            alert(`Successfully unmarked ${selectedIds.length} item(s) for deletion.`);
+        } catch (error) {
+            console.error('Error unmarking items for deletion:', error);
+            alert('Failed to unmark items for deletion. Please try again.');
+        }
+    }, [selectedRows, activeProjectId, entityType, API_URL, handleClearSelection, tableRef]);
+
     // Banner Slot Component - Always reserves space to prevent layout shift
     const BannerSlot = useCallback(() => {
         // Determine which banner to show (if any)
@@ -491,11 +536,34 @@ export const useProjectViewSelection = ({
                                 Mark for Deletion
                             </button>
                         </li>
+                        <li>
+                            <button
+                                className="table-dropdown-item"
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowActionsDropdown(false);
+                                    handleUnmarkForDeletion();
+                                }}
+                                style={{
+                                    color: 'var(--color-success-fg)'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'var(--color-success-subtle)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
+                            >
+                                <Trash2 size={16} />
+                                Unmark for Deletion
+                            </button>
+                        </li>
                     </ul>
                 )}
             </div>
         );
-    }, [projectFilter, selectedRows.size, showActionsDropdown, handleMarkForDeletion]);
+    }, [projectFilter, selectedRows.size, showActionsDropdown, handleMarkForDeletion, handleUnmarkForDeletion]);
 
     return {
         selectedRows,
@@ -504,6 +572,7 @@ export const useProjectViewSelection = ({
         handleSelectAllPages,
         handleClearSelection,
         handleMarkForDeletion,
+        handleUnmarkForDeletion,
         BannerSlot,
         ActionsDropdown
     };

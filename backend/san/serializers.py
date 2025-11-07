@@ -38,10 +38,12 @@ class SwitchSerializer(serializers.ModelSerializer):
         memberships = []
         try:
             for pm in obj.project_memberships.all():
+                # If delete_me is True, return 'delete' regardless of action
+                action = 'delete' if pm.delete_me else pm.action
                 memberships.append({
                     'project_id': pm.project.id,
                     'project_name': pm.project.name,
-                    'action': pm.action
+                    'action': action
                 })
         except Exception as e:
             print(f"Error getting project_memberships for switch {obj.name}: {e}")
@@ -134,10 +136,12 @@ class FabricSerializer(serializers.ModelSerializer):
         memberships = []
         try:
             for pm in obj.project_memberships.all():
+                # If delete_me is True, return 'delete' regardless of action
+                action = 'delete' if pm.delete_me else pm.action
                 memberships.append({
                     'project_id': pm.project.id,
                     'project_name': pm.project.name,
-                    'action': pm.action
+                    'action': action
                 })
         except Exception as e:
             print(f"Error getting project_memberships for fabric {obj.name}: {e}")
@@ -390,13 +394,18 @@ class AliasSerializer(serializers.ModelSerializer):
         """Get the action for this alias in the active project"""
         active_project_id = self.context.get('active_project_id') or self.context.get('project_id')
         if not active_project_id:
-            return 'reference'
+            return 'unmodified'
         try:
             pm = obj.project_memberships.filter(project_id=active_project_id).first()
-            return pm.action if pm else 'reference'
+            if not pm:
+                return 'unmodified'
+            # If delete_me is True, return 'delete' regardless of action
+            if pm.delete_me:
+                return 'delete'
+            return pm.action
         except Exception as e:
             print(f"Error getting action for alias {obj.name}: {e}")
-            return 'reference'
+            return 'unmodified'
 
     def get_include_in_zoning(self, obj):
         """Get include_in_zoning flag for this alias in the active project"""
@@ -536,13 +545,18 @@ class ZoneSerializer(serializers.ModelSerializer):
         """Get the action for this zone in the active project"""
         active_project_id = self.context.get('active_project_id') or self.context.get('project_id')
         if not active_project_id:
-            return 'reference'
+            return 'unmodified'
         try:
             pm = obj.project_memberships.filter(project_id=active_project_id).first()
-            return pm.action if pm else 'reference'
+            if not pm:
+                return 'unmodified'
+            # If delete_me is True, return 'delete' regardless of action
+            if pm.delete_me:
+                return 'delete'
+            return pm.action
         except Exception as e:
             print(f"Error getting action for zone {obj.name}: {e}")
-            return 'reference'
+            return 'unmodified'
 
     def create(self, validated_data):
         """Create zone and properly handle many-to-many fields"""
