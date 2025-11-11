@@ -2,19 +2,21 @@
  * ProjectViewToolbar Component
  *
  * Reusable toolbar for all Project View tables.
- * Provides filter toggles (Customer View / Project View), Manage Project button,
+ * Provides filter toggles (Customer View / Project View), Commit Project button,
  * Bulk Add/Remove button, and Actions dropdown.
  */
 
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import CommitProjectModal from '../../modals/CommitProjectModal';
 
 /**
  * @param {Object} props
  * @param {string} props.projectFilter - Current filter: 'all' | 'current' | 'not_in_project'
  * @param {Function} props.onFilterChange - Handler for filter changes
  * @param {number|null} props.activeProjectId - Active project ID
+ * @param {string|null} props.activeProjectName - Active project name
  * @param {Function} props.onBulkClick - Handler for bulk add/remove button
+ * @param {Function} props.onCommitSuccess - Handler called after successful commit
  * @param {React.Component} props.ActionsDropdown - Actions dropdown component from useProjectViewSelection
  * @param {string} props.entityName - Entity name for tooltips (e.g., "aliases", "zones")
  */
@@ -22,11 +24,20 @@ const ProjectViewToolbar = ({
     projectFilter,
     onFilterChange,
     activeProjectId,
+    activeProjectName,
     onBulkClick,
+    onCommitSuccess,
     ActionsDropdown,
     entityName = 'items'
 }) => {
-    const navigate = useNavigate();
+    const [showCommitModal, setShowCommitModal] = useState(false);
+
+    const handleCommitSuccess = () => {
+        setShowCommitModal(false);
+        if (onCommitSuccess) {
+            onCommitSuccess();
+        }
+    };
 
     return (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -73,11 +84,11 @@ const ProjectViewToolbar = ({
                     Project View
                 </button>
 
-                {/* Manage Project Button - Disabled if no active project */}
+                {/* Commit Project Button - Disabled if no active project */}
                 <button
                     type="button"
                     className="btn btn-outline-secondary"
-                    onClick={() => navigate('/settings/project')}
+                    onClick={() => setShowCommitModal(true)}
                     disabled={!activeProjectId}
                     style={{
                         padding: '10px 18px',
@@ -89,9 +100,9 @@ const ProjectViewToolbar = ({
                         cursor: activeProjectId ? 'pointer' : 'not-allowed',
                         minWidth: '140px'
                     }}
-                    title={!activeProjectId ? 'Select a project to manage' : 'Manage active project'}
+                    title={!activeProjectId ? 'Select a project to commit' : 'Commit project changes to Customer View'}
                 >
-                    Manage Project
+                    Commit Project
                 </button>
 
                 {/* Bulk Add/Remove Button - Disabled if no active project */}
@@ -123,6 +134,15 @@ const ProjectViewToolbar = ({
                     </svg>
                 </button>
             </div>
+
+            {/* Commit Project Modal */}
+            <CommitProjectModal
+                show={showCommitModal}
+                onClose={() => setShowCommitModal(false)}
+                onSuccess={handleCommitSuccess}
+                projectId={activeProjectId}
+                projectName={activeProjectName || 'Unknown Project'}
+            />
         </div>
     );
 };

@@ -4,6 +4,7 @@ import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useTheme } from "../../context/ThemeContext";
+import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
 import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
@@ -37,10 +38,8 @@ const ZoneTableTanStackClean = () => {
     const [allCustomerZones, setAllCustomerZones] = useState([]); // All customer zones for bulk modal
     const [totalRowCount, setTotalRowCount] = useState(0); // Total rows in table
 
-    // Project filter state (default: 'all' shows all customer zones)
-    const [projectFilter, setProjectFilter] = useState(
-        localStorage.getItem('zoneTableProjectFilter') || 'all'
-    );
+    // Project filter state - synchronized across all tables via ProjectFilterContext
+    const { projectFilter, setProjectFilter } = useProjectFilter();
 
     // Keep the ref in sync with state
     useEffect(() => {
@@ -1669,7 +1668,9 @@ const ZoneTableTanStackClean = () => {
             projectFilter={projectFilter}
             onFilterChange={handleFilterChange}
             activeProjectId={activeProjectId}
+            activeProjectName={config?.active_project?.name || 'Unknown Project'}
             onBulkClick={() => setShowBulkModal(true)}
+            onCommitSuccess={() => tableRef.current?.reloadData?.()}
             ActionsDropdown={ActionsDropdown}
             entityName="zones"
         />

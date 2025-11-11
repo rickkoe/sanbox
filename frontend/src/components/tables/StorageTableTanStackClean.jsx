@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } 
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
 import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
@@ -23,10 +24,8 @@ const StorageTableTanStackClean = () => {
     const activeCustomerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
 
-    // Project filter state ('all' = Customer View, 'current' = Project View)
-    const [projectFilter, setProjectFilter] = useState(
-        localStorage.getItem('storageTableProjectFilter') || 'all'
-    );
+    // Project filter state - synchronized across all tables via ProjectFilterContext
+    const { projectFilter, setProjectFilter } = useProjectFilter();
 
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerStorage, setAllCustomerStorage] = useState([]);
@@ -422,7 +421,9 @@ const StorageTableTanStackClean = () => {
             projectFilter={projectFilter}
             onFilterChange={handleFilterChange}
             activeProjectId={activeProjectId}
+            activeProjectName={config?.active_project?.name || 'Unknown Project'}
             onBulkClick={() => setShowBulkModal(true)}
+            onCommitSuccess={() => tableRef.current?.reloadData?.()}
             ActionsDropdown={ActionsDropdown}
             entityName="storage systems"
         />

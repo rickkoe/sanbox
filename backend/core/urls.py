@@ -74,7 +74,8 @@ from .project_views import (
     project_add_port, project_remove_port, mark_port_deletion, unmark_port_deletion,
     project_finalize, project_close,
     project_commit, project_commit_deletions, project_commit_and_close,
-    project_conflicts, project_summary
+    project_conflicts, project_summary,
+    project_commit_preview, project_commit_execute
 )
 
 # Create router for ViewSets
@@ -180,6 +181,8 @@ urlpatterns = [
     path("projects/<int:project_id>/commit-and-close/", project_commit_and_close, name="project-commit-and-close"),
     path("projects/<int:project_id>/conflicts/", project_conflicts, name="project-conflicts"),
     path("projects/<int:project_id>/summary/", project_summary_view, name="project-summary"),
+    path("projects/<int:project_id>/commit-preview/", project_commit_preview, name="project-commit-preview"),
+    path("projects/<int:project_id>/commit-execute/", project_commit_execute, name="project-commit-execute"),
 
     # ========== CUSTOMIZABLE DASHBOARD ENDPOINTS ==========
     # Dashboard Layout Management

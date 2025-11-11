@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useTheme } from "../../context/ThemeContext";
+import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
 import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
@@ -29,10 +30,8 @@ const AliasTableTanStackClean = () => {
     const [allCustomerAliases, setAllCustomerAliases] = useState([]); // All customer aliases for bulk modal
     const [totalRowCount, setTotalRowCount] = useState(0); // Total rows in table
 
-    // Project filter state (default: 'all' shows all customer aliases)
-    const [projectFilter, setProjectFilter] = useState(
-        localStorage.getItem('aliasTableProjectFilter') || 'all'
-    );
+    // Project filter state - synchronized across all tables via ProjectFilterContext
+    const { projectFilter, setProjectFilter } = useProjectFilter();
 
     // Ref to access table methods
     const tableRef = useRef(null);
@@ -1075,7 +1074,9 @@ const AliasTableTanStackClean = () => {
             projectFilter={projectFilter}
             onFilterChange={handleFilterChange}
             activeProjectId={activeProjectId}
+            activeProjectName={config?.active_project?.name || 'Unknown Project'}
             onBulkClick={() => setShowBulkModal(true)}
+            onCommitSuccess={() => tableRef.current?.reloadData?.()}
             ActionsDropdown={ActionsDropdown}
             entityName="aliases"
         />

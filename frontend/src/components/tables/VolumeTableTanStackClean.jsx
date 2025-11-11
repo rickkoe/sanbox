@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useMemo, useCallback, useRef } 
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
 import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
@@ -25,9 +26,8 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     const [storageOptions, setStorageOptions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [projectFilter, setProjectFilter] = useState(
-        localStorage.getItem('volumeTableProjectFilter') || 'all'
-    );
+    // Project filter state - synchronized across all tables via ProjectFilterContext
+    const { projectFilter, setProjectFilter } = useProjectFilter();
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerVolumes, setAllCustomerVolumes] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
@@ -444,7 +444,9 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             projectFilter={projectFilter}
             onFilterChange={handleFilterChange}
             activeProjectId={activeProjectId}
+            activeProjectName={config?.active_project?.name || 'Unknown Project'}
             onBulkClick={() => setShowBulkModal(true)}
+            onCommitSuccess={() => tableRef.current?.reloadData?.()}
             ActionsDropdown={ActionsDropdown}
             entityName="volumes"
         />

@@ -28,6 +28,7 @@ import LoadingSpinner from "./components/LoadingSpinner";
 import { AuthProvider } from "./context/AuthContext";
 import { SanVendorProvider } from "./context/SanVendorContext";
 import { ConfigProvider } from "./context/ConfigContext";
+import { ProjectFilterProvider } from "./context/ProjectFilterContext";
 import { ImportStatusProvider } from "./context/ImportStatusContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { TableControlsProvider } from "./context/TableControlsContext";
@@ -148,15 +149,17 @@ function AppContent() {
 
   return (
     <ConfigProvider>
-      <ThemeProvider>
-        <ThemedAppLayout 
-          breadcrumbMap={breadcrumbMap}
-          setBreadcrumbMap={setBreadcrumbMap}
-          isSidebarCollapsed={isSidebarCollapsed}
-          setIsSidebarCollapsed={setIsSidebarCollapsed}
-          getMainContentClass={getMainContentClass}
-        />
-      </ThemeProvider>
+      <ProjectFilterProvider>
+        <ThemeProvider>
+          <ThemedAppLayout
+            breadcrumbMap={breadcrumbMap}
+            setBreadcrumbMap={setBreadcrumbMap}
+            isSidebarCollapsed={isSidebarCollapsed}
+            setIsSidebarCollapsed={setIsSidebarCollapsed}
+            getMainContentClass={getMainContentClass}
+          />
+        </ThemeProvider>
+      </ProjectFilterProvider>
     </ConfigProvider>
   );
 }

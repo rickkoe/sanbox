@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from "re
 import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
-import ProjectCommitModal from "../projects/ProjectCommitModal";
+import CommitProjectModal from "../modals/CommitProjectModal";
 
 // Clean TanStack Table implementation for Project management
 const ProjectTableTanStackClean = () => {
@@ -228,15 +228,14 @@ const ProjectTableTanStackClean = () => {
 
     return (
         <>
-            <ProjectCommitModal
-                isOpen={commitModalOpen}
+            <CommitProjectModal
+                show={commitModalOpen}
                 onClose={() => {
                     setCommitModalOpen(false);
                     setSelectedProject(null);
                 }}
                 projectId={selectedProject?.id}
                 projectName={selectedProject?.name}
-                closeAfterCommit={closeAfterCommit}
                 onSuccess={handleCommitSuccess}
             />
         <div className="modern-table-container">

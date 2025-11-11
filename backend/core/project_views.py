@@ -1559,6 +1559,419 @@ def project_commit_and_close(request, project_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["GET"])
+def project_commit_preview(request, project_id):
+    """
+    Preview what will change when committing the project.
+    Returns entities categorized by their status:
+    - to_delete: delete_me=True
+    - to_modify: action='modified'
+    - unmodified: action='unmodified'
+    - newly_created: action='new'
+
+    Also includes conflict detection.
+    """
+    try:
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Detect conflicts first
+        field_conflicts = _detect_field_conflicts(project)
+
+        # Helper function to get entity data
+        def get_entity_data(junction_qs, entity_field):
+            return [
+                {
+                    'id': getattr(item, entity_field).id,
+                    'name': getattr(item, entity_field).name if hasattr(getattr(item, entity_field), 'name') else str(getattr(item, entity_field).id),
+                }
+                for item in junction_qs
+            ]
+
+        # Categorize entities across all 8 types
+        preview = {
+            'to_delete': {},
+            'to_modify': {},
+            'unmodified': {},
+            'newly_created': {},
+            'conflicts': field_conflicts,
+            'has_conflicts': len(field_conflicts) > 0,
+        }
+
+        # Fabrics
+        preview['to_delete']['fabrics'] = get_entity_data(
+            ProjectFabric.objects.filter(project=project, delete_me=True).select_related('fabric'),
+            'fabric'
+        )
+        preview['to_modify']['fabrics'] = get_entity_data(
+            ProjectFabric.objects.filter(project=project, action='modified', delete_me=False).select_related('fabric'),
+            'fabric'
+        )
+        preview['unmodified']['fabrics'] = get_entity_data(
+            ProjectFabric.objects.filter(project=project, action='unmodified', delete_me=False).select_related('fabric'),
+            'fabric'
+        )
+        preview['newly_created']['fabrics'] = get_entity_data(
+            ProjectFabric.objects.filter(project=project, action='new', delete_me=False).select_related('fabric'),
+            'fabric'
+        )
+
+        # Switches
+        preview['to_delete']['switches'] = get_entity_data(
+            ProjectSwitch.objects.filter(project=project, delete_me=True).select_related('switch'),
+            'switch'
+        )
+        preview['to_modify']['switches'] = get_entity_data(
+            ProjectSwitch.objects.filter(project=project, action='modified', delete_me=False).select_related('switch'),
+            'switch'
+        )
+        preview['unmodified']['switches'] = get_entity_data(
+            ProjectSwitch.objects.filter(project=project, action='unmodified', delete_me=False).select_related('switch'),
+            'switch'
+        )
+        preview['newly_created']['switches'] = get_entity_data(
+            ProjectSwitch.objects.filter(project=project, action='new', delete_me=False).select_related('switch'),
+            'switch'
+        )
+
+        # Aliases
+        preview['to_delete']['aliases'] = get_entity_data(
+            ProjectAlias.objects.filter(project=project, delete_me=True).select_related('alias'),
+            'alias'
+        )
+        preview['to_modify']['aliases'] = get_entity_data(
+            ProjectAlias.objects.filter(project=project, action='modified', delete_me=False).select_related('alias'),
+            'alias'
+        )
+        preview['unmodified']['aliases'] = get_entity_data(
+            ProjectAlias.objects.filter(project=project, action='unmodified', delete_me=False).select_related('alias'),
+            'alias'
+        )
+        preview['newly_created']['aliases'] = get_entity_data(
+            ProjectAlias.objects.filter(project=project, action='new', delete_me=False).select_related('alias'),
+            'alias'
+        )
+
+        # Zones
+        preview['to_delete']['zones'] = get_entity_data(
+            ProjectZone.objects.filter(project=project, delete_me=True).select_related('zone'),
+            'zone'
+        )
+        preview['to_modify']['zones'] = get_entity_data(
+            ProjectZone.objects.filter(project=project, action='modified', delete_me=False).select_related('zone'),
+            'zone'
+        )
+        preview['unmodified']['zones'] = get_entity_data(
+            ProjectZone.objects.filter(project=project, action='unmodified', delete_me=False).select_related('zone'),
+            'zone'
+        )
+        preview['newly_created']['zones'] = get_entity_data(
+            ProjectZone.objects.filter(project=project, action='new', delete_me=False).select_related('zone'),
+            'zone'
+        )
+
+        # Storage Systems
+        preview['to_delete']['storage'] = get_entity_data(
+            ProjectStorage.objects.filter(project=project, delete_me=True).select_related('storage'),
+            'storage'
+        )
+        preview['to_modify']['storage'] = get_entity_data(
+            ProjectStorage.objects.filter(project=project, action='modified', delete_me=False).select_related('storage'),
+            'storage'
+        )
+        preview['unmodified']['storage'] = get_entity_data(
+            ProjectStorage.objects.filter(project=project, action='unmodified', delete_me=False).select_related('storage'),
+            'storage'
+        )
+        preview['newly_created']['storage'] = get_entity_data(
+            ProjectStorage.objects.filter(project=project, action='new', delete_me=False).select_related('storage'),
+            'storage'
+        )
+
+        # Volumes
+        preview['to_delete']['volumes'] = get_entity_data(
+            ProjectVolume.objects.filter(project=project, delete_me=True).select_related('volume'),
+            'volume'
+        )
+        preview['to_modify']['volumes'] = get_entity_data(
+            ProjectVolume.objects.filter(project=project, action='modified', delete_me=False).select_related('volume'),
+            'volume'
+        )
+        preview['unmodified']['volumes'] = get_entity_data(
+            ProjectVolume.objects.filter(project=project, action='unmodified', delete_me=False).select_related('volume'),
+            'volume'
+        )
+        preview['newly_created']['volumes'] = get_entity_data(
+            ProjectVolume.objects.filter(project=project, action='new', delete_me=False).select_related('volume'),
+            'volume'
+        )
+
+        # Hosts
+        preview['to_delete']['hosts'] = get_entity_data(
+            ProjectHost.objects.filter(project=project, delete_me=True).select_related('host'),
+            'host'
+        )
+        preview['to_modify']['hosts'] = get_entity_data(
+            ProjectHost.objects.filter(project=project, action='modified', delete_me=False).select_related('host'),
+            'host'
+        )
+        preview['unmodified']['hosts'] = get_entity_data(
+            ProjectHost.objects.filter(project=project, action='unmodified', delete_me=False).select_related('host'),
+            'host'
+        )
+        preview['newly_created']['hosts'] = get_entity_data(
+            ProjectHost.objects.filter(project=project, action='new', delete_me=False).select_related('host'),
+            'host'
+        )
+
+        # Ports
+        preview['to_delete']['ports'] = get_entity_data(
+            ProjectPort.objects.filter(project=project, delete_me=True).select_related('port'),
+            'port'
+        )
+        preview['to_modify']['ports'] = get_entity_data(
+            ProjectPort.objects.filter(project=project, action='modified', delete_me=False).select_related('port'),
+            'port'
+        )
+        preview['unmodified']['ports'] = get_entity_data(
+            ProjectPort.objects.filter(project=project, action='unmodified', delete_me=False).select_related('port'),
+            'port'
+        )
+        preview['newly_created']['ports'] = get_entity_data(
+            ProjectPort.objects.filter(project=project, action='new', delete_me=False).select_related('port'),
+            'port'
+        )
+
+        # Calculate totals
+        preview['total_changes'] = (
+            sum(len(entities) for entities in preview['to_delete'].values()) +
+            sum(len(entities) for entities in preview['to_modify'].values()) +
+            sum(len(entities) for entities in preview['newly_created'].values())
+        )
+
+        return JsonResponse(preview)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def project_commit_execute(request, project_id):
+    """
+    Execute project commit:
+    1. Check for conflicts (block if any)
+    2. Apply field_overrides to modified entities
+    3. Mark all entities as committed=True
+    4. Delete entities marked with delete_me=True
+    5. Optionally close project (delete project and junction tables)
+    """
+    from core.utils.field_merge import apply_overrides_to_instance
+
+    try:
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Parse request body
+        data = json.loads(request.body) if request.body else {}
+        close_project = data.get('close_project', False)
+
+        # 1. Check for conflicts
+        field_conflicts = _detect_field_conflicts(project)
+        if field_conflicts:
+            return JsonResponse({
+                "error": "Cannot commit: field-level conflicts detected",
+                "conflicts": field_conflicts
+            }, status=409)
+
+        # 2. Apply field_overrides for modified entities and mark as committed
+        modified_counts = {}
+
+        # Fabrics
+        modified_counts['fabrics'] = 0
+        for pf in ProjectFabric.objects.filter(project=project, action='modified', delete_me=False).select_related('fabric'):
+            if pf.field_overrides:
+                apply_overrides_to_instance(pf.fabric, pf.field_overrides)
+            pf.fabric.committed = True
+            pf.fabric.save()
+            modified_counts['fabrics'] += 1
+
+        # Switches
+        modified_counts['switches'] = 0
+        for ps in ProjectSwitch.objects.filter(project=project, action='modified', delete_me=False).select_related('switch'):
+            if ps.field_overrides:
+                apply_overrides_to_instance(ps.switch, ps.field_overrides)
+            ps.switch.committed = True
+            ps.switch.save()
+            modified_counts['switches'] += 1
+
+        # Aliases
+        modified_counts['aliases'] = 0
+        for pa in ProjectAlias.objects.filter(project=project, action='modified', delete_me=False).select_related('alias'):
+            if pa.field_overrides:
+                apply_overrides_to_instance(pa.alias, pa.field_overrides)
+            pa.alias.committed = True
+            pa.alias.save()
+            modified_counts['aliases'] += 1
+
+        # Zones
+        modified_counts['zones'] = 0
+        for pz in ProjectZone.objects.filter(project=project, action='modified', delete_me=False).select_related('zone'):
+            if pz.field_overrides:
+                # Handle member_ids separately if present
+                member_ids = pz.field_overrides.pop('member_ids', None)
+                apply_overrides_to_instance(pz.zone, pz.field_overrides)
+                if member_ids is not None:
+                    pz.zone.members.set(member_ids)
+            pz.zone.committed = True
+            pz.zone.save()
+            modified_counts['zones'] += 1
+
+        # Storage
+        modified_counts['storage'] = 0
+        for pst in ProjectStorage.objects.filter(project=project, action='modified', delete_me=False).select_related('storage'):
+            if pst.field_overrides:
+                apply_overrides_to_instance(pst.storage, pst.field_overrides)
+            pst.storage.committed = True
+            pst.storage.save()
+            modified_counts['storage'] += 1
+
+        # Volumes
+        modified_counts['volumes'] = 0
+        for pv in ProjectVolume.objects.filter(project=project, action='modified', delete_me=False).select_related('volume'):
+            if pv.field_overrides:
+                apply_overrides_to_instance(pv.volume, pv.field_overrides)
+            pv.volume.committed = True
+            pv.volume.save()
+            modified_counts['volumes'] += 1
+
+        # Hosts
+        modified_counts['hosts'] = 0
+        for ph in ProjectHost.objects.filter(project=project, action='modified', delete_me=False).select_related('host'):
+            if ph.field_overrides:
+                apply_overrides_to_instance(ph.host, ph.field_overrides)
+            ph.host.committed = True
+            ph.host.save()
+            modified_counts['hosts'] += 1
+
+        # Ports
+        modified_counts['ports'] = 0
+        for pp in ProjectPort.objects.filter(project=project, action='modified', delete_me=False).select_related('port'):
+            if pp.field_overrides:
+                apply_overrides_to_instance(pp.port, pp.field_overrides)
+            pp.port.committed = True
+            pp.port.save()
+            modified_counts['ports'] += 1
+
+        # 3. Mark newly created entities as committed
+        new_counts = {}
+
+        fabric_ids = ProjectFabric.objects.filter(project=project, action='new', delete_me=False).values_list('fabric_id', flat=True)
+        new_counts['fabrics'] = Fabric.objects.filter(id__in=fabric_ids, committed=False).update(committed=True)
+
+        switch_ids = ProjectSwitch.objects.filter(project=project, action='new', delete_me=False).values_list('switch_id', flat=True)
+        new_counts['switches'] = Switch.objects.filter(id__in=switch_ids, committed=False).update(committed=True)
+
+        alias_ids = ProjectAlias.objects.filter(project=project, action='new', delete_me=False).values_list('alias_id', flat=True)
+        new_counts['aliases'] = Alias.objects.filter(id__in=alias_ids, committed=False).update(committed=True)
+
+        zone_ids = ProjectZone.objects.filter(project=project, action='new', delete_me=False).values_list('zone_id', flat=True)
+        new_counts['zones'] = Zone.objects.filter(id__in=zone_ids, committed=False).update(committed=True)
+
+        storage_ids = ProjectStorage.objects.filter(project=project, action='new', delete_me=False).values_list('storage_id', flat=True)
+        new_counts['storage'] = Storage.objects.filter(id__in=storage_ids, committed=False).update(committed=True)
+
+        volume_ids = ProjectVolume.objects.filter(project=project, action='new', delete_me=False).values_list('volume_id', flat=True)
+        new_counts['volumes'] = Volume.objects.filter(id__in=volume_ids, committed=False).update(committed=True)
+
+        host_ids = ProjectHost.objects.filter(project=project, action='new', delete_me=False).values_list('host_id', flat=True)
+        new_counts['hosts'] = Host.objects.filter(id__in=host_ids, committed=False).update(committed=True)
+
+        port_ids = ProjectPort.objects.filter(project=project, action='new', delete_me=False).values_list('port_id', flat=True)
+        new_counts['ports'] = Port.objects.filter(id__in=port_ids, committed=False).update(committed=True)
+
+        # 4. Delete entities marked with delete_me=True
+        deletion_counts = {}
+
+        deletion_counts['fabrics'] = 0
+        for pf in ProjectFabric.objects.filter(project=project, delete_me=True).select_related('fabric'):
+            pf.fabric.delete()
+            deletion_counts['fabrics'] += 1
+
+        deletion_counts['switches'] = 0
+        for ps in ProjectSwitch.objects.filter(project=project, delete_me=True).select_related('switch'):
+            ps.switch.delete()
+            deletion_counts['switches'] += 1
+
+        deletion_counts['aliases'] = 0
+        for pa in ProjectAlias.objects.filter(project=project, delete_me=True).select_related('alias'):
+            pa.alias.delete()
+            deletion_counts['aliases'] += 1
+
+        deletion_counts['zones'] = 0
+        for pz in ProjectZone.objects.filter(project=project, delete_me=True).select_related('zone'):
+            pz.zone.delete()
+            deletion_counts['zones'] += 1
+
+        deletion_counts['storage'] = 0
+        for pst in ProjectStorage.objects.filter(project=project, delete_me=True).select_related('storage'):
+            pst.storage.delete()
+            deletion_counts['storage'] += 1
+
+        deletion_counts['volumes'] = 0
+        for pv in ProjectVolume.objects.filter(project=project, delete_me=True).select_related('volume'):
+            pv.volume.delete()
+            deletion_counts['volumes'] += 1
+
+        deletion_counts['hosts'] = 0
+        for ph in ProjectHost.objects.filter(project=project, delete_me=True).select_related('host'):
+            ph.host.delete()
+            deletion_counts['hosts'] += 1
+
+        deletion_counts['ports'] = 0
+        for pp in ProjectPort.objects.filter(project=project, delete_me=True).select_related('port'):
+            pp.port.delete()
+            deletion_counts['ports'] += 1
+
+        # 5. Optionally close project
+        project_closed = False
+        if close_project:
+            # Delete all junction table entries
+            ProjectFabric.objects.filter(project=project).delete()
+            ProjectSwitch.objects.filter(project=project).delete()
+            ProjectAlias.objects.filter(project=project).delete()
+            ProjectZone.objects.filter(project=project).delete()
+            ProjectStorage.objects.filter(project=project).delete()
+            ProjectVolume.objects.filter(project=project).delete()
+            ProjectHost.objects.filter(project=project).delete()
+            ProjectPort.objects.filter(project=project).delete()
+
+            # Delete the project itself
+            project.delete()
+            project_closed = True
+
+        return JsonResponse({
+            "success": True,
+            "modified_counts": modified_counts,
+            "new_counts": new_counts,
+            "deletion_counts": deletion_counts,
+            "project_closed": project_closed,
+            "message": "Project committed successfully." + (" Project closed." if project_closed else "")
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 def _detect_field_conflicts(project):
     """
     Helper function to detect field-level conflicts.

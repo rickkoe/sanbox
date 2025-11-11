@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
+import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
 import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
@@ -18,10 +19,8 @@ const FabricTableTanStackClean = () => {
     const customerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
 
-    // Project filter state
-    const [projectFilter, setProjectFilter] = useState(
-        localStorage.getItem('fabricTableProjectFilter') || 'all'
-    );
+    // Project filter state - synchronized across all tables via ProjectFilterContext
+    const { projectFilter, setProjectFilter } = useProjectFilter();
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerFabrics, setAllCustomerFabrics] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
@@ -472,7 +471,9 @@ const FabricTableTanStackClean = () => {
             projectFilter={projectFilter}
             onFilterChange={handleFilterChange}
             activeProjectId={activeProjectId}
+            activeProjectName={config?.active_project?.name || 'Unknown Project'}
             onBulkClick={() => setShowBulkModal(true)}
+            onCommitSuccess={() => tableRef.current?.reloadData?.()}
             ActionsDropdown={ActionsDropdown}
             entityName="fabrics"
         />

@@ -10,12 +10,11 @@ import { useMemo, useEffect } from 'react';
 /**
  * @param {Object} options
  * @param {string} options.projectFilter - Current filter: 'all' | 'current' | 'not_in_project'
- * @param {Function} options.setProjectFilter - Function to update projectFilter state
+ * @param {Function} options.setProjectFilter - Function to update projectFilter state (from ProjectFilterContext)
  * @param {number|null} options.activeProjectId - Active project ID
  * @param {number|null} options.activeCustomerId - Active customer ID
  * @param {string} options.entityType - Entity type (e.g., 'aliases', 'zones', 'fabrics')
  * @param {string} options.baseUrl - Base API URL (e.g., '${API_URL}/api/san')
- * @param {string} options.localStorageKey - Key for persisting filter in localStorage
  * @returns {Object} { apiUrl: string }
  */
 export const useProjectViewAPI = ({
@@ -24,18 +23,15 @@ export const useProjectViewAPI = ({
     activeProjectId,
     activeCustomerId,
     entityType,
-    baseUrl,
-    localStorageKey
+    baseUrl
 }) => {
     // Auto-switch from Project View to Customer View when project is deselected
     useEffect(() => {
         if (!activeProjectId && projectFilter === 'current') {
             setProjectFilter('all');
-            if (localStorageKey) {
-                localStorage.setItem(localStorageKey, 'all');
-            }
+            // ProjectFilterContext handles persistence automatically
         }
-    }, [activeProjectId, projectFilter, setProjectFilter, localStorageKey]);
+    }, [activeProjectId, projectFilter, setProjectFilter]);
 
     // Generate API URL based on context
     const apiUrl = useMemo(() => {

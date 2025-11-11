@@ -1,0 +1,387 @@
+/* Commit Project Modal Styles */
+
+/* Bootstrap Background Overrides */
+.commit-modal-overlay {
+    /* Primary backgrounds */
+    --bs-body-bg: var(--primary-bg);
+    --bs-body-color: var(--primary-text);
+
+    /* Secondary backgrounds */
+    --bs-secondary-bg: var(--secondary-bg);
+    --bs-secondary-color: var(--secondary-text);
+
+    /* Borders */
+    --bs-border-color: var(--border-color);
+
+    /* Buttons */
+    --bs-btn-bg: var(--secondary-bg);
+    --bs-btn-color: var(--primary-text);
+    --bs-btn-border-color: var(--border-color);
+    --bs-btn-hover-bg: var(--hover-bg);
+    --bs-btn-hover-color: var(--primary-text);
+}
+
+/* Modal Overlay */
+.commit-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+}
+
+/* Modal Container */
+.commit-modal-container {
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 100%;
+    max-width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Modal Header */
+.commit-modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.commit-modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--primary-text);
+}
+
+.commit-modal-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--secondary-text);
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.commit-modal-close:hover {
+    background-color: var(--hover-bg);
+    color: var(--primary-text);
+}
+
+/* Modal Body */
+.commit-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Loading State */
+.commit-modal-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--secondary-text);
+}
+
+.commit-modal-loading p {
+    margin-top: 16px;
+    font-size: 1rem;
+}
+
+/* Project Info */
+.commit-modal-project-info {
+    background-color: var(--secondary-bg);
+    border-left: 4px solid var(--info);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    color: var(--primary-text);
+}
+
+/* Error Alert */
+.commit-modal-error {
+    background-color: var(--secondary-bg);
+    border-left: 4px solid var(--danger);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--danger);
+}
+
+.commit-modal-error-icon {
+    flex-shrink: 0;
+}
+
+/* Conflicts Warning */
+.commit-modal-conflicts {
+    background-color: var(--secondary-bg);
+    border-left: 4px solid var(--warning);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    color: var(--warning);
+}
+
+.commit-modal-warning-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.commit-modal-conflicts strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.commit-modal-conflicts p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--primary-text);
+}
+
+/* No Changes Info */
+.commit-modal-no-changes {
+    background-color: var(--secondary-bg);
+    border-left: 4px solid var(--info);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--primary-text);
+}
+
+.commit-modal-info-icon {
+    flex-shrink: 0;
+    color: var(--info);
+}
+
+/* Categories Container */
+.commit-modal-categories {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Category Section */
+.commit-modal-category {
+    background-color: var(--secondary-bg);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.commit-modal-category-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    font-weight: 600;
+}
+
+.commit-modal-category-header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--primary-text);
+}
+
+.commit-modal-category-icon {
+    flex-shrink: 0;
+}
+
+.commit-modal-category-content {
+    padding: 0 16px 12px 16px;
+}
+
+/* Category Color Variants */
+.category-delete {
+    border-left: 4px solid var(--danger);
+}
+
+.category-delete .commit-modal-category-header {
+    color: var(--danger);
+}
+
+.category-delete .commit-modal-category-icon {
+    color: var(--danger);
+}
+
+.category-modify {
+    border-left: 4px solid var(--info);
+}
+
+.category-modify .commit-modal-category-header {
+    color: var(--info);
+}
+
+.category-modify .commit-modal-category-icon {
+    color: var(--info);
+}
+
+.category-create {
+    border-left: 4px solid var(--success);
+}
+
+.category-create .commit-modal-category-header {
+    color: var(--success);
+}
+
+.category-create .commit-modal-category-icon {
+    color: var(--success);
+}
+
+.category-unmodified {
+    border-left: 4px solid var(--secondary);
+}
+
+.category-unmodified .commit-modal-category-header {
+    color: var(--secondary-text);
+}
+
+.category-unmodified .commit-modal-category-icon {
+    color: var(--secondary-text);
+}
+
+/* Entity Group */
+.commit-modal-entity-group {
+    margin-bottom: 16px;
+}
+
+.commit-modal-entity-group:last-child {
+    margin-bottom: 0;
+}
+
+.commit-modal-entity-type {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--secondary-text);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.commit-modal-entity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.commit-modal-entity-list li {
+    padding: 6px 12px;
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-size: 0.9rem;
+    color: var(--primary-text);
+}
+
+.commit-modal-entity-list li:last-child {
+    margin-bottom: 0;
+}
+
+/* Modal Footer */
+.commit-modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.commit-modal-footer-left {
+    flex: 1;
+}
+
+.commit-modal-footer-right {
+    display: flex;
+    gap: 12px;
+}
+
+/* Checkbox Label */
+.commit-modal-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    cursor: pointer;
+    color: var(--primary-text);
+    user-select: none;
+}
+
+.commit-modal-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.commit-modal-checkbox-label input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .commit-modal-container {
+        max-width: 100%;
+        max-height: 95vh;
+    }
+
+    .commit-modal-header {
+        padding: 16px 20px;
+    }
+
+    .commit-modal-header h3 {
+        font-size: 1.25rem;
+    }
+
+    .commit-modal-body {
+        padding: 16px;
+    }
+
+    .commit-modal-footer {
+        padding: 12px 16px;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .commit-modal-footer-left,
+    .commit-modal-footer-right {
+        width: 100%;
+    }
+
+    .commit-modal-footer-right {
+        flex-direction: column;
+    }
+
+    .commit-modal-footer-right button {
+        width: 100%;
+    }
+}
