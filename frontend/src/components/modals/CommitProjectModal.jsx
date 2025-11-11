@@ -21,7 +21,7 @@ import './CommitProjectModal.css';
  * - projectName: string - name of the project
  */
 const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }) => {
-    const { refreshConfig } = useContext(ConfigContext);
+    const { refreshConfig, refreshProjectsList } = useContext(ConfigContext);
     const { setProjectFilter } = useProjectFilter();
     const [loading, setLoading] = useState(true);
     const [committing, setCommitting] = useState(false);
@@ -63,6 +63,10 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
                 if (response.data.project_closed) {
                     if (refreshConfig) {
                         await refreshConfig();
+                    }
+                    // Refresh projects list to remove deleted project from dropdown
+                    if (refreshProjectsList) {
+                        refreshProjectsList();
                     }
                     // Reset all tables to Customer View when project is deleted
                     setProjectFilter('all');

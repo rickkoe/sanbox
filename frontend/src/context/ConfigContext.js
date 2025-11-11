@@ -12,6 +12,9 @@ export const ConfigProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const userConfigApiUrl = "/api/core/user-config/";
 
+  // Callback for refreshing projects list (registered by DualContextDropdown)
+  const refreshProjectsListCallback = React.useRef(null);
+
   useEffect(() => {
     if (user) {
       fetchActiveConfig();
@@ -124,6 +127,18 @@ export const ConfigProvider = ({ children }) => {
     }
   };
 
+  // Register callback for refreshing projects list (used by DualContextDropdown)
+  const registerRefreshProjectsList = (callback) => {
+    refreshProjectsListCallback.current = callback;
+  };
+
+  // Call the registered callback to refresh projects list
+  const refreshProjectsList = () => {
+    if (refreshProjectsListCallback.current) {
+      refreshProjectsListCallback.current();
+    }
+  };
+
   return (
     <ConfigContext.Provider value={{
       config,
@@ -133,6 +148,8 @@ export const ConfigProvider = ({ children }) => {
       updateUserConfig,
       activeStorageSystem,
       setActiveStorageSystem,
+      registerRefreshProjectsList,
+      refreshProjectsList,
       // Permission helpers
       getActiveCustomerId,
       getActiveCustomerRole,

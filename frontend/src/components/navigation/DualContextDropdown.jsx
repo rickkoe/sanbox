@@ -9,7 +9,7 @@ import '../../styles/configform.css';
 
 const DualContextDropdown = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
-    const { config, updateUserConfig, refreshConfig } = useContext(ConfigContext);
+    const { config, updateUserConfig, refreshConfig, registerRefreshProjectsList } = useContext(ConfigContext);
     const { theme } = useTheme();
 
     const [customers, setCustomers] = useState([]);
@@ -51,6 +51,13 @@ const DualContextDropdown = () => {
             setSelectedProject(null);
         }
     }, [selectedCustomer?.id]);
+
+    // Register refresh callback with ConfigContext so other components can trigger reload
+    useEffect(() => {
+        if (registerRefreshProjectsList && selectedCustomer) {
+            registerRefreshProjectsList(() => loadProjectsForCustomer(selectedCustomer.id));
+        }
+    }, [registerRefreshProjectsList, selectedCustomer?.id]);
 
     const loadCustomers = async () => {
         setLoadingCustomers(true);
