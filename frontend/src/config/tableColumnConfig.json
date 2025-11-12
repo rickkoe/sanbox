@@ -34,6 +34,13 @@
         "defaultVisible": true
       },
       {
+        "id": "exists",
+        "title": "Exists",
+        "type": "checkbox",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
         "id": "project_memberships",
         "title": "Projects",
         "type": "custom",
@@ -45,33 +52,27 @@
         "title": "Switches",
         "type": "text",
         "readOnly": true,
-        "defaultVisible": true
+        "defaultVisible": false
       },
       {
         "id": "alias_count",
         "title": "Aliases",
         "type": "numeric",
         "readOnly": true,
-        "defaultVisible": true
+        "defaultVisible": false
       },
       {
         "id": "zone_count",
         "title": "Zones",
         "type": "numeric",
         "readOnly": true,
-        "defaultVisible": true
-      },
-      {
-        "id": "exists",
-        "title": "Exists",
-        "type": "checkbox",
-        "defaultVisible": true
+        "defaultVisible": false
       },
       {
         "id": "notes",
         "title": "Notes",
         "type": "text",
-        "defaultVisible": true
+        "defaultVisible": false
       }
     ]
   },
@@ -942,13 +943,6 @@
         "defaultVisible": true
       },
       {
-        "id": "project_memberships",
-        "title": "Projects",
-        "type": "custom",
-        "readOnly": true,
-        "defaultVisible": true
-      },
-      {
         "id": "fabrics",
         "title": "Fabrics",
         "type": "dropdown",
@@ -960,6 +954,13 @@
         "id": "domain_ids",
         "title": "Domain IDs",
         "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "project_memberships",
+        "title": "Projects",
+        "type": "custom",
+        "readOnly": true,
         "defaultVisible": true
       },
       {

@@ -4304,8 +4304,38 @@ def switch_project_view(request, project_id):
         # Apply field_overrides if they exist
         if ps.field_overrides:
             for field_name, override_value in ps.field_overrides.items():
-                # Only apply if value actually differs from base
-                if field_name in base_data:
+                # Special handling for fabric_domains (ManyToMany field)
+                if field_name == 'fabric_domains':
+                    # Reconstruct fabric_domain_details from fabric_domains override
+                    fabric_domain_details = []
+                    for fd in override_value:
+                        fabric_id = fd.get('fabric_id')
+                        domain_id = fd.get('domain_id')
+                        try:
+                            fabric = Fabric.objects.get(id=fabric_id)
+                            fabric_domain_details.append({
+                                'id': fabric.id,
+                                'name': fabric.name,
+                                'domain_id': domain_id
+                            })
+                        except Fabric.DoesNotExist:
+                            pass
+
+                    # Replace the fabric_domain_details with override
+                    base_data['fabric_domain_details'] = fabric_domain_details
+
+                    # Also update fabrics_details and fabrics for backward compatibility
+                    base_data['fabrics_details'] = [{'id': f['id'], 'name': f['name']} for f in fabric_domain_details]
+                    base_data['fabrics'] = [f['name'] for f in fabric_domain_details]
+
+                    # Store as fabric_domains for frontend
+                    base_data['fabric_domains'] = override_value
+
+                    # Mark the display columns as modified for cell highlighting
+                    modified_fields.append('fabrics')
+                    modified_fields.append('domain_ids')
+                # Standard field handling
+                elif field_name in base_data:
                     if base_data[field_name] != override_value:
                         base_data[field_name] = override_value
                         modified_fields.append(field_name)
@@ -4499,8 +4529,35 @@ def switch_save_view(request):
                         # Get validated data
                         validated_data = serializer.validated_data.copy()
 
-                        # Extract only fields that actually changed
+                        # Special handling for fabric_domains (ManyToMany field)
+                        # The serializer will pop this out before updating, so capture it here
+                        fabric_domains_new = validated_data.get('fabric_domains', None)
+
+                        # Extract only fields that actually changed (standard fields)
                         changed_fields = extract_changed_fields(switch, validated_data)
+
+                        # Check if fabric_domains changed (compare with current state)
+                        if fabric_domains_new is not None:
+                            # Get current fabric_domains from switch
+                            current_fabric_domains = [
+                                {'fabric_id': sf.fabric_id, 'domain_id': sf.domain_id}
+                                for sf in switch.switch_fabrics.all().order_by('fabric_id')
+                            ]
+
+                            # Normalize new fabric_domains for comparison
+                            if fabric_domains_new:  # Non-empty list
+                                normalized_new = sorted(
+                                    [{'fabric_id': fd.get('fabric_id'), 'domain_id': fd.get('domain_id')}
+                                     for fd in fabric_domains_new],
+                                    key=lambda x: x.get('fabric_id', 0)
+                                )
+                            else:  # Empty list
+                                normalized_new = []
+
+                            # Compare
+                            if current_fabric_domains != normalized_new:
+                                changed_fields['fabric_domains'] = fabric_domains_new
+                                print(f"🔧 Fabric domains changed for switch '{switch.name}': {current_fabric_domains} -> {normalized_new}")
 
                         if changed_fields:
                             # Get or create ProjectSwitch for this project

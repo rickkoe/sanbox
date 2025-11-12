@@ -1266,7 +1266,26 @@ def project_commit(request, project_id):
         for ps in ProjectSwitch.objects.filter(project=project, action='modified').select_related('switch'):
             if ps.field_overrides:
                 switch = ps.switch
+
+                # Special handling for fabric_domains (ManyToMany field)
+                fabric_domains = ps.field_overrides.pop('fabric_domains', None)
+
+                # Apply standard field overrides
                 apply_overrides_to_instance(switch, ps.field_overrides)
+
+                # Apply fabric_domains if present
+                if fabric_domains is not None:
+                    from san.models import SwitchFabric
+                    # Clear existing switch-fabric relationships
+                    switch.switch_fabrics.all().delete()
+                    # Create new relationships
+                    for fd in fabric_domains:
+                        SwitchFabric.objects.create(
+                            switch=switch,
+                            fabric_id=fd.get('fabric_id'),
+                            domain_id=fd.get('domain_id')
+                        )
+
                 switch.committed = True
                 switch.save()
                 applied_counts['switches'] += 1
@@ -1807,7 +1826,26 @@ def project_commit_execute(request, project_id):
         modified_counts['switches'] = 0
         for ps in ProjectSwitch.objects.filter(project=project, action='modified', delete_me=False).select_related('switch'):
             if ps.field_overrides:
-                apply_overrides_to_instance(ps.switch, ps.field_overrides)
+                # Special handling for fabric_domains (ManyToMany field)
+                field_overrides_copy = ps.field_overrides.copy()
+                fabric_domains = field_overrides_copy.pop('fabric_domains', None)
+
+                # Apply standard field overrides
+                apply_overrides_to_instance(ps.switch, field_overrides_copy)
+
+                # Apply fabric_domains if present
+                if fabric_domains is not None:
+                    from san.models import SwitchFabric
+                    # Clear existing switch-fabric relationships
+                    ps.switch.switch_fabrics.all().delete()
+                    # Create new relationships
+                    for fd in fabric_domains:
+                        SwitchFabric.objects.create(
+                            switch=ps.switch,
+                            fabric_id=fd.get('fabric_id'),
+                            domain_id=fd.get('domain_id')
+                        )
+
             ps.switch.committed = True
             ps.switch.save()
             modified_counts['switches'] += 1

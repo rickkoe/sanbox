@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef, useMemo } from "react";
+import React, { useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
@@ -24,8 +24,6 @@ const SwitchTableTanStack = () => {
 
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter } = useProjectFilter();
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    const [allCustomerSwitches, setAllCustomerSwitches] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
 
     const tableRef = useRef(null);
@@ -33,6 +31,10 @@ const SwitchTableTanStack = () => {
     // State for fabrics dropdown
     const [fabrics, setFabrics] = useState([]);
     const [fabricsLoading, setFabricsLoading] = useState(false);
+
+    // Bulk add/remove modal
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [allCustomerSwitches, setAllCustomerSwitches] = useState([]);
 
     // Use centralized API hook
     const { apiUrl } = useProjectViewAPI({
@@ -77,26 +79,6 @@ const SwitchTableTanStack = () => {
     // Customer View is always read-only; Project View depends on permissions
     const isReadOnly = projectFilter !== 'current' || !canEdit;
 
-    // Load all customer switches when modal opens
-    useEffect(() => {
-        const loadAllCustomerSwitches = async () => {
-            if (showBulkModal && customerId && activeProjectId) {
-                try {
-                    console.log('📥 Loading all customer switches for bulk modal...');
-                    const response = await api.get(`${API_URL}/api/san/switches/?customer_id=${customerId}&project_id=${activeProjectId}&project_filter=all&page_size=10000`);
-                    const switches = response.data.results || response.data;
-                    setAllCustomerSwitches(switches);
-                    console.log(`✅ Loaded ${switches.length} customer switches for modal`);
-                } catch (error) {
-                    console.error('❌ Error loading customer switches:', error);
-                    setAllCustomerSwitches([]);
-                }
-            }
-        };
-
-        loadAllCustomerSwitches();
-    }, [showBulkModal, customerId, activeProjectId, API_URL]);
-
     // Handle filter change
     const handleFilterChange = (newFilter) => {
         setProjectFilter(newFilter);
@@ -113,7 +95,7 @@ const SwitchTableTanStack = () => {
             // Project view: merged data with overrides
             return `${API_URL}/api/san/switches/project/${activeProjectId}/view/`;
         } else if (activeProjectId) {
-            // Customer view with project: includes in_active_project flag
+            // Customer view with project
             return `${API_URL}/api/san/switches/?customer_id=${customerId}&project_id=${activeProjectId}&project_filter=${projectFilter}`;
         } else {
             // Customer view without project
@@ -122,27 +104,60 @@ const SwitchTableTanStack = () => {
     };
 
 
-    // Fetch fabrics for the active customer
+    // Fetch fabrics for the active customer (including fabrics in current project)
     useEffect(() => {
         const fetchFabrics = async () => {
             if (!customerId) return;
 
             setFabricsLoading(true);
             try {
-                const response = await api.get(`/api/san/fabrics/?customer_id=${customerId}`);
-                console.log('📡 Fetched fabrics:', response.data);
-                // Handle paginated response
-                const fabricsData = response.data.results || response.data;
-                setFabrics(fabricsData);
+                if (activeProjectId) {
+                    // When in a project: fetch both customer fabrics AND project fabrics, then merge
+                    const [customerResponse, projectResponse] = await Promise.all([
+                        api.get(`/api/san/fabrics/?customer_id=${customerId}&page_size=1000`),
+                        api.get(`/api/san/fabrics/project/${activeProjectId}/view/?page_size=1000`)
+                    ]);
+
+                    const customerFabrics = customerResponse.data.results || customerResponse.data || [];
+                    const projectFabrics = projectResponse.data.results || projectResponse.data || [];
+
+                    // Merge, using a Map to deduplicate by ID
+                    const fabricMap = new Map();
+
+                    // Add customer fabrics first
+                    customerFabrics.forEach(f => fabricMap.set(f.id, f));
+
+                    // Add/override with project fabrics (to get latest data with overrides)
+                    projectFabrics.forEach(f => fabricMap.set(f.id, f));
+
+                    const mergedFabrics = Array.from(fabricMap.values());
+
+                    // Sort alphabetically by name
+                    mergedFabrics.sort((a, b) => a.name.localeCompare(b.name));
+
+                    console.log('📡 Fetched fabrics (merged):', mergedFabrics);
+                    setFabrics(mergedFabrics);
+                } else {
+                    // No project: just fetch customer fabrics
+                    const response = await api.get(`/api/san/fabrics/?customer_id=${customerId}&page_size=1000`);
+                    const fabricsData = response.data.results || response.data;
+
+                    // Sort alphabetically by name
+                    fabricsData.sort((a, b) => a.name.localeCompare(b.name));
+
+                    console.log('📡 Fetched fabrics:', fabricsData);
+                    setFabrics(fabricsData);
+                }
             } catch (error) {
                 console.error('Error fetching fabrics:', error);
+                setFabrics([]); // Set empty array on error
             } finally {
                 setFabricsLoading(false);
             }
         };
 
         fetchFabrics();
-    }, [customerId]);
+    }, [customerId, activeProjectId]);
 
     // Vendor mapping (same as FabricTable)
     const vendorOptions = [
@@ -165,20 +180,13 @@ const SwitchTableTanStack = () => {
     };
 
     // Load columns from centralized configuration
-    const baseColumns = useMemo(() => {
+    const columns = useMemo(() => {
         return getTableColumns('switch', projectFilter === 'current');
     }, [projectFilter]);
 
-    // Add project-specific columns when project is active
-    const columns = activeProjectId ? [
-        ...baseColumns,
-        { data: "in_active_project", title: "In Project", type: "custom", readOnly: true, defaultVisible: true },
-        { data: "project_actions", title: "Add/Remove", type: "custom", readOnly: true, defaultVisible: true }
-    ] : baseColumns;
-
     const colHeaders = useMemo(() => {
-        return columns.map(col => col.title);
-    }, [columns]);
+        return getColumnHeaders('switch', projectFilter === 'current');
+    }, [projectFilter]);
 
     const defaultSort = getDefaultSort('switch');
 
@@ -238,119 +246,7 @@ const SwitchTableTanStack = () => {
                 console.error('Error rendering project_memberships:', error, value);
                 return '';
             }
-        },
-        in_active_project: (rowData, td, row, col, prop, value) => {
-            if (!activeProjectId) return "";
-            const isInProject = rowData.in_active_project === true;
-            return isInProject ?
-                '<span class="badge bg-success">Yes</span>' :
-                '<span class="badge bg-secondary">No</span>';
-        },
-        project_actions: (rowData, td, row, col, prop, value) => {
-            if (!activeProjectId || isReadOnly) return "";
-            const isInProject = rowData.in_active_project === true;
-
-            if (isInProject) {
-                return `<button class="btn btn-sm btn-danger remove-switch-btn" data-switch-id="${rowData.id}">Remove</button>`;
-            } else {
-                return `<div class="dropdown d-inline">
-                    <button class="btn btn-sm btn-primary dropdown-toggle add-switch-btn" type="button" data-bs-toggle="dropdown" data-switch-id="${rowData.id}">
-                        Add to Project
-                    </button>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" data-action="reference">Reference Only</a></li>
-                        <li><a class="dropdown-item" href="#" data-action="modify">Mark for Modification</a></li>
-                        <li><a class="dropdown-item" href="#" data-action="delete">Mark for Deletion</a></li>
-                    </ul>
-                </div>`;
-            }
         }
-    };
-
-    // Handle add switch to project
-    const handleAddSwitchToProject = async (switchId, action) => {
-        try {
-            const response = await api.post(`/api/core/projects/${activeProjectId}/add-switch/`, {
-                switch_id: switchId,
-                action: action,
-                notes: ''
-            });
-
-            if (response.data.success) {
-                console.log('✅ Switch added to project');
-
-                // Smart table update
-                const hadDirtyChanges = tableRef.current?.hasChanges;
-                const currentData = tableRef.current?.getTableData();
-
-                if (currentData) {
-                    const updatedData = currentData.map(row => {
-                        if (row.id === parseInt(switchId)) {
-                            return {
-                                ...row,
-                                in_active_project: true
-                            };
-                        }
-                        return row;
-                    });
-
-                    if (hadDirtyChanges) {
-                        tableRef.current.setTableData(updatedData);
-                    } else {
-                        tableRef.current.updateTableDataSilently(updatedData);
-                    }
-                }
-
-                return true;
-            }
-        } catch (error) {
-            console.error('Error adding switch to project:', error);
-            alert('Failed to add switch to project: ' + (error.response?.data?.error || error.message));
-        }
-        return false;
-    };
-
-    // Handle remove switch from project
-    const handleRemoveSwitchFromProject = async (switchId) => {
-        if (!window.confirm('Remove this switch from the project?')) {
-            return false;
-        }
-
-        try {
-            const response = await api.delete(`/api/core/projects/${activeProjectId}/remove-switch/${switchId}/`);
-
-            if (response.data.success) {
-                console.log('✅ Switch removed from project');
-
-                // Smart table update
-                const hadDirtyChanges = tableRef.current?.hasChanges;
-                const currentData = tableRef.current?.getTableData();
-
-                if (currentData) {
-                    const updatedData = currentData.map(row => {
-                        if (row.id === parseInt(switchId)) {
-                            return {
-                                ...row,
-                                in_active_project: false
-                            };
-                        }
-                        return row;
-                    });
-
-                    if (hadDirtyChanges) {
-                        tableRef.current.setTableData(updatedData);
-                    } else {
-                        tableRef.current.updateTableDataSilently(updatedData);
-                    }
-                }
-
-                return true;
-            }
-        } catch (error) {
-            console.error('Error removing switch from project:', error);
-            alert('Failed to remove switch from project: ' + (error.response?.data?.error || error.message));
-        }
-        return false;
     };
 
     // Handle switch save with project-aware logic
@@ -419,75 +315,6 @@ const SwitchTableTanStack = () => {
         }
     };
 
-    // Handle bulk switch save from modal
-    const handleBulkSwitchSave = async (selectedIds) => {
-        try {
-            console.log('🔄 Bulk switch save started with selected IDs:', selectedIds);
-
-            if (!allCustomerSwitches || allCustomerSwitches.length === 0) {
-                console.error('No customer switches available');
-                alert('No switches data available. Please try again.');
-                return;
-            }
-
-            // Get current switches in project
-            const currentProjectSwitchIds = allCustomerSwitches
-                .filter(s => s.in_active_project)
-                .map(s => s.id);
-
-            // Determine changes
-            const toAdd = selectedIds.filter(id => !currentProjectSwitchIds.includes(id));
-            const toRemove = currentProjectSwitchIds.filter(id => !selectedIds.includes(id));
-
-            console.log('📊 To Add:', toAdd, 'To Remove:', toRemove);
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const switchId of toAdd) {
-                const success = await handleAddSwitchToProject(switchId, 'unmodified');
-                if (success) successCount++;
-                else errorCount++;
-            }
-
-            // Process removals
-            for (const switchId of toRemove) {
-                try {
-                    const response = await api.delete(`/api/core/projects/${activeProjectId}/remove-switch/${switchId}/`);
-                    if (response.data.success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error('Error removing switch:', error);
-                    errorCount++;
-                }
-            }
-
-            // Show result
-            alert(`Bulk operation complete!\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}`);
-
-            // Reload table
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-        } catch (error) {
-            console.error('❌ Bulk switch save error:', error);
-            alert('Failed to perform bulk operation: ' + error.message);
-        }
-    };
-
-    // Expose handlers to window for HTML onclick
-    useEffect(() => {
-        window.handleAddSwitchToProject = handleAddSwitchToProject;
-        window.handleRemoveSwitchFromProject = handleRemoveSwitchFromProject;
-
-        return () => {
-            delete window.handleAddSwitchToProject;
-            delete window.handleRemoveSwitchFromProject;
-        };
-    }, [activeProjectId, handleAddSwitchToProject, handleRemoveSwitchFromProject]);
-
     // Track total row count from table
     useEffect(() => {
         if (projectFilter === 'current' && tableRef.current) {
@@ -502,6 +329,145 @@ const SwitchTableTanStack = () => {
         }
     }, [projectFilter, totalRowCount]);
 
+    // Load all customer switches when modal opens
+    useEffect(() => {
+        const loadAllCustomerSwitches = async () => {
+            if (showBulkModal && activeCustomerId && activeProjectId) {
+                try {
+                    // Fetch all customer switches
+                    const switchesResponse = await api.get(
+                        `${API_URL}/api/san/switches/customer/${activeCustomerId}/`
+                    );
+
+                    const allSwitches = Array.isArray(switchesResponse.data)
+                        ? switchesResponse.data
+                        : (switchesResponse.data.results || []);
+
+                    // Get project switches to determine membership
+                    // We'll query the switch_project_view endpoint to get switches in project
+                    let projectSwitchIds = new Set();
+                    try {
+                        const projectViewResponse = await api.get(
+                            `${API_URL}/api/san/switches/project/${activeProjectId}/view/?page_size=10000`
+                        );
+                        const projectSwitches = projectViewResponse.data.results || projectViewResponse.data || [];
+                        projectSwitchIds = new Set(projectSwitches.map(sw => sw.id));
+                    } catch (projError) {
+                        console.warn('Could not fetch project switches:', projError);
+                    }
+
+                    // Annotate with project membership
+                    const annotatedSwitches = allSwitches.map(sw => ({
+                        ...sw,
+                        in_active_project: projectSwitchIds.has(sw.id)
+                    }));
+
+                    setAllCustomerSwitches(annotatedSwitches);
+                } catch (error) {
+                    console.error('Error loading customer switches:', error);
+                    setAllCustomerSwitches([]);
+                }
+            }
+        };
+
+        loadAllCustomerSwitches();
+    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
+
+    // Handler to add switch to project
+    const handleAddSwitchToProject = useCallback(async (switchId, action = 'unmodified') => {
+        try {
+            const projectId = activeProjectId;
+            if (!projectId) {
+                console.error('No active project selected');
+                return false;
+            }
+
+            const response = await api.post(`${API_URL}/api/core/projects/${projectId}/add-switch/`, {
+                switch_id: switchId,
+                action: action,
+                notes: `Added via table UI with action: ${action}`
+            });
+
+            if (response.data.success) {
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error adding switch to project:', error);
+            alert(`Failed to add switch: ${error.response?.data?.error || error.message}`);
+            return false;
+        }
+    }, [activeProjectId, API_URL]);
+
+    // Handler for bulk switch save
+    const handleBulkSwitchSave = useCallback(async (selectedIds) => {
+        try {
+            if (!allCustomerSwitches || allCustomerSwitches.length === 0) {
+                console.error('No customer switches available');
+                return;
+            }
+
+            // Get current switches in project
+            const currentInProject = new Set(
+                allCustomerSwitches
+                    .filter(sw => sw.in_active_project)
+                    .map(sw => sw.id)
+            );
+
+            // Determine adds and removes
+            const selectedSet = new Set(selectedIds);
+            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
+            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process additions
+            for (const switchId of toAdd) {
+                try {
+                    const success = await handleAddSwitchToProject(switchId, 'unmodified');
+                    if (success) successCount++;
+                    else errorCount++;
+                } catch (error) {
+                    console.error(`Failed to add switch ${switchId}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Process removals
+            for (const switchId of toRemove) {
+                try {
+                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-switch/${switchId}/`);
+                    if (response.data.success) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error(`Failed to remove switch ${switchId}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Show results
+            if (errorCount > 0) {
+                alert(`Completed with ${errorCount} error(s). ${successCount} switch(es) updated successfully.`);
+            } else if (successCount > 0) {
+                alert(`Successfully updated ${successCount} switch(es).`);
+            }
+
+            // Reload table data
+            if (tableRef.current && tableRef.current.reloadData) {
+                tableRef.current.reloadData();
+            }
+
+            setShowBulkModal(false);
+        } catch (error) {
+            console.error('Error in bulk switch save:', error);
+            alert(`Bulk operation failed: ${error.message}`);
+        }
+    }, [activeProjectId, API_URL, handleAddSwitchToProject, allCustomerSwitches]);
+
     // Process data for display - convert vendor codes to names, format fabrics, and domain IDs
     const preprocessData = (data) => {
         return data.map(switchItem => {
@@ -513,7 +479,6 @@ const SwitchTableTanStack = () => {
                     const domainStr = f.domain_id !== null && f.domain_id !== undefined ? f.domain_id : '';
                     return `${f.name}: ${domainStr}`;
                 }).join('\n') || "",
-                in_active_project: switchItem.in_active_project || false,
                 // Selection state - use API value or default to false
                 _selected: switchItem._selected || false
             };
@@ -561,7 +526,7 @@ const SwitchTableTanStack = () => {
                 }
 
                 // Exclude read-only/computed fields
-                const { domain_ids, fabric_domain_details, fabrics_details, in_active_project, project_actions, modified_fields, project_action, ...switchData } = row;
+                const { domain_ids, fabric_domain_details, fabrics_details, modified_fields, project_action, ...switchData } = row;
 
                 return {
                     ...switchData,
@@ -662,16 +627,15 @@ const SwitchTableTanStack = () => {
                 }}
             />
 
-            {showBulkModal && (
-                <BulkProjectMembershipModal
-                    show={showBulkModal}
-                    onHide={() => setShowBulkModal(false)}
-                    items={allCustomerSwitches.length > 0 ? allCustomerSwitches : (tableRef.current?.getTableData() || [])}
-                    onSave={handleBulkSwitchSave}
-                    itemType="switch"
-                    projectName={config?.active_project?.name || ''}
-                />
-            )}
+            {/* Bulk Project Membership Modal */}
+            <BulkProjectMembershipModal
+                show={showBulkModal}
+                onClose={() => setShowBulkModal(false)}
+                onSave={handleBulkSwitchSave}
+                items={allCustomerSwitches}
+                itemType="switch"
+                projectName={config?.active_project?.name || ''}
+            />
         </div>
     );
 };

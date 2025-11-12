@@ -6,6 +6,50 @@ Supports merge operations and conflict detection.
 """
 
 from django.forms.models import model_to_dict
+from django.db.models import ForeignKey
+
+
+def serialize_foreign_keys(model_instance, data_dict):
+    """
+    Convert ForeignKey objects to their IDs in a dictionary.
+
+    Django's model_to_dict returns FK objects, but we need IDs for JSON serialization.
+    This function converts FK objects to their integer IDs.
+
+    Args:
+        model_instance: Django model instance (to inspect field types)
+        data_dict: Dictionary potentially containing FK objects
+
+    Returns:
+        Dictionary with FK objects replaced by their IDs
+
+    Example:
+        >>> alias = Alias.objects.get(id=1)
+        >>> data = {"name": "host01", "fabric": <Fabric object>}
+        >>> serialized = serialize_foreign_keys(alias, data)
+        >>> serialized
+        {"name": "host01", "fabric": 5}  # FK object replaced with ID
+    """
+    if not data_dict or not model_instance:
+        return data_dict
+
+    serialized = data_dict.copy()
+
+    # Get all FK fields from the model
+    for field in model_instance._meta.get_fields():
+        if isinstance(field, ForeignKey):
+            field_name = field.name
+
+            # If this FK field is in the data and is an object (not already an ID)
+            if field_name in serialized:
+                value = serialized[field_name]
+
+                # Convert object to ID
+                if value is not None and hasattr(value, 'pk'):
+                    serialized[field_name] = value.pk
+                # If it's already an int/ID or None, leave it as-is
+
+    return serialized
 
 
 def merge_with_overrides(base_instance, field_overrides):
@@ -34,6 +78,9 @@ def merge_with_overrides(base_instance, field_overrides):
 
     # Get all fields from base instance
     base_data = model_to_dict(base_instance)
+
+    # Serialize ForeignKey objects to IDs for JSON compatibility
+    base_data = serialize_foreign_keys(base_instance, base_data)
 
     # Apply overrides on top of base data
     if field_overrides:
@@ -65,13 +112,25 @@ def apply_overrides_to_instance(base_instance, field_overrides):
     if not field_overrides:
         return base_instance
 
+    # Build map of FK field names for efficient lookup
+    fk_fields = {}
+    for field in base_instance._meta.get_fields():
+        if isinstance(field, ForeignKey):
+            fk_fields[field.name] = field
+
     for field_name, value in field_overrides.items():
-        # Only set fields that actually exist on the model
-        if hasattr(base_instance, field_name):
-            setattr(base_instance, field_name, value)
-        else:
-            # Log warning for fields that don't exist
+        # Check if field exists on the model
+        if not hasattr(base_instance, field_name):
             print(f"Warning: Field '{field_name}' does not exist on {base_instance.__class__.__name__}")
+            continue
+
+        # Handle ForeignKey fields: if value is an ID, use field_name_id syntax
+        if field_name in fk_fields and isinstance(value, int):
+            # Set using the _id attribute (e.g., fabric_id instead of fabric)
+            setattr(base_instance, f"{field_name}_id", value)
+        else:
+            # Regular field or FK object - set directly
+            setattr(base_instance, field_name, value)
 
     return base_instance
 
@@ -99,6 +158,12 @@ def extract_changed_fields(base_instance, new_data, exclude_fields=None):
         exclude_fields = ['id', 'created_at', 'updated_at', 'imported',
                          'last_modified_at', 'last_modified_by', 'version']
 
+    # Build map of FK field names for efficient lookup
+    fk_fields = {}
+    for field in base_instance._meta.get_fields():
+        if isinstance(field, ForeignKey):
+            fk_fields[field.name] = field
+
     changed_fields = {}
 
     for field_name, new_value in new_data.items():
@@ -113,16 +178,35 @@ def extract_changed_fields(base_instance, new_data, exclude_fields=None):
         # Get current value from base instance
         current_value = getattr(base_instance, field_name, None)
 
-        # Handle None comparisons carefully
-        # If both are None/empty, consider them equal
-        if current_value is None and new_value in [None, '', []]:
-            continue
-        if new_value is None and current_value in [None, '', []]:
-            continue
+        # For FK fields, compare by ID (not object instance)
+        if field_name in fk_fields:
+            # Get current FK ID
+            current_id = current_value.pk if current_value and hasattr(current_value, 'pk') else None
 
-        # Check if value actually changed
-        if current_value != new_value:
-            changed_fields[field_name] = new_value
+            # Get new FK ID
+            if isinstance(new_value, int):
+                new_id = new_value
+            elif new_value and hasattr(new_value, 'pk'):
+                new_id = new_value.pk
+            else:
+                new_id = None
+
+            # Compare IDs
+            if current_id != new_id:
+                # Store the ID (not the object) for JSON serialization
+                changed_fields[field_name] = new_id
+        else:
+            # Regular field comparison
+            # Handle None comparisons carefully
+            # If both are None/empty, consider them equal
+            if current_value is None and new_value in [None, '', []]:
+                continue
+            if new_value is None and current_value in [None, '', []]:
+                continue
+
+            # Check if value actually changed
+            if current_value != new_value:
+                changed_fields[field_name] = new_value
 
     return changed_fields
 

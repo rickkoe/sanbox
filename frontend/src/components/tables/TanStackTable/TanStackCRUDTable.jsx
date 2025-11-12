@@ -350,11 +350,20 @@ const TanStackCRUDTable = forwardRef(({
           // Convert array of visible column IDs to TanStack Table visibility object
           // TanStack uses { columnId: true/false } format
           // IMPORTANT: Set ALL columns explicitly - visible columns to true, others to false
+          // CRITICAL: Always show required columns, even if saved config says otherwise
           const visibilityMap = {};
           const allColumnIds = columns.map(col => col.data || col.accessorKey).filter(Boolean);
 
           allColumnIds.forEach(colId => {
-            visibilityMap[colId] = migratedColumns.includes(colId);
+            const columnDef = columns.find(c => (c.data || c.accessorKey) === colId);
+            const isRequired = columnDef?.required === true;
+
+            // Required columns are always visible, regardless of saved preference
+            if (isRequired) {
+              visibilityMap[colId] = true;
+            } else {
+              visibilityMap[colId] = migratedColumns.includes(colId);
+            }
           });
 
           setColumnVisibility(visibilityMap);
@@ -443,16 +452,25 @@ const TanStackCRUDTable = forwardRef(({
       // Convert TanStack visibility object { columnId: true/false } to array of visible column IDs
       const visibleColumns = Object.keys(columnVisibility).filter(colId => columnVisibility[colId]);
 
-      if (visibleColumns.length > 0) {
+      // CRITICAL: Always include required columns in saved config, even if somehow missing
+      const requiredColumnIds = columns
+        .filter(col => col.required === true)
+        .map(col => col.data || col.accessorKey)
+        .filter(Boolean);
+
+      // Merge visible columns with required columns (remove duplicates)
+      const finalVisibleColumns = [...new Set([...visibleColumns, ...requiredColumnIds])];
+
+      if (finalVisibleColumns.length > 0) {
         // Debounce the save to avoid blocking UI during rapid changes
         const timeoutId = setTimeout(() => {
-          saveTableConfig({ visible_columns: visibleColumns });
+          saveTableConfig({ visible_columns: finalVisibleColumns });
         }, 300);
 
         return () => clearTimeout(timeoutId);
       }
     }
-  }, [columnVisibility, configLoaded, saveTableConfig]);
+  }, [columnVisibility, configLoaded, saveTableConfig, columns]);
 
   // Determine if we need client-side pagination (memoized for consistency)
   const hasActiveClientFilters = useMemo(() => {
