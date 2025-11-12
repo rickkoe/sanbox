@@ -644,6 +644,56 @@ sudo firewall-cmd --reload
 #### Importer App
 - **StorageImport**: Import job tracking and status
 
+### Table Configuration System
+
+The application uses the `TableConfiguration` model to persist user-specific table preferences (column widths, visibility, filters, page size, etc.) in the database. Each configuration is scoped to a specific user, customer, and table.
+
+#### Special Table Name: `_global_view_settings`
+
+`_global_view_settings` is a **special pseudo-table name** used to store **cross-table global settings** that apply across ALL tables, not just one specific table.
+
+**Purpose:**
+- Stores settings that should be synchronized across all tables in the application
+- Currently used to persist the **Project Filter View** toggle state (Customer View vs Project View)
+- Prevents view state from getting out of sync between different tables
+
+**Implementation:**
+```python
+# Stored in same TableConfiguration model
+{
+  "customer": 1,
+  "table_name": "_global_view_settings",  # Special name for global settings
+  "user": 42,
+  "additional_settings": {
+    "projectFilter": "current"  # 'all' or 'current'
+  }
+}
+```
+
+**Key Features:**
+- **Synchronized State**: All tables (Fabric, Alias, Zone, Storage, etc.) share the same view toggle
+- **Database Persistence**: Stored in database, not localStorage
+- **Cross-Device**: Works across browsers and devices
+- **Per-Customer Scope**: Each customer can have different view preference
+
+**Context Provider:**
+The `ProjectFilterContext` (`frontend/src/context/ProjectFilterContext.jsx`) manages this global setting:
+- Loads saved preference on mount
+- Synchronizes state across all table components via React Context
+- Automatically saves changes to database
+
+**Future Use Cases:**
+Could be extended to store other cross-table settings:
+- Default page size preference (apply to all tables)
+- Theme preferences
+- Layout preferences
+- Any global UI state that should persist across sessions
+
+**Related Configuration:**
+- Regular table configs use actual table names: `"fabric"`, `"alias"`, `"zone"`, etc.
+- Each stores table-specific settings: column widths, visibility, filters, sorting
+- `_global_view_settings` is the only special name that stores cross-table state
+
 ### API Structure
 
 All API endpoints are prefixed with `/api/` and organized by app:
@@ -1683,6 +1733,208 @@ The heart of the frontend is the advanced `GenericTable` component located in `f
   enableInlineEdit={true}
 />
 ```
+
+### Centralized Table Column Configuration
+
+All TanStack tables use a centralized JSON configuration system for managing column definitions. This provides a single source of truth for column order, visibility, requirements, and default sorting.
+
+#### Configuration Files
+
+- **`frontend/src/config/tableColumnConfig.json`** - Central JSON file containing all table column definitions
+- **`frontend/src/utils/tableConfigLoader.js`** - Utility functions for loading and processing configurations
+
+#### Configured Tables
+
+All 10 main tables use this system:
+- **SAN Entities**: Fabric, Alias, Zone, Switch
+- **Storage Entities**: Storage, Volume, Host, Port
+- **Management**: Customer, Project
+
+#### Column Properties (JSON Format)
+
+```json
+{
+  "id": "column_name",           // Column identifier/accessor
+  "title": "Column Title",       // Display header text
+  "type": "text|dropdown|checkbox|numeric|custom",  // Cell type
+  "required": true|false,        // Always visible, can't be hidden
+  "defaultVisible": true|false,  // Initial visibility state
+  "width": 150,                  // Column width in pixels (optional)
+  "readOnly": true|false,        // Whether cell is editable (optional)
+  "dropdownSource": "sourceName" // Dropdown data source key (optional)
+}
+```
+
+#### Table-Level Properties
+
+```json
+{
+  "defaultSort": {
+    "column": "name",      // Column ID to sort by default
+    "direction": "asc"     // Sort direction: "asc" or "desc"
+  },
+  "columns": [...]         // Array of column definitions
+}
+```
+
+#### Usage in Table Components
+
+```javascript
+import { getTableColumns, getDefaultSort, getColumnHeaders } from '../../utils/tableConfigLoader';
+
+// Load columns (automatically adds _selected and project_action for Project View)
+const columns = useMemo(() => {
+    return getTableColumns('fabric', projectFilter === 'current');
+}, [projectFilter]);
+
+const colHeaders = useMemo(() => {
+    return getColumnHeaders('fabric', projectFilter === 'current');
+}, [projectFilter]);
+
+const defaultSort = getDefaultSort('fabric');
+
+// Pass to TanStackCRUDTable
+<TanStackCRUDTable
+    columns={columns}
+    colHeaders={colHeaders}
+    defaultSort={defaultSort}
+    // ... other props
+/>
+```
+
+#### System-Managed Columns
+
+Two special columns are automatically added in Project View and don't need to be in the JSON:
+
+1. **`_selected`** - Checkbox column for bulk operations (first column)
+   - Always visible (required), can't be hidden
+   - Position configurable in `tableConfigLoader.js`
+
+2. **`project_action`** - Status indicator showing New/Modified/Delete/Unmodified
+   - Always visible (required), can't be hidden
+   - Currently positioned after the "name" column
+   - Position configurable in `tableConfigLoader.js`
+
+#### Modifying Column Configuration
+
+**Change Column Order:**
+Edit the `columns` array in `tableColumnConfig.json` - columns appear in the order defined.
+
+**Change Default Visibility:**
+```json
+{
+  "id": "vsan",
+  "defaultVisible": false  // Hide by default
+}
+```
+
+**Make Column Required (Always Visible):**
+```json
+{
+  "id": "name",
+  "required": true  // Can't be hidden by users
+}
+```
+
+**Change Default Sort:**
+```json
+{
+  "defaultSort": {
+    "column": "name",
+    "direction": "desc"  // or "asc"
+  }
+}
+```
+
+**Add New Column:**
+Add a new object to the `columns` array:
+```json
+{
+  "id": "new_field",
+  "title": "New Field",
+  "type": "text",
+  "required": false,
+  "defaultVisible": true
+}
+```
+
+#### Changing System Column Positions
+
+To change where `_selected` or `project_action` appear, edit `frontend/src/utils/tableConfigLoader.js`:
+
+**Move `_selected` to end:**
+- Cut the block at lines 59-70
+- Paste after the `config.columns.forEach()` loop (after line 86)
+
+**Change `project_action` position:**
+```javascript
+// Line 91-92: Current (after _selected)
+const selectedIndex = columns.findIndex(col => col.data === "_selected");
+const insertIndex = selectedIndex >= 0 ? selectedIndex + 1 : 1;
+
+// Alternative: After a different column
+const nameIndex = columns.findIndex(col => col.data === "name");
+const insertIndex = nameIndex >= 0 ? nameIndex + 1 : 1;
+
+// Alternative: At the end
+const insertIndex = columns.length;
+```
+
+#### Example Configuration (Fabric Table)
+
+```json
+{
+  "fabric": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "san_vendor",
+        "title": "Vendor",
+        "type": "dropdown",
+        "dropdownSource": "san_vendor",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "vsan",
+        "title": "VSAN",
+        "type": "numeric",
+        "defaultVisible": false
+      }
+    ]
+  }
+}
+```
+
+#### Helper Functions
+
+Available from `tableConfigLoader.js`:
+- `getTableColumns(tableName, includeProjectColumns)` - Returns column array
+- `getColumnHeaders(tableName, includeProjectColumns)` - Returns header array
+- `getDefaultSort(tableName)` - Returns `{ column, direction }` object
+- `getRequiredColumns(tableName)` - Returns array of required column IDs
+- `getDefaultVisibleColumns(tableName, includeProjectColumns)` - Returns array of visible column IDs
+- `validateConfig()` - Validates JSON structure (development tool)
+- `getAvailableTables()` - Returns array of all configured table names
+
+#### Key Benefits
+
+- ✅ Single source of truth for all column configurations
+- ✅ Easy maintenance - no code changes needed for column adjustments
+- ✅ Consistent behavior across all tables
+- ✅ Version control friendly - JSON changes are easy to review
+- ✅ Automatic Project View columns added when needed
+- ✅ Configurable default sorting per table
 
 ### Navigation System
 - **Navbar**: Top navigation with dropdowns and user controls

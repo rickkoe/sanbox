@@ -21,11 +21,23 @@
         "defaultVisible": true
       },
       {
+        "id": "zoneset_name",
+        "title": "Zoneset Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "vsan",
+        "title": "VSAN",
+        "type": "numeric",
+        "defaultVisible": true
+      },
+      {
         "id": "project_memberships",
         "title": "Projects",
         "type": "custom",
         "readOnly": true,
-        "required": true,
         "defaultVisible": true
       },
       {
@@ -33,20 +45,7 @@
         "title": "Switches",
         "type": "text",
         "readOnly": true,
-        "required": true,
         "defaultVisible": true
-      },
-      {
-        "id": "zoneset_name",
-        "title": "Zoneset Name",
-        "type": "text",
-        "defaultVisible": true
-      },
-      {
-        "id": "vsan",
-        "title": "VSAN",
-        "type": "numeric",
-        "defaultVisible": false
       },
       {
         "id": "alias_count",

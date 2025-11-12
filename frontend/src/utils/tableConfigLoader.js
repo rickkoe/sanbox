@@ -95,8 +95,8 @@ export function getTableColumns(tableName, includeProjectColumns = false) {
     // ============================================================
     if (includeProjectColumns) {
         // Find the index of the name column (usually index 1, after _selected)
-        const nameIndex = columns.findIndex(col => col.data === "name");
-        const insertIndex = nameIndex >= 0 ? nameIndex + 1 : 1;
+        const selectedIndex = columns.findIndex(col => col.data === "project_memberships");
+        const insertIndex = selectedIndex >= 0 ? selectedIndex + 1 : 1;
 
         columns.splice(insertIndex, 0, {
             ...projectStatusColumn,

@@ -63,6 +63,7 @@ const TanStackCRUDTable = forwardRef(({
   storageKey,
   readOnly = false,
   pageSizeOptions = [25, 50, 100, 250, 'All'], // Customizable page size options
+  defaultSort, // Default sort configuration: { column: 'name', direction: 'asc'|'desc' }
 
   // Event Handlers
   onSave,
@@ -117,7 +118,16 @@ const TanStackCRUDTable = forwardRef(({
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, cellKey: null });
 
   // Table configuration
-  const [sorting, setSorting] = useState([]);
+  // Initialize sorting with defaultSort prop if provided
+  const [sorting, setSorting] = useState(() => {
+    if (defaultSort && defaultSort.column) {
+      return [{
+        id: defaultSort.column,
+        desc: defaultSort.direction === 'desc'
+      }];
+    }
+    return [];
+  });
   const [frozenSortOrder, setFrozenSortOrder] = useState(null); // Captures sorted order to prevent auto-resorting
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});

@@ -117,6 +117,9 @@ const FabricTableTanStackClean = () => {
     const colHeaders = getColumnHeaders('fabric', projectFilter === 'current');
     const defaultSort = getDefaultSort('fabric');
 
+    // Debug: Log default sort config
+    console.log('Fabric defaultSort:', defaultSort);
+
     const dropdownSources = {
         san_vendor: vendorOptions.map(o => o.name)
     };
