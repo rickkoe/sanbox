@@ -26,7 +26,7 @@ def project_add_alias(request, project_id):
     try:
         data = json.loads(request.body)
         alias_id = data.get('alias_id')
-        action = data.get('action', 'reference')
+        action = data.get('action', 'unmodified')
         include_in_zoning = data.get('include_in_zoning', False)
         notes = data.get('notes', '')
 
@@ -619,7 +619,7 @@ def project_add_zone(request, project_id):
     try:
         data = json.loads(request.body)
         zone_id = data.get('zone_id')
-        action = data.get('action', 'reference')
+        action = data.get('action', 'unmodified')
         notes = data.get('notes', '')
 
         if not zone_id:
@@ -681,7 +681,7 @@ def project_add_switch(request, project_id):
     try:
         data = json.loads(request.body)
         switch_id = data.get('switch_id')
-        action = data.get('action', 'reference')
+        action = data.get('action', 'unmodified')
         notes = data.get('notes', '')
 
         if not switch_id:
@@ -747,7 +747,7 @@ def project_add_fabric(request, project_id):
     try:
         data = json.loads(request.body)
         fabric_id = data.get('fabric_id')
-        action = data.get('action', 'reference')
+        action = data.get('action', 'unmodified')
         notes = data.get('notes', '')
 
         if not fabric_id:
@@ -813,7 +813,7 @@ def project_add_storage(request, project_id):
     try:
         data = json.loads(request.body)
         storage_id = data.get('storage_id')
-        action = data.get('action', 'reference')
+        action = data.get('action', 'unmodified')
         notes = data.get('notes', '')
 
         if not storage_id:
@@ -879,7 +879,7 @@ def project_add_volume(request, project_id):
     try:
         data = json.loads(request.body)
         volume_id = data.get('volume_id')
-        action = data.get('action', 'reference')
+        action = data.get('action', 'unmodified')
         notes = data.get('notes', '')
 
         if not volume_id:
@@ -945,7 +945,7 @@ def project_add_host(request, project_id):
     try:
         data = json.loads(request.body)
         host_id = data.get('host_id')
-        action = data.get('action', 'reference')
+        action = data.get('action', 'unmodified')
         notes = data.get('notes', '')
 
         if not host_id:
@@ -1011,7 +1011,7 @@ def project_add_port(request, project_id):
     try:
         data = json.loads(request.body)
         port_id = data.get('port_id')
-        action = data.get('action', 'reference')
+        action = data.get('action', 'unmodified')
         notes = data.get('notes', '')
 
         if not port_id:
@@ -1199,8 +1199,8 @@ def project_commit(request, project_id):
     """
     Commit project changes:
     1. Check for field-level conflicts (block if any)
-    2. Apply field_overrides to base objects for action='modify'
-    3. Mark action='create' entities as committed=True
+    2. Apply field_overrides to base objects for action='modified'
+    3. Mark action='new' entities as committed=True
     4. Return entities marked for deletion (requires user confirmation)
 
     Does NOT delete junction tables - use project_commit_and_close for that.
@@ -1224,10 +1224,10 @@ def project_commit(request, project_id):
         applied_counts = {'aliases': 0, 'zones': 0, 'fabrics': 0, 'switches': 0,
                          'storage_systems': 0, 'hosts': 0, 'volumes': 0, 'ports': 0}
 
-        # 2. Apply field_overrides for action='modify' entities
+        # 2. Apply field_overrides for action='modified' entities
 
         # Aliases
-        for pa in ProjectAlias.objects.filter(project=project, action='modify').select_related('alias'):
+        for pa in ProjectAlias.objects.filter(project=project, action='modified').select_related('alias'):
             if pa.field_overrides:
                 alias = pa.alias
                 apply_overrides_to_instance(alias, pa.field_overrides)
@@ -1237,7 +1237,7 @@ def project_commit(request, project_id):
                 print(f"✅ Applied overrides to alias: {alias.name}")
 
         # Zones
-        for pz in ProjectZone.objects.filter(project=project, action='modify').select_related('zone'):
+        for pz in ProjectZone.objects.filter(project=project, action='modified').select_related('zone'):
             if pz.field_overrides:
                 zone = pz.zone
                 # Handle member_ids separately if present
@@ -1254,7 +1254,7 @@ def project_commit(request, project_id):
                 print(f"✅ Applied overrides to zone: {zone.name}")
 
         # Fabrics
-        for pf in ProjectFabric.objects.filter(project=project, action='modify').select_related('fabric'):
+        for pf in ProjectFabric.objects.filter(project=project, action='modified').select_related('fabric'):
             if pf.field_overrides:
                 fabric = pf.fabric
                 apply_overrides_to_instance(fabric, pf.field_overrides)
@@ -1263,7 +1263,7 @@ def project_commit(request, project_id):
                 applied_counts['fabrics'] += 1
 
         # Switches
-        for ps in ProjectSwitch.objects.filter(project=project, action='modify').select_related('switch'):
+        for ps in ProjectSwitch.objects.filter(project=project, action='modified').select_related('switch'):
             if ps.field_overrides:
                 switch = ps.switch
                 apply_overrides_to_instance(switch, ps.field_overrides)
@@ -1272,7 +1272,7 @@ def project_commit(request, project_id):
                 applied_counts['switches'] += 1
 
         # Storage
-        for pst in ProjectStorage.objects.filter(project=project, action='modify').select_related('storage'):
+        for pst in ProjectStorage.objects.filter(project=project, action='modified').select_related('storage'):
             if pst.field_overrides:
                 storage = pst.storage
                 apply_overrides_to_instance(storage, pst.field_overrides)
@@ -1281,7 +1281,7 @@ def project_commit(request, project_id):
                 applied_counts['storage_systems'] += 1
 
         # Hosts
-        for ph in ProjectHost.objects.filter(project=project, action='modify').select_related('host'):
+        for ph in ProjectHost.objects.filter(project=project, action='modified').select_related('host'):
             if ph.field_overrides:
                 host = ph.host
                 apply_overrides_to_instance(host, ph.field_overrides)
@@ -1290,7 +1290,7 @@ def project_commit(request, project_id):
                 applied_counts['hosts'] += 1
 
         # Volumes
-        for pv in ProjectVolume.objects.filter(project=project, action='modify').select_related('volume'):
+        for pv in ProjectVolume.objects.filter(project=project, action='modified').select_related('volume'):
             if pv.field_overrides:
                 volume = pv.volume
                 apply_overrides_to_instance(volume, pv.field_overrides)
@@ -1299,7 +1299,7 @@ def project_commit(request, project_id):
                 applied_counts['volumes'] += 1
 
         # Ports
-        for pp in ProjectPort.objects.filter(project=project, action='modify').select_related('port'):
+        for pp in ProjectPort.objects.filter(project=project, action='modified').select_related('port'):
             if pp.field_overrides:
                 port = pp.port
                 apply_overrides_to_instance(port, pp.field_overrides)
@@ -1307,32 +1307,32 @@ def project_commit(request, project_id):
                 port.save()
                 applied_counts['ports'] += 1
 
-        # 3. Mark action='create' entities as committed
+        # 3. Mark action='new' entities as committed
         commit_counts = {'aliases': 0, 'zones': 0, 'fabrics': 0, 'switches': 0,
                         'storage_systems': 0, 'hosts': 0, 'volumes': 0, 'ports': 0}
 
-        alias_ids = ProjectAlias.objects.filter(project=project, action='create').values_list('alias_id', flat=True)
+        alias_ids = ProjectAlias.objects.filter(project=project, action='new').values_list('alias_id', flat=True)
         commit_counts['aliases'] = Alias.objects.filter(id__in=alias_ids, committed=False).update(committed=True)
 
-        zone_ids = ProjectZone.objects.filter(project=project, action='create').values_list('zone_id', flat=True)
+        zone_ids = ProjectZone.objects.filter(project=project, action='new').values_list('zone_id', flat=True)
         commit_counts['zones'] = Zone.objects.filter(id__in=zone_ids, committed=False).update(committed=True)
 
-        fabric_ids = ProjectFabric.objects.filter(project=project, action='create').values_list('fabric_id', flat=True)
+        fabric_ids = ProjectFabric.objects.filter(project=project, action='new').values_list('fabric_id', flat=True)
         commit_counts['fabrics'] = Fabric.objects.filter(id__in=fabric_ids, committed=False).update(committed=True)
 
-        switch_ids = ProjectSwitch.objects.filter(project=project, action='create').values_list('switch_id', flat=True)
+        switch_ids = ProjectSwitch.objects.filter(project=project, action='new').values_list('switch_id', flat=True)
         commit_counts['switches'] = Switch.objects.filter(id__in=switch_ids, committed=False).update(committed=True)
 
-        storage_ids = ProjectStorage.objects.filter(project=project, action='create').values_list('storage_id', flat=True)
+        storage_ids = ProjectStorage.objects.filter(project=project, action='new').values_list('storage_id', flat=True)
         commit_counts['storage_systems'] = Storage.objects.filter(id__in=storage_ids, committed=False).update(committed=True)
 
-        host_ids = ProjectHost.objects.filter(project=project, action='create').values_list('host_id', flat=True)
+        host_ids = ProjectHost.objects.filter(project=project, action='new').values_list('host_id', flat=True)
         commit_counts['hosts'] = Host.objects.filter(id__in=host_ids, committed=False).update(committed=True)
 
-        volume_ids = ProjectVolume.objects.filter(project=project, action='create').values_list('volume_id', flat=True)
+        volume_ids = ProjectVolume.objects.filter(project=project, action='new').values_list('volume_id', flat=True)
         commit_counts['volumes'] = Volume.objects.filter(id__in=volume_ids, committed=False).update(committed=True)
 
-        port_ids = ProjectPort.objects.filter(project=project, action='create').values_list('port_id', flat=True)
+        port_ids = ProjectPort.objects.filter(project=project, action='new').values_list('port_id', flat=True)
         commit_counts['ports'] = Port.objects.filter(id__in=port_ids, committed=False).update(committed=True)
 
         # 4. Collect entities marked for deletion (for confirmation)
@@ -1504,13 +1504,13 @@ def project_commit_and_close(request, project_id):
         from core.utils.field_merge import apply_overrides_to_instance
 
         # Apply overrides for all modify actions
-        for pa in ProjectAlias.objects.filter(project=project, action='modify').select_related('alias'):
+        for pa in ProjectAlias.objects.filter(project=project, action='modified').select_related('alias'):
             if pa.field_overrides:
                 apply_overrides_to_instance(pa.alias, pa.field_overrides)
                 pa.alias.committed = True
                 pa.alias.save()
 
-        for pz in ProjectZone.objects.filter(project=project, action='modify').select_related('zone'):
+        for pz in ProjectZone.objects.filter(project=project, action='modified').select_related('zone'):
             if pz.field_overrides:
                 member_ids = pz.field_overrides.pop('member_ids', None)
                 apply_overrides_to_instance(pz.zone, pz.field_overrides)
@@ -1520,10 +1520,10 @@ def project_commit_and_close(request, project_id):
                     pz.zone.members.set(member_ids)
 
         # Mark create entities as committed
-        alias_ids = ProjectAlias.objects.filter(project=project, action='create').values_list('alias_id', flat=True)
+        alias_ids = ProjectAlias.objects.filter(project=project, action='new').values_list('alias_id', flat=True)
         Alias.objects.filter(id__in=alias_ids).update(committed=True)
 
-        zone_ids = ProjectZone.objects.filter(project=project, action='create').values_list('zone_id', flat=True)
+        zone_ids = ProjectZone.objects.filter(project=project, action='new').values_list('zone_id', flat=True)
         Zone.objects.filter(id__in=zone_ids).update(committed=True)
 
         # 2. Execute deletions if confirmed
@@ -1870,6 +1870,33 @@ def project_commit_execute(request, project_id):
             pp.port.save()
             modified_counts['ports'] += 1
 
+        # Clear field_overrides and reset action to 'unmodified' for modified entities
+        # (overrides have been applied to base entities, so project and base are now in sync)
+        ProjectFabric.objects.filter(project=project, action='modified', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectSwitch.objects.filter(project=project, action='modified', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectAlias.objects.filter(project=project, action='modified', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectZone.objects.filter(project=project, action='modified', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectStorage.objects.filter(project=project, action='modified', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectVolume.objects.filter(project=project, action='modified', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectHost.objects.filter(project=project, action='modified', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectPort.objects.filter(project=project, action='modified', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+
         # 3. Mark newly created entities as committed
         new_counts = {}
 
@@ -1896,6 +1923,33 @@ def project_commit_execute(request, project_id):
 
         port_ids = ProjectPort.objects.filter(project=project, action='new', delete_me=False).values_list('port_id', flat=True)
         new_counts['ports'] = Port.objects.filter(id__in=port_ids, committed=False).update(committed=True)
+
+        # Clear field_overrides and reset action to 'unmodified' for newly committed entities
+        # (they are now part of the base, so project and base are in sync)
+        ProjectFabric.objects.filter(project=project, action='new', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectSwitch.objects.filter(project=project, action='new', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectAlias.objects.filter(project=project, action='new', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectZone.objects.filter(project=project, action='new', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectStorage.objects.filter(project=project, action='new', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectVolume.objects.filter(project=project, action='new', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectHost.objects.filter(project=project, action='new', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
+        ProjectPort.objects.filter(project=project, action='new', delete_me=False).update(
+            field_overrides={}, action='unmodified'
+        )
 
         # 4. Delete entities marked with delete_me=True
         deletion_counts = {}
@@ -1985,7 +2039,7 @@ def _detect_field_conflicts(project):
     project_aliases = ProjectAlias.objects.filter(project=project).select_related('alias', 'project')
     other_aliases = ProjectAlias.objects.filter(
         alias_id__in=project_aliases.values_list('alias_id', flat=True)
-    ).exclude(project=project).exclude(action='reference').select_related('alias', 'project')
+    ).exclude(project=project).exclude(action='unmodified').select_related('alias', 'project')
 
     alias_conflicts = util_detect_conflicts(project_aliases, other_aliases)
     conflicts.extend(alias_conflicts)
@@ -1994,7 +2048,7 @@ def _detect_field_conflicts(project):
     project_zones = ProjectZone.objects.filter(project=project).select_related('zone', 'project')
     other_zones = ProjectZone.objects.filter(
         zone_id__in=project_zones.values_list('zone_id', flat=True)
-    ).exclude(project=project).exclude(action='reference').select_related('zone', 'project')
+    ).exclude(project=project).exclude(action='unmodified').select_related('zone', 'project')
 
     zone_conflicts = util_detect_conflicts(project_zones, other_zones)
     conflicts.extend(zone_conflicts)
@@ -2106,17 +2160,17 @@ def project_summary(request, project_id):
             'project_status': project.status,
             'aliases': {
                 'total': ProjectAlias.objects.filter(project=project).count(),
-                'create': ProjectAlias.objects.filter(project=project, action='create').count(),
+                'create': ProjectAlias.objects.filter(project=project, action='new').count(),
                 'delete': ProjectAlias.objects.filter(project=project, action='delete').count(),
-                'modify': ProjectAlias.objects.filter(project=project, action='modify').count(),
-                'reference': ProjectAlias.objects.filter(project=project, action='reference').count(),
+                'modify': ProjectAlias.objects.filter(project=project, action='modified').count(),
+                'unmodified': ProjectAlias.objects.filter(project=project, action='unmodified').count(),
             },
             'zones': {
                 'total': ProjectZone.objects.filter(project=project).count(),
-                'create': ProjectZone.objects.filter(project=project, action='create').count(),
+                'create': ProjectZone.objects.filter(project=project, action='new').count(),
                 'delete': ProjectZone.objects.filter(project=project, action='delete').count(),
-                'modify': ProjectZone.objects.filter(project=project, action='modify').count(),
-                'reference': ProjectZone.objects.filter(project=project, action='reference').count(),
+                'modify': ProjectZone.objects.filter(project=project, action='modified').count(),
+                'unmodified': ProjectZone.objects.filter(project=project, action='unmodified').count(),
             },
             'fabrics': {
                 'total': ProjectFabric.objects.filter(project=project).count(),

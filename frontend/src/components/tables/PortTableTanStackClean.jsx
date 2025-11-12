@@ -11,7 +11,8 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Port management
 // Props:
@@ -212,7 +213,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
 
     // Handle adding port to project
-    const handleAddPortToProject = useCallback(async (portId, action = 'reference') => {
+    const handleAddPortToProject = useCallback(async (portId, action = 'unmodified') => {
         try {
             if (!activeProjectId) return false;
             const response = await api.post(`${API_URL}/api/core/projects/${activeProjectId}/add-port/`, {
@@ -237,7 +238,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
 
             for (const portId of toAdd) {
-                await handleAddPortToProject(portId, 'reference');
+                await handleAddPortToProject(portId, 'unmodified');
             }
             for (const portId of toRemove) {
                 await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-port/${portId}/`);
@@ -266,89 +267,19 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         return cleanValue.length <= 16 && /^[0-9a-fA-F]*$/.test(cleanValue);
     }, []);
 
-    // Core port columns - all available columns
+    // Load columns from centralized configuration
     const allColumns = useMemo(() => {
-        const baseColumns = [];
-
-        // Add selection checkbox column only in Project View
-        if (projectFilter === 'current') {
-            baseColumns.push({
-                data: "_selected",
-                title: "Select",
-                type: "checkbox",
-                readOnly: false,
-                width: 60,
-                defaultVisible: true,
-                accessorKey: "_selected"
-            });
-        }
-
-        baseColumns.push(
-        { data: "name", title: "Name", required: true, width: 150 }
-        );
-
-        // Add Project Status column (shows New/Delete/Modified/Unmodified) after Name in Project View
-        if (projectFilter === 'current') {
-            baseColumns.push(projectStatusColumn);
-        }
-
-        baseColumns.push(
-        {
-            data: "storage",
-            title: "Storage System",
-            type: "dropdown",
-            required: true,
-            width: 200
-        },
-        { data: "wwpn", title: "WWPN", width: 180 },
-        {
-            data: "type",
-            title: "Type",
-            type: "dropdown",
-            required: true,
-            width: 150
-        },
-        {
-            data: "speed_gbps",
-            title: "Speed (Gbps)",
-            type: "dropdown",
-            width: 120
-        },
-        {
-            data: "use",
-            title: "Use",
-            type: "dropdown",
-            width: 120
-        },
-        {
-            data: "protocol",
-            title: "Protocol",
-            type: "dropdown",
-            width: 120
-        },
-        { data: "location", title: "Location", width: 150 },
-        { data: "frame", title: "Frame", type: "numeric", width: 100 },
-        { data: "io_enclosure", title: "I/O Enclosure", type: "numeric", width: 130 },
-        {
-            data: "fabric",
-            title: "Fabric",
-            readOnly: true,
-            width: 150
-        },
-        {
-            data: "alias",
-            title: "Alias",
-            readOnly: true,
-            width: 150
-        });
-
-        return baseColumns;
+        return getTableColumns('port', projectFilter === 'current');
     }, [projectFilter]);
 
     // Filter columns based on hideColumns prop
     const columns = allColumns.filter(col => !hideColumns.includes(col.data));
 
-    const colHeaders = columns.map(col => col.title);
+    const colHeaders = useMemo(() => {
+        return columns.map(col => col.title);
+    }, [columns]);
+
+    const defaultSort = getDefaultSort('port');
 
     const NEW_PORT_TEMPLATE = useMemo(() => ({
         id: null,
@@ -674,6 +605,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 columns={columns}
                 colHeaders={colHeaders}
                 newRowTemplate={NEW_PORT_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Dropdown Configuration
                 dropdownSources={dropdownSources}

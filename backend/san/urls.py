@@ -35,6 +35,7 @@ from .views import (
     bulk_update_aliases_create,
     bulk_update_hosts_create,
     switch_management,
+    switch_save_view,
     switch_delete_view,
     switch_project_view,
     switches_by_customer_view
@@ -89,6 +90,7 @@ urlpatterns = [
     # Switch management endpoints
     path("switches/", switch_management, name="switch-list"),
     path("switches/<int:pk>/", switch_management, name="switch-detail"),
+    path("switches/save/", switch_save_view, name="save-switches"),
     path("switches/delete/<int:pk>/", switch_delete_view, name="switch-delete"),
     path("switches/customer/<int:customer_id>/", switches_by_customer_view, name="switches-by-customer"),
     path("switches/project/<int:project_id>/view/", switch_project_view, name="switch-project-view"),

@@ -2160,7 +2160,7 @@ def alias_save_view(request):
                         ProjectHost.objects.create(
                             project=project,
                             host=new_host,
-                            action='create',
+                            action='new',
                             added_by=user
                         )
                         print(f"✅ Created new host: {host_name} (ID: {new_host.id})")
@@ -2221,9 +2221,9 @@ def alias_save_view(request):
                             current_overrides.update(changed_fields)
                             project_alias.field_overrides = current_overrides
 
-                            # Update action to 'modify' unless it's already 'create'
-                            if project_alias.action not in ['create', 'delete']:
-                                project_alias.action = 'modify'
+                            # Update action to 'modified' unless it's already 'new'
+                            if project_alias.action not in ['new', 'delete']:
+                                project_alias.action = 'modified'
 
                             project_alias.added_by = user
                             project_alias.save()
@@ -2265,7 +2265,7 @@ def alias_save_view(request):
                     ProjectAlias.objects.create(
                         project=project,
                         alias=alias,
-                        action='create',
+                        action='new',
                         include_in_zoning=False,
                         added_by=user,
                         notes='Auto-created with alias'
@@ -2965,9 +2965,9 @@ def zone_save_view(request):
 
                             project_zone.field_overrides = current_overrides
 
-                            # Update action to 'modify' unless it's already 'create'
-                            if project_zone.action not in ['create', 'delete']:
-                                project_zone.action = 'modify'
+                            # Update action to 'modified' unless it's already 'new'
+                            if project_zone.action not in ['new', 'delete']:
+                                project_zone.action = 'modified'
 
                             project_zone.added_by = user
                             project_zone.save()
@@ -3001,7 +3001,7 @@ def zone_save_view(request):
                     ProjectZone.objects.create(
                         project=project,
                         zone=zone,
-                        action='create',
+                        action='new',
                         added_by=user,
                         notes='Auto-created with zone'
                     )
@@ -3266,14 +3266,14 @@ def generate_alias_scripts(request, project_id):
     # Filter aliases by the actual project_id passed in the URL using junction table
     try:
         # Get aliases to create from junction table
-        create_alias_ids = ProjectAlias.objects.filter(project=project, action='create').values_list('alias_id', flat=True)
+        create_alias_ids = ProjectAlias.objects.filter(project=project, action='new').values_list('alias_id', flat=True)
         create_aliases = Alias.objects.filter(id__in=create_alias_ids)
 
         # Get aliases to delete from junction table
         delete_alias_ids = ProjectAlias.objects.filter(project=project, action='delete').values_list('alias_id', flat=True)
         delete_aliases = Alias.objects.filter(id__in=delete_alias_ids)
 
-        print(f"🔍 Found {create_aliases.count()} aliases with action=create for project {project_id}")
+        print(f"🔍 Found {create_aliases.count()} aliases with action=new for project {project_id}")
         print(f"🔍 Found {delete_aliases.count()} aliases with action=delete for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
@@ -3311,22 +3311,22 @@ def generate_zone_scripts(request, project_id):
     # Filter zones by the actual project_id passed in the URL using junction table
     try:
         # Get zones to create from junction table
-        create_zone_ids = ProjectZone.objects.filter(project=project, action='create').values_list('zone_id', flat=True)
+        create_zone_ids = ProjectZone.objects.filter(project=project, action='new').values_list('zone_id', flat=True)
         create_zones = Zone.objects.filter(id__in=create_zone_ids)
 
         # Get zones to delete from junction table
         delete_zone_ids = ProjectZone.objects.filter(project=project, action='delete').values_list('zone_id', flat=True)
         delete_zones = Zone.objects.filter(id__in=delete_zone_ids)
 
-        print(f"🔍 Found {create_zones.count()} zones with action=create for project {project_id}")
+        print(f"🔍 Found {create_zones.count()} zones with action=new for project {project_id}")
         print(f"🔍 Found {delete_zones.count()} zones with action=delete for project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
-    # Check for aliases with action=create that are missing cisco_alias for Cisco fabrics
+    # Check for aliases with action=new that are missing cisco_alias for Cisco fabrics
     warnings = []
     try:
-        create_alias_ids = ProjectAlias.objects.filter(project=project, action='create').values_list('alias_id', flat=True)
+        create_alias_ids = ProjectAlias.objects.filter(project=project, action='new').values_list('alias_id', flat=True)
         create_aliases = Alias.objects.filter(id__in=create_alias_ids).select_related('fabric')
         invalid_cisco_aliases = [
             alias for alias in create_aliases
@@ -3636,9 +3636,9 @@ def generate_zone_creation_scripts(request, project_id):
 
     # Filter zones by the actual project_id passed in the URL using junction table
     try:
-        create_zone_ids = ProjectZone.objects.filter(project=project, action='create').values_list('zone_id', flat=True)
+        create_zone_ids = ProjectZone.objects.filter(project=project, action='new').values_list('zone_id', flat=True)
         create_zones = Zone.objects.filter(id__in=create_zone_ids)
-        print(f"🔍 Found {create_zones.count()} zones with action=create for project {project_id}")
+        print(f"🔍 Found {create_zones.count()} zones with action=new for project {project_id}")
     except Exception as e:
         print(f"❌ Error fetching zones: {e}")
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
@@ -3718,7 +3718,7 @@ def bulk_update_alias_boolean(request, project_id):
         if field in ['create', 'delete']:
             # Map boolean to action field on junction table
             if field == 'create':
-                new_action = 'create' if value else 'reference'
+                new_action = 'new' if value else 'unmodified'
             else:  # delete
                 new_action = 'delete' if value else 'reference'
 
@@ -3840,7 +3840,7 @@ def bulk_update_zone_boolean(request, project_id):
         if field in ['create', 'delete']:
             # Map boolean to action field on junction table
             if field == 'create':
-                new_action = 'create' if value else 'reference'
+                new_action = 'new' if value else 'unmodified'
             else:  # delete
                 new_action = 'delete' if value else 'reference'
 
@@ -3912,7 +3912,7 @@ def bulk_update_zones_create(request):
             create_value = zone_data.get('create', False)
 
             # Map boolean to action
-            new_action = 'create' if create_value else 'reference'
+            new_action = 'new' if create_value else 'unmodified'
 
             try:
                 # Update ProjectZone junction table
@@ -3974,7 +3974,7 @@ def bulk_update_aliases_create(request):
             create_value = alias_data.get('create', False)
 
             # Map boolean to action
-            new_action = 'create' if create_value else 'reference'
+            new_action = 'new' if create_value else 'unmodified'
 
             try:
                 # Update ProjectAlias junction table
@@ -4444,6 +4444,135 @@ def fabric_project_view(request, project_id):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def switch_save_view(request):
+    """Save or update switches with field override support for projects."""
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        data = json.loads(request.body)
+        project_id = data.get("project_id")
+        switches_data = data.get("switches", [])
+
+        if not project_id or not switches_data:
+            return JsonResponse({"error": "Project ID and switches data are required."}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found."}, status=404)
+
+        # Check if user has permission to modify switches
+        if user:
+            from core.permissions import can_modify_project
+            if not can_modify_project(user, project):
+                return JsonResponse({"error": "Only project owners, members, and admins can modify switches. Viewers have read-only access."}, status=403)
+
+        saved_switches = []
+        errors = []
+
+        for switch_data in switches_data:
+            switch_id = switch_data.get("id")
+
+            if switch_id:
+                switch = Switch.objects.filter(id=switch_id).first()
+                if switch:
+                    # Optimistic locking - check version
+                    client_version = switch_data.get('version')
+                    if client_version is not None and switch.version != client_version:
+                        errors.append({
+                            "switch": switch_data.get("name", "Unknown"),
+                            "errors": {
+                                "version": f"Conflict: This switch was modified by {switch.last_modified_by.username if switch.last_modified_by else 'another user'} at {switch.last_modified_at}. Please refresh and try again.",
+                                "current_version": switch.version,
+                                "last_modified_by": switch.last_modified_by.username if switch.last_modified_by else None,
+                                "last_modified_at": switch.last_modified_at.isoformat() if switch.last_modified_at else None
+                            }
+                        })
+                        continue
+
+                    # Validate the incoming data
+                    serializer = SwitchSerializer(switch, data=switch_data, partial=True)
+                    if serializer.is_valid():
+                        # Extract only changed fields
+                        from core.utils.field_merge import extract_changed_fields
+
+                        # Get validated data
+                        validated_data = serializer.validated_data.copy()
+
+                        # Extract only fields that actually changed
+                        changed_fields = extract_changed_fields(switch, validated_data)
+
+                        if changed_fields:
+                            # Get or create ProjectSwitch for this project
+                            project_switch, ps_created = ProjectSwitch.objects.get_or_create(
+                                project=project,
+                                switch=switch,
+                                defaults={
+                                    'action': 'unmodified',
+                                    'added_by': user,
+                                    'field_overrides': {}
+                                }
+                            )
+
+                            # Update field_overrides with new changes
+                            current_overrides = project_switch.field_overrides or {}
+                            current_overrides.update(changed_fields)
+                            project_switch.field_overrides = current_overrides
+
+                            # Update action to 'modified' unless it's already 'new'
+                            if project_switch.action not in ['new', 'delete']:
+                                project_switch.action = 'modified'
+
+                            project_switch.added_by = user
+                            project_switch.save()
+
+                            print(f"✏️ Stored field overrides for switch '{switch.name}' in project '{project.name}': {changed_fields}")
+
+                        # Return the base switch data (not modified)
+                        saved_switches.append(SwitchSerializer(switch).data)
+                    else:
+                        errors.append({"switch": switch_data.get("name", "Unknown"), "errors": serializer.errors})
+            else:
+                # Create new switch
+                serializer = SwitchSerializer(data=switch_data)
+                if serializer.is_valid():
+                    switch = serializer.save(
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project
+                    )
+                    if user:
+                        switch.last_modified_by = user
+                        switch.save(update_fields=["last_modified_by"])
+
+                    # Auto-add to current project via junction table
+                    ProjectSwitch.objects.create(
+                        project=project,
+                        switch=switch,
+                        action='new',
+                        added_by=user,
+                        notes='Auto-created with switch'
+                    )
+
+                    saved_switches.append(serializer.data)
+                else:
+                    errors.append({"switch": switch_data.get("name", "Unknown"), "errors": serializer.errors})
+
+        if errors:
+            return JsonResponse({"error": "Some switches could not be saved.", "details": errors}, status=400)
+
+        # Clear dashboard cache when switches are saved
+        customer = project.customers.first()
+        if customer:
+            clear_dashboard_cache_for_customer(customer.id)
+
+        return JsonResponse({"message": "Switches saved successfully!", "switches": saved_switches})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def fabric_save_view(request):
     """Save or update fabrics with field override support for projects."""
     user = request.user if request.user.is_authenticated else None
@@ -4519,9 +4648,9 @@ def fabric_save_view(request):
                             current_overrides.update(changed_fields)
                             project_fabric.field_overrides = current_overrides
 
-                            # Update action to 'modify' unless it's already 'create'
-                            if project_fabric.action not in ['create', 'delete']:
-                                project_fabric.action = 'modify'
+                            # Update action to 'modified' unless it's already 'new'
+                            if project_fabric.action not in ['new', 'delete']:
+                                project_fabric.action = 'modified'
 
                             project_fabric.added_by = user
                             project_fabric.save()
@@ -4549,7 +4678,7 @@ def fabric_save_view(request):
                     ProjectFabric.objects.create(
                         project=project,
                         fabric=fabric,
-                        action='create',
+                        action='new',
                         added_by=user,
                         notes='Auto-created with fabric'
                     )

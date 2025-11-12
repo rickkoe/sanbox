@@ -1,0 +1,1140 @@
+{
+  "fabric": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "san_vendor",
+        "title": "Vendor",
+        "type": "dropdown",
+        "dropdownSource": "san_vendor",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "project_memberships",
+        "title": "Projects",
+        "type": "custom",
+        "readOnly": true,
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "switches",
+        "title": "Switches",
+        "type": "text",
+        "readOnly": true,
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "zoneset_name",
+        "title": "Zoneset Name",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "vsan",
+        "title": "VSAN",
+        "type": "numeric",
+        "defaultVisible": false
+      },
+      {
+        "id": "alias_count",
+        "title": "Aliases",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "zone_count",
+        "title": "Zones",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "exists",
+        "title": "Exists",
+        "type": "checkbox",
+        "defaultVisible": true
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true
+      }
+    ]
+  },
+  "alias": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "use",
+        "title": "Use",
+        "type": "dropdown",
+        "dropdownSource": "use",
+        "defaultVisible": true
+      },
+      {
+        "id": "fabric_details.name",
+        "title": "Fabric",
+        "type": "dropdown",
+        "dropdownSource": "fabric_details.name",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "host_details.name",
+        "title": "Host",
+        "type": "dropdown",
+        "dropdownSource": "host_details.name",
+        "defaultVisible": true
+      },
+      {
+        "id": "storage_details.name",
+        "title": "Storage System",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "cisco_alias",
+        "title": "Alias Type",
+        "type": "dropdown",
+        "dropdownSource": "cisco_alias",
+        "defaultVisible": true
+      },
+      {
+        "id": "committed",
+        "title": "Committed",
+        "type": "checkbox",
+        "defaultVisible": true
+      },
+      {
+        "id": "deployed",
+        "title": "Deployed",
+        "type": "checkbox",
+        "defaultVisible": true
+      },
+      {
+        "id": "logged_in",
+        "title": "Logged In",
+        "type": "checkbox",
+        "defaultVisible": false
+      },
+      {
+        "id": "zoned_count",
+        "title": "Zoned Count",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "imported",
+        "title": "Imported",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      },
+      {
+        "id": "updated",
+        "title": "Updated",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true
+      }
+    ]
+  },
+  "zone": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "fabric",
+        "title": "Fabric",
+        "type": "dropdown",
+        "dropdownSource": "fabric",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "zone_type",
+        "title": "Zone Type",
+        "type": "dropdown",
+        "dropdownSource": "zone_type",
+        "defaultVisible": true
+      },
+      {
+        "id": "committed",
+        "title": "Committed",
+        "type": "checkbox",
+        "defaultVisible": true
+      },
+      {
+        "id": "deployed",
+        "title": "Deployed",
+        "type": "checkbox",
+        "defaultVisible": true
+      },
+      {
+        "id": "exists",
+        "title": "Exists",
+        "type": "checkbox",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "member_count",
+        "title": "Members",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "imported",
+        "title": "Imported",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      },
+      {
+        "id": "updated",
+        "title": "Updated",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true
+      }
+    ]
+  },
+  "storage": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "id",
+        "title": "Details",
+        "type": "custom",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "storage_type",
+        "title": "Type",
+        "type": "dropdown",
+        "dropdownSource": "storage_type",
+        "defaultVisible": true
+      },
+      {
+        "id": "location",
+        "title": "Location",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "storage_system_id",
+        "title": "Storage System ID",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "machine_type",
+        "title": "Machine Type",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "model",
+        "title": "Model",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "serial_number",
+        "title": "Serial Number",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "db_volumes_count",
+        "title": "DB Volumes",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "db_hosts_count",
+        "title": "DB Hosts",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "db_aliases_count",
+        "title": "DB Aliases",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "system_id",
+        "title": "System ID",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "wwnn",
+        "title": "WWNN",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "firmware_level",
+        "title": "Firmware Level",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "primary_ip",
+        "title": "Primary IP",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "secondary_ip",
+        "title": "Secondary IP",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "vendor",
+        "title": "Vendor",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "condition",
+        "title": "Condition",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "probe_status",
+        "title": "Probe Status",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "capacity_bytes",
+        "title": "Capacity (Bytes)",
+        "type": "numeric",
+        "defaultVisible": false
+      },
+      {
+        "id": "used_capacity_bytes",
+        "title": "Used Capacity (Bytes)",
+        "type": "numeric",
+        "defaultVisible": false
+      },
+      {
+        "id": "available_capacity_bytes",
+        "title": "Available Capacity (Bytes)",
+        "type": "numeric",
+        "defaultVisible": false
+      },
+      {
+        "id": "volumes_count",
+        "title": "SI Volumes Count",
+        "type": "numeric",
+        "defaultVisible": false
+      },
+      {
+        "id": "pools_count",
+        "title": "Pools Count",
+        "type": "numeric",
+        "defaultVisible": false
+      },
+      {
+        "id": "disks_count",
+        "title": "Disks Count",
+        "type": "numeric",
+        "defaultVisible": false
+      },
+      {
+        "id": "fc_ports_count",
+        "title": "FC Ports Count",
+        "type": "numeric",
+        "defaultVisible": false
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "imported",
+        "title": "Imported",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      },
+      {
+        "id": "updated",
+        "title": "Updated",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      }
+    ]
+  },
+  "volume": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Volume Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 200
+      },
+      {
+        "id": "storage",
+        "title": "Storage System",
+        "type": "dropdown",
+        "dropdownSource": "storage",
+        "required": true,
+        "defaultVisible": true,
+        "width": 180
+      },
+      {
+        "id": "volume_id",
+        "title": "Volume ID",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "volume_number",
+        "title": "Volume Number",
+        "type": "numeric",
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "volser",
+        "title": "Volser",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 100
+      },
+      {
+        "id": "format",
+        "title": "Format",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 100
+      },
+      {
+        "id": "capacity_bytes",
+        "title": "Capacity",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "used_capacity_bytes",
+        "title": "Used Capacity",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 130
+      },
+      {
+        "id": "used_capacity_percent",
+        "title": "Used %",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 100
+      },
+      {
+        "id": "available_capacity_bytes",
+        "title": "Available",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "written_capacity_bytes",
+        "title": "Written",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 120
+      },
+      {
+        "id": "written_capacity_percent",
+        "title": "Written %",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "pool_name",
+        "title": "Pool Name",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "pool_id",
+        "title": "Pool ID",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "lss_lcu",
+        "title": "LSS/LCU",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "node",
+        "title": "Node",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "block_size",
+        "title": "Block Size",
+        "type": "numeric",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "thin_provisioned",
+        "title": "Thin Provisioned",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 130
+      },
+      {
+        "id": "compressed",
+        "title": "Compressed",
+        "type": "checkbox",
+        "defaultVisible": false,
+        "width": 110
+      },
+      {
+        "id": "compression_saving_percent",
+        "title": "Compression %",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 130
+      },
+      {
+        "id": "encryption",
+        "title": "Encryption",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "flashcopy",
+        "title": "FlashCopy",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "auto_expand",
+        "title": "Auto Expand",
+        "type": "checkbox",
+        "defaultVisible": false,
+        "width": 110
+      },
+      {
+        "id": "easy_tier",
+        "title": "Easy Tier",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 120
+      },
+      {
+        "id": "easy_tier_status",
+        "title": "Easy Tier Status",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 140
+      },
+      {
+        "id": "safeguarded",
+        "title": "Safeguarded",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 120
+      },
+      {
+        "id": "raid_level",
+        "title": "RAID Level",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 110
+      },
+      {
+        "id": "io_group",
+        "title": "I/O Group",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "status_label",
+        "title": "Status",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "acknowledged",
+        "title": "Acknowledged",
+        "type": "checkbox",
+        "defaultVisible": false,
+        "width": 120
+      },
+      {
+        "id": "unique_id",
+        "title": "Unique ID",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 200
+      },
+      {
+        "id": "natural_key",
+        "title": "Natural Key",
+        "type": "text",
+        "defaultVisible": false,
+        "width": 150
+      },
+      {
+        "id": "imported",
+        "title": "Imported",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 150
+      },
+      {
+        "id": "updated",
+        "title": "Updated",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 150
+      }
+    ]
+  },
+  "host": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Host Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "storage_system",
+        "title": "Storage System",
+        "type": "dropdown",
+        "dropdownSource": "storage_system",
+        "defaultVisible": true
+      },
+      {
+        "id": "wwpns",
+        "title": "WWPNs",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "wwpn_status",
+        "title": "WWPN Status",
+        "type": "dropdown",
+        "dropdownSource": "wwpn_status",
+        "defaultVisible": true
+      },
+      {
+        "id": "status",
+        "title": "Status",
+        "type": "dropdown",
+        "dropdownSource": "status",
+        "defaultVisible": true
+      },
+      {
+        "id": "host_type",
+        "title": "Host Type",
+        "type": "dropdown",
+        "dropdownSource": "host_type",
+        "defaultVisible": true
+      },
+      {
+        "id": "aliases_count",
+        "title": "Aliases Count",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "vols_count",
+        "title": "Volumes Count",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "fc_ports_count",
+        "title": "FC Ports Count",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "associated_resource",
+        "title": "Associated Resource",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "volume_group",
+        "title": "Volume Group",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "acknowledged",
+        "title": "Acknowledged",
+        "type": "dropdown",
+        "dropdownSource": "acknowledged",
+        "defaultVisible": false
+      },
+      {
+        "id": "last_data_collection",
+        "title": "Last Data Collection",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      },
+      {
+        "id": "natural_key",
+        "title": "Natural Key",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "create",
+        "title": "Create",
+        "type": "checkbox",
+        "defaultVisible": false
+      },
+      {
+        "id": "imported",
+        "title": "Imported",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      },
+      {
+        "id": "updated",
+        "title": "Updated",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": false
+      }
+    ]
+  },
+  "port": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "storage",
+        "title": "Storage System",
+        "type": "dropdown",
+        "dropdownSource": "storage",
+        "required": true,
+        "defaultVisible": true,
+        "width": 200
+      },
+      {
+        "id": "wwpn",
+        "title": "WWPN",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 180
+      },
+      {
+        "id": "type",
+        "title": "Type",
+        "type": "dropdown",
+        "dropdownSource": "type",
+        "required": true,
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "speed_gbps",
+        "title": "Speed (Gbps)",
+        "type": "dropdown",
+        "dropdownSource": "speed_gbps",
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "use",
+        "title": "Use",
+        "type": "dropdown",
+        "dropdownSource": "use",
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "protocol",
+        "title": "Protocol",
+        "type": "dropdown",
+        "dropdownSource": "protocol",
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "location",
+        "title": "Location",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "frame",
+        "title": "Frame",
+        "type": "numeric",
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "io_enclosure",
+        "title": "I/O Enclosure",
+        "type": "numeric",
+        "defaultVisible": false,
+        "width": 130
+      },
+      {
+        "id": "fabric",
+        "title": "Fabric",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "alias",
+        "title": "Alias",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 150
+      }
+    ]
+  },
+  "switch": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "san_vendor",
+        "title": "Vendor",
+        "type": "dropdown",
+        "dropdownSource": "san_vendor",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "project_memberships",
+        "title": "Projects",
+        "type": "custom",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "fabrics",
+        "title": "Fabrics",
+        "type": "dropdown",
+        "dropdownSource": "fabrics",
+        "allowMultiple": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "domain_ids",
+        "title": "Domain IDs",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "wwnn",
+        "title": "WWNN",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "ip_address",
+        "title": "IP Address",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "subnet_mask",
+        "title": "Subnet Mask",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "gateway",
+        "title": "Gateway",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "model",
+        "title": "Model",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "serial_number",
+        "title": "Serial Number",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "firmware_version",
+        "title": "Firmware Version",
+        "type": "text",
+        "defaultVisible": false
+      },
+      {
+        "id": "is_active",
+        "title": "Active",
+        "type": "checkbox",
+        "defaultVisible": true
+      },
+      {
+        "id": "location",
+        "title": "Location",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true
+      }
+    ]
+  },
+  "customer": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Customer Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "insights_tenant",
+        "title": "Storage Insights Tenant",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "insights_api_key",
+        "title": "Storage Insights API Key",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "insights_portal",
+        "title": "Storage Insights Portal",
+        "type": "custom",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true
+      }
+    ]
+  },
+  "project": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Project Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "customer",
+        "title": "Customer",
+        "type": "dropdown",
+        "dropdownSource": "customer",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "fabric_count",
+        "title": "Fabrics",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "alias_count",
+        "title": "Aliases",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "zone_count",
+        "title": "Zones",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "storage_system_count",
+        "title": "Storage Systems",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "host_count",
+        "title": "Hosts",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true
+      },
+      {
+        "id": "project_actions",
+        "title": "Actions",
+        "type": "custom",
+        "readOnly": true,
+        "width": 240,
+        "defaultVisible": true
+      }
+    ]
+  }
+}

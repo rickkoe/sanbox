@@ -12,7 +12,8 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { getTableColumns, getDefaultSort } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Zone management
 const ZoneTableTanStackClean = () => {
@@ -306,50 +307,31 @@ const ZoneTableTanStackClean = () => {
     // Customer View is always read-only; Project View depends on permissions
     const isReadOnly = projectFilter !== 'current' || !canEdit;
 
-    // Base zone columns (main columns before member columns)
+    // Get default sort configuration
+    const defaultSort = getDefaultSort('zone');
+
+    // Base zone columns (main columns before member columns) - loaded from centralized configuration
+    // Zone table has complex structure: base columns + dynamic member columns + trailing columns
     const baseColumns = useMemo(() => {
-        const allColumns = [];
+        // Get columns from config - this includes selection, name, project_action, and initial fields
+        const configColumns = getTableColumns('zone', projectFilter === 'current');
 
-        // Add selection checkbox column ONLY in Project View
-        if (projectFilter === 'current') {
-            allColumns.push({
-                data: "_selected",
-                title: "Select",
-                type: "checkbox",
-                readOnly: false,
-                width: 60,
-                defaultVisible: true,
-                accessorKey: "_selected"
-            });
-        }
-
-        allColumns.push(
-            { data: "name", title: "Name", required: true }
+        // Filter to only get initial columns (name, fabric, zone_type)
+        // The rest (committed, deployed, etc.) will be trailing columns
+        return configColumns.filter(col =>
+            ['_selected', 'name', 'project_action', 'fabric', 'zone_type'].includes(col.data)
         );
-
-        // Add Project Status column (shows New/Delete/Modified/Unmodified) after Name in Project View
-        if (projectFilter === 'current') {
-            allColumns.push(projectStatusColumn);
-        }
-
-        allColumns.push(
-            { data: "fabric", title: "Fabric", type: "dropdown", required: true },
-            { data: "zone_type", title: "Zone Type", type: "dropdown" }
-        );
-
-        return allColumns;
     }, [projectFilter]);
 
-    // Trailing columns (appear after member columns)
-    const trailingColumns = [
-        { data: "committed", title: "Committed", type: "checkbox", defaultVisible: true },
-        { data: "deployed", title: "Deployed", type: "checkbox", defaultVisible: true },
-        { data: "exists", title: "Exists", type: "checkbox", readOnly: true },
-        { data: "member_count", title: "Members", type: "numeric", readOnly: true },
-        { data: "imported", title: "Imported", readOnly: true },
-        { data: "updated", title: "Updated", readOnly: true },
-        { data: "notes", title: "Notes" }
-    ];
+    // Trailing columns (appear after member columns) - from config
+    const trailingColumns = useMemo(() => {
+        const configColumns = getTableColumns('zone', projectFilter === 'current');
+
+        // Get the trailing columns (everything after zone_type)
+        return configColumns.filter(col =>
+            ['committed', 'deployed', 'exists', 'member_count', 'imported', 'updated', 'notes'].includes(col.data)
+        );
+    }, [projectFilter]);
 
     // Generate dynamic member columns organized by use type
     const memberColumns = useMemo(() => {
@@ -1079,7 +1061,7 @@ const ZoneTableTanStackClean = () => {
     }, [fabricsById]); // memberColumnCounts accessed via ref - not in deps to prevent reload
 
     // API handlers for add/remove zone from project
-    const handleAddZoneToProject = useCallback(async (zoneId, action = 'reference') => {
+    const handleAddZoneToProject = useCallback(async (zoneId, action = 'unmodified') => {
         try {
             const projectId = activeProjectId;
             if (!projectId) {
@@ -1186,7 +1168,7 @@ const ZoneTableTanStackClean = () => {
             // Process additions
             for (const zoneId of toAdd) {
                 try {
-                    const success = await handleAddZoneToProject(zoneId, 'reference');
+                    const success = await handleAddZoneToProject(zoneId, 'unmodified');
                     if (success) successCount++;
                     else errorCount++;
                 } catch (error) {
@@ -1290,7 +1272,7 @@ const ZoneTableTanStackClean = () => {
             `;
 
             const options = [
-                { action: 'reference', label: 'Reference Only', description: 'Just track it' },
+                { action: 'unmodified', label: 'Reference Only', description: 'Just track it' },
                 { action: 'modify', label: 'Mark for Modification', description: "You'll modify it" },
                 { action: 'delete', label: 'Mark for Deletion', description: "You'll delete it" }
             ];
@@ -1696,6 +1678,7 @@ const ZoneTableTanStackClean = () => {
                 dropdownSources={dropdownSources}
                 dropdownFilters={dropdownFilters}
                 newRowTemplate={NEW_ZONE_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Data Processing
                 preprocessData={preprocessData}

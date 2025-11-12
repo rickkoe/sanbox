@@ -11,7 +11,8 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Alias management
 const AliasTableTanStackClean = () => {
@@ -175,49 +176,13 @@ const AliasTableTanStackClean = () => {
         };
     }, [API_URL, apiUrl]);
 
-    // Base alias columns (non-WWPN columns)
+    // Base alias columns (non-WWPN columns) - loaded from centralized configuration
     const baseColumns = useMemo(() => {
-        const allColumns = [];
-
-        // Add selection checkbox column only in Project View
-        if (projectFilter === 'current') {
-            allColumns.push({
-                data: "_selected",
-                title: "Select",
-                type: "checkbox",
-                readOnly: false,
-                width: 60,
-                defaultVisible: true,
-                accessorKey: "_selected"
-            });
-        }
-
-        allColumns.push(
-            { data: "name", title: "Name", required: true }
-        );
-
-        // Add Project Status column (shows New/Delete/Modified/Unmodified) after Name in Project View
-        if (projectFilter === 'current') {
-            allColumns.push(projectStatusColumn);
-        }
-
-        allColumns.push(
-            { data: "use", title: "Use", type: "dropdown" },
-            { data: "fabric_details.name", title: "Fabric", type: "dropdown", required: true },
-            { data: "host_details.name", title: "Host", type: "dropdown" },
-            { data: "storage_details.name", title: "Storage System", readOnly: true },
-            { data: "cisco_alias", title: "Alias Type", type: "dropdown" },
-            { data: "committed", title: "Committed", type: "checkbox", defaultVisible: true },
-            { data: "deployed", title: "Deployed", type: "checkbox", defaultVisible: true },
-            { data: "logged_in", title: "Logged In", type: "checkbox", defaultVisible: false },
-            { data: "zoned_count", title: "Zoned Count", type: "numeric", readOnly: true },
-            { data: "imported", title: "Imported", readOnly: true, defaultVisible: false },
-            { data: "updated", title: "Updated", readOnly: true, defaultVisible: false },
-            { data: "notes", title: "Notes" }
-        );
-
-        return allColumns;
+        return getTableColumns('alias', projectFilter === 'current');
     }, [projectFilter]);
+
+    // Get default sort configuration
+    const defaultSort = getDefaultSort('alias');
 
     // Generate dynamic WWPN columns
     const wwpnColumns = useMemo(() => {
@@ -442,7 +407,7 @@ const AliasTableTanStackClean = () => {
     }), [fabricOptions, hostOptions]);
 
     // API handlers for add/remove alias from project
-    const handleAddAliasToProject = useCallback(async (aliasId, action = 'reference') => {
+    const handleAddAliasToProject = useCallback(async (aliasId, action = 'unmodified') => {
         try {
             const projectId = activeProjectId;
             if (!projectId) {
@@ -540,7 +505,7 @@ const AliasTableTanStackClean = () => {
             // Process additions
             for (const aliasId of toAdd) {
                 try {
-                    const success = await handleAddAliasToProject(aliasId, 'reference');
+                    const success = await handleAddAliasToProject(aliasId, 'unmodified');
                     if (success) successCount++;
                     else errorCount++;
                 } catch (error) {
@@ -636,7 +601,7 @@ const AliasTableTanStackClean = () => {
             `;
 
             const options = [
-                { action: 'reference', label: 'Reference Only', description: 'Just track it' },
+                { action: 'unmodified', label: 'Reference Only', description: 'Just track it' },
                 { action: 'modify', label: 'Mark for Modification', description: "You'll modify it" },
                 { action: 'delete', label: 'Mark for Deletion', description: "You'll delete it" }
             ];
@@ -1103,6 +1068,7 @@ const AliasTableTanStackClean = () => {
                 dropdownSources={dropdownSources}
                 newRowTemplate={NEW_ALIAS_TEMPLATE}
                 defaultVisibleColumns={defaultVisibleColumns}
+                defaultSort={defaultSort}
 
                 // Data Processing
                 preprocessData={preprocessData}

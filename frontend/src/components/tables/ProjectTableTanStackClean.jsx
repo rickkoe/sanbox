@@ -3,6 +3,7 @@ import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import CommitProjectModal from "../modals/CommitProjectModal";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Project management
 const ProjectTableTanStackClean = () => {
@@ -17,20 +18,16 @@ const ProjectTableTanStackClean = () => {
 
     const activeCustomerId = config?.customer?.id;
 
-    // All possible project columns
-    const columns = [
-        { data: "name", title: "Project Name", required: true },
-        { data: "customer", title: "Customer", type: "dropdown", required: true },
-        { data: "fabric_count", title: "Fabrics", type: "numeric", readOnly: true },
-        { data: "alias_count", title: "Aliases", type: "numeric", readOnly: true },
-        { data: "zone_count", title: "Zones", type: "numeric", readOnly: true },
-        { data: "storage_system_count", title: "Storage Systems", type: "numeric", readOnly: true },
-        { data: "host_count", title: "Hosts", type: "numeric", readOnly: true },
-        { data: "notes", title: "Notes" },
-        { data: "project_actions", title: "Actions", type: "custom", readOnly: true, width: 240, defaultVisible: true }
-    ];
+    // Load columns from centralized configuration
+    const columns = useMemo(() => {
+        return getTableColumns('project', false); // Project table doesn't have project view variations
+    }, []);
 
-    const colHeaders = columns.map(col => col.title);
+    const colHeaders = useMemo(() => {
+        return getColumnHeaders('project', false);
+    }, []);
+
+    const defaultSort = getDefaultSort('project');
 
     const NEW_PROJECT_TEMPLATE = {
         id: null,
@@ -253,6 +250,7 @@ const ProjectTableTanStackClean = () => {
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
                 newRowTemplate={NEW_PROJECT_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Data Processing
                 preprocessData={preprocessData}

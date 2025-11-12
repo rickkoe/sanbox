@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Storage Insights Portal Button Component - Reactive to credential changes
 const StorageInsightsPortalButton = ({ tenant, apiKey }) => {
@@ -60,16 +61,16 @@ const StorageInsightsPortalButton = ({ tenant, apiKey }) => {
 const CustomerTableTanStackClean = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
 
-    // All possible customer columns
-    const columns = [
-        { data: "name", title: "Customer Name" },
-        { data: "insights_tenant", title: "Storage Insights Tenant" },
-        { data: "insights_api_key", title: "Storage Insights API Key" },
-        { data: "insights_portal", title: "Storage Insights Portal", readOnly: true },
-        { data: "notes", title: "Notes" }
-    ];
+    // Load columns from centralized configuration
+    const columns = useMemo(() => {
+        return getTableColumns('customer', false); // Customer table doesn't have project view variations
+    }, []);
 
-    const colHeaders = columns.map(col => col.title);
+    const colHeaders = useMemo(() => {
+        return getColumnHeaders('customer', false);
+    }, []);
+
+    const defaultSort = getDefaultSort('customer');
 
     const NEW_CUSTOMER_TEMPLATE = {
         id: null,
@@ -132,6 +133,7 @@ const CustomerTableTanStackClean = () => {
                 colHeaders={colHeaders}
                 dropdownSources={{}} // No dropdowns in customer table
                 newRowTemplate={NEW_CUSTOMER_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Data Processing
                 preprocessData={null} // No preprocessing needed

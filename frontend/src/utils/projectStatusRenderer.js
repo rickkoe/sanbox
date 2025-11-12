@@ -59,6 +59,7 @@ export const projectStatusColumn = {
     type: "text",
     readOnly: true,
     width: 120,
+    required: true,  // Always visible, can't be hidden
     defaultVisible: true,
     accessorKey: "project_action",
     renderer: (rowData) => getProjectStatusBadge(rowData.project_action)

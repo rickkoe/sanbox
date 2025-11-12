@@ -11,7 +11,8 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Storage management
 const StorageTableTanStackClean = () => {
@@ -100,7 +101,7 @@ const StorageTableTanStackClean = () => {
     }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
 
     // Handle adding storage to project
-    const handleAddStorageToProject = useCallback(async (storageId, action = 'reference') => {
+    const handleAddStorageToProject = useCallback(async (storageId, action = 'unmodified') => {
         try {
             const projectId = activeProjectId;
             if (!projectId) {
@@ -166,7 +167,7 @@ const StorageTableTanStackClean = () => {
             // Process additions
             for (const storageId of toAdd) {
                 try {
-                    const success = await handleAddStorageToProject(storageId, 'reference');
+                    const success = await handleAddStorageToProject(storageId, 'unmodified');
                     if (success) successCount++;
                     else errorCount++;
                 } catch (error) {
@@ -216,66 +217,16 @@ const StorageTableTanStackClean = () => {
     const isReadOnly = projectFilter !== 'current' || !canEdit;
 
     // Core storage columns (most commonly used)
+    // Load columns from centralized configuration
     const columns = useMemo(() => {
-        const allColumns = [];
-
-        // Add selection checkbox column only in Project View
-        if (projectFilter === 'current') {
-            allColumns.push({
-                data: "_selected",
-                title: "Select",
-                type: "checkbox",
-                readOnly: false,
-                width: 60,
-                defaultVisible: true,
-                accessorKey: "_selected"
-            });
-        }
-
-        allColumns.push(
-        { data: "name", title: "Name", required: true }
-        );
-
-        // Add Project Status column (shows New/Delete/Modified/Unmodified) after Name in Project View
-        if (projectFilter === 'current') {
-            allColumns.push(projectStatusColumn);
-        }
-
-        allColumns.push(
-        { data: "id", title: "Details", type: "custom", readOnly: true },
-        { data: "storage_type", title: "Type", type: "dropdown" },
-        { data: "location", title: "Location" },
-        { data: "storage_system_id", title: "Storage System ID", defaultVisible: false },
-        { data: "machine_type", title: "Machine Type" },
-        { data: "model", title: "Model" },
-        { data: "serial_number", title: "Serial Number", defaultVisible: false },
-        { data: "db_volumes_count", title: "DB Volumes", type: "numeric", readOnly: true },
-        { data: "db_hosts_count", title: "DB Hosts", type: "numeric", readOnly: true },
-        { data: "db_aliases_count", title: "DB Aliases", type: "numeric", readOnly: true },
-        { data: "system_id", title: "System ID", defaultVisible: false },
-        { data: "wwnn", title: "WWNN", defaultVisible: false },
-        { data: "firmware_level", title: "Firmware Level", defaultVisible: false },
-        { data: "primary_ip", title: "Primary IP", defaultVisible: false },
-        { data: "secondary_ip", title: "Secondary IP", defaultVisible: false },
-        { data: "vendor", title: "Vendor" },
-        { data: "condition", title: "Condition" },
-        { data: "probe_status", title: "Probe Status", defaultVisible: false },
-        { data: "capacity_bytes", title: "Capacity (Bytes)", type: "numeric", defaultVisible: false },
-        { data: "used_capacity_bytes", title: "Used Capacity (Bytes)", type: "numeric", defaultVisible: false },
-        { data: "available_capacity_bytes", title: "Available Capacity (Bytes)", type: "numeric", defaultVisible: false },
-        { data: "volumes_count", title: "SI Volumes Count", type: "numeric", defaultVisible: false },
-        { data: "pools_count", title: "Pools Count", type: "numeric", defaultVisible: false },
-        { data: "disks_count", title: "Disks Count", type: "numeric", defaultVisible: false },
-        { data: "fc_ports_count", title: "FC Ports Count", type: "numeric", defaultVisible: false },
-        { data: "notes", title: "Notes" },
-        { data: "imported", title: "Imported", readOnly: true, defaultVisible: false },
-        { data: "updated", title: "Updated", readOnly: true, defaultVisible: false }
-        );
-
-        return allColumns;
+        return getTableColumns('storage', projectFilter === 'current');
     }, [projectFilter]);
 
-    const colHeaders = columns.map(col => col.title);
+    const colHeaders = useMemo(() => {
+        return getColumnHeaders('storage', projectFilter === 'current');
+    }, [projectFilter]);
+
+    const defaultSort = getDefaultSort('storage');
 
     const NEW_STORAGE_TEMPLATE = useMemo(() => ({
         id: null,
@@ -455,6 +406,7 @@ const StorageTableTanStackClean = () => {
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
                 newRowTemplate={NEW_STORAGE_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Data Processing
                 preprocessData={preprocessData}

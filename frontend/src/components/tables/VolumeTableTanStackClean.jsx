@@ -11,7 +11,8 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Volume management
 // Props:
@@ -103,75 +104,19 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         }
     }, []);
 
-    // All available volume columns
+    // Load columns from centralized configuration
     const allColumns = useMemo(() => {
-        const cols = [];
-
-        // Add selection checkbox column only in Project View
-        if (projectFilter === 'current') {
-            cols.push({
-                data: "_selected",
-                title: "Select",
-                type: "checkbox",
-                readOnly: false,
-                width: 60,
-                defaultVisible: true,
-                accessorKey: "_selected"
-            });
-        }
-
-        cols.push(
-        { data: "name", title: "Volume Name", required: true, width: 200 }
-        );
-
-        // Add Project Status column (shows New/Delete/Modified/Unmodified) after Name in Project View
-        if (projectFilter === 'current') {
-            cols.push(projectStatusColumn);
-        }
-
-        cols.push(
-        { data: "storage", title: "Storage System", type: "dropdown", required: true, width: 180 },
-        { data: "volume_id", title: "Volume ID", width: 120 },
-        { data: "volume_number", title: "Volume Number", type: "numeric", width: 120 },
-        { data: "volser", title: "Volser", width: 100 },
-        { data: "format", title: "Format", width: 100 },
-        { data: "capacity_bytes", title: "Capacity", type: "numeric", readOnly: true, width: 120 },
-        { data: "used_capacity_bytes", title: "Used Capacity", type: "numeric", readOnly: true, width: 130 },
-        { data: "used_capacity_percent", title: "Used %", type: "numeric", readOnly: true, width: 100 },
-        { data: "available_capacity_bytes", title: "Available", type: "numeric", readOnly: true, width: 120 },
-        { data: "written_capacity_bytes", title: "Written", type: "numeric", readOnly: true, width: 120 },
-        { data: "written_capacity_percent", title: "Written %", type: "numeric", readOnly: true, width: 100 },
-        { data: "pool_name", title: "Pool Name", width: 150 },
-        { data: "pool_id", title: "Pool ID", width: 100 },
-        { data: "lss_lcu", title: "LSS/LCU", width: 100 },
-        { data: "node", title: "Node", width: 100 },
-        { data: "block_size", title: "Block Size", type: "numeric", width: 100 },
-        { data: "thin_provisioned", title: "Thin Provisioned", width: 130 },
-        { data: "compressed", title: "Compressed", type: "checkbox", width: 110 },
-        { data: "compression_saving_percent", title: "Compression %", type: "numeric", readOnly: true, width: 130 },
-        { data: "encryption", title: "Encryption", width: 100 },
-        { data: "flashcopy", title: "FlashCopy", width: 100 },
-        { data: "auto_expand", title: "Auto Expand", type: "checkbox", width: 110 },
-        { data: "easy_tier", title: "Easy Tier", width: 120 },
-        { data: "easy_tier_status", title: "Easy Tier Status", width: 140 },
-        { data: "safeguarded", title: "Safeguarded", width: 120 },
-        { data: "raid_level", title: "RAID Level", width: 110 },
-        { data: "io_group", title: "I/O Group", width: 100 },
-        { data: "status_label", title: "Status", width: 100 },
-        { data: "acknowledged", title: "Acknowledged", type: "checkbox", width: 120 },
-        { data: "unique_id", title: "Unique ID", readOnly: true, width: 200 },
-        { data: "natural_key", title: "Natural Key", width: 150 },
-        { data: "imported", title: "Imported", readOnly: true, width: 150 },
-        { data: "updated", title: "Updated", readOnly: true, width: 150 }
-        );
-
-        return cols;
+        return getTableColumns('volume', projectFilter === 'current');
     }, [projectFilter]);
 
     // Filter columns based on hideColumns prop
     const columns = allColumns.filter(col => !hideColumns.includes(col.data));
 
-    const colHeaders = columns.map(col => col.title);
+    const colHeaders = useMemo(() => {
+        return columns.map(col => col.title);
+    }, [columns]);
+
+    const defaultSort = getDefaultSort('volume');
 
     // Dynamic template - pre-populate storage if storageId is provided
     const NEW_VOLUME_TEMPLATE = useMemo(() => {
@@ -274,7 +219,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
 
     // Handle adding volume to project
-    const handleAddVolumeToProject = useCallback(async (volumeId, action = 'reference') => {
+    const handleAddVolumeToProject = useCallback(async (volumeId, action = 'unmodified') => {
         try {
             if (!activeProjectId) return false;
             const response = await api.post(`${API_URL}/api/core/projects/${activeProjectId}/add-volume/`, {
@@ -299,7 +244,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
 
             for (const volumeId of toAdd) {
-                await handleAddVolumeToProject(volumeId, 'reference');
+                await handleAddVolumeToProject(volumeId, 'unmodified');
             }
             for (const volumeId of toRemove) {
                 await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-volume/${volumeId}/`);
@@ -495,6 +440,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 columns={columns}
                 colHeaders={colHeaders}
                 newRowTemplate={NEW_VOLUME_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Dropdown Configuration
                 dropdownSources={dropdownSources}

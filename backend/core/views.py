@@ -2448,10 +2448,10 @@ def commit_project_view(request, project_id):
         # Process Aliases
         alias_projects = ProjectAlias.objects.filter(project=project).select_related('alias')
         for ap in alias_projects:
-            if ap.action == 'create':
+            if ap.action == 'new':
                 # Entity already exists, just increment counter
                 stats['aliases_created'] += 1
-            elif ap.action == 'modify':
+            elif ap.action == 'modified':
                 # Apply field overrides to base entity
                 if ap.field_overrides:
                     alias = ap.alias
@@ -2469,9 +2469,9 @@ def commit_project_view(request, project_id):
         # Process Zones
         zone_projects = ProjectZone.objects.filter(project=project).select_related('zone')
         for zp in zone_projects:
-            if zp.action == 'create':
+            if zp.action == 'new':
                 stats['zones_created'] += 1
-            elif zp.action == 'modify':
+            elif zp.action == 'modified':
                 if zp.field_overrides:
                     zone = zp.zone
                     for field, value in zp.field_overrides.items():
@@ -2487,9 +2487,9 @@ def commit_project_view(request, project_id):
         # Process Fabrics
         fabric_projects = ProjectFabric.objects.filter(project=project).select_related('fabric')
         for fp in fabric_projects:
-            if fp.action == 'create':
+            if fp.action == 'new':
                 stats['fabrics_created'] += 1
-            elif fp.action == 'modify':
+            elif fp.action == 'modified':
                 if fp.field_overrides:
                     fabric = fp.fabric
                     for field, value in fp.field_overrides.items():

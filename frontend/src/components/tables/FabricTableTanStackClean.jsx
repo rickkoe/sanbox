@@ -9,7 +9,8 @@ import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Fabric management
 const FabricTableTanStackClean = () => {
@@ -111,51 +112,10 @@ const FabricTableTanStackClean = () => {
         { code: 'BR', name: 'Brocade' }
     ];
 
-    // All possible fabric columns
-    const baseColumns = (() => {
-        const allColumns = [];
-
-        // Add selection checkbox column only in Project View
-        if (projectFilter === 'current') {
-            allColumns.push({
-                data: "_selected",
-                title: "Select",
-                type: "checkbox",
-                readOnly: false,
-                width: 60,
-                defaultVisible: true,
-                accessorKey: "_selected"
-            });
-        }
-
-        allColumns.push(
-            { data: "name", title: "Name", required: true }
-        );
-
-        // Add Project Status column (shows New/Delete/Modified/Unmodified) after Name in Project View
-        if (projectFilter === 'current') {
-            allColumns.push(projectStatusColumn);
-        }
-
-        allColumns.push(
-            { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
-            { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
-            { data: "switches", title: "Switches", readOnly: true },
-            { data: "zoneset_name", title: "Zoneset Name" },
-            { data: "vsan", title: "VSAN", type: "numeric", defaultVisible: false },
-            { data: "alias_count", title: "Aliases", type: "numeric", readOnly: true },
-            { data: "zone_count", title: "Zones", type: "numeric", readOnly: true },
-            { data: "exists", title: "Exists", type: "checkbox" },
-            { data: "notes", title: "Notes" }
-        );
-
-        return allColumns;
-    })();
-
-    // Use baseColumns directly (no more In Project or Add/Remove columns)
-    const columns = baseColumns;
-
-    const colHeaders = columns.map(col => col.title);
+    // Load columns from centralized configuration
+    const columns = getTableColumns('fabric', projectFilter === 'current');
+    const colHeaders = getColumnHeaders('fabric', projectFilter === 'current');
+    const defaultSort = getDefaultSort('fabric');
 
     const dropdownSources = {
         san_vendor: vendorOptions.map(o => o.name)
@@ -307,7 +267,7 @@ const FabricTableTanStackClean = () => {
 
             // Process additions
             for (const fabricId of toAdd) {
-                const success = await handleAddFabricToProject(fabricId, 'reference');
+                const success = await handleAddFabricToProject(fabricId, 'unmodified');
                 if (success) successCount++;
                 else errorCount++;
             }
@@ -518,6 +478,7 @@ const FabricTableTanStackClean = () => {
                 dropdownSources={dropdownSources}
                 customRenderers={customRenderers}
                 newRowTemplate={NEW_FABRIC_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Data Processing
                 preprocessData={preprocessData}

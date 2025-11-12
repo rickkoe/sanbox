@@ -11,7 +11,8 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Host management
 // Props:
@@ -89,58 +90,19 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         };
     }, [API_URL, apiUrl]);
 
-    // All available host columns
+    // Load columns from centralized configuration
     const allColumns = useMemo(() => {
-        const cols = [];
-
-        // Add selection checkbox column only in Project View
-        if (projectFilter === 'current') {
-            cols.push({
-                data: "_selected",
-                title: "Select",
-                type: "checkbox",
-                readOnly: false,
-                width: 60,
-                defaultVisible: true,
-                accessorKey: "_selected"
-            });
-        }
-
-        cols.push(
-            { data: "name", title: "Host Name", required: true }
-        );
-
-        // Add Project Status column (shows New/Delete/Modified/Unmodified) after Name in Project View
-        if (projectFilter === 'current') {
-            cols.push(projectStatusColumn);
-        }
-
-        cols.push(
-            { data: "storage_system", title: "Storage System", type: "dropdown" },
-            { data: "wwpns", title: "WWPNs" },
-            { data: "wwpn_status", title: "WWPN Status", type: "dropdown" },
-            { data: "status", title: "Status", type: "dropdown" },
-            { data: "host_type", title: "Host Type", type: "dropdown" },
-            { data: "aliases_count", title: "Aliases Count", type: "numeric", readOnly: true },
-            { data: "vols_count", title: "Volumes Count", type: "numeric", readOnly: true },
-            { data: "fc_ports_count", title: "FC Ports Count", type: "numeric", readOnly: true },
-            { data: "associated_resource", title: "Associated Resource" },
-            { data: "volume_group", title: "Volume Group" },
-            { data: "acknowledged", title: "Acknowledged", type: "dropdown" },
-            { data: "last_data_collection", title: "Last Data Collection", readOnly: true },
-            { data: "natural_key", title: "Natural Key" },
-            { data: "create", title: "Create", type: "checkbox" },
-            { data: "imported", title: "Imported", readOnly: true },
-            { data: "updated", title: "Updated", readOnly: true }
-        );
-
-        return cols;
+        return getTableColumns('host', projectFilter === 'current');
     }, [projectFilter]);
 
     // Filter columns based on hideColumns prop
     const columns = allColumns.filter(col => !hideColumns.includes(col.data));
 
-    const colHeaders = columns.map(col => col.title);
+    const colHeaders = useMemo(() => {
+        return columns.map(col => col.title);
+    }, [columns]);
+
+    const defaultSort = getDefaultSort('host');
 
     // Dynamic template - pre-populate storage system if storageId is provided
     const NEW_HOST_TEMPLATE = useMemo(() => {
@@ -226,7 +188,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
 
     // Handle adding host to project
-    const handleAddHostToProject = useCallback(async (hostId, action = 'reference') => {
+    const handleAddHostToProject = useCallback(async (hostId, action = 'unmodified') => {
         try {
             if (!activeProjectId) return false;
             const response = await api.post(`${API_URL}/api/core/projects/${activeProjectId}/add-host/`, {
@@ -251,7 +213,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
 
             for (const hostId of toAdd) {
-                await handleAddHostToProject(hostId, 'reference');
+                await handleAddHostToProject(hostId, 'unmodified');
             }
             for (const hostId of toRemove) {
                 await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-host/${hostId}/`);
@@ -388,6 +350,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
                 newRowTemplate={NEW_HOST_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Data Processing
                 preprocessData={preprocessData}

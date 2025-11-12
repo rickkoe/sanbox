@@ -247,6 +247,152 @@ The application uses six main Django apps with their respective models:
 
 ## Important Development Notes
 
+### Centralized Table Column Configuration
+
+The application uses a centralized JSON configuration system for managing table columns across all TanStack tables. This provides a single source of truth for column definitions, making it easy to modify column order, visibility, requirements, and default sorting.
+
+**Configuration Files**:
+- **`frontend/src/config/tableColumnConfig.json`** - Central JSON file containing all table column definitions
+- **`frontend/src/utils/tableConfigLoader.js`** - Utility functions for loading and processing configurations
+
+**Configured Tables**:
+All 10 main tables use this system:
+- Fabric, Alias, Zone (SAN entities)
+- Storage, Volume, Host, Port (Storage entities)
+- Switch (Network infrastructure)
+- Customer, Project (Management entities)
+
+**Column Properties** (in JSON):
+```json
+{
+  "id": "column_name",           // Column identifier/accessor
+  "title": "Column Title",       // Display header text
+  "type": "text|dropdown|checkbox|numeric|custom",  // Cell type
+  "required": true|false,        // Always visible, can't be hidden
+  "defaultVisible": true|false,  // Initial visibility state
+  "width": 150,                  // Column width in pixels (optional)
+  "readOnly": true|false,        // Whether cell is editable (optional)
+  "dropdownSource": "sourceName" // Dropdown data source key (optional)
+}
+```
+
+**Table-Level Properties**:
+```json
+{
+  "defaultSort": {
+    "column": "name",      // Column ID to sort by default
+    "direction": "asc"     // Sort direction: "asc" or "desc"
+  },
+  "columns": [...]         // Array of column definitions
+}
+```
+
+**Usage in Table Components**:
+```javascript
+import { getTableColumns, getDefaultSort, getColumnHeaders } from '../../utils/tableConfigLoader';
+
+// Load columns (automatically adds _selected and project_action for Project View)
+const columns = useMemo(() => {
+    return getTableColumns('fabric', projectFilter === 'current');
+}, [projectFilter]);
+
+const colHeaders = useMemo(() => {
+    return getColumnHeaders('fabric', projectFilter === 'current');
+}, [projectFilter]);
+
+const defaultSort = getDefaultSort('fabric');
+
+// Pass to TanStackCRUDTable
+<TanStackCRUDTable
+    columns={columns}
+    colHeaders={colHeaders}
+    defaultSort={defaultSort}
+    // ... other props
+/>
+```
+
+**Key Features**:
+- **Single Source of Truth**: All column configurations in one JSON file
+- **Easy Maintenance**: Change column order, visibility, or requirements without touching table code
+- **Automatic Project View Columns**: `_selected` checkbox and `project_action` status columns are automatically added in Project View
+- **Consistent Behavior**: All tables follow the same patterns
+- **Default Sorting**: Configurable default sort column and direction per table
+
+**Modifying Column Configuration**:
+1. **Change Column Order**: Reorder columns in the `columns` array in JSON
+2. **Change Visibility**: Set `defaultVisible: true` or `false`
+3. **Make Column Required**: Set `required: true` (always visible, can't be hidden)
+4. **Change Default Sort**: Update `defaultSort.column` and `defaultSort.direction`
+5. **Add New Column**: Add new object to `columns` array with required properties
+
+**Helper Functions** (from `tableConfigLoader.js`):
+- `getTableColumns(tableName, includeProjectColumns)` - Returns column array
+- `getColumnHeaders(tableName, includeProjectColumns)` - Returns header array
+- `getDefaultSort(tableName)` - Returns `{ column, direction }` object
+- `getRequiredColumns(tableName)` - Returns array of required column IDs
+- `getDefaultVisibleColumns(tableName, includeProjectColumns)` - Returns array of visible column IDs
+- `validateConfig()` - Validates JSON structure (for development)
+- `getAvailableTables()` - Returns array of all configured table names
+
+**Customer View vs Project View**:
+- All data columns configured in JSON appear in both views
+- Project View automatically adds two additional columns:
+  - `_selected`: Checkbox column for bulk operations (first column) - **Required, can't be hidden**
+  - `project_action`: Status indicator showing New/Modified/Delete/Unmodified (after name column) - **Required, can't be hidden**
+- These special columns are managed by the config loader and don't need to be in the JSON
+
+**Changing System Column Positions**:
+To change where `_selected` or `project_action` appear, edit `frontend/src/utils/tableConfigLoader.js`:
+
+- **`_selected` position**: Currently added first (line 59-70). To move it:
+  - Cut the entire block and paste it after the `config.columns.forEach()` loop to make it last
+  - Or insert it at a specific index using `columns.splice()`
+
+- **`project_action` position**: Currently inserted after the "name" column (line 96-106). To change:
+  - Change `"name"` to another column ID to insert after that column instead
+  - Set `insertIndex = columns.length` to place it at the end
+  - Set `insertIndex = <number>` to place it at a specific position (0 = first)
+
+**Example Configuration** (Fabric Table):
+```json
+{
+  "fabric": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "san_vendor",
+        "title": "Vendor",
+        "type": "dropdown",
+        "dropdownSource": "san_vendor",
+        "required": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "vsan",
+        "title": "VSAN",
+        "type": "numeric",
+        "defaultVisible": false
+      }
+    ]
+  }
+}
+```
+
+**Special Cases**:
+- **Alias Table**: Has dynamic WWPN columns added programmatically (preserved alongside config columns)
+- **Zone Table**: Has complex structure with dynamic member columns (uses filtered config for base/trailing columns)
+- **Port Table**: Uses `hideColumns` prop to filter configured columns based on context
+
 ### Universal Importer
 The **Universal Importer** (`/import/universal`) is the unified data import system that handles both SAN and Storage imports:
 

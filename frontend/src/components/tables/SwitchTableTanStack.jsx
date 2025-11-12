@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useContext, useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
@@ -10,7 +10,8 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusColumn, projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
+import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // TanStack Table implementation for Switch management
 const SwitchTableTanStack = () => {
@@ -163,47 +164,10 @@ const SwitchTableTanStack = () => {
         return cleanValue.length <= 16 && /^[0-9a-fA-F]*$/.test(cleanValue);
     };
 
-    // All possible switch columns
-    const baseColumns = [];
-
-    // Add selection checkbox column only in Project View
-    if (projectFilter === 'current') {
-        baseColumns.push({
-            data: "_selected",
-            title: "Select",
-            type: "checkbox",
-            readOnly: false,
-            width: 60,
-            defaultVisible: true,
-            accessorKey: "_selected"
-        });
-    }
-
-    baseColumns.push(
-        { data: "name", title: "Name", required: true }
-    );
-
-    // Add Project Status column (shows New/Delete/Modified/Unmodified) after Name in Project View
-    if (projectFilter === 'current') {
-        baseColumns.push(projectStatusColumn);
-    }
-
-    baseColumns.push(
-        { data: "san_vendor", title: "Vendor", type: "dropdown", required: true },
-        { data: "project_memberships", title: "Projects", type: "custom", readOnly: true, defaultVisible: true },
-        { data: "fabrics", title: "Fabrics", type: "dropdown", allowMultiple: true },
-        { data: "domain_ids", title: "Domain IDs" },  // Custom editable cell component
-        { data: "wwnn", title: "WWNN" },
-        { data: "ip_address", title: "IP Address" },
-        { data: "subnet_mask", title: "Subnet Mask", defaultVisible: false },
-        { data: "gateway", title: "Gateway", defaultVisible: false },
-        { data: "model", title: "Model" },
-        { data: "serial_number", title: "Serial Number", defaultVisible: false },
-        { data: "firmware_version", title: "Firmware Version", defaultVisible: false },
-        { data: "is_active", title: "Active", type: "checkbox" },
-        { data: "location", title: "Location" },
-        { data: "notes", title: "Notes" }
-    );
+    // Load columns from centralized configuration
+    const baseColumns = useMemo(() => {
+        return getTableColumns('switch', projectFilter === 'current');
+    }, [projectFilter]);
 
     // Add project-specific columns when project is active
     const columns = activeProjectId ? [
@@ -212,7 +176,11 @@ const SwitchTableTanStack = () => {
         { data: "project_actions", title: "Add/Remove", type: "custom", readOnly: true, defaultVisible: true }
     ] : baseColumns;
 
-    const colHeaders = columns.map(col => col.title);
+    const colHeaders = useMemo(() => {
+        return columns.map(col => col.title);
+    }, [columns]);
+
+    const defaultSort = getDefaultSort('switch');
 
     const dropdownSources = {
         san_vendor: vendorOptions.map(o => o.name),
@@ -385,6 +353,72 @@ const SwitchTableTanStack = () => {
         return false;
     };
 
+    // Handle switch save with project-aware logic
+    const handleSwitchSave = async (allTableData, hasChanges, deletedRows = []) => {
+        if (!hasChanges) {
+            return { success: true, message: 'No changes to save' };
+        }
+
+        try {
+            // Handle deletions first
+            if (deletedRows && deletedRows.length > 0) {
+                for (const switchId of deletedRows) {
+                    try {
+                        await api.delete(`${API_URL}/api/san/switches/delete/${switchId}/`);
+                    } catch (error) {
+                        console.error(`Failed to delete switch ${switchId}:`, error);
+                        if (error.response?.status === 403) {
+                            return {
+                                success: false,
+                                message: error.response?.data?.error || 'You do not have permission to delete switches.'
+                            };
+                        }
+                        return {
+                            success: false,
+                            message: `Failed to delete switch: ${error.response?.data?.error || error.message}`
+                        };
+                    }
+                }
+            }
+
+            // Build payload for saving switches
+            const payload = saveTransform(allTableData)
+                .filter(switchItem => switchItem.id || (switchItem.name && switchItem.name.trim() !== ""));
+
+            // Use the new bulk save endpoint with field override support
+            if (payload.length > 0) {
+                await api.post(`${API_URL}/api/san/switches/save/`, {
+                    project_id: activeProjectId,
+                    switches: payload,
+                });
+            }
+
+            const totalOperations = payload.length + (deletedRows ? deletedRows.length : 0);
+            const operations = [];
+            if (payload.length > 0) operations.push(`saved ${payload.length} switch(es)`);
+            if (deletedRows && deletedRows.length > 0) operations.push(`deleted ${deletedRows.length} switch(es)`);
+
+            const message = operations.length > 0
+                ? `Successfully ${operations.join(' and ')}`
+                : 'No changes to save';
+
+            return { success: true, message };
+
+        } catch (error) {
+            console.error('❌ Switch save error:', error);
+            if (error.response?.status === 403) {
+                return {
+                    success: false,
+                    message: error.response?.data?.error || 'You do not have permission to modify switches.'
+                };
+            }
+            return {
+                success: false,
+                message: `Error saving switches: ${error.response?.data?.error || error.message}`
+            };
+        }
+    };
+
     // Handle bulk switch save from modal
     const handleBulkSwitchSave = async (selectedIds) => {
         try {
@@ -412,7 +446,7 @@ const SwitchTableTanStack = () => {
 
             // Process additions
             for (const switchId of toAdd) {
-                const success = await handleAddSwitchToProject(switchId, 'reference');
+                const success = await handleAddSwitchToProject(switchId, 'unmodified');
                 if (success) successCount++;
                 else errorCount++;
             }
@@ -587,7 +621,7 @@ const SwitchTableTanStack = () => {
                 ref={tableRef}
                 // API Configuration
                 apiUrl={getApiUrl()}
-                saveUrl={`${API_URL}/api/san/switches/`}
+                customSaveHandler={handleSwitchSave}
                 deleteUrl={`${API_URL}/api/san/switches/delete/`}
                 customerId={customerId}
                 tableName="switches"
@@ -598,6 +632,7 @@ const SwitchTableTanStack = () => {
                 dropdownSources={dropdownSources}
                 customRenderers={customRenderers}
                 newRowTemplate={NEW_SWITCH_TEMPLATE}
+                defaultSort={defaultSort}
 
                 // Data Processing
                 preprocessData={preprocessData}
