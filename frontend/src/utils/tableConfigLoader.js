@@ -87,16 +87,16 @@ export function getTableColumns(tableName, includeProjectColumns = false) {
 
     // ============================================================
     // POSITION 2: project_action status column (Project View only)
-    // Currently inserted after "name" column
+    // Currently inserted BEFORE "name" column (right after _selected)
     // To change position, modify the insertIndex calculation below:
-    // - After a different column: change "name" to another column id
+    // - After a different column: change "name" to another column id and use +1
     // - At the end: set insertIndex = columns.length
     // - At a specific position: set insertIndex = <number>
     // ============================================================
     if (includeProjectColumns) {
-        // Find the index of the name column (usually index 1, after _selected)
-        const selectedIndex = columns.findIndex(col => col.data === "project_memberships");
-        const insertIndex = selectedIndex >= 0 ? selectedIndex + 1 : 1;
+        // Find the index of the name column and insert project_action before it
+        const selectedIndex = columns.findIndex(col => col.data === "name");
+        const insertIndex = selectedIndex >= 0 ? selectedIndex : 1;
 
         columns.splice(insertIndex, 0, {
             ...projectStatusColumn,

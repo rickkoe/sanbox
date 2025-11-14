@@ -234,18 +234,24 @@ const AliasTableTanStackClean = () => {
 
     // Combine base columns with WWPN columns (WWPNs come after name)
     const columns = useMemo(() => {
-        // In Project View, _selected is first, name is second, then WWPNs, then projectStatus, then rest
-        // In Customer View, name is first, then WWPNs, then rest
+        // In Project View: [_selected] [project_action] [name] [WWPNs...] [other columns...]
+        // In Customer View: [name] [WWPNs...] [other columns...]
         let finalColumns;
         if (projectFilter === 'current') {
-            const selectionColumn = baseColumns.slice(0, 1); // "_selected" column
-            const nameColumn = baseColumns.slice(1, 2); // "name" column
-            const projectStatusColumn = baseColumns.slice(2, 3); // "projectStatus" column
-            const otherColumns = baseColumns.slice(3);  // All other columns
-            finalColumns = [...selectionColumn, ...nameColumn, ...wwpnColumns, ...projectStatusColumn, ...otherColumns];
+            // Dynamic lookup by column data property (robust against column order changes)
+            const selectionColumn = baseColumns.filter(col => col.data === "_selected");
+            const projectStatusColumn = baseColumns.filter(col => col.data === "project_action");
+            const nameColumn = baseColumns.filter(col => col.data === "name");
+            const otherColumns = baseColumns.filter(col =>
+                col.data !== "_selected" &&
+                col.data !== "project_action" &&
+                col.data !== "name"
+            );
+            finalColumns = [...selectionColumn, ...projectStatusColumn, ...nameColumn, ...wwpnColumns, ...otherColumns];
         } else {
-            const nameColumn = baseColumns.slice(0, 1); // "name" column
-            const otherColumns = baseColumns.slice(1);  // All other columns
+            // Customer View: name first, then WWPNs, then everything else
+            const nameColumn = baseColumns.filter(col => col.data === "name");
+            const otherColumns = baseColumns.filter(col => col.data !== "name");
             finalColumns = [...nameColumn, ...wwpnColumns, ...otherColumns];
         }
         return finalColumns;

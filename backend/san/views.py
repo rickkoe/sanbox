@@ -2203,7 +2203,15 @@ def alias_save_view(request):
                         # Extract only fields that actually changed
                         changed_fields = extract_changed_fields(alias, validated_data)
 
-                        if changed_fields or 'wwpns_write' in serializer.validated_data:
+                        # Check if WWPNs actually changed (not just present)
+                        wwpns_changed = False
+                        if 'wwpns_write' in serializer.validated_data:
+                            new_wwpns = serializer.validated_data['wwpns_write']
+                            existing_wwpns = list(alias.alias_wwpns.order_by('order').values_list('wwpn', flat=True))
+                            # Compare lists - check if they differ
+                            wwpns_changed = new_wwpns != existing_wwpns
+
+                        if changed_fields or wwpns_changed:
                             # Get or create ProjectAlias for this project
                             project_alias, pa_created = ProjectAlias.objects.get_or_create(
                                 project=project,
@@ -2228,8 +2236,8 @@ def alias_save_view(request):
                             project_alias.added_by = user
                             project_alias.save()
 
-                            # Handle WWPN updates if present (these still need to update the actual alias)
-                            if 'wwpns_write' in serializer.validated_data:
+                            # Handle WWPN updates only if they actually changed
+                            if wwpns_changed:
                                 wwpns_data = serializer.validated_data['wwpns_write']
                                 # Delete existing WWPNs
                                 alias.alias_wwpns.all().delete()

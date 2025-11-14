@@ -13,9 +13,11 @@
 export const getProjectStatusBadge = (action) => {
     const statusMap = {
         'new': { label: 'New', color: 'success' },
+        'create': { label: 'New', color: 'success' },  // Legacy storage entity value
         'delete': { label: 'Delete', color: 'danger' },
         'modified': { label: 'Modified', color: 'warning' },
-        'unmodified': { label: 'Unmodified', color: 'secondary' }
+        'unmodified': { label: 'Unmodified', color: 'secondary' },
+        'reference': { label: 'Unmodified', color: 'secondary' }  // Legacy storage entity value
     };
 
     const status = statusMap[action] || { label: action, color: 'secondary' };
@@ -30,9 +32,11 @@ export const getProjectStatusBadge = (action) => {
 export const ProjectStatusBadge = ({ action }) => {
     const statusMap = {
         'new': { label: 'New', color: 'success' },
+        'create': { label: 'New', color: 'success' },  // Legacy storage entity value
         'delete': { label: 'Delete', color: 'danger' },
         'modified': { label: 'Modified', color: 'warning' },
-        'unmodified': { label: 'Unmodified', color: 'secondary' }
+        'unmodified': { label: 'Unmodified', color: 'secondary' },
+        'reference': { label: 'Unmodified', color: 'secondary' }  // Legacy storage entity value
     };
 
     const status = statusMap[action] || { label: action, color: 'secondary' };
