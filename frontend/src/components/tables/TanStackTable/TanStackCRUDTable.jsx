@@ -92,6 +92,7 @@ const TanStackCRUDTable = forwardRef(({
   // Core state
   const [fabricData, setFabricData] = useState([]);
   const [editableData, setEditableData] = useState([]);
+  const [originalData, setOriginalData] = useState([]); // Original snapshot for dirty tracking
   const [allData, setAllData] = useState([]); // Complete dataset for filtering
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -101,7 +102,7 @@ const TanStackCRUDTable = forwardRef(({
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(100); // Increased default for better UX with large datasets
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -148,14 +149,14 @@ const TanStackCRUDTable = forwardRef(({
   // Client-side pagination state (for when we load all data)
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 25),
+    pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 100),
   });
 
   // Update pagination pageSize when pageSize prop changes
   useEffect(() => {
     setPagination(prev => ({
       ...prev,
-      pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 25)
+      pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 100)
     }));
   }, [pageSize]);
   const [tableConfig, setTableConfig] = useState(null);
@@ -477,9 +478,16 @@ const TanStackCRUDTable = forwardRef(({
     const hasActiveFilters = Object.keys(activeFilters).some(key => activeFilters[key].active);
     const hasGlobalFilter = globalFilter && globalFilter.trim().length > 0;
     const hasActiveSorting = sorting && sorting.length > 0;
+
+    // For large datasets (> 500 items), always use server-side mode
+    // Client-side mode can't load all data due to backend page_size limit of 250
+    if (totalItems > 500) {
+      return false; // Force server-side mode for large datasets
+    }
+
     const result = !useServerSideFiltering && (hasActiveFilters || hasGlobalFilter || hasActiveSorting);
     return result;
-  }, [useServerSideFiltering, activeFilters, globalFilter, sorting]);
+  }, [useServerSideFiltering, activeFilters, globalFilter, sorting, totalItems]);
 
   // Load data from server with pagination
   const loadData = useCallback(async () => {
@@ -489,7 +497,8 @@ const TanStackCRUDTable = forwardRef(({
     // Use the memoized hasActiveClientFilters value for consistency
 
     // Use a large page size when client-side filters are active to get all data
-    const effectivePageSize = hasActiveClientFilters ? 10000 : pageSize;
+    // Cap at 250 to match backend MAX_PAGE_SIZE limit
+    const effectivePageSize = hasActiveClientFilters ? Math.min(250, 10000) : pageSize;
     const effectivePage = hasActiveClientFilters ? 1 : currentPage;
 
 
@@ -497,14 +506,14 @@ const TanStackCRUDTable = forwardRef(({
                            useServerSideFiltering ? globalFilter : '',
                            filtersToPass);
     if (!url) {
-      return;
+      return 0; // Return 0 for early exit
     }
 
     // Check if preprocessing is blocked BEFORE setting loading state
     if (preprocessDataRef.current) {
       const testResult = preprocessDataRef.current([]);
       if (testResult === null) {
-        return;
+        return 0; // Return 0 for early exit
       }
     }
 
@@ -537,26 +546,34 @@ const TanStackCRUDTable = forwardRef(({
         // Store the full dataset and let TanStack Table handle filtering and pagination
         setFabricData(processedData);
         setEditableData([...processedData]);
+        setOriginalData([...processedData]); // Store snapshot for dirty tracking
         setTotalItems(totalCount);
         // For client-side filtering, pagination is handled by TanStack Table
-        setTotalPages(Math.max(1, Math.ceil(processedData.length / pageSize)));
+        // Use totalCount (from server) not processedData.length (current page) for total pages
+        setTotalPages(Math.max(1, Math.ceil(totalCount / pageSize)));
       } else {
         // Normal server-side pagination - only store the current page data
         setFabricData(processedData);
         setEditableData([...processedData]);
+        setOriginalData([...processedData]); // Store snapshot for dirty tracking
         setTotalItems(totalCount);
         setTotalPages(pageSize === 'All' ? 1 : Math.max(1, Math.ceil(totalCount / pageSize)));
       }
       setHasChanges(false);
       setDeletedRows([]);
 
+      // Return totalCount for conditional filtering logic
+      return totalCount;
+
     } catch (error) {
       console.error('❌ Error loading data:', error);
       setError('Failed to load data: ' + error.message);
       setFabricData([]);
       setEditableData([]);
+      setOriginalData([]);
       setTotalItems(0);
       setTotalPages(1);
+      return 0; // Return 0 on error
     } finally {
       setIsLoading(false);
     }
@@ -613,9 +630,26 @@ const TanStackCRUDTable = forwardRef(({
     // This prevents wiping out user's dirty data when checkboxes are clicked or other state changes occur
     // Check the ref so we don't trigger reload when hasChanges transitions from true to false
     if (apiUrl && !shouldWaitForConfig && !hasChangesRef.current) {
-      loadData();
-      // Also load complete dataset for filtering
-      loadAllDataForFiltering();
+      // Use async function to conditionally load all data for filtering
+      const loadDataConditionally = async () => {
+        console.log('🔍 Starting loadData...');
+        const totalCount = await loadData();
+        console.log(`✅ loadData completed. totalCount: ${totalCount}`);
+
+        // Only load all data for filtering if dataset is small enough (< 500 records)
+        // This prevents performance issues with large datasets (e.g., 1959+ aliases)
+        const MAX_ITEMS_FOR_CLIENT_FILTERING = 500;
+        if (totalCount && totalCount <= MAX_ITEMS_FOR_CLIENT_FILTERING) {
+          console.log(`✅ Loading all data for filtering (${totalCount} items)`);
+          loadAllDataForFiltering();
+        } else if (totalCount > MAX_ITEMS_FOR_CLIENT_FILTERING) {
+          console.log(`⚠️ Dataset has ${totalCount} items - skipping loadAllDataForFiltering for performance`);
+        } else {
+          console.log(`⚠️ totalCount is falsy: ${totalCount}`);
+        }
+      };
+
+      loadDataConditionally();
     }
   }, [loadData, loadAllDataForFiltering, apiUrl, configLoaded, tableName, customerId, reloadTrigger]);
 
@@ -655,7 +689,7 @@ const TanStackCRUDTable = forwardRef(({
         const existingAdditionalSettings = tableConfig?.additional_settings || {};
 
         // Handle "All" as a special string value, otherwise parse as integer
-        const pageSizeToSave = pageSize === 'All' ? 'All' : (parseInt(pageSize) || 25);
+        const pageSizeToSave = pageSize === 'All' ? 'All' : (parseInt(pageSize) || 100);
 
         saveTableConfig({
           page_size: pageSizeToSave,
@@ -906,6 +940,9 @@ const TanStackCRUDTable = forwardRef(({
         };
       }
 
+      // Mark row as dirty for change tracking
+      newData[rowIndex]._isDirty = true;
+
       return newData;
     });
 
@@ -1093,7 +1130,11 @@ const TanStackCRUDTable = forwardRef(({
 
       // Use custom save handler if provided (for bulk save scenarios like AliasTable)
       if (customSaveHandler) {
-        const result = await customSaveHandler(editableData, hasChanges, deletedRows);
+        // Filter to only send dirty rows and new rows
+        const dirtyRows = editableData.filter(row => row._isDirty || !row.id);
+        console.log(`💾 Saving ${dirtyRows.length} changed rows out of ${editableData.length} total rows`);
+
+        const result = await customSaveHandler(dirtyRows, hasChanges, deletedRows);
 
         if (result.success) {
           // Reload data from server after successful save
@@ -1110,9 +1151,13 @@ const TanStackCRUDTable = forwardRef(({
       }
 
       // Standard CRUD save process
+      // Filter to only process dirty rows and new rows
+      const dirtyRows = editableData.filter(row => row._isDirty || !row.id);
+      console.log(`💾 Saving ${dirtyRows.length} changed rows out of ${editableData.length} total rows`);
+
       // Separate new rows from existing rows (using original FabricTable logic)
-      const newRows = editableData.filter(row => !row.id || row.id === null);
-      const existingRows = editableData.filter(row => row.id && row.id !== null);
+      const newRows = dirtyRows.filter(row => !row.id || row.id === null);
+      const existingRows = dirtyRows.filter(row => row.id && row.id !== null);
 
 
       // Delete rows first (individual DELETE requests)
@@ -1136,6 +1181,7 @@ const TanStackCRUDTable = forwardRef(({
         delete rowData.id;
         delete rowData.saved;
         delete rowData._isNew;
+        delete rowData._isDirty; // Remove internal dirty flag
 
         // Apply transform if provided
         if (saveTransform) {
@@ -1151,6 +1197,9 @@ const TanStackCRUDTable = forwardRef(({
       // Save existing rows (PUT requests)
       for (const existingRow of existingRows) {
         let rowData = { ...existingRow };
+
+        // Remove internal dirty flag
+        delete rowData._isDirty;
 
         // Apply transform if provided
         if (saveTransform) {
@@ -1251,7 +1300,7 @@ const TanStackCRUDTable = forwardRef(({
     setCurrentPage(1);
     setPagination(prev => ({
       pageIndex: 0,
-      pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 25)  // Sync with current pageSize state
+      pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 100)  // Sync with current pageSize state
     }));
 
     // The useEffect for loadData will automatically trigger when activeFilters and globalFilter change

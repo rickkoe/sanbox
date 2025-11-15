@@ -620,7 +620,7 @@ def alias_list_view(request, project_id):
             # 1. Committed (committed=True), OR
             # 2. Not referenced by any project (no junction table entries)
             aliases_queryset = aliases_queryset.annotate(
-                project_count=Count('project_aliases')  # Correct relationship name
+                project_count=Count('project_memberships')  # Correct relationship name
             ).filter(
                 Q(committed=True) | Q(project_count=0)
             )
@@ -894,6 +894,8 @@ def alias_project_view(request, project_id):
                  queryset=ProjectAlias.objects.select_related('project'))
     )
 
+    print(f"🔍 Project {project_id}: Raw ProjectAlias queryset count = {project_aliases.count()}")
+
     # ===== PAGINATION =====
     from django.core.paginator import Paginator
 
@@ -910,8 +912,18 @@ def alias_project_view(request, project_id):
         project_aliases_page = project_aliases  # Use all results
     else:
         page_size = int(page_size_param)
+
+        # Cap maximum page size for performance
+        MAX_PAGE_SIZE = 250
+        if page_size > MAX_PAGE_SIZE:
+            return JsonResponse(
+                {'error': f'Maximum page size is {MAX_PAGE_SIZE}. Requested: {page_size}'},
+                status=400
+            )
+
         paginator = Paginator(project_aliases, page_size)
         total_count = paginator.count
+        print(f"📊 Project {project_id}: Total ProjectAlias count = {total_count}, page_size = {page_size}")
 
         try:
             page_obj = paginator.get_page(page)
@@ -984,26 +996,26 @@ def alias_project_view(request, project_id):
 
         # Apply field_overrides if they exist
         if pa.field_overrides:
-            print(f"🔍 ProjectAlias {pa.id}: field_overrides = {pa.field_overrides}")
+            # print(f"🔍 ProjectAlias {pa.id}: field_overrides = {pa.field_overrides}")
             for field_name, override_value in pa.field_overrides.items():
                 # Only apply if value actually differs from base
                 if field_name in base_data:
                     if base_data[field_name] != override_value:
                         base_data[field_name] = override_value
                         modified_fields.append(field_name)
-                        print(f"  ✅ Field '{field_name}' modified: {base_data.get(field_name)} -> {override_value}")
+                        # print(f"  ✅ Field '{field_name}' modified: {base_data.get(field_name)} -> {override_value}")
                 else:
                     # New field from override
                     base_data[field_name] = override_value
                     modified_fields.append(field_name)
-                    print(f"  ✅ New field '{field_name}' added: {override_value}")
+                    # print(f"  ✅ New field '{field_name}' added: {override_value}")
 
         # Add metadata
         base_data['modified_fields'] = modified_fields
         base_data['project_action'] = pa.action
         base_data['in_active_project'] = True
 
-        print(f"✨ Final modified_fields for alias {pa.alias.name}: {modified_fields}")
+        # print(f"✨ Final modified_fields for alias {pa.alias.name}: {modified_fields}")
 
         merged_data.append(base_data)
 
@@ -1069,7 +1081,7 @@ def alias_customer_list_view(request):
     # 1. Committed (committed=True), OR
     # 2. Not referenced by any project (no junction table entries)
     aliases_queryset = aliases_queryset.annotate(
-        project_count=Count('project_aliases')  # Correct relationship name
+        project_count=Count('project_memberships')  # Correct relationship name
     ).filter(
         Q(committed=True) | Q(project_count=0)
     )
@@ -2128,6 +2140,13 @@ def alias_save_view(request):
         saved_aliases = []
         errors = []
 
+        # Prefetch aliases with their WWPNs to avoid N+1 queries
+        alias_ids = [a.get("id") for a in aliases_data if a.get("id")]
+        aliases_map = {}
+        if alias_ids:
+            aliases_queryset = Alias.objects.filter(id__in=alias_ids).prefetch_related('alias_wwpns')
+            aliases_map = {alias.id: alias for alias in aliases_queryset}
+
         for alias_data in aliases_data:
             alias_id = alias_data.get("id")
 
@@ -2169,7 +2188,8 @@ def alias_save_view(request):
                 alias_data.pop("host_name", None)
 
             if alias_id:
-                alias = Alias.objects.filter(id=alias_id).first()
+                # Use prefetched alias from map to avoid N+1 queries
+                alias = aliases_map.get(alias_id)
                 if alias:
                     # Optimistic locking - check version
                     client_version = alias_data.get('version')
@@ -2207,9 +2227,14 @@ def alias_save_view(request):
                         wwpns_changed = False
                         if 'wwpns_write' in serializer.validated_data:
                             new_wwpns = serializer.validated_data['wwpns_write']
-                            existing_wwpns = list(alias.alias_wwpns.order_by('order').values_list('wwpn', flat=True))
+                            # Use prefetched WWPNs to avoid additional query
+                            existing_wwpns = [wwpn.wwpn for wwpn in sorted(alias.alias_wwpns.all(), key=lambda x: x.order)]
                             # Compare lists - check if they differ
                             wwpns_changed = new_wwpns != existing_wwpns
+
+                        # Debug logging to identify what's triggering modifications
+                        if changed_fields or wwpns_changed:
+                            print(f"🔍 Alias '{alias.name}' (ID: {alias.id}) - changed_fields: {changed_fields}, wwpns_changed: {wwpns_changed}")
 
                         if changed_fields or wwpns_changed:
                             # Get or create ProjectAlias for this project
@@ -2250,6 +2275,9 @@ def alias_save_view(request):
                                     )
 
                             print(f"✏️ Stored field overrides for alias '{alias.name}' in project '{project.name}': {changed_fields}")
+                        else:
+                            # No changes detected - skip update
+                            print(f"✅ Skipped alias '{alias.name}' (ID: {alias.id}) - no changes detected")
 
                         # Return the base alias data (not modified)
                         saved_aliases.append(AliasSerializer(alias).data)

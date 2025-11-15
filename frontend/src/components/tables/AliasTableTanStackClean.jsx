@@ -315,7 +315,7 @@ const AliasTableTanStackClean = () => {
     // WWPN formatting utilities
     const formatWWPN = (value) => {
         if (!value) return "";
-        const cleanValue = value.replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+        const cleanValue = value.replace(/[^0-9a-fA-F]/g, '').toLowerCase();
         if (cleanValue.length !== 16) return value;
         return cleanValue.match(/.{2}/g).join(':');
     };
