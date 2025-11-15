@@ -905,10 +905,25 @@ def alias_project_view(request, project_id):
 
     # Handle "All" as a special case
     if page_size_param == 'All':
+        # Cap "All" at MAX_PAGE_SIZE for performance with large datasets
+        MAX_PAGE_SIZE = 250
+        total_count = project_aliases.count()
+
+        if total_count > MAX_PAGE_SIZE:
+            # For large datasets, return error and suggest pagination
+            return JsonResponse(
+                {
+                    'error': f'Dataset too large for "All" ({total_count} items). Maximum allowed is {MAX_PAGE_SIZE}. Please use pagination.',
+                    'count': total_count,
+                    'max_page_size': MAX_PAGE_SIZE
+                },
+                status=400
+            )
+
+        # For small datasets, allow "All"
         page_size = None
         page_obj = None
         paginator = None
-        total_count = project_aliases.count()
         project_aliases_page = project_aliases  # Use all results
     else:
         page_size = int(page_size_param)
