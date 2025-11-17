@@ -119,7 +119,7 @@ const TanStackCRUDTable = forwardRef(({
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, cellKey: null });
 
   // Table configuration
-  // Excel-like sorting: Apply sort once, then freeze (don't continuously re-sort)
+  // Excel-like sorting: Sort once when user clicks, don't continuously re-sort on data changes
   const [sorting, setSorting] = useState(() => {
     if (defaultSort && defaultSort.column) {
       return [{
@@ -129,15 +129,8 @@ const TanStackCRUDTable = forwardRef(({
     }
     return [];
   });
-  const sortFreezeRef = useRef(false); // Track if we need to freeze after next sort
+  const lastSortRef = useRef(null); // Track last applied sort to prevent re-sorting on data changes
   const [frozenSortOrder, setFrozenSortOrder] = useState(null); // Captures sorted order to prevent auto-resorting
-
-  // Set freeze flag if we have a defaultSort (will freeze after initial render)
-  useEffect(() => {
-    if (defaultSort && defaultSort.column && !sortFreezeRef.current) {
-      sortFreezeRef.current = true;
-    }
-  }, [defaultSort]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
   const [columnVisibility, setColumnVisibility] = useState({});
@@ -1614,33 +1607,12 @@ const TanStackCRUDTable = forwardRef(({
     });
   }, [columns, colHeaders, dropdownSources, updateCellData, columnSizing]);
 
-  // Excel-like sorting: Apply frozen sort order to maintain sort after edits
+  // Excel-like sorting: Use editableData directly since we handle sorting manually
   const sortedEditableData = useMemo(() => {
-    if (!frozenSortOrder || frozenSortOrder.length === 0) {
-      return editableData; // No frozen order, use data as-is
-    }
-
-    // Apply the frozen sort order
-    const sorted = [...editableData];
-    sorted.sort((a, b) => {
-      const aId = a.id !== undefined && a.id !== null ? String(a.id) : null;
-      const bId = b.id !== undefined && b.id !== null ? String(b.id) : null;
-      const aIndex = aId ? frozenSortOrder.indexOf(aId) : -1;
-      const bIndex = bId ? frozenSortOrder.indexOf(bId) : -1;
-
-      // If both are in frozen order, use that order
-      if (aIndex !== -1 && bIndex !== -1) {
-        return aIndex - bIndex;
-      }
-      // If only one is in frozen order, it comes first
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-      // If neither is in frozen order, maintain original order
-      return 0;
-    });
-
-    return sorted;
-  }, [editableData, frozenSortOrder]);
+    // With manualSorting: true, we sort editableData directly in our effect
+    // No need for additional sorting here
+    return editableData;
+  }, [editableData]);
 
   // Table instance
   const table = useReactTable({
@@ -1651,11 +1623,12 @@ const TanStackCRUDTable = forwardRef(({
     getFilteredRowModel: useServerSideFiltering ? undefined : getFilteredRowModel(),
     getPaginationRowModel: hasActiveClientFilters ? getPaginationRowModel() : undefined,
     manualPagination: !hasActiveClientFilters, // Use manual pagination when not doing client-side filtering
+    manualSorting: true, // We handle sorting manually to prevent continuous re-sorting
     enableColumnResizing: true,
     columnResizeMode: 'onEnd',
     // Excel-like behavior: Sort stays fixed after initial sort, doesn't re-sort on data changes
     autoResetAll: false, // Don't reset state when data changes
-    enableSortingRemoval: false, // Prevent accidental sort removal
+    enableSortingRemoval: true, // Allow cycling through: asc → desc → default sort
     // Provide stable row identity to prevent re-sorting on edits
     getRowId: (row, index) => {
       // Use the row's id if available, otherwise use index
@@ -1674,12 +1647,7 @@ const TanStackCRUDTable = forwardRef(({
     onColumnSizingChange: (updater) => {
       setColumnSizing(updater);
     },
-    onSortingChange: (updater) => {
-      // Custom handler for Excel-like behavior: sort once then freeze
-      setSorting(updater);
-      // Set freeze flag so the sort will be frozen after it's applied
-      sortFreezeRef.current = true;
-    },
+    onSortingChange: setSorting, // Manual sorting - just update state, our effect handles the actual sorting
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     ...(hasActiveClientFilters && { onPaginationChange: setPagination }),
@@ -1759,36 +1727,77 @@ const TanStackCRUDTable = forwardRef(({
     return totalPages; // Otherwise use server-provided pages
   }, [hasActiveClientFilters, table, pageSize, totalPages, globalFilter, activeFilters, editableData]);
 
-  // Excel-like behavior: Freeze sort after it's been applied
+  // Manual sorting function - sorts data once without continuous re-sorting (uses existing getNestedValue)
+  const applyManualSort = useCallback((dataToSort, sortState) => {
+    if (!sortState || sortState.length === 0) return dataToSort;
+
+    const sortConfig = sortState[0];
+    return [...dataToSort].sort((a, b) => {
+      // Get values - handle nested paths like "fabric_details.name"
+      let aVal = getNestedValue(a, sortConfig.id);
+      let bVal = getNestedValue(b, sortConfig.id);
+
+      // If value is an object, try to get its 'name' field
+      if (aVal && typeof aVal === 'object' && 'name' in aVal) {
+        aVal = aVal.name;
+      }
+      if (bVal && typeof bVal === 'object' && 'name' in bVal) {
+        bVal = bVal.name;
+      }
+
+      // Handle null/undefined values
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
+
+      // Compare values
+      let comparison = 0;
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        comparison = aVal.localeCompare(bVal);
+      } else if (typeof aVal === 'number' && typeof bVal === 'number') {
+        comparison = aVal - bVal;
+      } else {
+        // Convert to string for comparison
+        comparison = String(aVal).localeCompare(String(bVal));
+      }
+
+      // Apply desc order if needed
+      return sortConfig.desc ? -comparison : comparison;
+    });
+  }, [getNestedValue]);
+
+  // Apply sort when sorting state changes (not when data changes)
   useEffect(() => {
-    if (sortFreezeRef.current && sorting.length > 0 && table) {
-      // Sort is active and we need to freeze it
-      // Wait for next tick to ensure table has rendered with the sort
-      const timeoutId = setTimeout(() => {
-        const sortedRows = table.getSortedRowModel().rows;
+    const currentSortKey = sorting.length > 0 ? `${sorting[0].id}-${sorting[0].desc}` : null;
+    const lastSortKey = lastSortRef.current;
 
-        // Only freeze if we have data to sort
-        if (sortedRows.length > 0) {
-          const sortedData = sortedRows.map(row => row.original);
-
-          // Reorder editableData to match the sorted order
+    // Only sort if the sorting state actually changed (user clicked column)
+    // OR if we have a sort active but haven't applied it yet (data just loaded)
+    if (currentSortKey !== lastSortKey) {
+      if (editableData.length > 0) {
+        if (sorting.length > 0) {
+          // Apply the user's selected sort
+          const sortedData = applyManualSort(editableData, sorting);
           setEditableData(sortedData);
-
-          // Clear the sorting state so table stops auto-sorting
-          setSorting([]);
-
-          // Clear freeze flag
-          sortFreezeRef.current = false;
+          lastSortRef.current = currentSortKey;
+        } else if (defaultSort && defaultSort.column && lastSortKey !== null) {
+          // User cleared sort - apply default sort
+          const defaultSortState = [{
+            id: defaultSort.column,
+            desc: defaultSort.direction === 'desc'
+          }];
+          const sortedData = applyManualSort(editableData, defaultSortState);
+          setEditableData(sortedData);
+          // Set sorting state to show default sort indicator
+          setSorting(defaultSortState);
+          lastSortRef.current = `${defaultSort.column}-${defaultSort.direction === 'desc'}`;
         }
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
+      }
+      // Don't update lastSortRef if we didn't sort (no data yet)
+      // This allows the sort to be applied when data arrives
     }
-    // Note: Don't include editableData in deps to prevent infinite loop
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sorting, table]);
+  }, [sorting, applyManualSort, editableData, defaultSort]); // Include editableData to access current value
 
-  // Legacy: Capture sorted order when sorting changes (kept for compatibility)
+  // Capture sorted order when sorting changes (kept for compatibility)
   useEffect(() => {
     if (sorting && sorting.length > 0 && table) {
       // Sorting is active - capture the sorted order
