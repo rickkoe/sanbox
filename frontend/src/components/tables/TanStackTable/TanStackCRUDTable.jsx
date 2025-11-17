@@ -119,7 +119,7 @@ const TanStackCRUDTable = forwardRef(({
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, cellKey: null });
 
   // Table configuration
-  // Initialize sorting with defaultSort prop if provided
+  // Excel-like sorting: Apply sort once, then freeze (don't continuously re-sort)
   const [sorting, setSorting] = useState(() => {
     if (defaultSort && defaultSort.column) {
       return [{
@@ -129,7 +129,15 @@ const TanStackCRUDTable = forwardRef(({
     }
     return [];
   });
+  const sortFreezeRef = useRef(false); // Track if we need to freeze after next sort
   const [frozenSortOrder, setFrozenSortOrder] = useState(null); // Captures sorted order to prevent auto-resorting
+
+  // Set freeze flag if we have a defaultSort (will freeze after initial render)
+  useEffect(() => {
+    if (defaultSort && defaultSort.column && !sortFreezeRef.current) {
+      sortFreezeRef.current = true;
+    }
+  }, [defaultSort]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
   const [columnVisibility, setColumnVisibility] = useState({});
@@ -1666,7 +1674,12 @@ const TanStackCRUDTable = forwardRef(({
     onColumnSizingChange: (updater) => {
       setColumnSizing(updater);
     },
-    onSortingChange: setSorting,
+    onSortingChange: (updater) => {
+      // Custom handler for Excel-like behavior: sort once then freeze
+      setSorting(updater);
+      // Set freeze flag so the sort will be frozen after it's applied
+      sortFreezeRef.current = true;
+    },
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     ...(hasActiveClientFilters && { onPaginationChange: setPagination }),
@@ -1746,7 +1759,36 @@ const TanStackCRUDTable = forwardRef(({
     return totalPages; // Otherwise use server-provided pages
   }, [hasActiveClientFilters, table, pageSize, totalPages, globalFilter, activeFilters, editableData]);
 
-  // Capture sorted order when sorting changes (Excel-like behavior)
+  // Excel-like behavior: Freeze sort after it's been applied
+  useEffect(() => {
+    if (sortFreezeRef.current && sorting.length > 0 && table) {
+      // Sort is active and we need to freeze it
+      // Wait for next tick to ensure table has rendered with the sort
+      const timeoutId = setTimeout(() => {
+        const sortedRows = table.getSortedRowModel().rows;
+
+        // Only freeze if we have data to sort
+        if (sortedRows.length > 0) {
+          const sortedData = sortedRows.map(row => row.original);
+
+          // Reorder editableData to match the sorted order
+          setEditableData(sortedData);
+
+          // Clear the sorting state so table stops auto-sorting
+          setSorting([]);
+
+          // Clear freeze flag
+          sortFreezeRef.current = false;
+        }
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
+    }
+    // Note: Don't include editableData in deps to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sorting, table]);
+
+  // Legacy: Capture sorted order when sorting changes (kept for compatibility)
   useEffect(() => {
     if (sorting && sorting.length > 0 && table) {
       // Sorting is active - capture the sorted order
