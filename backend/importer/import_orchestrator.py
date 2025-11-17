@@ -845,7 +845,7 @@ class ImportOrchestrator:
                             project=project,
                             alias=alias,
                             defaults={
-                                'action': 'create',
+                                'action': 'new',  # Fixed: was 'create', should be 'new' for commit detection
                                 'include_in_zoning': False,
                                 'added_by': None,
                                 'notes': 'Imported from SAN configuration'
@@ -1051,7 +1051,7 @@ class ImportOrchestrator:
                             project=project,
                             zone=zone,
                             defaults={
-                                'action': 'create',
+                                'action': 'new',  # Fixed: was 'create', should be 'new' for commit detection
                                 'added_by': None,
                                 'notes': 'Imported from SAN configuration'
                             }

@@ -903,28 +903,14 @@ def alias_project_view(request, project_id):
     page = int(request.GET.get('page', 1))
     page_size_param = request.GET.get('page_size', 50)
 
-    # Handle "All" as a special case
+    # Handle "All" as a special case - load entire dataset
     if page_size_param == 'All':
-        # Cap "All" at MAX_PAGE_SIZE for performance with large datasets
-        MAX_PAGE_SIZE = 250
-        total_count = project_aliases.count()
-
-        if total_count > MAX_PAGE_SIZE:
-            # For large datasets, return error and suggest pagination
-            return JsonResponse(
-                {
-                    'error': f'Dataset too large for "All" ({total_count} items). Maximum allowed is {MAX_PAGE_SIZE}. Please use pagination.',
-                    'count': total_count,
-                    'max_page_size': MAX_PAGE_SIZE
-                },
-                status=400
-            )
-
-        # For small datasets, allow "All"
         page_size = None
         page_obj = None
         paginator = None
+        total_count = project_aliases.count()
         project_aliases_page = project_aliases  # Use all results
+        print(f"⚠️ Loading ALL {total_count} aliases - this may take 5-10 seconds for large datasets")
     else:
         page_size = int(page_size_param)
 
@@ -2721,7 +2707,7 @@ def zone_customer_list_view(request):
     # 1. Committed (committed=True), OR
     # 2. Not referenced by any project (no junction table entries)
     zones = zones.annotate(
-        project_count=Count('project_zones')  # Correct relationship name
+        project_count=Count('project_memberships')  # Correct relationship name (was 'project_zones')
     ).filter(
         Q(committed=True) | Q(project_count=0)
     )

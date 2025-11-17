@@ -521,9 +521,11 @@ const TanStackCRUDTable = forwardRef(({
     setError(null);
 
     try {
-      // Use longer timeout for large dataset requests (when fetching all data for filtering)
+      // Use longer timeout for large dataset requests (when fetching all data or large pages)
+      // Check for "All", large numbers, or large effectivePageSize
+      const isLargeRequest = pageSize === 'All' || effectivePageSize >= 250 || effectivePageSize >= 10000;
       const response = await api.get(url, {
-        timeout: effectivePageSize >= 10000 ? 30000 : undefined // 30s for large requests
+        timeout: isLargeRequest ? 60000 : undefined // 60s for "All" or large page requests
       });
 
       // Handle paginated response
@@ -577,7 +579,9 @@ const TanStackCRUDTable = forwardRef(({
     } finally {
       setIsLoading(false);
     }
-  }, [buildApiUrl, currentPage, pageSize, globalFilter, activeFilters, useServerSideFiltering, hasActiveClientFilters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildApiUrl, currentPage, pageSize, globalFilter, activeFilters, useServerSideFiltering]);
+  // Note: hasActiveClientFilters removed from deps to prevent circular dependency with totalItems
 
   // Load complete dataset for filter dropdown items
   const loadAllDataForFiltering = useCallback(async () => {
