@@ -156,8 +156,8 @@ export const useProjectViewSelection = ({
 
             // Build URL to fetch all rows
             const fetchAllUrl = apiUrl.includes('?')
-                ? `${apiUrl}&page_size=10000`
-                : `${apiUrl}?page_size=10000`;
+                ? `${apiUrl}&page_size=All`
+                : `${apiUrl}?page_size=All`;
 
             const response = await api.get(fetchAllUrl);
             const allData = response.data.results || response.data;

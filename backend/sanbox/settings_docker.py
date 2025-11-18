@@ -18,6 +18,12 @@ REST_FRAMEWORK = {
     ],
 }
 
+# Pagination Configuration
+# These constants are used across all list views for consistent pagination behavior
+DEFAULT_PAGE_SIZE = 50
+MAX_PAGE_SIZE = 500
+PAGE_SIZE_OPTIONS = [25, 50, 100, 250, 500]
+
 # Security
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', SECRET_KEY)
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'

@@ -5,6 +5,7 @@ from django.db.models import Q as Q_models
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
+from django.conf import settings
 from .models import Alias, Zone, Fabric, WwpnPrefix, Switch, AliasWWPN
 from customers.models import Customer
 from core.models import Config, Project, UserConfig, ProjectAlias, ProjectZone, ProjectHost, ProjectSwitch, ProjectFabric
@@ -50,17 +51,23 @@ def fabric_management(request, pk=None):
                 # Get query parameters
                 customer_id = request.GET.get('customer_id')
                 page_number = request.GET.get('page', 1)
-                page_size = request.GET.get('page_size', 50)
+                page_size = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
                 search = request.GET.get('search', '')
                 ordering = request.GET.get('ordering', 'name')
 
                 # Convert to integers with defaults
                 try:
                     page_number = int(page_number)
-                    page_size = int(page_size) if page_size != 'All' else None
+                    if page_size == 'All':
+                        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+                    page_size = int(page_size)
                 except (ValueError, TypeError):
                     page_number = 1
-                    page_size = 50
+                    page_size = settings.DEFAULT_PAGE_SIZE
+
+                # Enforce maximum page size
+                if page_size > settings.MAX_PAGE_SIZE:
+                    return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
                 # Build queryset with optimizations
                 from django.db.models import Q, Count
@@ -118,18 +125,7 @@ def fabric_management(request, pk=None):
                 
                 # Get total count before pagination
                 total_count = fabrics.count()
-                
-                # Handle "All" page size
-                if page_size is None:
-                    # Return all results without pagination
-                    serializer = FabricSerializer(fabrics, many=True)
-                    return JsonResponse({
-                        'count': total_count,
-                        'next': None,
-                        'previous': None,
-                        'results': serializer.data
-                    })
-                
+
                 # Create paginator
                 paginator = Paginator(fabrics, page_size)
                 
@@ -567,7 +563,8 @@ def get_unique_values_for_aliases(request, project, field_name):
 def alias_list_view(request, project_id):
     """Fetch aliases belonging to a specific project."""
     print(f"🔥 Alias List - Project ID: {project_id}")
-    
+    print(f"🔍 Query params: {dict(request.GET)}")
+
     try:
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
@@ -643,15 +640,19 @@ def alias_list_view(request, project_id):
     
     # Apply general search if provided
     if search:
+        print(f"🔍 alias_list_view: Applying search filter: '{search}'")
         aliases_queryset = aliases_queryset.filter(
             Q(name__icontains=search) |
-            Q(wwpn__icontains=search) |
+            Q(alias_wwpns__wwpn__icontains=search) |
             Q(notes__icontains=search) |
             Q(fabric__name__icontains=search) |
             Q(use__icontains=search) |
             Q(cisco_alias__icontains=search)
-        )
-    
+        ).distinct()
+        print(f"🔍 alias_list_view: Count after search = {aliases_queryset.count()}")
+    else:
+        print(f"🔍 alias_list_view: No search parameter provided")
+
     # Apply field-specific filters
     filter_params = {}
     storage_filter_value = None  # Track storage filtering separately
@@ -795,11 +796,21 @@ def alias_list_view(request, project_id):
     
     # Add pagination for performance with large datasets
     from django.core.paginator import Paginator
-    
+
     # Get pagination parameters
     page = int(request.GET.get('page', 1))
-    page_size = int(request.GET.get('page_size', 50))  # Default 50 aliases per page
-    
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+    # Handle "All" - not supported
+    if page_size_param == 'All':
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
     # Apply pagination
     paginator = Paginator(aliases_queryset, page_size)
     page_obj = paginator.get_page(page)
@@ -871,6 +882,9 @@ def alias_project_view(request, project_id):
     Performance optimized: Builds WWPN→Storage map and ProjectZone cache
     to avoid N+1 queries during serialization.
     """
+    print(f"🔥 Alias Project View - Project ID: {project_id}")
+    print(f"🔍 Query params: {dict(request.GET)}")
+
     try:
         project = Project.objects.get(id=project_id)
     except Project.DoesNotExist:
@@ -894,45 +908,53 @@ def alias_project_view(request, project_id):
                  queryset=ProjectAlias.objects.select_related('project'))
     )
 
-    print(f"🔍 Project {project_id}: Raw ProjectAlias queryset count = {project_aliases.count()}")
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+
+    # Apply search filter if provided
+    if search:
+        print(f"🔍 Applying search filter: '{search}'")
+        project_aliases = project_aliases.filter(
+            Q(alias__name__icontains=search) |
+            Q(alias__notes__icontains=search) |
+            Q(alias__fabric__name__icontains=search) |
+            Q(alias__use__icontains=search) |
+            Q(alias__cisco_alias__icontains=search) |
+            Q(alias__alias_wwpns__wwpn__icontains=search)
+        ).distinct()
+    else:
+        print(f"🔍 No search parameter provided")
+
+    print(f"🔍 Project {project_id}: ProjectAlias count after search = {project_aliases.count()}")
 
     # ===== PAGINATION =====
     from django.core.paginator import Paginator
 
     # Get pagination parameters
     page = int(request.GET.get('page', 1))
-    page_size_param = request.GET.get('page_size', 50)
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-    # Handle "All" as a special case - load entire dataset
+    # Handle "All" - not supported
     if page_size_param == 'All':
-        page_size = None
-        page_obj = None
-        paginator = None
-        total_count = project_aliases.count()
-        project_aliases_page = project_aliases  # Use all results
-        print(f"⚠️ Loading ALL {total_count} aliases - this may take 5-10 seconds for large datasets")
-    else:
-        page_size = int(page_size_param)
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
 
-        # Cap maximum page size for performance
-        MAX_PAGE_SIZE = 250
-        if page_size > MAX_PAGE_SIZE:
-            return JsonResponse(
-                {'error': f'Maximum page size is {MAX_PAGE_SIZE}. Requested: {page_size}'},
-                status=400
-            )
+    page_size = int(page_size_param)
 
-        paginator = Paginator(project_aliases, page_size)
-        total_count = paginator.count
-        print(f"📊 Project {project_id}: Total ProjectAlias count = {total_count}, page_size = {page_size}")
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
-        try:
-            page_obj = paginator.get_page(page)
-        except:
-            page_obj = paginator.get_page(1)
-            page = 1
+    paginator = Paginator(project_aliases, page_size)
+    total_count = paginator.count
+    print(f"📊 Project {project_id}: Total ProjectAlias count = {total_count}, page_size = {page_size}")
 
-        project_aliases_page = page_obj.object_list  # Use only current page
+    try:
+        page_obj = paginator.get_page(page)
+    except:
+        page_obj = paginator.get_page(1)
+        page = 1
+
+    project_aliases_page = page_obj.object_list  # Use only current page
     # ===== END PAGINATION =====
 
     # ===== PERFORMANCE OPTIMIZATION: Build maps before serialization =====
@@ -1004,6 +1026,30 @@ def alias_project_view(request, project_id):
                     if base_data[field_name] != override_value:
                         base_data[field_name] = override_value
                         modified_fields.append(field_name)
+
+                        # Update corresponding _details field for ForeignKey fields
+                        # Also add the accessor used by frontend (e.g., "fabric_details.name") to modified_fields
+                        if field_name == 'fabric' and override_value:
+                            try:
+                                fabric = Fabric.objects.get(id=override_value)
+                                base_data['fabric_details'] = FabricSerializer(fabric).data
+                                # Add frontend accessor for highlighting
+                                modified_fields.append('fabric_details.name')
+                            except Fabric.DoesNotExist:
+                                pass
+                        elif field_name == 'host' and override_value:
+                            try:
+                                host = Host.objects.get(id=override_value)
+                                base_data['host_details'] = {'id': host.id, 'name': host.name}
+                                # Add frontend accessor for highlighting
+                                modified_fields.append('host_details.name')
+                            except Host.DoesNotExist:
+                                pass
+                        elif field_name == 'wwpns' and isinstance(override_value, list):
+                            # WWPNs are stored as array in overrides, need to apply to individual columns
+                            # Add all WWPN columns to modified_fields for highlighting
+                            for i in range(len(override_value)):
+                                modified_fields.append(f'wwpn_{i+1}')
                         # print(f"  ✅ Field '{field_name}' modified: {base_data.get(field_name)} -> {override_value}")
                 else:
                     # New field from override
@@ -1048,10 +1094,10 @@ def alias_customer_list_view(request):
     """
     print(f"🔥 Alias Customer List - Customer ID from query params")
 
-    # Get customer_id from query parameters
-    customer_id = request.GET.get('customer_id')
+    # Get customer_id from query parameters (accept both 'customer' and 'customer_id')
+    customer_id = request.GET.get('customer') or request.GET.get('customer_id')
     if not customer_id:
-        return JsonResponse({"error": "customer_id parameter is required"}, status=400)
+        return JsonResponse({"error": "customer or customer_id parameter is required"}, status=400)
 
     try:
         customer = Customer.objects.get(id=customer_id)
@@ -1103,12 +1149,12 @@ def alias_customer_list_view(request):
     if search:
         aliases_queryset = aliases_queryset.filter(
             Q(name__icontains=search) |
-            Q(wwpn__icontains=search) |
+            Q(alias_wwpns__wwpn__icontains=search) |
             Q(notes__icontains=search) |
             Q(fabric__name__icontains=search) |
             Q(use__icontains=search) |
             Q(cisco_alias__icontains=search)
-        )
+        ).distinct()
 
     # Apply field-specific filters (same logic as project endpoint)
     filter_params = {}
@@ -1219,7 +1265,17 @@ def alias_customer_list_view(request):
     # Pagination
     from django.core.paginator import Paginator
     page = int(request.GET.get('page', 1))
-    page_size = int(request.GET.get('page_size', 50))
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+    # Handle "All" - not supported
+    if page_size_param == 'All':
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
     paginator = Paginator(aliases_queryset, page_size)
     page_obj = paginator.get_page(page)
@@ -1367,7 +1423,7 @@ def hosts_by_project_view(request, project_id):
     search = request.GET.get('search', '').strip()
     ordering = request.GET.get('ordering', 'name')
     page = request.GET.get('page', 1)
-    page_size = request.GET.get('page_size', 50)
+    page_size = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
     format_type = request.GET.get('format', 'dropdown')
     
     print(f"🔍 Hosts API - Project: {project_id}, Search: '{search}', Page: {page}, PageSize: {page_size}, Format: {format_type}")
@@ -1564,11 +1620,17 @@ def hosts_by_project_view(request, project_id):
         # Implement pagination for table format
         try:
             page = int(page)
+            if page_size == 'All':
+                return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
             page_size = int(page_size)
         except (ValueError, TypeError):
             page = 1
-            page_size = 50
-            
+            page_size = settings.DEFAULT_PAGE_SIZE
+
+        # Enforce maximum page size
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
         paginator = Paginator(hosts_queryset, page_size)
         page_obj = paginator.get_page(page)
         
@@ -2221,9 +2283,6 @@ def alias_save_view(request):
                         for field in write_only_fields:
                             validated_data.pop(field, None)
 
-                        # Extract only fields that actually changed
-                        changed_fields = extract_changed_fields(alias, validated_data)
-
                         # Check if WWPNs actually changed (not just present)
                         wwpns_changed = False
                         if 'wwpns_write' in serializer.validated_data:
@@ -2233,49 +2292,131 @@ def alias_save_view(request):
                             # Compare lists - check if they differ
                             wwpns_changed = new_wwpns != existing_wwpns
 
-                        # Debug logging to identify what's triggering modifications
-                        if changed_fields or wwpns_changed:
-                            print(f"🔍 Alias '{alias.name}' (ID: {alias.id}) - changed_fields: {changed_fields}, wwpns_changed: {wwpns_changed}")
+                        # Get or create ProjectAlias for this project
+                        project_alias, pa_created = ProjectAlias.objects.get_or_create(
+                            project=project,
+                            alias=alias,
+                            defaults={
+                                'action': 'reference',
+                                'added_by': user,
+                                'field_overrides': {}
+                            }
+                        )
 
-                        if changed_fields or wwpns_changed:
-                            # Get or create ProjectAlias for this project
-                            project_alias, pa_created = ProjectAlias.objects.get_or_create(
-                                project=project,
-                                alias=alias,
-                                defaults={
-                                    'action': 'reference',
-                                    'added_by': user,
-                                    'field_overrides': {}
-                                }
-                            )
+                        # Build map of FK field names for efficient lookup
+                        from django.db.models import ForeignKey
+                        fk_fields = {}
+                        for field in alias._meta.get_fields():
+                            if isinstance(field, ForeignKey):
+                                fk_fields[field.name] = field
 
-                            # Update field_overrides with new changes
-                            # Merge existing overrides with new changes
-                            current_overrides = project_alias.field_overrides or {}
-                            current_overrides.update(changed_fields)
+                        # Process field overrides - properly handle reverting to base values
+                        current_overrides = project_alias.field_overrides or {}
+                        overrides_modified = False
+                        exclude_fields = ['id', 'created_at', 'updated_at', 'imported',
+                                         'last_modified_at', 'last_modified_by', 'version']
+                        # Note: wwpns_write is handled separately below
+
+                        for field_name, new_value in validated_data.items():
+                            # Skip excluded fields
+                            if field_name in exclude_fields:
+                                continue
+
+                            # Skip fields that don't exist on the model
+                            if not hasattr(alias, field_name):
+                                continue
+
+                            # Get current value from base instance
+                            base_value = getattr(alias, field_name, None)
+
+                            # For FK fields, compare by ID (not object instance)
+                            if field_name in fk_fields:
+                                # Get base FK ID
+                                base_id = base_value.pk if base_value and hasattr(base_value, 'pk') else None
+
+                                # Get new FK ID
+                                if isinstance(new_value, int):
+                                    new_id = new_value
+                                elif new_value and hasattr(new_value, 'pk'):
+                                    new_id = new_value.pk
+                                else:
+                                    new_id = None
+
+                                # Check if value changed from base
+                                if new_id != base_id:
+                                    # Value differs from base - add/update override
+                                    if field_name not in current_overrides or current_overrides[field_name] != new_id:
+                                        current_overrides[field_name] = new_id
+                                        overrides_modified = True
+                                        print(f"🔍 Alias '{alias.name}': Added override {field_name}={new_id} (base={base_id})")
+                                elif field_name in current_overrides:
+                                    # Value matches base but we have an override - remove it
+                                    del current_overrides[field_name]
+                                    overrides_modified = True
+                                    print(f"🔍 Alias '{alias.name}': Removed override for {field_name} (reverted to base={base_id})")
+                            else:
+                                # Regular field comparison
+                                # Handle None comparisons carefully
+                                base_is_empty = base_value is None or base_value == '' or base_value == []
+                                new_is_empty = new_value is None or new_value == '' or new_value == []
+
+                                # Normalize empty values for comparison
+                                normalized_base = None if base_is_empty else base_value
+                                normalized_new = None if new_is_empty else new_value
+
+                                # Check if value changed from base
+                                if normalized_new != normalized_base:
+                                    # Value differs from base - add/update override
+                                    if field_name not in current_overrides or current_overrides[field_name] != new_value:
+                                        current_overrides[field_name] = new_value
+                                        overrides_modified = True
+                                        print(f"🔍 Alias '{alias.name}': Added override {field_name}={new_value} (base={base_value})")
+                                elif field_name in current_overrides:
+                                    # Value matches base but we have an override - remove it
+                                    del current_overrides[field_name]
+                                    overrides_modified = True
+                                    print(f"🔍 Alias '{alias.name}': Removed override for {field_name} (reverted to base={base_value})")
+
+                        # Handle WWPN updates - store as override, don't modify base alias
+                        if wwpns_changed:
+                            wwpns_data = serializer.validated_data['wwpns_write']
+                            # Get base WWPNs to compare
+                            base_wwpns = [wwpn.wwpn for wwpn in sorted(alias.alias_wwpns.all(), key=lambda x: x.order)]
+
+                            # Check if new WWPNs differ from base
+                            if wwpns_data != base_wwpns:
+                                # Store WWPNs as override (as array)
+                                current_overrides['wwpns'] = wwpns_data
+                                overrides_modified = True
+                                print(f"🔍 Alias '{alias.name}': Added WWPN override (count={len(wwpns_data)})")
+                            elif 'wwpns' in current_overrides:
+                                # WWPNs match base but we have an override - remove it
+                                del current_overrides['wwpns']
+                                overrides_modified = True
+                                print(f"🔍 Alias '{alias.name}': Removed WWPN override (reverted to base)")
+
+                        # Update ProjectAlias if overrides changed
+                        if overrides_modified:
                             project_alias.field_overrides = current_overrides
 
-                            # Update action to 'modified' unless it's already 'new'
-                            if project_alias.action not in ['new', 'delete']:
+                            # Update action based on overrides state
+                            if project_alias.action == 'new':
+                                # Keep 'new' action
+                                pass
+                            elif project_alias.action == 'delete':
+                                # Keep 'delete' action
+                                pass
+                            elif current_overrides:
+                                # Has overrides - mark as modified
                                 project_alias.action = 'modified'
+                            else:
+                                # No overrides left - revert to reference
+                                project_alias.action = 'reference'
 
                             project_alias.added_by = user
                             project_alias.save()
 
-                            # Handle WWPN updates only if they actually changed
-                            if wwpns_changed:
-                                wwpns_data = serializer.validated_data['wwpns_write']
-                                # Delete existing WWPNs
-                                alias.alias_wwpns.all().delete()
-                                # Create new WWPNs
-                                for order, wwpn_str in enumerate(wwpns_data):
-                                    AliasWWPN.objects.create(
-                                        alias=alias,
-                                        wwpn=wwpn_str,
-                                        order=order
-                                    )
-
-                            print(f"✏️ Stored field overrides for alias '{alias.name}' in project '{project.name}': {changed_fields}")
+                            print(f"✏️ Updated field overrides for alias '{alias.name}' in project '{project.name}': {current_overrides}")
                         else:
                             # No changes detected - skip update
                             print(f"✅ Skipped alias '{alias.name}' (ID: {alias.id}) - no changes detected")
@@ -2412,7 +2553,7 @@ def zones_by_project_view(request, project_id):
                 # 1. Committed (committed=True), OR
                 # 2. Not referenced by any project (no junction table entries)
                 zones = zones.annotate(
-                    project_count=Count('project_zones')  # Correct relationship name
+                    project_count=Count('project_memberships')  # Correct relationship name
                 ).filter(
                     Q(committed=True) | Q(project_count=0)
                 )
@@ -2507,11 +2648,21 @@ def zones_by_project_view(request, project_id):
         
         # Add pagination for performance with large datasets
         from django.core.paginator import Paginator
-        
+
         # Get pagination parameters
         page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 50))  # Default 50 zones per page
-        
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        # Handle "All" - not supported
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        # Enforce maximum page size
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
         # Apply pagination
         paginator = Paginator(zones, page_size)
         page_obj = paginator.get_page(page)
@@ -2578,27 +2729,28 @@ def zone_project_view(request, project_id):
 
     # Get pagination parameters
     page = int(request.GET.get('page', 1))
-    page_size_param = request.GET.get('page_size', 50)
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-    # Handle "All" as a special case
+    # Handle "All" - not supported
     if page_size_param == 'All':
-        page_size = None
-        page_obj = None
-        paginator = None
-        total_count = project_zones.count()
-        project_zones_page = project_zones  # Use all results
-    else:
-        page_size = int(page_size_param)
-        paginator = Paginator(project_zones, page_size)
-        total_count = paginator.count
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
 
-        try:
-            page_obj = paginator.get_page(page)
-        except:
-            page_obj = paginator.get_page(1)
-            page = 1
+    page_size = int(page_size_param)
 
-        project_zones_page = page_obj.object_list  # Use only current page
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+    paginator = Paginator(project_zones, page_size)
+    total_count = paginator.count
+
+    try:
+        page_obj = paginator.get_page(page)
+    except:
+        page_obj = paginator.get_page(1)
+        page = 1
+
+    project_zones_page = page_obj.object_list  # Use only current page
     # ===== END PAGINATION =====
 
     # ===== PERFORMANCE OPTIMIZATION: Build serializer context =====
@@ -2789,7 +2941,17 @@ def zone_customer_list_view(request):
     # Pagination
     from django.core.paginator import Paginator
     page = int(request.GET.get('page', 1))
-    page_size = int(request.GET.get('page_size', 50))
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+    # Handle "All" - not supported
+    if page_size_param == 'All':
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
     paginator = Paginator(zones, page_size)
     page_obj = paginator.get_page(page)
@@ -2883,6 +3045,68 @@ def zone_column_requirements(request, project_id):
         
     except Project.DoesNotExist:
         return JsonResponse({"error": "Project not found."}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def zone_customer_column_requirements(request):
+    """Lightweight endpoint to get zone column requirements by member type for customer zones"""
+    try:
+        customer_id = request.GET.get('customer_id')
+        if not customer_id:
+            return JsonResponse({"error": "customer_id parameter is required"}, status=400)
+
+        customer = Customer.objects.get(id=customer_id)
+
+        # Get all customer zones through fabrics
+        from django.db.models import Q, Count
+        customer_fabric_ids = Fabric.objects.filter(customer=customer).values_list('id', flat=True)
+        zones = Zone.objects.filter(fabric_id__in=customer_fabric_ids)
+
+        # Customer View filtering: Show zones that are either committed OR not in any project
+        zones = zones.annotate(
+            project_count=Count('project_memberships')
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
+        )
+
+        # Prefetch members with use type
+        zones = zones.prefetch_related('members')
+
+        # Calculate maximum members by type across all customer zones
+        max_by_type = {'targets': 0, 'initiators': 0, 'allAccess': 0}
+        total_zones = zones.count()
+
+        for zone in zones:
+            type_counts = {'targets': 0, 'initiators': 0, 'allAccess': 0}
+
+            for member in zone.members.all():
+                use_type = member.use
+                if use_type == 'target':
+                    type_counts['targets'] += 1
+                elif use_type == 'init':
+                    type_counts['initiators'] += 1
+                else:  # 'both' or empty
+                    type_counts['allAccess'] += 1
+
+            max_by_type['targets'] = max(max_by_type['targets'], type_counts['targets'])
+            max_by_type['initiators'] = max(max_by_type['initiators'], type_counts['initiators'])
+            max_by_type['allAccess'] = max(max_by_type['allAccess'], type_counts['allAccess'])
+
+        # Add buffer of 1 column each, minimum of 3
+        result = {
+            'targets': max(max_by_type['targets'] + 1, 3),
+            'initiators': max(max_by_type['initiators'] + 1, 3),
+            'allAccess': max(max_by_type['allAccess'] + 1, 3),
+            'total_zones': total_zones
+        }
+
+        return JsonResponse(result)
+
+    except Customer.DoesNotExist:
+        return JsonResponse({"error": "Customer not found."}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -3175,40 +3399,41 @@ def fabric_management(request, pk=None):
         if ordering:
             qs = qs.order_by(ordering)
         
-        # Check if pagination is requested
-        page = request.GET.get('page')
-        page_size = request.GET.get('page_size')
-        
-        if page is not None and page_size is not None:
-            # Paginated response
-            try:
-                page = int(page)
-                page_size = int(page_size)
-            except (ValueError, TypeError):
-                page = 1
-                page_size = 50
-            
-            # Apply pagination
-            paginator = Paginator(qs, page_size)
-            page_obj = paginator.get_page(page)
-            
-            # Serialize paginated results
-            serializer = FabricSerializer(page_obj, many=True)
-            
-            # Return paginated response with metadata
-            return JsonResponse({
-                'results': serializer.data,
-                'count': paginator.count,
-                'num_pages': paginator.num_pages,
-                'current_page': page,
-                'page_size': page_size,
-                'has_next': page_obj.has_next(),
-                'has_previous': page_obj.has_previous()
-            })
-        else:
-            # Non-paginated response (for backwards compatibility)
-            data = FabricSerializer(qs, many=True).data
-            return JsonResponse(data, safe=False)
+        # Pagination - always required now
+        page = request.GET.get('page', 1)
+        page_size = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        # Paginated response
+        try:
+            page = int(page)
+            if page_size == 'All':
+                return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+            page_size = int(page_size)
+        except (ValueError, TypeError):
+            page = 1
+            page_size = settings.DEFAULT_PAGE_SIZE
+
+        # Enforce maximum page size
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+        # Apply pagination
+        paginator = Paginator(qs, page_size)
+        page_obj = paginator.get_page(page)
+
+        # Serialize paginated results
+        serializer = FabricSerializer(page_obj, many=True)
+
+        # Return paginated response with metadata
+        return JsonResponse({
+            'results': serializer.data,
+            'count': paginator.count,
+            'num_pages': paginator.num_pages,
+            'current_page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
     
     # POST method
     elif request.method == "POST":
@@ -4155,40 +4380,41 @@ def switch_management(request, pk=None):
         if ordering:
             qs = qs.order_by(ordering)
 
-        # Check if pagination is requested
-        page = request.GET.get('page')
-        page_size = request.GET.get('page_size')
+        # Pagination - always required now
+        page = request.GET.get('page', 1)
+        page_size = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-        if page is not None and page_size is not None:
-            # Paginated response
-            try:
-                page = int(page)
-                page_size = int(page_size)
-            except (ValueError, TypeError):
-                page = 1
-                page_size = 50
+        # Paginated response
+        try:
+            page = int(page)
+            if page_size == 'All':
+                return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+            page_size = int(page_size)
+        except (ValueError, TypeError):
+            page = 1
+            page_size = settings.DEFAULT_PAGE_SIZE
 
-            # Apply pagination
-            paginator = Paginator(qs, page_size)
-            page_obj = paginator.get_page(page)
+        # Enforce maximum page size
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
-            # Serialize paginated results
-            serializer = SwitchSerializer(page_obj, many=True)
+        # Apply pagination
+        paginator = Paginator(qs, page_size)
+        page_obj = paginator.get_page(page)
 
-            # Return paginated response with metadata
-            return JsonResponse({
-                'results': serializer.data,
-                'count': paginator.count,
-                'num_pages': paginator.num_pages,
-                'current_page': page,
-                'page_size': page_size,
-                'has_next': page_obj.has_next(),
-                'has_previous': page_obj.has_previous()
-            })
-        else:
-            # Non-paginated response (for backwards compatibility)
-            data = SwitchSerializer(qs, many=True).data
-            return JsonResponse(data, safe=False)
+        # Serialize paginated results
+        serializer = SwitchSerializer(page_obj, many=True)
+
+        # Return paginated response with metadata
+        return JsonResponse({
+            'results': serializer.data,
+            'count': paginator.count,
+            'num_pages': paginator.num_pages,
+            'current_page': page,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
 
     # POST method
     elif request.method == "POST":
@@ -4309,25 +4535,26 @@ def switch_project_view(request, project_id):
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
-    page_size_param = request.GET.get('page_size', 50)
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-    # Handle "All" as a special case
+    # Handle "All" - not supported
     if page_size_param == 'All':
-        page_size = None
-        page_obj = None
-        paginator = None
-        total_count = project_switches.count()
-        project_switches_page = project_switches  # Use all results
-    else:
-        page_size = int(page_size_param)
-        paginator = Paginator(project_switches, page_size)
-        total_count = paginator.count
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
 
-        try:
-            page_obj = paginator.get_page(page)
-            project_switches_page = page_obj.object_list
-        except:
-            project_switches_page = []
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+    paginator = Paginator(project_switches, page_size)
+    total_count = paginator.count
+
+    try:
+        page_obj = paginator.get_page(page)
+        project_switches_page = page_obj.object_list
+    except:
+        project_switches_page = []
 
     merged_data = []
 
@@ -4441,25 +4668,26 @@ def fabric_project_view(request, project_id):
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
-    page_size_param = request.GET.get('page_size', 50)
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-    # Handle "All" as a special case
+    # Handle "All" - not supported
     if page_size_param == 'All':
-        page_size = None
-        page_obj = None
-        paginator = None
-        total_count = project_fabrics.count()
-        project_fabrics_page = project_fabrics  # Use all results
-    else:
-        page_size = int(page_size_param)
-        paginator = Paginator(project_fabrics, page_size)
-        total_count = paginator.count
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
 
-        try:
-            page_obj = paginator.get_page(page)
-            project_fabrics_page = page_obj.object_list
-        except:
-            project_fabrics_page = []
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+    paginator = Paginator(project_fabrics, page_size)
+    total_count = paginator.count
+
+    try:
+        page_obj = paginator.get_page(page)
+        project_fabrics_page = page_obj.object_list
+    except:
+        project_fabrics_page = []
 
     merged_data = []
 

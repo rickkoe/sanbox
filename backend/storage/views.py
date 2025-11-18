@@ -38,17 +38,23 @@ def storage_list(request):
             # Get query parameters
             customer_id = request.GET.get('customer')
             page_number = request.GET.get('page', 1)
-            page_size = request.GET.get('page_size', 100)
+            page_size = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
             search = request.GET.get('search', '')
             ordering = request.GET.get('ordering', 'id')
 
             # Convert to integers with defaults
             try:
                 page_number = int(page_number)
-                page_size = int(page_size) if page_size != 'All' else None
+                if page_size == 'All':
+                    return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+                page_size = int(page_size)
             except (ValueError, TypeError):
                 page_number = 1
-                page_size = 100
+                page_size = settings.DEFAULT_PAGE_SIZE
+
+            # Enforce maximum page size
+            if page_size > settings.MAX_PAGE_SIZE:
+                return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
             # Build queryset with optimizations
             from django.db.models import Q, Count
@@ -116,17 +122,6 @@ def storage_list(request):
             context = {}
             if project_id:
                 context['active_project_id'] = int(project_id)
-
-            # Handle "All" page size
-            if page_size is None:
-                # Return all results without pagination
-                serializer = StorageSerializer(storages, many=True, context=context)
-                return JsonResponse({
-                    'count': total_count,
-                    'next': None,
-                    'previous': None,
-                    'results': serializer.data
-                })
 
             # Create paginator
             paginator = Paginator(storages, page_size)
@@ -727,8 +722,18 @@ def volume_list(request):
         # Add pagination for performance with large datasets
         # Get pagination parameters
         page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 50))  # Default 50 volumes per page
-        
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        # Handle "All" - not supported
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        # Enforce maximum page size
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
         # Apply pagination
         paginator = Paginator(volumes, page_size)
         page_obj = paginator.get_page(page)
@@ -848,7 +853,17 @@ def _handle_host_list_get(request, user):
         # Add pagination for performance with large datasets
         # Get pagination parameters
         page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 50))  # Default 50 hosts per page
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        # Handle "All" - not supported
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        # Enforce maximum page size
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
         # Apply pagination
         paginator = Paginator(hosts, page_size)
@@ -1245,17 +1260,23 @@ def port_list(request):
             project_id = request.GET.get('project')
             customer_id = request.GET.get('customer')
             page_number = request.GET.get('page', 1)
-            page_size = request.GET.get('page_size', 100)
+            page_size = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
             search = request.GET.get('search', '')
             ordering = request.GET.get('ordering', 'id')
 
             # Convert to integers with defaults
             try:
                 page_number = int(page_number)
-                page_size = int(page_size) if page_size != 'All' else None
+                if page_size == 'All':
+                    return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+                page_size = int(page_size)
             except (ValueError, TypeError):
                 page_number = 1
-                page_size = 100
+                page_size = settings.DEFAULT_PAGE_SIZE
+
+            # Enforce maximum page size
+            if page_size > settings.MAX_PAGE_SIZE:
+                return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
             # Build queryset with optimizations
             from django.db.models import Q, Count
@@ -1550,25 +1571,26 @@ def storage_project_view(request, project_id):
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
-    page_size_param = request.GET.get('page_size', 50)
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-    # Handle "All" as a special case
+    # Handle "All" - not supported
     if page_size_param == 'All':
-        page_size = None
-        page_obj = None
-        paginator = None
-        total_count = project_storages.count()
-        project_storages_page = project_storages
-    else:
-        page_size = int(page_size_param)
-        paginator = Paginator(project_storages, page_size)
-        total_count = paginator.count
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
 
-        try:
-            page_obj = paginator.get_page(page)
-            project_storages_page = page_obj.object_list
-        except:
-            project_storages_page = []
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+    paginator = Paginator(project_storages, page_size)
+    total_count = paginator.count
+
+    try:
+        page_obj = paginator.get_page(page)
+        project_storages_page = page_obj.object_list
+    except:
+        project_storages_page = []
 
     merged_data = []
 
@@ -1647,25 +1669,26 @@ def volume_project_view(request, project_id):
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
-    page_size_param = request.GET.get('page_size', 50)
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-    # Handle "All" as a special case
+    # Handle "All" - not supported
     if page_size_param == 'All':
-        page_size = None
-        page_obj = None
-        paginator = None
-        total_count = project_volumes.count()
-        project_volumes_page = project_volumes
-    else:
-        page_size = int(page_size_param)
-        paginator = Paginator(project_volumes, page_size)
-        total_count = paginator.count
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
 
-        try:
-            page_obj = paginator.get_page(page)
-            project_volumes_page = page_obj.object_list
-        except:
-            project_volumes_page = []
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+    paginator = Paginator(project_volumes, page_size)
+    total_count = paginator.count
+
+    try:
+        page_obj = paginator.get_page(page)
+        project_volumes_page = page_obj.object_list
+    except:
+        project_volumes_page = []
 
     merged_data = []
 
@@ -1745,25 +1768,26 @@ def host_project_view(request, project_id):
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
-    page_size_param = request.GET.get('page_size', 50)
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-    # Handle "All" as a special case
+    # Handle "All" - not supported
     if page_size_param == 'All':
-        page_size = None
-        page_obj = None
-        paginator = None
-        total_count = project_hosts.count()
-        project_hosts_page = project_hosts
-    else:
-        page_size = int(page_size_param)
-        paginator = Paginator(project_hosts, page_size)
-        total_count = paginator.count
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
 
-        try:
-            page_obj = paginator.get_page(page)
-            project_hosts_page = page_obj.object_list
-        except:
-            project_hosts_page = []
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+    paginator = Paginator(project_hosts, page_size)
+    total_count = paginator.count
+
+    try:
+        page_obj = paginator.get_page(page)
+        project_hosts_page = page_obj.object_list
+    except:
+        project_hosts_page = []
 
     merged_data = []
 
@@ -1844,25 +1868,26 @@ def port_project_view(request, project_id):
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
-    page_size_param = request.GET.get('page_size', 50)
+    page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
 
-    # Handle "All" as a special case
+    # Handle "All" - not supported
     if page_size_param == 'All':
-        page_size = None
-        page_obj = None
-        paginator = None
-        total_count = project_ports.count()
-        project_ports_page = project_ports
-    else:
-        page_size = int(page_size_param)
-        paginator = Paginator(project_ports, page_size)
-        total_count = paginator.count
+        return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
 
-        try:
-            page_obj = paginator.get_page(page)
-            project_ports_page = page_obj.object_list
-        except:
-            project_ports_page = []
+    page_size = int(page_size_param)
+
+    # Enforce maximum page size
+    if page_size > settings.MAX_PAGE_SIZE:
+        return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+    paginator = Paginator(project_ports, page_size)
+    total_count = paginator.count
+
+    try:
+        page_obj = paginator.get_page(page)
+        project_ports_page = page_obj.object_list
+    except:
+        project_ports_page = []
 
     merged_data = []
 

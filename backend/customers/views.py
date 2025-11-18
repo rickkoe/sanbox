@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -32,17 +33,23 @@ def customer_management(request, pk=None):
         if pk is None:
             # Get query parameters
             page_number = request.GET.get('page', 1)
-            page_size = request.GET.get('page_size', 100)
+            page_size = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
             search = request.GET.get('search', '')
             ordering = request.GET.get('ordering', 'id')
 
             # Convert to integers with defaults
             try:
                 page_number = int(page_number)
-                page_size = int(page_size) if page_size != 'All' else None
+                if page_size == 'All':
+                    return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+                page_size = int(page_size)
             except (ValueError, TypeError):
                 page_number = 1
-                page_size = 100
+                page_size = settings.DEFAULT_PAGE_SIZE
+
+            # Enforce maximum page size
+            if page_size > settings.MAX_PAGE_SIZE:
+                return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
             # Debug logging
             print(f"🔍 User: {user}, Authenticated: {user.is_authenticated if user else False}")
@@ -74,18 +81,7 @@ def customer_management(request, pk=None):
             
             # Get total count before pagination
             total_count = customers.count()
-            
-            # Handle "All" page size
-            if page_size is None:
-                # Return all results without pagination
-                data = CustomerSerializer(customers, many=True).data
-                return JsonResponse({
-                    'count': total_count,
-                    'next': None,
-                    'previous': None,
-                    'results': data
-                })
-            
+
             # Create paginator
             paginator = Paginator(customers, page_size)
             

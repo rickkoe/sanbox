@@ -73,7 +73,7 @@ export function useServerPagination({
       // Build query parameters
       const params = {
         page,
-        page_size: size === "All" ? 10000 : size,
+        page_size: size === "All" ? "All" : size,
       };
 
       // Add search parameter

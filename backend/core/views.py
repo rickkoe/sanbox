@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password
+from django.conf import settings
 from .models import Config, Project, TableConfiguration, AppSettings, CustomNamingRule, CustomVariable, UserConfig, AuditLog
 from customers.models import Customer
 from .serializers import (
@@ -2162,7 +2163,17 @@ def audit_log_list(request):
 
         # Pagination
         page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 50))
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        # Handle "All" - not supported
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        # Enforce maximum page size
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
 
         # Calculate pagination
         total_count = queryset.count()

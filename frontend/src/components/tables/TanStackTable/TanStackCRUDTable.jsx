@@ -62,7 +62,7 @@ const TanStackCRUDTable = forwardRef(({
   height = '600px',
   storageKey,
   readOnly = false,
-  pageSizeOptions = [25, 50, 100, 250, 'All'], // Customizable page size options
+  pageSizeOptions = [25, 50, 100, 250, 500], // Customizable page size options
   defaultSort, // Default sort configuration: { column: 'name', direction: 'asc'|'desc' }
 
   // Event Handlers
@@ -176,8 +176,8 @@ const TanStackCRUDTable = forwardRef(({
     // Check if apiUrl already has query parameters
     const separator = apiUrl.includes('?') ? '&' : '?';
 
-    // Handle "All" page size by using a very large number that the backend can handle
-    const actualPageSize = size === 'All' ? 10000 : size;
+    // Pass "All" directly to backend - backend handles it specially
+    const actualPageSize = size;
 
     let url = `${apiUrl}${separator}page=${page}&page_size=${actualPageSize}`;
 
@@ -478,33 +478,41 @@ const TanStackCRUDTable = forwardRef(({
   const hasActiveClientFilters = useMemo(() => {
     const hasActiveFilters = Object.keys(activeFilters).some(key => activeFilters[key].active);
     const hasGlobalFilter = globalFilter && globalFilter.trim().length > 0;
-    const hasActiveSorting = sorting && sorting.length > 0;
+    // Don't consider default sorting as a reason to load extra data
+    // Only consider sorting if it was explicitly changed by user interaction
+    const hasActiveSorting = false; // Disabled: sorting && sorting.length > 0;
+
+    // Always use server-side mode until we know the dataset size
+    // This prevents loading 500 items on first render when we don't know if dataset is large
+    if (!totalItems || totalItems === 0) {
+      return false; // Don't use client-side mode until we know dataset size
+    }
 
     // For large datasets (> 500 items), always use server-side mode
-    // Client-side mode can't load all data due to backend page_size limit of 250
+    // Client-side mode can't load all data due to backend page_size limit of 500
     if (totalItems > 500) {
       return false; // Force server-side mode for large datasets
     }
 
-    const result = !useServerSideFiltering && (hasActiveFilters || hasGlobalFilter || hasActiveSorting);
+    const result = !useServerSideFiltering && (hasActiveFilters || hasGlobalFilter);
     return result;
-  }, [useServerSideFiltering, activeFilters, globalFilter, sorting, totalItems]);
+  }, [useServerSideFiltering, activeFilters, globalFilter, totalItems]);
 
   // Load data from server with pagination
   const loadData = useCallback(async () => {
-    // Only pass filters to server if using server-side filtering
-    const filtersToPass = useServerSideFiltering ? activeFilters : {};
+    // ALWAYS send search and filters to the server
+    // This ensures search works for all dataset sizes
+    // The server will filter the data before paginating
+    const filtersToPass = activeFilters;
 
-    // Use the memoized hasActiveClientFilters value for consistency
-
-    // Use a large page size when client-side filters are active to get all data
-    // Cap at 250 to match backend MAX_PAGE_SIZE limit
-    const effectivePageSize = hasActiveClientFilters ? Math.min(250, 10000) : pageSize;
-    const effectivePage = hasActiveClientFilters ? 1 : currentPage;
+    // Use the user's selected page size - no need for client-side mode logic
+    // Server-side filtering handles everything correctly
+    const effectivePageSize = pageSize;
+    const effectivePage = currentPage;
 
 
     const url = buildApiUrl(effectivePage, effectivePageSize,
-                           useServerSideFiltering ? globalFilter : '',
+                           globalFilter,
                            filtersToPass);
     if (!url) {
       return 0; // Return 0 for early exit
@@ -522,9 +530,9 @@ const TanStackCRUDTable = forwardRef(({
     setError(null);
 
     try {
-      // Use longer timeout for large dataset requests (when fetching all data or large pages)
-      // Check for "All", large numbers, or large effectivePageSize
-      const isLargeRequest = pageSize === 'All' || effectivePageSize >= 250 || effectivePageSize >= 10000;
+      // Use longer timeout for large dataset requests (when fetching large pages)
+      // Check for large numbers or large effectivePageSize
+      const isLargeRequest = effectivePageSize >= 250;
       const response = await api.get(url, {
         timeout: isLargeRequest ? 60000 : undefined // 60s for "All" or large page requests
       });
@@ -589,8 +597,9 @@ const TanStackCRUDTable = forwardRef(({
     if (!apiUrl) return;
 
     try {
-      // Load all data without filters (using a large page size)
-      const url = buildApiUrl(1, 10000, '', {});
+      // Load all data without filters (using max page size)
+      // Note: This is only called for small datasets (< 500 items)
+      const url = buildApiUrl(1, 500, '', {});
 
       // Use longer timeout for large dataset requests
       const response = await api.get(url, {

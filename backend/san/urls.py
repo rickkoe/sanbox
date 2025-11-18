@@ -22,6 +22,7 @@ from .views import (
     zone_customer_list_view,
     zone_max_members_view,
     zone_column_requirements,
+    zone_customer_column_requirements,
     zone_save_view,
     alias_delete_view,
     zone_delete_view,
@@ -45,6 +46,7 @@ urlpatterns = [
     # Customer-level endpoints (no project required)
     path("aliases/", alias_customer_list_view, name="alias-customer-list"),
     path("zones/", zone_customer_list_view, name="zone-customer-list"),
+    path("zones/customer/column-requirements/", zone_customer_column_requirements, name="zone-customer-column-requirements"),
 
     # Project-level endpoints
     path("aliases/project/<int:project_id>/", alias_list_view, name="alias-list"),
