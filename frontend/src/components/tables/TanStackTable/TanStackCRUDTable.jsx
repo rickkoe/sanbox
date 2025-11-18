@@ -1706,35 +1706,15 @@ const TanStackCRUDTable = forwardRef(({
   });
 
   // Calculate effective totals based on whether filters are active
+  // Since we always send search/filters to the server, always use server count
   const effectiveTotalItems = useMemo(() => {
-    if (hasActiveClientFilters) {
-      if (table && table.getFilteredRowModel) {
-        // When filtering, use the filtered count from TanStack Table
-        const filteredCount = table.getFilteredRowModel().rows.length;
-        return filteredCount;
-      } else {
-        // Fallback: if table isn't ready yet, use totalItems temporarily
-        return totalItems;
-      }
-    }
-    return totalItems; // Otherwise use server-provided count
-  }, [hasActiveClientFilters, table, totalItems, globalFilter, activeFilters, editableData]);
+    return totalItems; // Always use server-provided count
+  }, [totalItems]);
 
+  // Since we always send search/filters to the server, always use server-provided pages
   const effectiveTotalPages = useMemo(() => {
-    if (hasActiveClientFilters) {
-      if (table && table.getFilteredRowModel) {
-        // Calculate pages based on filtered results
-        const filteredCount = table.getFilteredRowModel().rows.length;
-        const effectivePageSize = pageSize === 'All' ? filteredCount : pageSize;
-        const pages = Math.max(1, Math.ceil(filteredCount / effectivePageSize));
-        return pages;
-      } else {
-        // Fallback
-        return totalPages;
-      }
-    }
-    return totalPages; // Otherwise use server-provided pages
-  }, [hasActiveClientFilters, table, pageSize, totalPages, globalFilter, activeFilters, editableData]);
+    return totalPages;
+  }, [totalPages]);
 
   // Manual sorting function - sorts data once without continuous re-sorting (uses existing getNestedValue)
   const applyManualSort = useCallback((dataToSort, sortState) => {
@@ -3002,7 +2982,7 @@ const TanStackCRUDTable = forwardRef(({
               margin: 0
             }}>Rows per page:</label>
             <select
-              value={pageSize === 'All' || pageSize >= effectiveTotalItems ? 'all' : pageSize}
+              value={pageSize}
               onChange={handlePageSizeChangeLocal}
               disabled={isLoading}
               style={{
@@ -3015,12 +2995,9 @@ const TanStackCRUDTable = forwardRef(({
                 cursor: 'pointer'
               }}
             >
-              {pageSizeOptions.map((option) => {
-                if (option === 'All') {
-                  return <option key="all" value="all">All ({totalItems.toLocaleString()})</option>;
-                }
-                return <option key={option} value={option}>{option}</option>;
-              })}
+              {pageSizeOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
             </select>
           </div>
         </div>

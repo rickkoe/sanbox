@@ -254,12 +254,15 @@ const FilterDropdown = ({
           }}
         >
           <option value="">Choose a column...</option>
-          {columns.map(column => (
-            <option key={column.id} value={column.id}>
-              {typeof column.header === 'function' ? column.id : (column.header || column.id)}
-              {activeFilters[column.id]?.active && ' ●'}
-            </option>
-          ))}
+          {columns.map(column => {
+            // Ensure we only render strings in options (not React elements)
+            const headerText = typeof column.header === 'string' ? column.header : column.id;
+            return (
+              <option key={column.id} value={column.id}>
+                {headerText}{activeFilters[column.id]?.active ? ' ●' : ''}
+              </option>
+            );
+          })}
         </select>
       </div>
 
@@ -353,7 +356,7 @@ const FilterDropdown = ({
                   >
                     {filterTypes.map(type => (
                       <option key={type.value} value={type.value}>
-                        {type.icon} {type.label}
+                        {`${type.icon} ${type.label}`}
                       </option>
                     ))}
                   </select>
