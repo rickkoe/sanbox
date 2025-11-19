@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useContext, useCallback, useMemo } from "react";
+import { useState, useEffect, useContext, useCallback, useMemo } from "react";
 import api from "../../api";
 import { ConfigContext } from "../../context/ConfigContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
-import CommitProjectModal from "../modals/CommitProjectModal";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Project management
@@ -12,11 +11,6 @@ const ProjectTableTanStackClean = () => {
 
     const [customerOptions, setCustomerOptions] = useState([]);
     const [customersById, setCustomersById] = useState({});
-    const [commitModalOpen, setCommitModalOpen] = useState(false);
-    const [selectedProject, setSelectedProject] = useState(null);
-    const [closeAfterCommit, setCloseAfterCommit] = useState(false);
-
-    const activeCustomerId = config?.customer?.id;
 
     // Load columns from centralized configuration
     const columns = useMemo(() => {
@@ -103,7 +97,7 @@ const ProjectTableTanStackClean = () => {
     const handleDelete = async (projectId) => {
         try {
             // Delete the project
-            await api.delete(`/core/projects/delete/${projectId}/`);
+            await api.delete(`/api/core/projects/delete/${projectId}/`);
 
             // Check if the deleted project was the active project
             const activeProjectId = config?.active_project?.id;
@@ -121,120 +115,7 @@ const ProjectTableTanStackClean = () => {
         }
     };
 
-    // Global handlers for commit buttons (accessed via window object from HTML)
-    useEffect(() => {
-        window.projectTableHandleCommit = (projectId, projectName) => {
-            console.log('🔵 Commit button clicked:', projectId, projectName);
-            setSelectedProject({ id: parseInt(projectId), name: projectName });
-            setCloseAfterCommit(false);
-            setCommitModalOpen(true);
-        };
-
-        window.projectTableHandleCommitAndClose = (projectId, projectName) => {
-            console.log('🔵 Commit and Close button clicked:', projectId, projectName);
-            setSelectedProject({ id: parseInt(projectId), name: projectName });
-            setCloseAfterCommit(true);
-            setCommitModalOpen(true);
-        };
-
-        return () => {
-            delete window.projectTableHandleCommit;
-            delete window.projectTableHandleCommitAndClose;
-        };
-    }, []);
-
-    // Custom renderers for the Actions column
-    const customRenderers = useMemo(() => {
-        const renderers = {};
-
-        renderers['project_actions'] = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
-            try {
-                const projectId = rowData.id;
-                const projectName = rowData.name || 'Unknown';
-                const status = rowData.status || 'active';
-
-                // Don't show commit buttons for closed projects
-                if (status === 'closed') {
-                    return `<span style="
-                        padding: 4px 8px;
-                        background-color: var(--badge-bg);
-                        color: var(--badge-text);
-                        border-radius: 4px;
-                        font-size: 12px;
-                        font-weight: 500;
-                    " onmousedown="event.stopPropagation()">Closed</span>`;
-                }
-
-                // Show commit buttons for active projects
-                return `<div style="display: flex; gap: 8px;" onmousedown="event.stopPropagation()">
-                    <button
-                        onclick="window.projectTableHandleCommit('${projectId}', '${projectName.replace(/'/g, "\\'")}')"
-                        onmousedown="event.stopPropagation()"
-                        style="
-                            padding: 6px 12px;
-                            border: 1px solid var(--color-accent-emphasis);
-                            border-radius: 6px;
-                            cursor: pointer;
-                            background-color: var(--color-accent-subtle);
-                            color: var(--color-accent-fg);
-                            font-size: 13px;
-                            font-weight: 500;
-                            transition: all 0.2s;
-                        "
-                        onmouseover="this.style.backgroundColor='var(--color-accent-muted)'"
-                        onmouseout="this.style.backgroundColor='var(--color-accent-subtle)'"
-                        title="Commit changes to base objects">
-                        Commit
-                    </button>
-                    <button
-                        onclick="window.projectTableHandleCommitAndClose('${projectId}', '${projectName.replace(/'/g, "\\'")}')"
-                        onmousedown="event.stopPropagation()"
-                        style="
-                            padding: 6px 12px;
-                            border: 1px solid var(--color-success-emphasis);
-                            border-radius: 6px;
-                            cursor: pointer;
-                            background-color: var(--color-success-subtle);
-                            color: var(--color-success-fg);
-                            font-size: 13px;
-                            font-weight: 500;
-                            transition: all 0.2s;
-                        "
-                        onmouseover="this.style.backgroundColor='var(--color-success-muted)'"
-                        onmouseout="this.style.backgroundColor='var(--color-success-subtle)'"
-                        title="Commit changes and close project">
-                        Commit & Close
-                    </button>
-                </div>`;
-            } catch (error) {
-                console.error('Error rendering project_actions:', error);
-                return '';
-            }
-        };
-
-        return renderers;
-    }, []);
-
-    // Handler for successful commit
-    const handleCommitSuccess = () => {
-        console.log('✅ Commit successful, refreshing table...');
-        // Trigger table refresh by forcing a re-render
-        // The table will reload data automatically
-        refreshConfig();
-    };
-
     return (
-        <>
-            <CommitProjectModal
-                show={commitModalOpen}
-                onClose={() => {
-                    setCommitModalOpen(false);
-                    setSelectedProject(null);
-                }}
-                projectId={selectedProject?.id}
-                projectName={selectedProject?.name}
-                onSuccess={handleCommitSuccess}
-            />
         <div className="modern-table-container">
             <TanStackCRUDTable
                 // API Configuration
@@ -258,7 +139,6 @@ const ProjectTableTanStackClean = () => {
 
                 // Custom Handlers
                 onDelete={handleDelete}
-                customRenderers={customRenderers}
 
                 // Table Settings
                 height="calc(100vh - 200px)"
@@ -275,7 +155,6 @@ const ProjectTableTanStackClean = () => {
                 }}
             />
         </div>
-        </>
     );
 };
 

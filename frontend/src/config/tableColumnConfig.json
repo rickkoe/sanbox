@@ -1126,14 +1126,6 @@
         "title": "Notes",
         "type": "text",
         "defaultVisible": true
-      },
-      {
-        "id": "project_actions",
-        "title": "Actions",
-        "type": "custom",
-        "readOnly": true,
-        "width": 240,
-        "defaultVisible": true
       }
     ]
   }
