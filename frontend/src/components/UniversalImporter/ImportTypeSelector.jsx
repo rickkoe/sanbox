@@ -5,7 +5,7 @@ import {
   Check
 } from 'lucide-react';
 
-const ImportTypeSelector = ({ selectedType, onTypeSelect }) => {
+const ImportTypeSelector = ({ selectedType, onTypeSelect, projectActive = true }) => {
   const importTypes = [
     {
       id: 'san',
@@ -40,7 +40,7 @@ const ImportTypeSelector = ({ selectedType, onTypeSelect }) => {
       {importTypes.map((type) => {
         const Icon = type.icon;
         const isSelected = selectedType === type.id;
-        const isDisabled = !type.available;
+        const isDisabled = !type.available || !projectActive;
 
         return (
           <div

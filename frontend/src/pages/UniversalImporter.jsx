@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { ConfigContext } from '../context/ConfigContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -799,11 +799,20 @@ const UniversalImporter = () => {
           {/* Step 1: Select Import Type */}
           {step === 1 && (
             <>
+              {!config.active_project && (
+                <div className="no-project-alert">
+                  <AlertTriangle size={20} />
+                  <div>
+                    <strong>No Active Project</strong>
+                    <p>Please select a project from the navbar to perform imports. All changes must go through a project.</p>
+                  </div>
+                </div>
+              )}
               <h2>Select Import Type</h2>
               <ImportTypeSelector
                 selectedType={importType}
                 onTypeSelect={setImportType}
-                theme={theme}
+                projectActive={!!config.active_project}
               />
               <div className="mt-4">
                 <label htmlFor="importName" className="form-label">Import Name (Optional)</label>

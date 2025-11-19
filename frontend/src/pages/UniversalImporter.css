@@ -284,6 +284,37 @@
   }
 }
 
+/* ===== NO PROJECT ALERT ===== */
+.no-project-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--secondary-bg);
+  border-left: 4px solid var(--color-severe-emphasis);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.no-project-alert svg {
+  color: var(--color-severe-emphasis);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.no-project-alert strong {
+  display: block;
+  color: var(--primary-text);
+  margin-bottom: var(--space-1);
+}
+
+.no-project-alert p {
+  margin: 0;
+  color: var(--secondary-text);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
 /* ===== IMPORT TYPE SELECTOR ===== */
 .import-type-grid {
   display: grid;
