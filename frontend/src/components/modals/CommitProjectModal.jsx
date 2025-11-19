@@ -35,6 +35,9 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
     // Selection state: { entityType: Set of selected entity IDs }
     const [selected, setSelected] = useState({});
 
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('');
+
     // Entity types in display order
     const entityTypes = [
         { key: 'fabrics', label: 'Fabrics' },
@@ -282,22 +285,39 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
         setSelected({});
     };
 
-    // Count entities in a category across all types
+    // Filter entities by search query
+    const filterBySearch = (entities) => {
+        if (!searchQuery.trim()) return entities;
+        const query = searchQuery.toLowerCase().trim();
+        return entities.filter(entity =>
+            entity.name.toLowerCase().includes(query)
+        );
+    };
+
+    // Count entities in a category across all types (respecting search filter)
     const countEntities = (category) => {
         if (!previewData || !previewData[category]) return 0;
-        return Object.values(previewData[category]).reduce((sum, arr) => sum + arr.length, 0);
+        return entityTypes.reduce((sum, { key }) => {
+            const entities = previewData[category][key] || [];
+            return sum + filterBySearch(entities).length;
+        }, 0);
     };
 
     // Render entity list for a specific type with collapsible header and checkboxes
     const renderEntityList = (category, entityType, typeLabel) => {
-        const entities = previewData[category]?.[entityType] || [];
+        const allEntities = previewData[category]?.[entityType] || [];
+        const entities = filterBySearch(allEntities);
         if (entities.length === 0) return null;
 
         const collapseKey = `${category}_${entityType}`;
         const isCollapsed = collapsed[collapseKey];
-        const selectedCount = getTypeSelectedCount(category, entityType);
-        const isFullySelected = isTypeFullySelected(category, entityType);
-        const isPartiallySelected = isTypePartiallySelected(category, entityType);
+        const selectedCount = entities.filter(entity =>
+            selected[`${category}_${entityType}_${entity.id}`]
+        ).length;
+        const isFullySelected = entities.length > 0 && entities.every(entity =>
+            selected[`${category}_${entityType}_${entity.id}`]
+        );
+        const isPartiallySelected = selectedCount > 0 && selectedCount < entities.length;
 
         return (
             <div className="commit-modal-entity-group">
@@ -324,7 +344,12 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
                         className="commit-modal-type-checkbox-wrapper"
                         onClick={(e) => {
                             e.stopPropagation();
-                            toggleTypeSelection(category, entityType);
+                            // Toggle only the filtered entities
+                            const newSelected = { ...selected };
+                            entities.forEach(entity => {
+                                newSelected[`${category}_${entityType}_${entity.id}`] = !isFullySelected;
+                            });
+                            setSelected(newSelected);
                         }}
                     >
                         <input
@@ -462,6 +487,34 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
 
                             {totalAvailableCount > 0 && (
                                 <div className="commit-modal-selection-controls">
+                                    <div className="commit-modal-search-wrapper">
+                                        <svg
+                                            className="commit-modal-search-icon"
+                                            width="14"
+                                            height="14"
+                                            viewBox="0 0 14 14"
+                                            fill="currentColor"
+                                        >
+                                            <path d="M10.5 9.5L13.5 12.5M6 11C3.23858 11 1 8.76142 1 6C1 3.23858 3.23858 1 6 1C8.76142 1 11 3.23858 11 6C11 8.76142 8.76142 11 6 11Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                                        </svg>
+                                        <input
+                                            type="text"
+                                            className="commit-modal-search-input"
+                                            placeholder="Search entities..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            disabled={committing}
+                                        />
+                                        {searchQuery && (
+                                            <button
+                                                className="commit-modal-search-clear"
+                                                onClick={() => setSearchQuery('')}
+                                                aria-label="Clear search"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
                                     <button
                                         className="btn btn-sm btn-outline-secondary"
                                         onClick={selectAll}
