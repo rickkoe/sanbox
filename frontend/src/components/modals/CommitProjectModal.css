@@ -268,28 +268,103 @@
     color: var(--secondary-text);
 }
 
+/* Selection Controls */
+.commit-modal-selection-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background-color: var(--secondary-bg);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.commit-modal-selection-controls .btn {
+    font-size: 0.85rem;
+}
+
+.commit-modal-selection-count {
+    margin-left: auto;
+    font-size: 0.9rem;
+    color: var(--secondary-text);
+}
+
 /* Entity Group */
 .commit-modal-entity-group {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .commit-modal-entity-group:last-child {
     margin-bottom: 0;
 }
 
+/* Collapsible Entity Type Header */
+.commit-modal-entity-type-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.commit-modal-entity-type-header:hover {
+    background-color: var(--hover-bg);
+}
+
+.commit-modal-entity-type-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.commit-modal-chevron {
+    color: var(--secondary-text);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.commit-modal-chevron.expanded {
+    transform: rotate(90deg);
+}
+
 .commit-modal-entity-type {
     font-weight: 600;
     font-size: 0.9rem;
     color: var(--secondary-text);
-    margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
+.commit-modal-entity-count {
+    font-size: 0.85rem;
+    color: var(--secondary-text);
+    font-weight: normal;
+}
+
+.commit-modal-type-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    padding: 4px;
+}
+
+.commit-modal-type-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* Entity List */
 .commit-modal-entity-list {
     list-style: none;
     padding: 0;
-    margin: 0;
+    margin: 8px 0 0 0;
 }
 
 .commit-modal-entity-list li {
@@ -300,10 +375,40 @@
     margin-bottom: 4px;
     font-size: 0.9rem;
     color: var(--primary-text);
+    transition: opacity 0.2s, background-color 0.2s;
+}
+
+.commit-modal-entity-list li.deselected {
+    opacity: 0.5;
+    background-color: var(--secondary-bg);
 }
 
 .commit-modal-entity-list li:last-child {
     margin-bottom: 0;
+}
+
+.commit-modal-entity-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    cursor: pointer;
+    width: 100%;
+}
+
+.commit-modal-entity-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary);
+    flex-shrink: 0;
+}
+
+.commit-modal-entity-label span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Modal Footer */
