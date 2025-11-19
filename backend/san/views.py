@@ -4510,6 +4510,10 @@ def switch_project_view(request, project_id):
     Get switches in project with field_overrides applied (merged view).
     Returns only switches in the project with overrides merged into base data.
     Adds 'modified_fields' array to track which fields have overrides.
+
+    Supports project_filter parameter:
+    - 'current': Only switches in the project (default)
+    - 'all': All customer switches with in_active_project flag
     """
     try:
         project = Project.objects.get(id=project_id)
@@ -4520,6 +4524,90 @@ def switch_project_view(request, project_id):
     customer = project.customers.first()
     customer_id = customer.id if customer else None
 
+    # Get project filter parameter
+    project_filter = request.GET.get('project_filter', 'current')
+
+    # Get project switch IDs for membership checking
+    project_switch_ids = set(ProjectSwitch.objects.filter(
+        project=project
+    ).values_list('switch_id', flat=True))
+
+    if project_filter == 'all' and customer:
+        # Return ALL customer switches with in_active_project flag
+        all_switches = Switch.objects.filter(
+            customer=customer
+        ).select_related(
+            'customer'
+        ).prefetch_related(
+            'fabrics',
+            'switch_fabrics',
+            Prefetch('project_memberships',
+                     queryset=ProjectSwitch.objects.select_related('project'))
+        )
+
+        # ===== PAGINATION =====
+        page = int(request.GET.get('page', 1))
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+        paginator = Paginator(all_switches, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            switches_page = page_obj.object_list
+        except:
+            switches_page = []
+
+        merged_data = []
+
+        for switch in switches_page:
+            base_data = SwitchSerializer(switch).data
+            in_project = switch.id in project_switch_ids
+
+            # If in project, get overrides
+            modified_fields = []
+            if in_project:
+                try:
+                    ps = ProjectSwitch.objects.get(project=project, switch=switch)
+                    if ps.field_overrides:
+                        for field_name, override_value in ps.field_overrides.items():
+                            if field_name in base_data and base_data[field_name] != override_value:
+                                base_data[field_name] = override_value
+                                modified_fields.append(field_name)
+                    base_data['project_action'] = ps.action
+                except ProjectSwitch.DoesNotExist:
+                    pass
+
+            base_data['modified_fields'] = modified_fields
+            base_data['in_active_project'] = in_project
+            merged_data.append(base_data)
+
+        response_data = {
+            'results': merged_data,
+            'count': total_count,
+        }
+
+        if paginator and page_obj:
+            response_data.update({
+                'next': page_obj.has_next(),
+                'previous': page_obj.has_previous(),
+                'page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+
+        return JsonResponse(response_data)
+
+    # Default: current project only
     # Get all ProjectSwitch entries for this project
     project_switches = ProjectSwitch.objects.filter(
         project=project
@@ -4642,6 +4730,10 @@ def fabric_project_view(request, project_id):
     Get fabrics in project with field_overrides applied (merged view).
     Returns only fabrics in the project with overrides merged into base data.
     Adds 'modified_fields' array to track which fields have overrides.
+
+    Supports project_filter parameter:
+    - 'current': Only fabrics in the project (default)
+    - 'all': All customer fabrics with in_active_project flag
     """
     try:
         project = Project.objects.get(id=project_id)
@@ -4652,6 +4744,91 @@ def fabric_project_view(request, project_id):
     customer = project.customers.first()
     customer_id = customer.id if customer else None
 
+    # Get project filter parameter
+    project_filter = request.GET.get('project_filter', 'current')
+
+    # Get project fabric IDs for membership checking
+    project_fabric_ids = set(ProjectFabric.objects.filter(
+        project=project
+    ).values_list('fabric_id', flat=True))
+
+    if project_filter == 'all' and customer:
+        # Return ALL customer fabrics with in_active_project flag
+        all_fabrics = Fabric.objects.filter(
+            customer=customer
+        ).select_related(
+            'customer'
+        ).prefetch_related(
+            'alias_set',
+            'zone_set',
+            'fabric_switches__switch',
+            Prefetch('project_memberships',
+                     queryset=ProjectFabric.objects.select_related('project'))
+        )
+
+        # ===== PAGINATION =====
+        page = int(request.GET.get('page', 1))
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+        paginator = Paginator(all_fabrics, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            fabrics_page = page_obj.object_list
+        except:
+            fabrics_page = []
+
+        merged_data = []
+
+        for fabric in fabrics_page:
+            base_data = FabricSerializer(fabric).data
+            in_project = fabric.id in project_fabric_ids
+
+            # If in project, get overrides
+            modified_fields = []
+            if in_project:
+                try:
+                    pf = ProjectFabric.objects.get(project=project, fabric=fabric)
+                    if pf.field_overrides:
+                        for field_name, override_value in pf.field_overrides.items():
+                            if field_name in base_data and base_data[field_name] != override_value:
+                                base_data[field_name] = override_value
+                                modified_fields.append(field_name)
+                    base_data['project_action'] = pf.action
+                except ProjectFabric.DoesNotExist:
+                    pass
+
+            base_data['modified_fields'] = modified_fields
+            base_data['in_active_project'] = in_project
+            merged_data.append(base_data)
+
+        response_data = {
+            'results': merged_data,
+            'count': total_count,
+        }
+
+        if paginator and page_obj:
+            response_data.update({
+                'next': page_obj.has_next(),
+                'previous': page_obj.has_previous(),
+                'page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+
+        return JsonResponse(response_data)
+
+    # Default: current project only
     # Get all ProjectFabric entries for this project
     project_fabrics = ProjectFabric.objects.filter(
         project=project

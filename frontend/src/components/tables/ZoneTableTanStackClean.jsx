@@ -1161,11 +1161,9 @@ const ZoneTableTanStackClean = () => {
                 }
             }
 
-            // Show results
+            // Show error alert only
             if (errorCount > 0) {
                 alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            } else if (successCount > 0) {
-                alert(`Successfully updated ${successCount} zones`);
             }
 
             // Reload table to get fresh data

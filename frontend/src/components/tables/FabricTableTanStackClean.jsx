@@ -83,10 +83,24 @@ const FabricTableTanStackClean = () => {
             if (showBulkModal && customerId && activeProjectId) {
                 try {
                     console.log('📥 Loading all customer fabrics for bulk modal...');
-                    const response = await api.get(`${API_URL}/api/san/fabrics/?customer_id=${customerId}&project_id=${activeProjectId}&project_filter=all&page_size=10000`);
-                    const fabrics = response.data.results || response.data;
-                    setAllCustomerFabrics(fabrics);
-                    console.log(`✅ Loaded ${fabrics.length} customer fabrics for modal`);
+                    let allFabrics = [];
+                    let page = 1;
+                    let hasMore = true;
+                    const pageSize = 500;
+
+                    while (hasMore) {
+                        const response = await api.get(
+                            `${API_URL}/api/san/fabrics/project/${activeProjectId}/view/?project_filter=all&page_size=${pageSize}&page=${page}`
+                        );
+                        const fabrics = response.data.results || response.data;
+                        allFabrics = [...allFabrics, ...fabrics];
+
+                        hasMore = response.data.has_next;
+                        page++;
+                    }
+
+                    setAllCustomerFabrics(allFabrics);
+                    console.log(`✅ Loaded ${allFabrics.length} customer fabrics for modal`);
                 } catch (error) {
                     console.error('❌ Error loading customer fabrics:', error);
                     setAllCustomerFabrics([]);
@@ -287,7 +301,10 @@ const FabricTableTanStackClean = () => {
                 }
             }
 
-            alert(`Bulk operation complete!\n✅ Success: ${successCount}\n❌ Errors: ${errorCount}`);
+            // Show error alert only
+            if (errorCount > 0) {
+                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
+            }
 
             // Reload table data
             if (tableRef.current?.reloadData) {
@@ -517,8 +534,8 @@ const FabricTableTanStackClean = () => {
             {showBulkModal && (
                 <BulkProjectMembershipModal
                     show={showBulkModal}
-                    onHide={() => setShowBulkModal(false)}
-                    items={allCustomerFabrics.length > 0 ? allCustomerFabrics : (tableRef.current?.getTableData() || [])}
+                    onClose={() => setShowBulkModal(false)}
+                    items={allCustomerFabrics}
                     onSave={handleBulkFabricSave}
                     itemType="fabric"
                     projectName={config?.active_project?.name || ''}

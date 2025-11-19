@@ -28,7 +28,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const [storageOptions, setStorageOptions] = useState([]);
     const [loading, setLoading] = useState(true);
     // Project filter state - synchronized across all tables via ProjectFilterContext
-    const { projectFilter, setProjectFilter } = useProjectFilter();
+    const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerVolumes, setAllCustomerVolumes] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
@@ -36,16 +36,39 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const activeCustomerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
 
-    // Use centralized API hook
-    const { apiUrl } = useProjectViewAPI({
+    // Use centralized API hook for auto-switch behavior
+    // Note: Volumes have a different URL pattern than SAN entities
+    // - Customer View: /api/storage/volumes/?customer=123
+    // - Project View: /api/storage/project/123/view/volumes/
+    useProjectViewAPI({
         projectFilter,
         setProjectFilter,
         activeProjectId,
         activeCustomerId,
-        entityType: 'volumes',
+        entityType: '', // Not used for volumes
         baseUrl: `${API_URL}/api/storage`,
         localStorageKey: 'volumeTableProjectFilter'
     });
+
+    // Generate the correct apiUrl for volumes (different pattern than SAN entities)
+    const apiUrl = useMemo(() => {
+        if (projectFilterLoading) {
+            return null; // Don't fetch until projectFilter is loaded
+        }
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project View: Returns merged data with field_overrides and project_action
+            return `${API_URL}/api/storage/project/${activeProjectId}/view/volumes/`;
+        } else if (activeProjectId) {
+            // Customer View with project context: Adds in_active_project flag
+            return `${API_URL}/api/storage/project/${activeProjectId}/view/volumes/?project_filter=${projectFilter}`;
+        } else if (activeCustomerId) {
+            // Customer View without project: Basic customer data
+            return `${API_URL}/api/storage/volumes/?customer=${activeCustomerId}`;
+        } else {
+            // Fallback: No customer or project selected
+            return `${API_URL}/api/storage/volumes/`;
+        }
+    }, [API_URL, projectFilter, activeProjectId, activeCustomerId, projectFilterLoading]);
 
     // Use centralized permissions hook
     const { canEdit, canDelete, isViewer, isProjectOwner, isAdmin, readOnlyMessage } = useProjectViewPermissions({
@@ -206,12 +229,28 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         const loadAllCustomerVolumes = async () => {
             if (showBulkModal && activeCustomerId && activeProjectId) {
                 try {
-                    const response = await api.get(`${API_URL}/api/storage/volumes/?customer=${activeCustomerId}&project_id=${activeProjectId}&page_size=1000`);
-                    if (response.data && response.data.results) {
-                        setAllCustomerVolumes(response.data.results);
+                    console.log('📥 Loading all customer volumes for bulk modal...');
+                    let allVolumes = [];
+                    let page = 1;
+                    let hasMore = true;
+                    const pageSize = 500;
+
+                    while (hasMore) {
+                        const response = await api.get(
+                            `${API_URL}/api/storage/project/${activeProjectId}/view/volumes/?project_filter=all&page_size=${pageSize}&page=${page}`
+                        );
+                        const volumes = response.data.results || response.data;
+                        allVolumes = [...allVolumes, ...volumes];
+
+                        hasMore = response.data.has_next;
+                        page++;
                     }
+
+                    setAllCustomerVolumes(allVolumes);
+                    console.log(`✅ Loaded ${allVolumes.length} customer volumes for modal`);
                 } catch (error) {
-                    console.error('Error loading customer volumes:', error);
+                    console.error('❌ Error loading customer volumes:', error);
+                    setAllCustomerVolumes([]);
                 }
             }
         };
@@ -237,25 +276,73 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Handle bulk volume save
     const handleBulkVolumeSave = useCallback(async (selectedIds) => {
         try {
-            if (!allCustomerVolumes || allCustomerVolumes.length === 0) return;
-            const currentInProject = new Set(allCustomerVolumes.filter(v => v.in_active_project).map(v => v.id));
+            console.log('🔄 Bulk volume save started with selected IDs:', selectedIds);
+
+            if (!allCustomerVolumes || allCustomerVolumes.length === 0) {
+                console.error('No customer volumes available');
+                return;
+            }
+
+            // Get current volumes in project
+            const currentInProject = new Set(
+                allCustomerVolumes
+                    .filter(volume => volume.in_active_project)
+                    .map(volume => volume.id)
+            );
+
+            // Determine adds and removes
             const selectedSet = new Set(selectedIds);
             const toAdd = selectedIds.filter(id => !currentInProject.has(id));
             const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
 
+            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process additions
             for (const volumeId of toAdd) {
-                await handleAddVolumeToProject(volumeId, 'unmodified');
-            }
-            for (const volumeId of toRemove) {
-                await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-volume/${volumeId}/`);
+                try {
+                    const success = await handleAddVolumeToProject(volumeId, 'unmodified');
+                    if (success) successCount++;
+                    else errorCount++;
+                } catch (error) {
+                    console.error(`Failed to add volume ${volumeId}:`, error);
+                    errorCount++;
+                }
             }
 
-            if (tableRef.current && tableRef.current.reloadData) {
+            // Process removals
+            for (const volumeId of toRemove) {
+                try {
+                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-volume/${volumeId}/`);
+                    if (response.data.success) {
+                        successCount++;
+                        console.log(`✅ Removed volume ${volumeId} from project`);
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error(`Failed to remove volume ${volumeId}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Show error alert only
+            if (errorCount > 0) {
+                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
+            }
+
+            // Reload table to get fresh data
+            if (tableRef.current?.reloadData) {
                 tableRef.current.reloadData();
             }
-            setShowBulkModal(false);
+
+            console.log('✅ Bulk operation completed:', { successCount, errorCount });
+
         } catch (error) {
-            console.error('Error in bulk volume save:', error);
+            console.error('❌ Bulk volume save error:', error);
+            alert(`Error during bulk operation: ${error.message}`);
         }
     }, [allCustomerVolumes, activeProjectId, API_URL, handleAddVolumeToProject]);
 
@@ -402,8 +489,8 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         return <EmptyConfigMessage entityName="volumes" />;
     }
 
-    // Show loading while data loads
-    if (loading) {
+    // Show loading while data loads or projectFilter is loading
+    if (loading || projectFilterLoading) {
         return (
             <div className="modern-table-container">
                 <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
@@ -426,9 +513,9 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
                 // API Configuration
                 apiUrl={
-                    projectFilter === 'current' && activeProjectId
-                        ? (storageId ? `${API_ENDPOINTS.volumes}?storage_id=${storageId}` : API_ENDPOINTS.volumes)
-                        : (storageId ? `${API_ENDPOINTS.volumes}?customer=${activeCustomerId}&storage_id=${storageId}` : `${API_ENDPOINTS.volumes}?customer=${activeCustomerId}`)
+                    storageId
+                        ? `${API_ENDPOINTS.volumes}${API_ENDPOINTS.volumes?.includes('?') ? '&' : '?'}storage_id=${storageId}`
+                        : API_ENDPOINTS.volumes
                 }
                 saveUrl={API_ENDPOINTS.saveUrl}
                 deleteUrl={API_ENDPOINTS.deleteUrl}

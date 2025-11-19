@@ -334,37 +334,29 @@ const SwitchTableTanStack = () => {
         const loadAllCustomerSwitches = async () => {
             if (showBulkModal && activeCustomerId && activeProjectId) {
                 try {
-                    // Fetch all customer switches
-                    const switchesResponse = await api.get(
-                        `${API_URL}/api/san/switches/customer/${activeCustomerId}/`
-                    );
+                    console.log('📥 Loading all customer switches for bulk modal...');
+                    let allSwitches = [];
+                    let page = 1;
+                    let hasMore = true;
+                    const pageSize = 500;
 
-                    const allSwitches = Array.isArray(switchesResponse.data)
-                        ? switchesResponse.data
-                        : (switchesResponse.data.results || []);
-
-                    // Get project switches to determine membership
-                    // We'll query the switch_project_view endpoint to get switches in project
-                    let projectSwitchIds = new Set();
-                    try {
-                        const projectViewResponse = await api.get(
-                            `${API_URL}/api/san/switches/project/${activeProjectId}/view/?page_size=10000`
+                    // Use project endpoint with project_filter=all to get all customer switches
+                    // with in_active_project flag already set by the API
+                    while (hasMore) {
+                        const response = await api.get(
+                            `${API_URL}/api/san/switches/project/${activeProjectId}/view/?project_filter=all&page_size=${pageSize}&page=${page}`
                         );
-                        const projectSwitches = projectViewResponse.data.results || projectViewResponse.data || [];
-                        projectSwitchIds = new Set(projectSwitches.map(sw => sw.id));
-                    } catch (projError) {
-                        console.warn('Could not fetch project switches:', projError);
+                        const switches = response.data.results || response.data;
+                        allSwitches = [...allSwitches, ...switches];
+
+                        hasMore = response.data.has_next;
+                        page++;
                     }
 
-                    // Annotate with project membership
-                    const annotatedSwitches = allSwitches.map(sw => ({
-                        ...sw,
-                        in_active_project: projectSwitchIds.has(sw.id)
-                    }));
-
-                    setAllCustomerSwitches(annotatedSwitches);
+                    setAllCustomerSwitches(allSwitches);
+                    console.log(`✅ Loaded ${allSwitches.length} customer switches for modal`);
                 } catch (error) {
-                    console.error('Error loading customer switches:', error);
+                    console.error('❌ Error loading customer switches:', error);
                     setAllCustomerSwitches([]);
                 }
             }
@@ -449,11 +441,9 @@ const SwitchTableTanStack = () => {
                 }
             }
 
-            // Show results
+            // Show error alert only
             if (errorCount > 0) {
-                alert(`Completed with ${errorCount} error(s). ${successCount} switch(es) updated successfully.`);
-            } else if (successCount > 0) {
-                alert(`Successfully updated ${successCount} switch(es).`);
+                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
             }
 
             // Reload table data

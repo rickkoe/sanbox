@@ -20,13 +20,40 @@ const ProjectFilterContext = createContext();
 export const ProjectFilterProvider = ({ children }) => {
     const { config } = useContext(ConfigContext);
     const { user } = useAuth();
-    const [projectFilter, setProjectFilterState] = useState('all');
-    const [loading, setLoading] = useState(true);
     const customerId = config?.customer?.id;
+
+    // Initialize synchronously from localStorage for instant UI state on page refresh
+    // This prevents the table from fetching with wrong filter before async load completes
+    const getInitialFilter = () => {
+        if (customerId) {
+            try {
+                const saved = localStorage.getItem(`projectFilter_${customerId}`);
+                if (saved === 'current' || saved === 'all') {
+                    return saved;
+                }
+            } catch (e) {
+                // localStorage not available
+            }
+        }
+        return 'all';
+    };
+
+    const [projectFilter, setProjectFilterState] = useState(getInitialFilter);
+    const [loading, setLoading] = useState(true);
 
     // Load projectFilter from TableConfiguration on mount or customer change
     useEffect(() => {
         if (customerId && user) {
+            // First, immediately set from localStorage for instant UI
+            try {
+                const saved = localStorage.getItem(`projectFilter_${customerId}`);
+                if (saved === 'current' || saved === 'all') {
+                    setProjectFilterState(saved);
+                }
+            } catch (e) {
+                // localStorage not available
+            }
+            // Then validate/sync with backend
             loadProjectFilter();
         } else {
             // No customer selected, default to 'all'
@@ -77,6 +104,15 @@ export const ProjectFilterProvider = ({ children }) => {
     const setProjectFilter = useCallback(async (newFilter) => {
         // Immediately update state for instant UI response
         setProjectFilterState(newFilter);
+
+        // Save to localStorage for instant restore on page refresh
+        if (customerId) {
+            try {
+                localStorage.setItem(`projectFilter_${customerId}`, newFilter);
+            } catch (e) {
+                // localStorage not available
+            }
+        }
 
         if (customerId && user) {
             try {

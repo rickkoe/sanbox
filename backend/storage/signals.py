@@ -16,6 +16,11 @@ def storage_post_save(sender, instance, created, **kwargs):
 
     if created:
         # New storage system created
+        # Calculate capacity in TB from bytes if available
+        capacity_tb = None
+        if instance.capacity_bytes:
+            capacity_tb = round(instance.capacity_bytes / (1024 ** 4), 2)
+
         log_create(
             user=user,
             entity_type='STORAGE_SYSTEM',
@@ -25,7 +30,7 @@ def storage_post_save(sender, instance, created, **kwargs):
                 'vendor': instance.vendor,
                 'model': instance.model,
                 'serial_number': instance.serial_number,
-                'total_capacity_tb': float(instance.total_capacity_tb) if instance.total_capacity_tb else None
+                'capacity_tb': capacity_tb
             }
         )
     elif kwargs.get('update_fields') is not None:
@@ -69,6 +74,11 @@ def volume_post_save(sender, instance, created, **kwargs):
 
     if created:
         # New volume created
+        # Calculate capacity in GB from bytes if available
+        capacity_gb = None
+        if instance.capacity_bytes:
+            capacity_gb = round(instance.capacity_bytes / (1024 ** 3), 2)
+
         log_create(
             user=user,
             entity_type='VOLUME',
@@ -76,7 +86,7 @@ def volume_post_save(sender, instance, created, **kwargs):
             customer=instance.storage.customer if instance.storage else None,
             details={
                 'storage': instance.storage.name if instance.storage else None,
-                'capacity_gb': float(instance.capacity_gb) if instance.capacity_gb else None,
+                'capacity_gb': capacity_gb,
                 'pool_name': instance.pool_name
             }
         )
@@ -90,6 +100,11 @@ def volume_pre_delete(sender, instance, **kwargs):
     from core.middleware import get_current_user
     user = get_current_user()
 
+    # Calculate capacity in GB from bytes if available
+    capacity_gb = None
+    if instance.capacity_bytes:
+        capacity_gb = round(instance.capacity_bytes / (1024 ** 3), 2)
+
     log_delete(
         user=user,
         entity_type='VOLUME',
@@ -97,7 +112,7 @@ def volume_pre_delete(sender, instance, **kwargs):
         customer=instance.storage.customer if instance.storage else None,
         details={
             'storage': instance.storage.name if instance.storage else None,
-            'capacity_gb': float(instance.capacity_gb) if instance.capacity_gb else None
+            'capacity_gb': capacity_gb
         }
     )
 

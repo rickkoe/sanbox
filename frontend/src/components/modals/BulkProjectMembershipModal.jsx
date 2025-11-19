@@ -43,18 +43,26 @@ const BulkProjectMembershipModal = ({ show, onClose, onHide, onSave, items, item
         }
     }, [show, items]);
 
-    // Filter items based on search text
+    // Filter and sort items based on search text
     const filteredItems = useMemo(() => {
         if (!items) return [];
 
-        if (!searchFilter.trim()) {
-            return items;
+        let result = items;
+
+        // Apply search filter if present
+        if (searchFilter.trim()) {
+            const searchLower = searchFilter.toLowerCase();
+            result = items.filter(item =>
+                item.name?.toLowerCase().includes(searchLower)
+            );
         }
 
-        const searchLower = searchFilter.toLowerCase();
-        return items.filter(item =>
-            item.name?.toLowerCase().includes(searchLower)
-        );
+        // Sort alphabetically by name
+        return [...result].sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
     }, [items, searchFilter]);
 
     // Handle checkbox toggle

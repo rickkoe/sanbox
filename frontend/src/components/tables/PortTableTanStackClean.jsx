@@ -29,7 +29,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const activeProjectId = config?.active_project?.id;
 
     // Project filter state - synchronized across all tables via ProjectFilterContext
-    const { projectFilter, setProjectFilter } = useProjectFilter();
+    const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
     const [totalRowCount, setTotalRowCount] = useState(0);
 
     // State for dropdown options
@@ -39,16 +39,39 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerPorts, setAllCustomerPorts] = useState([]);
 
-    // Use centralized API hook
-    const { apiUrl } = useProjectViewAPI({
+    // Use centralized API hook for auto-switch behavior
+    // Note: Ports have a different URL pattern than SAN entities
+    // - Customer View: /api/storage/ports/?customer=123
+    // - Project View: /api/storage/project/123/view/ports/
+    useProjectViewAPI({
         projectFilter,
         setProjectFilter,
         activeProjectId,
         activeCustomerId,
-        entityType: 'ports',
+        entityType: '', // Not used for ports
         baseUrl: `${API_URL}/api/storage`,
         localStorageKey: 'portTableProjectFilter'
     });
+
+    // Generate the correct apiUrl for ports (different pattern than SAN entities)
+    const apiUrl = useMemo(() => {
+        if (projectFilterLoading) {
+            return null; // Don't fetch until projectFilter is loaded
+        }
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project View: Returns merged data with field_overrides and project_action
+            return `${API_URL}/api/storage/project/${activeProjectId}/view/ports/`;
+        } else if (activeProjectId) {
+            // Customer View with project context: Adds in_active_project flag
+            return `${API_URL}/api/storage/project/${activeProjectId}/view/ports/?project_filter=${projectFilter}`;
+        } else if (activeCustomerId) {
+            // Customer View without project: Basic customer data
+            return `${API_URL}/api/storage/ports/?customer=${activeCustomerId}`;
+        } else {
+            // Fallback: No customer or project selected
+            return `${API_URL}/api/storage/ports/`;
+        }
+    }, [API_URL, projectFilter, activeProjectId, activeCustomerId, projectFilterLoading]);
 
     // Use centralized permissions hook
     const { canEdit, canDelete, isViewer, isProjectOwner, isAdmin, readOnlyMessage } = useProjectViewPermissions({
@@ -200,12 +223,28 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         const loadAllCustomerPorts = async () => {
             if (showBulkModal && activeCustomerId && activeProjectId) {
                 try {
-                    const response = await api.get(`${API_URL}/api/storage/ports/?customer=${activeCustomerId}&project_id=${activeProjectId}&page_size=1000`);
-                    if (response.data && response.data.results) {
-                        setAllCustomerPorts(response.data.results);
+                    console.log('📥 Loading all customer ports for bulk modal...');
+                    let allPorts = [];
+                    let page = 1;
+                    let hasMore = true;
+                    const pageSize = 500;
+
+                    while (hasMore) {
+                        const response = await api.get(
+                            `${API_URL}/api/storage/project/${activeProjectId}/view/ports/?project_filter=all&page_size=${pageSize}&page=${page}`
+                        );
+                        const ports = response.data.results || response.data;
+                        allPorts = [...allPorts, ...ports];
+
+                        hasMore = response.data.has_next;
+                        page++;
                     }
+
+                    setAllCustomerPorts(allPorts);
+                    console.log(`✅ Loaded ${allPorts.length} customer ports for modal`);
                 } catch (error) {
-                    console.error('Error loading customer ports:', error);
+                    console.error('❌ Error loading customer ports:', error);
+                    setAllCustomerPorts([]);
                 }
             }
         };
@@ -231,25 +270,73 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Handle bulk port save
     const handleBulkPortSave = useCallback(async (selectedIds) => {
         try {
-            if (!allCustomerPorts || allCustomerPorts.length === 0) return;
-            const currentInProject = new Set(allCustomerPorts.filter(p => p.in_active_project).map(p => p.id));
+            console.log('🔄 Bulk port save started with selected IDs:', selectedIds);
+
+            if (!allCustomerPorts || allCustomerPorts.length === 0) {
+                console.error('No customer ports available');
+                return;
+            }
+
+            // Get current ports in project
+            const currentInProject = new Set(
+                allCustomerPorts
+                    .filter(port => port.in_active_project)
+                    .map(port => port.id)
+            );
+
+            // Determine adds and removes
             const selectedSet = new Set(selectedIds);
             const toAdd = selectedIds.filter(id => !currentInProject.has(id));
             const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
 
+            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process additions
             for (const portId of toAdd) {
-                await handleAddPortToProject(portId, 'unmodified');
-            }
-            for (const portId of toRemove) {
-                await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-port/${portId}/`);
+                try {
+                    const success = await handleAddPortToProject(portId, 'unmodified');
+                    if (success) successCount++;
+                    else errorCount++;
+                } catch (error) {
+                    console.error(`Failed to add port ${portId}:`, error);
+                    errorCount++;
+                }
             }
 
-            if (tableRef.current && tableRef.current.reloadData) {
+            // Process removals
+            for (const portId of toRemove) {
+                try {
+                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-port/${portId}/`);
+                    if (response.data.success) {
+                        successCount++;
+                        console.log(`✅ Removed port ${portId} from project`);
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error(`Failed to remove port ${portId}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Show error alert only
+            if (errorCount > 0) {
+                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
+            }
+
+            // Reload table to get fresh data
+            if (tableRef.current?.reloadData) {
                 tableRef.current.reloadData();
             }
-            setShowBulkModal(false);
+
+            console.log('✅ Bulk operation completed:', { successCount, errorCount });
+
         } catch (error) {
-            console.error('Error in bulk port save:', error);
+            console.error('❌ Bulk port save error:', error);
+            alert(`Error during bulk operation: ${error.message}`);
         }
     }, [allCustomerPorts, activeProjectId, API_URL, handleAddPortToProject]);
 
@@ -580,6 +667,19 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Show empty config message if no active customer
     if (!config || !activeCustomerId) {
         return <EmptyConfigMessage entityName="ports" />;
+    }
+
+    // Wait for projectFilter to load before rendering table
+    if (projectFilterLoading || !apiUrl) {
+        return (
+            <div className="modern-table-container">
+                <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (

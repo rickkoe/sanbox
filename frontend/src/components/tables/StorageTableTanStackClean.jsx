@@ -26,22 +26,46 @@ const StorageTableTanStackClean = () => {
     const activeProjectId = config?.active_project?.id;
 
     // Project filter state - synchronized across all tables via ProjectFilterContext
-    const { projectFilter, setProjectFilter } = useProjectFilter();
+    const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
 
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerStorage, setAllCustomerStorage] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
 
-    // Use centralized API hook
-    const { apiUrl } = useProjectViewAPI({
+    // Use centralized API hook for auto-switch behavior
+    // Note: Storage has a different URL pattern than other entities
+    // - Customer View: /api/storage/?customer=123
+    // - Project View: /api/storage/project/123/view/storages/
+    useProjectViewAPI({
         projectFilter,
         setProjectFilter,
         activeProjectId,
         activeCustomerId,
-        entityType: 'storage',
+        entityType: '', // Not used for storage
         baseUrl: `${API_URL}/api/storage`,
         localStorageKey: 'storageTableProjectFilter'
     });
+
+    // Generate the correct apiUrl for storage (different pattern than other entities)
+    // Don't generate URL while projectFilter is still loading to prevent wrong initial fetch
+    const apiUrl = useMemo(() => {
+        if (projectFilterLoading) {
+            return null; // Don't fetch until projectFilter is loaded
+        }
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project View: Returns merged data with field_overrides and project_action
+            return `${API_URL}/api/storage/project/${activeProjectId}/view/storages/`;
+        } else if (activeProjectId) {
+            // Customer View with project context: Adds in_active_project flag
+            return `${API_URL}/api/storage/project/${activeProjectId}/view/storages/?project_filter=${projectFilter}`;
+        } else if (activeCustomerId) {
+            // Customer View without project: Basic customer data
+            return `${API_URL}/api/storage/?customer=${activeCustomerId}`;
+        } else {
+            // Fallback: No customer or project selected
+            return `${API_URL}/api/storage/`;
+        }
+    }, [API_URL, projectFilter, activeProjectId, activeCustomerId, projectFilterLoading]);
 
     // Use centralized permissions hook
     const { canEdit, canDelete, isViewer, isProjectOwner, isAdmin, readOnlyMessage } = useProjectViewPermissions({
@@ -86,13 +110,28 @@ const StorageTableTanStackClean = () => {
         const loadAllCustomerStorage = async () => {
             if (showBulkModal && activeCustomerId && activeProjectId) {
                 try {
-                    // Fetch all customer storage with project membership info
-                    const response = await api.get(`${API_URL}/api/storage/?customer=${activeCustomerId}&project_id=${activeProjectId}&page_size=1000`);
-                    if (response.data && response.data.results) {
-                        setAllCustomerStorage(response.data.results);
+                    console.log('📥 Loading all customer storage for bulk modal...');
+                    let allStorage = [];
+                    let page = 1;
+                    let hasMore = true;
+                    const pageSize = 500;
+
+                    while (hasMore) {
+                        const response = await api.get(
+                            `${API_URL}/api/storage/project/${activeProjectId}/view/storages/?project_filter=all&page_size=${pageSize}&page=${page}`
+                        );
+                        const storage = response.data.results || response.data;
+                        allStorage = [...allStorage, ...storage];
+
+                        hasMore = response.data.has_next;
+                        page++;
                     }
+
+                    setAllCustomerStorage(allStorage);
+                    console.log(`✅ Loaded ${allStorage.length} customer storage for modal`);
                 } catch (error) {
-                    console.error('Error loading customer storage:', error);
+                    console.error('❌ Error loading customer storage:', error);
+                    setAllCustomerStorage([]);
                 }
             }
         };
@@ -126,14 +165,16 @@ const StorageTableTanStackClean = () => {
         }
     }, [activeProjectId, API_URL]);
 
-    // API endpoints - storage URL now comes from hook
+    // API endpoints - storage URL now comes from custom apiUrl generation
     const API_ENDPOINTS = useMemo(() => {
         const baseUrl = `${API_URL}/api/storage`;
 
         return {
-            storage: apiUrl, // From useProjectViewAPI hook
-            storageSave: `${baseUrl}/save/`,
-            storageDelete: `${baseUrl}/delete/`
+            storage: apiUrl,
+            // saveUrl: POST to /api/storage/ for create, PUT to /api/storage/<id>/ for update
+            saveUrl: `${baseUrl}/`,
+            // deleteUrl: DELETE to /api/storage/<id>/
+            deleteUrl: `${baseUrl}/`
         };
     }, [API_URL, apiUrl]);
 
@@ -192,23 +233,21 @@ const StorageTableTanStackClean = () => {
                 }
             }
 
-            console.log(`✅ Bulk operation complete: ${successCount} successful, ${errorCount} errors`);
+            // Show error alert only
+            if (errorCount > 0) {
+                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
+            }
 
-            // Reload table data
-            if (tableRef.current && tableRef.current.reloadData) {
+            // Reload table to get fresh data
+            if (tableRef.current?.reloadData) {
                 tableRef.current.reloadData();
             }
 
-            // Close modal
-            setShowBulkModal(false);
+            console.log('✅ Bulk operation completed:', { successCount, errorCount });
 
-            // Show summary
-            if (errorCount > 0) {
-                alert(`Bulk operation completed with errors:\n${successCount} successful\n${errorCount} failed`);
-            }
         } catch (error) {
-            console.error('❌ Error in bulk storage save:', error);
-            alert(`Bulk operation failed: ${error.message}`);
+            console.error('❌ Bulk storage save error:', error);
+            alert(`Error during bulk operation: ${error.message}`);
         }
     }, [allCustomerStorage, activeProjectId, API_URL, handleAddStorageToProject]);
 
@@ -341,6 +380,11 @@ const StorageTableTanStackClean = () => {
             // Add the customer ID from the context
             payload.customer = activeCustomerId;
 
+            // Add active project ID if in Project View (for creating junction table entry)
+            if (projectFilter === 'current' && activeProjectId) {
+                payload.active_project_id = activeProjectId;
+            }
+
             // Convert empty strings to null for optional fields
             Object.keys(payload).forEach(key => {
                 if (payload[key] === "" && key !== "name" && key !== "storage_type") {
@@ -350,7 +394,7 @@ const StorageTableTanStackClean = () => {
 
             return payload;
         });
-    }, [activeCustomerId]);
+    }, [activeCustomerId, projectFilter, activeProjectId]);
 
     // Track total row count from table
     useEffect(() => {
@@ -385,6 +429,20 @@ const StorageTableTanStackClean = () => {
         return <EmptyConfigMessage entityName="storage systems" />;
     }
 
+    // Wait for projectFilter to load before rendering table
+    // This prevents fetching with wrong filter on page refresh
+    if (projectFilterLoading || !apiUrl) {
+        return (
+            <div className="modern-table-container">
+                <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
+                    <div className="spinner-border text-primary" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="modern-table-container">
             {/* Banner Slot - shows Customer View or Select All banner without layout shift */}
@@ -398,6 +456,7 @@ const StorageTableTanStackClean = () => {
                 saveUrl={API_ENDPOINTS.saveUrl}
                 deleteUrl={API_ENDPOINTS.deleteUrl}
                 customerId={activeCustomerId}
+                activeProjectId={activeProjectId}
                 tableName="storage"
                 readOnly={isReadOnly}
 

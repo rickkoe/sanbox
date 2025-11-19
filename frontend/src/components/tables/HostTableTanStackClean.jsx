@@ -28,7 +28,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const [storageOptions, setStorageOptions] = useState([]);
     const [loading, setLoading] = useState(true);
     // Project filter state - synchronized across all tables via ProjectFilterContext
-    const { projectFilter, setProjectFilter } = useProjectFilter();
+    const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerHosts, setAllCustomerHosts] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
@@ -36,16 +36,39 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const activeCustomerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
 
-    // Use centralized API hook
-    const { apiUrl } = useProjectViewAPI({
+    // Use centralized API hook for auto-switch behavior
+    // Note: Hosts have a different URL pattern than SAN entities
+    // - Customer View: /api/storage/hosts/?customer=123
+    // - Project View: /api/storage/project/123/view/hosts/
+    useProjectViewAPI({
         projectFilter,
         setProjectFilter,
         activeProjectId,
         activeCustomerId,
-        entityType: 'hosts',
+        entityType: '', // Not used for hosts
         baseUrl: `${API_URL}/api/storage`,
         localStorageKey: 'hostTableProjectFilter'
     });
+
+    // Generate the correct apiUrl for hosts (different pattern than SAN entities)
+    const apiUrl = useMemo(() => {
+        if (projectFilterLoading) {
+            return null; // Don't fetch until projectFilter is loaded
+        }
+        if (projectFilter === 'current' && activeProjectId) {
+            // Project View: Returns merged data with field_overrides and project_action
+            return `${API_URL}/api/storage/project/${activeProjectId}/view/hosts/`;
+        } else if (activeProjectId) {
+            // Customer View with project context: Adds in_active_project flag
+            return `${API_URL}/api/storage/project/${activeProjectId}/view/hosts/?project_filter=${projectFilter}`;
+        } else if (activeCustomerId) {
+            // Customer View without project: Basic customer data
+            return `${API_URL}/api/storage/hosts/?customer=${activeCustomerId}`;
+        } else {
+            // Fallback: No customer or project selected
+            return `${API_URL}/api/storage/hosts/`;
+        }
+    }, [API_URL, projectFilter, activeProjectId, activeCustomerId, projectFilterLoading]);
 
     // Use centralized permissions hook
     const { canEdit, canDelete, isViewer, isProjectOwner, isAdmin, readOnlyMessage } = useProjectViewPermissions({
@@ -89,6 +112,21 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             deleteUrl: `${baseUrl}/hosts/`
         };
     }, [API_URL, apiUrl]);
+
+    // Transform data for saving - add active_project_id for Project View
+    const saveTransform = useCallback((rows) => {
+        return rows.map(row => {
+            const payload = { ...row };
+            delete payload.saved;
+
+            // Add active project ID if in Project View (for creating junction table entry)
+            if (projectFilter === 'current' && activeProjectId) {
+                payload.active_project_id = activeProjectId;
+            }
+
+            return payload;
+        });
+    }, [projectFilter, activeProjectId]);
 
     // Load columns from centralized configuration
     const allColumns = useMemo(() => {
@@ -175,12 +213,28 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         const loadAllCustomerHosts = async () => {
             if (showBulkModal && activeCustomerId && activeProjectId) {
                 try {
-                    const response = await api.get(`${API_URL}/api/storage/hosts/?customer=${activeCustomerId}&project_id=${activeProjectId}&page_size=1000`);
-                    if (response.data && response.data.results) {
-                        setAllCustomerHosts(response.data.results);
+                    console.log('📥 Loading all customer hosts for bulk modal...');
+                    let allHosts = [];
+                    let page = 1;
+                    let hasMore = true;
+                    const pageSize = 500;
+
+                    while (hasMore) {
+                        const response = await api.get(
+                            `${API_URL}/api/storage/project/${activeProjectId}/view/hosts/?project_filter=all&page_size=${pageSize}&page=${page}`
+                        );
+                        const hosts = response.data.results || response.data;
+                        allHosts = [...allHosts, ...hosts];
+
+                        hasMore = response.data.has_next;
+                        page++;
                     }
+
+                    setAllCustomerHosts(allHosts);
+                    console.log(`✅ Loaded ${allHosts.length} customer hosts for modal`);
                 } catch (error) {
-                    console.error('Error loading customer hosts:', error);
+                    console.error('❌ Error loading customer hosts:', error);
+                    setAllCustomerHosts([]);
                 }
             }
         };
@@ -206,25 +260,73 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Handle bulk host save
     const handleBulkHostSave = useCallback(async (selectedIds) => {
         try {
-            if (!allCustomerHosts || allCustomerHosts.length === 0) return;
-            const currentInProject = new Set(allCustomerHosts.filter(h => h.in_active_project).map(h => h.id));
+            console.log('🔄 Bulk host save started with selected IDs:', selectedIds);
+
+            if (!allCustomerHosts || allCustomerHosts.length === 0) {
+                console.error('No customer hosts available');
+                return;
+            }
+
+            // Get current hosts in project
+            const currentInProject = new Set(
+                allCustomerHosts
+                    .filter(host => host.in_active_project)
+                    .map(host => host.id)
+            );
+
+            // Determine adds and removes
             const selectedSet = new Set(selectedIds);
             const toAdd = selectedIds.filter(id => !currentInProject.has(id));
             const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
 
+            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Process additions
             for (const hostId of toAdd) {
-                await handleAddHostToProject(hostId, 'unmodified');
-            }
-            for (const hostId of toRemove) {
-                await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-host/${hostId}/`);
+                try {
+                    const success = await handleAddHostToProject(hostId, 'unmodified');
+                    if (success) successCount++;
+                    else errorCount++;
+                } catch (error) {
+                    console.error(`Failed to add host ${hostId}:`, error);
+                    errorCount++;
+                }
             }
 
-            if (tableRef.current && tableRef.current.reloadData) {
+            // Process removals
+            for (const hostId of toRemove) {
+                try {
+                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-host/${hostId}/`);
+                    if (response.data.success) {
+                        successCount++;
+                        console.log(`✅ Removed host ${hostId} from project`);
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error(`Failed to remove host ${hostId}:`, error);
+                    errorCount++;
+                }
+            }
+
+            // Show error alert only
+            if (errorCount > 0) {
+                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
+            }
+
+            // Reload table to get fresh data
+            if (tableRef.current?.reloadData) {
                 tableRef.current.reloadData();
             }
-            setShowBulkModal(false);
+
+            console.log('✅ Bulk operation completed:', { successCount, errorCount });
+
         } catch (error) {
-            console.error('Error in bulk host save:', error);
+            console.error('❌ Bulk host save error:', error);
+            alert(`Error during bulk operation: ${error.message}`);
         }
     }, [allCustomerHosts, activeProjectId, API_URL, handleAddHostToProject]);
 
@@ -316,8 +418,8 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         return <EmptyConfigMessage entityName="hosts" />;
     }
 
-    // Show loading while data loads
-    if (loading) {
+    // Show loading while data loads or projectFilter is loading
+    if (loading || projectFilterLoading) {
         return (
             <div className="modern-table-container">
                 <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
@@ -343,6 +445,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 saveUrl={API_ENDPOINTS.saveUrl}
                 deleteUrl={API_ENDPOINTS.deleteUrl}
                 customerId={activeCustomerId}
+                activeProjectId={activeProjectId}
                 tableName="hosts"
 
                 // Column Configuration
@@ -354,6 +457,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
                 // Data Processing
                 preprocessData={preprocessData}
+                saveTransform={saveTransform}
                 customRenderers={customRenderers}
 
                 // Custom toolbar content - filter toggle

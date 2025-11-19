@@ -77,7 +77,7 @@ def storage_list(request):
             # 1. Committed (committed=True), OR
             # 2. Not referenced by any project (no junction table entries)
             storages = storages.annotate(
-                project_count=Count('project_storage_systems')  # Correct relationship name
+                project_count=Count('project_memberships')  # Correct relationship name
             ).filter(
                 Q(committed=True) | Q(project_count=0)
             )
@@ -179,6 +179,15 @@ def storage_list(request):
             data = json.loads(request.body)
             customer_id = data.get("customer")
             name = data.get("name")
+            active_project_id = data.get("active_project_id")
+
+            # Remove read-only fields that shouldn't be in the POST data
+            readonly_fields = ['db_volumes_count', 'db_hosts_count', 'db_aliases_count',
+                              'db_ports_count', 'project_memberships', 'in_active_project',
+                              'saved', 'modified_fields', 'project_action', '_selected',
+                              'active_project_id']
+            for field in readonly_fields:
+                data.pop(field, None)
 
             # Check if user can modify infrastructure for this customer
             # Skip permission check if user is not authenticated (for development)
@@ -194,14 +203,36 @@ def storage_list(request):
                 except Customer.DoesNotExist:
                     return JsonResponse({"error": "Customer not found"}, status=404)
 
+            # Get project if creating in Project View
+            project = None
+            if active_project_id:
+                try:
+                    project = Project.objects.get(id=active_project_id)
+                except Project.DoesNotExist:
+                    return JsonResponse({"error": "Project not found"}, status=404)
+
+            # Check if storage exists (update) or needs to be created
+            is_new = False
             try:
                 storage = Storage.objects.get(customer=customer_id, name=name)
                 serializer = StorageSerializer(storage, data=data)
             except Storage.DoesNotExist:
                 serializer = StorageSerializer(data=data)
+                is_new = True
 
             if serializer.is_valid():
-                storage_instance = serializer.save()
+                # For new storage in Project View, set project-specific fields
+                if is_new and project:
+                    storage_instance = serializer.save(
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project
+                    )
+                else:
+                    storage_instance = serializer.save()
+
+                logger.info(f"Storage created/updated: {storage_instance.id} - {storage_instance.name}")
+
                 # Set last_modified_by and imported timestamp
                 if user:
                     storage_instance.last_modified_by = user
@@ -211,13 +242,28 @@ def storage_list(request):
                     update_fields.append('last_modified_by')
                 storage_instance.save(update_fields=update_fields)
 
+                # For new storage in Project View, create junction table entry
+                if is_new and project:
+                    ProjectStorage.objects.create(
+                        project=project,
+                        storage=storage_instance,
+                        action='new',
+                        added_by=user,
+                        notes='Auto-created with storage'
+                    )
+                    logger.info(f"Created ProjectStorage entry for storage {storage_instance.id} in project {project.id}")
+
                 # Clear dashboard cache when storage is created/updated
                 if storage_instance.customer_id:
                     clear_dashboard_cache_for_customer(storage_instance.customer_id)
 
-                return JsonResponse(serializer.data, status=201)
+                # Re-fetch to get fresh data for serialization
+                storage_instance.refresh_from_db()
+                response_serializer = StorageSerializer(storage_instance)
+                return JsonResponse(response_serializer.data, status=201)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
+            logger.exception(f"Error in storage POST: {str(e)}")
             return JsonResponse({"error": str(e)}, status=500)
 
 
@@ -678,7 +724,7 @@ def volume_list(request):
         # 1. Committed (committed=True), OR
         # 2. Not referenced by any project (no junction table entries)
         volumes = volumes.annotate(
-            project_count=Count('project_volumes')  # Correct relationship name
+            project_count=Count('project_memberships')  # Correct relationship name
         ).filter(
             Q(committed=True) | Q(project_count=0)
         )
@@ -814,7 +860,7 @@ def _handle_host_list_get(request, user):
         # 1. Committed (committed=True), OR
         # 2. Not referenced by any project (no junction table entries)
         hosts = hosts.annotate(
-            project_count=Count('project_hosts')  # Correct relationship name
+            project_count=Count('project_memberships')  # Correct relationship name
         ).filter(
             Q(committed=True) | Q(project_count=0)
         )
@@ -899,9 +945,16 @@ def _handle_host_create(request, user):
         data = json.loads(request.body)
         storage_id = data.get("storage")
         name = data.get("name")
+        active_project_id = data.get("active_project_id")
 
         if not storage_id or not name:
             return JsonResponse({"error": "storage and name are required"}, status=400)
+
+        # Remove read-only fields that shouldn't be in the POST data
+        readonly_fields = ['project_memberships', 'in_active_project', 'saved',
+                          'modified_fields', 'project_action', '_selected', 'active_project_id']
+        for field in readonly_fields:
+            data.pop(field, None)
 
         # Check if user can modify infrastructure for this customer
         if user:
@@ -915,6 +968,16 @@ def _handle_host_create(request, user):
             except Storage.DoesNotExist:
                 return JsonResponse({"error": "Storage system not found"}, status=404)
 
+        # Get project if creating in Project View
+        project = None
+        if active_project_id:
+            try:
+                project = Project.objects.get(id=active_project_id)
+            except Project.DoesNotExist:
+                return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Check if host exists (update) or needs to be created
+        is_new = False
         try:
             # Try to find existing host by name and storage
             host = Host.objects.get(name=name, storage=storage)
@@ -922,9 +985,19 @@ def _handle_host_create(request, user):
         except Host.DoesNotExist:
             # Create new host
             serializer = HostSerializer(data=data)
+            is_new = True
 
         if serializer.is_valid():
-            host_instance = serializer.save()
+            # For new host in Project View, set project-specific fields
+            if is_new and project:
+                host_instance = serializer.save(
+                    committed=False,
+                    deployed=False,
+                    created_by_project=project
+                )
+            else:
+                host_instance = serializer.save()
+
             # Set last_modified_by and imported timestamp
             if user:
                 host_instance.last_modified_by = user
@@ -934,9 +1007,24 @@ def _handle_host_create(request, user):
                 update_fields.append('last_modified_by')
             host_instance.save(update_fields=update_fields)
 
-            return JsonResponse(serializer.data, status=201)
+            # For new host in Project View, create junction table entry
+            if is_new and project:
+                ProjectHost.objects.create(
+                    project=project,
+                    host=host_instance,
+                    action='new',
+                    added_by=user,
+                    notes='Auto-created with host'
+                )
+                logger.info(f"Created ProjectHost entry for host {host_instance.id} in project {project.id}")
+
+            # Re-fetch to get fresh data for serialization
+            host_instance.refresh_from_db()
+            response_serializer = HostSerializer(host_instance)
+            return JsonResponse(response_serializer.data, status=201)
         return JsonResponse(serializer.errors, status=400)
     except Exception as e:
+        logger.exception(f"Error in host POST: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
 
 
@@ -1548,6 +1636,10 @@ def storage_project_view(request, project_id):
     Get storage systems in project with field_overrides applied (merged view).
     Returns only storage systems in the project with overrides merged into base data.
     Adds 'modified_fields' array to track which fields have overrides.
+
+    Supports project_filter parameter:
+    - 'current': Only storage in the project (default)
+    - 'all': All customer storage with in_active_project flag
     """
     try:
         project = Project.objects.get(id=project_id)
@@ -1558,6 +1650,88 @@ def storage_project_view(request, project_id):
     customer = project.customers.first()
     customer_id = customer.id if customer else None
 
+    # Get project filter parameter
+    project_filter = request.GET.get('project_filter', 'current')
+
+    # Get project storage IDs for membership checking
+    project_storage_ids = set(ProjectStorage.objects.filter(
+        project=project
+    ).values_list('storage_id', flat=True))
+
+    if project_filter == 'all' and customer:
+        # Return ALL customer storage with in_active_project flag
+        all_storage = Storage.objects.filter(
+            customer=customer
+        ).select_related(
+            'customer'
+        ).prefetch_related(
+            Prefetch('project_memberships',
+                     queryset=ProjectStorage.objects.select_related('project'))
+        )
+
+        # ===== PAGINATION =====
+        page = int(request.GET.get('page', 1))
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+        paginator = Paginator(all_storage, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            storage_page = page_obj.object_list
+        except:
+            storage_page = []
+
+        merged_data = []
+
+        for storage in storage_page:
+            base_data = StorageSerializer(storage).data
+            in_project = storage.id in project_storage_ids
+
+            # If in project, get overrides
+            modified_fields = []
+            if in_project:
+                try:
+                    ps = ProjectStorage.objects.get(project=project, storage=storage)
+                    if ps.field_overrides:
+                        for field_name, override_value in ps.field_overrides.items():
+                            if field_name in base_data and base_data[field_name] != override_value:
+                                base_data[field_name] = override_value
+                                modified_fields.append(field_name)
+                    base_data['project_action'] = ps.action
+                except ProjectStorage.DoesNotExist:
+                    pass
+
+            base_data['modified_fields'] = modified_fields
+            base_data['in_active_project'] = in_project
+            merged_data.append(base_data)
+
+        response_data = {
+            'results': merged_data,
+            'count': total_count,
+        }
+
+        if paginator and page_obj:
+            response_data.update({
+                'next': page_obj.has_next(),
+                'previous': page_obj.has_previous(),
+                'page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+
+        return JsonResponse(response_data)
+
+    # Default: current project only
     # Get all ProjectStorage entries for this project
     project_storages = ProjectStorage.objects.filter(
         project=project
@@ -1645,6 +1819,10 @@ def volume_project_view(request, project_id):
     Get volumes in project with field_overrides applied (merged view).
     Returns only volumes in the project with overrides merged into base data.
     Adds 'modified_fields' array to track which fields have overrides.
+
+    Supports project_filter parameter:
+    - 'current': Only volumes in the project (default)
+    - 'all': All customer volumes with in_active_project flag
     """
     try:
         project = Project.objects.get(id=project_id)
@@ -1655,6 +1833,92 @@ def volume_project_view(request, project_id):
     customer = project.customers.first()
     customer_id = customer.id if customer else None
 
+    # Get project filter parameter
+    project_filter = request.GET.get('project_filter', 'current')
+
+    # Get project volume IDs for membership checking
+    project_volume_ids = set(ProjectVolume.objects.filter(
+        project=project
+    ).values_list('volume_id', flat=True))
+
+    if project_filter == 'all' and customer:
+        # Return ALL customer volumes with in_active_project flag
+        # Get customer storage IDs first
+        customer_storage_ids = Storage.objects.filter(customer=customer).values_list('id', flat=True)
+
+        all_volumes = Volume.objects.filter(
+            storage_id__in=customer_storage_ids
+        ).select_related(
+            'storage',
+            'storage__customer'
+        ).prefetch_related(
+            Prefetch('project_memberships',
+                     queryset=ProjectVolume.objects.select_related('project'))
+        )
+
+        # ===== PAGINATION =====
+        page = int(request.GET.get('page', 1))
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+        paginator = Paginator(all_volumes, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            volumes_page = page_obj.object_list
+        except:
+            volumes_page = []
+
+        merged_data = []
+
+        for volume in volumes_page:
+            base_data = VolumeSerializer(volume).data
+            in_project = volume.id in project_volume_ids
+
+            # If in project, get overrides
+            modified_fields = []
+            if in_project:
+                try:
+                    pv = ProjectVolume.objects.get(project=project, volume=volume)
+                    if pv.field_overrides:
+                        for field_name, override_value in pv.field_overrides.items():
+                            if field_name in base_data and base_data[field_name] != override_value:
+                                base_data[field_name] = override_value
+                                modified_fields.append(field_name)
+                    base_data['project_action'] = pv.action
+                except ProjectVolume.DoesNotExist:
+                    pass
+
+            base_data['modified_fields'] = modified_fields
+            base_data['in_active_project'] = in_project
+            merged_data.append(base_data)
+
+        response_data = {
+            'results': merged_data,
+            'count': total_count,
+        }
+
+        if paginator and page_obj:
+            response_data.update({
+                'next': page_obj.has_next(),
+                'previous': page_obj.has_previous(),
+                'page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+
+        return JsonResponse(response_data)
+
+    # Default: current project only
     # Get all ProjectVolume entries for this project
     project_volumes = ProjectVolume.objects.filter(
         project=project
@@ -1743,6 +2007,10 @@ def host_project_view(request, project_id):
     Get hosts in project with field_overrides applied (merged view).
     Returns only hosts in the project with overrides merged into base data.
     Adds 'modified_fields' array to track which fields have overrides.
+
+    Supports project_filter parameter:
+    - 'current': Only hosts in the project (default)
+    - 'all': All customer hosts with in_active_project flag
     """
     try:
         project = Project.objects.get(id=project_id)
@@ -1753,6 +2021,93 @@ def host_project_view(request, project_id):
     customer = project.customers.first()
     customer_id = customer.id if customer else None
 
+    # Get project filter parameter
+    project_filter = request.GET.get('project_filter', 'current')
+
+    # Get project host IDs for membership checking
+    project_host_ids = set(ProjectHost.objects.filter(
+        project=project
+    ).values_list('host_id', flat=True))
+
+    if project_filter == 'all' and customer:
+        # Return ALL customer hosts with in_active_project flag
+        # Get customer storage IDs first
+        customer_storage_ids = Storage.objects.filter(customer=customer).values_list('id', flat=True)
+
+        all_hosts = Host.objects.filter(
+            storage_id__in=customer_storage_ids
+        ).select_related(
+            'storage',
+            'storage__customer'
+        ).prefetch_related(
+            'host_wwpns',
+            Prefetch('project_memberships',
+                     queryset=ProjectHost.objects.select_related('project'))
+        )
+
+        # ===== PAGINATION =====
+        page = int(request.GET.get('page', 1))
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+        paginator = Paginator(all_hosts, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            hosts_page = page_obj.object_list
+        except:
+            hosts_page = []
+
+        merged_data = []
+
+        for host in hosts_page:
+            base_data = HostSerializer(host).data
+            in_project = host.id in project_host_ids
+
+            # If in project, get overrides
+            modified_fields = []
+            if in_project:
+                try:
+                    ph = ProjectHost.objects.get(project=project, host=host)
+                    if ph.field_overrides:
+                        for field_name, override_value in ph.field_overrides.items():
+                            if field_name in base_data and base_data[field_name] != override_value:
+                                base_data[field_name] = override_value
+                                modified_fields.append(field_name)
+                    base_data['project_action'] = ph.action
+                except ProjectHost.DoesNotExist:
+                    pass
+
+            base_data['modified_fields'] = modified_fields
+            base_data['in_active_project'] = in_project
+            merged_data.append(base_data)
+
+        response_data = {
+            'results': merged_data,
+            'count': total_count,
+        }
+
+        if paginator and page_obj:
+            response_data.update({
+                'next': page_obj.has_next(),
+                'previous': page_obj.has_previous(),
+                'page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+
+        return JsonResponse(response_data)
+
+    # Default: current project only
     # Get all ProjectHost entries for this project
     project_hosts = ProjectHost.objects.filter(
         project=project
@@ -1842,6 +2197,10 @@ def port_project_view(request, project_id):
     Get ports in project with field_overrides applied (merged view).
     Returns only ports in the project with overrides merged into base data.
     Adds 'modified_fields' array to track which fields have overrides.
+
+    Supports project_filter parameter:
+    - 'current': Only ports in the project (default)
+    - 'all': All customer ports with in_active_project flag
     """
     try:
         project = Project.objects.get(id=project_id)
@@ -1852,6 +2211,94 @@ def port_project_view(request, project_id):
     customer = project.customers.first()
     customer_id = customer.id if customer else None
 
+    # Get project filter parameter
+    project_filter = request.GET.get('project_filter', 'current')
+
+    # Get project port IDs for membership checking
+    project_port_ids = set(ProjectPort.objects.filter(
+        project=project
+    ).values_list('port_id', flat=True))
+
+    if project_filter == 'all' and customer:
+        # Return ALL customer ports with in_active_project flag
+        # Get customer storage IDs first
+        customer_storage_ids = Storage.objects.filter(customer=customer).values_list('id', flat=True)
+
+        all_ports = Port.objects.filter(
+            storage_id__in=customer_storage_ids
+        ).select_related(
+            'storage',
+            'fabric',
+            'alias',
+            'project'
+        ).prefetch_related(
+            Prefetch('project_memberships',
+                     queryset=ProjectPort.objects.select_related('project'))
+        )
+
+        # ===== PAGINATION =====
+        page = int(request.GET.get('page', 1))
+        page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+        if page_size_param == 'All':
+            return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+        page_size = int(page_size_param)
+
+        if page_size > settings.MAX_PAGE_SIZE:
+            return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+        paginator = Paginator(all_ports, page_size)
+        total_count = paginator.count
+
+        try:
+            page_obj = paginator.get_page(page)
+            ports_page = page_obj.object_list
+        except:
+            ports_page = []
+
+        merged_data = []
+
+        for port in ports_page:
+            base_data = PortSerializer(port).data
+            in_project = port.id in project_port_ids
+
+            # If in project, get overrides
+            modified_fields = []
+            if in_project:
+                try:
+                    pp = ProjectPort.objects.get(project=project, port=port)
+                    if pp.field_overrides:
+                        for field_name, override_value in pp.field_overrides.items():
+                            if field_name in base_data and base_data[field_name] != override_value:
+                                base_data[field_name] = override_value
+                                modified_fields.append(field_name)
+                    base_data['project_action'] = pp.action
+                except ProjectPort.DoesNotExist:
+                    pass
+
+            base_data['modified_fields'] = modified_fields
+            base_data['in_active_project'] = in_project
+            merged_data.append(base_data)
+
+        response_data = {
+            'results': merged_data,
+            'count': total_count,
+        }
+
+        if paginator and page_obj:
+            response_data.update({
+                'next': page_obj.has_next(),
+                'previous': page_obj.has_previous(),
+                'page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+
+        return JsonResponse(response_data)
+
+    # Default: current project only
     # Get all ProjectPort entries for this project
     project_ports = ProjectPort.objects.filter(
         project=project
