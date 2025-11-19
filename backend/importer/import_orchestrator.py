@@ -14,7 +14,7 @@ from django.utils import timezone
 from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix, Switch
 from storage.models import Storage, Volume, Host, HostWwpn
 from customers.models import Customer
-from core.models import ProjectAlias, ProjectZone, ProjectHost
+from core.models import ProjectAlias, ProjectZone, ProjectHost, ProjectFabric
 from .parsers.base_parser import (
     ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch,
     ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort
@@ -608,6 +608,27 @@ class ImportOrchestrator:
                     )
                     self.stats['fabrics_created'] += 1
                     logger.info(f"Created new fabric {new_fabric_name} for {fabric_name}")
+
+                    # Assign fabric to project if project_id was provided
+                    if self.project_id:
+                        try:
+                            from core.models import Project
+                            project = Project.objects.get(id=self.project_id)
+                            ProjectFabric.objects.get_or_create(
+                                project=project,
+                                fabric=fabric,
+                                defaults={
+                                    'action': 'new',
+                                    'added_by': None,
+                                    'notes': 'Imported from SAN configuration'
+                                }
+                            )
+                            logger.debug(f"Assigned fabric {fabric.name} to project {project.name}")
+                        except Project.DoesNotExist:
+                            self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
+                        except Exception as e:
+                            self.stats['warnings'].append(f"Error assigning fabric to project: {e}")
+
                     fabric_map[fabric_name] = fabric
 
                 else:
@@ -655,6 +676,26 @@ class ImportOrchestrator:
                     )
                     self.stats['fabrics_created'] += 1
                     logger.info(f"Created new fabric: {fabric_name} (zoneset: {zoneset_name}, vsan: {vsan})")
+
+                    # Assign fabric to project if project_id was provided
+                    if self.project_id:
+                        try:
+                            from core.models import Project
+                            project = Project.objects.get(id=self.project_id)
+                            ProjectFabric.objects.get_or_create(
+                                project=project,
+                                fabric=fabric,
+                                defaults={
+                                    'action': 'new',
+                                    'added_by': None,
+                                    'notes': 'Imported from SAN configuration'
+                                }
+                            )
+                            logger.debug(f"Assigned fabric {fabric.name} to project {project.name}")
+                        except Project.DoesNotExist:
+                            self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
+                        except Exception as e:
+                            self.stats['warnings'].append(f"Error assigning fabric to project: {e}")
                 else:
                     # Try to find existing fabric or create new
 
@@ -683,6 +724,26 @@ class ImportOrchestrator:
                     if created:
                         self.stats['fabrics_created'] += 1
                         logger.info(f"Created fabric: {fabric_name}")
+
+                        # Assign newly created fabric to project
+                        if self.project_id:
+                            try:
+                                from core.models import Project
+                                project = Project.objects.get(id=self.project_id)
+                                ProjectFabric.objects.get_or_create(
+                                    project=project,
+                                    fabric=fabric,
+                                    defaults={
+                                        'action': 'new',
+                                        'added_by': None,
+                                        'notes': 'Imported from SAN configuration'
+                                    }
+                                )
+                                logger.debug(f"Assigned fabric {fabric.name} to project {project.name}")
+                            except Project.DoesNotExist:
+                                self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
+                            except Exception as e:
+                                self.stats['warnings'].append(f"Error assigning fabric to project: {e}")
                     else:
                         # Update zoneset and vsan if provided
                         if zoneset_name:

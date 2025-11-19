@@ -4,7 +4,8 @@ import {
   AlertCircle,
   Info,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ChevronDownCircle
 } from 'lucide-react';
 
 const ConfigurationPanel = ({
@@ -175,25 +176,30 @@ const ConfigurationPanel = ({
                           />
                         </div>
                         <div className="form-group">
-                          <label className="form-label">Zoneset Name</label>
+                          <label className="form-label">
+                            {detectedVendor === 'BR' ? 'Zone Configuration Name' : 'Zoneset Name'}
+                          </label>
                           <input
                             type="text"
                             className="form-input"
-                            placeholder={sourceFabric.zoneset_name || 'Enter zoneset name...'}
+                            placeholder={sourceFabric.zoneset_name || (detectedVendor === 'BR' ? 'Enter zone configuration name...' : 'Enter zoneset name...')}
                             value={mapping.zoneset_name || ''}
                             onChange={(e) => onFabricMappingChange(sourceFabric.name, { ...mapping, zoneset_name: e.target.value })}
                           />
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">VSAN</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            placeholder={sourceFabric.vsan ? `${sourceFabric.vsan}` : 'Enter VSAN...'}
-                            value={mapping.vsan || ''}
-                            onChange={(e) => onFabricMappingChange(sourceFabric.name, { ...mapping, vsan: e.target.value })}
-                          />
-                        </div>
+                        {/* VSAN field - only show for Cisco (not Brocade) */}
+                        {detectedVendor !== 'BR' && (
+                          <div className="form-group">
+                            <label className="form-label">VSAN</label>
+                            <input
+                              type="text"
+                              className="form-input"
+                              placeholder={sourceFabric.vsan ? `${sourceFabric.vsan}` : 'Enter VSAN...'}
+                              value={mapping.vsan || ''}
+                              onChange={(e) => onFabricMappingChange(sourceFabric.name, { ...mapping, vsan: e.target.value })}
+                            />
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -205,28 +211,86 @@ const ConfigurationPanel = ({
           {/* Single Fabric Mode (Legacy) */}
           {!useFabricMapping && (
             <>
+              {/* Detected Fabric Indication */}
+              {previewData?.fabrics && previewData.fabrics.length > 0 && (
+                <div style={{
+                  padding: 'var(--space-3)',
+                  background: 'var(--color-info-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: 'var(--space-4)',
+                  borderLeft: '4px solid var(--color-info-fg)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
+                    <Info size={16} style={{ color: 'var(--color-info-fg)' }} />
+                    <span style={{ fontWeight: '600', color: 'var(--color-info-fg)' }}>
+                      Detected Fabric: {previewData.fabrics[0].name}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+                    All aliases and zones will be imported to the target fabric selected below.
+                  </div>
+                </div>
+              )}
+
+              {!previewData?.fabrics?.length && (
+                <div style={{
+                  padding: 'var(--space-3)',
+                  background: 'var(--secondary-bg)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: 'var(--space-4)',
+                  borderLeft: '4px solid var(--muted-text)'
+                }}>
+                  <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+                    All aliases and zones will be imported to the target fabric selected below.
+                  </div>
+                </div>
+              )}
+
               <div className="form-group">
-                <label className="form-label">Target Fabric</label>
-                <select
-                  className="form-select"
-                  value={selectedFabricId}
-                  onChange={(e) => onFabricSelect(e.target.value)}
-                >
-                  <option value="new">Create New Fabric</option>
-                  <option disabled>──────────</option>
-                  {Object.entries(groupedFabrics).map(([vendor, fabrics]) => (
-                    <optgroup key={vendor} label={vendor}>
-                      {fabrics.map(fabric => (
-                        <option key={fabric.id} value={fabric.id}>
-                          {fabric.name} {fabric.vsan && `(VSAN ${fabric.vsan})`}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  {existingFabrics.length === 0 && (
-                    <option disabled>No fabrics found</option>
-                  )}
-                </select>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  Target Fabric
+                  <ChevronDownCircle size={14} style={{ color: 'var(--muted-text)' }} />
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    className="form-select"
+                    value={selectedFabricId}
+                    onChange={(e) => onFabricSelect(e.target.value)}
+                    style={{
+                      appearance: 'none',
+                      paddingRight: '2.5rem',
+                      cursor: 'pointer',
+                      border: '2px solid var(--color-border-default)',
+                      background: 'var(--form-input-bg)'
+                    }}
+                  >
+                    <option value="new">+ Create New Fabric</option>
+                    <option disabled>──────────</option>
+                    {Object.entries(groupedFabrics).map(([vendor, fabrics]) => (
+                      <optgroup key={vendor} label={vendor}>
+                        {fabrics.map(fabric => (
+                          <option key={fabric.id} value={fabric.id}>
+                            {fabric.name} {fabric.vsan && `(VSAN ${fabric.vsan})`}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                    {existingFabrics.length === 0 && (
+                      <option disabled>No fabrics found</option>
+                    )}
+                  </select>
+                  <ChevronDown
+                    size={18}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      pointerEvents: 'none',
+                      color: 'var(--muted-text)'
+                    }}
+                  />
+                </div>
               </div>
 
               {/* New Fabric Inputs */}
@@ -241,35 +305,52 @@ const ConfigurationPanel = ({
                       value={fabricName}
                       onChange={(e) => onFabricNameChange(e.target.value)}
                     />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Zoneset Name *</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Enter zoneset name..."
-                      value={zonesetName}
-                      onChange={(e) => onZonesetNameChange(e.target.value)}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">VSAN</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Auto-populated from import data"
-                      value={vsan || ''}
-                      onChange={(e) => onVsanChange(e.target.value)}
-                      readOnly={!!vsan}
-                      style={{ background: vsan ? 'var(--secondary-bg)' : 'var(--form-input-bg)' }}
-                    />
-                    {vsan && (
+                    {fabricName && previewData?.fabrics?.[0]?.name === fabricName && (
                       <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
                         <Info size={14} style={{ display: 'inline', marginRight: 'var(--space-1)' }} />
                         Auto-populated from imported data
                       </div>
                     )}
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      {detectedVendor === 'BR' ? 'Zone Configuration Name' : 'Zoneset Name'} *
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder={detectedVendor === 'BR' ? 'Enter zone configuration name...' : 'Enter zoneset name...'}
+                      value={zonesetName}
+                      onChange={(e) => onZonesetNameChange(e.target.value)}
+                    />
+                    {zonesetName && previewData?.fabrics?.[0]?.zoneset_name === zonesetName && (
+                      <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+                        <Info size={14} style={{ display: 'inline', marginRight: 'var(--space-1)' }} />
+                        Auto-populated from imported data
+                      </div>
+                    )}
+                  </div>
+                  {/* VSAN field - only show for Cisco (not Brocade) */}
+                  {detectedVendor !== 'BR' && (
+                    <div className="form-group">
+                      <label className="form-label">VSAN</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Auto-populated from import data"
+                        value={vsan || ''}
+                        onChange={(e) => onVsanChange(e.target.value)}
+                        readOnly={!!vsan}
+                        style={{ background: vsan ? 'var(--secondary-bg)' : 'var(--form-input-bg)' }}
+                      />
+                      {vsan && (
+                        <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-size-sm)', color: 'var(--muted-text)' }}>
+                          <Info size={14} style={{ display: 'inline', marginRight: 'var(--space-1)' }} />
+                          Auto-populated from imported data
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </>

@@ -242,9 +242,13 @@ const UniversalImporter = () => {
       // Set the detected vendor in state
       setDetectedVendor(vendorCode);
 
-      // Auto-populate VSAN and zoneset from first fabric in preview data
+      // Auto-populate fabric name, VSAN and zoneset from first fabric in preview data
       if (response.data.fabrics && response.data.fabrics.length > 0) {
         const firstFabric = response.data.fabrics[0];
+        // Auto-populate fabric name
+        if (firstFabric.name) {
+          setFabricName(firstFabric.name);
+        }
         if (firstFabric.vsan) {
           setVsan(String(firstFabric.vsan));
         }
@@ -799,7 +803,7 @@ const UniversalImporter = () => {
           {/* Step 1: Select Import Type */}
           {step === 1 && (
             <>
-              {!config.active_project && (
+              {!config?.active_project && (
                 <div className="no-project-alert">
                   <AlertTriangle size={20} />
                   <div>
@@ -812,7 +816,7 @@ const UniversalImporter = () => {
               <ImportTypeSelector
                 selectedType={importType}
                 onTypeSelect={setImportType}
-                projectActive={!!config.active_project}
+                projectActive={!!config?.active_project}
               />
               <div className="mt-4">
                 <label htmlFor="importName" className="form-label">Import Name (Optional)</label>

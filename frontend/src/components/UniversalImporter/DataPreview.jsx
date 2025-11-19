@@ -69,7 +69,7 @@ const DataPreview = ({
       icon: Server,
       label: 'Fabrics',
       value: previewData?.counts?.fabrics || 0,
-      selected: selectedFabrics.size,
+      selected: 0, // Fabrics are not selectable - they are created or selected as targets
       color: 'info'
     },
     ...(previewData?.counts?.switches > 0 ? [{
@@ -312,25 +312,14 @@ const DataPreview = ({
         </div>
       )}
 
-      {/* Fabrics Section */}
+      {/* Fabrics Section - Informational only, no checkboxes */}
       {previewData?.fabrics && previewData.fabrics.length > 0 && (
         <div className="preview-section">
           <div className="preview-section-header" onClick={() => toggleSection('fabrics')}>
             <div className="preview-section-title">
               {expandedSections.fabrics ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
               <Server size={18} />
-              <span>Fabrics ({previewData.fabrics.length})</span>
-            </div>
-            <div className="preview-section-actions">
-              <button
-                className="select-all-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectAll('fabrics');
-                }}
-              >
-                {isAllSelected('fabrics') ? 'Deselect All' : 'Select All'}
-              </button>
+              <span>Detected Fabrics ({previewData.fabrics.length})</span>
             </div>
           </div>
 
@@ -339,14 +328,6 @@ const DataPreview = ({
               <table className="preview-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '40px' }}>
-                      <input
-                        type="checkbox"
-                        className="preview-checkbox"
-                        checked={isAllSelected('fabrics')}
-                        onChange={() => onSelectAll('fabrics')}
-                      />
-                    </th>
                     <th>Name</th>
                     <th>VSAN</th>
                     <th>Zoneset</th>
@@ -356,21 +337,9 @@ const DataPreview = ({
                 <tbody>
                   {previewData.fabrics.map((fabric) => {
                     const key = `${fabric.name}_${fabric.vsan || 'default'}`;
-                    const isSelected = selectedFabrics.has(key);
 
                     return (
-                      <tr
-                        key={key}
-                        className={isSelected ? 'selected' : ''}
-                      >
-                        <td>
-                          <input
-                            type="checkbox"
-                            className="preview-checkbox"
-                            checked={isSelected}
-                            onChange={() => onFabricToggle(key)}
-                          />
-                        </td>
+                      <tr key={key}>
                         <td>{fabric.name}</td>
                         <td>{fabric.vsan || '-'}</td>
                         <td>{fabric.zoneset_name || '-'}</td>

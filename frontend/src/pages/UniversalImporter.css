@@ -285,32 +285,37 @@
 }
 
 /* ===== NO PROJECT ALERT ===== */
+/* Uses theme-aware alert pattern from THEME_SYSTEM_DOCUMENTATION.md */
 .no-project-alert {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--secondary-bg);
-  border-left: 4px solid var(--color-severe-emphasis);
+  padding: 1rem 1.25rem;
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-attention-muted) !important;
+  border-left: 4px solid var(--color-attention-emphasis) !important;
+  color: var(--primary-text) !important;
   border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
 }
 
 .no-project-alert svg {
-  color: var(--color-severe-emphasis);
+  color: var(--color-attention-emphasis);
   flex-shrink: 0;
   margin-top: 2px;
 }
 
 .no-project-alert strong {
   display: block;
-  color: var(--primary-text);
+  color: var(--primary-text) !important;
   margin-bottom: var(--space-1);
 }
 
 .no-project-alert p {
   margin: 0;
-  color: var(--secondary-text);
+  color: var(--primary-text) !important;
   font-size: var(--font-size-sm);
   line-height: 1.5;
 }
