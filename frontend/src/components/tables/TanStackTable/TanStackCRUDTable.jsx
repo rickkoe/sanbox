@@ -130,6 +130,7 @@ const TanStackCRUDTable = forwardRef(({
     return [];
   });
   const lastSortRef = useRef(null); // Track last applied sort to prevent re-sorting on data changes
+  const processedColumnsRef = useRef(null); // Track which column set we've processed for auto-sizing
   const [frozenSortOrder, setFrozenSortOrder] = useState(null); // Captures sorted order to prevent auto-resorting
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
@@ -163,6 +164,7 @@ const TanStackCRUDTable = forwardRef(({
   const [tableConfig, setTableConfig] = useState(null);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [filtersInitialized, setFiltersInitialized] = useState(false);
+  const [quickSearchInitialized, setQuickSearchInitialized] = useState(false);
   const [resizeState, setResizeState] = useState({ isResizing: false, startX: 0, currentX: 0, columnId: null });
 
   // Floating navigation panel state
@@ -300,6 +302,8 @@ const TanStackCRUDTable = forwardRef(({
 
       if (response.data) {
         setTableConfig(response.data);
+        // Reset processed columns ref so auto-sizing can re-evaluate for missing columns
+        processedColumnsRef.current = null;
         if (response.data.column_widths && Object.keys(response.data.column_widths).length > 0) {
           setColumnSizing(response.data.column_widths);
         }
@@ -310,12 +314,28 @@ const TanStackCRUDTable = forwardRef(({
 
         // Load filters from config
         if (response.data.filters && Object.keys(response.data.filters).length > 0) {
-          setActiveFilters(response.data.filters);
+          // Filter out filters for columns that don't exist in current view
+          // This handles switching between Project View and Customer View
+          const currentColumnIds = columns.map(col => col.data || col.accessorKey).filter(Boolean);
+          const filteredFilters = {};
+          Object.keys(response.data.filters).forEach(colId => {
+            if (currentColumnIds.includes(colId)) {
+              filteredFilters[colId] = response.data.filters[colId];
+            }
+          });
+          setActiveFilters(filteredFilters);
         }
 
         // Load current_page from additional_settings
         if (response.data.additional_settings?.current_page) {
           setCurrentPage(response.data.additional_settings.current_page);
+        }
+
+        // Load quick_search from additional_settings
+        if (response.data.additional_settings?.quick_search) {
+          setGlobalFilter(response.data.additional_settings.quick_search);
+          setPendingGlobalFilter(response.data.additional_settings.quick_search);
+          setQuickSearchInitialized(true); // Mark as initialized to prevent re-save on load
         }
 
         // Load visible_columns from config
@@ -349,12 +369,17 @@ const TanStackCRUDTable = forwardRef(({
             }
           }
 
+          // Filter out columns that don't exist in current column definitions
+          // This handles switching between Project View (has _selected, project_action) and Customer View
+          const currentColumnIds = columns.map(col => col.data || col.accessorKey).filter(Boolean);
+          migratedColumns = migratedColumns.filter(colId => currentColumnIds.includes(colId));
+
           // Convert array of visible column IDs to TanStack Table visibility object
           // TanStack uses { columnId: true/false } format
           // IMPORTANT: Set ALL columns explicitly - visible columns to true, others to false
           // CRITICAL: Always show required columns, even if saved config says otherwise
           const visibilityMap = {};
-          const allColumnIds = columns.map(col => col.data || col.accessorKey).filter(Boolean);
+          const allColumnIds = currentColumnIds;
 
           allColumnIds.forEach(colId => {
             const columnDef = columns.find(c => (c.data || c.accessorKey) === colId);
@@ -376,7 +401,7 @@ const TanStackCRUDTable = forwardRef(({
       // Mark config as loaded regardless of success/failure
       setConfigLoaded(true);
     }
-  }, [tableName, customerId, user, activeCustomerId]);
+  }, [tableName, customerId, user, activeCustomerId, columns]);
 
   const saveTableConfig = useCallback(async (configUpdate) => {
     if (!tableName || !user) {
@@ -756,6 +781,29 @@ const TanStackCRUDTable = forwardRef(({
     return () => clearTimeout(debounceTimer);
   }, [activeFilters, saveTableConfig, tableName, customerId, user, configLoaded, filtersInitialized]);
 
+  // Save quick search when it changes (but not on initial load)
+  useEffect(() => {
+    // Only save if quick search has been initialized (prevents saving on initial load)
+    if (!quickSearchInitialized && globalFilter === '') {
+      // No quick search loaded and none set, mark as initialized
+      setQuickSearchInitialized(true);
+      return;
+    }
+
+    const debounceTimer = setTimeout(() => {
+      if (tableName && customerId && user && configLoaded && quickSearchInitialized) {
+        saveTableConfig({
+          additional_settings: {
+            ...(tableConfig?.additional_settings || {}),
+            quick_search: globalFilter
+          }
+        });
+      }
+    }, 500); // Debounce to avoid excessive saves
+
+    return () => clearTimeout(debounceTimer);
+  }, [globalFilter, saveTableConfig, tableName, customerId, user, configLoaded, quickSearchInitialized, tableConfig]);
+
   // Current table data (server-side pagination means we show what we loaded)
   const currentTableData = useMemo(() => {
     return editableData;
@@ -835,19 +883,105 @@ const TanStackCRUDTable = forwardRef(({
     }
   }, [columns, colHeaders, currentTableData, dropdownSources, saveTableConfig]);
 
-  // Auto-size columns on first load if no saved configuration exists
+  // Auto-size columns on first load if no saved configuration exists, or if some columns are missing widths
   useEffect(() => {
     if (editableData.length > 0 && // Data has loaded
         tableName && customerId && // Required for persistence
-        Object.keys(columnSizing).length === 0 && // No existing column sizes
         !isLoading) { // Not currently loading
 
-      // Small delay to ensure table is fully rendered
-      setTimeout(() => {
-        autoSizeColumns();
-      }, 100);
+      // Get all current column IDs
+      const currentColumnIds = columns.map(col => col.data || col.accessorKey).filter(Boolean);
+      const columnKey = currentColumnIds.sort().join(',');
+
+      // Check if any columns are missing widths (handles switching from Customer View to Project View)
+      const missingColumns = currentColumnIds.filter(colId => !columnSizing[colId]);
+
+      // Skip if we've already processed this exact column set
+      if (processedColumnsRef.current === columnKey && missingColumns.length === 0) {
+        return;
+      }
+
+      console.log(`[${tableName}] Auto-size check:`, {
+        columnCount: currentColumnIds.length,
+        savedWidths: Object.keys(columnSizing).length,
+        missingColumns: missingColumns
+      });
+
+      if (Object.keys(columnSizing).length === 0) {
+        // No existing column sizes - auto-size all columns
+        console.log(`[${tableName}] Auto-sizing ALL columns`);
+        processedColumnsRef.current = columnKey;
+        setTimeout(() => {
+          autoSizeColumns();
+        }, 100);
+      } else if (missingColumns.length > 0) {
+        // Some columns are missing widths - auto-size only missing columns and merge
+        console.log(`[${tableName}] Auto-sizing MISSING columns:`, missingColumns);
+        processedColumnsRef.current = columnKey;
+        setTimeout(() => {
+          // Calculate widths for missing columns only
+          const newSizing = { ...columnSizing };
+
+          // Helper function to get nested value
+          const getNestedValue = (obj, path) => {
+            if (!path) return undefined;
+            return path.split('.').reduce((current, prop) => current?.[prop], obj);
+          };
+
+          missingColumns.forEach(accessorKey => {
+            const columnIndex = columns.findIndex(col => (col.data || col.accessorKey) === accessorKey);
+            if (columnIndex === -1) return;
+
+            const column = columns[columnIndex];
+            const headerName = colHeaders[columnIndex] || column.header || column.data || `Column ${columnIndex + 1}`;
+
+            // Calculate width based on header
+            const hasCustomHeader = column.customHeader;
+            const customHeaderPadding = hasCustomHeader ? 40 : 0;
+            const headerText = typeof headerName === 'string' ? headerName : column.title || column.data || `Column ${columnIndex + 1}`;
+            const headerWidth = Math.max(120, headerText.length * 10 + 60 + customHeaderPadding);
+
+            let maxContentWidth = headerWidth;
+
+            // For dropdown columns, consider options
+            if (column.type === 'dropdown' && dropdownSources && dropdownSources[accessorKey]) {
+              const dropdownOptions = dropdownSources[accessorKey] || [];
+              dropdownOptions.forEach(option => {
+                if (option) {
+                  const optionWidth = String(option).length * 10 + 80;
+                  maxContentWidth = Math.max(maxContentWidth, optionWidth);
+                }
+              });
+            }
+
+            // Sample content for width calculation
+            if (editableData && editableData.length > 0) {
+              const sampleSize = Math.min(100, editableData.length);
+              for (let i = 0; i < sampleSize; i++) {
+                const cellValue = getNestedValue(editableData[i], accessorKey);
+                if (cellValue) {
+                  const extraPadding = column.type === 'dropdown' ? 80 : 40;
+                  const cellWidth = String(cellValue).length * 10 + extraPadding;
+                  maxContentWidth = Math.max(maxContentWidth, cellWidth);
+                }
+              }
+            }
+
+            // Set reasonable limits
+            const finalWidth = Math.min(Math.max(maxContentWidth, 80), column.type === 'dropdown' ? 350 : 400);
+            newSizing[accessorKey] = finalWidth;
+          });
+
+          setColumnSizing(newSizing);
+
+          // Save updated widths
+          if (Object.keys(newSizing).length > 0) {
+            saveTableConfig({ column_widths: newSizing });
+          }
+        }, 100);
+      }
     }
-  }, [editableData, tableName, customerId, columnSizing, isLoading, autoSizeColumns]);
+  }, [editableData, tableName, customerId, columnSizing, isLoading, autoSizeColumns, columns, colHeaders, dropdownSources, saveTableConfig]);
 
   // Handle resize events
   useEffect(() => {

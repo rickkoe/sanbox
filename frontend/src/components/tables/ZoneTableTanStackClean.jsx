@@ -487,10 +487,33 @@ const ZoneTableTanStackClean = () => {
                     setLoading(true);
                     console.log('Loading zone dropdown data...');
 
-                    // Build alias URL based on whether we have an active project
-                    const aliasUrl = activeProjectId
-                        ? `${API_ENDPOINTS.aliases}${activeProjectId}/?page_size=10000`
-                        : `${API_URL}/api/san/aliases/?customer_id=${activeCustomerId}&page_size=10000`;
+                    // Helper function to paginate through all aliases
+                    const fetchAllAliases = async () => {
+                        const baseUrl = activeProjectId
+                            ? `${API_ENDPOINTS.aliases}${activeProjectId}/`
+                            : `${API_URL}/api/san/aliases/`;
+                        const params = activeProjectId
+                            ? ''
+                            : `customer_id=${activeCustomerId}&`;
+
+                        let allAliases = [];
+                        let page = 1;
+                        let hasMore = true;
+                        const pageSize = 500; // Use max allowed by backend
+
+                        while (hasMore) {
+                            const response = await api.get(
+                                `${baseUrl}?${params}page_size=${pageSize}&page=${page}`
+                            );
+                            const aliases = response.data.results || response.data;
+                            allAliases = [...allAliases, ...aliases];
+
+                            hasMore = response.data.has_next;
+                            page++;
+                        }
+
+                        return { data: { results: allAliases } };
+                    };
 
                     // Build column requirements URL
                     const columnReqUrl = activeProjectId
@@ -499,7 +522,7 @@ const ZoneTableTanStackClean = () => {
 
                     const [fabricResponse, aliasResponse, columnReqResponse] = await Promise.all([
                         api.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
-                        api.get(aliasUrl),
+                        fetchAllAliases(),
                         api.get(columnReqUrl)
                     ]);
 
@@ -1055,13 +1078,24 @@ const ZoneTableTanStackClean = () => {
             if (showBulkModal && activeCustomerId && activeProjectId) {
                 try {
                     console.log('📥 Loading all customer zones for bulk modal...');
-                    // Fetch all customer zones with project membership info
-                    const response = await api.get(
-                        `${API_URL}/api/san/zones/project/${activeProjectId}/?project_filter=all&page_size=10000`
-                    );
-                    const zones = response.data.results || response.data;
-                    setAllCustomerZones(zones);
-                    console.log(`✅ Loaded ${zones.length} customer zones for modal`);
+                    let allZones = [];
+                    let page = 1;
+                    let hasMore = true;
+                    const pageSize = 500; // Use max allowed by backend
+
+                    while (hasMore) {
+                        const response = await api.get(
+                            `${API_URL}/api/san/zones/project/${activeProjectId}/?project_filter=all&page_size=${pageSize}&page=${page}`
+                        );
+                        const zones = response.data.results || response.data;
+                        allZones = [...allZones, ...zones];
+
+                        hasMore = response.data.has_next;
+                        page++;
+                    }
+
+                    setAllCustomerZones(allZones);
+                    console.log(`✅ Loaded ${allZones.length} customer zones for modal`);
                 } catch (error) {
                     console.error('❌ Error loading customer zones:', error);
                     setAllCustomerZones([]);

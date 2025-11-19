@@ -469,12 +469,23 @@ const AliasTableTanStackClean = () => {
         const loadAllCustomerAliases = async () => {
             if (showBulkModal && activeCustomerId && activeProjectId) {
                 try {
-                    // Fetch all customer aliases with project membership info
-                    const response = await api.get(
-                        `${API_URL}/api/san/aliases/project/${activeProjectId}/?project_filter=all&page_size=10000`
-                    );
-                    const aliases = response.data.results || response.data;
-                    setAllCustomerAliases(aliases);
+                    let allAliases = [];
+                    let page = 1;
+                    let hasMore = true;
+                    const pageSize = 500; // Use max allowed by backend
+
+                    while (hasMore) {
+                        const response = await api.get(
+                            `${API_URL}/api/san/aliases/project/${activeProjectId}/?project_filter=all&page_size=${pageSize}&page=${page}`
+                        );
+                        const aliases = response.data.results || response.data;
+                        allAliases = [...allAliases, ...aliases];
+
+                        hasMore = response.data.has_next;
+                        page++;
+                    }
+
+                    setAllCustomerAliases(allAliases);
                 } catch (error) {
                     console.error('Error loading customer aliases:', error);
                     setAllCustomerAliases([]);
