@@ -1,0 +1,116 @@
+/*
+ * Zone Table Component Styles
+ * Theme-aware styling for member column indicators and expand/collapse functionality
+ */
+
+/* Container class for scoping */
+.zone-table-container {
+    /* Bootstrap Background Override Pattern - ensures proper theme support */
+}
+
+/* Override Bootstrap defaults within zone table context */
+.zone-table-container .bg-light {
+    background-color: var(--primary-bg) !important;
+}
+
+.zone-table-container .bg-dark {
+    background-color: var(--primary-bg) !important;
+}
+
+.zone-table-container .text-dark {
+    color: var(--primary-text) !important;
+}
+
+.zone-table-container .text-light {
+    color: var(--primary-text) !important;
+}
+
+/* Member indicator badge - shows "+ N more" in collapsed mode */
+.zone-table-member-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm, 4px);
+    background-color: var(--secondary-bg);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    border: 1px solid var(--color-border-default);
+    opacity: 0.85;
+    margin-left: 4px;
+}
+
+.zone-table-member-indicator:hover {
+    opacity: 1;
+    background-color: var(--button-hover-bg);
+}
+
+/* Expand/collapse button styling */
+.zone-table-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: var(--radius-md, 6px);
+    transition: all 0.2s ease;
+    border: 1px solid var(--color-border-default);
+    background-color: var(--secondary-bg);
+    color: var(--primary-text);
+}
+
+.zone-table-expand-btn:hover {
+    background-color: var(--button-hover-bg);
+    border-color: var(--color-accent-emphasis);
+    color: var(--color-accent-emphasis);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.zone-table-expand-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.zone-table-expand-btn svg {
+    flex-shrink: 0;
+}
+
+/* Focus state for accessibility */
+.zone-table-expand-btn:focus {
+    outline: 2px solid var(--color-accent-emphasis);
+    outline-offset: 2px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .zone-table-expand-btn {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    .zone-table-expand-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .zone-table-member-indicator {
+        font-size: 10px;
+        padding: 1px 6px;
+    }
+}
+
+/* Print styles - hide interactive elements */
+@media print {
+    .zone-table-expand-btn {
+        display: none;
+    }
+
+    .zone-table-member-indicator {
+        border: 1px solid #ccc;
+        background-color: #f5f5f5;
+        color: #666;
+    }
+}

@@ -14,6 +14,7 @@ import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
 import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort } from "../../utils/tableConfigLoader";
+import "../../styles/zone-table.css";
 
 // Clean TanStack Table implementation for Zone management
 const ZoneTableTanStackClean = () => {
@@ -34,9 +35,18 @@ const ZoneTableTanStackClean = () => {
     });
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
     const memberColumnCountsRef = useRef(memberColumnCounts); // Store current counts for stable access
+    const isTogglingColumnsRef = useRef(false); // Flag to prevent page change detection during manual toggle
     const [showBulkModal, setShowBulkModal] = useState(false); // Bulk add/remove modal
     const [allCustomerZones, setAllCustomerZones] = useState([]); // All customer zones for bulk modal
     const [totalRowCount, setTotalRowCount] = useState(0); // Total rows in table
+    const [showAllMemberColumns, setShowAllMemberColumns] = useState(false); // Expand/collapse member columns
+    const [currentPage, setCurrentPage] = useState(1); // Track current page for reset on navigation
+
+    // Debug: Track showAllMemberColumns changes
+    useEffect(() => {
+        console.log('📊 showAllMemberColumns changed to:', showAllMemberColumns);
+        console.trace('showAllMemberColumns change stack trace');
+    }, [showAllMemberColumns]);
 
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter } = useProjectFilter();
@@ -336,15 +346,28 @@ const ZoneTableTanStackClean = () => {
     const memberColumns = useMemo(() => {
         const columns = [];
 
+        // Determine how many columns to show based on expanded/collapsed state
+        const targetCount = showAllMemberColumns ? memberColumnCounts.targets : 1;
+        const initiatorCount = showAllMemberColumns ? memberColumnCounts.initiators : 1;
+        const allAccessCount = showAllMemberColumns ? memberColumnCounts.allAccess : 1;
+
+        console.log('🏗️ memberColumns memo recalculating:', {
+            showAllMemberColumns,
+            targetCount,
+            initiatorCount,
+            allAccessCount,
+            memberColumnCounts
+        });
+
         // Target columns first - subtle blue tint
-        for (let i = 1; i <= memberColumnCounts.targets; i++) {
+        for (let i = 1; i <= targetCount; i++) {
             const isLastTarget = i === memberColumnCounts.targets;
             columns.push({
                 data: `target_member_${i}`,
                 title: `Target Member ${i}`,
                 type: "dropdown",
                 columnGroup: "target",
-                customHeader: isLastTarget ? {
+                customHeader: (showAllMemberColumns && isLastTarget) ? {
                     component: () => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>
                             <span>Target Member {i}</span>
@@ -370,14 +393,14 @@ const ZoneTableTanStackClean = () => {
         }
 
         // Initiator columns next - subtle green tint
-        for (let i = 1; i <= memberColumnCounts.initiators; i++) {
+        for (let i = 1; i <= initiatorCount; i++) {
             const isLastInitiator = i === memberColumnCounts.initiators;
             columns.push({
                 data: `init_member_${i}`,
                 title: `Initiator Member ${i}`,
                 type: "dropdown",
                 columnGroup: "initiator",
-                customHeader: isLastInitiator ? {
+                customHeader: (showAllMemberColumns && isLastInitiator) ? {
                     component: () => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>
                             <span>Initiator Member {i}</span>
@@ -403,14 +426,14 @@ const ZoneTableTanStackClean = () => {
         }
 
         // All Access columns last - subtle purple tint
-        for (let i = 1; i <= memberColumnCounts.allAccess; i++) {
+        for (let i = 1; i <= allAccessCount; i++) {
             const isLastAllAccess = i === memberColumnCounts.allAccess;
             columns.push({
                 data: `all_member_${i}`,
                 title: `All Access Member ${i}`,
                 type: "dropdown",
                 columnGroup: "allAccess",
-                customHeader: isLastAllAccess ? {
+                customHeader: (showAllMemberColumns && isLastAllAccess) ? {
                     component: () => (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between', width: '100%' }}>
                             <span>All Access Member {i}</span>
@@ -436,14 +459,25 @@ const ZoneTableTanStackClean = () => {
         }
 
         return columns;
-    }, [memberColumnCounts, addTargetColumn, addInitiatorColumn, addAllAccessColumn, getPlusButtonStyle]);
+    }, [memberColumnCounts, showAllMemberColumns, addTargetColumn, addInitiatorColumn, addAllAccessColumn, getPlusButtonStyle]);
 
     // All columns (base + member + trailing)
     const allColumns = useMemo(() => {
+        console.log('📋 Regenerating allColumns:', {
+            baseCount: baseColumns.length,
+            memberCount: memberColumns.length,
+            trailingCount: trailingColumns.length,
+            total: baseColumns.length + memberColumns.length + trailingColumns.length,
+            showAllMemberColumns
+        });
         return [...baseColumns, ...memberColumns, ...trailingColumns];
-    }, [baseColumns, memberColumns, trailingColumns]);
+    }, [baseColumns, memberColumns, trailingColumns, showAllMemberColumns]);
 
-    const colHeaders = allColumns.map(col => col.title);
+    const colHeaders = useMemo(() => {
+        const headers = allColumns.map(col => col.title);
+        console.log('📝 Regenerating colHeaders:', headers.length);
+        return headers;
+    }, [allColumns]);
 
     const NEW_ZONE_TEMPLATE = useMemo(() => {
         const template = {
@@ -590,6 +624,60 @@ const ZoneTableTanStackClean = () => {
         }
     }, [projectFilter, totalRowCount]);
 
+    // Initialize current page from table pagination
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setTimeout(() => {
+                const paginationInfo = tableRef.current?.getPaginationInfo?.();
+                if (paginationInfo && typeof paginationInfo.currentPage === 'number') {
+                    console.log('📄 Initializing current page:', paginationInfo.currentPage);
+                    setCurrentPage(paginationInfo.currentPage);
+                }
+            }, 1000); // Wait for table to fully initialize
+
+            return () => clearTimeout(timer);
+        }
+    }, [projectFilter]);
+
+    // DISABLED: Auto-collapse feature was interfering with manual expand/collapse
+    // Reset member columns to collapsed view when page changes
+    // useEffect(() => {
+    //     if (projectFilter === 'current' && tableRef.current) {
+    //         const timer = setInterval(() => {
+    //             // Skip page change detection if we're in the middle of toggling columns
+    //             if (isTogglingColumnsRef.current) {
+    //                 console.log('⏸️ Page change detection skipped - toggle in progress');
+    //                 return;
+    //             }
+
+    //             const paginationInfo = tableRef.current?.getPaginationInfo?.();
+
+    //             // Debug logging
+    //             console.log('🔍 Page change check:', {
+    //                 hasPaginationInfo: !!paginationInfo,
+    //                 currentPageFromTable: paginationInfo?.currentPage,
+    //                 currentPageState: currentPage,
+    //                 isTogglingColumns: isTogglingColumnsRef.current
+    //             });
+
+    //             // Only reset if pagination info is valid and page actually changed
+    //             // Ignore if currentPage is 0 or undefined (initial/invalid state)
+    //             if (paginationInfo &&
+    //                 typeof paginationInfo.currentPage === 'number' &&
+    //                 paginationInfo.currentPage > 0 &&
+    //                 currentPage > 0 &&
+    //                 paginationInfo.currentPage !== currentPage) {
+    //                 console.log(`📄 Page changed from ${currentPage} to ${paginationInfo.currentPage}`);
+    //                 setCurrentPage(paginationInfo.currentPage);
+    //                 // Don't auto-collapse member columns on page change - let user control it manually
+    //                 // setShowAllMemberColumns(false);
+    //             }
+    //         }, 500);
+
+    //         return () => clearInterval(timer);
+    //     }
+    // }, [projectFilter, currentPage]);
+
     // Selection sync is now handled by useProjectViewSelection hook
 
     // Calculate used aliases to filter dropdowns
@@ -683,6 +771,29 @@ const ZoneTableTanStackClean = () => {
         // Add custom renderers for each member column type
         allMemberColumns.forEach(memberKey => {
             renderers[memberKey] = (rowData, td, row, col, prop, value) => {
+                // Check if this is the first column and we're in collapsed mode
+                const isFirstTargetColumn = memberKey === 'target_member_1';
+                const isFirstInitColumn = memberKey === 'init_member_1';
+                const isFirstAllAccessColumn = memberKey === 'all_member_1';
+                const isFirstColumn = isFirstTargetColumn || isFirstInitColumn || isFirstAllAccessColumn;
+
+                // Show indicator only in collapsed mode for first column with additional members
+                let indicator = '';
+                if (!showAllMemberColumns && isFirstColumn && value) {
+                    let additionalCount = 0;
+                    if (isFirstTargetColumn && rowData._targetCount > 1) {
+                        additionalCount = rowData._targetCount - 1;
+                    } else if (isFirstInitColumn && rowData._initCount > 1) {
+                        additionalCount = rowData._initCount - 1;
+                    } else if (isFirstAllAccessColumn && rowData._allAccessCount > 1) {
+                        additionalCount = rowData._allAccessCount - 1;
+                    }
+
+                    if (additionalCount > 0) {
+                        indicator = `<span class="zone-table-member-indicator">+${additionalCount} more</span>`;
+                    }
+                }
+
                 // Get dynamic options based on zone fabric and use type
                 const options = getMemberDropdownOptions(rowData, memberKey);
 
@@ -708,6 +819,11 @@ const ZoneTableTanStackClean = () => {
                     }
                     select.appendChild(option);
                 });
+
+                // Combine dropdown with indicator
+                if (indicator) {
+                    return `<div style="display: flex; align-items: center; gap: 6px;">${select.outerHTML}${indicator}</div>`;
+                }
 
                 return select.outerHTML;
             };
@@ -743,7 +859,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return renderers;
-    }, [getMemberDropdownOptions, memberColumnCounts, activeProjectId, projectFilter]); // Needs to recreate when columns added
+    }, [getMemberDropdownOptions, memberColumnCounts, activeProjectId, projectFilter, showAllMemberColumns]); // Needs to recreate when columns added or expand/collapse changes
 
     // Dynamic dropdown sources that include member filtering
     const dropdownSources = useMemo(() => {
@@ -1013,9 +1129,17 @@ const ZoneTableTanStackClean = () => {
 
                 // Update member count
                 processedZone.member_count = zone.members_details.length;
+
+                // Add metadata for member counts per type (for indicators in collapsed mode)
+                processedZone._targetCount = membersByType.targets.length;
+                processedZone._initCount = membersByType.initiators.length;
+                processedZone._allAccessCount = membersByType.allAccess.length;
             } else {
                 console.log(`⚠️ Zone ${zone.name} has no members_details:`, zone.members_details);
                 processedZone.member_count = 0;
+                processedZone._targetCount = 0;
+                processedZone._initCount = 0;
+                processedZone._allAccessCount = 0;
             }
 
             return processedZone;
@@ -1596,6 +1720,73 @@ const ZoneTableTanStackClean = () => {
         }
     }, [fabricOptions, aliasOptions, activeProjectId, API_ENDPOINTS]); // memberColumnCounts accessed via ref
 
+    // Toggle handler for expand/collapse member columns
+    const handleToggleMemberColumns = useCallback(() => {
+        console.log('🔄 Toggling member columns...', {
+            current: showAllMemberColumns,
+            willBe: !showAllMemberColumns
+        });
+
+        const newValue = !showAllMemberColumns;
+        setShowAllMemberColumns(newValue);
+
+        // If expanding, make all member columns visible in the table
+        if (newValue && tableRef.current) {
+            // Get current table data to calculate how many columns we need
+            const currentData = tableRef.current.getTableData?.();
+            if (currentData && currentData.length > 0) {
+                // Calculate max member counts from actual data
+                let maxTargets = 0;
+                let maxInitiators = 0;
+                let maxAllAccess = 0;
+
+                currentData.forEach(zone => {
+                    if (zone._targetCount) maxTargets = Math.max(maxTargets, zone._targetCount);
+                    if (zone._initCount) maxInitiators = Math.max(maxInitiators, zone._initCount);
+                    if (zone._allAccessCount) maxAllAccess = Math.max(maxAllAccess, zone._allAccessCount);
+                });
+
+                console.log('📊 Dynamic member counts from page data:', {
+                    maxTargets,
+                    maxInitiators,
+                    maxAllAccess
+                });
+
+                // Update column counts to match actual data
+                setMemberColumnCounts({
+                    targets: Math.max(maxTargets, 1),
+                    initiators: Math.max(maxInitiators, 1),
+                    allAccess: Math.max(maxAllAccess, 1)
+                });
+
+                // After columns update, make them visible
+                setTimeout(() => {
+                    // Build list of all member column IDs
+                    const memberColumnIds = [];
+                    for (let i = 1; i <= Math.max(maxTargets, 1); i++) {
+                        memberColumnIds.push(`target_member_${i}`);
+                    }
+                    for (let i = 1; i <= Math.max(maxInitiators, 1); i++) {
+                        memberColumnIds.push(`init_member_${i}`);
+                    }
+                    for (let i = 1; i <= Math.max(maxAllAccess, 1); i++) {
+                        memberColumnIds.push(`all_member_${i}`);
+                    }
+
+                    // Make all member columns visible
+                    if (tableRef.current?.setColumnVisibility) {
+                        const visibilityUpdates = {};
+                        memberColumnIds.forEach(colId => {
+                            visibilityUpdates[colId] = true;
+                        });
+                        console.log('👁️ Making member columns visible:', visibilityUpdates);
+                        tableRef.current.setColumnVisibility(visibilityUpdates);
+                    }
+                }, 100);
+            }
+        }
+    }, [showAllMemberColumns]);
+
     // Show empty config message if no active customer
     if (!config || !activeCustomerId) {
         return <EmptyConfigMessage entityName="zones" />;
@@ -1615,22 +1806,51 @@ const ZoneTableTanStackClean = () => {
         );
     }
 
+    // SVG icons for expand/collapse button
+    const expandIcon = (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '6px' }}>
+            <path d="M1.5 8a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 0 1h-13a.5.5 0 0 1-.5-.5zM8 1.5a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0v-6a.5.5 0 0 1 .5-.5z"/>
+        </svg>
+    );
+
+    const collapseIcon = (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '6px' }}>
+            <path d="M1.5 8a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 0 1h-13a.5.5 0 0 1-.5-.5z"/>
+        </svg>
+    );
+
+    // Expand/collapse button for member columns
+    const expandCollapseButton = (
+        <button
+            className="btn btn-outline-primary btn-sm zone-table-expand-btn"
+            onClick={handleToggleMemberColumns}
+            title={showAllMemberColumns ? "Show minimal columns (1 per type)" : "Show all member columns"}
+            style={{ marginRight: '8px' }}
+        >
+            {showAllMemberColumns ? collapseIcon : expandIcon}
+            {showAllMemberColumns ? "Show Minimal Columns" : "Show All Members"}
+        </button>
+    );
+
     // Use ProjectViewToolbar component (replaces ~170 lines of duplicated code)
     const filterToggleButtons = (
-        <ProjectViewToolbar
-            projectFilter={projectFilter}
-            onFilterChange={handleFilterChange}
-            activeProjectId={activeProjectId}
-            activeProjectName={config?.active_project?.name || 'Unknown Project'}
-            onBulkClick={() => setShowBulkModal(true)}
-            onCommitSuccess={() => tableRef.current?.reloadData?.()}
-            ActionsDropdown={ActionsDropdown}
-            entityName="zones"
-        />
+        <>
+            {expandCollapseButton}
+            <ProjectViewToolbar
+                projectFilter={projectFilter}
+                onFilterChange={handleFilterChange}
+                activeProjectId={activeProjectId}
+                activeProjectName={config?.active_project?.name || 'Unknown Project'}
+                onBulkClick={() => setShowBulkModal(true)}
+                onCommitSuccess={() => tableRef.current?.reloadData?.()}
+                ActionsDropdown={ActionsDropdown}
+                entityName="zones"
+            />
+        </>
     );
 
     return (
-        <div className="modern-table-container">
+        <div className="modern-table-container zone-table-container">
             {/* Banner Slot - shows Customer View or Select All banner without layout shift */}
             <BannerSlot />
 
