@@ -1103,28 +1103,23 @@ const ZoneTableTanStackClean = () => {
                     }
                 });
 
-                // Populate target member columns
+                // Populate ALL target member columns (not limited by columnCounts)
+                // This ensures data is available when user expands columns
                 membersByType.targets.forEach((member, index) => {
-                    if (index < columnCounts.targets) {
-                        processedZone[`target_member_${index + 1}`] = member.name || '';
-                        console.log(`  Set target_member_${index + 1} = "${member.name}"`);
-                    }
+                    processedZone[`target_member_${index + 1}`] = member.name || '';
+                    console.log(`  Set target_member_${index + 1} = "${member.name}"`);
                 });
 
-                // Populate initiator member columns
+                // Populate ALL initiator member columns
                 membersByType.initiators.forEach((member, index) => {
-                    if (index < columnCounts.initiators) {
-                        processedZone[`init_member_${index + 1}`] = member.name || '';
-                        console.log(`  Set init_member_${index + 1} = "${member.name}"`);
-                    }
+                    processedZone[`init_member_${index + 1}`] = member.name || '';
+                    console.log(`  Set init_member_${index + 1} = "${member.name}"`);
                 });
 
-                // Populate all access member columns
+                // Populate ALL all access member columns
                 membersByType.allAccess.forEach((member, index) => {
-                    if (index < columnCounts.allAccess) {
-                        processedZone[`all_member_${index + 1}`] = member.name || '';
-                        console.log(`  Set all_member_${index + 1} = "${member.name}"`);
-                    }
+                    processedZone[`all_member_${index + 1}`] = member.name || '';
+                    console.log(`  Set all_member_${index + 1} = "${member.name}"`);
                 });
 
                 // Update member count
