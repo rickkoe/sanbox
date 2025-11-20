@@ -1725,56 +1725,85 @@ const ZoneTableTanStackClean = () => {
         const newValue = !showAllMemberColumns;
         setShowAllMemberColumns(newValue);
 
-        // If expanding, make all member columns visible in the table
-        if (newValue && tableRef.current) {
-            // Get current table data to calculate how many columns we need
-            const currentData = tableRef.current.getTableData?.();
-            if (currentData && currentData.length > 0) {
-                // Calculate max member counts from actual data
-                let maxTargets = 0;
-                let maxInitiators = 0;
-                let maxAllAccess = 0;
+        if (tableRef.current) {
+            if (newValue) {
+                // EXPANDING: Show all member columns
+                const currentData = tableRef.current.getTableData?.();
+                if (currentData && currentData.length > 0) {
+                    // Calculate max member counts from actual data
+                    let maxTargets = 0;
+                    let maxInitiators = 0;
+                    let maxAllAccess = 0;
 
-                currentData.forEach(zone => {
-                    if (zone._targetCount) maxTargets = Math.max(maxTargets, zone._targetCount);
-                    if (zone._initCount) maxInitiators = Math.max(maxInitiators, zone._initCount);
-                    if (zone._allAccessCount) maxAllAccess = Math.max(maxAllAccess, zone._allAccessCount);
-                });
+                    currentData.forEach(zone => {
+                        if (zone._targetCount) maxTargets = Math.max(maxTargets, zone._targetCount);
+                        if (zone._initCount) maxInitiators = Math.max(maxInitiators, zone._initCount);
+                        if (zone._allAccessCount) maxAllAccess = Math.max(maxAllAccess, zone._allAccessCount);
+                    });
 
-                console.log('📊 Dynamic member counts from page data:', {
-                    maxTargets,
-                    maxInitiators,
-                    maxAllAccess
-                });
+                    console.log('📊 Dynamic member counts from page data:', {
+                        maxTargets,
+                        maxInitiators,
+                        maxAllAccess
+                    });
 
-                // Update column counts to match actual data
-                setMemberColumnCounts({
-                    targets: Math.max(maxTargets, 1),
-                    initiators: Math.max(maxInitiators, 1),
-                    allAccess: Math.max(maxAllAccess, 1)
-                });
+                    // Update column counts to match actual data
+                    setMemberColumnCounts({
+                        targets: Math.max(maxTargets, 1),
+                        initiators: Math.max(maxInitiators, 1),
+                        allAccess: Math.max(maxAllAccess, 1)
+                    });
 
-                // After columns update, make them visible
+                    // After columns update, make them visible
+                    setTimeout(() => {
+                        // Build list of all member column IDs
+                        const memberColumnIds = [];
+                        for (let i = 1; i <= Math.max(maxTargets, 1); i++) {
+                            memberColumnIds.push(`target_member_${i}`);
+                        }
+                        for (let i = 1; i <= Math.max(maxInitiators, 1); i++) {
+                            memberColumnIds.push(`init_member_${i}`);
+                        }
+                        for (let i = 1; i <= Math.max(maxAllAccess, 1); i++) {
+                            memberColumnIds.push(`all_member_${i}`);
+                        }
+
+                        // Make all member columns visible
+                        if (tableRef.current?.setColumnVisibility) {
+                            const visibilityUpdates = {};
+                            memberColumnIds.forEach(colId => {
+                                visibilityUpdates[colId] = true;
+                            });
+                            console.log('👁️ Making member columns visible:', visibilityUpdates);
+                            tableRef.current.setColumnVisibility(visibilityUpdates);
+                        }
+                    }, 100);
+                }
+            } else {
+                // COLLAPSING: Hide extra member columns (keep only column 1 of each type)
+                // Get current member counts before collapsing
+                const currentCounts = memberColumnCountsRef.current;
+
                 setTimeout(() => {
-                    // Build list of all member column IDs
-                    const memberColumnIds = [];
-                    for (let i = 1; i <= Math.max(maxTargets, 1); i++) {
-                        memberColumnIds.push(`target_member_${i}`);
-                    }
-                    for (let i = 1; i <= Math.max(maxInitiators, 1); i++) {
-                        memberColumnIds.push(`init_member_${i}`);
-                    }
-                    for (let i = 1; i <= Math.max(maxAllAccess, 1); i++) {
-                        memberColumnIds.push(`all_member_${i}`);
-                    }
-
-                    // Make all member columns visible
                     if (tableRef.current?.setColumnVisibility) {
                         const visibilityUpdates = {};
-                        memberColumnIds.forEach(colId => {
-                            visibilityUpdates[colId] = true;
-                        });
-                        console.log('👁️ Making member columns visible:', visibilityUpdates);
+
+                        // Hide target columns 2+
+                        for (let i = 2; i <= currentCounts.targets; i++) {
+                            visibilityUpdates[`target_member_${i}`] = false;
+                        }
+
+                        // Hide initiator columns 2+
+                        for (let i = 2; i <= currentCounts.initiators; i++) {
+                            visibilityUpdates[`init_member_${i}`] = false;
+                        }
+
+                        // Hide all-access columns 2+
+                        for (let i = 2; i <= currentCounts.allAccess; i++) {
+                            visibilityUpdates[`all_member_${i}`] = false;
+                        }
+
+                        console.log('👁️ Hiding extra member columns:', visibilityUpdates);
                         tableRef.current.setColumnVisibility(visibilityUpdates);
                     }
                 }, 100);
