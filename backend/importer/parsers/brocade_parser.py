@@ -56,21 +56,36 @@ class BrocadeParser(BaseParser):
         # Debug: check first 200 chars
         logger.info(f"Brocade parser - First 200 chars: {data[:200]}")
 
-        # Determine format type
+        # Check how many different CSV types are present
+        csv_types_found = 0
+        has_switch = 'Switch Name,Switch WWN,Model Number' in data
+        has_fabric = 'Fabric Name,Fabric Principal Switch' in data
+        has_alias = 'Fabric Name,Active Zone Config,Alias Name' in data
+        has_zone = 'Fabric Name,Active Zone Config,Active Zones' in data
+        has_cfgshow = 'Defined configuration:' in data or 'Effective configuration:' in data
+
+        csv_types_found = sum([has_switch, has_fabric, has_alias, has_zone])
+
+        # If multiple CSV types are present, use the combined parser
+        if csv_types_found > 1:
+            logger.info(f"Detected multiple CSV types ({csv_types_found}), using combined parser")
+            return self._parse_combined_csv(data)
+
+        # Determine format type for single CSV
         # IMPORTANT: Check SwitchSummary BEFORE FabricSummary because SwitchSummary also contains "Fabric Name"
-        if 'Switch Name,Switch WWN,Model Number' in data:
+        if has_switch:
             logger.info("Detected SwitchSummary.csv format - CALLING SWITCH PARSER")
             return self._parse_switch_summary_csv(data)
-        elif 'Fabric Name,Fabric Principal Switch' in data:
+        elif has_fabric:
             logger.info("Detected FabricSummary.csv format")
             return self._parse_fabric_summary_csv(data)
-        elif 'Fabric Name,Active Zone Config,Alias Name' in data:
+        elif has_alias:
             logger.info("Detected AliasInfo.csv format")
             return self._parse_alias_info_csv(data)
-        elif 'Fabric Name,Active Zone Config,Active Zones' in data:
+        elif has_zone:
             logger.info("Detected ZoneInfo.csv format")
             return self._parse_zone_info_csv(data)
-        elif 'Defined configuration:' in data or 'Effective configuration:' in data:
+        elif has_cfgshow:
             logger.info("Detected cfgshow format")
             return self._parse_cfgshow_output(data)
         else:
@@ -183,20 +198,21 @@ class BrocadeParser(BaseParser):
         self.add_metadata('format', 'ZoneInfo.csv')
 
         zones = []
-        fabric_names = set()  # Track unique fabric names
+        fabric_info = {}  # Track fabric name -> zoneset name mapping
         reader = csv.DictReader(StringIO(data))
 
         for row in reader:
             fabric_name = row.get('Fabric Name', '').strip()
+            active_zone_config = row.get('Active Zone Config', '').strip()
             zone_name = row.get('Active Zones', '').strip()
             members_str = row.get('Zone Member(s)', '').strip()
 
             if not zone_name or not members_str:
                 continue
 
-            # Track fabric names we've seen
-            if fabric_name:
-                fabric_names.add(fabric_name)
+            # Track fabric names and their zone configs
+            if fabric_name and fabric_name not in fabric_info:
+                fabric_info[fabric_name] = active_zone_config
 
             # Parse comma-separated members
             # Remove trailing commas that are common in CSV exports
@@ -255,9 +271,11 @@ class BrocadeParser(BaseParser):
 
         # Create fabric entries from the unique fabric names we found in zones
         fabrics = []
-        for fabric_name in sorted(fabric_names):
+        for fabric_name in sorted(fabric_info.keys()):
+            zoneset_name = fabric_info.get(fabric_name)
             fabrics.append(ParsedFabric(
                 name=fabric_name,
+                zoneset_name=zoneset_name if zoneset_name else None,
                 san_vendor='BR',
                 exists=False
             ))
@@ -346,29 +364,64 @@ class BrocadeParser(BaseParser):
         all_fabrics = []
         all_aliases = []
         all_zones = []
+        all_switches = []
 
-        # Split by CSV headers
-        sections = re.split(r'\n(?=Fabric Name,)', data)
+        # Split by CSV headers - look for any header line that starts a new CSV
+        # This regex finds lines that look like CSV headers (contain commas and common keywords)
+        sections = re.split(r'\n(?=(?:Fabric Name,|Switch Name,Switch WWN))', data)
 
         for section in sections:
             if not section.strip():
                 continue
 
-            # Try each CSV parser
-            if 'Fabric Principal Switch' in section:
+            logger.debug(f"Processing section starting with: {section[:100]}")
+
+            # Try each CSV parser based on header content
+            if 'Switch Name,Switch WWN,Model Number' in section:
+                logger.info("Combined parser: parsing SwitchSummary section")
+                result = self._parse_switch_summary_csv(section)
+                all_switches.extend(result.switches)
+                # Also get fabrics from switch data if present
+                all_fabrics.extend(result.fabrics)
+            elif 'Fabric Principal Switch' in section:
+                logger.info("Combined parser: parsing FabricSummary section")
                 result = self._parse_fabric_summary_csv(section)
                 all_fabrics.extend(result.fabrics)
             elif 'Alias Name,Alias Member' in section:
+                logger.info("Combined parser: parsing AliasInfo section")
                 result = self._parse_alias_info_csv(section)
                 all_aliases.extend(result.aliases)
+                # Also get fabrics from alias data
+                all_fabrics.extend(result.fabrics)
             elif 'Active Zones,Zone Status' in section or 'Zone Member(s)' in section:
+                logger.info("Combined parser: parsing ZoneInfo section")
                 result = self._parse_zone_info_csv(section)
                 all_zones.extend(result.zones)
+                # Also get fabrics from zone data
+                all_fabrics.extend(result.fabrics)
+
+        # Deduplicate fabrics by name, merging attributes from all occurrences
+        seen_fabrics = {}
+        for fabric in all_fabrics:
+            if fabric.name not in seen_fabrics:
+                seen_fabrics[fabric.name] = fabric
+            else:
+                # Merge attributes - keep non-None values from later occurrences
+                existing = seen_fabrics[fabric.name]
+                if fabric.zoneset_name and not existing.zoneset_name:
+                    existing.zoneset_name = fabric.zoneset_name
+                if fabric.vsan and not existing.vsan:
+                    existing.vsan = fabric.vsan
+
+        unique_fabrics = list(seen_fabrics.values())
+
+        logger.info(f"Combined parser results: {len(unique_fabrics)} fabrics, {len(all_aliases)} aliases, {len(all_zones)} zones, {len(all_switches)} switches")
 
         return ParseResult(
-            fabrics=all_fabrics,
+            fabrics=unique_fabrics,
             aliases=all_aliases,
             zones=all_zones,
+            switches=all_switches,
             errors=self.errors,
             warnings=self.warnings,
             metadata=self.metadata

@@ -1059,7 +1059,11 @@ def alias_project_view(request, project_id):
 
         # Add metadata
         base_data['modified_fields'] = modified_fields
-        base_data['project_action'] = pa.action
+        # Use delete_me to override action for display purposes
+        if pa.delete_me:
+            base_data['project_action'] = 'delete'
+        else:
+            base_data['project_action'] = pa.action
         base_data['in_active_project'] = True
 
         # print(f"✨ Final modified_fields for alias {pa.alias.name}: {modified_fields}")
@@ -2788,7 +2792,11 @@ def zone_project_view(request, project_id):
 
         # Add metadata
         base_data['modified_fields'] = modified_fields
-        base_data['project_action'] = pz.action
+        # Use delete_me to override action for display purposes
+        if pz.delete_me:
+            base_data['project_action'] = 'delete'
+        else:
+            base_data['project_action'] = pz.action
         base_data['in_active_project'] = True
 
         merged_data.append(base_data)
@@ -4582,7 +4590,11 @@ def switch_project_view(request, project_id):
                             if field_name in base_data and base_data[field_name] != override_value:
                                 base_data[field_name] = override_value
                                 modified_fields.append(field_name)
-                    base_data['project_action'] = ps.action
+                    # Use delete_me to override action for display purposes
+                    if ps.delete_me:
+                        base_data['project_action'] = 'delete'
+                    else:
+                        base_data['project_action'] = ps.action
                 except ProjectSwitch.DoesNotExist:
                     pass
 
@@ -4698,7 +4710,11 @@ def switch_project_view(request, project_id):
 
         # Add metadata
         base_data['modified_fields'] = modified_fields
-        base_data['project_action'] = ps.action
+        # Use delete_me to override action for display purposes
+        if ps.delete_me:
+            base_data['project_action'] = 'delete'
+        else:
+            base_data['project_action'] = ps.action
         base_data['in_active_project'] = True
 
         merged_data.append(base_data)
@@ -4803,7 +4819,11 @@ def fabric_project_view(request, project_id):
                             if field_name in base_data and base_data[field_name] != override_value:
                                 base_data[field_name] = override_value
                                 modified_fields.append(field_name)
-                    base_data['project_action'] = pf.action
+                    # Use delete_me to override action for display purposes
+                    if pf.delete_me:
+                        base_data['project_action'] = 'delete'
+                    else:
+                        base_data['project_action'] = pf.action
                 except ProjectFabric.DoesNotExist:
                     pass
 
@@ -4890,7 +4910,11 @@ def fabric_project_view(request, project_id):
 
         # Add metadata
         base_data['modified_fields'] = modified_fields
-        base_data['project_action'] = pf.action
+        # Use delete_me to override action for display purposes
+        if pf.delete_me:
+            base_data['project_action'] = 'delete'
+        else:
+            base_data['project_action'] = pf.action
         base_data['in_active_project'] = True
 
         merged_data.append(base_data)

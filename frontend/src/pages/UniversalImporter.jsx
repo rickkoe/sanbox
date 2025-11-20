@@ -203,8 +203,12 @@ const UniversalImporter = () => {
       let dataToPreview = '';
 
       if (sourceType === 'file' && uploadedFiles.length > 0) {
-        const file = uploadedFiles[0];
-        dataToPreview = await file.text();
+        // Read and concatenate all files
+        const fileContents = await Promise.all(
+          uploadedFiles.map(file => file.text())
+        );
+        // Join with double newlines to ensure separation between files
+        dataToPreview = fileContents.join('\n\n');
       } else if (sourceType === 'paste') {
         dataToPreview = pastedText;
       } else {
@@ -385,8 +389,12 @@ const UniversalImporter = () => {
       } else {
         // For SAN imports, get text data
         if (sourceType === 'file' && uploadedFiles.length > 0) {
-          const file = uploadedFiles[0];
-          dataToImport = await file.text();
+          // Read and concatenate all files
+          const fileContents = await Promise.all(
+            uploadedFiles.map(file => file.text())
+          );
+          // Join with double newlines to ensure separation between files
+          dataToImport = fileContents.join('\n\n');
         } else if (sourceType === 'paste') {
           dataToImport = pastedText;
         }

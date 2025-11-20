@@ -21,10 +21,10 @@ const DataPreview = ({
   conflicts
 }) => {
   const [expandedSections, setExpandedSections] = useState({
-    aliases: true,
-    zones: true,
-    fabrics: true,
-    switches: true
+    aliases: false,
+    zones: false,
+    fabrics: false,
+    switches: false
   });
 
   // Toggle section expansion

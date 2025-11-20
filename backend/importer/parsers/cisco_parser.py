@@ -72,6 +72,26 @@ class CiscoParser(BaseParser):
         """Parse show tech-support format"""
         self.add_metadata('format', 'tech-support')
 
+        # Detect if multiple tech-support files are concatenated
+        # Look for PuTTY log markers or multiple exact `show vsan` sections
+        putty_log_count = len(re.findall(r'PuTTY log \d{4}\.\d{2}\.\d{2}', data))
+
+        # Also count exact `show vsan` markers (with closing backtick, not `show vsan membership`)
+        exact_vsan_count = len(re.findall(r'`show vsan`', data))
+
+        file_count = max(putty_log_count, exact_vsan_count)
+
+        if file_count > 1:
+            # Multiple files detected - use combined parser
+            self.add_metadata('multi_file', True)
+            self.add_metadata('file_count', file_count)
+            return self._parse_multi_tech_support(data)
+
+        # Single file - use original logic
+        return self._parse_single_tech_support(data)
+
+    def _parse_single_tech_support(self, data: str) -> ParseResult:
+        """Parse a single tech-support file"""
         # Extract relevant sections
         sections = self._extract_sections(data)
 
@@ -87,14 +107,25 @@ class CiscoParser(BaseParser):
             if fabric.vsan and fabric.vsan in zonesets_by_vsan:
                 fabric.zoneset_name = zonesets_by_vsan[fabric.vsan]
 
-        # Combine all aliases
+        # Build VSAN to fabric name mapping for normalizing aliases/zones
+        vsan_to_fabric_name = {f.vsan: f.name for f in fabrics if f.vsan}
+
+        # Combine all aliases and normalize fabric_name
         all_aliases = device_aliases.copy()
         for vsan, fcaliases in fcaliases_by_vsan.items():
+            for alias in fcaliases:
+                # Update fabric_name to match actual fabric name
+                if vsan in vsan_to_fabric_name:
+                    alias.fabric_name = vsan_to_fabric_name[vsan]
             all_aliases.extend(fcaliases)
 
-        # Combine all zones
+        # Combine all zones and normalize fabric_name
         all_zones = []
         for vsan, zones in zones_by_vsan.items():
+            for zone in zones:
+                # Update fabric_name to match actual fabric name
+                if vsan in vsan_to_fabric_name:
+                    zone.fabric_name = vsan_to_fabric_name[vsan]
             all_zones.extend(zones)
 
         # Create fabric entries for any VSANs found in aliases/zones but not in fabrics list
@@ -120,6 +151,233 @@ class CiscoParser(BaseParser):
             warnings=self.warnings,
             metadata=self.metadata
         )
+
+    def _parse_multi_tech_support(self, data: str) -> ParseResult:
+        """Parse multiple tech-support files concatenated together"""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("Parsing multiple tech-support files")
+
+        # Extract all occurrences of each section type
+        all_sections = self._extract_all_sections(data)
+
+        # Collect all parsed data
+        all_fabrics = []
+        all_aliases = []
+        all_zones = []
+        all_zonesets = {}  # vsan -> zoneset_name
+
+        # Parse each set of sections
+        for section_set in all_sections:
+            # Parse VSAN section for fabrics
+            fabrics = self._parse_vsan_section(section_set.get('show vsan', ''))
+            all_fabrics.extend(fabrics)
+
+            # Parse device aliases
+            device_aliases = self._parse_device_alias_section(section_set.get('show device-alias database', ''))
+            all_aliases.extend(device_aliases)
+
+            # Parse fcaliases
+            fcaliases_by_vsan = self._parse_fcalias_section(section_set.get('show fcalias vsan 1-4093', ''))
+            for vsan, fcaliases in fcaliases_by_vsan.items():
+                all_aliases.extend(fcaliases)
+
+            # Parse zones
+            zones_by_vsan = self._parse_zone_section(section_set.get('show zone vsan 1-4093', ''))
+            for vsan, zones in zones_by_vsan.items():
+                all_zones.extend(zones)
+
+            # Parse zonesets
+            zonesets_by_vsan = self._parse_zoneset_section(section_set.get('show zoneset active vsan 1-4093', ''))
+            all_zonesets.update(zonesets_by_vsan)
+
+        # Deduplicate fabrics by VSAN
+        unique_fabrics = self._deduplicate_fabrics(all_fabrics)
+
+        # Update fabrics with zoneset names
+        for fabric in unique_fabrics:
+            if fabric.vsan and fabric.vsan in all_zonesets:
+                fabric.zoneset_name = all_zonesets[fabric.vsan]
+
+        # Build VSAN to fabric name mapping for normalizing aliases/zones
+        vsan_to_fabric_name = {f.vsan: f.name for f in unique_fabrics if f.vsan}
+
+        # Normalize fabric_name on aliases and zones to match actual fabric names
+        # Parse VSAN from fabric_name string (e.g., "vsan75" -> 75)
+        for alias in all_aliases:
+            if alias.fabric_name and alias.fabric_name.startswith('vsan'):
+                try:
+                    vsan = int(alias.fabric_name.replace('vsan', ''))
+                    if vsan in vsan_to_fabric_name:
+                        alias.fabric_name = vsan_to_fabric_name[vsan]
+                except (ValueError, TypeError):
+                    pass
+
+        for zone in all_zones:
+            if zone.fabric_name and zone.fabric_name.startswith('vsan'):
+                try:
+                    vsan = int(zone.fabric_name.replace('vsan', ''))
+                    if vsan in vsan_to_fabric_name:
+                        zone.fabric_name = vsan_to_fabric_name[vsan]
+                except (ValueError, TypeError):
+                    pass
+
+        # Deduplicate aliases by name
+        unique_aliases = self._deduplicate_aliases(all_aliases)
+
+        # Deduplicate zones by name and VSAN
+        unique_zones = self._deduplicate_zones(all_zones)
+
+        # Create fabric entries for any VSANs found in aliases/zones but not in fabrics list
+        existing_vsans = {f.vsan for f in unique_fabrics if f.vsan}
+        alias_vsans = {getattr(a, 'vsan', None) for a in unique_aliases if getattr(a, 'vsan', None)}
+        zone_vsans = {getattr(z, 'vsan', None) for z in unique_zones if getattr(z, 'vsan', None)}
+        all_vsans = alias_vsans | zone_vsans
+
+        for vsan in all_vsans:
+            if vsan not in existing_vsans:
+                unique_fabrics.append(ParsedFabric(
+                    name=f'vsan{vsan}',
+                    vsan=vsan,
+                    zoneset_name=all_zonesets.get(vsan),
+                    san_vendor='CI',
+                    exists=False
+                ))
+
+        logger.info(f"Multi-file parse results: {len(unique_fabrics)} fabrics, {len(unique_aliases)} aliases, {len(unique_zones)} zones")
+
+        return ParseResult(
+            fabrics=unique_fabrics,
+            aliases=unique_aliases,
+            zones=unique_zones,
+            errors=self.errors,
+            warnings=self.warnings,
+            metadata=self.metadata
+        )
+
+    def _extract_all_sections(self, data: str) -> List[Dict[str, str]]:
+        """
+        Extract all occurrences of each section from multiple tech-support files.
+
+        Returns a list of dicts, where each dict represents one file's sections.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Sections we care about - use exact match (section name with closing backtick)
+        target_sections = {
+            '`show vsan`': 'show vsan',
+            '`show device-alias database`': 'show device-alias database',
+            '`show fcalias vsan 1-4093`': 'show fcalias vsan 1-4093',
+            '`show zone vsan 1-4093`': 'show zone vsan 1-4093',
+            '`show zoneset active vsan 1-4093`': 'show zoneset active vsan 1-4093'
+        }
+
+        # Split data into individual tech-support outputs
+        # Try PuTTY log markers first, then fall back to `show vsan` sections
+        file_chunks = re.split(r'(?=PuTTY log \d{4}\.\d{2}\.\d{2})', data)
+        file_chunks = [chunk for chunk in file_chunks if chunk.strip()]
+
+        # If PuTTY log split didn't work (only 1 chunk), try splitting on `show vsan`
+        if len(file_chunks) <= 1:
+            # Split on exact `show vsan` section (lookahead to keep the marker)
+            file_chunks = re.split(r'(?=`show vsan`)', data)
+            file_chunks = [chunk for chunk in file_chunks if chunk.strip()]
+            logger.info(f"Split on show vsan markers: {len(file_chunks)} chunks")
+        else:
+            logger.info(f"Split on PuTTY log markers: {len(file_chunks)} chunks")
+
+        file_sections = []
+
+        for chunk_idx, chunk in enumerate(file_chunks):
+            current_file = {}
+            current_section = None
+            section_lines = []
+
+            lines = chunk.split('\n')
+
+            for line in lines:
+                trimmed_line = line.strip()
+
+                # Check for exact section header match
+                matched_section = None
+                for header, section_name in target_sections.items():
+                    if trimmed_line == header:
+                        matched_section = section_name
+                        break
+
+                if matched_section:
+                    # Save previous section if any
+                    if current_section and section_lines:
+                        current_file[current_section] = '\n'.join(section_lines)
+                        section_lines = []
+
+                    current_section = matched_section
+                elif trimmed_line.startswith('`show ') or trimmed_line.startswith('`'):
+                    # Different section header - save current and stop collecting
+                    if current_section and section_lines:
+                        current_file[current_section] = '\n'.join(section_lines)
+                        section_lines = []
+                    current_section = None
+                elif current_section:
+                    section_lines.append(line)
+
+            # Save last section
+            if current_section and section_lines:
+                current_file[current_section] = '\n'.join(section_lines)
+
+            if current_file:
+                logger.info(f"File {chunk_idx + 1}: extracted sections {list(current_file.keys())}")
+                file_sections.append(current_file)
+
+        return file_sections
+
+    def _deduplicate_fabrics(self, fabrics: List[ParsedFabric]) -> List[ParsedFabric]:
+        """Deduplicate fabrics by VSAN, keeping the first occurrence with most data"""
+        seen = {}
+        for fabric in fabrics:
+            key = fabric.vsan
+            if key not in seen:
+                seen[key] = fabric
+            else:
+                # Merge attributes - keep non-None values
+                existing = seen[key]
+                if fabric.zoneset_name and not existing.zoneset_name:
+                    existing.zoneset_name = fabric.zoneset_name
+                if fabric.name and (not existing.name or existing.name == f'vsan{fabric.vsan}'):
+                    existing.name = fabric.name
+        return list(seen.values())
+
+    def _deduplicate_aliases(self, aliases: List[ParsedAlias]) -> List[ParsedAlias]:
+        """Deduplicate aliases by name, keeping the first occurrence"""
+        seen = {}
+        for alias in aliases:
+            # Key by name and VSAN (for fcaliases) or just name (for device-aliases)
+            vsan = getattr(alias, 'vsan', None)
+            key = (alias.name, vsan if vsan else 0)
+            if key not in seen:
+                seen[key] = alias
+            else:
+                # Merge WWPNs if the existing alias has fewer
+                existing = seen[key]
+                if len(alias.wwpns) > len(existing.wwpns):
+                    existing.wwpns = alias.wwpns
+        return list(seen.values())
+
+    def _deduplicate_zones(self, zones: List[ParsedZone]) -> List[ParsedZone]:
+        """Deduplicate zones by name and VSAN, keeping the first occurrence"""
+        seen = {}
+        for zone in zones:
+            vsan = getattr(zone, 'vsan', None)
+            key = (zone.name, vsan if vsan else 0)
+            if key not in seen:
+                seen[key] = zone
+            else:
+                # Merge members if the existing zone has fewer
+                existing = seen[key]
+                if len(zone.members) > len(existing.members):
+                    existing.members = zone.members
+        return list(seen.values())
 
     def _parse_running_config(self, data: str) -> ParseResult:
         """Parse show running-config format"""
@@ -225,14 +483,14 @@ class CiscoParser(BaseParser):
         """
         sections = {}
 
-        # Sections we care about (in order of appearance)
-        target_sections = [
-            'show vsan',
-            'show device-alias database',
-            'show fcalias vsan 1-4093',
-            'show zone vsan 1-4093',
-            'show zoneset active vsan 1-4093'
-        ]
+        # Sections we care about - use exact match (section name with closing backtick)
+        target_sections = {
+            '`show vsan`': 'show vsan',
+            '`show device-alias database`': 'show device-alias database',
+            '`show fcalias vsan 1-4093`': 'show fcalias vsan 1-4093',
+            '`show zone vsan 1-4093`': 'show zone vsan 1-4093',
+            '`show zoneset active vsan 1-4093`': 'show zoneset active vsan 1-4093'
+        }
 
         lines = data.split('\n')
         current_section = None
@@ -240,22 +498,30 @@ class CiscoParser(BaseParser):
         sections_found = 0
 
         for line in lines:
-            # Check if this is a section header (trim leading spaces first)
-            trimmed_line = line.lstrip()
-            if trimmed_line.startswith('`show '):
+            # Check if this is a section header (trim whitespace)
+            trimmed_line = line.strip()
+
+            # Check for exact section header match
+            matched_section = None
+            for header, section_name in target_sections.items():
+                if trimmed_line == header:
+                    matched_section = section_name
+                    break
+
+            if matched_section:
                 # Save previous section if any
                 if current_section and section_lines:
                     sections[current_section] = '\n'.join(section_lines)
                     section_lines = []
 
-                # Check if this is a section we care about
-                for target in target_sections:
-                    if trimmed_line.startswith(f'`{target}'):
-                        current_section = target
-                        sections_found += 1
-                        break
-                else:
-                    current_section = None
+                current_section = matched_section
+                sections_found += 1
+            elif trimmed_line.startswith('`show ') or trimmed_line.startswith('`'):
+                # Different section header - save current and stop collecting
+                if current_section and section_lines:
+                    sections[current_section] = '\n'.join(section_lines)
+                    section_lines = []
+                current_section = None
             elif current_section:
                 section_lines.append(line)
 

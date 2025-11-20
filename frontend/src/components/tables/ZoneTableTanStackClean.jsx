@@ -520,8 +520,13 @@ const ZoneTableTanStackClean = () => {
                         ? `${API_URL}/api/san/zones/project/${activeProjectId}/column-requirements/`
                         : `${API_URL}/api/san/zones/customer/column-requirements/?customer_id=${activeCustomerId}`;
 
+                    // Fabrics URL: use project endpoint when in Project View
+                    const fabricsUrl = activeProjectId
+                        ? `${API_URL}/api/san/fabrics/project/${activeProjectId}/view/?project_filter=all`
+                        : `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`;
+
                     const [fabricResponse, aliasResponse, columnReqResponse] = await Promise.all([
-                        api.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
+                        api.get(fabricsUrl),
                         fetchAllAliases(),
                         api.get(columnReqUrl)
                     ]);

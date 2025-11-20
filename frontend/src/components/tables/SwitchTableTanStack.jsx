@@ -111,43 +111,26 @@ const SwitchTableTanStack = () => {
 
             setFabricsLoading(true);
             try {
+                let fabricsData = [];
+
                 if (activeProjectId) {
-                    // When in a project: fetch both customer fabrics AND project fabrics, then merge
-                    const [customerResponse, projectResponse] = await Promise.all([
-                        api.get(`/api/san/fabrics/?customer_id=${customerId}&page_size=1000`),
-                        api.get(`/api/san/fabrics/project/${activeProjectId}/view/?page_size=1000`)
-                    ]);
-
-                    const customerFabrics = customerResponse.data.results || customerResponse.data || [];
-                    const projectFabrics = projectResponse.data.results || projectResponse.data || [];
-
-                    // Merge, using a Map to deduplicate by ID
-                    const fabricMap = new Map();
-
-                    // Add customer fabrics first
-                    customerFabrics.forEach(f => fabricMap.set(f.id, f));
-
-                    // Add/override with project fabrics (to get latest data with overrides)
-                    projectFabrics.forEach(f => fabricMap.set(f.id, f));
-
-                    const mergedFabrics = Array.from(fabricMap.values());
-
-                    // Sort alphabetically by name
-                    mergedFabrics.sort((a, b) => a.name.localeCompare(b.name));
-
-                    console.log('📡 Fetched fabrics (merged):', mergedFabrics);
-                    setFabrics(mergedFabrics);
+                    // When in a project: use project endpoint with project_filter=all
+                    // This returns ALL customer fabrics (committed, uncommitted, in project or not)
+                    const response = await api.get(
+                        `/api/san/fabrics/project/${activeProjectId}/view/?project_filter=all&page_size=500`
+                    );
+                    fabricsData = response.data.results || response.data || [];
                 } else {
-                    // No project: just fetch customer fabrics
-                    const response = await api.get(`/api/san/fabrics/?customer_id=${customerId}&page_size=1000`);
-                    const fabricsData = response.data.results || response.data;
-
-                    // Sort alphabetically by name
-                    fabricsData.sort((a, b) => a.name.localeCompare(b.name));
-
-                    console.log('📡 Fetched fabrics:', fabricsData);
-                    setFabrics(fabricsData);
+                    // No project: just fetch customer fabrics (committed or orphaned)
+                    const response = await api.get(`/api/san/fabrics/?customer_id=${customerId}&page_size=500`);
+                    fabricsData = response.data.results || response.data || [];
                 }
+
+                // Sort alphabetically by name
+                fabricsData.sort((a, b) => a.name.localeCompare(b.name));
+
+                console.log('📡 Fetched fabrics:', fabricsData);
+                setFabrics(fabricsData);
             } catch (error) {
                 console.error('Error fetching fabrics:', error);
                 setFabrics([]); // Set empty array on error

@@ -4,8 +4,13 @@ import {
   File,
   FileText,
   X,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from 'lucide-react';
+
+// Constants for file limits
+const MAX_FILES = 10;
+const MAX_TOTAL_SIZE = 100 * 1024 * 1024; // 100MB
 
 const DataUploader = ({
   sourceType,
@@ -19,13 +24,34 @@ const DataUploader = ({
 }) => {
   const fileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [fileError, setFileError] = useState(null);
 
-  // Handle file selection
+  // Calculate total size of uploaded files
+  const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
+
+  // Handle file selection - now supports multiple files
   const handleFileSelect = useCallback((files) => {
-    if (files && files.length > 0) {
-      onFilesChange([files[0]]); // Only take the first file
+    if (!files || files.length === 0) return;
+
+    setFileError(null);
+    const newFiles = Array.from(files);
+    const combinedFiles = [...uploadedFiles, ...newFiles];
+
+    // Check file count limit
+    if (combinedFiles.length > MAX_FILES) {
+      setFileError(`Maximum ${MAX_FILES} files allowed. You have ${combinedFiles.length}.`);
+      return;
     }
-  }, [onFilesChange]);
+
+    // Check total size limit
+    const newTotalSize = combinedFiles.reduce((sum, file) => sum + file.size, 0);
+    if (newTotalSize > MAX_TOTAL_SIZE) {
+      setFileError(`Total file size exceeds 100MB limit.`);
+      return;
+    }
+
+    onFilesChange(combinedFiles);
+  }, [onFilesChange, uploadedFiles]);
 
   // Handle drag and drop
   const handleDragOver = useCallback((e) => {
@@ -59,8 +85,16 @@ const DataUploader = ({
     fileInputRef.current?.click();
   };
 
-  // Remove uploaded file
-  const handleRemoveFile = () => {
+  // Remove a specific file by index
+  const handleRemoveFile = (index) => {
+    setFileError(null);
+    const newFiles = uploadedFiles.filter((_, i) => i !== index);
+    onFilesChange(newFiles);
+  };
+
+  // Clear all files
+  const handleClearAll = () => {
+    setFileError(null);
     onFilesChange([]);
   };
 
@@ -96,45 +130,84 @@ const DataUploader = ({
       {/* File Upload Mode */}
       {sourceType === 'file' && (
         <>
-          {uploadedFiles.length === 0 ? (
-            <div
-              className={`upload-zone ${isDragging ? 'dragover' : ''}`}
-              onClick={handleUploadClick}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <Upload className="upload-icon" />
-              <div className="upload-text">
-                Drop your file here, or click to browse
-              </div>
-              <div className="upload-hint">
-                Supports: .txt, .log, .csv files (Max 100MB)
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.log,.csv"
-                onChange={handleFileInputChange}
-                style={{ display: 'none' }}
-              />
-            </div>
-          ) : (
-            <div className="file-preview">
-              <File className="file-icon" size={32} />
-              <div className="file-info">
-                <div className="file-name">{uploadedFiles[0].name}</div>
-                <div className="file-size">
-                  {formatFileSize(uploadedFiles[0].size)}
+          {/* Drop zone - always visible when no files or for adding more */}
+          <div
+            className={`upload-zone ${isDragging ? 'dragover' : ''} ${uploadedFiles.length > 0 ? 'compact' : ''}`}
+            onClick={handleUploadClick}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {uploadedFiles.length === 0 ? (
+              <>
+                <Upload className="upload-icon" />
+                <div className="upload-text">
+                  Drop your files here, or click to browse
                 </div>
+                <div className="upload-hint">
+                  Supports: .txt, .log, .csv files (Max 10 files, 100MB total)
+                </div>
+              </>
+            ) : (
+              <>
+                <Plus size={20} />
+                <span style={{ marginLeft: '0.5rem' }}>Add more files</span>
+              </>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.log,.csv"
+              multiple
+              onChange={handleFileInputChange}
+              style={{ display: 'none' }}
+            />
+          </div>
+
+          {/* File list */}
+          {uploadedFiles.length > 0 && (
+            <div className="file-list">
+              {/* Header with count and clear all */}
+              <div className="file-list-header">
+                <span className="file-count">
+                  {uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''} selected
+                  <span className="total-size">({formatFileSize(totalSize)})</span>
+                </span>
+                <button
+                  className="clear-all-btn"
+                  onClick={handleClearAll}
+                  type="button"
+                >
+                  Clear All
+                </button>
               </div>
-              <button
-                className="file-remove"
-                onClick={handleRemoveFile}
-                aria-label="Remove file"
-              >
-                <X size={20} />
-              </button>
+
+              {/* Individual files */}
+              {uploadedFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="file-preview">
+                  <File className="file-icon" size={24} />
+                  <div className="file-info">
+                    <div className="file-name">{file.name}</div>
+                    <div className="file-size">{formatFileSize(file.size)}</div>
+                  </div>
+                  <button
+                    className="file-remove"
+                    onClick={() => handleRemoveFile(index)}
+                    aria-label={`Remove ${file.name}`}
+                    type="button"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* File error display */}
+          {fileError && (
+            <div className="file-error">
+              <AlertCircle size={16} />
+              <span>{fileError}</span>
             </div>
           )}
         </>

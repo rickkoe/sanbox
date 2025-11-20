@@ -14,7 +14,7 @@ from django.utils import timezone
 from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix, Switch
 from storage.models import Storage, Volume, Host, HostWwpn
 from customers.models import Customer
-from core.models import ProjectAlias, ProjectZone, ProjectHost, ProjectFabric
+from core.models import ProjectAlias, ProjectZone, ProjectHost, ProjectFabric, ProjectSwitch
 from .parsers.base_parser import (
     ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch,
     ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort
@@ -598,6 +598,10 @@ class ImportOrchestrator:
                     zoneset_name = mapping_config.get('zoneset_name', parsed_fabric.zoneset_name or '')
                     vsan = mapping_config.get('vsan', parsed_fabric.vsan)
 
+                    # Convert empty string to None for integer field
+                    if vsan == '':
+                        vsan = None
+
                     from san.models import Fabric
                     fabric = Fabric.objects.create(
                         customer=self.customer,
@@ -848,6 +852,11 @@ class ImportOrchestrator:
                     # Legacy mode: single fabric for all imports
                     fabric = list(fabric_map.values())[0]
                     logger.debug(f"Using single fabric {fabric.name} for alias {alias_name}")
+                elif not parsed_alias.fabric_name and len(fabric_map) > 0:
+                    # Device-alias (no fabric_name) - assign to first fabric
+                    # Device-aliases in Cisco are global, so we assign to the first available fabric
+                    fabric = list(fabric_map.values())[0]
+                    logger.debug(f"Assigning global device-alias {alias_name} to first fabric {fabric.name}")
                 else:
                     # Multiple fabrics available but no mapping - skip this alias
                     self.stats['warnings'].append(
@@ -1194,21 +1203,47 @@ class ImportOrchestrator:
                     }
                 )
 
-                # Link to fabric if one was specified
-                if fabric:
-                    from san.models import SwitchFabric
-                    SwitchFabric.objects.update_or_create(
-                        switch=switch,
-                        fabric=fabric,
-                        defaults={'domain_id': parsed_switch.domain_id}
-                    )
-
                 if created:
                     self.stats['switches_created'] += 1
                     logger.info(f"Created switch: {switch_name}")
                 else:
                     self.stats['switches_updated'] += 1
                     logger.info(f"Updated switch: {switch_name}")
+
+                # Link to fabric if one was specified
+                if fabric:
+                    try:
+                        from san.models import SwitchFabric
+                        SwitchFabric.objects.update_or_create(
+                            switch=switch,
+                            fabric=fabric,
+                            defaults={'domain_id': parsed_switch.domain_id}
+                        )
+                    except Exception as e:
+                        # Log the error but continue - switch was created successfully
+                        error_msg = f"Error linking switch {switch_name} to fabric {fabric.name}: {e}"
+                        self.stats['warnings'].append(error_msg)
+                        logger.warning(error_msg)
+
+                # Assign switch to project if project_id was provided
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        ProjectSwitch.objects.get_or_create(
+                            project=project,
+                            switch=switch,
+                            defaults={
+                                'action': 'new' if created else 'unmodified',
+                                'added_by': None,
+                                'notes': 'Imported from SAN configuration'
+                            }
+                        )
+                        logger.debug(f"Assigned switch {switch.name} to project {project.name}")
+                    except Project.DoesNotExist:
+                        self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
+                    except Exception as e:
+                        self.stats['warnings'].append(f"Error assigning switch to project: {e}")
 
                 switch_map[switch_name] = switch
 

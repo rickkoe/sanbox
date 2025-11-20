@@ -355,9 +355,14 @@ const AliasTableTanStackClean = () => {
                     // This is a one-time load per customer change, not per table reload
                     const aliasesUrl = `${API_URL}/api/san/aliases/?customer_id=${activeCustomerId}`;
 
+                    // Fabrics URL: use project endpoint when in Project View
+                    const fabricsUrl = activeProjectId
+                        ? `${API_URL}/api/san/fabrics/project/${activeProjectId}/view/?project_filter=all`
+                        : `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`;
+
                     // Use Promise.allSettled to handle partial failures gracefully
                     const results = await Promise.allSettled([
-                        api.get(`${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`),
+                        api.get(fabricsUrl),
                         api.get(hostsUrl),
                         api.get(aliasesUrl)
                     ]);
