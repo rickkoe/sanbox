@@ -105,6 +105,7 @@ const ZoneCreationScriptsPage = () => {
     }
 
     const zip = new JSZip();
+    const now = new Date(); // Current local time for file timestamps
 
     Object.entries(scripts).forEach(([fabricName, fabricData]) => {
       const commands = Array.isArray(fabricData)
@@ -117,7 +118,8 @@ const ZoneCreationScriptsPage = () => {
 
       // Clean fabric name for filename
       const cleanFabricName = fabricName.replace(/[^a-zA-Z0-9_-]/g, "_");
-      zip.file(`${cleanFabricName}_zone_creation_commands.txt`, fileContent);
+      // Set file date explicitly to local time to avoid timezone issues in ZIP
+      zip.file(`${cleanFabricName}_zone_creation_commands.txt`, fileContent, { date: now });
     });
 
     try {

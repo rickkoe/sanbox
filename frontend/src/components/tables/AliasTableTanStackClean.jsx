@@ -1032,7 +1032,19 @@ const AliasTableTanStackClean = () => {
     };
 
     // Transform data for saving - not used since we have custom save handler
-    const saveTransform = (rows) => rows;
+    const saveTransform = (rows) => {
+        // Apply mutual exclusion logic for zoning flags
+        return rows.map(row => {
+            const transformed = { ...row };
+
+            // If do_not_include_in_zoning is set to true, automatically set include_in_zoning to false
+            if (transformed.do_not_include_in_zoning === true) {
+                transformed.include_in_zoning = false;
+            }
+
+            return transformed;
+        });
+    };
 
     // Show empty config message if no active customer
     if (!config || !activeCustomerId) {

@@ -235,7 +235,8 @@ const ZoneScriptsPage = () => {
         const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, "_");
         const fileName = `${vendorPrefix}_${cleanFabricName}_${cleanProjectName}_zone_scripts_${timestamp}.txt`;
 
-        zip.file(fileName, fileContent);
+        // Set file date explicitly to local time to avoid timezone issues in ZIP
+        zip.file(fileName, fileContent, { date: now });
       });
 
       // Generate the ZIP file

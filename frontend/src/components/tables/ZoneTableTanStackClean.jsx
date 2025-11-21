@@ -527,7 +527,7 @@ const ZoneTableTanStackClean = () => {
                             ? `${API_ENDPOINTS.aliases}${activeProjectId}/`
                             : `${API_URL}/api/san/aliases/`;
                         const params = activeProjectId
-                            ? ''
+                            ? `project_filter=${projectFilter}&`
                             : `customer_id=${activeCustomerId}&`;
 
                         let allAliases = [];
@@ -747,7 +747,6 @@ const ZoneTableTanStackClean = () => {
         // Filter aliases by fabric, use type, and zoning rules
         const filteredAliases = aliasOptions.filter(alias => {
             const matchesFabric = alias.fabric === zoneFabric;
-            const includeInZoning = alias.include_in_zoning;
             const hasRoom = (alias.zoned_count || 0) < aliasMaxZones;
 
             let matchesUseType = true;
@@ -758,9 +757,10 @@ const ZoneTableTanStackClean = () => {
                 matchesUseType = alias.use === requiredUseType;
             }
 
-            const result = matchesFabric && includeInZoning && hasRoom && matchesUseType;
+            // Note: include_in_zoning check removed - filtering now based on deployed status and overrides in backend
+            const result = matchesFabric && hasRoom && matchesUseType;
             if (!result && alias.name) {
-                console.log(`❌ Filtered out ${alias.name}: fabric=${alias.fabric} (need ${zoneFabric}), zoning=${includeInZoning}, room=${hasRoom}, use=${alias.use} (need ${requiredUseType})`);
+                console.log(`❌ Filtered out ${alias.name}: fabric=${alias.fabric} (need ${zoneFabric}), room=${hasRoom}, use=${alias.use} (need ${requiredUseType})`);
             }
             return result;
         });
@@ -859,8 +859,10 @@ const ZoneTableTanStackClean = () => {
 
         // Add member dropdown sources (will be filtered by custom renderers)
         const aliasMaxZones = settings?.alias_max_zones || 1;
+        // Note: Filtering now happens in backend (alias_list_view) based on deployed status and manual overrides
+        // For now, show all aliases from the project (zone_id filtering can be added later for optimization)
         const availableAliases = aliasOptions.filter(alias =>
-            alias.include_in_zoning && (alias.zoned_count || 0) < aliasMaxZones
+            (alias.zoned_count || 0) < aliasMaxZones
         );
 
         // Add target member columns with full alias list (filtering happens in custom renderer)
@@ -951,8 +953,7 @@ const ZoneTableTanStackClean = () => {
                     // Must match fabric
                     if (alias.fabric !== zoneFabric) return false;
 
-                    // Must be marked for zoning
-                    if (!alias.include_in_zoning) return false;
+                    // Note: include_in_zoning check removed - filtering now based on deployed status and overrides in backend
 
                     // Must match required use type
                     if (requiredUseType === 'both_or_empty') {

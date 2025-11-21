@@ -1166,8 +1166,12 @@ class ProjectAlias(models.Model):
 
     # Alias-specific project flags
     include_in_zoning = models.BooleanField(
-        default=True,
-        help_text="Include this alias in zone generation for this project"
+        default=False,
+        help_text="Manual override to force inclusion in zone generation (overrides deployed status)"
+    )
+    do_not_include_in_zoning = models.BooleanField(
+        default=False,
+        help_text="Manual override to force exclusion from zone generation (highest priority)"
     )
 
     # Audit fields

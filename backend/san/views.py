@@ -633,6 +633,39 @@ def alias_list_view(request, project_id):
         Prefetch('project_memberships', queryset=ProjectAlias.objects.select_related('project'))
     )
 
+    # Zone member dropdown filtering (only when zone_id is provided)
+    zone_id = request.GET.get('zone_id')
+    if zone_id and project_filter == 'current':
+        # This is for zone member dropdown in Project View
+        # Apply filtering to exclude certain aliases
+        try:
+            zone = Zone.objects.get(id=zone_id)
+            current_zone_member_ids = set(zone.members.values_list('id', flat=True))
+        except Zone.DoesNotExist:
+            current_zone_member_ids = set()
+
+        # Get ProjectAlias objects to check flags
+        project_aliases = ProjectAlias.objects.filter(project=project).select_related('alias')
+        project_alias_map = {pa.alias_id: pa for pa in project_aliases}
+
+        # Build list of alias IDs to exclude
+        exclude_alias_ids = []
+        for alias in aliases_queryset:
+            pa = project_alias_map.get(alias.id)
+            if pa:
+                # Exclude if do_not_include_in_zoning is True
+                if pa.do_not_include_in_zoning:
+                    exclude_alias_ids.append(alias.id)
+                    continue
+
+                # Exclude if deployed=True (unless already in this zone)
+                if alias.deployed and alias.id not in current_zone_member_ids:
+                    exclude_alias_ids.append(alias.id)
+
+        # Apply exclusions
+        if exclude_alias_ids:
+            aliases_queryset = aliases_queryset.exclude(id__in=exclude_alias_ids)
+
     # Annotate with zoned_count
     aliases_queryset = aliases_queryset.annotate(
         _zoned_count=Count('zone', filter=Q_models(zone__id__in=project_zone_ids), distinct=True)

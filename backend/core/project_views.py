@@ -1808,6 +1808,7 @@ def project_commit_execute(request, project_id):
         # Parse request body
         data = json.loads(request.body) if request.body else {}
         close_project = data.get('close_project', False)
+        mark_as_deployed = data.get('mark_as_deployed', False)
         selected_entities = data.get('selected_entities', None)
 
         # Helper function to extract IDs by category from selected_entities
@@ -1890,6 +1891,8 @@ def project_commit_execute(request, project_id):
             if pa.field_overrides:
                 apply_overrides_to_instance(pa.alias, pa.field_overrides)
             pa.alias.committed = True
+            if mark_as_deployed:
+                pa.alias.deployed = True
             pa.alias.save()
             modified_counts['aliases'] += 1
 
@@ -1907,6 +1910,8 @@ def project_commit_execute(request, project_id):
                 if member_ids is not None:
                     pz.zone.members.set(member_ids)
             pz.zone.committed = True
+            if mark_as_deployed:
+                pz.zone.deployed = True
             pz.zone.save()
             modified_counts['zones'] += 1
 
@@ -2023,13 +2028,19 @@ def project_commit_execute(request, project_id):
             ProjectAlias.objects.filter(project=project, action='new', delete_me=False),
             'aliases', 'newly_created', 'alias_id'
         ).values_list('alias_id', flat=True)
-        new_counts['aliases'] = Alias.objects.filter(id__in=alias_ids, committed=False).update(committed=True)
+        update_fields = {'committed': True}
+        if mark_as_deployed:
+            update_fields['deployed'] = True
+        new_counts['aliases'] = Alias.objects.filter(id__in=alias_ids, committed=False).update(**update_fields)
 
         zone_ids = filter_by_selection(
             ProjectZone.objects.filter(project=project, action='new', delete_me=False),
             'zones', 'newly_created', 'zone_id'
         ).values_list('zone_id', flat=True)
-        new_counts['zones'] = Zone.objects.filter(id__in=zone_ids, committed=False).update(committed=True)
+        update_fields = {'committed': True}
+        if mark_as_deployed:
+            update_fields['deployed'] = True
+        new_counts['zones'] = Zone.objects.filter(id__in=zone_ids, committed=False).update(**update_fields)
 
         storage_ids = filter_by_selection(
             ProjectStorage.objects.filter(project=project, action='new', delete_me=False),
@@ -2096,6 +2107,21 @@ def project_commit_execute(request, project_id):
             ProjectPort.objects.filter(project=project, action='new', delete_me=False),
             'ports', 'newly_created', 'port_id'
         ).update(field_overrides={}, action='unmodified')
+
+        # 3.5. Mark unmodified entities as deployed (if flag is set)
+        # These entities are already committed but user wants to mark them as deployed
+        if mark_as_deployed:
+            unmodified_alias_ids = filter_by_selection(
+                ProjectAlias.objects.filter(project=project, action='unmodified', delete_me=False),
+                'aliases', 'unmodified', 'alias_id'
+            ).values_list('alias_id', flat=True)
+            Alias.objects.filter(id__in=unmodified_alias_ids).update(deployed=True)
+
+            unmodified_zone_ids = filter_by_selection(
+                ProjectZone.objects.filter(project=project, action='unmodified', delete_me=False),
+                'zones', 'unmodified', 'zone_id'
+            ).values_list('zone_id', flat=True)
+            Zone.objects.filter(id__in=unmodified_zone_ids).update(deployed=True)
 
         # 4. Delete entities marked with delete_me=True
         deletion_counts = {}

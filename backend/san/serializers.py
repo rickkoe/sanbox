@@ -203,6 +203,7 @@ class AliasSerializer(serializers.ModelSerializer):
     # Junction table fields for active project (for easy access in UI)
     action = serializers.SerializerMethodField()
     include_in_zoning = serializers.SerializerMethodField()
+    do_not_include_in_zoning = serializers.SerializerMethodField()
 
     class Meta:
         model = Alias
@@ -213,7 +214,7 @@ class AliasSerializer(serializers.ModelSerializer):
             'committed', 'deployed', 'created_by_project',
             'last_modified_by', 'last_modified_at', 'version', 'zoned_count',
             'project_memberships', 'in_active_project',
-            'action', 'include_in_zoning'
+            'action', 'include_in_zoning', 'do_not_include_in_zoning'
         ]
 
     def get_wwpns(self, obj):
@@ -419,6 +420,18 @@ class AliasSerializer(serializers.ModelSerializer):
             print(f"Error getting include_in_zoning for alias {obj.name}: {e}")
             return False
 
+    def get_do_not_include_in_zoning(self, obj):
+        """Get do_not_include_in_zoning flag for this alias in the active project"""
+        active_project_id = self.context.get('active_project_id') or self.context.get('project_id')
+        if not active_project_id:
+            return False
+        try:
+            pm = obj.project_memberships.filter(project_id=active_project_id).first()
+            return pm.do_not_include_in_zoning if pm else False
+        except Exception as e:
+            print(f"Error getting do_not_include_in_zoning for alias {obj.name}: {e}")
+            return False
+
     def create(self, validated_data):
         """Create alias and properly handle WWPNs"""
         wwpns_list = validated_data.pop("wwpns_write", [])
@@ -603,7 +616,7 @@ class ProjectAliasSerializer(serializers.ModelSerializer):
         model = ProjectAlias
         fields = [
             'id', 'project', 'project_name', 'alias', 'alias_name',
-            'action', 'field_overrides', 'include_in_zoning',
+            'action', 'field_overrides', 'include_in_zoning', 'do_not_include_in_zoning',
             'added_by', 'added_by_username', 'added_at', 'updated_at', 'notes'
         ]
         read_only_fields = ['added_at', 'updated_at']

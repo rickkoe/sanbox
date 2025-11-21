@@ -138,6 +138,18 @@
         "defaultVisible": true
       },
       {
+        "id": "include_in_zoning",
+        "title": "Force Include in Zoning",
+        "type": "checkbox",
+        "defaultVisible": false
+      },
+      {
+        "id": "do_not_include_in_zoning",
+        "title": "Exclude from Zoning",
+        "type": "checkbox",
+        "defaultVisible": false
+      },
+      {
         "id": "logged_in",
         "title": "Logged In",
         "type": "checkbox",

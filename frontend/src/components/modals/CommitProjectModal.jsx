@@ -27,6 +27,7 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
     const [committing, setCommitting] = useState(false);
     const [error, setError] = useState(null);
     const [closeAfterCommit, setCloseAfterCommit] = useState(false);
+    const [markAsDeployed, setMarkAsDeployed] = useState(false);
     const [previewData, setPreviewData] = useState(null);
 
     // Collapse state for each entity type within each category
@@ -167,6 +168,7 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
             const selectedEntities = buildSelectedPayload();
             const response = await axios.post(`/api/core/projects/${projectId}/commit-execute/`, {
                 close_project: closeAfterCommit,
+                mark_as_deployed: markAsDeployed,
                 selected_entities: selectedEntities
             });
 
@@ -547,6 +549,15 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
 
                 <div className="commit-modal-footer">
                     <div className="commit-modal-footer-left">
+                        <label className="commit-modal-checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={markAsDeployed}
+                                onChange={(e) => setMarkAsDeployed(e.target.checked)}
+                                disabled={committing || loading}
+                            />
+                            <span>Mark all selected items as deployed</span>
+                        </label>
                         <label className="commit-modal-checkbox-label">
                             <input
                                 type="checkbox"
