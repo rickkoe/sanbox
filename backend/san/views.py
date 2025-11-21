@@ -3535,16 +3535,17 @@ def generate_alias_scripts(request, project_id):
 
     # Filter aliases by the actual project_id passed in the URL using junction table
     try:
-        # Get aliases to create from junction table
-        create_alias_ids = ProjectAlias.objects.filter(project=project, action='new').values_list('alias_id', flat=True)
+        # Get ALL aliases in project, split by delete_me flag
+        # delete_me=False → CREATE scripts (includes new, modified, unmodified)
+        # delete_me=True → DELETE scripts
+        create_alias_ids = ProjectAlias.objects.filter(project=project, delete_me=False).values_list('alias_id', flat=True)
         create_aliases = Alias.objects.filter(id__in=create_alias_ids)
 
-        # Get aliases to delete from junction table
-        delete_alias_ids = ProjectAlias.objects.filter(project=project, action='delete').values_list('alias_id', flat=True)
+        delete_alias_ids = ProjectAlias.objects.filter(project=project, delete_me=True).values_list('alias_id', flat=True)
         delete_aliases = Alias.objects.filter(id__in=delete_alias_ids)
 
-        print(f"🔍 Found {create_aliases.count()} aliases with action=new for project {project_id}")
-        print(f"🔍 Found {delete_aliases.count()} aliases with action=delete for project {project_id}")
+        print(f"🔍 Found {create_aliases.count()} aliases (delete_me=False) for CREATE scripts in project {project_id}")
+        print(f"🔍 Found {delete_aliases.count()} aliases (delete_me=True) for DELETE scripts in project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
@@ -3580,23 +3581,24 @@ def generate_zone_scripts(request, project_id):
 
     # Filter zones by the actual project_id passed in the URL using junction table
     try:
-        # Get zones to create from junction table
-        create_zone_ids = ProjectZone.objects.filter(project=project, action='new').values_list('zone_id', flat=True)
+        # Get ALL zones in project, split by delete_me flag
+        # delete_me=False → CREATE scripts (includes new, modified, unmodified)
+        # delete_me=True → DELETE scripts
+        create_zone_ids = ProjectZone.objects.filter(project=project, delete_me=False).values_list('zone_id', flat=True)
         create_zones = Zone.objects.filter(id__in=create_zone_ids)
 
-        # Get zones to delete from junction table
-        delete_zone_ids = ProjectZone.objects.filter(project=project, action='delete').values_list('zone_id', flat=True)
+        delete_zone_ids = ProjectZone.objects.filter(project=project, delete_me=True).values_list('zone_id', flat=True)
         delete_zones = Zone.objects.filter(id__in=delete_zone_ids)
 
-        print(f"🔍 Found {create_zones.count()} zones with action=new for project {project_id}")
-        print(f"🔍 Found {delete_zones.count()} zones with action=delete for project {project_id}")
+        print(f"🔍 Found {create_zones.count()} zones (delete_me=False) for CREATE scripts in project {project_id}")
+        print(f"🔍 Found {delete_zones.count()} zones (delete_me=True) for DELETE scripts in project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
-    # Check for aliases with action=new that are missing cisco_alias for Cisco fabrics
+    # Check for aliases in project (delete_me=False) that are missing cisco_alias for Cisco fabrics
     warnings = []
     try:
-        create_alias_ids = ProjectAlias.objects.filter(project=project, action='new').values_list('alias_id', flat=True)
+        create_alias_ids = ProjectAlias.objects.filter(project=project, delete_me=False).values_list('alias_id', flat=True)
         create_aliases = Alias.objects.filter(id__in=create_alias_ids).select_related('fabric')
         invalid_cisco_aliases = [
             alias for alias in create_aliases
@@ -3611,7 +3613,7 @@ def generate_zone_scripts(request, project_id):
                     fabric_groups[fabric_name] = []
                 fabric_groups[fabric_name].append(alias.name)
 
-            warning_message = "Some Cisco aliases have 'create' checked but are missing the 'cisco_alias' field. "
+            warning_message = "Some Cisco aliases in the project are missing the 'cisco_alias' field. "
             warning_message += "These aliases will NOT be included in scripts. Please set cisco_alias to 'device-alias' or 'fcalias'. "
             warning_message += f"Affected aliases ({len(invalid_cisco_aliases)} total): "
 
@@ -3654,9 +3656,9 @@ def generate_alias_deletion_scripts(request, project_id):
 
     # Filter aliases by the actual project_id passed in the URL using junction table
     try:
-        delete_alias_ids = ProjectAlias.objects.filter(project=project, action='delete').values_list('alias_id', flat=True)
+        delete_alias_ids = ProjectAlias.objects.filter(project=project, delete_me=True).values_list('alias_id', flat=True)
         delete_aliases = Alias.objects.filter(id__in=delete_alias_ids)
-        print(f"🔍 Found {delete_aliases.count()} aliases with action=delete for project {project_id}")
+        print(f"🔍 Found {delete_aliases.count()} aliases (delete_me=True) for DELETE scripts in project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching alias records.", "details": str(e)}, status=500)
 
@@ -3691,9 +3693,9 @@ def generate_zone_deletion_scripts(request, project_id):
 
     # Filter zones by the actual project_id passed in the URL using junction table
     try:
-        delete_zone_ids = ProjectZone.objects.filter(project=project, action='delete').values_list('zone_id', flat=True)
+        delete_zone_ids = ProjectZone.objects.filter(project=project, delete_me=True).values_list('zone_id', flat=True)
         delete_zones = Zone.objects.filter(id__in=delete_zone_ids)
-        print(f"🔍 Found {delete_zones.count()} zones with action=delete for project {project_id}")
+        print(f"🔍 Found {delete_zones.count()} zones (delete_me=True) for DELETE scripts in project {project_id}")
     except Exception as e:
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
@@ -3906,9 +3908,10 @@ def generate_zone_creation_scripts(request, project_id):
 
     # Filter zones by the actual project_id passed in the URL using junction table
     try:
-        create_zone_ids = ProjectZone.objects.filter(project=project, action='new').values_list('zone_id', flat=True)
+        # Get zones with delete_me=False (CREATE scripts)
+        create_zone_ids = ProjectZone.objects.filter(project=project, delete_me=False).values_list('zone_id', flat=True)
         create_zones = Zone.objects.filter(id__in=create_zone_ids)
-        print(f"🔍 Found {create_zones.count()} zones with action=new for project {project_id}")
+        print(f"🔍 Found {create_zones.count()} zones (delete_me=False) for CREATE scripts in project {project_id}")
     except Exception as e:
         print(f"❌ Error fetching zones: {e}")
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)

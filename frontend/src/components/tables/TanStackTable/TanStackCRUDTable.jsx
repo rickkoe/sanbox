@@ -161,6 +161,15 @@ const TanStackCRUDTable = forwardRef(({
       pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 100)
     }));
   }, [pageSize]);
+
+  // Clear selections when filters or sorting change to prevent stale selections on hidden rows
+  useEffect(() => {
+    if (selectedCells.size > 0) {
+      setSelectedCells(new Set());
+      setSelectionRange(null);
+    }
+  }, [globalFilter, columnFilters, sorting]); // Only depend on filter/sort states, not selectedCells to avoid infinite loops
+
   const [tableConfig, setTableConfig] = useState(null);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [filtersInitialized, setFiltersInitialized] = useState(false);
@@ -1699,6 +1708,23 @@ const TanStackCRUDTable = forwardRef(({
               );
             }
 
+            // Check if result contains HTML with <div> tags (like highlighted fields)
+            if (typeof renderResult === 'string' && renderResult.includes('<div')) {
+              // Use unique key to force re-render when data changes
+              const cellKey = `${rowIndex}-${accessorKey}-${value || 'empty'}`;
+              return (
+                <HTMLRenderedCell
+                  key={cellKey}
+                  actualValue={value}
+                  renderedHTML={renderResult}
+                  rowIndex={rowIndex}
+                  columnKey={accessorKey}
+                  updateCellData={updateCellData}
+                  readOnly={readOnly}
+                />
+              );
+            }
+
             // Return as text
             return (
               <EditableTextCell
@@ -2176,6 +2202,36 @@ const TanStackCRUDTable = forwardRef(({
     setHasChanges(true);
   }, [selectedCells, columnDefs]);
 
+  // Helper function to build bidirectional row index mappings for filtered/sorted tables
+  // Returns maps between visual positions and data array indices
+  const buildRowIndexMaps = useCallback(() => {
+    const visibleRows = table.getRowModel().rows;
+    const dataToVisual = new Map(); // data index -> visual index
+    const visualToData = new Map(); // visual index -> data index
+
+    visibleRows.forEach((row, visualIndex) => {
+      // row.index is the original data array index from TanStack Table
+      const dataIndex = row.index;
+      dataToVisual.set(dataIndex, visualIndex);
+      visualToData.set(visualIndex, dataIndex);
+    });
+
+    return { dataToVisual, visualToData };
+  }, [table]);
+
+  // Helper function to filter selected cells to only include visible rows
+  const filterToVisibleCells = useCallback((cells, dataToVisual) => {
+    const visibleCells = new Set();
+    cells.forEach(cellKey => {
+      const [dataRowIndex, colIndex] = cellKey.split('-').map(Number);
+      // Only include if this data row is currently visible
+      if (dataToVisual.has(dataRowIndex)) {
+        visibleCells.add(cellKey);
+      }
+    });
+    return visibleCells;
+  }, []);
+
   // Fill down operation
   const fillDown = useCallback(() => {
 
@@ -2183,39 +2239,30 @@ const TanStackCRUDTable = forwardRef(({
       return;
     }
 
-    const cellKeys = Array.from(selectedCells).sort();
+    // Build row index mappings
+    const { dataToVisual } = buildRowIndexMaps();
 
-    // Get visual order mapping (how rows appear after sorting/filtering)
-    // The table shows sortedEditableData, so we need to map visual positions to original editableData indices
-    const visibleRows = table.getRowModel().rows;
+    // Filter selected cells to only include visible rows
+    const visibleSelectedCells = filterToVisibleCells(selectedCells, dataToVisual);
 
-    // Create a map from data index in editableData to visual position in table
-    const dataIndexToVisualIndex = new Map();
-    visibleRows.forEach((row, visualIndex) => {
-      // row.original is the actual data object from sortedEditableData
-      // We need to find its index in the original editableData array
-      const rowId = row.original.id;
-      if (rowId !== undefined && rowId !== null) {
-        // Find this row in editableData by ID
-        const dataIndex = editableData.findIndex(item => item.id === rowId);
-        if (dataIndex !== -1) {
-          dataIndexToVisualIndex.set(dataIndex, visualIndex);
-        }
-      }
-    });
+    if (visibleSelectedCells.size <= 1) {
+      console.warn('⚠️ Fill down requires at least 2 visible selected cells');
+      return;
+    }
+
+    const cellKeys = Array.from(visibleSelectedCells).sort();
 
     // Group cells by column
     const cellsByColumn = {};
     cellKeys.forEach(cellKey => {
       const [dataRowIndex, colIndex] = cellKey.split('-').map(Number);
-      const visualIndex = dataIndexToVisualIndex.get(dataRowIndex);
+      const visualIndex = dataToVisual.get(dataRowIndex);
+
       if (visualIndex !== undefined) {
         if (!cellsByColumn[colIndex]) {
           cellsByColumn[colIndex] = [];
         }
         cellsByColumn[colIndex].push({ dataRowIndex, visualIndex, colIndex, cellKey });
-      } else {
-        console.warn(`⚠️ Could not find visual index for data row ${dataRowIndex}`);
       }
     });
 
@@ -2298,40 +2345,32 @@ const TanStackCRUDTable = forwardRef(({
     });
 
     setHasChanges(true);
-  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData, getVisibleColumnDef]);
+  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, getVisibleColumnDef, buildRowIndexMaps, filterToVisibleCells]);
 
   // Fill right operation
   const fillRight = useCallback(() => {
     if (selectedCells.size <= 1) return;
 
-    // Get visual order mapping (how rows appear after sorting/filtering)
-    // The table shows sortedEditableData, so we need to map visual positions to original editableData indices
-    const visibleRows = table.getRowModel().rows;
-    const dataIndexToVisualIndex = new Map();
-    visibleRows.forEach((row, visualIndex) => {
-      // row.original is the actual data object from sortedEditableData
-      // We need to find its index in the original editableData array
-      const rowId = row.original.id;
-      if (rowId !== undefined && rowId !== null) {
-        // Find this row in editableData by ID
-        const dataIndex = editableData.findIndex(item => item.id === rowId);
-        if (dataIndex !== -1) {
-          dataIndexToVisualIndex.set(dataIndex, visualIndex);
-        }
-      }
-    });
+    // Build row index mappings
+    const { dataToVisual } = buildRowIndexMaps();
+
+    // Filter selected cells to only include visible rows
+    const visibleSelectedCells = filterToVisibleCells(selectedCells, dataToVisual);
+
+    if (visibleSelectedCells.size <= 1) {
+      console.warn('⚠️ Fill right requires at least 2 visible selected cells');
+      return;
+    }
 
     // Convert cell keys to include visual indices and sort by visual position
-    const cellsWithVisual = Array.from(selectedCells)
+    const cellsWithVisual = Array.from(visibleSelectedCells)
       .map(cellKey => {
         const [dataRowIndex, colIndex] = cellKey.split('-').map(Number);
-        const visualIndex = dataIndexToVisualIndex.get(dataRowIndex);
+        const visualIndex = dataToVisual.get(dataRowIndex);
         if (visualIndex !== undefined) {
           return { cellKey, dataRowIndex, colIndex, visualIndex };
-        } else {
-          console.warn(`⚠️ Could not find visual index for data row ${dataRowIndex}`);
-          return null;
         }
+        return null;
       })
       .filter(cell => cell !== null);
 
@@ -2410,16 +2449,34 @@ const TanStackCRUDTable = forwardRef(({
     });
 
     setHasChanges(true);
-  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, table, editableData, getVisibleColumnDef]);
+  }, [selectedCells, columnDefs, dropdownFilters, dropdownSources, getNestedValue, setNestedValue, getVisibleColumnDef, buildRowIndexMaps, filterToVisibleCells]);
 
   // Enhanced Copy functionality for Excel compatibility
   const handleCopy = useCallback(() => {
     if (selectedCells.size === 0) return;
 
+    // Build row index mappings
+    const { dataToVisual } = buildRowIndexMaps();
+
+    // Filter selected cells to only include visible rows
+    const visibleSelectedCells = filterToVisibleCells(selectedCells, dataToVisual);
+
+    if (visibleSelectedCells.size === 0) {
+      console.warn('⚠️ No visible cells selected to copy');
+      return;
+    }
+
     // Convert selected cells to a grid structure
     // Note: selectedCells now contains DATA row indices (not visual)
-    const cellArray = Array.from(selectedCells);
-    const dataRowIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[0])))].sort((a, b) => a - b);
+    const cellArray = Array.from(visibleSelectedCells);
+
+    // Sort data row indices by their VISUAL order (how they appear on screen)
+    const dataRowIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[0])))]
+      .sort((a, b) => {
+        const visualA = dataToVisual.get(a) ?? Infinity;
+        const visualB = dataToVisual.get(b) ?? Infinity;
+        return visualA - visualB;
+      });
     const colIndices = [...new Set(cellArray.map(key => parseInt(key.split('-')[1])))].sort((a, b) => a - b);
 
 
@@ -2457,11 +2514,11 @@ const TanStackCRUDTable = forwardRef(({
     setFillPreview({
       operation: 'Copied',
       sourceValue: `${dataRowIndices.length} rows × ${colIndices.length} columns`,
-      count: selectedCells.size
+      count: visibleSelectedCells.size
     });
 
     setTimeout(() => setFillPreview(null), 1500);
-  }, [selectedCells, editableData, columnDefs, getNestedValue]);
+  }, [selectedCells, editableData, columnDefs, getNestedValue, buildRowIndexMaps, filterToVisibleCells]);
 
   // Enhanced Paste functionality for Excel compatibility
   const handlePaste = useCallback(async () => {
@@ -2472,6 +2529,22 @@ const TanStackCRUDTable = forwardRef(({
         setFillPreview({
           operation: 'Paste Not Available',
           sourceValue: 'Use Ctrl+V or enable HTTPS',
+          count: 0
+        });
+        setTimeout(() => setFillPreview(null), 3000);
+        return;
+      }
+
+      // Build row index mappings to check if current cell is visible
+      const { dataToVisual } = buildRowIndexMaps();
+
+      // Check if current cell's row is visible (not filtered out)
+      const targetStartDataRow = currentCell.row; // This is a DATA row index
+      if (!dataToVisual.has(targetStartDataRow)) {
+        console.warn('⚠️ Cannot paste: current cell is in a filtered-out row');
+        setFillPreview({
+          operation: 'Paste Error',
+          sourceValue: 'Current cell is hidden by filter',
           count: 0
         });
         setTimeout(() => setFillPreview(null), 3000);
@@ -2491,26 +2564,33 @@ const TanStackCRUDTable = forwardRef(({
       // Calculate paste dimensions
       const pasteRowCount = pasteData.length;
       const pasteColCount = Math.max(...pasteData.map(row => row.length));
-      const targetStartDataRow = currentCell.row; // This is now a DATA row index
       const targetStartCol = currentCell.col;
 
       // Excel-like behavior: if multiple cells are selected and paste data is smaller, repeat the pattern
       let targetEndDataRow, targetEndCol;
 
       if (selectedCells.size > 1) {
-        // Get the selection bounds (DATA indices)
-        const cellArray = Array.from(selectedCells);
-        const dataRowIndices = cellArray.map(key => parseInt(key.split('-')[0]));
-        const colIndices = cellArray.map(key => parseInt(key.split('-')[1]));
-        const selectionStartDataRow = Math.min(...dataRowIndices);
-        const selectionEndDataRow = Math.max(...dataRowIndices);
-        const selectionStartCol = Math.min(...colIndices);
-        const selectionEndCol = Math.max(...colIndices);
+        // Filter selected cells to only include visible rows
+        const visibleSelectedCells = filterToVisibleCells(selectedCells, dataToVisual);
 
-        // Use selection bounds instead of paste data size
-        targetEndDataRow = selectionEndDataRow;
-        targetEndCol = selectionEndCol;
+        if (visibleSelectedCells.size > 1) {
+          // Get the selection bounds (DATA indices) - only from visible cells
+          const cellArray = Array.from(visibleSelectedCells);
+          const dataRowIndices = cellArray.map(key => parseInt(key.split('-')[0]));
+          const colIndices = cellArray.map(key => parseInt(key.split('-')[1]));
+          const selectionStartDataRow = Math.min(...dataRowIndices);
+          const selectionEndDataRow = Math.max(...dataRowIndices);
+          const selectionStartCol = Math.min(...colIndices);
+          const selectionEndCol = Math.max(...colIndices);
 
+          // Use selection bounds instead of paste data size
+          targetEndDataRow = selectionEndDataRow;
+          targetEndCol = selectionEndCol;
+        } else {
+          // Only one visible cell, fall back to standard paste
+          targetEndDataRow = targetStartDataRow + pasteRowCount - 1;
+          targetEndCol = targetStartCol + pasteColCount - 1;
+        }
       } else {
         // Standard paste: use paste data dimensions
         targetEndDataRow = targetStartDataRow + pasteRowCount - 1;
@@ -2684,7 +2764,7 @@ const TanStackCRUDTable = forwardRef(({
 
       setTimeout(() => setFillPreview(null), 3000);
     }
-  }, [currentCell, editableData, newRowTemplate, columnDefs, afterChange, dropdownSources, setNestedValue, table, selectedCells, setSelectedCells, setSelectionRange, setHasChanges, setInvalidCells, setFillPreview]);
+  }, [currentCell, editableData, newRowTemplate, columnDefs, afterChange, dropdownSources, setNestedValue, selectedCells, setSelectedCells, setSelectionRange, setHasChanges, setInvalidCells, setFillPreview, buildRowIndexMaps, filterToVisibleCells]);
 
   // Clear cell contents (set to empty string)
   const clearCellContents = useCallback(() => {
@@ -2777,11 +2857,12 @@ const TanStackCRUDTable = forwardRef(({
           break;
         case 'a':
           e.preventDefault();
-          // Select all cells (using visible row count)
+          // Select all visible cells (using DATA indices from visible rows)
           const allCells = new Set();
-          for (let r = 0; r < visibleRowCount; r++) {
+          for (let visualIndex = 0; visualIndex < visibleRowCount; visualIndex++) {
+            const dataIndex = visibleRows[visualIndex].index; // Get data index from TanStack row
             for (let c = 0; c < columnDefs.length; c++) {
-              allCells.add(`${r}-${c}`);
+              allCells.add(`${dataIndex}-${c}`);
             }
           }
           setSelectedCells(allCells);
@@ -3980,14 +4061,14 @@ const TanStackCRUDTable = forwardRef(({
                   let headerBg = theme === 'dark' ? 'var(--table-header-bg)' : 'var(--secondary-bg)';
 
                   if (columnGroup === 'target') {
-                    // Blue tint - solid color
-                    headerBg = theme === 'dark' ? 'var(--color-canvas-subtle)' : 'var(--color-info-subtle)';
+                    // No special color - use default header background
+                    headerBg = theme === 'dark' ? 'var(--table-header-bg)' : 'var(--secondary-bg)';
                   } else if (columnGroup === 'initiator') {
-                    // Green tint - solid color
-                    headerBg = theme === 'dark' ? 'var(--color-success-subtle)' : 'var(--color-success-subtle)';
+                    // No special color - use default header background
+                    headerBg = theme === 'dark' ? 'var(--table-header-bg)' : 'var(--secondary-bg)';
                   } else if (columnGroup === 'allAccess') {
-                    // Purple tint - solid color
-                    headerBg = theme === 'dark' ? 'var(--color-canvas-subtle)' : 'var(--color-accent-subtle)';
+                    // No special color - use default header background
+                    headerBg = theme === 'dark' ? 'var(--table-header-bg)' : 'var(--secondary-bg)';
                   }
 
                   return (
@@ -4118,14 +4199,14 @@ const TanStackCRUDTable = forwardRef(({
                     cellBg = 'var(--table-bg)';
                   } else if (!isSelected && !isInvalid) {
                     if (columnGroup === 'target') {
-                      // Blue tint - solid color, lighter than header
-                      cellBg = theme === 'dark' ? 'var(--color-info-subtle)' : 'var(--color-info-subtle)';
+                      // No special color - use transparent for both themes
+                      cellBg = 'transparent';
                     } else if (columnGroup === 'initiator') {
-                      // Green tint - solid color, lighter than header
-                      cellBg = theme === 'dark' ? 'var(--color-success-subtle)' : 'var(--color-success-subtle)';
+                      // No special color - use transparent for both themes
+                      cellBg = 'transparent';
                     } else if (columnGroup === 'allAccess') {
-                      // Purple tint - solid color, lighter than header
-                      cellBg = theme === 'dark' ? 'var(--color-canvas-subtle)' : 'var(--color-accent-subtle)';
+                      // No special color - use transparent for both themes
+                      cellBg = 'transparent';
                     }
                   }
 
@@ -4133,7 +4214,7 @@ const TanStackCRUDTable = forwardRef(({
                   const modifiedFields = rowData?.modified_fields || [];
                   const isModifiedField = modifiedFields.includes(cell.column.id);
 
-                  // Override background color for modified fields
+                  // Override background color for modified fields (layered to ensure opacity)
                   if (isModifiedField && !isSelected && !isInvalid) {
                     cellBg = 'var(--color-accent-subtle)';
                   }
@@ -4150,6 +4231,8 @@ const TanStackCRUDTable = forwardRef(({
                         borderLeft: isModifiedField ? '3px solid var(--color-accent-emphasis)' : 'none',
                         width: cell.column.getSize(),
                         backgroundColor: isInvalid ? 'var(--color-danger-subtle)' : (isSelected ? ((isNameColumn || isSelectedColumn) ? cellBg : 'var(--table-row-selected)') : cellBg),
+                        // Layer backgrounds to ensure fully opaque modified cells
+                        backgroundImage: isModifiedField && !isSelected && !isInvalid ? 'linear-gradient(var(--color-accent-subtle), var(--color-accent-subtle)), linear-gradient(var(--secondary-bg), var(--secondary-bg))' : undefined,
                         cursor: 'cell',
                         position: (isSelectedColumn || isNameColumn) ? 'sticky' : 'relative',
                         left: isSelectedColumn ? 0 : (isNameColumn ? (hasSelectedColumn ? `${table.getColumn('_selected')?.getSize() || 60}px` : 0) : undefined),
@@ -6043,6 +6126,114 @@ const PasswordLikeCell = ({ actualValue, maskedValue, rowIndex, columnKey, updat
           Double-click to reveal...
         </span>
       )}
+    </div>
+  );
+};
+
+/**
+ * HTMLRenderedCell - For cells with custom HTML rendering
+ * Displays the rendered HTML visually but edits the raw value
+ */
+const HTMLRenderedCell = ({ actualValue, renderedHTML, rowIndex, columnKey, updateCellData, readOnly = false }) => {
+  const [localValue, setLocalValue] = useState(actualValue || '');
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(actualValue || '');
+    }
+  }, [actualValue, isEditing]);
+
+  const handleDoubleClick = () => {
+    if (!readOnly) {
+      setIsEditing(true);
+    }
+  };
+
+  const handleChange = (e) => {
+    setLocalValue(e.target.value);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+      setLocalValue(actualValue || '');
+    }
+  };
+
+  const handleBlur = () => {
+    handleSave();
+  };
+
+  const handleSave = () => {
+    setIsEditing(false);
+    if (updateCellData && localValue !== actualValue) {
+      updateCellData(rowIndex, columnKey, localValue);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        type="text"
+        value={localValue}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        autoFocus
+        style={{
+          width: '100%',
+          border: '2px solid var(--link-text)',
+          borderRadius: '4px',
+          outline: 'none',
+          padding: '6px 8px',
+          backgroundColor: 'var(--form-input-bg)',
+          color: 'var(--form-input-text)',
+          fontSize: '14px',
+          boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.1)'
+        }}
+      />
+    );
+  }
+
+  // Extract only visual styles (background, border) from rendered HTML
+  // Match the standard EditableTextCell styling
+  const cellStyles = {
+    display: 'block',
+    width: '100%',
+    padding: '6px 8px',
+    cursor: readOnly ? 'default' : 'text',
+    minHeight: '20px',
+    borderRadius: '4px',
+    transition: 'background-color 0.2s',
+    fontSize: '14px',
+    lineHeight: '1.4'
+  };
+  let title = '';
+
+  if (renderedHTML && typeof renderedHTML === 'string') {
+    // Extract background-color
+    const bgMatch = renderedHTML.match(/background-color:\s*([^;]+)/);
+    if (bgMatch) cellStyles.backgroundColor = bgMatch[1].trim();
+
+    // Extract border-left
+    const borderMatch = renderedHTML.match(/border-left:\s*([^;]+)/);
+    if (borderMatch) cellStyles.borderLeft = borderMatch[1].trim();
+
+    // Extract title attribute
+    const titleMatch = renderedHTML.match(/title="([^"]+)"/);
+    if (titleMatch) title = titleMatch[1];
+  }
+
+  return (
+    <div
+      onDoubleClick={handleDoubleClick}
+      style={cellStyles}
+      title={title}
+    >
+      {actualValue || ''}
     </div>
   );
 };

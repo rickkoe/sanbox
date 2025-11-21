@@ -54,8 +54,8 @@ def dashboard_stats(request):
         
         # Get counts efficiently with single queries
         fabric_count = Fabric.objects.filter(customer_id=customer_id).count()
-        zone_count = Zone.objects.filter(projects=project).count()
-        alias_count = Alias.objects.filter(projects=project).count()
+        zone_count = Zone.objects.filter(project_memberships__project=project).count()
+        alias_count = Alias.objects.filter(project_memberships__project=project).count()
         storage_count = Storage.objects.filter(customer_id=customer_id).count()
         
         # Get last import info
@@ -704,8 +704,8 @@ def widget_san_overview(request):
 
         # Get counts
         fabric_count = Fabric.objects.filter(customer_id=customer_id).count()
-        zone_count = Zone.objects.filter(projects=project).count()
-        alias_count = Alias.objects.filter(projects=project).count()
+        zone_count = Zone.objects.filter(project_memberships__project=project).count()
+        alias_count = Alias.objects.filter(project_memberships__project=project).count()
         switch_count = Switch.objects.filter(customer_id=customer_id).count()
 
         # Get vendor breakdown
@@ -739,8 +739,8 @@ def widget_zone_deployment(request):
         project = Project.objects.get(id=project_id)
 
         # Get deployment status
-        total_zones = Zone.objects.filter(projects=project).count()
-        deployed_zones = Zone.objects.filter(projects=project, exists=True).count()
+        total_zones = Zone.objects.filter(project_memberships__project=project).count()
+        deployed_zones = Zone.objects.filter(project_memberships__project=project, exists=True).count()
         designed_zones = total_zones - deployed_zones
 
         deployment_percentage = round((deployed_zones / total_zones * 100) if total_zones > 0 else 0, 1)
@@ -770,9 +770,9 @@ def widget_alias_distribution(request):
         project = Project.objects.get(id=project_id)
 
         # Get alias distribution by use type
-        initiators = Alias.objects.filter(projects=project, use='init').count()
-        targets = Alias.objects.filter(projects=project, use='target').count()
-        both = Alias.objects.filter(projects=project, use='both').count()
+        initiators = Alias.objects.filter(project_memberships__project=project, use='init').count()
+        targets = Alias.objects.filter(project_memberships__project=project, use='target').count()
+        both = Alias.objects.filter(project_memberships__project=project, use='both').count()
         total = initiators + targets + both
 
         return JsonResponse({
@@ -992,13 +992,13 @@ def widget_project_activity(request):
 
         # Get recently modified zones
         recent_zones = Zone.objects.filter(
-            projects=project,
+            project_memberships__project=project,
             last_modified_at__isnull=False
         ).order_by('-last_modified_at')[:limit]
 
         # Get recently modified aliases
         recent_aliases = Alias.objects.filter(
-            projects=project,
+            project_memberships__project=project,
             last_modified_at__isnull=False
         ).order_by('-last_modified_at')[:limit]
 

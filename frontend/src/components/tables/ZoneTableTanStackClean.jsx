@@ -639,44 +639,58 @@ const ZoneTableTanStackClean = () => {
         }
     }, [projectFilter]);
 
-    // DISABLED: Auto-collapse feature was interfering with manual expand/collapse
     // Reset member columns to collapsed view when page changes
-    // useEffect(() => {
-    //     if (projectFilter === 'current' && tableRef.current) {
-    //         const timer = setInterval(() => {
-    //             // Skip page change detection if we're in the middle of toggling columns
-    //             if (isTogglingColumnsRef.current) {
-    //                 console.log('⏸️ Page change detection skipped - toggle in progress');
-    //                 return;
-    //             }
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const paginationInfo = tableRef.current?.getPaginationInfo?.();
 
-    //             const paginationInfo = tableRef.current?.getPaginationInfo?.();
+                // Only reset if pagination info is valid and page actually changed
+                // Ignore if currentPage is 0 or undefined (initial/invalid state)
+                if (paginationInfo &&
+                    typeof paginationInfo.currentPage === 'number' &&
+                    paginationInfo.currentPage > 0 &&
+                    currentPage > 0 &&
+                    paginationInfo.currentPage !== currentPage) {
+                    console.log(`📄 Page changed from ${currentPage} to ${paginationInfo.currentPage}, collapsing to minimal view`);
+                    setCurrentPage(paginationInfo.currentPage);
 
-    //             // Debug logging
-    //             console.log('🔍 Page change check:', {
-    //                 hasPaginationInfo: !!paginationInfo,
-    //                 currentPageFromTable: paginationInfo?.currentPage,
-    //                 currentPageState: currentPage,
-    //                 isTogglingColumns: isTogglingColumnsRef.current
-    //             });
+                    // Only collapse if currently expanded
+                    if (showAllMemberColumns) {
+                        setShowAllMemberColumns(false);
 
-    //             // Only reset if pagination info is valid and page actually changed
-    //             // Ignore if currentPage is 0 or undefined (initial/invalid state)
-    //             if (paginationInfo &&
-    //                 typeof paginationInfo.currentPage === 'number' &&
-    //                 paginationInfo.currentPage > 0 &&
-    //                 currentPage > 0 &&
-    //                 paginationInfo.currentPage !== currentPage) {
-    //                 console.log(`📄 Page changed from ${currentPage} to ${paginationInfo.currentPage}`);
-    //                 setCurrentPage(paginationInfo.currentPage);
-    //                 // Don't auto-collapse member columns on page change - let user control it manually
-    //                 // setShowAllMemberColumns(false);
-    //             }
-    //         }, 500);
+                        // Hide the extra member columns
+                        const currentCounts = memberColumnCountsRef.current;
+                        setTimeout(() => {
+                            if (tableRef.current?.setColumnVisibility) {
+                                const visibilityUpdates = {};
 
-    //         return () => clearInterval(timer);
-    //     }
-    // }, [projectFilter, currentPage]);
+                                // Hide target columns 2+
+                                for (let i = 2; i <= currentCounts.targets; i++) {
+                                    visibilityUpdates[`target_member_${i}`] = false;
+                                }
+
+                                // Hide initiator columns 2+
+                                for (let i = 2; i <= currentCounts.initiators; i++) {
+                                    visibilityUpdates[`init_member_${i}`] = false;
+                                }
+
+                                // Hide all-access columns 2+
+                                for (let i = 2; i <= currentCounts.allAccess; i++) {
+                                    visibilityUpdates[`all_member_${i}`] = false;
+                                }
+
+                                console.log('👁️ Page change: Hiding extra member columns:', visibilityUpdates);
+                                tableRef.current.setColumnVisibility(visibilityUpdates);
+                            }
+                        }, 100);
+                    }
+                }
+            }, 500);
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, currentPage, showAllMemberColumns]);
 
     // Selection sync is now handled by useProjectViewSelection hook
 
@@ -829,34 +843,9 @@ const ZoneTableTanStackClean = () => {
             };
         });
 
-        // Cell renderer for highlighting modified fields in Project View
-        const highlightModifiedCell = (rowData, prop, rowIndex, colIndex, accessorKey, value) => {
-            // Only apply highlighting in Project View
-            if (projectFilter !== 'current') {
-                return value;
-            }
-
-            const modifiedFields = rowData.modified_fields || [];
-
-            // Check if this field was modified via field_overrides
-            if (modifiedFields.includes(accessorKey)) {
-                // Return HTML with highlighted styling
-                return `<div style="
-                    background-color: var(--color-accent-subtle);
-                    border-left: 3px solid var(--color-accent-emphasis);
-                    padding: 4px;
-                    margin: -4px;
-                " title="Modified in this project">${value || ''}</div>`;
-            }
-
-            return value;
-        };
-
-        // Apply to all data columns (not project columns or member columns)
-        const dataColumns = ['name', 'zone_type', 'notes', 'exists', 'committed', 'deployed'];
-        dataColumns.forEach(colName => {
-            renderers[colName] = highlightModifiedCell;
-        });
+        // Note: Modified field highlighting is handled automatically by TanStackCRUDTable
+        // at the cell level (lines 4149-4167 in TanStackCRUDTable.jsx)
+        // No custom renderer needed - just return the value
 
         return renderers;
     }, [getMemberDropdownOptions, memberColumnCounts, activeProjectId, projectFilter, showAllMemberColumns]); // Needs to recreate when columns added or expand/collapse changes

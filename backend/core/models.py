@@ -1166,7 +1166,7 @@ class ProjectAlias(models.Model):
 
     # Alias-specific project flags
     include_in_zoning = models.BooleanField(
-        default=False,
+        default=True,
         help_text="Include this alias in zone generation for this project"
     )
 
