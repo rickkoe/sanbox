@@ -140,7 +140,7 @@ const TanStackCRUDTable = forwardRef(({
   // Advanced filter state
   const [activeFilters, setActiveFilters] = useState({});
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [useServerSideFiltering, setUseServerSideFiltering] = useState(false); // Start with client-side filtering
+  const [useServerSideFiltering, setUseServerSideFiltering] = useState(true); // Always use server-side filtering for all datasets
 
   // Dropdown menu states
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
@@ -209,35 +209,35 @@ const TanStackCRUDTable = forwardRef(({
         if (filter.type === 'items') {
           // For item filters, send selected items as comma-separated values
           if (filter.selectedItems && filter.selectedItems.length > 0) {
-            url += `&filter_${columnId}_in=${encodeURIComponent(filter.selectedItems.join(','))}`;
+            url += `&${columnId}__in=${encodeURIComponent(filter.selectedItems.join(','))}`;
           }
         } else {
           // For text filters, send the filter type and value
           const filterValue = encodeURIComponent(filter.value || '');
           switch (filter.type) {
             case 'contains':
-              url += `&filter_${columnId}_contains=${filterValue}`;
+              url += `&${columnId}__icontains=${filterValue}`;
               break;
             case 'not_contains':
-              url += `&filter_${columnId}_not_contains=${filterValue}`;
+              url += `&${columnId}__not_icontains=${filterValue}`;
               break;
             case 'starts_with':
-              url += `&filter_${columnId}_startswith=${filterValue}`;
+              url += `&${columnId}__istartswith=${filterValue}`;
               break;
             case 'ends_with':
-              url += `&filter_${columnId}_endswith=${filterValue}`;
+              url += `&${columnId}__iendswith=${filterValue}`;
               break;
             case 'equals':
-              url += `&filter_${columnId}_exact=${filterValue}`;
+              url += `&${columnId}__iexact=${filterValue}`;
               break;
             case 'not_equals':
-              url += `&filter_${columnId}_not_exact=${filterValue}`;
+              url += `&${columnId}__not_iexact=${filterValue}`;
               break;
             case 'is_empty':
-              url += `&filter_${columnId}_isnull=true`;
+              url += `&${columnId}__isnull=true`;
               break;
             case 'is_not_empty':
-              url += `&filter_${columnId}_isnull=false`;
+              url += `&${columnId}__isnull=false`;
               break;
           }
         }
@@ -3431,6 +3431,15 @@ const TanStackCRUDTable = forwardRef(({
               onClick={() => {
                 setGlobalFilter('');
                 setPendingGlobalFilter('');
+                // Save empty quick search to table config
+                if (tableName && customerId && user && configLoaded) {
+                  saveTableConfig({
+                    additional_settings: {
+                      ...(tableConfig?.additional_settings || {}),
+                      quick_search: ''
+                    }
+                  });
+                }
               }}
               style={{
                 position: 'absolute',
@@ -3549,6 +3558,65 @@ const TanStackCRUDTable = forwardRef(({
           isPaginated={effectiveTotalPages > 1}
         />
       </div>
+
+      {/* Quick Search Indicator */}
+      {globalFilter && globalFilter.trim().length > 0 && (
+        <div style={{
+          padding: '8px 20px',
+          borderBottom: '1px solid var(--color-border-subtle)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          backgroundColor: 'var(--table-row-selected)',
+          fontSize: '13px'
+        }}>
+          <span style={{ color: 'var(--link-text)', fontWeight: '500' }}>Quick Search:</span>
+          <span
+            style={{
+              backgroundColor: 'var(--link-text)',
+              color: 'var(--content-bg)',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              fontSize: '12px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            "{globalFilter}"
+            <button
+              onClick={() => {
+                setGlobalFilter('');
+                setPendingGlobalFilter('');
+                // Save empty quick search to table config
+                if (tableName && customerId && user && configLoaded) {
+                  saveTableConfig({
+                    additional_settings: {
+                      ...(tableConfig?.additional_settings || {}),
+                      quick_search: ''
+                    }
+                  });
+                }
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                padding: '0',
+                marginLeft: '4px',
+                fontSize: '14px',
+                lineHeight: '1'
+              }}
+              title="Clear quick search"
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Active Filters Display */}
       {Object.keys(activeFilters).filter(key => activeFilters[key].active).length > 0 && (
