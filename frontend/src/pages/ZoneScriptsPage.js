@@ -200,6 +200,12 @@ const ZoneScriptsPage = () => {
 
       const zip = new JSZip();
 
+      // Create a date adjusted for timezone to ensure files extract with correct local time
+      // JSZip stores dates in UTC, so we need to offset by timezone to get correct local time on extraction
+      const now = new Date();
+      const timezoneOffsetMs = now.getTimezoneOffset() * 60 * 1000;
+      const localDate = new Date(now.getTime() - timezoneOffsetMs);
+
       // Add each selected fabric's commands as a separate text file
       Object.entries(scripts).forEach(([fabricName, fabricData]) => {
         if (!selectedFabrics[fabricName]) return;
@@ -218,7 +224,6 @@ const ZoneScriptsPage = () => {
         // Create filename with fabric name, project name and timestamp (local time)
         const vendorPrefix = vendor === "CI" ? "Cisco" : "Brocade";
         const projectName = config.active_project?.name || "project";
-        const now = new Date();
         const timestamp =
           now.getFullYear() +
           "-" +
@@ -235,8 +240,8 @@ const ZoneScriptsPage = () => {
         const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, "_");
         const fileName = `${vendorPrefix}_${cleanFabricName}_${cleanProjectName}_zone_scripts_${timestamp}.txt`;
 
-        // Set file date explicitly to local time to avoid timezone issues in ZIP
-        zip.file(fileName, fileContent, { date: now });
+        // Set file date with timezone adjustment to ensure correct local time on extraction
+        zip.file(fileName, fileContent, { date: localDate });
       });
 
       // Generate the ZIP file

@@ -66,8 +66,6 @@ const DS8000ScriptsPage = React.lazy(() => import("./pages/DS8000ScriptsPage"));
 const FlashsystemscriptsPage = React.lazy(() => import("./pages/FlashsystemScriptsPage"));
 const StorageScriptsPage = React.lazy(() => import("./pages/StorageScriptsPage"));
 const ZoneScriptsPage = React.lazy(() => import("./pages/ZoneScriptsPage"));
-const ZoneCreationScriptsPage = React.lazy(() => import("./pages/ZoneCreationScriptsPage"));
-const ZoneDeleteScriptsPage = React.lazy(() => import("./pages/ZoneDeleteScriptsPage"));
 const ImportSwitchConfig = React.lazy(() => import("./components/forms/ImportSwitchConfig"));
 const TestFilters = React.lazy(() => import("./components/tables/TestFilters"));
 const CustomNamingPage = React.lazy(() => import("./pages/CustomNamingPage"));
@@ -255,14 +253,6 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                   <Route
                     path="/san/zones/zone-scripts"
                     element={<ZoneScriptsPage />}
-                  />
-                  <Route
-                    path="/san/zones/zone-creation-scripts"
-                    element={<ZoneCreationScriptsPage />}
-                  />
-                  <Route
-                    path="/san/zones/zone-deletion-scripts"
-                    element={<ZoneDeleteScriptsPage />}
                   />
                     <Route path="/import-data" element={<ImportSwitchConfig />} />
                     <Route path="/tools/custom-naming" element={<CustomNamingPage />} />
