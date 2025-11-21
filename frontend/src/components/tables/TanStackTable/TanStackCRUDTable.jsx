@@ -2271,6 +2271,7 @@ const TanStackCRUDTable = forwardRef(({
     setEditableData(currentData => {
       const newData = [...currentData];
       let totalSkipped = 0;
+      const modifiedRows = new Set(); // Track which rows were modified
 
       // Process each column independently
       Object.keys(cellsByColumn).forEach(colIndex => {
@@ -2331,10 +2332,20 @@ const TanStackCRUDTable = forwardRef(({
 
           // Use helper to set nested values properly
           setNestedValue(newData[dataRowIndex], columnKey, sourceValue);
+
+          // Track that this row was modified
+          modifiedRows.add(dataRowIndex);
         });
 
         if (skippedInColumn > 0) {
           totalSkipped += skippedInColumn;
+        }
+      });
+
+      // Mark all modified rows as dirty for save tracking
+      modifiedRows.forEach(rowIndex => {
+        if (newData[rowIndex]) {
+          newData[rowIndex]._isDirty = true;
         }
       });
 
@@ -2387,6 +2398,7 @@ const TanStackCRUDTable = forwardRef(({
     // Update the actual data
     setEditableData(currentData => {
       const newData = [...currentData];
+      const modifiedRows = new Set(); // Track which rows were modified
 
       // Get source value from editableData using nested accessor if needed (using data index)
       // Get the actual column definition accounting for hidden columns
@@ -2440,6 +2452,16 @@ const TanStackCRUDTable = forwardRef(({
 
         // Use helper to set nested values properly
         setNestedValue(newData[dataRowIndex], columnKey, sourceValue);
+
+        // Track that this row was modified
+        modifiedRows.add(dataRowIndex);
+      });
+
+      // Mark all modified rows as dirty for save tracking
+      modifiedRows.forEach(rowIndex => {
+        if (newData[rowIndex]) {
+          newData[rowIndex]._isDirty = true;
+        }
       });
 
       if (skippedCells > 0) {
@@ -2616,6 +2638,7 @@ const TanStackCRUDTable = forwardRef(({
 
       setEditableData(currentData => {
         const newData = [...currentData];
+        const modifiedRows = new Set(); // Track which rows were modified
 
         // Iterate over the target area using data indices
         for (let targetDataRowIndex = targetStartDataRow; targetDataRowIndex <= targetEndDataRow && targetDataRowIndex < newData.length; targetDataRowIndex++) {
@@ -2671,9 +2694,19 @@ const TanStackCRUDTable = forwardRef(({
                   [columnKey]: convertedValue
                 };
               }
+
+              // Track that this row was modified
+              modifiedRows.add(targetDataRowIndex);
             }
           }
         }
+
+        // Mark all modified rows as dirty for save tracking
+        modifiedRows.forEach(rowIndex => {
+          if (newData[rowIndex]) {
+            newData[rowIndex]._isDirty = true;
+          }
+        });
 
         return newData;
       });
