@@ -1151,6 +1151,47 @@ def mkhost_scripts_view(request, customer_id):
 
 
 @csrf_exempt
+@require_http_methods(["GET"])
+def mkhost_scripts_project_view(request, project_id):
+    """Generate mkhost scripts for storage systems in a project."""
+    print(f"🔥 MkHost Scripts (Project) - Method: {request.method}, Project ID: {project_id}")
+
+    try:
+        from core.models import Project, ProjectStorage
+        from .storage_utils import generate_mkhost_scripts
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Get storage systems that are in this project via junction table
+        storage_ids = ProjectStorage.objects.filter(project=project).values_list('storage_id', flat=True)
+        storage_systems = Storage.objects.filter(id__in=storage_ids).order_by('name')
+
+        if not storage_systems.exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "No storage systems found for this project"
+            })
+
+        # Generate scripts using utility function with project filter
+        storage_scripts = generate_mkhost_scripts(storage_systems, project=project)
+
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+
+    except Exception as e:
+        print(f"❌ Error generating mkhost scripts for project: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
 @require_http_methods(["GET", "POST"])
 def host_wwpns_view(request, host_id):
     """Get or manage WWPNs for a specific host."""

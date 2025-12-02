@@ -14,7 +14,7 @@ from django.utils import timezone
 from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix, Switch
 from storage.models import Storage, Volume, Host, HostWwpn
 from customers.models import Customer
-from core.models import ProjectAlias, ProjectZone, ProjectHost, ProjectFabric, ProjectSwitch
+from core.models import ProjectAlias, ProjectZone, ProjectHost, ProjectFabric, ProjectSwitch, ProjectStorage, ProjectVolume
 from .parsers.base_parser import (
     ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch,
     ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort
@@ -1397,6 +1397,26 @@ class ImportOrchestrator:
                     self.stats['storage_systems_updated'] += 1
                     logger.info(f"Updated storage system: {system.name}")
 
+                # Assign storage to project if project_id was provided
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        ProjectStorage.objects.get_or_create(
+                            project=project,
+                            storage=storage,
+                            defaults={
+                                'action': 'new',
+                                'added_by': None,
+                                'notes': 'Imported from IBM Storage Insights'
+                            }
+                        )
+                        logger.debug(f"Assigned storage {storage.name} to project {project.name}")
+                    except Project.DoesNotExist:
+                        self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
+                    except Exception as e:
+                        self.stats['warnings'].append(f"Error assigning storage to project: {e}")
+
             except Exception as e:
                 error_msg = f"Failed to import storage system {system.name}: {e}"
                 self.stats['errors'].append(error_msg)
@@ -1480,6 +1500,26 @@ class ImportOrchestrator:
                 else:
                     self.stats['volumes_updated'] += 1
 
+                # Assign volume to project if project_id was provided
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        ProjectVolume.objects.get_or_create(
+                            project=project,
+                            volume=vol,
+                            defaults={
+                                'action': 'new',
+                                'added_by': None,
+                                'notes': 'Imported from IBM Storage Insights'
+                            }
+                        )
+                        logger.debug(f"Assigned volume {vol.name} to project {project.name}")
+                    except Project.DoesNotExist:
+                        self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
+                    except Exception as e:
+                        self.stats['warnings'].append(f"Error assigning volume to project: {e}")
+
             except Exception as e:
                 error_msg = f"Failed to import volume {volume.name}: {e}"
                 self.stats['errors'].append(error_msg)
@@ -1561,6 +1601,26 @@ class ImportOrchestrator:
                 else:
                     self.stats['hosts_updated'] += 1
                     logger.info(f"Updated host: {host.name} with {len(host.wwpns)} WWPNs")
+
+                # Assign host to project if project_id was provided
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        ProjectHost.objects.get_or_create(
+                            project=project,
+                            host=host_obj,
+                            defaults={
+                                'action': 'new',
+                                'added_by': None,
+                                'notes': 'Imported from IBM Storage Insights'
+                            }
+                        )
+                        logger.debug(f"Assigned host {host_obj.name} to project {project.name}")
+                    except Project.DoesNotExist:
+                        self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
+                    except Exception as e:
+                        self.stats['warnings'].append(f"Error assigning host to project: {e}")
 
             except Exception as e:
                 error_msg = f"Failed to import host {host.name}: {e}"

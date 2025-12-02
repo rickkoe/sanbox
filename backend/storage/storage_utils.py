@@ -3,22 +3,35 @@ Storage utility functions for generating mkhost scripts and other storage-relate
 """
 
 
-def generate_mkhost_scripts(storage_systems):
+def generate_mkhost_scripts(storage_systems, project=None):
     """
     Generate mkhost scripts for all storage systems.
-    
+
     Args:
         storage_systems: QuerySet of Storage objects
-        
+        project: Optional Project object to filter hosts by project membership
+
     Returns:
         dict: Storage scripts organized by storage system name
     """
     storage_scripts = {}
-    
+
     for storage in storage_systems:
         # Get all hosts assigned to this storage system with create=True
         from storage.models import Host
-        hosts = Host.objects.filter(storage=storage, create=True).order_by('name')
+
+        if project:
+            # Filter hosts by project membership via junction table
+            # If a host is in the project, it should be included in scripts
+            from core.models import ProjectHost
+            host_ids = ProjectHost.objects.filter(
+                project=project,
+                host__storage=storage
+            ).values_list('host_id', flat=True)
+            hosts = Host.objects.filter(id__in=host_ids).order_by('name')
+        else:
+            # Without a project, return empty - scripts require project context
+            hosts = Host.objects.none()
         
         
         if not hosts.exists():
@@ -30,24 +43,24 @@ def generate_mkhost_scripts(storage_systems):
             continue
         
         commands = []
-        
+
         for host in hosts:
-            # Get WWPNs from aliases referencing this host
-            from san.models import Alias
-            aliases_for_host = Alias.objects.filter(host=host)
-            
-            # Collect WWPNs from all aliases that reference this host
+            # Get WWPNs from HostWwpn records
+            from storage.models import HostWwpn
+            host_wwpns = HostWwpn.objects.filter(host=host)
+
+            # Collect WWPNs
             wwpn_list = []
-            for alias in aliases_for_host:
-                if alias.wwpn:
+            for hw in host_wwpns:
+                if hw.wwpn:
                     # Remove colons and any other formatting from WWPN
-                    clean_wwpn = alias.wwpn.replace(':', '').replace('-', '').strip()
+                    clean_wwpn = hw.wwpn.replace(':', '').replace('-', '').strip()
                     if clean_wwpn and clean_wwpn not in wwpn_list:  # Avoid duplicates
                         wwpn_list.append(clean_wwpn)
-            
+
             # Skip hosts without WWPNs
             if not wwpn_list:
-                print(f"⚠️ Skipping host {host.name} - no WWPNs found")
+                print(f"⚠️ Skipping host {host.name} - no WWPNs found in HostWwpn records")
                 continue
             
             # Generate command based on storage type
@@ -140,9 +153,8 @@ def generate_ds8000_device_id(storage):
             # Drop the 0 from the end and add 1
             device_id = f"IBM.2107-{serial[:-1] + '1'}"
             print(f"✅ DS8000 device ID generated: {storage.serial_number} -> {device_id}")
-        else:
-            # If doesn't end in 0, just add 1
-            device_id = "INVALID-DEVICE-ID"
+        elif serial.endswith('1'):
+            device_id = f"IBM.2107-{serial}"
             print(f"✅ DS8000 device ID generated: {storage.serial_number} -> {device_id}")
     else:
         print(f"⚠️ No serial number found for DS8000 {storage.name}, using default device_id")
