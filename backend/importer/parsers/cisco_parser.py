@@ -43,6 +43,7 @@ class CiscoParser(BaseParser):
             r'show running-config',
             r'device-alias database',
             r'fcalias name',
+            r'fcalias name \S+ vsan \d+\s*;',  # Single-line fcalias format
             r'zone name .* vsan',
         ]
 
@@ -429,6 +430,11 @@ class CiscoParser(BaseParser):
                     fabric_name=f'vsan{vsan}'
                 ))
 
+        # Parse single-line fcalias commands (e.g., "fcalias name X vsan Y ; member pwwn Z init")
+        single_line_fcaliases = self._parse_single_line_fcalias(data)
+        for vsan, fcaliases in single_line_fcaliases.items():
+            aliases.extend(fcaliases)
+
         # Parse zone definitions
         zone_pattern = r'zone name (\S+) vsan (\d+)\s*\n((?:  .*\n)*)'
         for match in re.finditer(zone_pattern, data):
@@ -654,6 +660,51 @@ class CiscoParser(BaseParser):
                         use=alias_data['use'],
                         fabric_name=f'vsan{vsan}'
                     ))
+
+        return aliases_by_vsan
+
+    def _parse_single_line_fcalias(self, data: str) -> Dict[int, List[ParsedAlias]]:
+        """
+        Parse single-line fcalias creation commands.
+
+        Format: fcalias name <name> vsan <vsan_id> ; member pwwn <wwpn> [init|target|both]
+
+        Examples:
+            fcalias name P10_MGT01A_port2 vsan 80 ; member pwwn C0:50:76:0C:9E:6D:00:0E init
+            fcalias name P10_PRD01ABK_port2 vsan 80 ; member pwwn C0:50:76:0C:9E:6D:00:CE
+        """
+        aliases_by_vsan = {}
+
+        # Pattern: fcalias name <name> vsan <vsan_id> ; member pwwn <wwpn> [init|target|both]?
+        pattern = r'fcalias\s+name\s+(\S+)\s+vsan\s+(\d+)\s*;\s*member\s+pwwn\s+([0-9a-fA-F:]+)(?:\s+(init|target|both))?'
+
+        for match in re.finditer(pattern, data, re.IGNORECASE):
+            alias_name = match.group(1)
+            vsan = int(match.group(2))
+            wwpn = match.group(3)
+            role = match.group(4)  # May be None
+
+            try:
+                normalized_wwpn = self.normalize_wwpn(wwpn)
+
+                # Determine use type: explicit role > auto-detect
+                if role:
+                    use = role.lower()
+                else:
+                    use = self.detect_wwpn_type(normalized_wwpn)
+
+                if vsan not in aliases_by_vsan:
+                    aliases_by_vsan[vsan] = []
+
+                aliases_by_vsan[vsan].append(ParsedAlias(
+                    name=alias_name,
+                    wwpns=[normalized_wwpn],
+                    alias_type='fcalias',
+                    use=use,
+                    fabric_name=f'vsan{vsan}'
+                ))
+            except ValueError as e:
+                self.add_error(f'Invalid WWPN for fcalias {alias_name}: {e}')
 
         return aliases_by_vsan
 
