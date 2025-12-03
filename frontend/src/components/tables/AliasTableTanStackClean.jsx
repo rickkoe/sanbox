@@ -193,7 +193,7 @@ const AliasTableTanStackClean = () => {
             const columnDef = {
                 data: `wwpn_${i}`,
                 title: `WWPN ${i}`, // Keep title as string for auto-sizing
-                required: i === 1 // Only first WWPN is required
+                required: false // WWPNs are optional (allows placeholder aliases without WWPNs)
             };
 
             // Add custom header with plus button only to the last column
@@ -844,21 +844,11 @@ const AliasTableTanStackClean = () => {
                 }
             }
 
-            // Validate WWPNs - check all WWPN columns
+            // Validate WWPN format (if provided) - aliases without WWPNs are allowed (placeholder aliases)
             const invalidWWPN = allTableData.find((alias) => {
                 if (!alias.name || alias.name.trim() === "") return false;
 
-                // Check if at least one WWPN is provided
-                let hasAnyWwpn = false;
-                for (let i = 1; i <= wwpnColumnCount; i++) {
-                    if (alias[`wwpn_${i}`] && alias[`wwpn_${i}`].trim()) {
-                        hasAnyWwpn = true;
-                        break;
-                    }
-                }
-                if (!hasAnyWwpn) return true; // No WWPN provided
-
-                // Validate format of all provided WWPNs
+                // Validate format of all provided WWPNs (empty WWPNs are allowed)
                 for (let i = 1; i <= wwpnColumnCount; i++) {
                     const wwpn = alias[`wwpn_${i}`];
                     if (wwpn && wwpn.trim()) {
@@ -874,7 +864,7 @@ const AliasTableTanStackClean = () => {
             if (invalidWWPN) {
                 return {
                     success: false,
-                    message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}". All WWPNs must be 16 hex characters.`,
+                    message: `⚠️ Invalid WWPN format for alias "${invalidWWPN.name}". WWPNs must be 16 hex characters (or leave blank for placeholder aliases).`,
                 };
             }
 

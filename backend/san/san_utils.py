@@ -3,11 +3,34 @@ from core.models import Config, ProjectAlias, ProjectZone
 from san.models import Alias, Zone, Fabric
 from .san_tools import wwpn_colonizer
 
+def get_effective_alias_field(alias, project_alias, field_name):
+    """
+    Get the effective value for an alias field, checking ProjectAlias field_overrides first.
+
+    Args:
+        alias: Alias model instance
+        project_alias: ProjectAlias junction table instance (or None)
+        field_name: Name of the field to get (e.g., 'use', 'cisco_alias', 'wwpn')
+
+    Returns:
+        The overridden value from project_alias.field_overrides if present,
+        otherwise the base value from the alias.
+    """
+    # Check for override in ProjectAlias
+    if project_alias and project_alias.field_overrides:
+        if field_name in project_alias.field_overrides:
+            return project_alias.field_overrides[field_name]
+
+    # Return base alias value
+    return getattr(alias, field_name, None)
+
+
 def should_include_alias_in_zoning(alias, project_alias, zone=None):
     """
     Determine if an alias should be included in zoning based on priority logic.
 
     Priority order:
+    0. No WWPN → EXCLUDE (placeholder aliases cannot be zoned)
     1. do_not_include_in_zoning=True → EXCLUDE (highest priority)
     2. include_in_zoning=True → INCLUDE (manual override)
     3. action='new' → INCLUDE (new aliases always included)
@@ -23,6 +46,11 @@ def should_include_alias_in_zoning(alias, project_alias, zone=None):
     Returns:
         bool: True if alias should be included in zoning
     """
+    # Priority 0: Aliases without WWPNs cannot be included in zoning
+    # (placeholder aliases auto-created from zone imports)
+    if not alias.wwpns:
+        return False
+
     # Priority 1: Explicit exclusion override
     if project_alias.do_not_include_in_zoning:
         return False
@@ -257,8 +285,12 @@ def generate_alias_commands(create_aliases, delete_aliases, project):
     Args:
         create_aliases: QuerySet of aliases to create
         delete_aliases: QuerySet of aliases to delete
-        project: Project instance (not used directly, but kept for consistency)
+        project: Project instance for looking up field_overrides
     """
+    # Build ProjectAlias map for looking up field_overrides
+    project_aliases = ProjectAlias.objects.filter(project=project).select_related('alias')
+    project_alias_map = {pa.alias_id: pa for pa in project_aliases}
+
     # Create separate dictionaries for creation and deletion commands
     device_alias_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     fcalias_create_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
@@ -267,9 +299,13 @@ def generate_alias_commands(create_aliases, delete_aliases, project):
     device_alias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     fcalias_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
     brocade_delete_dict = defaultdict(lambda: {"commands": [], "fabric_info": None})
-    
+
     # Process create aliases
     for alias in create_aliases:
+        # Skip aliases without WWPNs (placeholder aliases)
+        if not alias.wwpns:
+            continue
+
         key = alias.fabric.name
         fabric_info = {
             "name": alias.fabric.name,
@@ -285,6 +321,10 @@ def generate_alias_commands(create_aliases, delete_aliases, project):
         if brocade_create_dict[key]["fabric_info"] is None:
             brocade_create_dict[key]["fabric_info"] = fabric_info
             
+        # Get effective use value from ProjectAlias field_overrides if present
+        pa = project_alias_map.get(alias.id)
+        effective_use = get_effective_alias_field(alias, pa, 'use')
+
         if alias.fabric.san_vendor == 'CI':
             if alias.cisco_alias == 'device-alias':
                 if not device_alias_create_dict[key]["commands"]:
@@ -294,7 +334,7 @@ def generate_alias_commands(create_aliases, delete_aliases, project):
             elif alias.cisco_alias == 'fcalias':
                 if not fcalias_create_dict[key]["commands"]:
                     fcalias_create_dict[key]["commands"].append(f'### FCALIAS CREATION COMMANDS FOR {key.upper()} ')
-                fcalias_create_dict[key]["commands"].append(f'fcalias name {alias.name} vsan {alias.fabric.vsan} ; member pwwn {alias.wwpn} {alias.use}')
+                fcalias_create_dict[key]["commands"].append(f'fcalias name {alias.name} vsan {alias.fabric.vsan} ; member pwwn {alias.wwpn} {effective_use}')
         elif alias.fabric.san_vendor == 'BR':
             if not brocade_create_dict[key]["commands"]:
                 brocade_create_dict[key]["commands"].append(f'### ALIAS CREATION COMMANDS FOR {key.upper()} ')
@@ -500,15 +540,19 @@ def generate_zone_commands(create_zones, delete_zones, project):
                 if not should_use_add_command_for_zone(zone, project_zone):
                     zoneset_command_dict[key]["commands"].append(f'member {zone.name}')
                 for zone_member in zone_members:
-                    if zone_member.cisco_alias == 'fcalias':  
+                    # Get effective use value from ProjectAlias field_overrides if present
+                    pa = project_alias_map.get(zone_member.id)
+                    effective_use = get_effective_alias_field(zone_member, pa, 'use')
+
+                    if zone_member.cisco_alias == 'fcalias':
                         zone_command_dict[key]["commands"].append(f'member {zone_member.cisco_alias} {zone_member.name}')
                     elif zone_member.cisco_alias == 'device-alias' and zone.zone_type == 'smart':
-                        zone_command_dict[key]["commands"].append(f'member {zone_member.cisco_alias} {zone_member.name} {zone_member.use}')
+                        zone_command_dict[key]["commands"].append(f'member {zone_member.cisco_alias} {zone_member.name} {effective_use}')
                     elif zone_member.cisco_alias == 'device-alias' and zone.zone_type == 'standard':
                         zone_command_dict[key]["commands"].append(f'member {zone_member.cisco_alias} {zone_member.name}')
                     elif zone_member.cisco_alias == 'wwpn':
                         if zone.zone_type == 'smart':
-                            zone_command_dict[key]["commands"].append(f'member pwwn {zone_member.wwpn} {zone_member.use}')
+                            zone_command_dict[key]["commands"].append(f'member pwwn {zone_member.wwpn} {effective_use}')
                         elif zone.zone_type == 'standard':
                             zone_command_dict[key]["commands"].append(f'member pwwn {zone_member.wwpn}')
             elif zone.fabric.san_vendor == 'BR':
@@ -522,8 +566,15 @@ def generate_zone_commands(create_zones, delete_zones, project):
                     else:
                         zone_command_dict[key]["commands"].append(f'zonecreate "{zone.name}", "{zone_member_list}"')
                 elif zone.zone_type == 'smart':
-                    initiators = ';'.join([alias.name for alias in zone_members if alias.use == 'init'])
-                    targets = ';'.join([alias.name for alias in zone_members if alias.use == 'target'])
+                    # Get effective use values from ProjectAlias field_overrides
+                    initiators = ';'.join([
+                        alias.name for alias in zone_members
+                        if get_effective_alias_field(alias, project_alias_map.get(alias.id), 'use') == 'init'
+                    ])
+                    targets = ';'.join([
+                        alias.name for alias in zone_members
+                        if get_effective_alias_field(alias, project_alias_map.get(alias.id), 'use') == 'target'
+                    ])
                     if use_add_command:
                         if targets:
                             principal = f' -principal "{targets}"'

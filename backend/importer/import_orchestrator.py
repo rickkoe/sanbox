@@ -48,6 +48,7 @@ class ImportOrchestrator:
             'fabrics_updated': 0,
             'aliases_created': 0,
             'aliases_updated': 0,
+            'aliases_auto_created': 0,  # Placeholder aliases from zone members (no WWPN)
             'zones_created': 0,
             'zones_updated': 0,
             'switches_created': 0,
@@ -252,6 +253,64 @@ class ImportOrchestrator:
                 f'{skipped_fabrics} fabric(s) skipped - no aliases or zones assigned'
             )
 
+        # Detect aliases that will be auto-created from zone members
+        # These are zone members that reference aliases not being imported and not in database
+        imported_alias_names = {(a.fabric_name, a.name) for a in unique_aliases.values()}
+        auto_created_aliases = []
+
+        for zone in parse_result.zones:
+            fabric_name = zone.fabric_name
+            for member_name in zone.members:
+                # Skip if this member is a WWPN (16 hex chars)
+                clean_member = member_name.replace(':', '')
+                if len(clean_member) == 16 and all(c in '0123456789abcdefABCDEF' for c in clean_member):
+                    continue
+
+                # Check if this alias is being imported
+                if (fabric_name, member_name) in imported_alias_names:
+                    continue
+
+                # Check if alias already exists in database
+                from san.models import Alias, Fabric
+                try:
+                    # Find fabric by name or vsan pattern
+                    fabric = None
+                    if fabric_name:
+                        fabric = Fabric.objects.filter(name=fabric_name).first()
+                        if not fabric and fabric_name.startswith('vsan'):
+                            try:
+                                vsan_num = int(fabric_name.replace('vsan', ''))
+                                fabric = Fabric.objects.filter(vsan=vsan_num).first()
+                            except ValueError:
+                                pass
+
+                    if fabric:
+                        existing_alias = Alias.objects.filter(fabric=fabric, name=member_name).exists()
+                        if existing_alias:
+                            continue
+
+                    # This alias will be auto-created
+                    alias_key = (fabric_name, member_name)
+                    if alias_key not in [(a['fabric'], a['name']) for a in auto_created_aliases]:
+                        auto_created_aliases.append({
+                            'name': member_name,
+                            'fabric': fabric_name,
+                            'wwpn': None,
+                            'wwpns': [],
+                            'type': 'fcalias',
+                            'use': None,
+                            'auto_created': True,
+                            'reason': f'Referenced by zone but not in import data'
+                        })
+                except Exception as e:
+                    logger.warning(f"Error checking for existing alias {member_name}: {e}")
+
+        # Add warning if aliases will be auto-created
+        if auto_created_aliases:
+            parse_result.warnings.append(
+                f'{len(auto_created_aliases)} placeholder alias(es) will be auto-created from zone members (no WWPN)'
+            )
+
         return {
             'success': True,
             'parser': parser.__class__.__name__,
@@ -301,9 +360,11 @@ class ImportOrchestrator:
                 }
                 for s in parse_result.switches
             ],
+            'auto_created_aliases': auto_created_aliases,
             'counts': {
                 'fabrics': len(active_fabrics),  # Use filtered count
                 'aliases': len(unique_aliases),  # Use deduplicated count
+                'auto_created_aliases': len(auto_created_aliases),
                 'zones': len(parse_result.zones),
                 'switches': len(parse_result.switches)
             },
@@ -1099,10 +1160,50 @@ class ImportOrchestrator:
                                 self.stats['warnings'].append(f"Error handling WWPN {formatted_wwpn}: {e}")
                                 continue
                         else:
-                            self.stats['warnings'].append(
-                                f"Could not find alias '{member_name}' for zone {parsed_zone.name}"
-                            )
-                            continue
+                            # Auto-create missing alias as placeholder (no WWPN)
+                            try:
+                                alias, created = Alias.objects.get_or_create(
+                                    fabric=fabric,
+                                    name=member_name,
+                                    defaults={
+                                        'cisco_alias': 'fcalias',
+                                        'use': None,
+                                        'committed': False,
+                                        'deployed': False,
+                                    }
+                                )
+
+                                if created:
+                                    self.stats['aliases_auto_created'] += 1
+                                    logger.info(f"Auto-created placeholder alias '{member_name}' for zone {parsed_zone.name}")
+
+                                    # Add to project if project_id was provided
+                                    if self.project_id:
+                                        try:
+                                            from core.models import Project
+                                            project = Project.objects.get(id=self.project_id)
+                                            ProjectAlias.objects.get_or_create(
+                                                project=project,
+                                                alias=alias,
+                                                defaults={
+                                                    'action': 'new',
+                                                    'added_by': None,
+                                                    'notes': f'Auto-created from zone {parsed_zone.name}'
+                                                }
+                                            )
+                                            logger.info(f"Assigned auto-created alias {alias.name} to project {project.name}")
+                                        except Exception as e:
+                                            logger.warning(f"Could not assign auto-created alias to project: {e}")
+
+                                # Add to alias_map for subsequent zones
+                                alias_map[member_name] = alias
+                                fabric_key = f"{fabric.name}:{member_name}"
+                                alias_map[fabric_key] = alias
+                            except Exception as e:
+                                self.stats['warnings'].append(
+                                    f"Could not auto-create alias '{member_name}' for zone {parsed_zone.name}: {e}"
+                                )
+                                continue
 
                     if alias:
                         zone_aliases.append(alias)

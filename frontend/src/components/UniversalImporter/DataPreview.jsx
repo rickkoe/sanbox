@@ -22,6 +22,7 @@ const DataPreview = ({
 }) => {
   const [expandedSections, setExpandedSections] = useState({
     aliases: false,
+    auto_created_aliases: false,
     zones: false,
     fabrics: false,
     switches: false
@@ -58,6 +59,14 @@ const DataPreview = ({
       selected: selectedAliases.size,
       color: 'primary'
     },
+    ...(previewData?.counts?.auto_created_aliases > 0 ? [{
+      icon: Database,
+      label: 'Placeholder Aliases',
+      value: previewData?.counts?.auto_created_aliases || 0,
+      selected: 0,
+      color: 'attention',
+      tooltip: 'Placeholder aliases that will be auto-created from zone members (no WWPN)'
+    }] : []),
     {
       icon: GitBranch,
       label: 'Zones',
@@ -210,6 +219,56 @@ const DataPreview = ({
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Auto-Created Aliases Section (Read-only, informational) */}
+      {previewData?.auto_created_aliases && previewData.auto_created_aliases.length > 0 && (
+        <div className="preview-section">
+          <div className="preview-section-header" onClick={() => toggleSection('auto_created_aliases')}>
+            <div className="preview-section-title">
+              {expandedSections.auto_created_aliases ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+              <AlertTriangle size={18} style={{ color: 'var(--color-attention-fg)' }} />
+              <span>Placeholder Aliases - Auto-Created ({previewData.auto_created_aliases.length})</span>
+            </div>
+          </div>
+
+          {expandedSections.auto_created_aliases && (
+            <div className="preview-table-container">
+              <div className="alert alert-warning" style={{ margin: '0.5rem', padding: '0.5rem 1rem' }}>
+                <AlertTriangle size={16} style={{ marginRight: '8px' }} />
+                These aliases are referenced by zones but are not in the import data. They will be created as placeholder aliases without WWPNs.
+              </div>
+              <table className="preview-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>WWPN</th>
+                    <th>Type</th>
+                    <th>Fabric</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.auto_created_aliases.map((alias, idx) => (
+                    <tr key={idx} style={{ background: 'var(--color-attention-subtle)' }}>
+                      <td>{alias.name}</td>
+                      <td>
+                        <span style={{ color: 'var(--color-attention-fg)', fontStyle: 'italic' }}>
+                          (no WWPN)
+                        </span>
+                      </td>
+                      <td>{alias.type || 'fcalias'}</td>
+                      <td>{alias.fabric || 'default'}</td>
+                      <td style={{ fontSize: '0.85em', color: 'var(--muted-text)' }}>
+                        {alias.reason || 'Referenced by zone'}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

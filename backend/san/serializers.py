@@ -518,6 +518,9 @@ class ZoneSerializer(serializers.ModelSerializer):
         """
         Return a list of member alias details including use type.
 
+        When in Project View (project_id in context), applies ProjectAlias field_overrides
+        to show the overridden 'use' field value instead of the base Alias value.
+
         PERFORMANCE: This method relies on prefetch_related('members') being called
         in the view queryset. When properly prefetched, this accesses cached data
         instead of making additional database queries.
@@ -525,7 +528,45 @@ class ZoneSerializer(serializers.ModelSerializer):
         # Access prefetched members (already loaded in memory from view's Prefetch)
         # Using .all() on a prefetched relation does NOT trigger a new query
         members = obj.members.all()
-        return [{"id": alias.id, "name": alias.name, "alias_details": {"use": alias.use}} for alias in members]
+
+        # Check if we're in Project View context
+        project_id = self.context.get('project_id') or self.context.get('active_project_id')
+
+        if project_id:
+            # Build map of alias_id -> ProjectAlias for efficient lookup
+            alias_ids = [alias.id for alias in members]
+            project_aliases = ProjectAlias.objects.filter(
+                project_id=project_id,
+                alias_id__in=alias_ids
+            ).select_related('alias')
+
+            # Create lookup map: alias_id -> field_overrides
+            override_map = {
+                pa.alias_id: pa.field_overrides or {}
+                for pa in project_aliases
+            }
+
+            # Build member details with overrides applied
+            result = []
+            for alias in members:
+                # Get base use value
+                use_value = alias.use
+
+                # Check for override
+                overrides = override_map.get(alias.id, {})
+                if 'use' in overrides:
+                    use_value = overrides['use']
+
+                result.append({
+                    "id": alias.id,
+                    "name": alias.name,
+                    "alias_details": {"use": use_value}
+                })
+
+            return result
+        else:
+            # Customer View or no project context - use base values
+            return [{"id": alias.id, "name": alias.name, "alias_details": {"use": alias.use}} for alias in members]
 
     def get_project_memberships(self, obj):
         """Return list of projects this zone belongs to"""

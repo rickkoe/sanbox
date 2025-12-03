@@ -552,6 +552,10 @@ const UniversalImporter = () => {
                             data.metadata?.hosts_created || 0,
               hosts_updated: data.stats?.hosts_updated ||
                             data.metadata?.hosts_updated || 0,
+              // Auto-created placeholder aliases (from zone members)
+              aliases_auto_created: data.aliases_auto_created ||
+                                   data.stats?.aliases_auto_created ||
+                                   data.metadata?.aliases_auto_created || 0,
               duration: (() => {
                 if (!data.duration) return 0;
                 if (typeof data.duration === 'number') return Math.round(data.duration);
@@ -1102,6 +1106,16 @@ const UniversalImporter = () => {
                       </div>
                       <div className="completion-stat-label">
                         Alias{completionStats.aliases === 1 ? '' : 'es'}
+                      </div>
+                    </div>
+                  )}
+                  {completionStats.aliases_auto_created !== undefined && completionStats.aliases_auto_created > 0 && (
+                    <div className="completion-stat-card" style={{ borderColor: 'var(--color-attention-emphasis)' }}>
+                      <div className="completion-stat-value" style={{ color: 'var(--color-attention-fg)' }}>
+                        {completionStats.aliases_auto_created}
+                      </div>
+                      <div className="completion-stat-label">
+                        Placeholder{completionStats.aliases_auto_created === 1 ? '' : 's'}
                       </div>
                     </div>
                   )}

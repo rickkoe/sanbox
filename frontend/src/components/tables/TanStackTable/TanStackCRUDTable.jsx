@@ -1733,6 +1733,7 @@ const TanStackCRUDTable = forwardRef(({
                 columnKey={accessorKey}
                 updateCellData={updateCellData}
                 readOnly={readOnly}
+                selectedCells={selectedCells}
               />
             );
           }
@@ -2181,7 +2182,6 @@ const TanStackCRUDTable = forwardRef(({
   const clearCells = useCallback(() => {
     if (selectedCells.size === 0) return;
 
-
     setEditableData(currentData => {
       const newData = [...currentData];
 
@@ -2193,6 +2193,8 @@ const TanStackCRUDTable = forwardRef(({
             ...newData[rowIndex],
             [columnKey]: ''
           };
+          // Mark row as dirty so saveChanges will process it
+          newData[rowIndex]._isDirty = true;
         }
       });
 
@@ -2805,7 +2807,6 @@ const TanStackCRUDTable = forwardRef(({
       return;
     }
 
-
     setEditableData(currentData => {
       const newData = [...currentData];
 
@@ -2820,6 +2821,8 @@ const TanStackCRUDTable = forwardRef(({
           } else {
             newData[rowIndex][columnKey] = '';
           }
+          // Mark row as dirty so saveChanges will process it
+          newData[rowIndex]._isDirty = true;
         }
       });
 
@@ -5956,7 +5959,7 @@ const ExistsCheckboxCell = ({ value, rowIndex, columnKey, updateCellData, readOn
 };
 
 // Enhanced editable text cell component
-const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData, readOnly = false }) => {
+const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData, readOnly = false, selectedCells = new Set() }) => {
   const [localValue, setLocalValue] = useState(value || '');
   const [isEditing, setIsEditing] = useState(false);
   const [initialTypedChar, setInitialTypedChar] = useState('');
@@ -6052,7 +6055,13 @@ const EditableTextCell = ({ value, rowIndex, columnKey, updateCellData, readOnly
       e.stopPropagation();
       setIsEditing(true);
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
-      // Delete/Backspace clears the cell
+      // If multiple cells are selected, let the table handler deal with it
+      if (selectedCells.size > 1) {
+        // Don't preventDefault or stopPropagation - let it bubble up to table handler
+        return;
+      }
+
+      // Single cell selected - handle locally
       e.preventDefault();
       e.stopPropagation();
       setLocalValue('');

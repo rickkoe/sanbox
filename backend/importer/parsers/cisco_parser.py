@@ -446,6 +446,11 @@ class CiscoParser(BaseParser):
             if zone:
                 zones.append(zone)
 
+        # Parse zones without indentation (alternate format)
+        zones_no_indent = self._parse_zones_no_indent(data)
+        for vsan, zone_list in zones_no_indent.items():
+            zones.extend(zone_list)
+
         # Parse zoneset active (to get zoneset names)
         zoneset_pattern = r'zoneset name (\S+) vsan (\d+)'
         zoneset_by_vsan = {}
@@ -894,3 +899,79 @@ class CiscoParser(BaseParser):
             member_types=member_types if is_peer_zone else None,
             fabric_name=f'vsan{vsan}'
         )
+
+    def _parse_zones_no_indent(self, data: str) -> Dict[int, List[ParsedZone]]:
+        """
+        Parse zone definitions where member lines have no indentation.
+
+        Format:
+            zone name <zone_name> vsan <vsan_id>
+            member fcalias <alias_name>
+            member fcalias <alias_name>
+            zone name <next_zone> vsan <vsan_id>
+            ...
+        """
+        zones_by_vsan = {}
+
+        lines = data.split('\n')
+        current_zone = None
+        current_vsan = None
+        zone_members = []
+
+        for line in lines:
+            line = line.strip()
+
+            # Check for zone header
+            zone_match = re.match(r'zone name (\S+) vsan (\d+)', line)
+            if zone_match:
+                # Save previous zone if any
+                if current_zone and current_vsan and zone_members:
+                    if current_vsan not in zones_by_vsan:
+                        zones_by_vsan[current_vsan] = []
+                    zones_by_vsan[current_vsan].append(ParsedZone(
+                        name=current_zone,
+                        members=zone_members,
+                        zone_type='standard',
+                        member_types=None,
+                        fabric_name=f'vsan{current_vsan}'
+                    ))
+
+                # Start new zone
+                current_zone = zone_match.group(1)
+                current_vsan = int(zone_match.group(2))
+                zone_members = []
+                continue
+
+            # Check for member lines (only if we're in a zone)
+            if current_zone:
+                # member fcalias <name>
+                fcalias_match = re.match(r'member fcalias (\S+)', line)
+                if fcalias_match:
+                    zone_members.append(fcalias_match.group(1))
+                    continue
+
+                # member device-alias <name>
+                device_alias_match = re.match(r'member device-alias (\S+)', line)
+                if device_alias_match:
+                    zone_members.append(device_alias_match.group(1))
+                    continue
+
+                # member pwwn <wwpn> [tag]
+                pwwn_match = re.match(r'member pwwn ([0-9a-f:]+)', line, re.IGNORECASE)
+                if pwwn_match:
+                    zone_members.append(pwwn_match.group(1))
+                    continue
+
+        # Save last zone
+        if current_zone and current_vsan and zone_members:
+            if current_vsan not in zones_by_vsan:
+                zones_by_vsan[current_vsan] = []
+            zones_by_vsan[current_vsan].append(ParsedZone(
+                name=current_zone,
+                members=zone_members,
+                zone_type='standard',
+                member_types=None,
+                fabric_name=f'vsan{current_vsan}'
+            ))
+
+        return zones_by_vsan

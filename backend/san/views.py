@@ -3629,10 +3629,13 @@ def generate_zone_scripts(request, project_id):
         return JsonResponse({"error": "Error fetching zone records.", "details": str(e)}, status=500)
 
     # Check for aliases in project (delete_me=False) that are missing cisco_alias for Cisco fabrics
+    # or are missing WWPNs (placeholder aliases)
     warnings = []
     try:
         create_alias_ids = ProjectAlias.objects.filter(project=project, delete_me=False).values_list('alias_id', flat=True)
         create_aliases = Alias.objects.filter(id__in=create_alias_ids).select_related('fabric')
+
+        # Check for missing cisco_alias
         invalid_cisco_aliases = [
             alias for alias in create_aliases
             if alias.fabric and alias.fabric.san_vendor == 'CI' and not alias.cisco_alias
@@ -3658,6 +3661,30 @@ def generate_zone_scripts(request, project_id):
             warning_message += "; ".join(fabric_details)
             warnings.append(warning_message)
             print(f"⚠️  Found {len(invalid_cisco_aliases)} Cisco aliases missing cisco_alias field")
+
+        # Check for aliases without WWPNs (placeholder aliases)
+        aliases_without_wwpn = [alias for alias in create_aliases if not alias.wwpns]
+
+        if aliases_without_wwpn:
+            fabric_groups = {}
+            for alias in aliases_without_wwpn:
+                fabric_name = alias.fabric.name if alias.fabric else "Unknown"
+                if fabric_name not in fabric_groups:
+                    fabric_groups[fabric_name] = []
+                fabric_groups[fabric_name].append(alias.name)
+
+            warning_message = "Some aliases in the project are missing WWPNs (placeholder aliases). "
+            warning_message += "These aliases will NOT be included in zone scripts until WWPNs are added. "
+            warning_message += f"Affected aliases ({len(aliases_without_wwpn)} total): "
+
+            fabric_details = []
+            for fabric_name, alias_names in fabric_groups.items():
+                fabric_details.append(f"{fabric_name}: {', '.join(alias_names[:5])}" +
+                                    (f" (and {len(alias_names)-5} more)" if len(alias_names) > 5 else ""))
+
+            warning_message += "; ".join(fabric_details)
+            warnings.append(warning_message)
+            print(f"⚠️  Found {len(aliases_without_wwpn)} aliases missing WWPNs")
     except Exception as e:
         print(f"⚠️  Error checking for invalid aliases: {e}")
 
