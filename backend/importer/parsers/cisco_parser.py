@@ -784,8 +784,8 @@ class CiscoParser(BaseParser):
 
                     continue
 
-                # Check for fcalias member
-                fcalias_match = re.match(r'fcalias (\S+)', line)
+                # Check for fcalias member (tech-support format: "fcalias name <alias> vsan <id>")
+                fcalias_match = re.match(r'fcalias\s+name\s+(\S+)\s+vsan\s+\d+', line)
                 if fcalias_match:
                     zone_members.append(fcalias_match.group(1))
                     continue
