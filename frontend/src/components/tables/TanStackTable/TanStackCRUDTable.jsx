@@ -80,6 +80,9 @@ const TanStackCRUDTable = forwardRef(({
   totalCheckboxSelected, // Total count of selected rows (for _selected column across all pages)
   onClearAllCheckboxes, // Callback when user unchecks header checkbox with all pages selected
 
+  // Dropdown filter invalidation key - when this changes, dropdown cells re-render to pick up new filter results
+  dropdownFilterKey = 0,
+
   ...otherProps
 }, ref) => {
 
@@ -1793,6 +1796,7 @@ const TanStackCRUDTable = forwardRef(({
 
             return (
               <MultiSelectDropdownCell
+                key={`${row.original.id}-${accessorKey}-${dropdownFilterKey}`}
                 value={value}
                 options={options}
                 rowIndex={rowIndex}
@@ -1832,7 +1836,7 @@ const TanStackCRUDTable = forwardRef(({
 
             return (
               <VendorDropdownCell
-                key={`${row.original.id}-${accessorKey}`}
+                key={`${row.original.id}-${accessorKey}-${dropdownFilterKey}`}
                 value={value}
                 options={options}
                 rowIndex={rowIndex}

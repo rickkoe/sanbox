@@ -15,6 +15,7 @@ import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
 import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort } from "../../utils/tableConfigLoader";
 import "../../styles/zone-table.css";
+import { Form } from "react-bootstrap";
 
 // Clean TanStack Table implementation for Zone management
 const ZoneTableTanStackClean = () => {
@@ -40,6 +41,10 @@ const ZoneTableTanStackClean = () => {
     const [allCustomerZones, setAllCustomerZones] = useState([]); // All customer zones for bulk modal
     const [totalRowCount, setTotalRowCount] = useState(0); // Total rows in table
     const [showAllMemberColumns, setShowAllMemberColumns] = useState(false); // Expand/collapse member columns
+    const [showAllAliases, setShowAllAliases] = useState(false); // Show all aliases in dropdowns (bypass already-zoned filter)
+    const showAllAliasesRef = useRef(showAllAliases); // Ref for filter function access (avoids stale closure)
+    // Update ref synchronously during render (before useMemo runs) - useEffect is too late!
+    showAllAliasesRef.current = showAllAliases;
     const [currentPage, setCurrentPage] = useState(1); // Track current page for reset on navigation
 
     // Debug: Track showAllMemberColumns changes
@@ -47,6 +52,12 @@ const ZoneTableTanStackClean = () => {
         console.log('📊 showAllMemberColumns changed to:', showAllMemberColumns);
         console.trace('showAllMemberColumns change stack trace');
     }, [showAllMemberColumns]);
+
+    // Debug: Track showAllAliases changes
+    useEffect(() => {
+        console.log('🔘 showAllAliases state changed to:', showAllAliases);
+    }, [showAllAliases]);
+
 
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter } = useProjectFilter();
@@ -542,10 +553,14 @@ const ZoneTableTanStackClean = () => {
                             const aliases = response.data.results || response.data;
                             allAliases = [...allAliases, ...aliases];
 
-                            hasMore = response.data.has_next;
+                            hasMore = response.data.has_next === true;
                             page++;
+
+                            // Safety limit to prevent infinite loops
+                            if (page > 100) break;
                         }
 
+                        console.log(`📦 Fetched ${allAliases.length} aliases for zone dropdowns (${page - 1} pages)`);
                         return { data: { results: allAliases } };
                     };
 
@@ -860,10 +875,10 @@ const ZoneTableTanStackClean = () => {
         // Add member dropdown sources (will be filtered by custom renderers)
         const aliasMaxZones = settings?.alias_max_zones || 1;
         // Note: Filtering now happens in backend (alias_list_view) based on deployed status and manual overrides
-        // For now, show all aliases from the project (zone_id filtering can be added later for optimization)
-        const availableAliases = aliasOptions.filter(alias =>
-            (alias.zoned_count || 0) < aliasMaxZones
-        );
+        // When showAllAliases is true, skip the zoned_count pre-filtering
+        const availableAliases = showAllAliasesRef.current
+            ? aliasOptions  // Show ALL aliases when toggle is on
+            : aliasOptions.filter(alias => (alias.zoned_count || 0) < aliasMaxZones);
 
         // Add target member columns with full alias list (filtering happens in custom renderer)
         for (let i = 1; i <= memberColumnCounts.targets; i++) {
@@ -883,10 +898,11 @@ const ZoneTableTanStackClean = () => {
         }
 
         return sources;
-    }, [fabricOptions, aliasOptions, settings, memberColumnCounts]); // Needs to recreate when columns added
+    }, [fabricOptions, aliasOptions, settings, memberColumnCounts, showAllAliases]); // Needs to recreate when columns added or showAllAliases changes
 
     // Dynamic dropdown filters for member columns
     const dropdownFilters = useMemo(() => {
+        console.log(`🔄 dropdownFilters useMemo recreating - showAllAliases=${showAllAliases}`);
         const filters = {};
 
         // Get all member column keys for all types
@@ -946,7 +962,7 @@ const ZoneTableTanStackClean = () => {
                     });
                 }
 
-                console.log(`🔍 ${columnKey}: Checking zone fabric="${zoneFabric}", found ${usedAcrossAllZones.size} aliases used across all zones:`, Array.from(usedAcrossAllZones));
+                console.log(`🔍 ${columnKey}: Checking zone fabric="${zoneFabric}", showAllAliases=${showAllAliasesRef.current}, found ${usedAcrossAllZones.size} aliases used across all zones:`, Array.from(usedAcrossAllZones));
 
                 // Filter aliases by fabric, use type, zone count limits, and cross-zone usage
                 const filteredAliases = aliasOptions.filter(alias => {
@@ -964,24 +980,27 @@ const ZoneTableTanStackClean = () => {
                     }
 
                     // Check if already used in ANY zone (but allow current value)
+                    // Skip this check if showAllAliases is enabled
                     const isCurrentValue = alias.name === currentValue;
                     const alreadyUsedInAnyZone = usedAcrossAllZones.has(alias.name);
 
-                    if (alreadyUsedInAnyZone && !isCurrentValue) {
+                    if (!showAllAliasesRef.current && alreadyUsedInAnyZone && !isCurrentValue) {
                         console.log(`  ❌ Excluded ${alias.name}: already used in another zone`);
                         return false;
                     }
 
                     // Check zone count limits - allow current value even if at limit
-                    const hasRoomForMoreZones = (alias.zoned_count || 0) < aliasMaxZones;
+                    // Skip this check if showAllAliases is enabled
+                    if (!showAllAliasesRef.current) {
+                        const hasRoomForMoreZones = (alias.zoned_count || 0) < aliasMaxZones;
 
-                    const result = hasRoomForMoreZones || isCurrentValue;
-
-                    if (!result) {
-                        console.log(`  ❌ Excluded ${alias.name}: zoned_count=${alias.zoned_count}, max=${aliasMaxZones}, current=${isCurrentValue}`);
+                        if (!hasRoomForMoreZones && !isCurrentValue) {
+                            console.log(`  ❌ Excluded ${alias.name}: zoned_count=${alias.zoned_count}, max=${aliasMaxZones}, current=${isCurrentValue}`);
+                            return false;
+                        }
                     }
 
-                    return result;
+                    return true;
                 });
 
                 const filteredNames = filteredAliases.map(alias => alias.name);
@@ -995,7 +1014,7 @@ const ZoneTableTanStackClean = () => {
         });
 
         return filters;
-    }, [aliasOptions, settings, memberColumnCounts]); // Needs to recreate when columns added
+    }, [aliasOptions, settings, memberColumnCounts, showAllAliases]); // Needs to recreate when columns added or showAllAliases changes
 
     // Custom cell validation for fabric consistency
     const customValidation = useCallback((value, rowData, columnKey) => {
@@ -1850,6 +1869,18 @@ const ZoneTableTanStackClean = () => {
     const filterToggleButtons = (
         <>
             {expandCollapseButton}
+            <div className="zone-table-alias-toggle">
+                <Form.Check
+                    type="switch"
+                    id="show-all-aliases-toggle"
+                    label="Show All Aliases"
+                    checked={showAllAliases}
+                    onChange={(e) => {
+                        console.log('🔘 Toggle clicked! Setting showAllAliases to:', e.target.checked);
+                        setShowAllAliases(e.target.checked);
+                    }}
+                />
+            </div>
             <ProjectViewToolbar
                 projectFilter={projectFilter}
                 onFilterChange={handleFilterChange}
@@ -1882,6 +1913,7 @@ const ZoneTableTanStackClean = () => {
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
                 dropdownFilters={dropdownFilters}
+                dropdownFilterKey={showAllAliases ? 1 : 0}
                 newRowTemplate={NEW_ZONE_TEMPLATE}
                 defaultSort={defaultSort}
 

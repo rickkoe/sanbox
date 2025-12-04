@@ -120,6 +120,27 @@ def should_generate_zone_commands(zone, project_zone):
             return False
     return True
 
+def should_generate_alias_commands(alias, project_alias):
+    """
+    Determine if commands should be generated for an alias based on deployed status.
+
+    Logic:
+    - If alias.deployed=True AND action NOT in ['new', 'modified'], skip
+    - Otherwise, generate commands
+
+    Args:
+        alias: Alias model instance
+        project_alias: ProjectAlias junction table instance
+
+    Returns:
+        bool: True if commands should be generated
+    """
+    if alias.deployed:
+        # Skip if not new or modified
+        if project_alias.action not in ['new', 'modified']:
+            return False
+    return True
+
 def should_use_add_command_for_zone(zone, project_zone):
     """
     Determine if zone commands should use 'add' syntax (zoneadd, cfgadd) vs 'create'.
@@ -306,13 +327,18 @@ def generate_alias_commands(create_aliases, delete_aliases, project):
         if not alias.wwpns:
             continue
 
+        # Skip aliases that shouldn't have commands generated (unmodified + deployed)
+        pa = project_alias_map.get(alias.id)
+        if not pa or not should_generate_alias_commands(alias, pa):
+            continue
+
         key = alias.fabric.name
         fabric_info = {
             "name": alias.fabric.name,
             "san_vendor": alias.fabric.san_vendor,
             "vsan": alias.fabric.vsan
         }
-        
+
         # Set fabric info for creation dictionaries
         if device_alias_create_dict[key]["fabric_info"] is None:
             device_alias_create_dict[key]["fabric_info"] = fabric_info
@@ -320,9 +346,8 @@ def generate_alias_commands(create_aliases, delete_aliases, project):
             fcalias_create_dict[key]["fabric_info"] = fabric_info
         if brocade_create_dict[key]["fabric_info"] is None:
             brocade_create_dict[key]["fabric_info"] = fabric_info
-            
+
         # Get effective use value from ProjectAlias field_overrides if present
-        pa = project_alias_map.get(alias.id)
         effective_use = get_effective_alias_field(alias, pa, 'use')
 
         if alias.fabric.san_vendor == 'CI':
@@ -496,13 +521,32 @@ def generate_zone_commands(create_zones, delete_zones, project):
         if not project_zone or not should_generate_zone_commands(zone, project_zone):
             continue
 
-        # Filter zone members to only those included in zoning for this project
+        # Filter zone members based on zone action:
+        # - New zone: include ALL members (regardless of action or deployed status)
+        # - Modified zone: only include new/modified members OR not-deployed members
+        # - Unmodified zone: use original zoning_alias_ids filtering
         zone_member_list = []
         zone_members = []  # Alias objects
         for zone_member in zone.members.all():
-            if zone_member.id in zoning_alias_ids:
+            # Skip placeholder aliases (no WWPNs)
+            if not zone_member.wwpns:
+                continue
+
+            if project_zone.action == 'new':
+                # New zone: include ALL members
                 zone_member_list.append(zone_member.name)
-                zone_members.append(zone_member)  # Keep the actual object
+                zone_members.append(zone_member)
+            elif project_zone.action == 'modified':
+                # Modified zone: only include new/modified members OR not-deployed members
+                pa = project_alias_map.get(zone_member.id)
+                if pa and (pa.action in ['new', 'modified'] or not zone_member.deployed):
+                    zone_member_list.append(zone_member.name)
+                    zone_members.append(zone_member)
+            else:
+                # Unmodified zones: use original zoning_alias_ids logic
+                if zone_member.id in zoning_alias_ids:
+                    zone_member_list.append(zone_member.name)
+                    zone_members.append(zone_member)
         zone_member_length = len(zone_member_list)
         key = zone.fabric.name
 

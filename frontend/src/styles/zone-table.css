@@ -102,9 +102,53 @@
     }
 }
 
+/* Show All Aliases toggle switch styling */
+.zone-table-alias-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    margin-right: 12px;
+    border-radius: var(--radius-md, 6px);
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--color-border-default);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary-text);
+}
+
+.zone-table-alias-toggle .form-check-input {
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.zone-table-alias-toggle .form-check-label {
+    cursor: pointer;
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+/* Theme-aware switch track colors - override Bootstrap defaults */
+.zone-table-alias-toggle .form-check-input:checked {
+    background-color: var(--button-primary-bg) !important;
+    border-color: var(--button-primary-bg) !important;
+}
+
+.zone-table-alias-toggle .form-check-input:not(:checked) {
+    background-color: var(--button-hover-bg) !important;
+    border-color: var(--color-border-default) !important;
+}
+
+.zone-table-alias-toggle .form-check-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(9, 105, 218, 0.25) !important;
+}
+
 /* Print styles - hide interactive elements */
 @media print {
     .zone-table-expand-btn {
+        display: none;
+    }
+
+    .zone-table-alias-toggle {
         display: none;
     }
 
