@@ -960,6 +960,69 @@ def alias_project_view(request, project_id):
 
     print(f"🔍 Project {project_id}: ProjectAlias count after search = {project_aliases.count()}")
 
+    # Apply field-specific advanced filters
+    # Frontend sends params like 'name__icontains', we need to map to 'alias__name__icontains'
+    filter_params = {}
+    for param, value in request.GET.items():
+        # Skip pagination and search params
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id']:
+            continue
+
+        # Map frontend parameter to Django ORM lookup through junction table
+        mapped_param = None
+
+        # Special handling for project_action - this is on the junction table itself, not the entity
+        if param.startswith('project_action__'):
+            # Map project_action to action (the field name on ProjectAlias)
+            mapped_param = param.replace('project_action', 'action')
+            # __in lookup requires a list, even for single values
+            if mapped_param.endswith('__in'):
+                filter_params[mapped_param] = [v.strip() for v in value.split(',')] if isinstance(value, str) else value
+            else:
+                filter_params[mapped_param] = value
+        elif param.startswith(('name__', 'use__', 'fabric_name__', 'fabric_details.name__', 'host_name__', 'host_details.name__', 'storage_details.name__', 'cisco_alias__', 'notes__', 'logged_in__', 'committed__', 'deployed__', 'include_in_zoning__', 'do_not_include_in_zoning__')):
+            # Map special field names
+            if param.startswith('fabric_details.name'):
+                mapped_param = param.replace('fabric_details.name', 'alias__fabric__name')
+            elif param.startswith('fabric_name'):
+                mapped_param = param.replace('fabric_name', 'alias__fabric__name')
+            elif param.startswith('host_details.name'):
+                mapped_param = param.replace('host_details.name', 'alias__host__name')
+            elif param.startswith('host_name'):
+                mapped_param = param.replace('host_name', 'alias__host__name')
+            elif param.startswith('storage_details.name'):
+                mapped_param = param.replace('storage_details.name', 'alias__storage__name')
+            else:
+                mapped_param = f'alias__{param}'
+
+            # Handle boolean fields
+            if any(param.startswith(f'{bool_field}__') for bool_field in ['logged_in', 'committed', 'deployed', 'include_in_zoning', 'do_not_include_in_zoning']):
+                if mapped_param.endswith('__in'):
+                    boolean_values = []
+                    for str_val in value.split(','):
+                        str_val = str_val.strip()
+                        if str_val.lower() == 'true':
+                            boolean_values.append(True)
+                        elif str_val.lower() == 'false':
+                            boolean_values.append(False)
+                    filter_params[mapped_param] = boolean_values
+                else:
+                    if value.lower() == 'true':
+                        filter_params[mapped_param] = True
+                    elif value.lower() == 'false':
+                        filter_params[mapped_param] = False
+            else:
+                # Handle regular string filters
+                if mapped_param.endswith('__in') and isinstance(value, str) and ',' in value:
+                    filter_params[mapped_param] = value.split(',')
+                else:
+                    filter_params[mapped_param] = value
+
+    # Apply filters to queryset
+    if filter_params:
+        project_aliases = project_aliases.filter(**filter_params)
+        print(f"🔍 Project {project_id}: ProjectAlias count after advanced filters = {project_aliases.count()}")
+
     # ===== PAGINATION =====
     from django.core.paginator import Paginator
 
@@ -2760,6 +2823,74 @@ def zone_project_view(request, project_id):
         Prefetch('zone__project_memberships',
                  queryset=ProjectZone.objects.select_related('project'))
     )
+
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+
+    # Apply search filter if provided
+    if search:
+        from django.db.models import Q
+        project_zones = project_zones.filter(
+            Q(zone__name__icontains=search) |
+            Q(zone__fabric__name__icontains=search) |
+            Q(zone__zone_type__icontains=search) |
+            Q(zone__notes__icontains=search) |
+            Q(zone__members__name__icontains=search)
+        ).distinct()
+
+    # Apply field-specific advanced filters
+    # Frontend sends params like 'name__icontains', we need to map to 'zone__name__icontains'
+    filter_params = {}
+    for param, value in request.GET.items():
+        # Skip pagination and search params
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id']:
+            continue
+
+        # Map frontend parameter to Django ORM lookup through junction table
+        mapped_param = None
+
+        # Special handling for project_action - this is on the junction table itself, not the entity
+        if param.startswith('project_action__'):
+            # Map project_action to action (the field name on ProjectZone)
+            mapped_param = param.replace('project_action', 'action')
+            # __in lookup requires a list, even for single values
+            if mapped_param.endswith('__in'):
+                filter_params[mapped_param] = [v.strip() for v in value.split(',')] if isinstance(value, str) else value
+            else:
+                filter_params[mapped_param] = value
+        elif param.startswith(('name__', 'fabric_name__', 'zone_type__', 'notes__', 'exists__', 'committed__', 'deployed__')):
+            # Map fabric_name to fabric__name for Django ORM
+            if param.startswith('fabric_name'):
+                mapped_param = param.replace('fabric_name', 'zone__fabric__name')
+            else:
+                mapped_param = f'zone__{param}'
+
+            # Handle boolean fields
+            if any(param.startswith(f'{bool_field}__') for bool_field in ['exists', 'committed', 'deployed']):
+                if mapped_param.endswith('__in'):
+                    boolean_values = []
+                    for str_val in value.split(','):
+                        str_val = str_val.strip()
+                        if str_val.lower() == 'true':
+                            boolean_values.append(True)
+                        elif str_val.lower() == 'false':
+                            boolean_values.append(False)
+                    filter_params[mapped_param] = boolean_values
+                else:
+                    if value.lower() == 'true':
+                        filter_params[mapped_param] = True
+                    elif value.lower() == 'false':
+                        filter_params[mapped_param] = False
+            else:
+                # Handle regular string filters
+                if mapped_param.endswith('__in') and isinstance(value, str) and ',' in value:
+                    filter_params[mapped_param] = value.split(',')
+                else:
+                    filter_params[mapped_param] = value
+
+    # Apply filters to queryset
+    if filter_params:
+        project_zones = project_zones.filter(**filter_params)
 
     # ===== PAGINATION =====
     from django.core.paginator import Paginator
@@ -4696,6 +4827,51 @@ def switch_project_view(request, project_id):
                  queryset=ProjectSwitch.objects.select_related('project'))
     )
 
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+
+    # Apply search filter if provided
+    if search:
+        from django.db.models import Q
+        project_switches = project_switches.filter(
+            Q(switch__name__icontains=search) |
+            Q(switch__ip_address__icontains=search) |
+            Q(switch__san_vendor__icontains=search)
+        ).distinct()
+
+    # Apply field-specific advanced filters
+    # Frontend sends params like 'name__icontains', we need to map to 'switch__name__icontains'
+    filter_params = {}
+    for param, value in request.GET.items():
+        # Skip pagination and search params
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter']:
+            continue
+
+        # Map frontend parameter to Django ORM lookup through junction table
+        mapped_param = None
+
+        # Special handling for project_action - this is on the junction table itself, not the entity
+        if param.startswith('project_action__'):
+            # Map project_action to action (the field name on ProjectSwitch)
+            mapped_param = param.replace('project_action', 'action')
+            # __in lookup requires a list, even for single values
+            if mapped_param.endswith('__in'):
+                filter_params[mapped_param] = [v.strip() for v in value.split(',')] if isinstance(value, str) else value
+            else:
+                filter_params[mapped_param] = value
+        elif param.startswith(('name__', 'ip_address__', 'san_vendor__')):
+            mapped_param = f'switch__{param}'
+
+            # Handle filters
+            if mapped_param.endswith('__in') and isinstance(value, str) and ',' in value:
+                filter_params[mapped_param] = value.split(',')
+            else:
+                filter_params[mapped_param] = value
+
+    # Apply filters to queryset
+    if filter_params:
+        project_switches = project_switches.filter(**filter_params)
+
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
     page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
@@ -4925,6 +5101,51 @@ def fabric_project_view(request, project_id):
         Prefetch('fabric__project_memberships',
                  queryset=ProjectFabric.objects.select_related('project'))
     )
+
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+
+    # Apply search filter if provided
+    if search:
+        from django.db.models import Q
+        project_fabrics = project_fabrics.filter(
+            Q(fabric__name__icontains=search) |
+            Q(fabric__san_vendor__icontains=search) |
+            Q(fabric__vsan__icontains=search)
+        ).distinct()
+
+    # Apply field-specific advanced filters
+    # Frontend sends params like 'name__icontains', we need to map to 'fabric__name__icontains'
+    filter_params = {}
+    for param, value in request.GET.items():
+        # Skip pagination and search params
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter']:
+            continue
+
+        # Map frontend parameter to Django ORM lookup through junction table
+        mapped_param = None
+
+        # Special handling for project_action - this is on the junction table itself, not the entity
+        if param.startswith('project_action__'):
+            # Map project_action to action (the field name on ProjectFabric)
+            mapped_param = param.replace('project_action', 'action')
+            # __in lookup requires a list, even for single values
+            if mapped_param.endswith('__in'):
+                filter_params[mapped_param] = [v.strip() for v in value.split(',')] if isinstance(value, str) else value
+            else:
+                filter_params[mapped_param] = value
+        elif param.startswith(('name__', 'san_vendor__', 'vsan__')):
+            mapped_param = f'fabric__{param}'
+
+            # Handle filters
+            if mapped_param.endswith('__in') and isinstance(value, str) and ',' in value:
+                filter_params[mapped_param] = value.split(',')
+            else:
+                filter_params[mapped_param] = value
+
+    # Apply filters to queryset
+    if filter_params:
+        project_fabrics = project_fabrics.filter(**filter_params)
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))

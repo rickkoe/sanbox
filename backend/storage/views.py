@@ -1784,6 +1784,52 @@ def storage_project_view(request, project_id):
                  queryset=ProjectStorage.objects.select_related('project'))
     )
 
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+
+    # Apply search filter if provided
+    if search:
+        from django.db.models import Q
+        project_storages = project_storages.filter(
+            Q(storage__name__icontains=search) |
+            Q(storage__storage_type__icontains=search) |
+            Q(storage__manufacturer__icontains=search) |
+            Q(storage__model__icontains=search)
+        ).distinct()
+
+    # Apply field-specific advanced filters
+    # Frontend sends params like 'name__icontains', we need to map to 'storage__name__icontains'
+    filter_params = {}
+    for param, value in request.GET.items():
+        # Skip pagination and search params
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter']:
+            continue
+
+        # Map frontend parameter to Django ORM lookup through junction table
+        mapped_param = None
+
+        # Special handling for project_action - this is on the junction table itself, not the entity
+        if param.startswith('project_action__'):
+            # Map project_action to action (the field name on ProjectStorage)
+            mapped_param = param.replace('project_action', 'action')
+            # __in lookup requires a list, even for single values
+            if mapped_param.endswith('__in'):
+                filter_params[mapped_param] = [v.strip() for v in value.split(',')] if isinstance(value, str) else value
+            else:
+                filter_params[mapped_param] = value
+        elif param.startswith(('name__', 'storage_type__', 'manufacturer__', 'model__')):
+            mapped_param = f'storage__{param}'
+
+            # Handle filters
+            if mapped_param.endswith('__in') and isinstance(value, str) and ',' in value:
+                filter_params[mapped_param] = value.split(',')
+            else:
+                filter_params[mapped_param] = value
+
+    # Apply filters to queryset
+    if filter_params:
+        project_storages = project_storages.filter(**filter_params)
+
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
     page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
@@ -1971,6 +2017,57 @@ def volume_project_view(request, project_id):
         Prefetch('volume__project_memberships',
                  queryset=ProjectVolume.objects.select_related('project'))
     )
+
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+
+    # Apply search filter if provided
+    if search:
+        from django.db.models import Q
+        project_volumes = project_volumes.filter(
+            Q(volume__name__icontains=search) |
+            Q(volume__storage__name__icontains=search) |
+            Q(volume__volume_type__icontains=search)
+        ).distinct()
+
+    # Apply field-specific advanced filters
+    # Frontend sends params like 'name__icontains', we need to map to 'volume__name__icontains'
+    filter_params = {}
+    for param, value in request.GET.items():
+        # Skip pagination and search params
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter']:
+            continue
+
+        # Map frontend parameter to Django ORM lookup through junction table
+        mapped_param = None
+
+        # Special handling for project_action - this is on the junction table itself, not the entity
+        if param.startswith('project_action__'):
+            # Map project_action to action (the field name on ProjectVolume)
+            mapped_param = param.replace('project_action', 'action')
+            # __in lookup requires a list, even for single values
+            if mapped_param.endswith('__in'):
+                filter_params[mapped_param] = [v.strip() for v in value.split(',')] if isinstance(value, str) else value
+            else:
+                filter_params[mapped_param] = value
+        elif param.startswith(('name__', 'volume_type__')):
+            mapped_param = f'volume__{param}'
+        elif param.startswith('storage_name__'):
+            # Map storage_name to storage__name for Django ORM
+            mapped_param = param.replace('storage_name', 'volume__storage__name')
+        elif param.startswith('storage__name__'):
+            mapped_param = param.replace('storage__name', 'volume__storage__name')
+
+        if mapped_param:
+            # Handle filters
+            if mapped_param.endswith('__in') and isinstance(value, str) and ',' in value:
+                filter_params[mapped_param] = value.split(',')
+            else:
+                filter_params[mapped_param] = value
+
+    # Apply filters to queryset
+    if filter_params:
+        project_volumes = project_volumes.filter(**filter_params)
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
@@ -2161,6 +2258,58 @@ def host_project_view(request, project_id):
         Prefetch('host__project_memberships',
                  queryset=ProjectHost.objects.select_related('project'))
     )
+
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+
+    # Apply search filter if provided
+    if search:
+        from django.db.models import Q
+        project_hosts = project_hosts.filter(
+            Q(host__name__icontains=search) |
+            Q(host__status__icontains=search) |
+            Q(host__host_type__icontains=search) |
+            Q(host__storage__name__icontains=search)
+        ).distinct()
+
+    # Apply field-specific advanced filters
+    # Frontend sends params like 'name__icontains', we need to map to 'host__name__icontains'
+    filter_params = {}
+    for param, value in request.GET.items():
+        # Skip pagination and search params
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter']:
+            continue
+
+        # Map frontend parameter to Django ORM lookup through junction table
+        mapped_param = None
+
+        # Special handling for project_action - this is on the junction table itself, not the entity
+        if param.startswith('project_action__'):
+            # Map project_action to action (the field name on ProjectHost)
+            mapped_param = param.replace('project_action', 'action')
+            # __in lookup requires a list, even for single values
+            if mapped_param.endswith('__in'):
+                filter_params[mapped_param] = [v.strip() for v in value.split(',')] if isinstance(value, str) else value
+            else:
+                filter_params[mapped_param] = value
+        elif param.startswith(('name__', 'status__', 'host_type__', 'storage_name__', 'storage__name__')):
+            # Map storage_name to storage__name for Django ORM
+            if param.startswith('storage_name'):
+                mapped_param = param.replace('storage_name', 'host__storage__name')
+            elif param.startswith('storage__name'):
+                mapped_param = param.replace('storage__name', 'host__storage__name')
+            else:
+                mapped_param = f'host__{param}'
+
+            # Handle regular string filters
+            if mapped_param.endswith('__in') and isinstance(value, str) and ',' in value:
+                filter_params[mapped_param] = value.split(',')
+            else:
+                filter_params[mapped_param] = value
+
+    # Apply filters to queryset
+    if filter_params:
+        project_hosts = project_hosts.filter(**filter_params)
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))
@@ -2353,6 +2502,57 @@ def port_project_view(request, project_id):
         Prefetch('port__project_memberships',
                  queryset=ProjectPort.objects.select_related('project'))
     )
+
+    # Get search parameter
+    search = request.GET.get('search', '').strip()
+
+    # Apply search filter if provided
+    if search:
+        from django.db.models import Q
+        project_ports = project_ports.filter(
+            Q(port__wwpn__icontains=search) |
+            Q(port__storage__name__icontains=search) |
+            Q(port__port_type__icontains=search)
+        ).distinct()
+
+    # Apply field-specific advanced filters
+    # Frontend sends params like 'wwpn__icontains', we need to map to 'port__wwpn__icontains'
+    filter_params = {}
+    for param, value in request.GET.items():
+        # Skip pagination and search params
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter']:
+            continue
+
+        # Map frontend parameter to Django ORM lookup through junction table
+        mapped_param = None
+
+        # Special handling for project_action - this is on the junction table itself, not the entity
+        if param.startswith('project_action__'):
+            # Map project_action to action (the field name on ProjectPort)
+            mapped_param = param.replace('project_action', 'action')
+            # __in lookup requires a list, even for single values
+            if mapped_param.endswith('__in'):
+                filter_params[mapped_param] = [v.strip() for v in value.split(',')] if isinstance(value, str) else value
+            else:
+                filter_params[mapped_param] = value
+        elif param.startswith(('wwpn__', 'port_type__')):
+            mapped_param = f'port__{param}'
+        elif param.startswith('storage_name__'):
+            # Map storage_name to storage__name for Django ORM
+            mapped_param = param.replace('storage_name', 'port__storage__name')
+        elif param.startswith('storage__name__'):
+            mapped_param = param.replace('storage__name', 'port__storage__name')
+
+        if mapped_param:
+            # Handle filters
+            if mapped_param.endswith('__in') and isinstance(value, str) and ',' in value:
+                filter_params[mapped_param] = value.split(',')
+            else:
+                filter_params[mapped_param] = value
+
+    # Apply filters to queryset
+    if filter_params:
+        project_ports = project_ports.filter(**filter_params)
 
     # ===== PAGINATION =====
     page = int(request.GET.get('page', 1))

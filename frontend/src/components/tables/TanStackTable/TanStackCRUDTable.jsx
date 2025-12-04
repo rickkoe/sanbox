@@ -10,7 +10,7 @@ import {
   getColumnResizeMode,
   flexRender,
 } from '@tanstack/react-table';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Maximize2, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Maximize2, Search, Download } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import FilterDropdown from './components/FilterDropdown';
@@ -145,8 +145,11 @@ const TanStackCRUDTable = forwardRef(({
   // Dropdown menu states
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [addActionsMenuOpen, setAddActionsMenuOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const columnMenuRef = useRef(null);
   const addActionsMenuRef = useRef(null);
+  const exportMenuRef = useRef(null);
 
   // Client-side pagination state (for when we load all data)
   const [pagination, setPagination] = useState({
@@ -656,6 +659,204 @@ const TanStackCRUDTable = forwardRef(({
     }
   }, [apiUrl, buildApiUrl]);
 
+  // Fetch all filtered data for export (respects current search and filters)
+  const fetchAllFilteredDataForExport = useCallback(async () => {
+    if (!apiUrl) return [];
+
+    try {
+      // Fetch all pages of data for export
+      // Use page_size=500 (max supported by most endpoints) and iterate through pages
+      const maxPageSize = 500;
+      let allData = [];
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const url = buildApiUrl(currentPage, maxPageSize, globalFilter, activeFilters);
+
+        const response = await api.get(url, {
+          timeout: 60000 // 1 minute timeout per page
+        });
+
+        const dataList = response.data.results || response.data;
+        const totalCount = response.data.count;
+
+        // Process data if preprocessing function provided
+        const processedData = preprocessDataRef.current ? preprocessDataRef.current(dataList) : dataList;
+
+        if (processedData === null) {
+          return [];
+        }
+
+        allData = [...allData, ...processedData];
+
+        // Check if there are more pages
+        if (totalCount !== undefined) {
+          hasMore = allData.length < totalCount;
+        } else {
+          // If no count, check if we got a full page
+          hasMore = dataList.length === maxPageSize;
+        }
+
+        currentPage++;
+
+        // Safety limit to prevent infinite loops
+        if (currentPage > 100) {
+          console.warn('Export reached page limit (100 pages)');
+          break;
+        }
+      }
+
+      return allData;
+    } catch (error) {
+      console.error('❌ Error fetching data for export:', error);
+      throw error;
+    }
+  }, [apiUrl, buildApiUrl, globalFilter, activeFilters]);
+
+  // Get visible columns for export (excludes internal columns like _selected)
+  const getExportColumns = useCallback(() => {
+    // Get visible columns from table config, excluding internal columns
+    const internalColumns = ['_selected', 'project_action'];
+
+    return columns
+      .filter(col => {
+        const colId = col.data || col.accessorKey || col.id;
+        // Exclude internal columns
+        if (internalColumns.includes(colId)) return false;
+        // Check if column is visible
+        if (columnVisibility[colId] === false) return false;
+        return true;
+      })
+      .map(col => ({
+        id: col.data || col.accessorKey || col.id,
+        header: col.title || col.header || col.data || col.accessorKey || col.id
+      }));
+  }, [columns, columnVisibility]);
+
+  // Format value for export (handles various data types)
+  const formatExportValue = useCallback((value) => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+    if (value instanceof Date) return value.toISOString().split('T')[0];
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }, []);
+
+  // Export to CSV format
+  const exportToCSV = useCallback(async () => {
+    setIsExporting(true);
+    setExportMenuOpen(false);
+
+    try {
+      const data = await fetchAllFilteredDataForExport();
+
+      if (data.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      const exportColumns = getExportColumns();
+      const headers = exportColumns.map(col => col.header);
+
+      // Convert data to CSV rows
+      const csvRows = [headers];
+      data.forEach(row => {
+        const rowValues = exportColumns.map(col => {
+          const value = row[col.id];
+          const formatted = formatExportValue(value);
+          // Escape quotes and wrap in quotes if contains comma, quote, or newline
+          if (formatted.includes(',') || formatted.includes('"') || formatted.includes('\n')) {
+            return `"${formatted.replace(/"/g, '""')}"`;
+          }
+          return formatted;
+        });
+        csvRows.push(rowValues);
+      });
+
+      const csvContent = csvRows.map(row => row.join(',')).join('\n');
+
+      // Create and trigger download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      link.href = url;
+      link.download = `${tableName || 'export'}_${timestamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log(`📊 Exported ${data.length} rows to CSV`);
+    } catch (error) {
+      console.error('CSV export failed:', error);
+      alert('Export failed: ' + error.message);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [fetchAllFilteredDataForExport, getExportColumns, formatExportValue, tableName]);
+
+  // Export to Excel format
+  const exportToXLSX = useCallback(async () => {
+    setIsExporting(true);
+    setExportMenuOpen(false);
+
+    try {
+      // Dynamic import to avoid circular dependency issues
+      const XLSX = await import('xlsx');
+
+      const data = await fetchAllFilteredDataForExport();
+
+      if (data.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      const exportColumns = getExportColumns();
+      const headers = exportColumns.map(col => col.header);
+
+      // Convert data to worksheet format
+      const worksheetData = [headers];
+      data.forEach(row => {
+        const rowValues = exportColumns.map(col => {
+          const value = row[col.id];
+          return formatExportValue(value);
+        });
+        worksheetData.push(rowValues);
+      });
+
+      // Create workbook and worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+      // Auto-size columns based on content
+      const columnWidths = headers.map((header, index) => {
+        const maxLength = Math.max(
+          header.toString().length,
+          ...worksheetData.slice(1).map(row => (row[index] || '').toString().length)
+        );
+        return { width: Math.min(Math.max(maxLength + 2, 10), 50) };
+      });
+      worksheet['!cols'] = columnWidths;
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, tableName || 'Data');
+
+      // Generate Excel file and trigger download
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      XLSX.writeFile(workbook, `${tableName || 'export'}_${timestamp}.xlsx`);
+
+      console.log(`📈 Exported ${data.length} rows to Excel`);
+    } catch (error) {
+      console.error('Excel export failed:', error);
+      alert('Export failed: ' + error.message);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [fetchAllFilteredDataForExport, getExportColumns, formatExportValue, tableName]);
+
   // Ref to track if we should allow automatic reloads
   const hasChangesRef = useRef(false);
   useEffect(() => {
@@ -706,8 +907,9 @@ const TanStackCRUDTable = forwardRef(({
     if (currentPage !== 1) {
       setCurrentPage(1);
     }
-    // Don't trigger loadData here - it will be triggered by the currentPage change above
-  }, [globalFilter]);
+    // Trigger reload even if already on page 1
+    setReloadTrigger(prev => prev + 1);
+  }, [globalFilter, currentPage]);
 
   // Load table configuration on mount
   useEffect(() => {
@@ -1424,6 +1626,8 @@ const TanStackCRUDTable = forwardRef(({
     // Reset to page 1 when filters change (for server-side filtering)
     if (useServerSideFiltering) {
       setCurrentPage(1);
+      // Trigger reload even if already on page 1
+      setReloadTrigger(prev => prev + 1);
     } else {
       // Reset client-side pagination to first page when filters change
       setPagination(prev => ({ ...prev, pageIndex: 0 }));
@@ -1460,8 +1664,8 @@ const TanStackCRUDTable = forwardRef(({
       pageSize: pageSize === 'All' ? 10000 : (parseInt(pageSize) || 100)  // Sync with current pageSize state
     }));
 
-    // The useEffect for loadData will automatically trigger when activeFilters and globalFilter change
-    // No need to manually call loadData here as it will cause the right data loading behavior
+    // Trigger reload even if already on page 1
+    setReloadTrigger(prev => prev + 1);
   }, [pageSize]);
 
   // Sync activeFilters when columnFilters change from other sources
@@ -2126,12 +2330,16 @@ const TanStackCRUDTable = forwardRef(({
       if (addActionsMenuOpen && addActionsMenuRef.current && !addActionsMenuRef.current.contains(event.target)) {
         setAddActionsMenuOpen(false);
       }
+      if (exportMenuOpen && exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
+        setExportMenuOpen(false);
+      }
     };
 
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
         setColumnMenuOpen(false);
         setAddActionsMenuOpen(false);
+        setExportMenuOpen(false);
       }
     };
 
@@ -2142,7 +2350,7 @@ const TanStackCRUDTable = forwardRef(({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [columnMenuOpen, addActionsMenuOpen]);
+  }, [columnMenuOpen, addActionsMenuOpen, exportMenuOpen]);
 
   // Arrow key navigation
   const navigateToCell = useCallback((newRow, newCol) => {
@@ -4112,6 +4320,128 @@ const TanStackCRUDTable = forwardRef(({
           )}
         </div>
 
+        {/* Export Dropdown */}
+        <div className="dropdown" ref={exportMenuRef}>
+          <button
+            type="button"
+            onClick={() => setExportMenuOpen(!exportMenuOpen)}
+            disabled={isExporting}
+            aria-expanded={exportMenuOpen}
+            style={{
+              padding: '10px 18px',
+              backgroundColor: 'var(--table-pagination-button-bg)',
+              color: 'var(--table-toolbar-text)',
+              border: '1px solid var(--table-pagination-button-border)',
+              borderRadius: '6px',
+              cursor: isExporting ? 'wait' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              opacity: isExporting ? 0.7 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!isExporting) {
+                e.currentTarget.style.backgroundColor = 'var(--table-row-hover)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--table-pagination-button-bg)';
+            }}
+          >
+            <Download size={16} />
+            {isExporting ? 'Exporting...' : 'Export'}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          {exportMenuOpen && (
+            <ul
+              className="table-dropdown-menu show"
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                marginTop: '4px',
+                padding: '8px 0',
+                backgroundColor: 'var(--content-bg)',
+                border: '1px solid var(--table-border)',
+                borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                zIndex: 1000,
+                minWidth: '180px',
+                listStyle: 'none'
+              }}
+            >
+              <li>
+                <button
+                  type="button"
+                  onClick={exportToCSV}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    backgroundColor: 'transparent',
+                    color: 'var(--table-dropdown-text)',
+                    border: 'none',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--table-row-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                  Export as CSV
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={exportToXLSX}
+                  style={{
+                    width: '100%',
+                    padding: '10px 16px',
+                    backgroundColor: 'transparent',
+                    color: 'var(--table-dropdown-text)',
+                    border: 'none',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--table-row-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <rect x="8" y="12" width="8" height="6" rx="1"/>
+                  </svg>
+                  Export as Excel
+                </button>
+              </li>
+              <li><hr className="table-dropdown-divider" style={{ margin: '8px 0', border: 'none', borderTop: '1px solid var(--table-dropdown-border)' }} /></li>
+              <li style={{ padding: '6px 16px', color: 'var(--muted-text)', fontSize: '12px' }}>
+                Exports all {totalItems} filtered rows
+              </li>
+            </ul>
+          )}
+        </div>
 
         {/* Custom toolbar content (e.g., filter toggles) */}
         {customToolbarContent && (
