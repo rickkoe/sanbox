@@ -47,18 +47,6 @@ const ZoneTableTanStackClean = () => {
     showAllAliasesRef.current = showAllAliases;
     const [currentPage, setCurrentPage] = useState(1); // Track current page for reset on navigation
 
-    // Debug: Track showAllMemberColumns changes
-    useEffect(() => {
-        console.log('📊 showAllMemberColumns changed to:', showAllMemberColumns);
-        console.trace('showAllMemberColumns change stack trace');
-    }, [showAllMemberColumns]);
-
-    // Debug: Track showAllAliases changes
-    useEffect(() => {
-        console.log('🔘 showAllAliases state changed to:', showAllAliases);
-    }, [showAllAliases]);
-
-
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter } = useProjectFilter();
 
@@ -902,7 +890,6 @@ const ZoneTableTanStackClean = () => {
 
     // Dynamic dropdown filters for member columns
     const dropdownFilters = useMemo(() => {
-        console.log(`🔄 dropdownFilters useMemo recreating - showAllAliases=${showAllAliases}`);
         const filters = {};
 
         // Get all member column keys for all types
@@ -915,16 +902,9 @@ const ZoneTableTanStackClean = () => {
         // Create fabric and use-type based filter for member columns
         allMemberColumns.forEach(memberKey => {
             filters[memberKey] = (options, rowData, columnKey, allTableData) => {
-                console.log(`🎯 Filter function called for ${columnKey}:`, {
-                    optionsCount: options?.length,
-                    hasRowData: !!rowData,
-                    hasAllTableData: !!allTableData,
-                    allTableDataLength: allTableData?.length
-                });
 
                 const zoneFabric = rowData?.fabric;
                 if (!zoneFabric) {
-                    console.log(`⚠️ No fabric selected for ${columnKey}, showing no options`);
                     return [];
                 }
 
@@ -962,8 +942,6 @@ const ZoneTableTanStackClean = () => {
                     });
                 }
 
-                console.log(`🔍 ${columnKey}: Checking zone fabric="${zoneFabric}", showAllAliases=${showAllAliasesRef.current}, found ${usedAcrossAllZones.size} aliases used across all zones:`, Array.from(usedAcrossAllZones));
-
                 // Filter aliases by fabric, use type, zone count limits, and cross-zone usage
                 const filteredAliases = aliasOptions.filter(alias => {
                     // Must match fabric
@@ -985,7 +963,6 @@ const ZoneTableTanStackClean = () => {
                     const alreadyUsedInAnyZone = usedAcrossAllZones.has(alias.name);
 
                     if (!showAllAliasesRef.current && alreadyUsedInAnyZone && !isCurrentValue) {
-                        console.log(`  ❌ Excluded ${alias.name}: already used in another zone`);
                         return false;
                     }
 
@@ -995,7 +972,6 @@ const ZoneTableTanStackClean = () => {
                         const hasRoomForMoreZones = (alias.zoned_count || 0) < aliasMaxZones;
 
                         if (!hasRoomForMoreZones && !isCurrentValue) {
-                            console.log(`  ❌ Excluded ${alias.name}: zoned_count=${alias.zoned_count}, max=${aliasMaxZones}, current=${isCurrentValue}`);
                             return false;
                         }
                     }
@@ -1006,10 +982,7 @@ const ZoneTableTanStackClean = () => {
                 const filteredNames = filteredAliases.map(alias => alias.name);
 
                 // Only return options that exist in both the original list and pass all filters
-                const result = options.filter(option => filteredNames.includes(option));
-
-                console.log(`🔍 ${columnKey} (${requiredUseType}) filtered from ${options.length} to ${result.length} for fabric ${zoneFabric} (max zones: ${aliasMaxZones}, used across all zones: ${usedAcrossAllZones.size})`);
-                return result;
+                return options.filter(option => filteredNames.includes(option));
             };
         });
 
@@ -1875,10 +1848,7 @@ const ZoneTableTanStackClean = () => {
                     id="show-all-aliases-toggle"
                     label="Show All Aliases"
                     checked={showAllAliases}
-                    onChange={(e) => {
-                        console.log('🔘 Toggle clicked! Setting showAllAliases to:', e.target.checked);
-                        setShowAllAliases(e.target.checked);
-                    }}
+                    onChange={(e) => setShowAllAliases(e.target.checked)}
                 />
             </div>
             <ProjectViewToolbar
