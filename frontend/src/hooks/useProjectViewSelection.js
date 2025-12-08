@@ -370,7 +370,7 @@ export const useProjectViewSelection = ({
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                             </svg>
                             <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
-                                <strong>Customer View is read-only.</strong> Switch to <strong>Project View</strong> to edit cells.
+                                <strong>Live mode is read-only.</strong> Switch to <strong>Draft mode</strong> to make changes.
                             </span>
                         </div>
                     </div>

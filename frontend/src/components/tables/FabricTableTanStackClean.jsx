@@ -21,7 +21,7 @@ const FabricTableTanStackClean = () => {
     const activeProjectId = config?.active_project?.id;
 
     // Project filter state - synchronized across all tables via ProjectFilterContext
-    const { projectFilter, setProjectFilter } = useProjectFilter();
+    const { projectFilter } = useProjectFilter();
     const [showBulkModal, setShowBulkModal] = useState(false);
     const [allCustomerFabrics, setAllCustomerFabrics] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
@@ -111,14 +111,7 @@ const FabricTableTanStackClean = () => {
         loadAllCustomerFabrics();
     }, [showBulkModal, customerId, activeProjectId, API_URL]);
 
-    // Handle filter change
-    const handleFilterChange = useCallback((newFilter) => {
-        setProjectFilter(newFilter);
-        localStorage.setItem('fabricTableProjectFilter', newFilter);
-        if (tableRef.current?.reloadData) {
-            tableRef.current.reloadData();
-        }
-    }, []);
+    // Live/Draft toggle is now in the navbar
 
     // Vendor mapping
     const vendorOptions = [
@@ -445,15 +438,12 @@ const FabricTableTanStackClean = () => {
         }
     }, [projectFilter, totalRowCount]);
 
-    // Use ProjectViewToolbar component (replaces ~170 lines of duplicated code)
+    // Use ProjectViewToolbar component for table-specific actions
+    // (Live/Draft toggle and Commit are now in the navbar)
     const filterToggleButtons = (
         <ProjectViewToolbar
-            projectFilter={projectFilter}
-            onFilterChange={handleFilterChange}
             activeProjectId={activeProjectId}
-            activeProjectName={config?.active_project?.name || 'Unknown Project'}
             onBulkClick={() => setShowBulkModal(true)}
-            onCommitSuccess={() => tableRef.current?.reloadData?.()}
             ActionsDropdown={ActionsDropdown}
             entityName="fabrics"
         />

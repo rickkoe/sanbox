@@ -5,6 +5,8 @@ import { Building2, FolderOpen, Plus } from 'lucide-react';
 import { ConfigContext } from '../../context/ConfigContext';
 import { useTheme } from '../../context/ThemeContext';
 import api from '../../api';
+import ViewModeToggle from './ViewModeToggle';
+import ProjectOptionsDropdown from './ProjectOptionsDropdown';
 import '../../styles/configform.css';
 
 const DualContextDropdown = () => {
@@ -300,6 +302,12 @@ const DualContextDropdown = () => {
                     </Dropdown.Menu>
                 </Dropdown>
             )}
+
+            {/* View Mode Toggle (Live/Draft) */}
+            <ViewModeToggle />
+
+            {/* Project Options Dropdown */}
+            <ProjectOptionsDropdown />
 
             {/* Customer Modal */}
             {showCustomerModal && createPortal(

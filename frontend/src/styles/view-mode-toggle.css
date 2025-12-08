@@ -1,0 +1,161 @@
+/* ========== VIEW MODE TOGGLE STYLES ========== */
+/*
+ * Sliding toggle switch for Live/Draft mode selection.
+ * Uses theme CSS variables for light/dark mode compatibility.
+ */
+
+.view-mode-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 12px;
+}
+
+/* Labels on either side of the toggle */
+.view-mode-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--navbar-text);
+    opacity: 0.6;
+    cursor: pointer;
+    transition: all var(--transition-speed, 0.2s) ease;
+    user-select: none;
+}
+
+.view-mode-label:hover:not(.disabled) {
+    opacity: 0.8;
+}
+
+.view-mode-label.active {
+    opacity: 1;
+    font-weight: 600;
+    color: var(--navbar-text);
+}
+
+.view-mode-label.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* The toggle switch button */
+.view-mode-toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: var(--color-neutral-muted, #6e7681);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all var(--transition-speed, 0.2s) ease;
+    padding: 0;
+    outline: none;
+}
+
+.view-mode-toggle:hover:not(.disabled) {
+    background: var(--color-neutral-emphasis, #57606a);
+}
+
+.view-mode-toggle:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-accent-emphasis, #1f6feb);
+}
+
+/* Toggle in Live mode (slider on left) */
+.view-mode-toggle.live {
+    background: var(--color-success-emphasis, #238636);
+}
+
+.view-mode-toggle.live:hover:not(.disabled) {
+    background: var(--color-success-emphasis, #2ea043);
+}
+
+/* Toggle in Draft mode (slider on right) */
+.view-mode-toggle.draft {
+    background: var(--color-accent-emphasis, #1f6feb);
+}
+
+.view-mode-toggle.draft:hover:not(.disabled) {
+    background: var(--color-accent-emphasis, #388bfd);
+}
+
+/* Disabled state */
+.view-mode-toggle.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* The sliding indicator */
+.toggle-slider {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    transition: transform var(--transition-speed, 0.2s) ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Move slider to right when in Draft mode */
+.view-mode-toggle.draft .toggle-slider {
+    transform: translateX(20px);
+}
+
+/* Live mode - slider stays on left */
+.view-mode-toggle.live .toggle-slider {
+    transform: translateX(0);
+}
+
+/* ========== THEME-SPECIFIC OVERRIDES ========== */
+
+/* Dark theme adjustments */
+.theme-dark .view-mode-toggle.live,
+.navbar.theme-dark .view-mode-toggle.live {
+    background: var(--color-success-emphasis, #238636);
+}
+
+.theme-dark .view-mode-toggle.draft,
+.navbar.theme-dark .view-mode-toggle.draft {
+    background: var(--color-accent-emphasis, #388bfd);
+}
+
+.theme-dark .toggle-slider,
+.navbar.theme-dark .toggle-slider {
+    background: #f0f0f0;
+}
+
+/* ========== RESPONSIVE ADJUSTMENTS ========== */
+
+@media (max-width: 992px) {
+    .view-mode-toggle-container {
+        margin: 0 8px;
+    }
+
+    .view-mode-label {
+        font-size: 12px;
+    }
+
+    .view-mode-toggle {
+        width: 40px;
+        height: 22px;
+    }
+
+    .toggle-slider {
+        width: 16px;
+        height: 16px;
+    }
+
+    .view-mode-toggle.draft .toggle-slider {
+        transform: translateX(18px);
+    }
+}
+
+@media (max-width: 768px) {
+    .view-mode-toggle-container {
+        margin: 0 4px;
+    }
+
+    .view-mode-label {
+        font-size: 11px;
+    }
+}

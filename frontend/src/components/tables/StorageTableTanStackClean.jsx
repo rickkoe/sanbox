@@ -94,16 +94,7 @@ const StorageTableTanStackClean = () => {
 
     // Selection state and actions dropdown are now managed by useProjectViewSelection hook
     // Auto-switch and force visibility are now handled by hooks
-
-    // Handle filter toggle change
-    const handleFilterChange = useCallback((newFilter) => {
-        setProjectFilter(newFilter);
-        localStorage.setItem('storageTableProjectFilter', newFilter);
-        // Reload table data with new filter
-        if (tableRef.current && tableRef.current.reloadData) {
-            tableRef.current.reloadData();
-        }
-    }, []);
+    // Live/Draft toggle is now in the navbar
 
     // Load all customer storage when modal opens
     useEffect(() => {
@@ -410,15 +401,12 @@ const StorageTableTanStackClean = () => {
         }
     }, [projectFilter, totalRowCount]);
 
-    // Use ProjectViewToolbar component (replaces ~170 lines of duplicated code)
+    // Use ProjectViewToolbar component for table-specific actions
+    // (Live/Draft toggle and Commit are now in the navbar)
     const filterToggleButtons = (
         <ProjectViewToolbar
-            projectFilter={projectFilter}
-            onFilterChange={handleFilterChange}
             activeProjectId={activeProjectId}
-            activeProjectName={config?.active_project?.name || 'Unknown Project'}
             onBulkClick={() => setShowBulkModal(true)}
-            onCommitSuccess={() => tableRef.current?.reloadData?.()}
             ActionsDropdown={ActionsDropdown}
             entityName="storage systems"
         />

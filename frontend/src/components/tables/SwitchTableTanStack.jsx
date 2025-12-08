@@ -79,15 +79,7 @@ const SwitchTableTanStack = () => {
     // Customer View is always read-only; Project View depends on permissions
     const isReadOnly = projectFilter !== 'current' || !canEdit;
 
-    // Handle filter change
-    const handleFilterChange = (newFilter) => {
-        setProjectFilter(newFilter);
-        localStorage.setItem('switchTableProjectFilter', newFilter);
-        // Reload table data
-        if (tableRef.current?.reloadData) {
-            tableRef.current.reloadData();
-        }
-    };
+    // Live/Draft toggle is now in the navbar
 
     // Determine API URL based on filter (needed for select all handler)
     const getApiUrl = () => {
@@ -517,15 +509,12 @@ const SwitchTableTanStack = () => {
                 };
             });
 
-    // Custom toolbar buttons - Actions dropdown + View toggle buttons
+    // Custom toolbar buttons - Actions dropdown + Bulk Add/Remove
+    // (Live/Draft toggle and Commit are now in the navbar)
     const filterToggleButtons = (
         <ProjectViewToolbar
-            projectFilter={projectFilter}
-            onFilterChange={handleFilterChange}
             activeProjectId={activeProjectId}
-            activeProjectName={config?.active_project?.name || 'Unknown Project'}
             onBulkClick={() => setShowBulkModal(true)}
-            onCommitSuccess={() => tableRef.current?.reloadData?.()}
             ActionsDropdown={ActionsDropdown}
             entityName="switches"
         />

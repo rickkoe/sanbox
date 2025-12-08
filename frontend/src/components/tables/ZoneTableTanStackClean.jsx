@@ -112,15 +112,7 @@ const ZoneTableTanStackClean = () => {
         };
     }, [API_URL, apiUrl]);
 
-    // Handle filter toggle change
-    const handleFilterChange = useCallback((newFilter) => {
-        setProjectFilter(newFilter);
-        localStorage.setItem('zoneTableProjectFilter', newFilter);
-        // Reload table data with new filter
-        if (tableRef.current?.reloadData) {
-            tableRef.current.reloadData();
-        }
-    }, []);
+    // Live/Draft toggle is now in the navbar
 
     // Handler to select all rows across all pages
     // Selection state and actions dropdown are now managed by useProjectViewSelection hook
@@ -1838,7 +1830,8 @@ const ZoneTableTanStackClean = () => {
         </button>
     );
 
-    // Use ProjectViewToolbar component (replaces ~170 lines of duplicated code)
+    // Use ProjectViewToolbar component for table-specific actions
+    // (Live/Draft toggle and Commit are now in the navbar)
     const filterToggleButtons = (
         <>
             {expandCollapseButton}
@@ -1852,12 +1845,8 @@ const ZoneTableTanStackClean = () => {
                 />
             </div>
             <ProjectViewToolbar
-                projectFilter={projectFilter}
-                onFilterChange={handleFilterChange}
                 activeProjectId={activeProjectId}
-                activeProjectName={config?.active_project?.name || 'Unknown Project'}
                 onBulkClick={() => setShowBulkModal(true)}
-                onCommitSuccess={() => tableRef.current?.reloadData?.()}
                 ActionsDropdown={ActionsDropdown}
                 entityName="zones"
             />
