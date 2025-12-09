@@ -4,7 +4,6 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
-import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
@@ -31,10 +30,6 @@ const SwitchTableTanStack = () => {
     // State for fabrics dropdown
     const [fabrics, setFabrics] = useState([]);
     const [fabricsLoading, setFabricsLoading] = useState(false);
-
-    // Bulk add/remove modal
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    const [allCustomerSwitches, setAllCustomerSwitches] = useState([]);
 
     // Use centralized API hook
     const { apiUrl } = useProjectViewAPI({
@@ -304,42 +299,6 @@ const SwitchTableTanStack = () => {
         }
     }, [projectFilter, totalRowCount]);
 
-    // Load all customer switches when modal opens
-    useEffect(() => {
-        const loadAllCustomerSwitches = async () => {
-            if (showBulkModal && activeCustomerId && activeProjectId) {
-                try {
-                    console.log('📥 Loading all customer switches for bulk modal...');
-                    let allSwitches = [];
-                    let page = 1;
-                    let hasMore = true;
-                    const pageSize = 500;
-
-                    // Use project endpoint with project_filter=all to get all customer switches
-                    // with in_active_project flag already set by the API
-                    while (hasMore) {
-                        const response = await api.get(
-                            `${API_URL}/api/san/switches/project/${activeProjectId}/view/?project_filter=all&page_size=${pageSize}&page=${page}`
-                        );
-                        const switches = response.data.results || response.data;
-                        allSwitches = [...allSwitches, ...switches];
-
-                        hasMore = response.data.has_next;
-                        page++;
-                    }
-
-                    setAllCustomerSwitches(allSwitches);
-                    console.log(`✅ Loaded ${allSwitches.length} customer switches for modal`);
-                } catch (error) {
-                    console.error('❌ Error loading customer switches:', error);
-                    setAllCustomerSwitches([]);
-                }
-            }
-        };
-
-        loadAllCustomerSwitches();
-    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
-
     // Handler to add switch to project
     const handleAddSwitchToProject = useCallback(async (switchId, action = 'unmodified') => {
         try {
@@ -365,73 +324,6 @@ const SwitchTableTanStack = () => {
             return false;
         }
     }, [activeProjectId, API_URL]);
-
-    // Handler for bulk switch save
-    const handleBulkSwitchSave = useCallback(async (selectedIds) => {
-        try {
-            if (!allCustomerSwitches || allCustomerSwitches.length === 0) {
-                console.error('No customer switches available');
-                return;
-            }
-
-            // Get current switches in project
-            const currentInProject = new Set(
-                allCustomerSwitches
-                    .filter(sw => sw.in_active_project)
-                    .map(sw => sw.id)
-            );
-
-            // Determine adds and removes
-            const selectedSet = new Set(selectedIds);
-            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
-            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const switchId of toAdd) {
-                try {
-                    const success = await handleAddSwitchToProject(switchId, 'unmodified');
-                    if (success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error(`Failed to add switch ${switchId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Process removals
-            for (const switchId of toRemove) {
-                try {
-                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-switch/${switchId}/`);
-                    if (response.data.success) {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                    }
-                } catch (error) {
-                    console.error(`Failed to remove switch ${switchId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Show error alert only
-            if (errorCount > 0) {
-                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            }
-
-            // Reload table data
-            if (tableRef.current && tableRef.current.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-            setShowBulkModal(false);
-        } catch (error) {
-            console.error('Error in bulk switch save:', error);
-            alert(`Bulk operation failed: ${error.message}`);
-        }
-    }, [activeProjectId, API_URL, handleAddSwitchToProject, allCustomerSwitches]);
 
     // Process data for display - convert vendor codes to names, format fabrics, and domain IDs
     const preprocessData = (data) => {
@@ -509,15 +401,10 @@ const SwitchTableTanStack = () => {
                 };
             });
 
-    // Custom toolbar buttons - Actions dropdown + Bulk Add/Remove
-    // (Live/Draft toggle and Commit are now in the navbar)
+    // Custom toolbar buttons - Actions dropdown
+    // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)
     const filterToggleButtons = (
-        <ProjectViewToolbar
-            activeProjectId={activeProjectId}
-            onBulkClick={() => setShowBulkModal(true)}
-            ActionsDropdown={ActionsDropdown}
-            entityName="switches"
-        />
+        <ProjectViewToolbar ActionsDropdown={ActionsDropdown} />
     );
 
     // Show loading while config is being fetched
@@ -587,16 +474,6 @@ const SwitchTableTanStack = () => {
                         alert('Error saving changes: ' + result.message);
                     }
                 }}
-            />
-
-            {/* Bulk Project Membership Modal */}
-            <BulkProjectMembershipModal
-                show={showBulkModal}
-                onClose={() => setShowBulkModal(false)}
-                onSave={handleBulkSwitchSave}
-                items={allCustomerSwitches}
-                itemType="switch"
-                projectName={config?.active_project?.name || ''}
             />
         </div>
     );

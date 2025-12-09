@@ -7,7 +7,6 @@ import { useTheme } from "../../context/ThemeContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
-import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
@@ -37,8 +36,6 @@ const ZoneTableTanStackClean = () => {
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
     const memberColumnCountsRef = useRef(memberColumnCounts); // Store current counts for stable access
     const isTogglingColumnsRef = useRef(false); // Flag to prevent page change detection during manual toggle
-    const [showBulkModal, setShowBulkModal] = useState(false); // Bulk add/remove modal
-    const [allCustomerZones, setAllCustomerZones] = useState([]); // All customer zones for bulk modal
     const [totalRowCount, setTotalRowCount] = useState(0); // Total rows in table
     const [showAllMemberColumns, setShowAllMemberColumns] = useState(false); // Expand/collapse member columns
     const [showAllAliases, setShowAllAliases] = useState(false); // Show all aliases in dropdowns (bypass already-zoned filter)
@@ -1170,113 +1167,6 @@ const ZoneTableTanStackClean = () => {
         }
     }, [activeProjectId, API_URL]);
 
-    // Load all customer zones when modal opens
-    useEffect(() => {
-        const loadAllCustomerZones = async () => {
-            if (showBulkModal && activeCustomerId && activeProjectId) {
-                try {
-                    console.log('📥 Loading all customer zones for bulk modal...');
-                    let allZones = [];
-                    let page = 1;
-                    let hasMore = true;
-                    const pageSize = 500; // Use max allowed by backend
-
-                    while (hasMore) {
-                        const response = await api.get(
-                            `${API_URL}/api/san/zones/project/${activeProjectId}/?project_filter=all&page_size=${pageSize}&page=${page}`
-                        );
-                        const zones = response.data.results || response.data;
-                        allZones = [...allZones, ...zones];
-
-                        hasMore = response.data.has_next;
-                        page++;
-                    }
-
-                    setAllCustomerZones(allZones);
-                    console.log(`✅ Loaded ${allZones.length} customer zones for modal`);
-                } catch (error) {
-                    console.error('❌ Error loading customer zones:', error);
-                    setAllCustomerZones([]);
-                }
-            }
-        };
-
-        loadAllCustomerZones();
-    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
-
-    // Handler for bulk add/remove zones from modal
-    const handleBulkZoneSave = useCallback(async (selectedIds) => {
-        try {
-            console.log('🔄 Bulk zone save started with selected IDs:', selectedIds);
-
-            if (!allCustomerZones || allCustomerZones.length === 0) {
-                console.error('No customer zones available');
-                return;
-            }
-
-            // Get current zones in project
-            const currentInProject = new Set(
-                allCustomerZones
-                    .filter(zone => zone.in_active_project)
-                    .map(zone => zone.id)
-            );
-
-            // Determine adds and removes
-            const selectedSet = new Set(selectedIds);
-            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
-            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
-
-            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const zoneId of toAdd) {
-                try {
-                    const success = await handleAddZoneToProject(zoneId, 'unmodified');
-                    if (success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error(`Failed to add zone ${zoneId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Process removals
-            for (const zoneId of toRemove) {
-                try {
-                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-zone/${zoneId}/`);
-                    if (response.data.success) {
-                        successCount++;
-                        console.log(`✅ Removed zone ${zoneId} from project`);
-                    } else {
-                        errorCount++;
-                    }
-                } catch (error) {
-                    console.error(`Failed to remove zone ${zoneId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Show error alert only
-            if (errorCount > 0) {
-                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            }
-
-            // Reload table to get fresh data
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-            console.log('✅ Bulk operation completed:', { successCount, errorCount });
-
-        } catch (error) {
-            console.error('❌ Bulk zone save error:', error);
-            alert(`Error during bulk operation: ${error.message}`);
-        }
-    }, [activeProjectId, API_URL, handleAddZoneToProject, allCustomerZones]);
-
     // Expose handlers to window for onclick handlers in rendered HTML
     useEffect(() => {
         window.zoneTableHandleAdd = handleAddZoneToProject;
@@ -1844,12 +1734,7 @@ const ZoneTableTanStackClean = () => {
                     onChange={(e) => setShowAllAliases(e.target.checked)}
                 />
             </div>
-            <ProjectViewToolbar
-                activeProjectId={activeProjectId}
-                onBulkClick={() => setShowBulkModal(true)}
-                ActionsDropdown={ActionsDropdown}
-                entityName="zones"
-            />
+            <ProjectViewToolbar ActionsDropdown={ActionsDropdown} />
         </>
     );
 
@@ -1907,15 +1792,6 @@ const ZoneTableTanStackClean = () => {
                 }}
             />
 
-            {/* Bulk Project Membership Modal */}
-            <BulkProjectMembershipModal
-                show={showBulkModal}
-                onClose={() => setShowBulkModal(false)}
-                onSave={handleBulkZoneSave}
-                items={allCustomerZones}
-                itemType="zone"
-                projectName={config?.active_project?.name || ''}
-            />
         </div>
     );
 };

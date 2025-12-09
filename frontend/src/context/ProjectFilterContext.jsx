@@ -8,17 +8,17 @@ const ProjectFilterContext = createContext();
 /**
  * ProjectFilterProvider
  *
- * Manages the global project filter (Live vs Draft mode) state
+ * Manages the global project filter (Deployed vs Draft mode) state
  * across all 8 tables. Persists the selection in TableConfiguration.
  *
  * Values:
- * - 'all' = Live mode (read-only view of committed/deployed data)
+ * - 'all' = Deployed mode (read-only view of committed/deployed data)
  * - 'current' = Draft mode (editable view for project work-in-progress)
  *
  * Features:
  * - Loads projectFilter from TableConfiguration on mount/customer change
  * - Saves projectFilter to TableConfiguration when changed
- * - Automatically resets to 'all' (Live mode) when customer changes
+ * - Automatically resets to 'all' (Deployed mode) when customer changes
  * - Synchronizes view mode across all tables via React Context
  */
 export const ProjectFilterProvider = ({ children }) => {
@@ -180,7 +180,7 @@ export const ProjectFilterProvider = ({ children }) => {
  *
  * // Change view mode
  * setProjectFilter('current'); // Switch to Draft mode
- * setProjectFilter('all');     // Switch to Live mode
+ * setProjectFilter('all');     // Switch to Deployed mode
  */
 export const useProjectFilter = () => {
     const context = useContext(ProjectFilterContext);

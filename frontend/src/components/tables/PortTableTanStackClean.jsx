@@ -5,7 +5,6 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
-import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
@@ -36,8 +35,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const [fabricOptions, setFabricOptions] = useState([]);
     const [storageOptions, setStorageOptions] = useState([]);
     const [aliasOptions, setAliasOptions] = useState([]);
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    const [allCustomerPorts, setAllCustomerPorts] = useState([]);
 
     // Use centralized API hook for auto-switch behavior
     // Note: Ports have a different URL pattern than SAN entities
@@ -211,39 +208,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         }
     }, [projectFilter, totalRowCount]);
 
-    // Load all customer ports when modal opens
-    useEffect(() => {
-        const loadAllCustomerPorts = async () => {
-            if (showBulkModal && activeCustomerId && activeProjectId) {
-                try {
-                    console.log('📥 Loading all customer ports for bulk modal...');
-                    let allPorts = [];
-                    let page = 1;
-                    let hasMore = true;
-                    const pageSize = 500;
-
-                    while (hasMore) {
-                        const response = await api.get(
-                            `${API_URL}/api/storage/project/${activeProjectId}/view/ports/?project_filter=all&page_size=${pageSize}&page=${page}`
-                        );
-                        const ports = response.data.results || response.data;
-                        allPorts = [...allPorts, ...ports];
-
-                        hasMore = response.data.has_next;
-                        page++;
-                    }
-
-                    setAllCustomerPorts(allPorts);
-                    console.log(`✅ Loaded ${allPorts.length} customer ports for modal`);
-                } catch (error) {
-                    console.error('❌ Error loading customer ports:', error);
-                    setAllCustomerPorts([]);
-                }
-            }
-        };
-        loadAllCustomerPorts();
-    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
-
     // Handle adding port to project
     const handleAddPortToProject = useCallback(async (portId, action = 'unmodified') => {
         try {
@@ -259,79 +223,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             return false;
         }
     }, [activeProjectId, API_URL]);
-
-    // Handle bulk port save
-    const handleBulkPortSave = useCallback(async (selectedIds) => {
-        try {
-            console.log('🔄 Bulk port save started with selected IDs:', selectedIds);
-
-            if (!allCustomerPorts || allCustomerPorts.length === 0) {
-                console.error('No customer ports available');
-                return;
-            }
-
-            // Get current ports in project
-            const currentInProject = new Set(
-                allCustomerPorts
-                    .filter(port => port.in_active_project)
-                    .map(port => port.id)
-            );
-
-            // Determine adds and removes
-            const selectedSet = new Set(selectedIds);
-            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
-            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
-
-            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const portId of toAdd) {
-                try {
-                    const success = await handleAddPortToProject(portId, 'unmodified');
-                    if (success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error(`Failed to add port ${portId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Process removals
-            for (const portId of toRemove) {
-                try {
-                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-port/${portId}/`);
-                    if (response.data.success) {
-                        successCount++;
-                        console.log(`✅ Removed port ${portId} from project`);
-                    } else {
-                        errorCount++;
-                    }
-                } catch (error) {
-                    console.error(`Failed to remove port ${portId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Show error alert only
-            if (errorCount > 0) {
-                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            }
-
-            // Reload table to get fresh data
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-            console.log('✅ Bulk operation completed:', { successCount, errorCount });
-
-        } catch (error) {
-            console.error('❌ Bulk port save error:', error);
-            alert(`Error during bulk operation: ${error.message}`);
-        }
-    }, [allCustomerPorts, activeProjectId, API_URL, handleAddPortToProject]);
 
     // WWPN formatting utilities (same as AliasTable)
     const formatWWPN = useCallback((value) => {
@@ -644,14 +535,9 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [storageOptions, fabricOptions, aliasOptions, activeProjectId, formatWWPN]);
 
     // Use ProjectViewToolbar component for table-specific actions
-    // (Live/Draft toggle and Commit are now in the navbar)
+    // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)
     const filterToggleButtons = (
-        <ProjectViewToolbar
-            activeProjectId={activeProjectId}
-            onBulkClick={() => setShowBulkModal(true)}
-            ActionsDropdown={ActionsDropdown}
-            entityName="ports"
-        />
+        <ProjectViewToolbar ActionsDropdown={ActionsDropdown} />
     );
 
     // Show empty config message if no active customer
@@ -727,16 +613,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 enableExport={true}
                 enablePagination={true}
                 defaultPageSize={50}
-            />
-
-            {/* Bulk Project Membership Modal */}
-            <BulkProjectMembershipModal
-                show={showBulkModal}
-                onClose={() => setShowBulkModal(false)}
-                onSave={handleBulkPortSave}
-                items={allCustomerPorts}
-                itemType="port"
-                projectName={config?.active_project?.name || ''}
             />
         </div>
     );

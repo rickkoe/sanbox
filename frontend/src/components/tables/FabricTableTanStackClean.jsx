@@ -4,7 +4,6 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
-import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
@@ -22,8 +21,6 @@ const FabricTableTanStackClean = () => {
 
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter } = useProjectFilter();
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    const [allCustomerFabrics, setAllCustomerFabrics] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
 
     const tableRef = useRef(null);
@@ -76,40 +73,6 @@ const FabricTableTanStackClean = () => {
     // Customer View is always read-only (shows committed/deployed data)
     // Project View is where work happens (editable based on permissions)
     const isReadOnly = projectFilter !== 'current' || !canEdit;
-
-    // Load all customer fabrics when modal opens
-    useEffect(() => {
-        const loadAllCustomerFabrics = async () => {
-            if (showBulkModal && customerId && activeProjectId) {
-                try {
-                    console.log('📥 Loading all customer fabrics for bulk modal...');
-                    let allFabrics = [];
-                    let page = 1;
-                    let hasMore = true;
-                    const pageSize = 500;
-
-                    while (hasMore) {
-                        const response = await api.get(
-                            `${API_URL}/api/san/fabrics/project/${activeProjectId}/view/?project_filter=all&page_size=${pageSize}&page=${page}`
-                        );
-                        const fabrics = response.data.results || response.data;
-                        allFabrics = [...allFabrics, ...fabrics];
-
-                        hasMore = response.data.has_next;
-                        page++;
-                    }
-
-                    setAllCustomerFabrics(allFabrics);
-                    console.log(`✅ Loaded ${allFabrics.length} customer fabrics for modal`);
-                } catch (error) {
-                    console.error('❌ Error loading customer fabrics:', error);
-                    setAllCustomerFabrics([]);
-                }
-            }
-        };
-
-        loadAllCustomerFabrics();
-    }, [showBulkModal, customerId, activeProjectId, API_URL]);
 
     // Live/Draft toggle is now in the navbar
 
@@ -251,65 +214,6 @@ const FabricTableTanStackClean = () => {
         return false;
     };
 
-    // Handle bulk fabric save
-    const handleBulkFabricSave = async (selectedIds) => {
-        try {
-            console.log('🔄 Bulk fabric save started with selected IDs:', selectedIds);
-
-            if (!allCustomerFabrics || allCustomerFabrics.length === 0) {
-                console.error('No customer fabrics available');
-                alert('No fabrics data available. Please try again.');
-                return;
-            }
-
-            // Get current fabrics in project
-            const currentProjectFabricIds = allCustomerFabrics
-                .filter(f => f.in_active_project)
-                .map(f => f.id);
-
-            const toAdd = selectedIds.filter(id => !currentProjectFabricIds.includes(id));
-            const toRemove = currentProjectFabricIds.filter(id => !selectedIds.includes(id));
-
-            console.log('📊 To Add:', toAdd, 'To Remove:', toRemove);
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const fabricId of toAdd) {
-                const success = await handleAddFabricToProject(fabricId, 'unmodified');
-                if (success) successCount++;
-                else errorCount++;
-            }
-
-            // Process removals
-            for (const fabricId of toRemove) {
-                try {
-                    const response = await api.delete(`/api/core/projects/${activeProjectId}/remove-fabric/${fabricId}/`);
-                    if (response.data.success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error('Error removing fabric:', error);
-                    errorCount++;
-                }
-            }
-
-            // Show error alert only
-            if (errorCount > 0) {
-                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            }
-
-            // Reload table data
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-        } catch (error) {
-            console.error('❌ Bulk fabric save error:', error);
-            alert('Failed to perform bulk operation: ' + error.message);
-        }
-    };
-
     // Expose handlers to window
     useEffect(() => {
         window.handleAddFabricToProject = handleAddFabricToProject;
@@ -439,14 +343,9 @@ const FabricTableTanStackClean = () => {
     }, [projectFilter, totalRowCount]);
 
     // Use ProjectViewToolbar component for table-specific actions
-    // (Live/Draft toggle and Commit are now in the navbar)
+    // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)
     const filterToggleButtons = (
-        <ProjectViewToolbar
-            activeProjectId={activeProjectId}
-            onBulkClick={() => setShowBulkModal(true)}
-            ActionsDropdown={ActionsDropdown}
-            entityName="fabrics"
-        />
+        <ProjectViewToolbar ActionsDropdown={ActionsDropdown} />
     );
 
     // Show loading
@@ -520,17 +419,6 @@ const FabricTableTanStackClean = () => {
                     }
                 }}
             />
-
-            {showBulkModal && (
-                <BulkProjectMembershipModal
-                    show={showBulkModal}
-                    onClose={() => setShowBulkModal(false)}
-                    items={allCustomerFabrics}
-                    onSave={handleBulkFabricSave}
-                    itemType="fabric"
-                    projectName={config?.active_project?.name || ''}
-                />
-            )}
         </div>
     );
 };

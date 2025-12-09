@@ -2452,3 +2452,132 @@ def project_summary(request, project_id):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def project_discard_execute(request, project_id):
+    """
+    Execute project discard:
+    - For newly_created entities: Delete them entirely (they were never committed)
+    - For modified entities: Clear field_overrides, remove junction entry
+    - For entities marked for deletion: Clear delete_me flag, remove junction entry
+    - For unmodified references: Just remove junction entry
+    - Optionally delete the project itself
+
+    Note: This only affects draft changes. Committed data remains unchanged.
+
+    Request body:
+    {
+        "delete_project": bool,
+        "selected_entities": {
+            "fabrics": [{"id": 1, "category": "newly_created"}, ...],
+            "switches": [...],
+            "aliases": [...],
+            "zones": [...],
+            "storage": [...],
+            "volumes": [...],
+            "hosts": [...],
+            "ports": [...]
+        }
+    }
+    """
+    try:
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        data = json.loads(request.body)
+        delete_project = data.get('delete_project', False)
+        selected_entities = data.get('selected_entities', {})
+
+        # Track counts for response
+        discard_counts = {
+            'deleted': {'fabrics': 0, 'switches': 0, 'aliases': 0, 'zones': 0,
+                       'storage': 0, 'volumes': 0, 'hosts': 0, 'ports': 0},
+            'reverted': {'fabrics': 0, 'switches': 0, 'aliases': 0, 'zones': 0,
+                        'storage': 0, 'volumes': 0, 'hosts': 0, 'ports': 0},
+            'removed': {'fabrics': 0, 'switches': 0, 'aliases': 0, 'zones': 0,
+                       'storage': 0, 'volumes': 0, 'hosts': 0, 'ports': 0}
+        }
+
+        # Helper to process entities for each type
+        def process_entities(entity_type, junction_model, entity_model, entity_field):
+            entities = selected_entities.get(entity_type, [])
+            for entity_info in entities:
+                entity_id = entity_info.get('id')
+                category = entity_info.get('category')
+
+                if not entity_id:
+                    continue
+
+                try:
+                    # Get the junction entry
+                    junction_filter = {
+                        'project': project,
+                        entity_field: entity_id
+                    }
+                    junction_entry = junction_model.objects.filter(**junction_filter).first()
+
+                    if not junction_entry:
+                        continue
+
+                    if category == 'newly_created':
+                        # Delete the entity entirely - it was created in this project and never committed
+                        entity = entity_model.objects.filter(id=entity_id, committed=False).first()
+                        if entity:
+                            entity.delete()
+                            discard_counts['deleted'][entity_type] += 1
+                        # Also delete the junction entry
+                        junction_entry.delete()
+
+                    elif category == 'to_modify':
+                        # Clear modifications - entity reverts to its committed state
+                        # Just remove the junction entry (field_overrides are in junction, not entity)
+                        junction_entry.delete()
+                        discard_counts['reverted'][entity_type] += 1
+
+                    elif category == 'to_delete':
+                        # Was marked for deletion - remove the junction entry
+                        # The entity stays in its committed state
+                        junction_entry.delete()
+                        discard_counts['reverted'][entity_type] += 1
+
+                    elif category == 'unmodified':
+                        # Just a reference - remove from project
+                        junction_entry.delete()
+                        discard_counts['removed'][entity_type] += 1
+
+                except Exception as e:
+                    print(f"Error processing {entity_type} {entity_id}: {e}")
+                    continue
+
+        # Process all entity types
+        process_entities('fabrics', ProjectFabric, Fabric, 'fabric_id')
+        process_entities('switches', ProjectSwitch, Switch, 'switch_id')
+        process_entities('aliases', ProjectAlias, Alias, 'alias_id')
+        process_entities('zones', ProjectZone, Zone, 'zone_id')
+        process_entities('storage', ProjectStorage, Storage, 'storage_id')
+        process_entities('volumes', ProjectVolume, Volume, 'volume_id')
+        process_entities('hosts', ProjectHost, Host, 'host_id')
+        process_entities('ports', ProjectPort, Port, 'port_id')
+
+        # Delete project if requested
+        project_deleted = False
+        project_name = project.name
+        if delete_project:
+            project.delete()
+            project_deleted = True
+
+        return JsonResponse({
+            "success": True,
+            "discard_counts": discard_counts,
+            "project_deleted": project_deleted,
+            "message": f"Changes discarded successfully." + (f" Project '{project_name}' deleted." if project_deleted else "")
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)

@@ -6,8 +6,8 @@ import '../../styles/view-mode-toggle.css';
 /**
  * ViewModeToggle Component
  *
- * A sliding toggle switch for switching between Live and Draft modes.
- * - Live mode: Read-only view of committed/deployed data
+ * A sliding toggle switch for switching between Committed and Draft modes.
+ * - Committed mode: Read-only view of committed data
  * - Draft mode: Editable view for project work-in-progress
  *
  * Draft mode is disabled when no project is selected.
@@ -50,7 +50,7 @@ const ViewModeToggle = () => {
                 tabIndex={0}
                 onKeyDown={(e) => e.key === 'Enter' && handleLiveClick()}
             >
-                Live
+                Committed
             </span>
 
             <button
@@ -58,8 +58,8 @@ const ViewModeToggle = () => {
                 className={`view-mode-toggle ${isDraftMode ? 'draft' : 'live'} ${!hasProject ? 'disabled' : ''}`}
                 onClick={handleToggle}
                 disabled={!hasProject && !isDraftMode}
-                title={!hasProject ? 'Select a project to enable Draft mode' : (isDraftMode ? 'Switch to Live mode' : 'Switch to Draft mode')}
-                aria-label={isDraftMode ? 'Switch to Live mode' : 'Switch to Draft mode'}
+                title={!hasProject ? 'Select a project to enable Draft mode' : (isDraftMode ? 'Switch to Committed mode' : 'Switch to Draft mode')}
+                aria-label={isDraftMode ? 'Switch to Committed mode' : 'Switch to Draft mode'}
             >
                 <span className="toggle-slider" />
             </button>

@@ -5,7 +5,6 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
-import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
@@ -29,8 +28,6 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const [loading, setLoading] = useState(true);
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    const [allCustomerVolumes, setAllCustomerVolumes] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
 
     const activeCustomerId = config?.customer?.id;
@@ -217,39 +214,6 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     // Live/Draft toggle is now in the navbar
 
-    // Load all customer volumes when modal opens
-    useEffect(() => {
-        const loadAllCustomerVolumes = async () => {
-            if (showBulkModal && activeCustomerId && activeProjectId) {
-                try {
-                    console.log('📥 Loading all customer volumes for bulk modal...');
-                    let allVolumes = [];
-                    let page = 1;
-                    let hasMore = true;
-                    const pageSize = 500;
-
-                    while (hasMore) {
-                        const response = await api.get(
-                            `${API_URL}/api/storage/project/${activeProjectId}/view/volumes/?project_filter=all&page_size=${pageSize}&page=${page}`
-                        );
-                        const volumes = response.data.results || response.data;
-                        allVolumes = [...allVolumes, ...volumes];
-
-                        hasMore = response.data.has_next;
-                        page++;
-                    }
-
-                    setAllCustomerVolumes(allVolumes);
-                    console.log(`✅ Loaded ${allVolumes.length} customer volumes for modal`);
-                } catch (error) {
-                    console.error('❌ Error loading customer volumes:', error);
-                    setAllCustomerVolumes([]);
-                }
-            }
-        };
-        loadAllCustomerVolumes();
-    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
-
     // Handle adding volume to project
     const handleAddVolumeToProject = useCallback(async (volumeId, action = 'unmodified') => {
         try {
@@ -265,79 +229,6 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             return false;
         }
     }, [activeProjectId, API_URL]);
-
-    // Handle bulk volume save
-    const handleBulkVolumeSave = useCallback(async (selectedIds) => {
-        try {
-            console.log('🔄 Bulk volume save started with selected IDs:', selectedIds);
-
-            if (!allCustomerVolumes || allCustomerVolumes.length === 0) {
-                console.error('No customer volumes available');
-                return;
-            }
-
-            // Get current volumes in project
-            const currentInProject = new Set(
-                allCustomerVolumes
-                    .filter(volume => volume.in_active_project)
-                    .map(volume => volume.id)
-            );
-
-            // Determine adds and removes
-            const selectedSet = new Set(selectedIds);
-            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
-            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
-
-            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const volumeId of toAdd) {
-                try {
-                    const success = await handleAddVolumeToProject(volumeId, 'unmodified');
-                    if (success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error(`Failed to add volume ${volumeId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Process removals
-            for (const volumeId of toRemove) {
-                try {
-                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-volume/${volumeId}/`);
-                    if (response.data.success) {
-                        successCount++;
-                        console.log(`✅ Removed volume ${volumeId} from project`);
-                    } else {
-                        errorCount++;
-                    }
-                } catch (error) {
-                    console.error(`Failed to remove volume ${volumeId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Show error alert only
-            if (errorCount > 0) {
-                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            }
-
-            // Reload table to get fresh data
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-            console.log('✅ Bulk operation completed:', { successCount, errorCount });
-
-        } catch (error) {
-            console.error('❌ Bulk volume save error:', error);
-            alert(`Error during bulk operation: ${error.message}`);
-        }
-    }, [allCustomerVolumes, activeProjectId, API_URL, handleAddVolumeToProject]);
 
     // Dynamic dropdown sources
     const dropdownSources = useMemo(() => ({
@@ -464,14 +355,9 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [storageOptions]);
 
     // Use ProjectViewToolbar component for table-specific actions
-    // (Live/Draft toggle and Commit are now in the navbar)
+    // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)
     const filterToggleButtons = (
-        <ProjectViewToolbar
-            activeProjectId={activeProjectId}
-            onBulkClick={() => setShowBulkModal(true)}
-            ActionsDropdown={ActionsDropdown}
-            entityName="volumes"
-        />
+        <ProjectViewToolbar ActionsDropdown={ActionsDropdown} />
     );
 
     // Show empty config message if no active customer
@@ -548,16 +434,6 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 enableExport={true}
                 enablePagination={true}
                 defaultPageSize={50}
-            />
-
-            {/* Bulk Project Membership Modal */}
-            <BulkProjectMembershipModal
-                show={showBulkModal}
-                onClose={() => setShowBulkModal(false)}
-                onSave={handleBulkVolumeSave}
-                items={allCustomerVolumes}
-                itemType="volume"
-                projectName={config?.active_project?.name || ''}
             />
         </div>
     );

@@ -5,7 +5,6 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
-import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
@@ -29,8 +28,6 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const [loading, setLoading] = useState(true);
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    const [allCustomerHosts, setAllCustomerHosts] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
 
     const activeCustomerId = config?.customer?.id;
@@ -201,39 +198,6 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     // Live/Draft toggle is now in the navbar
 
-    // Load all customer hosts when modal opens
-    useEffect(() => {
-        const loadAllCustomerHosts = async () => {
-            if (showBulkModal && activeCustomerId && activeProjectId) {
-                try {
-                    console.log('📥 Loading all customer hosts for bulk modal...');
-                    let allHosts = [];
-                    let page = 1;
-                    let hasMore = true;
-                    const pageSize = 500;
-
-                    while (hasMore) {
-                        const response = await api.get(
-                            `${API_URL}/api/storage/project/${activeProjectId}/view/hosts/?project_filter=all&page_size=${pageSize}&page=${page}`
-                        );
-                        const hosts = response.data.results || response.data;
-                        allHosts = [...allHosts, ...hosts];
-
-                        hasMore = response.data.has_next;
-                        page++;
-                    }
-
-                    setAllCustomerHosts(allHosts);
-                    console.log(`✅ Loaded ${allHosts.length} customer hosts for modal`);
-                } catch (error) {
-                    console.error('❌ Error loading customer hosts:', error);
-                    setAllCustomerHosts([]);
-                }
-            }
-        };
-        loadAllCustomerHosts();
-    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
-
     // Handle adding host to project
     const handleAddHostToProject = useCallback(async (hostId, action = 'unmodified') => {
         try {
@@ -249,79 +213,6 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             return false;
         }
     }, [activeProjectId, API_URL]);
-
-    // Handle bulk host save
-    const handleBulkHostSave = useCallback(async (selectedIds) => {
-        try {
-            console.log('🔄 Bulk host save started with selected IDs:', selectedIds);
-
-            if (!allCustomerHosts || allCustomerHosts.length === 0) {
-                console.error('No customer hosts available');
-                return;
-            }
-
-            // Get current hosts in project
-            const currentInProject = new Set(
-                allCustomerHosts
-                    .filter(host => host.in_active_project)
-                    .map(host => host.id)
-            );
-
-            // Determine adds and removes
-            const selectedSet = new Set(selectedIds);
-            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
-            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
-
-            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const hostId of toAdd) {
-                try {
-                    const success = await handleAddHostToProject(hostId, 'unmodified');
-                    if (success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error(`Failed to add host ${hostId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Process removals
-            for (const hostId of toRemove) {
-                try {
-                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-host/${hostId}/`);
-                    if (response.data.success) {
-                        successCount++;
-                        console.log(`✅ Removed host ${hostId} from project`);
-                    } else {
-                        errorCount++;
-                    }
-                } catch (error) {
-                    console.error(`Failed to remove host ${hostId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Show error alert only
-            if (errorCount > 0) {
-                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            }
-
-            // Reload table to get fresh data
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-            console.log('✅ Bulk operation completed:', { successCount, errorCount });
-
-        } catch (error) {
-            console.error('❌ Bulk host save error:', error);
-            alert(`Error during bulk operation: ${error.message}`);
-        }
-    }, [allCustomerHosts, activeProjectId, API_URL, handleAddHostToProject]);
 
     // Dynamic dropdown sources
     const dropdownSources = useMemo(() => ({
@@ -393,14 +284,9 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // This component is now primarily for viewing hosts from storage systems
 
     // Use ProjectViewToolbar component for table-specific actions
-    // (Live/Draft toggle and Commit are now in the navbar)
+    // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)
     const filterToggleButtons = (
-        <ProjectViewToolbar
-            activeProjectId={activeProjectId}
-            onBulkClick={() => setShowBulkModal(true)}
-            ActionsDropdown={ActionsDropdown}
-            entityName="hosts"
-        />
+        <ProjectViewToolbar ActionsDropdown={ActionsDropdown} />
     );
 
     // Show empty config message if no active customer
@@ -471,16 +357,6 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                         alert('Error saving hosts: ' + result.message);
                     }
                 }}
-            />
-
-            {/* Bulk Project Membership Modal */}
-            <BulkProjectMembershipModal
-                show={showBulkModal}
-                onClose={() => setShowBulkModal(false)}
-                onSave={handleBulkHostSave}
-                items={allCustomerHosts}
-                itemType="host"
-                projectName={config?.active_project?.name || ''}
             />
         </div>
     );

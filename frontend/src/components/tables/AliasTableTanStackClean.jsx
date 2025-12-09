@@ -6,7 +6,6 @@ import { useTheme } from "../../context/ThemeContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
-import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
@@ -27,8 +26,6 @@ const AliasTableTanStackClean = () => {
     const [errorModal, setErrorModal] = useState({ show: false, message: '', errors: null });
     const [wwpnColumnCount, setWwpnColumnCount] = useState(1); // Dynamic WWPN column count
     const isAddingColumnRef = useRef(false); // Flag to prevent data reload when adding column
-    const [showBulkModal, setShowBulkModal] = useState(false); // Bulk add/remove modal
-    const [allCustomerAliases, setAllCustomerAliases] = useState([]); // All customer aliases for bulk modal
     const [totalRowCount, setTotalRowCount] = useState(0); // Total rows in table
 
     // Project filter state - synchronized across all tables via ProjectFilterContext
@@ -459,104 +456,6 @@ const AliasTableTanStackClean = () => {
             alert(`Failed to remove alias: ${error.response?.data?.error || error.message}`);
         }
     }, [activeProjectId, API_URL]);
-
-    // Load all customer aliases when modal opens
-    useEffect(() => {
-        const loadAllCustomerAliases = async () => {
-            if (showBulkModal && activeCustomerId && activeProjectId) {
-                try {
-                    let allAliases = [];
-                    let page = 1;
-                    let hasMore = true;
-                    const pageSize = 500; // Use max allowed by backend
-
-                    while (hasMore) {
-                        const response = await api.get(
-                            `${API_URL}/api/san/aliases/project/${activeProjectId}/?project_filter=all&page_size=${pageSize}&page=${page}`
-                        );
-                        const aliases = response.data.results || response.data;
-                        allAliases = [...allAliases, ...aliases];
-
-                        hasMore = response.data.has_next;
-                        page++;
-                    }
-
-                    setAllCustomerAliases(allAliases);
-                } catch (error) {
-                    console.error('Error loading customer aliases:', error);
-                    setAllCustomerAliases([]);
-                }
-            }
-        };
-
-        loadAllCustomerAliases();
-    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
-
-    // Handler for bulk add/remove aliases from modal
-    const handleBulkAliasSave = useCallback(async (selectedIds) => {
-        try {
-            if (!allCustomerAliases || allCustomerAliases.length === 0) {
-                console.error('No customer aliases available');
-                return;
-            }
-
-            // Get current aliases in project
-            const currentInProject = new Set(
-                allCustomerAliases
-                    .filter(alias => alias.in_active_project)
-                    .map(alias => alias.id)
-            );
-
-            // Determine adds and removes
-            const selectedSet = new Set(selectedIds);
-            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
-            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const aliasId of toAdd) {
-                try {
-                    const success = await handleAddAliasToProject(aliasId, 'unmodified');
-                    if (success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error(`Failed to add alias ${aliasId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Process removals
-            for (const aliasId of toRemove) {
-                try {
-                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-alias/${aliasId}/`);
-                    if (response.data.success) {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                    }
-                } catch (error) {
-                    console.error(`Failed to remove alias ${aliasId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Show error alert only
-            if (errorCount > 0) {
-                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            }
-
-            // Reload table to get fresh data
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-        } catch (error) {
-            console.error('Bulk alias save error:', error);
-            alert(`Error during bulk operation: ${error.message}`);
-        }
-    }, [activeProjectId, API_URL, handleAddAliasToProject, allCustomerAliases]);
 
     // Expose handlers to window for onclick handlers in rendered HTML
     useEffect(() => {
@@ -1047,14 +946,9 @@ const AliasTableTanStackClean = () => {
     }
 
     // Use ProjectViewToolbar component for table-specific actions
-    // (Live/Draft toggle and Commit are now in the navbar)
+    // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)
     const filterToggleButtons = (
-        <ProjectViewToolbar
-            activeProjectId={activeProjectId}
-            onBulkClick={() => setShowBulkModal(true)}
-            ActionsDropdown={ActionsDropdown}
-            entityName="aliases"
-        />
+        <ProjectViewToolbar ActionsDropdown={ActionsDropdown} />
     );
 
     return (
@@ -1233,15 +1127,6 @@ const AliasTableTanStackClean = () => {
                 </div>
             )}
 
-            {/* Bulk Project Membership Modal */}
-            <BulkProjectMembershipModal
-                show={showBulkModal}
-                onClose={() => setShowBulkModal(false)}
-                onSave={handleBulkAliasSave}
-                items={allCustomerAliases}
-                itemType="alias"
-                projectName={config?.active_project?.name || ''}
-            />
         </div>
     );
 };

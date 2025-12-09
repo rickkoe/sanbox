@@ -287,6 +287,18 @@ const TanStackCRUDTable = forwardRef(({
     fetchActiveCustomer();
   }, [user, customerId]);
 
+  // Listen for discard changes event to refresh table data
+  useEffect(() => {
+    const handleDiscardComplete = () => {
+      setReloadTrigger(prev => prev + 1);
+    };
+
+    window.addEventListener('discardChangesComplete', handleDiscardComplete);
+    return () => {
+      window.removeEventListener('discardChangesComplete', handleDiscardComplete);
+    };
+  }, []);
+
   // Table configuration API functions
   const loadTableConfig = useCallback(async () => {
     if (!tableName || !user) {

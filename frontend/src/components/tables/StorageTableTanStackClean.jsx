@@ -5,7 +5,6 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
-import BulkProjectMembershipModal from "../modals/BulkProjectMembershipModal";
 import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
@@ -28,8 +27,6 @@ const StorageTableTanStackClean = () => {
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
 
-    const [showBulkModal, setShowBulkModal] = useState(false);
-    const [allCustomerStorage, setAllCustomerStorage] = useState([]);
     const [totalRowCount, setTotalRowCount] = useState(0);
 
     // Use centralized API hook for auto-switch behavior
@@ -96,40 +93,6 @@ const StorageTableTanStackClean = () => {
     // Auto-switch and force visibility are now handled by hooks
     // Live/Draft toggle is now in the navbar
 
-    // Load all customer storage when modal opens
-    useEffect(() => {
-        const loadAllCustomerStorage = async () => {
-            if (showBulkModal && activeCustomerId && activeProjectId) {
-                try {
-                    console.log('📥 Loading all customer storage for bulk modal...');
-                    let allStorage = [];
-                    let page = 1;
-                    let hasMore = true;
-                    const pageSize = 500;
-
-                    while (hasMore) {
-                        const response = await api.get(
-                            `${API_URL}/api/storage/project/${activeProjectId}/view/storages/?project_filter=all&page_size=${pageSize}&page=${page}`
-                        );
-                        const storage = response.data.results || response.data;
-                        allStorage = [...allStorage, ...storage];
-
-                        hasMore = response.data.has_next;
-                        page++;
-                    }
-
-                    setAllCustomerStorage(allStorage);
-                    console.log(`✅ Loaded ${allStorage.length} customer storage for modal`);
-                } catch (error) {
-                    console.error('❌ Error loading customer storage:', error);
-                    setAllCustomerStorage([]);
-                }
-            }
-        };
-
-        loadAllCustomerStorage();
-    }, [showBulkModal, activeCustomerId, activeProjectId, API_URL]);
-
     // Handle adding storage to project
     const handleAddStorageToProject = useCallback(async (storageId, action = 'unmodified') => {
         try {
@@ -168,79 +131,6 @@ const StorageTableTanStackClean = () => {
             deleteUrl: `${baseUrl}/`
         };
     }, [API_URL, apiUrl]);
-
-    // Handle bulk storage save
-    const handleBulkStorageSave = useCallback(async (selectedIds) => {
-        try {
-            console.log('🔄 Bulk storage save started with selected IDs:', selectedIds);
-
-            if (!allCustomerStorage || allCustomerStorage.length === 0) {
-                console.error('No customer storage available');
-                return;
-            }
-
-            // Get current storage in project
-            const currentInProject = new Set(
-                allCustomerStorage
-                    .filter(storage => storage.in_active_project)
-                    .map(storage => storage.id)
-            );
-
-            // Determine adds and removes
-            const selectedSet = new Set(selectedIds);
-            const toAdd = selectedIds.filter(id => !currentInProject.has(id));
-            const toRemove = Array.from(currentInProject).filter(id => !selectedSet.has(id));
-
-            console.log('📊 Bulk operation:', { toAdd: toAdd.length, toRemove: toRemove.length });
-
-            let successCount = 0;
-            let errorCount = 0;
-
-            // Process additions
-            for (const storageId of toAdd) {
-                try {
-                    const success = await handleAddStorageToProject(storageId, 'unmodified');
-                    if (success) successCount++;
-                    else errorCount++;
-                } catch (error) {
-                    console.error(`Failed to add storage ${storageId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Process removals
-            for (const storageId of toRemove) {
-                try {
-                    const response = await api.delete(`${API_URL}/api/core/projects/${activeProjectId}/remove-storage/${storageId}/`);
-                    if (response.data.success) {
-                        successCount++;
-                        console.log(`✅ Removed storage ${storageId} from project`);
-                    } else {
-                        errorCount++;
-                    }
-                } catch (error) {
-                    console.error(`Failed to remove storage ${storageId}:`, error);
-                    errorCount++;
-                }
-            }
-
-            // Show error alert only
-            if (errorCount > 0) {
-                alert(`Completed with errors: ${successCount} successful, ${errorCount} failed`);
-            }
-
-            // Reload table to get fresh data
-            if (tableRef.current?.reloadData) {
-                tableRef.current.reloadData();
-            }
-
-            console.log('✅ Bulk operation completed:', { successCount, errorCount });
-
-        } catch (error) {
-            console.error('❌ Bulk storage save error:', error);
-            alert(`Error during bulk operation: ${error.message}`);
-        }
-    }, [allCustomerStorage, activeProjectId, API_URL, handleAddStorageToProject]);
 
     // Check permissions - All authenticated users have full access
     // Customer View is always read-only; Project View depends on permissions
@@ -402,14 +292,9 @@ const StorageTableTanStackClean = () => {
     }, [projectFilter, totalRowCount]);
 
     // Use ProjectViewToolbar component for table-specific actions
-    // (Live/Draft toggle and Commit are now in the navbar)
+    // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)
     const filterToggleButtons = (
-        <ProjectViewToolbar
-            activeProjectId={activeProjectId}
-            onBulkClick={() => setShowBulkModal(true)}
-            ActionsDropdown={ActionsDropdown}
-            entityName="storage systems"
-        />
+        <ProjectViewToolbar ActionsDropdown={ActionsDropdown} />
     );
 
     // Show empty config message if no active customer
@@ -480,16 +365,6 @@ const StorageTableTanStackClean = () => {
                         alert('Error saving storage systems: ' + result.message);
                     }
                 }}
-            />
-
-            {/* Bulk Project Membership Modal */}
-            <BulkProjectMembershipModal
-                show={showBulkModal}
-                onClose={() => setShowBulkModal(false)}
-                onSave={handleBulkStorageSave}
-                items={allCustomerStorage}
-                itemType="storage"
-                projectName={config?.active_project?.name || ''}
             />
         </div>
     );

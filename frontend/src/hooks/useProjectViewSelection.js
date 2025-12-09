@@ -370,7 +370,7 @@ export const useProjectViewSelection = ({
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                             </svg>
                             <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
-                                <strong>Live mode is read-only.</strong> Switch to <strong>Draft mode</strong> to make changes.
+                                <strong>Committed mode is read-only.</strong> Switch to <strong>Draft mode</strong> to make changes via the <strong>Active Project</strong>.
                             </span>
                         </div>
                     </div>
@@ -459,7 +459,7 @@ export const useProjectViewSelection = ({
                                 strokeWidth={2}
                             />
                             <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
-                                <strong>Project View:</strong> Edit items here. Commit changes to deploy to Customer View.
+                                <strong>Draft View:</strong> Edit items here. Commit changes to mark as deployed.
                             </span>
                         </div>
                     </div>
