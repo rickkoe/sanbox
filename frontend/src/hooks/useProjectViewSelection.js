@@ -370,7 +370,25 @@ export const useProjectViewSelection = ({
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                             </svg>
                             <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
-                                <strong>Committed mode is read-only.</strong> Switch to <strong>Draft mode</strong> to make changes via the <strong>Active Project</strong>.
+                                <strong>Committed mode is read-only.</strong>{' '}
+                                <a
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        if (window.openContextDropdown) {
+                                            window.openContextDropdown();
+                                        }
+                                    }}
+                                    style={{
+                                        color: 'var(--link-text)',
+                                        textDecoration: 'underline',
+                                        cursor: 'pointer',
+                                        fontWeight: '600'
+                                    }}
+                                >
+                                    Open or create a project
+                                </a>{' '}
+                                to make changes in Draft mode.
                             </span>
                         </div>
                     </div>
@@ -459,7 +477,7 @@ export const useProjectViewSelection = ({
                                 strokeWidth={2}
                             />
                             <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
-                                <strong>Draft View:</strong> Edit items here. Commit changes to mark as deployed.
+                                <strong>You are in Draft Mode:</strong> Edit items here via the active project. Commit changes when complete.
                             </span>
                         </div>
                     </div>

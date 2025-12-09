@@ -66,6 +66,14 @@ const DualContextDropdown = () => {
         }
     }, [registerRefreshProjectsList, selectedCustomer?.id]);
 
+    // Expose function to open dropdown from other components (e.g., banner link)
+    useEffect(() => {
+        window.openContextDropdown = () => setShowDropdown(true);
+        return () => {
+            delete window.openContextDropdown;
+        };
+    }, []);
+
     const loadCustomers = async () => {
         setLoadingCustomers(true);
         try {
@@ -160,6 +168,9 @@ const DualContextDropdown = () => {
 
         // Auto-clear project when switching customers (Requirement 7A)
         setSelectedProject(null);
+
+        // Switch to Committed mode since project is cleared
+        setProjectFilter('all');
 
         // Update backend: set customer, clear project
         await updateUserConfig(customer.id, null);
