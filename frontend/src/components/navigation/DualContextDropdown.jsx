@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Dropdown } from 'react-bootstrap';
 import { Building2, FolderOpen, Plus } from 'lucide-react';
 import { ConfigContext } from '../../context/ConfigContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useProjectFilter } from '../../context/ProjectFilterContext';
 import api from '../../api';
 import ViewModeToggle from './ViewModeToggle';
 import ProjectOptionsDropdown from './ProjectOptionsDropdown';
@@ -13,6 +14,7 @@ const DualContextDropdown = () => {
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config, updateUserConfig, refreshConfig, registerRefreshProjectsList } = useContext(ConfigContext);
     const { theme } = useTheme();
+    const { setProjectFilter } = useProjectFilter();
 
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -20,6 +22,9 @@ const DualContextDropdown = () => {
     const [selectedProject, setSelectedProject] = useState(null);
     const [loadingCustomers, setLoadingCustomers] = useState(true);
     const [loadingProjects, setLoadingProjects] = useState(false);
+
+    // Dropdown state - manually controlled to keep open after customer selection
+    const [showDropdown, setShowDropdown] = useState(false);
 
     // Modal state
     const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -75,7 +80,7 @@ const DualContextDropdown = () => {
 
     const loadProjectsForCustomer = async (customerId) => {
         setLoadingProjects(true);
-        try{
+        try {
             const url = `${API_URL}/api/core/projects/${customerId}/`;
             const response = await api.get(url);
             setProjects(response.data);
@@ -110,7 +115,7 @@ const DualContextDropdown = () => {
             setShowCustomerModal(false);
             setNewCustomerName("");
         } catch (error) {
-            console.error("❌ Error adding customer:", error);
+            console.error("Error adding customer:", error);
             alert(error.response?.data?.error || "Failed to create customer. Please try again.");
         }
     };
@@ -133,11 +138,12 @@ const DualContextDropdown = () => {
             await updateUserConfig(selectedCustomer.id, newProject.id);
             await refreshConfig();
 
-            // Close modal and reset
+            // Close modal, reset, and close dropdown
             setShowProjectModal(false);
             setNewProjectName("");
+            setShowDropdown(false);
         } catch (error) {
-            console.error("❌ Error adding project:", error);
+            console.error("Error adding project:", error);
             alert(error.response?.data?.error || "Failed to create project. Please try again.");
         }
     };
@@ -145,6 +151,7 @@ const DualContextDropdown = () => {
     const handleCustomerChange = async (customerId) => {
         if (customerId === 'create_new') {
             setShowCustomerModal(true);
+            setShowDropdown(false);
             return;
         }
 
@@ -157,154 +164,184 @@ const DualContextDropdown = () => {
         // Update backend: set customer, clear project
         await updateUserConfig(customer.id, null);
         await refreshConfig();
+
+        // Keep dropdown open so user can select a project
+        // Dropdown stays open
     };
 
     const handleProjectChange = async (projectId) => {
         if (projectId === 'create_new') {
             setShowProjectModal(true);
+            setShowDropdown(false);
             return;
         }
 
         if (projectId === 'none') {
-            // User explicitly selected "-- None --"
+            // User explicitly selected "No Project"
             setSelectedProject(null);
             await updateUserConfig(selectedCustomer.id, null);
+            // Switch to Committed mode since Draft requires a project
+            setProjectFilter('all');
         } else {
             const project = projects.find(p => p.id === parseInt(projectId));
             setSelectedProject(project);
             await updateUserConfig(selectedCustomer.id, project.id);
+            // Switch to Draft mode since a project is now selected
+            setProjectFilter('current');
         }
 
         await refreshConfig();
+        // Close dropdown after project selection
+        setShowDropdown(false);
+    };
+
+    // Build the breadcrumb display text
+    const getBreadcrumbText = () => {
+        if (loadingCustomers) {
+            return 'Loading...';
+        }
+        if (!selectedCustomer) {
+            return 'Select Customer';
+        }
+        if (selectedProject) {
+            return `${selectedCustomer.name} / ${selectedProject.name}`;
+        }
+        return selectedCustomer.name;
     };
 
     return (
         <div className="dual-context-dropdown">
-            {/* Customer Dropdown */}
-            <Dropdown>
+            {/* Unified Breadcrumb Dropdown */}
+            <Dropdown
+                show={showDropdown}
+                onToggle={(isOpen) => setShowDropdown(isOpen)}
+                autoClose="outside"
+            >
                 <Dropdown.Toggle
                     variant="outline-secondary"
                     size="sm"
+                    className="context-breadcrumb-toggle"
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
-                        minWidth: '180px',
+                        gap: '8px',
+                        maxWidth: '350px',
                         backgroundColor: 'var(--dropdown-bg)',
                         color: 'var(--dropdown-text)',
                         border: '1px solid var(--border-color)'
                     }}
                 >
-                    <Building2 size={16} />
-                    {loadingCustomers ? (
-                        'Loading...'
-                    ) : selectedCustomer ? (
-                        selectedCustomer.name
-                    ) : (
-                        'Select Customer'
-                    )}
+                    <Building2 size={16} style={{ flexShrink: 0 }} />
+                    <span className="context-breadcrumb-text">
+                        {getBreadcrumbText()}
+                    </span>
                 </Dropdown.Toggle>
 
-                <Dropdown.Menu style={{
-                    backgroundColor: 'var(--dropdown-bg)',
-                    border: '1px solid var(--border-color)'
-                }}>
-                    {customers.map(c => (
+                <Dropdown.Menu
+                    className="context-dropdown-menu"
+                    style={{
+                        backgroundColor: 'var(--dropdown-bg)',
+                        border: '1px solid var(--border-color)',
+                        minWidth: '240px',
+                        padding: 0
+                    }}
+                >
+                    {/* Customer Section */}
+                    <div className="dropdown-section">
+                        <div className="dropdown-section-header">
+                            <Building2 size={14} />
+                            <strong>Customer</strong>
+                        </div>
+                        {customers.map(c => (
+                            <Dropdown.Item
+                                key={c.id}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCustomerChange(c.id);
+                                }}
+                                active={selectedCustomer?.id === c.id}
+                                style={{
+                                    color: 'var(--dropdown-text)',
+                                    backgroundColor: selectedCustomer?.id === c.id ? 'var(--color-accent-subtle)' : 'transparent'
+                                }}
+                            >
+                                {c.name}
+                            </Dropdown.Item>
+                        ))}
                         <Dropdown.Item
-                            key={c.id}
-                            onClick={() => handleCustomerChange(c.id)}
-                            active={selectedCustomer?.id === c.id}
-                            style={{
-                                color: 'var(--dropdown-text)',
-                                backgroundColor: selectedCustomer?.id === c.id ? 'var(--color-accent-subtle)' : 'transparent'
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCustomerChange('create_new');
                             }}
+                            className="dropdown-create-item"
                         >
-                            {c.name}
+                            <Plus size={14} />
+                            Create New Customer
                         </Dropdown.Item>
-                    ))}
-                    <Dropdown.Divider />
-                    <Dropdown.Item
-                        onClick={() => handleCustomerChange('create_new')}
-                        style={{ color: 'var(--color-success-fg)' }}
-                    >
-                        <Plus size={14} style={{ marginRight: '6px' }} />
-                        Create New Customer
-                    </Dropdown.Item>
+                    </div>
+
+                    {/* Project Section - only if customer selected */}
+                    {selectedCustomer && (
+                        <div className="dropdown-section">
+                            <div className="dropdown-section-header">
+                                <FolderOpen size={14} />
+                                <strong>Project</strong>
+                            </div>
+
+                            {loadingProjects ? (
+                                <Dropdown.Item disabled style={{ color: 'var(--color-fg-muted)', fontStyle: 'italic' }}>
+                                    Loading projects...
+                                </Dropdown.Item>
+                            ) : (
+                                <>
+                                    <Dropdown.Item
+                                        onClick={() => handleProjectChange('none')}
+                                        active={!selectedProject}
+                                        style={{
+                                            color: 'var(--dropdown-text)',
+                                            fontStyle: 'italic',
+                                            backgroundColor: !selectedProject ? 'var(--color-accent-subtle)' : 'transparent'
+                                        }}
+                                    >
+                                        No Project
+                                    </Dropdown.Item>
+
+                                    {projects.map(p => (
+                                        <Dropdown.Item
+                                            key={p.id}
+                                            onClick={() => handleProjectChange(p.id)}
+                                            active={selectedProject?.id === p.id}
+                                            style={{
+                                                color: 'var(--dropdown-text)',
+                                                backgroundColor: selectedProject?.id === p.id ? 'var(--color-accent-subtle)' : 'transparent'
+                                            }}
+                                        >
+                                            {p.name}
+                                        </Dropdown.Item>
+                                    ))}
+                                </>
+                            )}
+
+                            <Dropdown.Item
+                                onClick={() => handleProjectChange('create_new')}
+                                className="dropdown-create-item"
+                            >
+                                <Plus size={14} />
+                                Create New Project
+                            </Dropdown.Item>
+                        </div>
+                    )}
                 </Dropdown.Menu>
             </Dropdown>
 
-            {/* Project Dropdown (only show if customer selected) */}
-            {selectedCustomer && (
-                <Dropdown>
-                    <Dropdown.Toggle
-                        variant="outline-secondary"
-                        size="sm"
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            minWidth: '180px',
-                            backgroundColor: 'var(--dropdown-bg)',
-                            color: 'var(--dropdown-text)',
-                            border: '1px solid var(--border-color)'
-                        }}
-                    >
-                        <FolderOpen size={16} />
-                        {loadingProjects ? (
-                            'Loading...'
-                        ) : selectedProject ? (
-                            selectedProject.name
-                        ) : (
-                            'No Project'
-                        )}
-                    </Dropdown.Toggle>
+            {/* Separator */}
+            <span className="navbar-separator" aria-hidden="true" />
 
-                    <Dropdown.Menu style={{
-                        backgroundColor: 'var(--dropdown-bg)',
-                        border: '1px solid var(--border-color)'
-                    }}>
-                        <Dropdown.Item
-                            onClick={() => handleProjectChange('none')}
-                            active={!selectedProject}
-                            style={{
-                                color: 'var(--dropdown-text)',
-                                fontStyle: 'italic',
-                                backgroundColor: !selectedProject ? 'var(--color-accent-subtle)' : 'transparent'
-                            }}
-                        >
-                            -- None --
-                        </Dropdown.Item>
-
-                        {projects.length > 0 && <Dropdown.Divider />}
-
-                        {projects.map(p => (
-                            <Dropdown.Item
-                                key={p.id}
-                                onClick={() => handleProjectChange(p.id)}
-                                active={selectedProject?.id === p.id}
-                                style={{
-                                    color: 'var(--dropdown-text)',
-                                    backgroundColor: selectedProject?.id === p.id ? 'var(--color-accent-subtle)' : 'transparent'
-                                }}
-                            >
-                                {p.name}
-                            </Dropdown.Item>
-                        ))}
-
-                        <Dropdown.Divider />
-                        <Dropdown.Item
-                            onClick={() => handleProjectChange('create_new')}
-                            style={{ color: 'var(--color-success-fg)' }}
-                        >
-                            <Plus size={14} style={{ marginRight: '6px' }} />
-                            Create New Project
-                        </Dropdown.Item>
-                    </Dropdown.Menu>
-                </Dropdown>
-            )}
-
-            {/* View Mode Toggle (Live/Draft) */}
+            {/* View Mode Toggle (Committed/Draft) */}
             <ViewModeToggle />
+
+            {/* Separator */}
+            <span className="navbar-separator" aria-hidden="true" />
 
             {/* Project Options Dropdown */}
             <ProjectOptionsDropdown />
@@ -315,7 +352,7 @@ const DualContextDropdown = () => {
                     <div className="config-modal-content" onClick={(e) => e.stopPropagation()}>
                         <div className="config-modal-header">
                             <h3>Add New Customer</h3>
-                            <button className="config-modal-close" onClick={() => setShowCustomerModal(false)}>×</button>
+                            <button className="config-modal-close" onClick={() => setShowCustomerModal(false)}>x</button>
                         </div>
                         <div className="config-modal-body">
                             <div className="config-form-group">
@@ -359,7 +396,7 @@ const DualContextDropdown = () => {
                     <div className="config-modal-content" onClick={(e) => e.stopPropagation()}>
                         <div className="config-modal-header">
                             <h3>Add New Project</h3>
-                            <button className="config-modal-close" onClick={() => setShowProjectModal(false)}>×</button>
+                            <button className="config-modal-close" onClick={() => setShowProjectModal(false)}>x</button>
                         </div>
                         <div className="config-modal-body">
                             <div className="config-form-group">

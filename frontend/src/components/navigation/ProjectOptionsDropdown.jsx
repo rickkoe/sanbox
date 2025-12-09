@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { Dropdown } from 'react-bootstrap';
-import { Settings, GitCommit, ListChecks, Trash2 } from 'lucide-react';
+import { MoreVertical, GitCommit, ListChecks, Trash2 } from 'lucide-react';
 import { ConfigContext } from '../../context/ConfigContext';
 import { useProjectFilter } from '../../context/ProjectFilterContext';
 import CommitProjectModal from '../modals/CommitProjectModal';
@@ -65,7 +65,8 @@ const ProjectOptionsDropdown = () => {
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px',
+                        justifyContent: 'center',
+                        padding: '6px 8px',
                         backgroundColor: 'var(--dropdown-bg)',
                         color: isDisabled ? 'var(--color-fg-muted)' : 'var(--dropdown-text)',
                         border: '1px solid var(--border-color)',
@@ -73,8 +74,7 @@ const ProjectOptionsDropdown = () => {
                         cursor: isDisabled ? 'not-allowed' : 'pointer'
                     }}
                 >
-                    <Settings size={16} />
-                    Options
+                    <MoreVertical size={18} />
                 </Dropdown.Toggle>
 
                 <Dropdown.Menu

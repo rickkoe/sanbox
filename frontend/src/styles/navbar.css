@@ -886,3 +886,74 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
 .dual-context-dropdown .dropdown-item:hover {
   background-color: var(--color-accent-subtle);
 }
+
+/* ========== NAVBAR SEPARATOR ========== */
+/* Subtle vertical divider between navbar groups */
+
+.navbar-separator {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  opacity: 0.4;
+  margin: 0 12px;
+  flex-shrink: 0;
+}
+
+/* ========== CONTEXT BREADCRUMB STYLING ========== */
+/* Breadcrumb-style customer/project display */
+
+.context-breadcrumb-toggle {
+  max-width: 350px;
+}
+
+.context-breadcrumb-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ========== DROPDOWN SECTIONS ========== */
+/* Visually distinct sections within the unified dropdown */
+
+.context-dropdown-menu {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.dropdown-section {
+  padding: 10px 0;
+}
+
+.dropdown-section:first-child {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.dropdown-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dropdown-text);
+  user-select: none;
+}
+
+.dropdown-create-item {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-success-fg) !important;
+  margin-top: 6px;
+}
+
+.context-dropdown-menu .dropdown-item {
+  padding: 6px 12px;
+  font-size: 13px;
+}
