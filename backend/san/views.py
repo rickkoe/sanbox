@@ -1400,12 +1400,16 @@ def alias_customer_list_view(request):
     except Exception as e:
         print(f"⚠️ Failed to build WWPN→Storage map: {e}")
 
+    # Get active project ID from query params (for bulk modal checkbox state)
+    project_id = request.GET.get('project_id') or request.GET.get('project')
+
     serializer = AliasSerializer(
         page_obj,
         many=True,
         context={
             'customer_id': customer_id,
-            'wwpn_storage_map': wwpn_storage_map
+            'wwpn_storage_map': wwpn_storage_map,
+            'active_project_id': int(project_id) if project_id else None
         }
     )
 
@@ -2993,8 +2997,8 @@ def zone_customer_list_view(request):
     """
     print(f"🔥 Zone Customer List - Customer ID from query params")
 
-    # Get customer_id from query parameters
-    customer_id = request.GET.get('customer_id')
+    # Get customer_id from query parameters (accept both 'customer' and 'customer_id')
+    customer_id = request.GET.get('customer') or request.GET.get('customer_id')
     if not customer_id:
         return JsonResponse({"error": "customer_id parameter is required"}, status=400)
 
@@ -3128,11 +3132,17 @@ def zone_customer_list_view(request):
     paginator = Paginator(zones, page_size)
     page_obj = paginator.get_page(page)
 
+    # Get active project ID from query params (for bulk modal checkbox state)
+    project_id = request.GET.get('project_id') or request.GET.get('project')
+
     # Serialize paginated results
     serializer = ZoneSerializer(
         page_obj,
         many=True,
-        context={'customer_id': customer_id}
+        context={
+            'customer_id': customer_id,
+            'active_project_id': int(project_id) if project_id else None
+        }
     )
 
     return JsonResponse({
@@ -3518,12 +3528,12 @@ def fabric_management(request, pk=None):
                 return JsonResponse(data)
             except Fabric.DoesNotExist:
                 return JsonResponse({"error": "Fabric not found"}, status=404)
-        
+
         # List view with pagination
-        customer_id = request.GET.get("customer_id")
+        customer_id = request.GET.get("customer") or request.GET.get("customer_id")
         search = request.GET.get('search', '')
         ordering = request.GET.get('ordering', 'id')
-        
+
         # Build queryset with optimizations
         qs = Fabric.objects.select_related('customer').prefetch_related(
             Prefetch('project_memberships', queryset=ProjectFabric.objects.select_related('project'))
@@ -3593,8 +3603,12 @@ def fabric_management(request, pk=None):
         paginator = Paginator(qs, page_size)
         page_obj = paginator.get_page(page)
 
+        # Get active project ID from query params (for bulk modal checkbox state)
+        project_id = request.GET.get('project_id') or request.GET.get('project')
+        context = {'active_project_id': int(project_id)} if project_id else {}
+
         # Serialize paginated results
-        serializer = FabricSerializer(page_obj, many=True)
+        serializer = FabricSerializer(page_obj, many=True, context=context)
 
         # Return paginated response with metadata
         return JsonResponse({
@@ -4529,7 +4543,7 @@ def switch_management(request, pk=None):
                 return JsonResponse({"error": "Switch not found"}, status=404)
 
         # List view with pagination
-        customer_id = request.GET.get("customer_id")
+        customer_id = request.GET.get("customer") or request.GET.get("customer_id")
         search = request.GET.get('search', '')
         ordering = request.GET.get('ordering', 'id')
 
@@ -4604,8 +4618,12 @@ def switch_management(request, pk=None):
         paginator = Paginator(qs, page_size)
         page_obj = paginator.get_page(page)
 
+        # Get active project ID from query params (for bulk modal checkbox state)
+        project_id = request.GET.get('project_id') or request.GET.get('project')
+        context = {'active_project_id': int(project_id)} if project_id else {}
+
         # Serialize paginated results
-        serializer = SwitchSerializer(page_obj, many=True)
+        serializer = SwitchSerializer(page_obj, many=True, context=context)
 
         # Return paginated response with metadata
         return JsonResponse({

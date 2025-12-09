@@ -118,7 +118,7 @@ def storage_list(request):
             total_count = storages.count()
 
             # Get active project ID from query params (for bulk modal)
-            project_id = request.GET.get('project_id')
+            project_id = request.GET.get('project_id') or request.GET.get('project')
             context = {}
             if project_id:
                 context['active_project_id'] = int(project_id)
@@ -785,7 +785,7 @@ def volume_list(request):
         page_obj = paginator.get_page(page)
 
         # Get active project ID from query params (for bulk modal)
-        project_id = request.GET.get('project_id')
+        project_id = request.GET.get('project_id') or request.GET.get('project')
 
         # Serialize paginated results with context
         context = {}
@@ -916,7 +916,7 @@ def _handle_host_list_get(request, user):
         page_obj = paginator.get_page(page)
 
         # Get active project ID from query params (for bulk modal)
-        project_id = request.GET.get('project_id')
+        project_id = request.GET.get('project_id') or request.GET.get('project')
 
         # Serialize paginated results with context
         context = {}
@@ -1472,7 +1472,7 @@ def port_list(request):
             total_count = ports.count()
 
             # Get active project ID from query params (for bulk modal)
-            project_id = request.GET.get('project_id')
+            project_id = request.GET.get('project_id') or request.GET.get('project')
             context = {}
             if project_id:
                 context['active_project_id'] = int(project_id)

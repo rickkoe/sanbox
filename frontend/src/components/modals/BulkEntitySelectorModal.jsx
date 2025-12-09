@@ -63,7 +63,9 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
 
         try {
             // Fetch all items for this entity type for the customer
-            const url = `${API_URL}${entityType.endpoint}?customer=${activeCustomerId}&project=${activeProjectId}`;
+            // Send both customer and customer_id (some endpoints expect one, some the other)
+            // Send project_id for checkbox state (items already in active project)
+            const url = `${API_URL}${entityType.endpoint}?customer=${activeCustomerId}&customer_id=${activeCustomerId}&project_id=${activeProjectId}`;
             const response = await api.get(url);
 
             // Handle paginated or non-paginated responses
