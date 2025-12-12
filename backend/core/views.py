@@ -1436,30 +1436,40 @@ def app_settings_view(request):
     """
     print(f"🔥 App Settings - Method: {request.method}")
     
+    # Get authenticated user for per-user settings
+    user = request.user if request.user.is_authenticated else None
+
     if request.method == "GET":
         try:
-            # For now, we'll use global settings since there's no authentication
-            # In a real app, you'd get the current user from request.user
-            user = None  # request.user if request.user.is_authenticated else None
-            
             settings = AppSettings.get_settings(user=user)
             serializer = AppSettingsSerializer(settings)
-            
+
             return JsonResponse(serializer.data)
-            
+
         except Exception as e:
             print(f"❌ Error in app_settings_view GET: {e}")
             return JsonResponse({'error': str(e)}, status=500)
-    
+
     elif request.method == "PUT":
         try:
             data = json.loads(request.body)
-            
-            # For now, we'll use global settings since there's no authentication
-            user = None  # request.user if request.user.is_authenticated else None
-            
-            # Get existing settings or create new ones
+
+            # Get existing settings for this user (or global if not authenticated)
             settings = AppSettings.get_settings(user=user)
+
+            # If user is authenticated but using global defaults, create their own copy
+            if user and settings.user is None:
+                # Create user-specific settings with current global values as base
+                existing_data = AppSettingsSerializer(settings).data
+                existing_data.pop('id', None)
+                existing_data.pop('user', None)
+                existing_data.pop('created_at', None)
+                existing_data.pop('updated_at', None)
+                existing_data.update(data)  # Apply the new changes
+                settings = AppSettings.objects.create(user=user, **existing_data)
+                return JsonResponse(AppSettingsSerializer(settings).data)
+
+            # Otherwise update existing settings
             
             # Update settings using serializer
             serializer = AppSettingsSerializer(settings, data=data, partial=True)

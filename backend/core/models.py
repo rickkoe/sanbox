@@ -330,7 +330,12 @@ class AppSettings(models.Model):
         default=False,
         help_text="Show advanced features and debugging tools"
     )
-    
+
+    hide_mode_banners = models.BooleanField(
+        default=False,
+        help_text="Hide Committed/Draft mode banners in table views"
+    )
+
     # SAN Configuration Settings (moved from Config model)
     zone_ratio = models.CharField(
         max_length=20,

@@ -150,6 +150,7 @@ class AppSettingsSerializer(serializers.ModelSerializer):
             'auto_refresh_interval',
             'notifications',
             'show_advanced_features',
+            'hide_mode_banners',
             'zone_ratio',
             'alias_max_zones',
             'created_at',

@@ -114,7 +114,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
             "description": "Configure audit log retention policy"
         }),
         ("Features & Notifications", {
-            "fields": ("notifications", "show_advanced_features")
+            "fields": ("notifications", "show_advanced_features", "hide_mode_banners")
         }),
         ("Metadata", {
             "fields": ("created_at", "updated_at"),

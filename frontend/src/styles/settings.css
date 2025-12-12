@@ -285,9 +285,17 @@ input[type="number"].form-select {
 .checkbox-label input[type="checkbox"] {
   width: 18px;
   height: 18px;
+  min-width: 18px;
+  min-height: 18px;
   margin: 0;
+  margin-top: 2px;
   cursor: pointer;
   accent-color: var(--link-text);
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background-color: var(--form-input-bg);
 }
 
 .checkbox-text {

@@ -6,7 +6,9 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Trash2, Edit3 } from 'lucide-react';
+import { Trash2, Edit3, X } from 'lucide-react';
+import { Modal, Button } from 'react-bootstrap';
+import { useSettings } from '../context/SettingsContext';
 import api from '../api';
 
 /**
@@ -29,12 +31,18 @@ export const useProjectViewSelection = ({
     API_URL,
     totalRowCount
 }) => {
+    // Get user settings for banner visibility
+    const { settings, updateSettings } = useSettings();
+
     // Selection state
     const [selectedRows, setSelectedRows] = useState(new Set());
     const selectedRowsRef = useRef(new Set());
     const [showSelectAllBanner, setShowSelectAllBanner] = useState(false);
     const [showActionsDropdown, setShowActionsDropdown] = useState(false);
     const [isSelectingAllPages, setIsSelectingAllPages] = useState(false);
+
+    // Modal state for hiding banners confirmation
+    const [showHideBannerModal, setShowHideBannerModal] = useState(false);
 
     // Sync ref with state for stable access in callbacks
     useEffect(() => {
@@ -329,18 +337,39 @@ export const useProjectViewSelection = ({
         }
     }, [selectedRows, activeProjectId, entityType, API_URL, handleClearSelection, tableRef]);
 
-    // Banner Slot Component - Always reserves space to prevent layout shift
-    const BannerSlot = useCallback(() => {
-        // Determine which banner to show (if any)
-        const showCustomerViewBanner = projectFilter !== 'current';
-        const showSelectAllBannerContent = showSelectAllBanner && projectFilter === 'current';
-        const showProjectWorkBanner = projectFilter === 'current' && !showSelectAllBanner;
+    // Handler to hide mode banners permanently
+    const handleHideBanners = useCallback(async () => {
+        try {
+            await updateSettings({ hide_mode_banners: true });
+            setShowHideBannerModal(false);
+        } catch (error) {
+            console.error('Error hiding banners:', error);
+            alert('Failed to hide banners. Please try again.');
+        }
+    }, [updateSettings]);
 
-        // Always render container with fixed min-height to reserve space
+    // Banner Slot Component - Reserves space only when banners are visible
+    const BannerSlot = useCallback(() => {
+        // Check if user has hidden mode banners
+        const hideBanners = settings?.hide_mode_banners;
+
+        // Determine which banner to show (if any)
+        const showCustomerViewBanner = projectFilter !== 'current' && !hideBanners;
+        const showSelectAllBannerContent = showSelectAllBanner && projectFilter === 'current';
+        const showProjectWorkBanner = projectFilter === 'current' && !showSelectAllBanner && !hideBanners;
+
+        // Check if any banner should be shown
+        const anyBannerVisible = showCustomerViewBanner || showSelectAllBannerContent || showProjectWorkBanner;
+
+        // If user has hidden banners and no select-all banner, don't reserve any space
+        if (!anyBannerVisible) {
+            return null;
+        }
+
+        // Reserve space and show the appropriate banner
         return (
             <div style={{
-                minHeight: '52px',
-                visibility: (showCustomerViewBanner || showSelectAllBannerContent || showProjectWorkBanner) ? 'visible' : 'hidden'
+                minHeight: '52px'
             }}>
                 {/* Customer View Banner (Read-only mode notification) */}
                 {showCustomerViewBanner && (
@@ -391,6 +420,26 @@ export const useProjectViewSelection = ({
                                 to make changes in Draft mode.
                             </span>
                         </div>
+                        <button
+                            onClick={() => setShowHideBannerModal(true)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '4px',
+                                color: 'var(--muted-text)',
+                                transition: 'color 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary-text)'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted-text)'}
+                            title="Hide this banner"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
                 )}
 
@@ -480,11 +529,55 @@ export const useProjectViewSelection = ({
                                 <strong>You are in Draft Mode:</strong> Edit items here via the active project. Commit changes when complete.
                             </span>
                         </div>
+                        <button
+                            onClick={() => setShowHideBannerModal(true)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '4px',
+                                color: 'var(--muted-text)',
+                                transition: 'color 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary-text)'}
+                            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted-text)'}
+                            title="Hide this banner"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
                 )}
+
+                {/* Confirmation Modal for hiding banners */}
+                <Modal
+                    show={showHideBannerModal}
+                    onHide={() => setShowHideBannerModal(false)}
+                    centered
+                    contentClassName="hide-banner-modal-content"
+                >
+                    <Modal.Header closeButton>
+                        <Modal.Title>Hide Mode Banners</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                        These banners will be hidden permanently. You can show them again in{' '}
+                        <strong>App Settings</strong> under "Notifications & Features".
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" onClick={() => setShowHideBannerModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="primary" onClick={handleHideBanners}>
+                            Hide Banners
+                        </Button>
+                    </Modal.Footer>
+                </Modal>
             </div>
         );
-    }, [projectFilter, showSelectAllBanner, selectedRows.size, totalRowCount, entityType, handleSelectAllPages, handleClearSelection, isSelectingAllPages]);
+    }, [projectFilter, showSelectAllBanner, selectedRows.size, totalRowCount, entityType, handleSelectAllPages, handleClearSelection, isSelectingAllPages, settings?.hide_mode_banners, showHideBannerModal, handleHideBanners]);
 
     // Actions Dropdown Component
     const ActionsDropdown = useCallback(() => {

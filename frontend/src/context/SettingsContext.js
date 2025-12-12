@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
-import axios from "axios";
+import api from "../api";
 
 export const SettingsContext = createContext();
 
@@ -13,7 +13,8 @@ export const SettingsProvider = ({ children }) => {
     compact_mode: false,
     show_advanced_features: false,
     zone_ratio: 'one-to-one',
-    alias_max_zones: 1
+    alias_max_zones: 1,
+    hide_mode_banners: false
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,9 +27,9 @@ export const SettingsProvider = ({ children }) => {
   const fetchSettings = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const response = await axios.get(settingsApiUrl);
+      const response = await api.get(settingsApiUrl);
       if (response.data && Object.keys(response.data).length > 0) {
         setSettings(prev => ({ ...prev, ...response.data }));
       }
@@ -42,7 +43,7 @@ export const SettingsProvider = ({ children }) => {
 
   const updateSettings = async (updatedSettings) => {
     try {
-      const response = await axios.put(settingsApiUrl, updatedSettings);
+      const response = await api.put(settingsApiUrl, updatedSettings);
       if (response.data) {
         setSettings(prev => ({ ...prev, ...response.data }));
       }

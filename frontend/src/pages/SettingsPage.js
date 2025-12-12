@@ -366,6 +366,21 @@ const SettingsPage = () => {
                                 </label>
                                 <small className="form-help">Display advanced options and debugging tools</small>
                             </div>
+
+                            <div className="form-group checkbox-group">
+                                <label className="checkbox-label">
+                                    <input
+                                        type="checkbox"
+                                        name="show_mode_banners"
+                                        checked={!settings.hide_mode_banners}
+                                        onChange={(e) => handleInputChange({
+                                            target: { name: 'hide_mode_banners', checked: !e.target.checked, type: 'checkbox' }
+                                        })}
+                                    />
+                                    <span className="checkbox-text">Show mode banners</span>
+                                </label>
+                                <small className="form-help">Display Committed/Draft mode notification banners in table views</small>
+                            </div>
                         </div>
                     </div>
 

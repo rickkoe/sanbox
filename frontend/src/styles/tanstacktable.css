@@ -767,3 +767,75 @@ button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
   color: var(--form-input-disabled-text);
   cursor: not-allowed;
 }
+
+/* ========== HIDE BANNER MODAL ========== */
+/* Theme-aware modal for hiding mode banners */
+/* Uses primary-bg for consistent dark background in dark mode */
+.hide-banner-modal-content,
+.hide-banner-modal-content.modal-content {
+  background-color: var(--primary-bg) !important;
+  background-image: none !important;
+  background: var(--primary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--modal-shadow) !important;
+}
+
+.hide-banner-modal-content .modal-header,
+.hide-banner-modal-content.modal-content .modal-header {
+  background-color: var(--primary-bg) !important;
+  background-image: none !important;
+  background: var(--primary-bg) !important;
+  border-bottom: 1px solid var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+}
+
+.hide-banner-modal-content .modal-header .modal-title,
+.hide-banner-modal-content .modal-header .btn-close {
+  color: var(--primary-text) !important;
+}
+
+.hide-banner-modal-content .btn-close {
+  filter: var(--close-button-filter) !important;
+  opacity: 0.7;
+}
+
+.hide-banner-modal-content .btn-close:hover {
+  opacity: 1;
+}
+
+.hide-banner-modal-content .modal-body,
+.hide-banner-modal-content.modal-content .modal-body {
+  background-color: var(--primary-bg) !important;
+  background-image: none !important;
+  background: var(--primary-bg) !important;
+  color: var(--primary-text) !important;
+}
+
+.hide-banner-modal-content .modal-footer,
+.hide-banner-modal-content.modal-content .modal-footer {
+  background-color: var(--primary-bg) !important;
+  background-image: none !important;
+  background: var(--primary-bg) !important;
+  border-top: 1px solid var(--color-border-default) !important;
+}
+
+.hide-banner-modal-content .btn-secondary {
+  background-color: var(--button-bg) !important;
+  border-color: var(--button-border) !important;
+  color: var(--button-text) !important;
+}
+
+.hide-banner-modal-content .btn-secondary:hover {
+  background-color: var(--button-hover-bg) !important;
+}
+
+.hide-banner-modal-content .btn-primary {
+  background-color: var(--button-primary-bg) !important;
+  border-color: var(--button-primary-border) !important;
+  color: var(--button-primary-text) !important;
+}
+
+.hide-banner-modal-content .btn-primary:hover {
+  background-color: var(--button-primary-hover) !important;
+}
