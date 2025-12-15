@@ -35,17 +35,75 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
     // Show bulk modal
     const [showBulkModal, setShowBulkModal] = useState(false);
 
+    // Entity counts for displaying on cards
+    const [entityCounts, setEntityCounts] = useState({});
+    const [loadingCounts, setLoadingCounts] = useState(false);
+
     // Entity type definitions
     const entityTypes = [
-        { key: 'alias', label: 'Aliases', endpoint: '/api/san/aliases/', icon: 'tag' },
-        { key: 'zone', label: 'Zones', endpoint: '/api/san/zones/', icon: 'layers' },
-        { key: 'fabric', label: 'Fabrics', endpoint: '/api/san/fabrics/', icon: 'grid' },
-        { key: 'switch', label: 'Switches', endpoint: '/api/san/switches/', icon: 'cpu' },
-        { key: 'storage', label: 'Storage Systems', endpoint: '/api/storage/storage/', icon: 'database' },
-        { key: 'volume', label: 'Volumes', endpoint: '/api/storage/volumes/', icon: 'hard-drive' },
-        { key: 'host', label: 'Hosts', endpoint: '/api/storage/hosts/', icon: 'server' },
-        { key: 'port', label: 'Ports', endpoint: '/api/storage/ports/', icon: 'link' }
+        { key: 'alias', label: 'Aliases', endpoint: '/api/san/aliases/', projectEndpoint: '/api/san/aliases/project/', listEndpoint: '/api/san/aliases/', icon: 'tag' },
+        { key: 'zone', label: 'Zones', endpoint: '/api/san/zones/', projectEndpoint: '/api/san/zones/project/', listEndpoint: '/api/san/zones/', icon: 'layers' },
+        { key: 'fabric', label: 'Fabrics', endpoint: '/api/san/fabrics/', projectEndpoint: '/api/san/fabrics/project/', listEndpoint: '/api/san/fabrics/', icon: 'grid' },
+        { key: 'switch', label: 'Switches', endpoint: '/api/san/switches/', projectEndpoint: '/api/san/switches/project/', listEndpoint: '/api/san/switches/', icon: 'cpu' },
+        { key: 'storage', label: 'Storage Systems', endpoint: '/api/storage/', projectEndpoint: null, listEndpoint: '/api/storage/', icon: 'database' },
+        { key: 'volume', label: 'Volumes', endpoint: '/api/storage/volumes/', projectEndpoint: null, listEndpoint: '/api/storage/volumes/', icon: 'hard-drive' },
+        { key: 'host', label: 'Hosts', endpoint: '/api/storage/hosts/', projectEndpoint: null, listEndpoint: '/api/storage/hosts/', icon: 'server' },
+        { key: 'port', label: 'Ports', endpoint: '/api/storage/ports/', projectEndpoint: null, listEndpoint: '/api/storage/ports/', icon: 'link' }
     ];
+
+    // Fetch entity counts when modal opens
+    useEffect(() => {
+        const fetchCounts = async () => {
+            if (!show || !activeCustomerId || !activeProjectId) return;
+
+            setLoadingCounts(true);
+            const counts = {};
+
+            try {
+                // Fetch counts for all entity types in parallel
+                await Promise.all(
+                    entityTypes.map(async (entityType) => {
+                        try {
+                            // Fetch committed count (customer view - all committed or orphaned entities)
+                            const committedUrl = `${API_URL}${entityType.listEndpoint}?customer=${activeCustomerId}&page_size=1`;
+                            const committedResponse = await api.get(committedUrl);
+                            const committedCount = committedResponse.data.count || (Array.isArray(committedResponse.data) ? committedResponse.data.length : 0);
+
+                            // Fetch project count
+                            let projectCount = 0;
+                            if (entityType.projectEndpoint) {
+                                // SAN entities have project-specific endpoints
+                                try {
+                                    const projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/?page_size=1`;
+                                    const projectResponse = await api.get(projectUrl);
+                                    projectCount = projectResponse.data.count || (Array.isArray(projectResponse.data) ? projectResponse.data.length : 0);
+                                } catch (projError) {
+                                    console.warn(`Project endpoint failed for ${entityType.label}, using fallback:`, projError);
+                                    projectCount = 0;
+                                }
+                            }
+
+                            counts[entityType.key] = {
+                                committed: committedCount,
+                                inProject: projectCount
+                            };
+                        } catch (error) {
+                            console.error(`Error fetching counts for ${entityType.label}:`, error);
+                            counts[entityType.key] = { committed: 0, inProject: 0 };
+                        }
+                    })
+                );
+
+                setEntityCounts(counts);
+            } catch (error) {
+                console.error('Error fetching entity counts:', error);
+            } finally {
+                setLoadingCounts(false);
+            }
+        };
+
+        fetchCounts();
+    }, [show, activeCustomerId, activeProjectId, API_URL]);
 
     // Reset when modal closes
     useEffect(() => {
@@ -53,6 +111,7 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
             setSelectedEntityType(null);
             setEntityItems([]);
             setShowBulkModal(false);
+            setEntityCounts({});
         }
     }, [show]);
 
@@ -62,15 +121,79 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
         setLoadingItems(true);
 
         try {
-            // Fetch all items for this entity type for the customer
-            // Send both customer and customer_id (some endpoints expect one, some the other)
-            // Send project_id for checkbox state (items already in active project)
-            const url = `${API_URL}${entityType.endpoint}?customer=${activeCustomerId}&customer_id=${activeCustomerId}&project_id=${activeProjectId}`;
-            const response = await api.get(url);
+            // Fetch ALL customer entities with pagination support
+            let allItems = [];
+            let currentPage = 1;
+            let hasMorePages = true;
 
-            // Handle paginated or non-paginated responses
-            const items = response.data.results || response.data;
-            setEntityItems(items);
+            console.log(`Fetching all ${entityType.label} for customer ${activeCustomerId}...`);
+
+            // Keep fetching pages until we have all items
+            while (hasMorePages) {
+                const url = `${API_URL}${entityType.listEndpoint}?customer=${activeCustomerId}&page=${currentPage}&page_size=500`;
+                const response = await api.get(url);
+
+                // Handle paginated responses
+                if (response.data.results) {
+                    // Paginated response
+                    allItems = allItems.concat(response.data.results);
+                    const totalCount = response.data.count || 0;
+                    hasMorePages = allItems.length < totalCount;
+                    currentPage++;
+                    console.log(`Fetched page ${currentPage - 1}: ${allItems.length}/${totalCount} items`);
+                } else {
+                    // Non-paginated response (array)
+                    allItems = response.data;
+                    hasMorePages = false;
+                }
+            }
+
+            console.log(`Total ${entityType.label} fetched: ${allItems.length}`);
+
+            // Now fetch ALL project entities to mark which ones are in the project
+            if (entityType.projectEndpoint) {
+                try {
+                    let allProjectItems = [];
+                    let projectPage = 1;
+                    let hasMoreProjectPages = true;
+
+                    console.log(`Fetching all project ${entityType.label}...`);
+
+                    while (hasMoreProjectPages) {
+                        const projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/?page=${projectPage}&page_size=500`;
+                        const projectResponse = await api.get(projectUrl);
+
+                        if (projectResponse.data.results) {
+                            allProjectItems = allProjectItems.concat(projectResponse.data.results);
+                            const totalProjectCount = projectResponse.data.count || 0;
+                            hasMoreProjectPages = allProjectItems.length < totalProjectCount;
+                            projectPage++;
+                        } else {
+                            allProjectItems = projectResponse.data;
+                            hasMoreProjectPages = false;
+                        }
+                    }
+
+                    console.log(`Total project ${entityType.label}: ${allProjectItems.length}`);
+
+                    const projectIds = new Set(allProjectItems.map(item => item.id));
+
+                    // Mark items that are in the project
+                    allItems = allItems.map(item => ({
+                        ...item,
+                        in_active_project: projectIds.has(item.id)
+                    }));
+                } catch (projError) {
+                    console.warn('Could not fetch project items, all will show as not in project:', projError);
+                    // Continue with items unmarked
+                    allItems = allItems.map(item => ({ ...item, in_active_project: false }));
+                }
+            } else {
+                // Storage entities - mark all as not in project for now
+                allItems = allItems.map(item => ({ ...item, in_active_project: false }));
+            }
+
+            setEntityItems(allItems);
             setShowBulkModal(true);
         } catch (error) {
             console.error(`Error loading ${entityType.label}:`, error);
@@ -82,7 +205,11 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
 
     // Handle save from bulk modal
     const handleBulkSave = async (selectedIds) => {
-        if (!selectedEntityType || !activeProjectId) return;
+        if (!selectedEntityType || !activeProjectId) {
+            console.error('Missing required data:', { selectedEntityType, activeProjectId });
+            alert('Missing project or entity type information.');
+            return;
+        }
 
         try {
             // Determine which items to add and which to remove
@@ -90,42 +217,63 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
                 entityItems.filter(item => item.in_active_project).map(item => item.id)
             );
 
-            const toAdd = [...selectedIds].filter(id => !currentlyInProject.has(id));
-            const toRemove = [...currentlyInProject].filter(id => !selectedIds.has(id));
+            // Convert selectedIds to Set if it's an array
+            const selectedIdsSet = selectedIds instanceof Set ? selectedIds : new Set(selectedIds);
 
-            // Get the appropriate API endpoint for bulk operations
-            const entityEndpoints = {
-                alias: '/api/san/project-aliases/',
-                zone: '/api/san/project-zones/',
-                fabric: '/api/san/project-fabrics/',
-                switch: '/api/san/project-switches/',
-                storage: '/api/storage/project-storage/',
-                volume: '/api/storage/project-volumes/',
-                host: '/api/storage/project-hosts/',
-                port: '/api/storage/project-ports/'
-            };
+            const toAdd = [...selectedIdsSet].filter(id => !currentlyInProject.has(id));
+            const toRemove = [...currentlyInProject].filter(id => !selectedIdsSet.has(id));
 
-            const baseEndpoint = entityEndpoints[selectedEntityType.key];
+            const entityKey = selectedEntityType.key;
+
+            console.log('Bulk operation:', { entityKey, toAdd, toRemove, activeProjectId });
 
             // Add items
             for (const id of toAdd) {
-                await api.post(`${API_URL}${baseEndpoint}`, {
-                    project: activeProjectId,
-                    [selectedEntityType.key]: id,
-                    action: 'unmodified'
-                });
+                const payload = {
+                    [`${entityKey}_id`]: id,
+                    action: 'unmodified',
+                    notes: `Added via Bulk Add/Remove modal`
+                };
+
+                // Alias-specific field
+                if (entityKey === 'alias') {
+                    payload.include_in_zoning = false;
+                }
+
+                console.log(`Adding ${entityKey} ${id} to project ${activeProjectId}`);
+                const url = `${API_URL}/api/core/projects/${activeProjectId}/add-${entityKey}/`;
+                console.log('POST URL:', url, 'Payload:', payload);
+
+                await api.post(url, payload);
             }
 
             // Remove items
             for (const id of toRemove) {
-                await api.delete(`${API_URL}${baseEndpoint}${activeProjectId}/${id}/`);
+                console.log(`Removing ${entityKey} ${id} from project ${activeProjectId}`);
+                const url = `${API_URL}/api/core/projects/${activeProjectId}/remove-${entityKey}/${id}/`;
+                console.log('DELETE URL:', url);
+
+                await api.delete(url);
+            }
+
+            // Reload the table if it's open
+            const tableRefName = `${entityKey}TableRef`;
+            if (window[tableRefName]?.current?.reloadData) {
+                window[tableRefName].current.reloadData();
             }
 
             setShowBulkModal(false);
             onClose();
         } catch (error) {
             console.error('Error updating project membership:', error);
-            alert('Failed to update project membership. Please try again.');
+            console.error('Error details:', {
+                message: error.message,
+                response: error.response,
+                status: error.response?.status,
+                data: error.response?.data
+            });
+            const errorMsg = error.response?.data?.error || error.message || 'Please try again.';
+            alert(`Failed to update project membership. ${errorMsg}`);
         }
     };
 
@@ -165,19 +313,36 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
                         Select an entity type to add or remove from the project:
                     </p>
                     <div className="bulk-entity-grid">
-                        {entityTypes.map(entityType => (
-                            <button
-                                key={entityType.key}
-                                className="bulk-entity-button"
-                                onClick={() => handleEntitySelect(entityType)}
-                                disabled={loadingItems}
-                            >
-                                <span className="bulk-entity-icon">
-                                    {getEntityIcon(entityType.icon)}
-                                </span>
-                                <span className="bulk-entity-label">{entityType.label}</span>
-                            </button>
-                        ))}
+                        {entityTypes.map(entityType => {
+                            const counts = entityCounts[entityType.key];
+                            return (
+                                <button
+                                    key={entityType.key}
+                                    className="bulk-entity-button"
+                                    onClick={() => handleEntitySelect(entityType)}
+                                    disabled={loadingItems || loadingCounts}
+                                >
+                                    <span className="bulk-entity-icon">
+                                        {getEntityIcon(entityType.icon)}
+                                    </span>
+                                    <span className="bulk-entity-label">{entityType.label}</span>
+                                    {loadingCounts ? (
+                                        <span className="bulk-entity-counts">Loading...</span>
+                                    ) : counts ? (
+                                        <span className="bulk-entity-counts">
+                                            <span className="count-item">
+                                                <span className="count-label">Committed:</span>
+                                                <span className="count-value">{counts.committed}</span>
+                                            </span>
+                                            <span className="count-item">
+                                                <span className="count-label">In Project:</span>
+                                                <span className="count-value">{counts.inProject}</span>
+                                            </span>
+                                        </span>
+                                    ) : null}
+                                </button>
+                            );
+                        })}
                     </div>
                     {loadingItems && (
                         <div className="bulk-entity-loading">

@@ -224,6 +224,15 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         }
     }, [activeProjectId, API_URL]);
 
+    // Expose table ref to window for bulk operations
+    useEffect(() => {
+        window.portTableRef = tableRef;
+
+        return () => {
+            delete window.portTableRef;
+        };
+    }, []);
+
     // WWPN formatting utilities (same as AliasTable)
     const formatWWPN = useCallback((value) => {
         if (!value) return "";

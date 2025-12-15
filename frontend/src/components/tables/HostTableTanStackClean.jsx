@@ -214,6 +214,15 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         }
     }, [activeProjectId, API_URL]);
 
+    // Expose table ref to window for bulk operations
+    useEffect(() => {
+        window.hostTableRef = tableRef;
+
+        return () => {
+            delete window.hostTableRef;
+        };
+    }, []);
+
     // Dynamic dropdown sources
     const dropdownSources = useMemo(() => ({
         storage_system: storageOptions.map(s => s.name),

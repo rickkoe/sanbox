@@ -119,6 +119,15 @@ const StorageTableTanStackClean = () => {
         }
     }, [activeProjectId, API_URL]);
 
+    // Expose table ref to window for bulk operations
+    useEffect(() => {
+        window.storageTableRef = tableRef;
+
+        return () => {
+            delete window.storageTableRef;
+        };
+    }, []);
+
     // API endpoints - storage URL now comes from custom apiUrl generation
     const API_ENDPOINTS = useMemo(() => {
         const baseUrl = `${API_URL}/api/storage`;

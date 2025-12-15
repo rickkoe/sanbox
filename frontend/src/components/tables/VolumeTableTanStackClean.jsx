@@ -230,6 +230,15 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         }
     }, [activeProjectId, API_URL]);
 
+    // Expose table ref to window for bulk operations
+    useEffect(() => {
+        window.volumeTableRef = tableRef;
+
+        return () => {
+            delete window.volumeTableRef;
+        };
+    }, []);
+
     // Dynamic dropdown sources
     const dropdownSources = useMemo(() => ({
         storage: storageOptions.map(s => s.name)

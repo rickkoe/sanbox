@@ -325,6 +325,15 @@ const SwitchTableTanStack = () => {
         }
     }, [activeProjectId, API_URL]);
 
+    // Expose table ref to window for bulk operations
+    useEffect(() => {
+        window.switchTableRef = tableRef;
+
+        return () => {
+            delete window.switchTableRef;
+        };
+    }, []);
+
     // Process data for display - convert vendor codes to names, format fabrics, and domain IDs
     const preprocessData = (data) => {
         return data.map(switchItem => {

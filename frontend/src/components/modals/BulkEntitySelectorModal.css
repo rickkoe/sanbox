@@ -118,6 +118,36 @@
     color: var(--color-fg-default);
 }
 
+.bulk-entity-counts {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 12px;
+    width: 100%;
+}
+
+.count-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background: var(--color-canvas-default);
+    border-radius: 4px;
+}
+
+.count-label {
+    color: var(--color-fg-muted);
+    font-weight: 400;
+}
+
+.count-value {
+    color: var(--color-fg-default);
+    font-weight: 600;
+    min-width: 30px;
+    text-align: right;
+}
+
 .bulk-entity-loading {
     display: flex;
     align-items: center;

@@ -218,10 +218,12 @@ const FabricTableTanStackClean = () => {
     useEffect(() => {
         window.handleAddFabricToProject = handleAddFabricToProject;
         window.handleRemoveFabricFromProject = handleRemoveFabricFromProject;
+        window.fabricTableRef = tableRef;
 
         return () => {
             delete window.handleAddFabricToProject;
             delete window.handleRemoveFabricFromProject;
+            delete window.fabricTableRef;
         };
     }, [activeProjectId, handleAddFabricToProject, handleRemoveFabricFromProject]);
 
