@@ -45,64 +45,80 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
         { key: 'zone', label: 'Zones', endpoint: '/api/san/zones/', projectEndpoint: '/api/san/zones/project/', listEndpoint: '/api/san/zones/', icon: 'layers' },
         { key: 'fabric', label: 'Fabrics', endpoint: '/api/san/fabrics/', projectEndpoint: '/api/san/fabrics/project/', listEndpoint: '/api/san/fabrics/', icon: 'grid' },
         { key: 'switch', label: 'Switches', endpoint: '/api/san/switches/', projectEndpoint: '/api/san/switches/project/', listEndpoint: '/api/san/switches/', icon: 'cpu' },
-        { key: 'storage', label: 'Storage Systems', endpoint: '/api/storage/', projectEndpoint: null, listEndpoint: '/api/storage/', icon: 'database' },
-        { key: 'volume', label: 'Volumes', endpoint: '/api/storage/volumes/', projectEndpoint: null, listEndpoint: '/api/storage/volumes/', icon: 'hard-drive' },
-        { key: 'host', label: 'Hosts', endpoint: '/api/storage/hosts/', projectEndpoint: null, listEndpoint: '/api/storage/hosts/', icon: 'server' },
-        { key: 'port', label: 'Ports', endpoint: '/api/storage/ports/', projectEndpoint: null, listEndpoint: '/api/storage/ports/', icon: 'link' }
+        { key: 'storage', label: 'Storage Systems', endpoint: '/api/storage/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/', icon: 'database' },
+        { key: 'volume', label: 'Volumes', endpoint: '/api/storage/volumes/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/volumes/', icon: 'hard-drive' },
+        { key: 'host', label: 'Hosts', endpoint: '/api/storage/hosts/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/hosts/', icon: 'server' },
+        { key: 'port', label: 'Ports', endpoint: '/api/storage/ports/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/ports/', icon: 'link' }
     ];
+
+    // Fetch entity counts - extracted as separate function so we can call it after saving
+    const fetchCounts = async () => {
+        if (!activeCustomerId || !activeProjectId) return;
+
+        setLoadingCounts(true);
+        const counts = {};
+
+        try {
+            // Fetch counts for all entity types in parallel
+            await Promise.all(
+                entityTypes.map(async (entityType) => {
+                    try {
+                        // Fetch committed count (customer view - all committed or orphaned entities)
+                        const committedUrl = `${API_URL}${entityType.listEndpoint}?customer=${activeCustomerId}&page_size=1`;
+                        const committedResponse = await api.get(committedUrl);
+                        const committedCount = committedResponse.data.count || (Array.isArray(committedResponse.data) ? committedResponse.data.length : 0);
+
+                        // Fetch project count
+                        let projectCount = 0;
+                        if (entityType.projectEndpoint) {
+                            try {
+                                // Build project URL - storage entities use different pattern
+                                let projectUrl;
+                                if (entityType.key === 'storage') {
+                                    projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/storages/?page_size=1`;
+                                } else if (entityType.key === 'volume') {
+                                    projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/volumes/?page_size=1`;
+                                } else if (entityType.key === 'host') {
+                                    projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/hosts/?page_size=1`;
+                                } else if (entityType.key === 'port') {
+                                    projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/ports/?page_size=1`;
+                                } else {
+                                    // SAN entities (alias, zone, fabric, switch)
+                                    projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/?page_size=1`;
+                                }
+
+                                const projectResponse = await api.get(projectUrl);
+                                projectCount = projectResponse.data.count || (Array.isArray(projectResponse.data) ? projectResponse.data.length : 0);
+                            } catch (projError) {
+                                console.warn(`Project endpoint failed for ${entityType.label}, using fallback:`, projError);
+                                projectCount = 0;
+                            }
+                        }
+
+                        counts[entityType.key] = {
+                            committed: committedCount,
+                            inProject: projectCount
+                        };
+                    } catch (error) {
+                        console.error(`Error fetching counts for ${entityType.label}:`, error);
+                        counts[entityType.key] = { committed: 0, inProject: 0 };
+                    }
+                })
+            );
+
+            setEntityCounts(counts);
+        } catch (error) {
+            console.error('Error fetching entity counts:', error);
+        } finally {
+            setLoadingCounts(false);
+        }
+    };
 
     // Fetch entity counts when modal opens
     useEffect(() => {
-        const fetchCounts = async () => {
-            if (!show || !activeCustomerId || !activeProjectId) return;
-
-            setLoadingCounts(true);
-            const counts = {};
-
-            try {
-                // Fetch counts for all entity types in parallel
-                await Promise.all(
-                    entityTypes.map(async (entityType) => {
-                        try {
-                            // Fetch committed count (customer view - all committed or orphaned entities)
-                            const committedUrl = `${API_URL}${entityType.listEndpoint}?customer=${activeCustomerId}&page_size=1`;
-                            const committedResponse = await api.get(committedUrl);
-                            const committedCount = committedResponse.data.count || (Array.isArray(committedResponse.data) ? committedResponse.data.length : 0);
-
-                            // Fetch project count
-                            let projectCount = 0;
-                            if (entityType.projectEndpoint) {
-                                // SAN entities have project-specific endpoints
-                                try {
-                                    const projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/?page_size=1`;
-                                    const projectResponse = await api.get(projectUrl);
-                                    projectCount = projectResponse.data.count || (Array.isArray(projectResponse.data) ? projectResponse.data.length : 0);
-                                } catch (projError) {
-                                    console.warn(`Project endpoint failed for ${entityType.label}, using fallback:`, projError);
-                                    projectCount = 0;
-                                }
-                            }
-
-                            counts[entityType.key] = {
-                                committed: committedCount,
-                                inProject: projectCount
-                            };
-                        } catch (error) {
-                            console.error(`Error fetching counts for ${entityType.label}:`, error);
-                            counts[entityType.key] = { committed: 0, inProject: 0 };
-                        }
-                    })
-                );
-
-                setEntityCounts(counts);
-            } catch (error) {
-                console.error('Error fetching entity counts:', error);
-            } finally {
-                setLoadingCounts(false);
-            }
-        };
-
-        fetchCounts();
+        if (show && activeCustomerId && activeProjectId) {
+            fetchCounts();
+        }
     }, [show, activeCustomerId, activeProjectId, API_URL]);
 
     // Reset when modal closes
@@ -160,7 +176,21 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
                     console.log(`Fetching all project ${entityType.label}...`);
 
                     while (hasMoreProjectPages) {
-                        const projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/?page=${projectPage}&page_size=500`;
+                        // Build project URL - storage entities use different pattern
+                        let projectUrl;
+                        if (entityType.key === 'storage') {
+                            projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/storages/?page=${projectPage}&page_size=500`;
+                        } else if (entityType.key === 'volume') {
+                            projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/volumes/?page=${projectPage}&page_size=500`;
+                        } else if (entityType.key === 'host') {
+                            projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/hosts/?page=${projectPage}&page_size=500`;
+                        } else if (entityType.key === 'port') {
+                            projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/ports/?page=${projectPage}&page_size=500`;
+                        } else {
+                            // SAN entities (alias, zone, fabric, switch)
+                            projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/?page=${projectPage}&page_size=500`;
+                        }
+
                         const projectResponse = await api.get(projectUrl);
 
                         if (projectResponse.data.results) {
@@ -176,13 +206,29 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
 
                     console.log(`Total project ${entityType.label}: ${allProjectItems.length}`);
 
-                    const projectIds = new Set(allProjectItems.map(item => item.id));
+                    // Create a map of project items with their metadata (action, field_overrides)
+                    const projectItemsMap = new Map(
+                        allProjectItems.map(item => [
+                            item.id,
+                            {
+                                action: item.action,
+                                field_overrides: item.field_overrides,
+                                has_changes: item.action === 'modified' || (item.field_overrides && Object.keys(item.field_overrides).length > 0)
+                            }
+                        ])
+                    );
 
-                    // Mark items that are in the project
-                    allItems = allItems.map(item => ({
-                        ...item,
-                        in_active_project: projectIds.has(item.id)
-                    }));
+                    // Mark items that are in the project with their metadata
+                    allItems = allItems.map(item => {
+                        const projectMeta = projectItemsMap.get(item.id);
+                        return {
+                            ...item,
+                            in_active_project: projectItemsMap.has(item.id),
+                            project_action: projectMeta?.action,
+                            project_field_overrides: projectMeta?.field_overrides,
+                            project_has_changes: projectMeta?.has_changes || false
+                        };
+                    });
                 } catch (projError) {
                     console.warn('Could not fetch project items, all will show as not in project:', projError);
                     // Continue with items unmarked
@@ -227,6 +273,25 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
 
             console.log('Bulk operation:', { entityKey, toAdd, toRemove, activeProjectId });
 
+            // Check if any items being removed have changes
+            if (toRemove.length > 0) {
+                const itemsWithChanges = entityItems.filter(
+                    item => toRemove.includes(item.id) && item.project_has_changes
+                );
+
+                if (itemsWithChanges.length > 0) {
+                    const itemNames = itemsWithChanges.map(item => item.name).join(', ');
+                    const confirmMessage = itemsWithChanges.length === 1
+                        ? `"${itemNames}" has unsaved changes in this project. Removing it will discard these changes.\n\nThis action cannot be undone. Continue?`
+                        : `${itemsWithChanges.length} ${entityKey === 'alias' ? 'aliases' : entityKey + 's'} have unsaved changes:\n${itemNames}\n\nRemoving them will discard all changes.\n\nThis action cannot be undone. Continue?`;
+
+                    if (!window.confirm(confirmMessage)) {
+                        console.log('Remove operation cancelled by user');
+                        return; // User cancelled
+                    }
+                }
+            }
+
             // Add items
             for (const id of toAdd) {
                 const payload = {
@@ -262,8 +327,28 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
                 window[tableRefName].current.reloadData();
             }
 
+            // Close the bulk modal and return to entity selector
             setShowBulkModal(false);
-            onClose();
+            setSelectedEntityType(null);
+            setEntityItems([]);
+
+            // Refresh entity counts to reflect the changes
+            await fetchCounts();
+
+            // Success message
+            const addedCount = toAdd.length;
+            const removedCount = toRemove.length;
+            let message = '';
+            if (addedCount > 0 && removedCount > 0) {
+                message = `Added ${addedCount} and removed ${removedCount} ${entityKey === 'alias' ? 'aliases' : entityKey + 's'}`;
+            } else if (addedCount > 0) {
+                message = `Added ${addedCount} ${entityKey === 'alias' ? 'aliases' : entityKey + 's'}`;
+            } else if (removedCount > 0) {
+                message = `Removed ${removedCount} ${entityKey === 'alias' ? 'aliases' : entityKey + 's'}`;
+            } else {
+                message = 'No changes made';
+            }
+            console.log(`✅ ${message}`);
         } catch (error) {
             console.error('Error updating project membership:', error);
             console.error('Error details:', {
