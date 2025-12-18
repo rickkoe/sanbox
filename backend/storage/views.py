@@ -2621,3 +2621,415 @@ def port_project_view(request, project_id):
         })
 
     return JsonResponse(response_data, safe=False)
+
+# =============================================================================
+# DS8000 Volume Range Management Views
+# =============================================================================
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def volume_ranges_list(request, storage_id):
+    """
+    GET /api/storage/{storage_id}/volume-ranges/
+
+    Returns calculated volume ranges for a DS8000 storage system.
+    Only works for storage_type='DS8000'.
+
+    Query params:
+    - active_project_id: ID of the active project (for Draft mode)
+    - project_filter: 'current' for Draft mode, anything else for Committed mode
+    """
+    try:
+        # Validate storage exists
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': f'Storage system with id {storage_id} not found'}, status=404)
+
+        # Validate it's a DS8000
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                'error': f'Volume ranges are only available for DS8000 storage systems. This storage is type: {storage.storage_type}'
+            }, status=400)
+
+        # Get query params for view mode
+        active_project_id = request.GET.get('active_project_id')
+        project_filter = request.GET.get('project_filter', 'all')
+
+        # Get volumes for this storage
+        from django.db.models import Q, Count
+        volumes = Volume.objects.filter(storage=storage).select_related('storage')
+
+        # Apply filtering based on view mode
+        if project_filter == 'current' and active_project_id:
+            # Draft mode: Show committed volumes OR volumes in the active project
+            volumes = volumes.filter(
+                Q(committed=True) | Q(project_memberships__project_id=active_project_id)
+            ).distinct()
+        else:
+            # Committed mode: Show only committed volumes OR orphaned volumes (not in any project)
+            volumes = volumes.annotate(
+                project_count=Count('project_memberships')
+            ).filter(
+                Q(committed=True) | Q(project_count=0)
+            )
+
+        # Calculate ranges
+        from .volume_range_utils import calculate_volume_ranges
+        from .storage_utils import generate_ds8000_device_id
+
+        ranges = calculate_volume_ranges(volumes)
+
+        return JsonResponse({
+            'storage_id': storage.id,
+            'storage_name': storage.name,
+            'storage_type': storage.storage_type,
+            'device_id': generate_ds8000_device_id(storage),
+            'ranges': ranges,
+            'range_count': len(ranges),
+            'total_volumes': sum(r['volume_count'] for r in ranges),
+        })
+
+    except Exception as e:
+        logger.error(f"Error calculating volume ranges: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def volume_range_create(request, storage_id):
+    """
+    POST /api/storage/{storage_id}/volume-ranges/create/
+
+    Creates individual Volume records for a range.
+    Request body:
+    {
+        "start_volume": "1000",
+        "end_volume": "100B",
+        "format": "FB",
+        "capacity_bytes": 53687091200,
+        "pool_name": "P0",
+        "active_project_id": 123  // optional
+    }
+    """
+    try:
+        # Validate storage exists and is DS8000
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': f'Storage system with id {storage_id} not found'}, status=404)
+
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                'error': f'Volume ranges are only available for DS8000 storage systems.'
+            }, status=400)
+
+        # Parse request body
+        data = json.loads(request.body)
+
+        start_volume = data.get('start_volume', '').strip().upper()
+        end_volume = data.get('end_volume', '').strip().upper()
+        fmt = data.get('format', 'FB').strip().upper()
+        capacity_bytes = data.get('capacity_bytes', 0)
+        pool_name = data.get('pool_name', '')
+        active_project_id = data.get('active_project_id')
+
+        # Validate the range
+        from .volume_range_utils import validate_volume_range, generate_volume_ids_for_range
+
+        is_valid, error, details = validate_volume_range(start_volume, end_volume)
+        if not is_valid:
+            return JsonResponse({'error': error}, status=400)
+
+        # Validate format
+        if fmt not in ['FB', 'CKD']:
+            return JsonResponse({'error': f"Invalid format '{fmt}': must be 'FB' or 'CKD'"}, status=400)
+
+        # Generate volume IDs for the range
+        volume_ids = generate_volume_ids_for_range(start_volume, end_volume)
+
+        # Check for existing volumes in this range
+        existing = Volume.objects.filter(
+            storage=storage,
+            volume_id__in=volume_ids
+        ).values_list('volume_id', flat=True)
+
+        if existing:
+            existing_list = list(existing)[:10]  # Show first 10
+            more = len(existing) - 10 if len(existing) > 10 else 0
+            return JsonResponse({
+                'error': f"Volumes already exist in this range: {', '.join(existing_list)}" +
+                         (f" and {more} more" if more else "")
+            }, status=400)
+
+        # Get project if specified
+        project = None
+        if active_project_id:
+            try:
+                project = Project.objects.get(id=active_project_id)
+            except Project.DoesNotExist:
+                return JsonResponse({'error': f'Project with id {active_project_id} not found'}, status=404)
+
+        # Create volumes
+        user = request.user if request.user.is_authenticated else None
+        created_volumes = []
+
+        for vol_id in volume_ids:
+            # Generate unique_id for the volume
+            unique_id = f"{storage.storage_system_id or storage.serial_number or storage.id}_{vol_id}"
+
+            volume = Volume.objects.create(
+                storage=storage,
+                name=f"{storage.name}_{vol_id}",
+                volume_id=vol_id,
+                lss_lcu=details['lss'],
+                format=fmt,
+                capacity_bytes=capacity_bytes,
+                pool_name=pool_name or None,
+                unique_id=unique_id,
+                committed=False,  # New volumes start uncommitted
+                deployed=False,
+                created_by_project=project,
+                last_modified_by=user,
+            )
+            created_volumes.append(volume)
+
+            # Add to project if specified
+            if project:
+                ProjectVolume.objects.create(
+                    project=project,
+                    volume=volume,
+                    action='new',
+                    added_by=user,
+                )
+
+        # Clear dashboard cache
+        if storage.customer_id:
+            clear_dashboard_cache_for_customer(storage.customer_id)
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Created {len(created_volumes)} volumes in range {start_volume}-{end_volume}",
+            'start_volume': start_volume,
+            'end_volume': end_volume,
+            'volume_count': len(created_volumes),
+            'volume_ids': [v.id for v in created_volumes],
+            'lss': details['lss'],
+            'format': fmt,
+            'capacity_bytes': capacity_bytes,
+            'pool_name': pool_name,
+            'project_id': active_project_id,
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    except Exception as e:
+        logger.error(f"Error creating volume range: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def volume_range_delete(request, storage_id):
+    """
+    POST /api/storage/{storage_id}/volume-ranges/delete/
+
+    Deletes volumes by their IDs.
+    Request body:
+    {
+        "volume_ids": [1, 2, 3, ...]
+    }
+    """
+    try:
+        # Validate storage exists
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': f'Storage system with id {storage_id} not found'}, status=404)
+
+        # Parse request body
+        data = json.loads(request.body)
+        volume_ids = data.get('volume_ids', [])
+
+        if not volume_ids:
+            return JsonResponse({'error': 'No volume_ids provided'}, status=400)
+
+        # Get volumes that belong to this storage
+        volumes = Volume.objects.filter(
+            id__in=volume_ids,
+            storage=storage
+        )
+
+        count = volumes.count()
+        if count == 0:
+            return JsonResponse({'error': 'No matching volumes found'}, status=404)
+
+        # Get volume IDs for response before deletion
+        deleted_vol_ids = list(volumes.values_list('volume_id', flat=True))
+
+        # Delete project memberships first
+        ProjectVolume.objects.filter(volume__in=volumes).delete()
+
+        # Delete the volumes
+        volumes.delete()
+
+        # Clear dashboard cache
+        if storage.customer_id:
+            clear_dashboard_cache_for_customer(storage.customer_id)
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Deleted {count} volumes",
+            'deleted_count': count,
+            'deleted_volume_ids': deleted_vol_ids,
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    except Exception as e:
+        logger.error(f"Error deleting volume range: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def volume_range_dscli(request, storage_id):
+    """
+    POST /api/storage/{storage_id}/volume-ranges/dscli/
+
+    Generates DSCLI commands for selected ranges or new range specification.
+
+    Request body option 1 - existing ranges:
+    {
+        "range_ids": ["range_id_1", "range_id_2", ...],
+        "command_type": "create"
+    }
+
+    Request body option 2 - new range specification:
+    {
+        "start_volume": "1000",
+        "end_volume": "100F",
+        "format": "FB",
+        "capacity_bytes": 53687091200,
+        "pool_name": "P0",
+        "command_type": "create"
+    }
+    """
+    try:
+        # Validate storage exists and is DS8000
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': f'Storage system with id {storage_id} not found'}, status=404)
+
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                'error': 'DSCLI commands are only available for DS8000 storage systems.'
+            }, status=400)
+
+        # Parse request body
+        data = json.loads(request.body)
+        command_type = data.get('command_type', 'create')
+
+        # Get project context for filtering
+        active_project_id = data.get('active_project_id')
+        project_filter = data.get('project_filter', 'all')
+
+        from .volume_range_utils import (
+            calculate_volume_ranges,
+            generate_dscli_commands,
+            generate_dscli_for_new_range,
+            validate_volume_range
+        )
+        from .storage_utils import generate_ds8000_device_id
+
+        device_id = generate_ds8000_device_id(storage)
+
+        # Check if this is for existing ranges or a new range spec
+        if 'range_ids' in data:
+            # Option 1: Generate commands for existing ranges
+            range_ids = data.get('range_ids', [])
+
+            if not range_ids:
+                return JsonResponse({'error': 'No range_ids provided'}, status=400)
+
+            # Get current volumes and calculate ranges with project context
+            from django.db.models import Q, Count
+            volumes = Volume.objects.filter(storage=storage).select_related('storage')
+
+            # Apply filtering based on view mode
+            if project_filter == 'current' and active_project_id:
+                # Draft mode: Show committed volumes OR volumes in the active project
+                volumes = volumes.filter(
+                    Q(committed=True) | Q(project_memberships__project_id=active_project_id)
+                ).distinct()
+            else:
+                # Committed mode: Show only committed volumes OR orphaned volumes
+                volumes = volumes.annotate(
+                    project_count=Count('project_memberships')
+                ).filter(
+                    Q(committed=True) | Q(project_count=0)
+                )
+
+            all_ranges = calculate_volume_ranges(volumes)
+
+            # Filter to selected ranges
+            selected_ranges = [r for r in all_ranges if r['range_id'] in range_ids]
+
+            if not selected_ranges:
+                return JsonResponse({'error': 'No matching ranges found'}, status=404)
+
+            # Generate commands
+            result = generate_dscli_commands(storage, selected_ranges, command_type)
+
+            return JsonResponse({
+                'device_id': device_id,
+                'storage_name': storage.name,
+                'commands': result['commands'],
+                'command_count': result['command_count'],
+                'command_type': command_type,
+                'selected_ranges': len(selected_ranges),
+            })
+
+        elif 'start_volume' in data and 'end_volume' in data:
+            # Option 2: Generate command for a new range specification
+            start_volume = data.get('start_volume', '').strip().upper()
+            end_volume = data.get('end_volume', '').strip().upper()
+            fmt = data.get('format', 'FB').strip().upper()
+            capacity_bytes = data.get('capacity_bytes', 0)
+            pool_name = data.get('pool_name', 'P0')
+
+            # Validate range
+            is_valid, error, details = validate_volume_range(start_volume, end_volume)
+            if not is_valid:
+                return JsonResponse({'error': error}, status=400)
+
+            # Generate command
+            try:
+                command = generate_dscli_for_new_range(
+                    storage, start_volume, end_volume, fmt, capacity_bytes, pool_name
+                )
+            except ValueError as e:
+                return JsonResponse({'error': str(e)}, status=400)
+
+            return JsonResponse({
+                'device_id': device_id,
+                'storage_name': storage.name,
+                'commands': [command],
+                'command_count': 1,
+                'command_type': command_type,
+                'start_volume': start_volume,
+                'end_volume': end_volume,
+                'volume_count': details['count'],
+            })
+
+        else:
+            return JsonResponse({
+                'error': 'Must provide either range_ids (for existing ranges) or start_volume/end_volume (for new range)'
+            }, status=400)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    except Exception as e:
+        logger.error(f"Error generating DSCLI commands: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)

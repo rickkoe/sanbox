@@ -54,6 +54,7 @@ const AliasTable = React.lazy(() => import("./components/tables/AliasTableTanSta
 const ZoneTable = React.lazy(() => import("./components/tables/ZoneTableTanStackClean"));
 const StorageTable = React.lazy(() => import("./components/tables/StorageTableTanStackClean"));
 const StorageVolumesPage = React.lazy(() => import("./pages/StorageVolumesPage"));
+const StorageVolumeRangesPage = React.lazy(() => import("./pages/StorageVolumeRangesPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
 const StoragePortsPage = React.lazy(() => import("./pages/StoragePortsPage"));
 const AllVolumesPage = React.lazy(() => import("./pages/AllVolumesPage"));
@@ -219,6 +220,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage/volumes" element={<AllVolumesPage />} />
                     <Route path="/storage/:id" element={<StoragePage />} />
                     <Route path="/storage/:id/volumes" element={<StorageVolumesPage />} />
+                    <Route path="/storage/:id/volume-ranges" element={<StorageVolumeRangesPage />} />
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
                     <Route path="/storage/:id/ports" element={<StoragePortsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />

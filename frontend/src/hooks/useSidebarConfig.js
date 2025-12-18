@@ -51,6 +51,11 @@ const getSidebarLinks = (pathname) => {
             icon: Archive,
           },
           {
+            path: `/storage/${storageIdMatch[1]}/volume-ranges`,
+            label: "Volume Ranges",
+            icon: Layers,
+          },
+          {
             path: `/storage/${storageIdMatch[1]}/hosts`,
             label: "Hosts",
             icon: Monitor,

@@ -4,7 +4,7 @@ import axios from "axios";
 import { Modal, Form, Alert, Spinner } from "react-bootstrap";
 import { BreadcrumbContext } from "../context/BreadcrumbContext";
 import { useTheme } from "../context/ThemeContext";
-import { Archive, Monitor, Cable, Database, HardDrive } from "lucide-react";
+import { Archive, Monitor, Cable, Database, HardDrive, Layers } from "lucide-react";
 import "../styles/scriptspages.css";
 import "../styles/storagepage.css";
 
@@ -376,6 +376,23 @@ const StoragePage = () => {
               </div>
               <div className="stat-arrow">→</div>
             </Link>
+
+            {/* Volume Ranges - DS8000 only */}
+            {storage.storage_type === 'DS8000' && (
+              <Link
+                to={`/storage/${id}/volume-ranges`}
+                className="stat-card stat-card-clickable"
+              >
+                <div className="stat-icon">
+                  <Layers size={32} />
+                </div>
+                <div className="stat-content">
+                  <div className="stat-value">Ranges</div>
+                  <div className="stat-label">Volume Ranges</div>
+                </div>
+                <div className="stat-arrow">→</div>
+              </Link>
+            )}
 
             <div className="stat-card">
               <div className="stat-icon">

@@ -19,7 +19,12 @@ from .views import (
     check_wwpn_conflicts_view,
     port_list,
     port_detail,
-    port_project_view
+    port_project_view,
+    # DS8000 Volume Range Management
+    volume_ranges_list,
+    volume_range_create,
+    volume_range_delete,
+    volume_range_dscli,
 )
 
 urlpatterns = [
@@ -43,4 +48,9 @@ urlpatterns = [
     path("ports/", port_list, name="port-list"),
     path("ports/<int:pk>/", port_detail, name="port-detail"),
     path("project/<int:project_id>/view/ports/", port_project_view, name="port-project-view"),
+    # DS8000 Volume Range Management
+    path("<int:storage_id>/volume-ranges/", volume_ranges_list, name="volume-ranges-list"),
+    path("<int:storage_id>/volume-ranges/create/", volume_range_create, name="volume-range-create"),
+    path("<int:storage_id>/volume-ranges/delete/", volume_range_delete, name="volume-range-delete"),
+    path("<int:storage_id>/volume-ranges/dscli/", volume_range_dscli, name="volume-range-dscli"),
 ]
