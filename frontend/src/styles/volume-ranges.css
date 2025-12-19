@@ -10,6 +10,7 @@
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -84,6 +85,7 @@
   border-bottom: 1px solid var(--table-border);
   gap: 1rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .action-bar-left {
@@ -127,8 +129,8 @@
 /* Content Area */
 .volume-ranges-content {
   padding: 1.5rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .no-ranges-message {

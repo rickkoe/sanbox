@@ -2,8 +2,11 @@
 
 .scripts-page-container {
     background-color: var(--content-bg);
-    min-height: 100vh;
+    height: 100vh;
     padding: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 /* Page Header */

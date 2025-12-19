@@ -219,10 +219,10 @@ const StorageVolumeRangesPage = () => {
   // Format capacity for display
   const formatCapacity = (bytes) => {
     if (!bytes) return "Unknown";
-    const tb = bytes / (1024 ** 4);
-    const gb = bytes / (1024 ** 3);
-    if (tb >= 1) return `${tb.toFixed(1)} TB`;
-    return `${gb.toFixed(1)} GB`;
+    const tib = bytes / (1024 ** 4);
+    const gib = bytes / (1024 ** 3);
+    if (tib >= 1) return `${tib.toFixed(1)} TiB`;
+    return `${gib.toFixed(1)} GiB`;
   };
 
   // Loading state

@@ -140,13 +140,14 @@ const CreateVolumeRangeModal = ({
         return volStorageId === storageId || volStorageId === parseInt(storageId);
       });
 
-      // Extract volume IDs, pool names, and formats (for LSS locking)
+      // Extract volume IDs, pool names, formats, and capacity (for LSS locking and display)
       const volumeData = storageVolumes
         .filter(v => v.volume_id)
         .map(v => ({
           volume_id: v.volume_id.toUpperCase(),
           pool_name: v.pool_name || null,
           format: v.format || null,
+          capacity_bytes: v.capacity_bytes || 0,
         }));
       console.log(`Loaded ${volumeData.length} existing volumes for storage ${storageId}:`, volumeData.slice(0, 10));
       setExistingVolumes(volumeData);
@@ -186,26 +187,35 @@ const CreateVolumeRangeModal = ({
     // Filter volumes that belong to this LSS (first 2 characters match)
     const lssVolumes = existingVolumes
       .filter(v => v.volume_id && v.volume_id.length === 4 && v.volume_id.slice(0, 2) === lssUpper)
-      .map(v => parseInt(v.volume_id.slice(2), 16))
-      .sort((a, b) => a - b);
+      .map(v => ({
+        volNum: parseInt(v.volume_id.slice(2), 16),
+        format: v.format,
+        capacity_bytes: v.capacity_bytes || 0,
+      }))
+      .sort((a, b) => a.volNum - b.volNum);
 
     if (lssVolumes.length === 0) return [];
 
-    // Group into contiguous ranges
+    // Group into contiguous ranges with format and per-volume capacity
     const ranges = [];
-    let rangeStart = lssVolumes[0];
-    let rangeEnd = lssVolumes[0];
+    let rangeStart = lssVolumes[0].volNum;
+    let rangeEnd = lssVolumes[0].volNum;
+    let rangeFormat = lssVolumes[0].format;
+    let volumeCapacity = lssVolumes[0].capacity_bytes; // Per-volume capacity, not aggregate
 
     for (let i = 1; i < lssVolumes.length; i++) {
-      if (lssVolumes[i] === rangeEnd + 1) {
-        rangeEnd = lssVolumes[i];
+      if (lssVolumes[i].volNum === rangeEnd + 1) {
+        rangeEnd = lssVolumes[i].volNum;
+        // Don't sum - all volumes in a range should have same capacity
       } else {
-        ranges.push({ start: rangeStart, end: rangeEnd });
-        rangeStart = lssVolumes[i];
-        rangeEnd = lssVolumes[i];
+        ranges.push({ start: rangeStart, end: rangeEnd, format: rangeFormat, capacity_bytes: volumeCapacity });
+        rangeStart = lssVolumes[i].volNum;
+        rangeEnd = lssVolumes[i].volNum;
+        rangeFormat = lssVolumes[i].format;
+        volumeCapacity = lssVolumes[i].capacity_bytes;
       }
     }
-    ranges.push({ start: rangeStart, end: rangeEnd });
+    ranges.push({ start: rangeStart, end: rangeEnd, format: rangeFormat, capacity_bytes: volumeCapacity });
 
     return ranges;
   }, [formData.lss, existingVolumes]);
@@ -419,7 +429,7 @@ const CreateVolumeRangeModal = ({
     }
 
     if (!capacity_gb || parseFloat(capacity_gb) <= 0) {
-      setError("Please enter a valid capacity in GB");
+      setError("Please enter a valid capacity in GiB");
       return;
     }
 
@@ -621,10 +631,22 @@ const CreateVolumeRangeModal = ({
                 {occupiedRanges.map((r, i) => {
                   const startHex = r.start.toString(16).toUpperCase().padStart(2, '0');
                   const endHex = r.end.toString(16).toUpperCase().padStart(2, '0');
+                  // Format capacity with appropriate binary unit
+                  const formatCapacity = (bytes) => {
+                    if (!bytes || bytes === 0) return '0 GiB';
+                    const gib = bytes / (1024 ** 3);
+                    if (gib >= 1024) {
+                      return `${(gib / 1024).toFixed(1)} TiB`;
+                    }
+                    return `${gib.toFixed(0)} GiB`;
+                  };
                   return (
                     <span key={i}>
                       {i > 0 && ", "}
-                      {r.start === r.end ? `${formData.lss.toUpperCase()}${startHex}` : `${formData.lss.toUpperCase()}${startHex}-${endHex}`}
+                      {r.start === r.end
+                        ? `${formData.lss.toUpperCase()}${startHex}`
+                        : `${formData.lss.toUpperCase()}${startHex}-${endHex}`}
+                      {" "}({formatCapacity(r.capacity_bytes)})
                     </span>
                   );
                 })}
@@ -659,7 +681,7 @@ const CreateVolumeRangeModal = ({
             </div>
             <div className="col-md-4">
               <Form.Group className="mb-3">
-                <Form.Label>Capacity (GB)</Form.Label>
+                <Form.Label>Capacity (GiB)</Form.Label>
                 <Form.Control
                   type="number"
                   name="capacity_gb"
@@ -802,7 +824,7 @@ const CreateVolumeRangeModal = ({
               <br />
               Pool: <strong>{preview.poolName}</strong>
               <br />
-              Total capacity: <strong>{preview.totalCapacityTB} TB</strong>
+              Total capacity: <strong>{preview.totalCapacityTB} TiB</strong>
               {dscliPreview && (
                 <>
                   <hr style={{ borderColor: 'var(--color-border-default)', opacity: 0.5 }} />

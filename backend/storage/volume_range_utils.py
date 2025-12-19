@@ -61,21 +61,21 @@ def format_capacity_display(capacity_bytes):
     Format capacity bytes to human-readable string.
 
     Returns:
-        str: Formatted string like '50 GB', '1.5 TB', etc.
+        str: Formatted string like '50 GiB', '1.5 TiB', etc.
     """
     if capacity_bytes is None:
         return 'Unknown'
 
-    tb = capacity_bytes / (1024 ** 4)
-    gb = capacity_bytes / (1024 ** 3)
-    mb = capacity_bytes / (1024 ** 2)
+    tib = capacity_bytes / (1024 ** 4)
+    gib = capacity_bytes / (1024 ** 3)
+    mib = capacity_bytes / (1024 ** 2)
 
-    if tb >= 1:
-        return f"{tb:.1f} TB" if tb % 1 else f"{int(tb)} TB"
-    elif gb >= 1:
-        return f"{gb:.1f} GB" if gb % 1 else f"{int(gb)} GB"
+    if tib >= 1:
+        return f"{tib:.1f} TiB" if tib % 1 else f"{int(tib)} TiB"
+    elif gib >= 1:
+        return f"{gib:.1f} GiB" if gib % 1 else f"{int(gib)} GiB"
     else:
-        return f"{mb:.1f} MB" if mb % 1 else f"{int(mb)} MB"
+        return f"{mib:.1f} MiB" if mib % 1 else f"{int(mib)} MiB"
 
 
 def calculate_volume_ranges(volumes):
