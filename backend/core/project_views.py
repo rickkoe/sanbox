@@ -1190,6 +1190,13 @@ def project_finalize(request, project_id):
             committed=False
         ).update(committed=True)
 
+        # Pools
+        pool_ids = ProjectPool.objects.filter(project=project).values_list('pool_id', flat=True)
+        updated_counts['pools'] = Pool.objects.filter(
+            id__in=pool_ids,
+            committed=False
+        ).update(committed=True)
+
         # Hosts
         host_ids = ProjectHost.objects.filter(project=project).values_list('host_id', flat=True)
         updated_counts['hosts'] = Host.objects.filter(
@@ -1244,6 +1251,7 @@ def project_close(request, project_id):
             'fabrics': ProjectFabric.objects.filter(project=project).delete()[0],
             'switches': ProjectSwitch.objects.filter(project=project).delete()[0],
             'storage_systems': ProjectStorage.objects.filter(project=project).delete()[0],
+            'pools': ProjectPool.objects.filter(project=project).delete()[0],
             'hosts': ProjectHost.objects.filter(project=project).delete()[0],
             'volumes': ProjectVolume.objects.filter(project=project).delete()[0],
             'ports': ProjectPort.objects.filter(project=project).delete()[0],
@@ -1288,7 +1296,7 @@ def project_commit(request, project_id):
             }, status=409)
 
         applied_counts = {'aliases': 0, 'zones': 0, 'fabrics': 0, 'switches': 0,
-                         'storage_systems': 0, 'hosts': 0, 'volumes': 0, 'ports': 0}
+                         'storage_systems': 0, 'pools': 0, 'hosts': 0, 'volumes': 0, 'ports': 0}
 
         # 2. Apply field_overrides for action='modified' entities
 
@@ -1365,6 +1373,15 @@ def project_commit(request, project_id):
                 storage.save()
                 applied_counts['storage_systems'] += 1
 
+        # Pools
+        for pp in ProjectPool.objects.filter(project=project, action='modified').select_related('pool'):
+            if pp.field_overrides:
+                pool = pp.pool
+                apply_overrides_to_instance(pool, pp.field_overrides)
+                pool.committed = True
+                pool.save()
+                applied_counts['pools'] += 1
+
         # Hosts
         for ph in ProjectHost.objects.filter(project=project, action='modified').select_related('host'):
             if ph.field_overrides:
@@ -1394,7 +1411,7 @@ def project_commit(request, project_id):
 
         # 3. Mark action='new' entities as committed
         commit_counts = {'aliases': 0, 'zones': 0, 'fabrics': 0, 'switches': 0,
-                        'storage_systems': 0, 'hosts': 0, 'volumes': 0, 'ports': 0}
+                        'storage_systems': 0, 'pools': 0, 'hosts': 0, 'volumes': 0, 'ports': 0}
 
         alias_ids = ProjectAlias.objects.filter(project=project, action='new').values_list('alias_id', flat=True)
         commit_counts['aliases'] = Alias.objects.filter(id__in=alias_ids, committed=False).update(committed=True)
@@ -1410,6 +1427,9 @@ def project_commit(request, project_id):
 
         storage_ids = ProjectStorage.objects.filter(project=project, action='new').values_list('storage_id', flat=True)
         commit_counts['storage_systems'] = Storage.objects.filter(id__in=storage_ids, committed=False).update(committed=True)
+
+        pool_ids = ProjectPool.objects.filter(project=project, action='new').values_list('pool_id', flat=True)
+        commit_counts['pools'] = Pool.objects.filter(id__in=pool_ids, committed=False).update(committed=True)
 
         host_ids = ProjectHost.objects.filter(project=project, action='new').values_list('host_id', flat=True)
         commit_counts['hosts'] = Host.objects.filter(id__in=host_ids, committed=False).update(committed=True)
@@ -1437,6 +1457,9 @@ def project_commit(request, project_id):
             'storage_systems': list(ProjectStorage.objects.filter(
                 project=project, action='delete'
             ).select_related('storage').values('storage__id', 'storage__name')),
+            'pools': list(ProjectPool.objects.filter(
+                project=project, action='delete'
+            ).select_related('pool').values('pool__id', 'pool__name')),
             'hosts': list(ProjectHost.objects.filter(
                 project=project, action='delete'
             ).select_related('host').values('host__id', 'host__name')),
@@ -1481,7 +1504,7 @@ def project_commit_deletions(request, project_id):
             return JsonResponse({"error": "Project not found"}, status=404)
 
         deletion_counts = {'aliases': 0, 'zones': 0, 'fabrics': 0, 'switches': 0,
-                          'storage_systems': 0, 'hosts': 0, 'volumes': 0, 'ports': 0}
+                          'storage_systems': 0, 'pools': 0, 'hosts': 0, 'volumes': 0, 'ports': 0}
 
         # Delete base objects where action='delete'
         # The CASCADE will automatically delete the ProjectAlias/ProjectZone entries
@@ -1509,6 +1532,10 @@ def project_commit_deletions(request, project_id):
         for pst in ProjectStorage.objects.filter(project=project, action='delete').select_related('storage'):
             pst.storage.delete()
             deletion_counts['storage_systems'] += 1
+
+        for pp in ProjectPool.objects.filter(project=project, action='delete').select_related('pool'):
+            pp.pool.delete()
+            deletion_counts['pools'] += 1
 
         for ph in ProjectHost.objects.filter(project=project, action='delete').select_related('host'):
             ph.host.delete()
@@ -1564,6 +1591,7 @@ def project_commit_and_close(request, project_id):
             ProjectFabric.objects.filter(project=project, action='delete').exists() or
             ProjectSwitch.objects.filter(project=project, action='delete').exists() or
             ProjectStorage.objects.filter(project=project, action='delete').exists() or
+            ProjectPool.objects.filter(project=project, action='delete').exists() or
             ProjectHost.objects.filter(project=project, action='delete').exists() or
             ProjectVolume.objects.filter(project=project, action='delete').exists() or
             ProjectPort.objects.filter(project=project, action='delete').exists()
@@ -1624,6 +1652,7 @@ def project_commit_and_close(request, project_id):
         ProjectFabric.objects.filter(project=project).delete()
         ProjectSwitch.objects.filter(project=project).delete()
         ProjectStorage.objects.filter(project=project).delete()
+        ProjectPool.objects.filter(project=project).delete()
         ProjectHost.objects.filter(project=project).delete()
         ProjectVolume.objects.filter(project=project).delete()
         ProjectPort.objects.filter(project=project).delete()
@@ -1774,6 +1803,24 @@ def project_commit_preview(request, project_id):
         preview['newly_created']['storage'] = get_entity_data(
             ProjectStorage.objects.filter(project=project, action='new', delete_me=False).select_related('storage'),
             'storage'
+        )
+
+        # Pools
+        preview['to_delete']['pools'] = get_entity_data(
+            ProjectPool.objects.filter(project=project, delete_me=True).select_related('pool'),
+            'pool'
+        )
+        preview['to_modify']['pools'] = get_entity_data(
+            ProjectPool.objects.filter(project=project, action='modified', delete_me=False).select_related('pool'),
+            'pool'
+        )
+        preview['unmodified']['pools'] = get_entity_data(
+            ProjectPool.objects.filter(project=project, action='unmodified', delete_me=False).select_related('pool'),
+            'pool'
+        )
+        preview['newly_created']['pools'] = get_entity_data(
+            ProjectPool.objects.filter(project=project, action='new', delete_me=False).select_related('pool'),
+            'pool'
         )
 
         # Volumes
@@ -1994,6 +2041,19 @@ def project_commit_execute(request, project_id):
             pst.storage.save()
             modified_counts['storage'] += 1
 
+        # Pools
+        modified_counts['pools'] = 0
+        pool_modified_qs = filter_by_selection(
+            ProjectPool.objects.filter(project=project, action='modified', delete_me=False),
+            'pools', 'to_modify', 'pool_id'
+        )
+        for pp in pool_modified_qs.select_related('pool'):
+            if pp.field_overrides:
+                apply_overrides_to_instance(pp.pool, pp.field_overrides)
+            pp.pool.committed = True
+            pp.pool.save()
+            modified_counts['pools'] += 1
+
         # Volumes
         modified_counts['volumes'] = 0
         volume_modified_qs = filter_by_selection(
@@ -2061,6 +2121,11 @@ def project_commit_execute(request, project_id):
         ).update(field_overrides={}, action='unmodified')
 
         filter_by_selection(
+            ProjectPool.objects.filter(project=project, action='modified', delete_me=False),
+            'pools', 'to_modify', 'pool_id'
+        ).update(field_overrides={}, action='unmodified')
+
+        filter_by_selection(
             ProjectVolume.objects.filter(project=project, action='modified', delete_me=False),
             'volumes', 'to_modify', 'volume_id'
         ).update(field_overrides={}, action='unmodified')
@@ -2114,6 +2179,12 @@ def project_commit_execute(request, project_id):
         ).values_list('storage_id', flat=True)
         new_counts['storage'] = Storage.objects.filter(id__in=storage_ids, committed=False).update(committed=True)
 
+        pool_ids = filter_by_selection(
+            ProjectPool.objects.filter(project=project, action='new', delete_me=False),
+            'pools', 'newly_created', 'pool_id'
+        ).values_list('pool_id', flat=True)
+        new_counts['pools'] = Pool.objects.filter(id__in=pool_ids, committed=False).update(committed=True)
+
         volume_ids = filter_by_selection(
             ProjectVolume.objects.filter(project=project, action='new', delete_me=False),
             'volumes', 'newly_created', 'volume_id'
@@ -2157,6 +2228,11 @@ def project_commit_execute(request, project_id):
         filter_by_selection(
             ProjectStorage.objects.filter(project=project, action='new', delete_me=False),
             'storage', 'newly_created', 'storage_id'
+        ).update(field_overrides={}, action='unmodified')
+
+        filter_by_selection(
+            ProjectPool.objects.filter(project=project, action='new', delete_me=False),
+            'pools', 'newly_created', 'pool_id'
         ).update(field_overrides={}, action='unmodified')
 
         filter_by_selection(
@@ -2237,6 +2313,15 @@ def project_commit_execute(request, project_id):
             pst.storage.delete()
             deletion_counts['storage'] += 1
 
+        deletion_counts['pools'] = 0
+        pool_delete_qs = filter_by_selection(
+            ProjectPool.objects.filter(project=project, delete_me=True),
+            'pools', 'to_delete', 'pool_id'
+        )
+        for pp in pool_delete_qs.select_related('pool'):
+            pp.pool.delete()
+            deletion_counts['pools'] += 1
+
         deletion_counts['volumes'] = 0
         volume_delete_qs = filter_by_selection(
             ProjectVolume.objects.filter(project=project, delete_me=True),
@@ -2297,6 +2382,12 @@ def project_commit_execute(request, project_id):
         ).values_list('storage_id', flat=True)
         unmodified_counts['storage'] = Storage.objects.filter(id__in=storage_unmod_ids).update(committed=True)
 
+        pool_unmod_ids = filter_by_selection(
+            ProjectPool.objects.filter(project=project, action='unmodified', delete_me=False),
+            'pools', 'unmodified', 'pool_id'
+        ).values_list('pool_id', flat=True)
+        unmodified_counts['pools'] = Pool.objects.filter(id__in=pool_unmod_ids).update(committed=True)
+
         volume_unmod_ids = filter_by_selection(
             ProjectVolume.objects.filter(project=project, action='unmodified', delete_me=False),
             'volumes', 'unmodified', 'volume_id'
@@ -2324,6 +2415,7 @@ def project_commit_execute(request, project_id):
             ProjectAlias.objects.filter(project=project).delete()
             ProjectZone.objects.filter(project=project).delete()
             ProjectStorage.objects.filter(project=project).delete()
+            ProjectPool.objects.filter(project=project).delete()
             ProjectVolume.objects.filter(project=project).delete()
             ProjectHost.objects.filter(project=project).delete()
             ProjectPort.objects.filter(project=project).delete()

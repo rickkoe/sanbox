@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Modal, Form, Spinner } from "react-bootstrap";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
@@ -18,8 +18,9 @@ const CreateVolumeRangeModal = ({
 
   // Form state
   const [formData, setFormData] = useState({
-    start_volume: "",
-    end_volume: "",
+    lss: "",
+    start_vol: "",
+    end_vol: "",
     format: "FB",
     capacity_gb: "",
     pool_name: "",
@@ -39,19 +40,26 @@ const CreateVolumeRangeModal = ({
   const [preview, setPreview] = useState(null);
   const [dscliPreview, setDscliPreview] = useState("");
 
-  // Fetch pools when modal opens
+  // Existing volumes state for conflict detection
+  // Stores objects with { volume_id, pool_name } for pool locking
+  const [existingVolumes, setExistingVolumes] = useState([]);
+  const [loadingVolumes, setLoadingVolumes] = useState(false);
+
+  // Fetch pools and existing volumes when modal opens
   useEffect(() => {
     if (show && storageId) {
       fetchPools();
+      fetchExistingVolumes();
     }
-  }, [show, storageId]);
+  }, [show, storageId, activeProjectId]);
 
   // Reset form when modal opens
   useEffect(() => {
     if (show) {
       setFormData({
-        start_volume: "",
-        end_volume: "",
+        lss: "",
+        start_vol: "",
+        end_vol: "",
         format: "FB",
         capacity_gb: "",
         pool_name: "",
@@ -66,12 +74,26 @@ const CreateVolumeRangeModal = ({
   }, [show]);
 
   // Fetch pools for this storage system
+  // If there's an active project, use project view to include uncommitted project pools
   const fetchPools = async () => {
     setLoadingPools(true);
     try {
-      const response = await axios.get(`/api/storage/${storageId}/pools/`);
+      let url;
+      if (activeProjectId) {
+        // Use project view with project_filter=all to get both committed and project pools
+        url = `/api/storage/project/${activeProjectId}/view/pools/?project_filter=all&storage_id=${storageId}`;
+      } else {
+        // No active project - just get committed pools for this storage
+        url = `/api/storage/${storageId}/pools/`;
+      }
+      const response = await axios.get(url);
       const poolList = response.data.results || response.data || [];
-      setPools(poolList);
+      // Backend already filters by storage_id, but include fallback filter just in case
+      const filteredPools = poolList.filter(pool => {
+        const poolStorageId = pool.storage_id || pool.storage;
+        return poolStorageId === storageId || poolStorageId === parseInt(storageId);
+      });
+      setPools(filteredPools);
     } catch (err) {
       console.error("Failed to load pools:", err);
       setPools([]);
@@ -80,17 +102,208 @@ const CreateVolumeRangeModal = ({
     }
   };
 
-  // Validate hex input (4 hex digits)
-  const isValidHex = (value) => /^[0-9A-Fa-f]{4}$/.test(value);
+  // Validate hex input (2 hex digits)
+  const isValidHex2 = (value) => /^[0-9A-Fa-f]{2}$/.test(value);
+
+  // Fetch existing volumes for conflict detection (with pagination)
+  const fetchExistingVolumes = async () => {
+    setLoadingVolumes(true);
+    try {
+      const allVolumes = [];
+      let page = 1;
+      let hasMore = true;
+
+      // Paginate through all volumes (max 500 per page)
+      while (hasMore) {
+        let url;
+        if (activeProjectId) {
+          url = `/api/storage/project/${activeProjectId}/view/volumes/?project_filter=all&page_size=500&page=${page}`;
+        } else {
+          url = `/api/storage/volumes/?storage_id=${storageId}&page_size=500&page=${page}`;
+        }
+
+        const response = await axios.get(url);
+        const volumeList = response.data.results || response.data || [];
+        allVolumes.push(...volumeList);
+
+        // Check if there are more pages
+        hasMore = response.data.has_next || response.data.next;
+        page++;
+
+        // Safety limit to prevent infinite loops
+        if (page > 100) break;
+      }
+
+      // Filter to only volumes for this storage system
+      const storageVolumes = allVolumes.filter(v => {
+        const volStorageId = v.storage_id || v.storage;
+        return volStorageId === storageId || volStorageId === parseInt(storageId);
+      });
+
+      // Extract volume IDs, pool names, and formats (for LSS locking)
+      const volumeData = storageVolumes
+        .filter(v => v.volume_id)
+        .map(v => ({
+          volume_id: v.volume_id.toUpperCase(),
+          pool_name: v.pool_name || null,
+          format: v.format || null,
+        }));
+      console.log(`Loaded ${volumeData.length} existing volumes for storage ${storageId}:`, volumeData.slice(0, 10));
+      setExistingVolumes(volumeData);
+    } catch (err) {
+      console.error("Failed to load existing volumes:", err);
+      setExistingVolumes([]);
+    } finally {
+      setLoadingVolumes(false);
+    }
+  };
+
+  // Get the pool and format used by existing volumes in the current LSS (for locking)
+  const lssPoolInfo = useMemo(() => {
+    const { lss } = formData;
+    if (!isValidHex2(lss)) return null;
+
+    const lssUpper = lss.toUpperCase();
+    // Find volumes in this LSS
+    const lssVolumes = existingVolumes.filter(
+      v => v.volume_id && v.volume_id.length === 4 && v.volume_id.slice(0, 2) === lssUpper
+    );
+
+    if (lssVolumes.length === 0) return null;
+
+    // Get the pool and format from the first volume (all should be the same)
+    const poolName = lssVolumes[0].pool_name;
+    const format = lssVolumes[0].format;
+    return { poolName, format, volumeCount: lssVolumes.length };
+  }, [formData.lss, existingVolumes]);
+
+  // Get occupied ranges for the current LSS (memoized for real-time updates)
+  const occupiedRanges = useMemo(() => {
+    const { lss } = formData;
+    if (!isValidHex2(lss)) return [];
+
+    const lssUpper = lss.toUpperCase();
+    // Filter volumes that belong to this LSS (first 2 characters match)
+    const lssVolumes = existingVolumes
+      .filter(v => v.volume_id && v.volume_id.length === 4 && v.volume_id.slice(0, 2) === lssUpper)
+      .map(v => parseInt(v.volume_id.slice(2), 16))
+      .sort((a, b) => a - b);
+
+    if (lssVolumes.length === 0) return [];
+
+    // Group into contiguous ranges
+    const ranges = [];
+    let rangeStart = lssVolumes[0];
+    let rangeEnd = lssVolumes[0];
+
+    for (let i = 1; i < lssVolumes.length; i++) {
+      if (lssVolumes[i] === rangeEnd + 1) {
+        rangeEnd = lssVolumes[i];
+      } else {
+        ranges.push({ start: rangeStart, end: rangeEnd });
+        rangeStart = lssVolumes[i];
+        rangeEnd = lssVolumes[i];
+      }
+    }
+    ranges.push({ start: rangeStart, end: rangeEnd });
+
+    return ranges;
+  }, [formData.lss, existingVolumes]);
+
+  // Check for conflicts with existing volumes (memoized for real-time updates)
+  const conflictingVolumes = useMemo(() => {
+    const { lss, start_vol, end_vol } = formData;
+    if (!isValidHex2(lss) || !isValidHex2(start_vol)) return null;
+
+    const effectiveEnd = end_vol === "" ? start_vol : end_vol;
+    if (!isValidHex2(effectiveEnd)) return null;
+
+    const startInt = parseInt(start_vol, 16);
+    const endInt = parseInt(effectiveEnd, 16);
+    if (endInt < startInt) return null;
+
+    const lssUpper = lss.toUpperCase();
+    // Build set of existing volume IDs for fast lookup
+    const existingIds = new Set(existingVolumes.map(v => v.volume_id));
+
+    // Check each volume in the proposed range
+    const conflicts = [];
+    for (let i = startInt; i <= endInt; i++) {
+      const volId = lssUpper + i.toString(16).toUpperCase().padStart(2, '0');
+      if (existingIds.has(volId)) {
+        conflicts.push(volId);
+      }
+    }
+
+    return conflicts.length > 0 ? conflicts : null;
+  }, [formData.lss, formData.start_vol, formData.end_vol, existingVolumes]);
+
+  // Auto-set pool and format when LSS has existing volumes (LSS cannot span multiple pools/formats)
+  useEffect(() => {
+    if (lssPoolInfo) {
+      setFormData((prev) => {
+        const updates = {};
+        // Set pool if different
+        if (lssPoolInfo.poolName && prev.pool_name !== lssPoolInfo.poolName) {
+          updates.pool_name = lssPoolInfo.poolName;
+        }
+        // Set format if different
+        if (lssPoolInfo.format && prev.format !== lssPoolInfo.format) {
+          updates.format = lssPoolInfo.format;
+        }
+        // Only update if there are changes
+        if (Object.keys(updates).length > 0) {
+          return { ...prev, ...updates };
+        }
+        return prev;
+      });
+      // Close create pool form if open
+      if (showCreatePool) {
+        setShowCreatePool(false);
+        setNewPoolName("");
+      }
+    }
+  }, [lssPoolInfo]);
+
+  // Calculate volume count in real-time
+  const getVolumeCount = () => {
+    const { start_vol, end_vol } = formData;
+    if (!isValidHex2(start_vol)) return null;
+
+    // If end_vol is empty, treat as single volume
+    const effectiveEnd = end_vol === "" ? start_vol : end_vol;
+    if (!isValidHex2(effectiveEnd)) return null;
+
+    const startInt = parseInt(start_vol, 16);
+    const endInt = parseInt(effectiveEnd, 16);
+
+    if (endInt < startInt) return { error: true, message: "End must be >= Start" };
+
+    return { count: endInt - startInt + 1 };
+  };
+
+  const volumeInfo = getVolumeCount();
 
   // Handle input change
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // For hex fields, only allow valid hex characters
-    if (name === "start_volume" || name === "end_volume") {
-      const cleanValue = value.toUpperCase().replace(/[^0-9A-F]/g, "").slice(0, 4);
+    // For hex fields, only allow valid hex characters (2 digits max)
+    if (name === "lss" || name === "start_vol" || name === "end_vol") {
+      const cleanValue = value.toUpperCase().replace(/[^0-9A-F]/g, "").slice(0, 2);
       setFormData((prev) => ({ ...prev, [name]: cleanValue }));
+    } else if (name === "format") {
+      // When format changes, check if selected pool still matches
+      setFormData((prev) => {
+        const selectedPool = pools.find(p => p.name === prev.pool_name);
+        const poolStillValid = selectedPool && selectedPool.storage_type === value;
+        return {
+          ...prev,
+          format: value,
+          // Clear pool selection if it doesn't match new format
+          pool_name: poolStillValid ? prev.pool_name : "",
+        };
+      });
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -105,6 +318,8 @@ const CreateVolumeRangeModal = ({
     const value = e.target.value;
     if (value === "__CREATE_NEW__") {
       setShowCreatePool(true);
+      // Default new pool type to match selected format
+      setNewPoolType(formData.format);
       setFormData((prev) => ({ ...prev, pool_name: "" }));
     } else {
       setShowCreatePool(false);
@@ -157,7 +372,7 @@ const CreateVolumeRangeModal = ({
   const calculatePreview = () => {
     setError(null);
 
-    const { start_volume, end_volume, format, capacity_gb, pool_name } = formData;
+    const { lss, start_vol, end_vol, format, capacity_gb, pool_name } = formData;
 
     // Check if pool is being created but not yet saved
     if (showCreatePool) {
@@ -166,28 +381,27 @@ const CreateVolumeRangeModal = ({
     }
 
     // Validate inputs
-    if (!isValidHex(start_volume)) {
-      setError("Start volume must be 4 hex digits (0000-FFFF)");
+    if (!isValidHex2(lss)) {
+      setError("LSS must be 2 hex digits (00-FF)");
       return;
     }
-    if (!isValidHex(end_volume)) {
-      setError("End volume must be 4 hex digits (0000-FFFF)");
+    if (!isValidHex2(start_vol)) {
+      setError("Start volume must be 2 hex digits (00-FF)");
       return;
     }
 
-    const startInt = parseInt(start_volume, 16);
-    const endInt = parseInt(end_volume, 16);
+    // End volume can be empty (defaults to start) or must be valid hex
+    const effectiveEndVol = end_vol === "" ? start_vol : end_vol;
+    if (!isValidHex2(effectiveEndVol)) {
+      setError("End volume must be 2 hex digits (00-FF)");
+      return;
+    }
+
+    const startInt = parseInt(start_vol, 16);
+    const endInt = parseInt(effectiveEndVol, 16);
 
     if (endInt < startInt) {
       setError("End volume must be >= start volume");
-      return;
-    }
-
-    const startLss = start_volume.slice(0, 2);
-    const endLss = end_volume.slice(0, 2);
-
-    if (startLss !== endLss) {
-      setError(`Start (${start_volume}) and end (${end_volume}) must be in the same LSS (first 2 digits must match)`);
       return;
     }
 
@@ -195,6 +409,12 @@ const CreateVolumeRangeModal = ({
 
     if (count > 256) {
       setError(`Range too large (${count} volumes). Maximum 256 volumes per range.`);
+      return;
+    }
+
+    // Check for conflicts with existing volumes
+    if (conflictingVolumes && conflictingVolumes.length > 0) {
+      setError(`Cannot create: ${conflictingVolumes.length} volume(s) already exist in this range`);
       return;
     }
 
@@ -206,8 +426,14 @@ const CreateVolumeRangeModal = ({
     const capacityBytes = parseFloat(capacity_gb) * 1024 * 1024 * 1024;
     const totalCapacityTB = (capacityBytes * count) / (1024 ** 4);
 
+    // Construct full 4-digit volume IDs
+    const startVolume = lss + start_vol;
+    const endVolume = lss + effectiveEndVol;
+
     setPreview({
-      lss: startLss,
+      lss,
+      startVolume,
+      endVolume,
       count,
       totalCapacityTB: totalCapacityTB.toFixed(2),
       format,
@@ -215,7 +441,7 @@ const CreateVolumeRangeModal = ({
     });
 
     // Generate DSCLI preview
-    fetchDscliPreview(start_volume, end_volume, format, capacityBytes);
+    fetchDscliPreview(startVolume, endVolume, format, capacityBytes);
   };
 
   // Fetch DSCLI command preview
@@ -248,9 +474,14 @@ const CreateVolumeRangeModal = ({
     try {
       const capacityBytes = parseFloat(formData.capacity_gb) * 1024 * 1024 * 1024;
 
+      // Construct full 4-digit volume IDs
+      const effectiveEndVol = formData.end_vol === "" ? formData.start_vol : formData.end_vol;
+      const startVolume = formData.lss + formData.start_vol;
+      const endVolume = formData.lss + effectiveEndVol;
+
       await axios.post(`/api/storage/${storageId}/volume-ranges/create/`, {
-        start_volume: formData.start_volume,
-        end_volume: formData.end_volume,
+        start_volume: startVolume,
+        end_volume: endVolume,
         format: formData.format,
         capacity_bytes: capacityBytes,
         pool_name: formData.pool_name || null,
@@ -287,52 +518,143 @@ const CreateVolumeRangeModal = ({
 
         <Form>
           <div className="row">
-            <div className="col-md-6">
+            <div className="col-md-3">
               <Form.Group className="mb-3">
-                <Form.Label>Start Volume (hex)</Form.Label>
+                <Form.Label>LSS/LCU</Form.Label>
                 <Form.Control
                   type="text"
-                  name="start_volume"
-                  value={formData.start_volume}
+                  name="lss"
+                  value={formData.lss}
                   onChange={handleChange}
-                  placeholder="e.g., 1000"
-                  maxLength={4}
+                  placeholder="e.g., 10"
+                  maxLength={2}
                   className="font-monospace"
                   style={{ textTransform: "uppercase" }}
                 />
                 <Form.Text className="volume-range-form-hint">
-                  4-digit hex (0000-FFFF)
+                  2-digit hex (00-FF)
                 </Form.Text>
               </Form.Group>
             </div>
-            <div className="col-md-6">
+            <div className="col-md-3">
               <Form.Group className="mb-3">
-                <Form.Label>End Volume (hex)</Form.Label>
+                <Form.Label>Start Volume</Form.Label>
                 <Form.Control
                   type="text"
-                  name="end_volume"
-                  value={formData.end_volume}
+                  name="start_vol"
+                  value={formData.start_vol}
                   onChange={handleChange}
-                  placeholder="e.g., 100F"
-                  maxLength={4}
+                  placeholder="e.g., 00"
+                  maxLength={2}
                   className="font-monospace"
                   style={{ textTransform: "uppercase" }}
                 />
                 <Form.Text className="volume-range-form-hint">
-                  Must be in same LSS (first 2 digits)
+                  2-digit hex (00-FF)
                 </Form.Text>
               </Form.Group>
+            </div>
+            <div className="col-md-3">
+              <Form.Group className="mb-3">
+                <Form.Label>End Volume</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="end_vol"
+                  value={formData.end_vol}
+                  onChange={handleChange}
+                  placeholder="e.g., 0F"
+                  maxLength={2}
+                  className="font-monospace"
+                  style={{ textTransform: "uppercase" }}
+                />
+                <Form.Text className="volume-range-form-hint">
+                  Optional (empty = 1 volume)
+                </Form.Text>
+              </Form.Group>
+            </div>
+            <div className="col-md-3 d-flex align-items-center">
+              <div className="volume-count-display">
+                {volumeInfo?.error ? (
+                  <span className="text-danger">{volumeInfo.message}</span>
+                ) : volumeInfo?.count ? (
+                  <span>
+                    <strong>{volumeInfo.count}</strong> volume{volumeInfo.count !== 1 ? "s" : ""}
+                    {formData.lss && formData.start_vol && (
+                      <div className="volume-range-form-hint mt-1">
+                        {formData.lss}{formData.start_vol}
+                        {volumeInfo.count > 1 && ` - ${formData.lss}${formData.end_vol || formData.start_vol}`}
+                      </div>
+                    )}
+                  </span>
+                ) : (
+                  <span className="volume-range-form-hint">Enter start volume</span>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Loading indicator for conflict detection */}
+          {loadingVolumes && isValidHex2(formData.lss) && (
+            <div className="volume-range-lss-hint">
+              <Spinner animation="border" size="sm" className="me-2" />
+              Loading existing volumes for conflict detection...
+            </div>
+          )}
+
+          {/* Conflict Warning */}
+          {!loadingVolumes && conflictingVolumes && (
+            <div className="volume-range-error-alert">
+              <strong>Conflict detected!</strong> {conflictingVolumes.length} volume{conflictingVolumes.length !== 1 ? "s" : ""} already exist{conflictingVolumes.length === 1 ? "s" : ""}:{" "}
+              <span className="font-monospace">
+                {conflictingVolumes.length <= 5
+                  ? conflictingVolumes.join(", ")
+                  : `${conflictingVolumes.slice(0, 5).join(", ")}... and ${conflictingVolumes.length - 5} more`}
+              </span>
+            </div>
+          )}
+
+          {/* Occupied ranges hint - show when LSS is entered and has existing volumes */}
+          {!loadingVolumes && isValidHex2(formData.lss) && occupiedRanges.length > 0 && !conflictingVolumes && (
+            <div className="volume-range-lss-hint">
+              <strong>LSS {formData.lss.toUpperCase()} occupied ranges:</strong>{" "}
+              <span className="font-monospace">
+                {occupiedRanges.map((r, i) => {
+                  const startHex = r.start.toString(16).toUpperCase().padStart(2, '0');
+                  const endHex = r.end.toString(16).toUpperCase().padStart(2, '0');
+                  return (
+                    <span key={i}>
+                      {i > 0 && ", "}
+                      {r.start === r.end ? `${formData.lss.toUpperCase()}${startHex}` : `${formData.lss.toUpperCase()}${startHex}-${endHex}`}
+                    </span>
+                  );
+                })}
+              </span>
+            </div>
+          )}
 
           <div className="row">
             <div className="col-md-4">
               <Form.Group className="mb-3">
-                <Form.Label>Format</Form.Label>
-                <Form.Select name="format" value={formData.format} onChange={handleChange}>
-                  <option value="FB">FB (Fixed Block)</option>
-                  <option value="CKD">CKD (Count Key Data)</option>
-                </Form.Select>
+                <Form.Label>Format {lssPoolInfo?.format && "(locked)"}</Form.Label>
+                {lssPoolInfo?.format ? (
+                  // Format is locked to match existing volumes in this LSS
+                  <>
+                    <Form.Control
+                      type="text"
+                      value={lssPoolInfo.format === 'FB' ? 'FB (Fixed Block)' : 'CKD (Count Key Data)'}
+                      disabled
+                      readOnly
+                    />
+                    <Form.Text className="volume-range-form-hint">
+                      LSS {formData.lss.toUpperCase()} already uses this format
+                    </Form.Text>
+                  </>
+                ) : (
+                  <Form.Select name="format" value={formData.format} onChange={handleChange}>
+                    <option value="FB">FB (Fixed Block)</option>
+                    <option value="CKD">CKD (Count Key Data)</option>
+                  </Form.Select>
+                )}
               </Form.Group>
             </div>
             <div className="col-md-4">
@@ -350,23 +672,39 @@ const CreateVolumeRangeModal = ({
             </div>
             <div className="col-md-4">
               <Form.Group className="mb-3">
-                <Form.Label>Pool</Form.Label>
+                <Form.Label>Pool {lssPoolInfo?.poolName && "(locked)"}</Form.Label>
                 {loadingPools ? (
                   <div className="d-flex align-items-center" style={{ height: '38px' }}>
                     <Spinner animation="border" size="sm" className="me-2" />
                     <span>Loading pools...</span>
                   </div>
+                ) : lssPoolInfo?.poolName ? (
+                  // Pool is locked to match existing volumes in this LSS
+                  <>
+                    <Form.Control
+                      type="text"
+                      value={lssPoolInfo.poolName}
+                      disabled
+                      readOnly
+                      className="font-monospace"
+                    />
+                    <Form.Text className="volume-range-form-hint">
+                      LSS {formData.lss.toUpperCase()} already uses this pool
+                    </Form.Text>
+                  </>
                 ) : (
                   <Form.Select
                     value={showCreatePool ? "__CREATE_NEW__" : formData.pool_name}
                     onChange={handlePoolSelect}
                   >
                     <option value="">-- Select Pool --</option>
-                    {pools.map((pool) => (
-                      <option key={pool.id} value={pool.name}>
-                        {pool.name} ({pool.storage_type})
-                      </option>
-                    ))}
+                    {pools
+                      .filter((pool) => pool.storage_type === formData.format)
+                      .map((pool) => (
+                        <option key={pool.id} value={pool.name}>
+                          {pool.name} ({pool.storage_type})
+                        </option>
+                      ))}
                     <option value="__CREATE_NEW__">+ Create New Pool</option>
                   </Form.Select>
                 )}
@@ -374,8 +712,8 @@ const CreateVolumeRangeModal = ({
             </div>
           </div>
 
-          {/* Inline Pool Creation Form */}
-          {showCreatePool && (
+          {/* Inline Pool Creation Form - hidden when pool is locked */}
+          {showCreatePool && !lssPoolInfo?.poolName && (
             <div className="volume-range-info-alert mb-3">
               <strong>Create New Pool</strong>
               <div className="row mt-2">
@@ -458,8 +796,9 @@ const CreateVolumeRangeModal = ({
             <div className="volume-range-info-alert mt-3">
               <strong>Preview:</strong>
               <br />
-              Will create <strong>{preview.count}</strong> {preview.format} volumes in LSS{" "}
-              <strong>{preview.lss}</strong>
+              Will create <strong>{preview.count}</strong> {preview.format} volume{preview.count !== 1 ? "s" : ""}: {" "}
+              <strong className="font-monospace">{preview.startVolume}</strong>
+              {preview.count > 1 && <> - <strong className="font-monospace">{preview.endVolume}</strong></>}
               <br />
               Pool: <strong>{preview.poolName}</strong>
               <br />
@@ -482,7 +821,7 @@ const CreateVolumeRangeModal = ({
           Cancel
         </button>
         {!preview ? (
-          <button className="btn btn-primary" onClick={calculatePreview} disabled={showCreatePool}>
+          <button className="btn btn-primary" onClick={calculatePreview} disabled={showCreatePool || conflictingVolumes || loadingVolumes}>
             Preview
           </button>
         ) : (

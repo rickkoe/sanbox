@@ -46,6 +46,7 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
         { key: 'fabric', label: 'Fabrics', endpoint: '/api/san/fabrics/', projectEndpoint: '/api/san/fabrics/project/', listEndpoint: '/api/san/fabrics/', icon: 'grid' },
         { key: 'switch', label: 'Switches', endpoint: '/api/san/switches/', projectEndpoint: '/api/san/switches/project/', listEndpoint: '/api/san/switches/', icon: 'cpu' },
         { key: 'storage', label: 'Storage Systems', endpoint: '/api/storage/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/', icon: 'database' },
+        { key: 'pool', label: 'Pools', endpoint: '/api/storage/pools/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/pools/', icon: 'cylinder' },
         { key: 'volume', label: 'Volumes', endpoint: '/api/storage/volumes/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/volumes/', icon: 'hard-drive' },
         { key: 'host', label: 'Hosts', endpoint: '/api/storage/hosts/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/hosts/', icon: 'server' },
         { key: 'port', label: 'Ports', endpoint: '/api/storage/ports/', projectEndpoint: '/api/storage/project/', listEndpoint: '/api/storage/ports/', icon: 'link' }
@@ -76,6 +77,8 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
                                 let projectUrl;
                                 if (entityType.key === 'storage') {
                                     projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/storages/?page_size=1`;
+                                } else if (entityType.key === 'pool') {
+                                    projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/pools/?page_size=1`;
                                 } else if (entityType.key === 'volume') {
                                     projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/volumes/?page_size=1`;
                                 } else if (entityType.key === 'host') {
@@ -144,9 +147,29 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
 
             console.log(`Fetching all ${entityType.label} for customer ${activeCustomerId}...`);
 
+            // For storage entities (pool, volume, host, port, storage), use project view with project_filter=all
+            // This returns all customer items with in_active_project flag already set
+            const useProjectViewForAll = ['pool', 'volume', 'host', 'port', 'storage'].includes(entityType.key);
+
             // Keep fetching pages until we have all items
             while (hasMorePages) {
-                const url = `${API_URL}${entityType.listEndpoint}?customer=${activeCustomerId}&page=${currentPage}&page_size=500`;
+                let url;
+                if (useProjectViewForAll && activeProjectId) {
+                    // Use project view with project_filter=all to get in_active_project flag
+                    if (entityType.key === 'storage') {
+                        url = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/storages/?project_filter=all&page=${currentPage}&page_size=500`;
+                    } else if (entityType.key === 'pool') {
+                        url = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/pools/?project_filter=all&page=${currentPage}&page_size=500`;
+                    } else if (entityType.key === 'volume') {
+                        url = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/volumes/?project_filter=all&page=${currentPage}&page_size=500`;
+                    } else if (entityType.key === 'host') {
+                        url = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/hosts/?project_filter=all&page=${currentPage}&page_size=500`;
+                    } else if (entityType.key === 'port') {
+                        url = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/ports/?project_filter=all&page=${currentPage}&page_size=500`;
+                    }
+                } else {
+                    url = `${API_URL}${entityType.listEndpoint}?customer=${activeCustomerId}&page=${currentPage}&page_size=500`;
+                }
                 const response = await api.get(url);
 
                 // Handle paginated responses
@@ -166,8 +189,18 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
 
             console.log(`Total ${entityType.label} fetched: ${allItems.length}`);
 
-            // Now fetch ALL project entities to mark which ones are in the project
-            if (entityType.projectEndpoint) {
+            // For storage entities, we already have in_active_project from the project view
+            // For SAN entities, we need to fetch project items separately to mark them
+            if (useProjectViewForAll && activeProjectId) {
+                // Storage entities already have in_active_project set from project view with project_filter=all
+                // Just ensure the flag exists (it should already be set by the backend)
+                allItems = allItems.map(item => ({
+                    ...item,
+                    in_active_project: item.in_active_project || false
+                }));
+                console.log(`Storage entity ${entityType.label}: in_active_project already set from backend`);
+            } else if (entityType.projectEndpoint) {
+                // SAN entities: fetch project items separately to mark which ones are in the project
                 try {
                     let allProjectItems = [];
                     let projectPage = 1;
@@ -180,6 +213,8 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
                         let projectUrl;
                         if (entityType.key === 'storage') {
                             projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/storages/?page=${projectPage}&page_size=500`;
+                        } else if (entityType.key === 'pool') {
+                            projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/pools/?page=${projectPage}&page_size=500`;
                         } else if (entityType.key === 'volume') {
                             projectUrl = `${API_URL}${entityType.projectEndpoint}${activeProjectId}/view/volumes/?page=${projectPage}&page_size=500`;
                         } else if (entityType.key === 'host') {
@@ -234,9 +269,6 @@ const BulkEntitySelectorModal = ({ show, onClose }) => {
                     // Continue with items unmarked
                     allItems = allItems.map(item => ({ ...item, in_active_project: false }));
                 }
-            } else {
-                // Storage entities - mark all as not in project for now
-                allItems = allItems.map(item => ({ ...item, in_active_project: false }));
             }
 
             setEntityItems(allItems);
@@ -486,6 +518,12 @@ const getEntityIcon = (iconType) => {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <ellipse cx="12" cy="5" rx="9" ry="3"/>
                 <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+            </svg>
+        ),
+        cylinder: (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/>
                 <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
             </svg>
         ),

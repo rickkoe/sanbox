@@ -478,6 +478,38 @@
   font-size: 0.8125rem;
 }
 
+/* Volume count display in create modal */
+.volume-count-display {
+  padding: 0.5rem 0.75rem;
+  background: var(--secondary-bg);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  text-align: center;
+  min-width: 100px;
+  color: var(--primary-text);
+}
+
+.volume-count-display strong {
+  font-size: 1.25rem;
+  color: var(--color-accent-emphasis, #58a6ff);
+}
+
+/* LSS occupied ranges hint */
+.volume-range-lss-hint {
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--color-border-default);
+  border-left: 4px solid var(--color-accent-emphasis, #58a6ff);
+  color: var(--primary-text);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md, 6px);
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.volume-range-lss-hint strong {
+  color: var(--primary-text);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .scripts-page-header {

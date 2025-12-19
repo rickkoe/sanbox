@@ -25,7 +25,8 @@ const BulkProjectMembershipModal = ({ show, onClose, onHide, onSave, items, item
     // Initialize selected IDs from items already in project
     useEffect(() => {
         if (show) {
-            if (items && items.length > 0) {
+            if (items) {
+                // Items array is available (even if empty)
                 const initialSelected = new Set(
                     items
                         .filter(item => item.in_active_project)
@@ -34,6 +35,7 @@ const BulkProjectMembershipModal = ({ show, onClose, onHide, onSave, items, item
                 setSelectedIds(initialSelected);
                 setLoading(false);
             } else {
+                // Items is null/undefined - still loading
                 setLoading(true);
             }
         } else {
@@ -129,6 +131,7 @@ const BulkProjectMembershipModal = ({ show, onClose, onHide, onSave, items, item
             'switch': 'switches',
             'fabric': 'fabrics',
             'storage': 'storage systems',
+            'pool': 'pools',
             'volume': 'volumes',
             'host': 'hosts',
             'port': 'ports'

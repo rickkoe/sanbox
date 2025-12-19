@@ -3334,6 +3334,7 @@ def pool_project_view(request, project_id):
             # Base queryset
             if project_filter == 'all':
                 # Return ALL customer pools with in_active_project flag
+                # Include: committed pools, orphaned pools, AND pools in current project
                 pools = Pool.objects.filter(
                     storage__customer=customer
                 ).select_related('storage', 'created_by_project').prefetch_related(
@@ -3341,11 +3342,12 @@ def pool_project_view(request, project_id):
                              queryset=ProjectPool.objects.select_related('project'))
                 )
 
-                # Apply Customer View filtering
+                # Apply Customer View filtering BUT also include pools in current project
+                # This allows showing uncommitted pools that are in the active project
                 pools = pools.annotate(
                     project_count=Count('project_memberships')
                 ).filter(
-                    Q(committed=True) | Q(project_count=0)
+                    Q(committed=True) | Q(project_count=0) | Q(id__in=project_pool_ids)
                 )
             else:
                 # Return only pools in this project

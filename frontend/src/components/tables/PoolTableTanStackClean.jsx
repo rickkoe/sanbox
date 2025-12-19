@@ -278,15 +278,26 @@ const PoolTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 payload.storage = storage ? storage.id : null;
             }
 
+            // If storageId prop is provided and storage is still empty, use it
+            // This handles the case where the storage column is hidden
+            if (!payload.storage && storageId) {
+                payload.storage = storageId;
+            }
+
             // FlashSystem pools are always FB - enforce this
-            const storageId = payload.storage;
-            if (storageId && storageSystemTypes[storageId] === 'FlashSystem') {
+            const finalStorageId = payload.storage;
+            if (finalStorageId && storageSystemTypes[finalStorageId] === 'FlashSystem') {
                 payload.storage_type = 'FB';
             }
 
             // Ensure required fields are present
             if (!payload.name || payload.name.trim() === "") {
                 payload.name = "Unnamed Pool";
+            }
+
+            // Add active project ID if in Project View (for creating junction table entry)
+            if (projectFilter === 'current' && activeProjectId) {
+                payload.active_project_id = activeProjectId;
             }
 
             // Handle boolean fields
@@ -297,16 +308,16 @@ const PoolTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 payload.deployed = payload.deployed.toLowerCase() === 'true';
             }
 
-            // Convert empty strings to null for optional fields
+            // Convert empty strings to null for optional fields (but not storage - it's required)
             Object.keys(payload).forEach(key => {
-                if (payload[key] === "" && key !== "name") {
+                if (payload[key] === "" && key !== "name" && key !== "storage") {
                     payload[key] = null;
                 }
             });
 
             return payload;
         });
-    }, [storageOptions, storageSystemTypes]);
+    }, [storageOptions, storageSystemTypes, storageId, projectFilter, activeProjectId]);
 
     // Use ProjectViewToolbar component for table-specific actions
     const filterToggleButtons = (

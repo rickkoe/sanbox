@@ -46,6 +46,7 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
         { key: 'aliases', label: 'Aliases' },
         { key: 'zones', label: 'Zones' },
         { key: 'storage', label: 'Storage Systems' },
+        { key: 'pools', label: 'Pools' },
         { key: 'volumes', label: 'Volumes' },
         { key: 'hosts', label: 'Hosts' },
         { key: 'ports', label: 'Ports' }
@@ -113,6 +114,7 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
             aliases: [],
             zones: [],
             storage: [],
+            pools: [],
             volumes: [],
             hosts: [],
             ports: []
@@ -185,6 +187,17 @@ const CommitProjectModal = ({ show, onClose, onSuccess, projectId, projectName }
                     // Reset all tables to Customer View when project is deleted
                     setProjectFilter('all');
                 }
+
+                // Reload all open tables to show updated state after commit
+                const tableRefs = [
+                    'aliasTableRef', 'zoneTableRef', 'fabricTableRef', 'switchTableRef',
+                    'storageTableRef', 'poolTableRef', 'volumeTableRef', 'hostTableRef', 'portTableRef'
+                ];
+                tableRefs.forEach(refName => {
+                    if (window[refName]?.current?.reloadData) {
+                        window[refName].current.reloadData();
+                    }
+                });
 
                 if (onSuccess) {
                     onSuccess();
