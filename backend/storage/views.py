@@ -675,11 +675,86 @@ def storage_insights_host_connections(request):
         return JsonResponse({"message": f"Failed to fetch host connections: {str(e)}"}, status=500)
 
 
+def _handle_volume_create(request):
+    """Create a new volume."""
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        data = json.loads(request.body)
+
+        # Validate required fields
+        storage_id = data.get('storage')
+        if not storage_id:
+            return JsonResponse({"error": "Storage system is required"}, status=400)
+
+        # Get the storage system
+        try:
+            storage = Storage.objects.select_related('customer').get(pk=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({"error": "Storage system not found"}, status=404)
+
+        # Check permissions
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if storage.customer and not can_edit_customer_infrastructure(user, storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to create volumes. Only members and admins can modify infrastructure."
+                }, status=403)
+
+        # Get active project ID if provided
+        active_project_id = data.pop('active_project_id', None)
+
+        # Create the volume
+        print(f"📝 Creating volume with data: {data}")
+        serializer = VolumeSerializer(data=data)
+        if serializer.is_valid():
+            volume = serializer.save()
+            if user:
+                volume.last_modified_by = user
+
+            # If created in project context, add to project and mark as uncommitted
+            if active_project_id:
+                from core.models import Project, ProjectVolume
+                try:
+                    project = Project.objects.get(pk=active_project_id)
+                    # Create the junction record
+                    ProjectVolume.objects.create(
+                        project=project,
+                        volume=volume,
+                        action='new'
+                    )
+                    # Mark volume as created by this project and uncommitted
+                    volume.created_by_project = project
+                    volume.committed = False
+                    volume.save(update_fields=['last_modified_by', 'created_by_project', 'committed'] if user else ['created_by_project', 'committed'])
+                    print(f"✅ Volume created and added to project {project.name}")
+                except Project.DoesNotExist:
+                    print(f"⚠️ Project {active_project_id} not found, volume created without project")
+                    if user:
+                        volume.save(update_fields=['last_modified_by'])
+            else:
+                if user:
+                    volume.save(update_fields=['last_modified_by'])
+
+            print(f"✅ Volume created successfully: {volume.id}")
+            return JsonResponse(serializer.data, status=201)
+        print(f"❌ Volume serializer errors: {serializer.errors}")
+        return JsonResponse(serializer.errors, status=400)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 def volume_list(request):
     """Return volumes filtered by storage system ID (optional) or customer with pagination and filtering."""
     print(f"🔥 Volume List - Method: {request.method}")
+
+    if request.method == "POST":
+        return _handle_volume_create(request)
 
     user = request.user if request.user.is_authenticated else None
 
@@ -806,6 +881,90 @@ def volume_list(request):
         
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
+def volume_detail(request, pk):
+    """Handle volume detail operations."""
+    print(f"🔥 Volume Detail - Method: {request.method}, PK: {pk}")
+
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        volume = Volume.objects.select_related('storage', 'storage__customer', 'pool').get(pk=pk)
+    except Volume.DoesNotExist:
+        return JsonResponse({"error": "Volume not found"}, status=404)
+
+    if request.method == "GET":
+        # Check if user has access to this volume's customer
+        if user and user.is_authenticated:
+            from core.permissions import has_customer_access
+            if volume.storage.customer and not has_customer_access(user, volume.storage.customer):
+                return JsonResponse({"error": "Permission denied"}, status=403)
+
+        try:
+            serializer = VolumeSerializer(volume)
+            return JsonResponse(serializer.data)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method in ["PUT", "PATCH"]:
+        # Update volume
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if volume.storage.customer and not can_edit_customer_infrastructure(user, volume.storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to update volumes. Only members and admins can modify infrastructure."
+                }, status=403)
+
+        try:
+            data = json.loads(request.body)
+
+            # Optimistic locking - check version
+            client_version = data.get('version')
+            if client_version is not None:
+                if volume.version != client_version:
+                    return JsonResponse({
+                        "error": "Conflict",
+                        "message": f"This volume was modified by {volume.last_modified_by.username if volume.last_modified_by else 'another user'}. Please reload and try again.",
+                        "current_version": volume.version,
+                        "last_modified_by": volume.last_modified_by.username if volume.last_modified_by else None,
+                        "last_modified_at": volume.last_modified_at.isoformat() if volume.last_modified_at else None
+                    }, status=409)
+
+            serializer = VolumeSerializer(volume, data=data, partial=(request.method == "PATCH"))
+            if serializer.is_valid():
+                volume_instance = serializer.save()
+                # Set last_modified_by and increment version
+                if user:
+                    volume_instance.last_modified_by = user
+                volume_instance.version += 1
+                volume_instance.updated = timezone.now()
+                update_fields = ['version', 'updated']
+                if user:
+                    update_fields.append('last_modified_by')
+                volume_instance.save(update_fields=update_fields)
+
+                return JsonResponse(serializer.data)
+            return JsonResponse(serializer.errors, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "DELETE":
+        # Delete volume
+        if user:
+            from core.permissions import can_edit_customer_infrastructure
+            if volume.storage.customer and not can_edit_customer_infrastructure(user, volume.storage.customer):
+                return JsonResponse({
+                    "error": "You do not have permission to delete volumes. Only members and admins can modify infrastructure."
+                }, status=403)
+
+        try:
+            volume.delete()
+            return JsonResponse({"message": "Volume deleted successfully"}, status=204)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
@@ -2751,6 +2910,7 @@ def volume_range_create(request, storage_id):
         fmt = data.get('format', 'FB').strip().upper()
         capacity_bytes = data.get('capacity_bytes', 0)
         pool_name = data.get('pool_name', '')
+        name_prefix = data.get('name_prefix', '').strip()
         active_project_id = data.get('active_project_id')
 
         # Look up Pool by name if provided
@@ -2802,9 +2962,12 @@ def volume_range_create(request, storage_id):
             # Generate unique_id for the volume
             unique_id = f"{storage.storage_system_id or storage.serial_number or storage.id}_{vol_id}"
 
+            # Generate volume name: use name_prefix if provided, otherwise use storage name
+            volume_name = f"{name_prefix}_{vol_id}" if name_prefix else f"{storage.name}_{vol_id}"
+
             volume = Volume.objects.create(
                 storage=storage,
-                name=f"{storage.name}_{vol_id}",
+                name=volume_name,
                 volume_id=vol_id,
                 lss_lcu=details['lss'],
                 format=fmt,
@@ -2842,6 +3005,7 @@ def volume_range_create(request, storage_id):
             'format': fmt,
             'capacity_bytes': capacity_bytes,
             'pool_name': pool_name,
+            'name_prefix': name_prefix,
             'project_id': active_project_id,
         })
 
@@ -3104,6 +3268,7 @@ def volume_range_update(request, storage_id):
         fmt = data.get('format', '').strip().upper()
         capacity_bytes = data.get('capacity_bytes')
         pool_name = data.get('pool_name', '')
+        name_prefix = data.get('name_prefix', '').strip()
         preview = data.get('preview', False)
         active_project_id = data.get('active_project_id')
 
@@ -3233,7 +3398,16 @@ def volume_range_update(request, storage_id):
             if pool is not None:
                 update_fields['pool'] = pool
 
-            if len(update_fields) > 1:  # More than just last_modified_by
+            # Update volume names if name_prefix is provided
+            if name_prefix:
+                # Name update requires per-volume update due to unique name per volume
+                for vol in vols_to_update:
+                    vol.name = f"{name_prefix}_{vol.volume_id}"
+                    for field, value in update_fields.items():
+                        setattr(vol, field, value)
+                    vol.save()
+                results['updated'] = vols_to_update.count()
+            elif len(update_fields) > 1:  # More than just last_modified_by
                 vols_to_update.update(**update_fields)
                 results['updated'] = vols_to_update.count()
 
@@ -3253,9 +3427,11 @@ def volume_range_update(request, storage_id):
                 for vol_id in sorted(volumes_to_create):
                     try:
                         unique_id = f"{storage.storage_system_id or storage.serial_number or storage.id}_{vol_id}"
+                        # Generate volume name: use name_prefix if provided, otherwise use storage name
+                        volume_name = f"{name_prefix}_{vol_id}" if name_prefix else f"{storage.name}_{vol_id}"
                         volume = Volume.objects.create(
                             storage=storage,
-                            name=f"{storage.name}_{vol_id}",
+                            name=volume_name,
                             volume_id=vol_id,
                             lss_lcu=lss,
                             format=fmt or 'FB',

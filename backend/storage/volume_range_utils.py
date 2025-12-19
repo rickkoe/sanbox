@@ -177,6 +177,39 @@ def calculate_volume_ranges(volumes):
     return ranges
 
 
+def _extract_name_prefix(volumes):
+    """
+    Extract the common name prefix from a list of volumes.
+
+    Volume names are expected to be in format: {name_prefix}_{volume_id}
+    Returns the prefix if all volumes share it, otherwise None.
+    """
+    if not volumes:
+        return None
+
+    # Collect prefixes (using uppercase for comparison, but storing original case)
+    prefix_map = {}  # Maps uppercase prefix to original case prefix
+    for vol in volumes:
+        if not vol.name or not vol.volume_id:
+            continue
+        # Check if name ends with _{volume_id} (case-insensitive for volume_id)
+        expected_suffix = f"_{vol.volume_id.upper()}"
+        name_upper = vol.name.upper()
+        if name_upper.endswith(expected_suffix):
+            prefix = vol.name[:-len(expected_suffix)]
+            prefix_upper = prefix.upper()
+            if prefix_upper not in prefix_map:
+                prefix_map[prefix_upper] = prefix
+        else:
+            # Name doesn't follow the pattern
+            return None
+
+    # If all volumes share the same prefix (case-insensitive), return it
+    if len(prefix_map) == 1:
+        return list(prefix_map.values())[0]
+    return None
+
+
 def _create_range_dict(start_vol, vols, lss, fmt, capacity, pool_name):
     """
     Create a range dictionary from a list of contiguous volumes.
@@ -186,6 +219,9 @@ def _create_range_dict(start_vol, vols, lss, fmt, capacity, pool_name):
     # Check if all volumes have same committed/deployed status
     all_committed = all(v.committed for v in vols)
     all_deployed = all(v.deployed for v in vols)
+
+    # Extract common name prefix from volume names
+    name_prefix = _extract_name_prefix(vols)
 
     return {
         'range_id': generate_range_id(
@@ -204,6 +240,7 @@ def _create_range_dict(start_vol, vols, lss, fmt, capacity, pool_name):
         'volume_count': len(vols),
         'volume_ids': [v.id for v in vols],
         'pool_name': pool_name or None,
+        'name_prefix': name_prefix,
         'committed': all_committed,
         'deployed': all_deployed,
     }

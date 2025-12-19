@@ -511,9 +511,8 @@
       },
       {
         "id": "capacity_bytes",
-        "title": "Capacity",
+        "title": "Capacity (GiB)",
         "type": "numeric",
-        "readOnly": true,
         "defaultVisible": true,
         "width": 120
       },
@@ -1204,6 +1203,13 @@
       "direction": "asc"
     },
     "columns": [
+      {
+        "id": "name_prefix",
+        "title": "Name Prefix",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 150
+      },
       {
         "id": "lss",
         "title": "LSS",

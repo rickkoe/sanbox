@@ -669,7 +669,8 @@ class ImportOrchestrator:
                         name=new_fabric_name,
                         san_vendor=parsed_fabric.san_vendor,
                         zoneset_name=zoneset_name,
-                        vsan=vsan
+                        vsan=vsan,
+                        committed=False
                     )
                     self.stats['fabrics_created'] += 1
                     logger.info(f"Created new fabric {new_fabric_name} for {fabric_name}")
@@ -731,13 +732,14 @@ class ImportOrchestrator:
 
             try:
                 if create_new:
-                    # Create new fabric
+                    # Create new fabric with committed=False
                     fabric = Fabric.objects.create(
                         customer=self.customer,
                         name=fabric_name,
                         san_vendor=parsed_fabric.san_vendor,
                         zoneset_name=zoneset_name,
-                        vsan=vsan
+                        vsan=vsan,
+                        committed=False
                     )
                     self.stats['fabrics_created'] += 1
                     logger.info(f"Created new fabric: {fabric_name} (zoneset: {zoneset_name}, vsan: {vsan})")
@@ -768,7 +770,8 @@ class ImportOrchestrator:
                     fabric_defaults = {
                         'san_vendor': parsed_fabric.san_vendor,
                         'zoneset_name': zoneset_name,
-                        'vsan': vsan
+                        'vsan': vsan,
+                        'committed': False
                     }
 
                     # If importing within a project, set created_by_project for new fabrics
@@ -933,7 +936,8 @@ class ImportOrchestrator:
                 # Prepare defaults dict
                 alias_defaults = {
                     'cisco_alias': parsed_alias.alias_type,  # Field is 'cisco_alias' not 'alias_type'
-                    'use': parsed_alias.use or ''
+                    'use': parsed_alias.use or '',
+                    'committed': False
                 }
 
                 # If importing within a project, set created_by_project for new aliases
@@ -1083,7 +1087,8 @@ class ImportOrchestrator:
 
                 # Prepare defaults dict
                 zone_defaults = {
-                    'zone_type': parsed_zone.zone_type if parsed_zone.zone_type in ['smart', 'standard'] else 'standard'
+                    'zone_type': parsed_zone.zone_type if parsed_zone.zone_type in ['smart', 'standard'] else 'standard',
+                    'committed': False
                 }
 
                 # If importing within a project, set created_by_project for new zones
@@ -1300,7 +1305,8 @@ class ImportOrchestrator:
                         'ip_address': parsed_switch.ip_address,
                         'is_active': parsed_switch.is_active,
                         'location': parsed_switch.location,
-                        'notes': parsed_switch.notes
+                        'notes': parsed_switch.notes,
+                        'committed': False
                     }
                 )
 
@@ -1475,6 +1481,10 @@ class ImportOrchestrator:
                 defaults['imported'] = timezone.now()
                 defaults['updated'] = timezone.now()
 
+                # Explicitly set committed=False for new imports
+                # This ensures imported data goes through project workflow
+                defaults['committed'] = False
+
                 # If importing within a project, set created_by_project for new storage systems
                 if self.project_id:
                     try:
@@ -1556,10 +1566,11 @@ class ImportOrchestrator:
                 }
 
                 # Add all optional fields that have values
+                # Note: pool_name and pool_id are from parsed data but Volume model uses pool ForeignKey
                 optional_fields = [
                     'capacity_bytes', 'used_capacity_bytes', 'used_capacity_percent',
                     'available_capacity_bytes', 'written_capacity_bytes', 'written_capacity_percent',
-                    'reserved_volume_capacity_bytes', 'pool_name', 'pool_id',
+                    'reserved_volume_capacity_bytes',
                     'thin_provisioned', 'compressed', 'raid_level', 'encryption',
                     'flashcopy', 'auto_expand', 'status_label', 'acknowledged',
                     'node', 'io_group', 'volume_number', 'natural_key',
@@ -1578,8 +1589,22 @@ class ImportOrchestrator:
                     if value is not None:
                         defaults[field] = value
 
+                # Handle pool association - lookup pool by name if provided
+                pool_name = getattr(volume, 'pool_name', None)
+                if pool_name and storage:
+                    try:
+                        from storage.models import Pool
+                        pool = Pool.objects.get(storage=storage, name=pool_name)
+                        defaults['pool'] = pool
+                    except Pool.DoesNotExist:
+                        # Pool not found, skip pool association (don't fail the volume import)
+                        logger.warning(f"Pool '{pool_name}' not found for volume {volume.name}")
+
                 # Create unique_id for volume
                 unique_id = f"{volume.storage_system_id}_{volume.volume_id}"
+
+                # Explicitly set committed=False for new imports
+                defaults['committed'] = False
 
                 # If importing within a project, set created_by_project for new volumes
                 if self.project_id:
@@ -1668,6 +1693,9 @@ class ImportOrchestrator:
 
                 # Add timestamps
                 defaults['imported'] = timezone.now()
+
+                # Explicitly set committed=False for new imports
+                defaults['committed'] = False
 
                 # If importing within a project, set created_by_project for new hosts
                 if self.project_id:

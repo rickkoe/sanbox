@@ -288,6 +288,7 @@ const VolumeRangeTableTanStackClean = ({
         volume_count: 0,
         capacity_bytes: null,
         pool_name: "",
+        name_prefix: "",   // Used to derive volume names: {name_prefix}_{volume_id}
         committed: false,
         deployed: false,
         volume_ids: [],
@@ -530,6 +531,7 @@ const VolumeRangeTableTanStackClean = ({
                     format: range.format,
                     capacity_bytes: range.capacity_bytes,
                     pool_name: range.pool_name,
+                    name_prefix: range.name_prefix,
                     lss: range.lss,
                     volume_ids: range.volume_ids || [],
                     _original_start: range._original_start,
@@ -602,6 +604,7 @@ const VolumeRangeTableTanStackClean = ({
                             format: update.format,
                             capacity_bytes: update.capacity_bytes,
                             pool_name: update.pool_name,
+                            name_prefix: update.name_prefix,
                             preview: false,
                             active_project_id: activeProjectId
                         }
@@ -646,6 +649,7 @@ const VolumeRangeTableTanStackClean = ({
                             format: row.format || 'FB',
                             capacity_bytes: capacityBytes,
                             pool_name: row.pool_name || '',
+                            name_prefix: row.name_prefix || '',
                             active_project_id: activeProjectId
                         }
                     );
@@ -689,8 +693,9 @@ const VolumeRangeTableTanStackClean = ({
             const hasFormat = row.format && row.format.trim() !== '';
             const hasCapacity = row.capacity_bytes !== null && row.capacity_bytes !== undefined && row.capacity_bytes !== '';
             const hasPool = row.pool_name && row.pool_name.trim() !== '';
+            const hasNamePrefix = row.name_prefix && row.name_prefix.trim() !== '';
 
-            return hasLss || hasStart || hasEnd || hasFormat || hasCapacity || hasPool;
+            return hasLss || hasStart || hasEnd || hasFormat || hasCapacity || hasPool || hasNamePrefix;
         });
 
         // If no non-blank rows and no deletes, nothing to do
@@ -745,9 +750,10 @@ const VolumeRangeTableTanStackClean = ({
             const formatChanged = row.format !== original.format;
             const capacityChanged = capacityBytes !== original.capacity_bytes;
             const poolChanged = (row.pool_name || '') !== (original.pool_name || '');
+            const namePrefixChanged = (row.name_prefix || '') !== (original.name_prefix || '');
 
             // If nothing changed, skip
-            if (!startChanged && !endChanged && !formatChanged && !capacityChanged && !poolChanged) {
+            if (!startChanged && !endChanged && !formatChanged && !capacityChanged && !poolChanged && !namePrefixChanged) {
                 continue;
             }
 
@@ -759,6 +765,7 @@ const VolumeRangeTableTanStackClean = ({
                 format: row.format,
                 capacity_bytes: capacityBytes,
                 pool_name: row.pool_name || '',
+                name_prefix: row.name_prefix || '',
                 original_start: original.start_volume,
                 original_end: original.end_volume,
             };

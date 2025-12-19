@@ -92,13 +92,23 @@ class InsightsParser(BaseParser):
 
             logger.info(f"InsightsParser: Received {len(api_data['storage_systems'])} storage systems")
 
+            # Debug: Log volumes_by_system structure
+            volumes_by_system = api_data.get('volumes_by_system', {})
+            total_raw_volumes = sum(len(v) for v in volumes_by_system.values())
+            logger.info(f"InsightsParser: Received volumes_by_system with {len(volumes_by_system)} systems and {total_raw_volumes} total raw volumes")
+            for sys_id, vols in volumes_by_system.items():
+                logger.info(f"InsightsParser: System {sys_id} has {len(vols)} raw volumes")
+                if vols:
+                    # Log first volume structure for debugging
+                    logger.debug(f"InsightsParser: Sample volume keys: {list(vols[0].keys()) if vols else 'none'}")
+
             # Transform API data to ParseResult
             storage_systems = self._parse_storage_systems(
                 api_data['storage_systems']
             )
 
             volumes = self._parse_volumes(
-                api_data['volumes_by_system']
+                volumes_by_system
             )
 
             hosts = self._parse_hosts(
@@ -297,10 +307,23 @@ class InsightsParser(BaseParser):
         parsed_volumes = []
 
         for system_id, volumes in volumes_by_system.items():
+            logger.info(f"Parsing {len(volumes)} volumes for system {system_id}")
+            if volumes and len(volumes) > 0:
+                # Log first volume keys for debugging
+                first_vol = volumes[0]
+                logger.info(f"Sample volume keys for system {system_id}: {list(first_vol.keys())}")
             for volume in volumes:
                 try:
-                    volume_id = volume.get('volume_id')
+                    # API may return volume_id, id, or vdisk_id depending on system type
+                    volume_id = (
+                        volume.get('volume_id') or
+                        volume.get('id') or
+                        volume.get('vdisk_id') or
+                        volume.get('uid') or
+                        volume.get('unique_id')  # Also try unique_id
+                    )
                     if not volume_id:
+                        self.add_warning(f"Volume missing ID - available keys: {list(volume.keys())}, name: {volume.get('name', 'unknown')}")
                         continue
 
                     parsed_volumes.append(ParsedVolume(

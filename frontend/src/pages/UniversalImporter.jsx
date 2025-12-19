@@ -4,6 +4,7 @@ import axios from 'axios';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { ConfigContext } from '../context/ConfigContext';
 import { useTheme } from '../context/ThemeContext';
+import { useProjectFilter } from '../context/ProjectFilterContext';
 
 // Import new modern components
 import StepIndicator from '../components/UniversalImporter/StepIndicator';
@@ -23,6 +24,10 @@ const UniversalImporter = () => {
   const navigate = useNavigate();
   const { config } = useContext(ConfigContext);
   const { theme } = useTheme();
+  const { projectFilter } = useProjectFilter();
+
+  // Imports require Project View mode (projectFilter === 'current') and an active project
+  const isInProjectView = projectFilter === 'current' && config?.active_project;
 
   // Multi-step wizard state
   const [step, setStep] = useState(1);
@@ -699,6 +704,14 @@ const UniversalImporter = () => {
   const getNextButtonTooltip = () => {
     if (canProceed() || loading) return '';
 
+    // Check for Project View mode and active project
+    if (!isInProjectView) {
+      if (projectFilter !== 'current') {
+        return 'Switch to Project View mode in the navbar to enable imports';
+      }
+      return 'Select a project from the navbar to enable imports';
+    }
+
     switch (step) {
       case 2:
         if (importType === 'storage') {
@@ -722,9 +735,14 @@ const UniversalImporter = () => {
 
   // Check if can proceed to next step
   const canProceed = () => {
+    // Must be in Project View with an active project to proceed with any import
+    if (!isInProjectView) {
+      return false;
+    }
+
     switch (step) {
       case 1:
-        // Both SAN and Storage are available
+        // Both SAN and Storage are available (project check already done above)
         return importType === 'san' || importType === 'storage';
       case 2:
         // For storage: must have fetched systems and selected at least one
@@ -815,12 +833,18 @@ const UniversalImporter = () => {
           {/* Step 1: Select Import Type */}
           {step === 1 && (
             <>
-              {!config?.active_project && (
+              {!isInProjectView && (
                 <div className="no-project-alert">
                   <AlertTriangle size={20} />
                   <div>
-                    <strong>No Active Project</strong>
-                    <p>Please select a project from the navbar to perform imports. All changes must go through a project.</p>
+                    <strong>Project View Required for Imports</strong>
+                    <p>
+                      {projectFilter !== 'current'
+                        ? 'You are in Customer View (read-only mode). Switch to Project View using the toggle in the navigation bar to enable imports.'
+                        : 'All imports must be performed within a project context. Please select a project from the dropdown in the navigation bar to enable imports.'
+                      }
+                      {' '}Imported data will be associated with the selected project and marked as uncommitted until you commit the changes.
+                    </p>
                   </div>
                 </div>
               )}
@@ -828,7 +852,7 @@ const UniversalImporter = () => {
               <ImportTypeSelector
                 selectedType={importType}
                 onTypeSelect={setImportType}
-                projectActive={!!config?.active_project}
+                projectActive={isInProjectView}
               />
               <div className="mt-4">
                 <label htmlFor="importName" className="form-label">Import Name (Optional)</label>
@@ -839,6 +863,7 @@ const UniversalImporter = () => {
                   placeholder="e.g., Monthly SAN Update, Storage Migration Phase 1"
                   value={importName}
                   onChange={(e) => setImportName(e.target.value)}
+                  disabled={!isInProjectView}
                 />
                 <small className="text-muted">Give this import a descriptive name to help identify it later</small>
               </div>

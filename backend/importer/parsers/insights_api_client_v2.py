@@ -230,8 +230,10 @@ class StorageInsightsClientV2:
             endpoint = f"storage-systems/{storage_system_id}/volumes"
             params = {'limit': limit, 'offset': offset}
 
+            logger.info(f"Fetching volumes from endpoint: {endpoint}")
             data = self._make_request(endpoint, params)
             volumes = data.get('data', [])
+            logger.info(f"Got {len(volumes)} volumes from {endpoint} (offset={offset})")
 
             if not volumes:
                 break

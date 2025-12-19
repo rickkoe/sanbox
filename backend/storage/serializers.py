@@ -58,8 +58,11 @@ class VolumeSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def to_representation(self, instance):
-        """Return pool name instead of ID for display"""
+        """Return storage and pool names instead of IDs for display"""
         ret = super().to_representation(instance)
+        # Return storage name for display (keep storage_id for saving)
+        ret['storage_id'] = instance.storage_id
+        ret['storage'] = instance.storage.name if instance.storage else None
         # Return pool name for display
         ret['pool'] = instance.pool.name if instance.pool else None
         return ret

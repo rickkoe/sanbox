@@ -142,8 +142,10 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Dynamic template - pre-populate storage if storageId is provided
     const NEW_VOLUME_TEMPLATE = useMemo(() => {
         let storageSystemName = "";
+        let storageSystemId = null;
         if (storageId) {
-            const storageSystem = storageOptions.find(s => s.id === storageId);
+            storageSystemId = parseInt(storageId);
+            const storageSystem = storageOptions.find(s => s.id === storageSystemId);
             if (storageSystem) {
                 storageSystemName = storageSystem.name;
             }
@@ -154,6 +156,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             name: "",
             _selected: false, // Selection checkbox state
             storage: storageSystemName,
+            storage_id: storageSystemId, // Keep the ID for saveTransform
             volume_id: "",
             volume_number: null,
             volser: "",
@@ -196,11 +199,21 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                     setLoading(true);
                     console.log('Loading storage systems for volume table...');
 
-                    const response = await axios.get(`${API_ENDPOINTS.storage}?customer=${activeCustomerId}`);
+                    // In Project View, use project endpoint to get all storage including uncommitted
+                    let storageUrl = `${API_ENDPOINTS.storage}?customer=${activeCustomerId}`;
+                    if (projectFilter === 'current' && activeProjectId) {
+                        // Project View: Get storage systems in project (includes uncommitted)
+                        storageUrl = `${API_URL}/api/storage/project/${activeProjectId}/view/storages/`;
+                    } else if (activeProjectId) {
+                        // Customer View with project context
+                        storageUrl = `${API_URL}/api/storage/project/${activeProjectId}/view/storages/?project_filter=${projectFilter}`;
+                    }
+
+                    const response = await axios.get(storageUrl);
                     const storageArray = response.data.results || response.data;
                     setStorageOptions(storageArray.map(s => ({ id: s.id, name: s.name })));
 
-                    console.log('✅ Storage systems loaded successfully');
+                    console.log('✅ Storage systems loaded successfully:', storageArray.length);
                     setLoading(false);
                 } catch (error) {
                     console.error('❌ Error loading storage systems:', error);
@@ -210,7 +223,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         };
 
         loadStorageSystems();
-    }, [activeCustomerId, API_ENDPOINTS.storage]);
+    }, [activeCustomerId, API_ENDPOINTS.storage, projectFilter, activeProjectId, API_URL]);
 
     // Load pool options for dropdown
     useEffect(() => {
@@ -286,7 +299,13 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             return value ? new Date(value).toLocaleString() : "";
         },
         capacity_bytes: (rowData, td, row, col, prop, value) => {
-            return formatBytes(value);
+            // Display capacity in GiB with 2 decimal places, no unit
+            if (!value && value !== 0) return "";
+            // If value is a string (user just typed), return as-is for editing
+            if (typeof value === 'string') return value;
+            // Convert bytes to GiB
+            const gib = value / (1024 ** 3);
+            return gib.toFixed(2);
         },
         used_capacity_bytes: (rowData, td, row, col, prop, value) => {
             return formatBytes(value);
@@ -314,14 +333,26 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Process data for display
     const preprocessData = useCallback((data) => {
         let processedData = data.map(volume => {
-            // Get storage name from ID
-            const storageObj = storageOptions.find(s => s.id === volume.storage);
-            const storageName = storageObj ? storageObj.name : '';
+            // API now returns storage as name and storage_id as the FK ID
+            // Handle both old format (storage=ID) and new format (storage=name, storage_id=ID)
+            let storageName = volume.storage;
+            let storageIdValue = volume.storage_id;
+
+            if (typeof volume.storage === 'number') {
+                // Old format: storage is the ID, look up the name
+                const storageObj = storageOptions.find(s => s.id === volume.storage);
+                storageName = storageObj ? storageObj.name : '';
+                storageIdValue = volume.storage;
+            } else if (!storageIdValue && storageName) {
+                // New format but missing storage_id: look up by name
+                const storageObj = storageOptions.find(s => s.name === storageName);
+                storageIdValue = storageObj ? storageObj.id : null;
+            }
 
             return {
                 ...volume,
-                storage_id: volume.storage, // Keep original ID
-                storage: storageName, // Display name
+                storage_id: storageIdValue, // Keep the ID for saving
+                storage: storageName || '', // Display name
                 saved: !!volume.id,
                 // Selection state - use API value or default to false
                 _selected: volume._selected || false
@@ -360,13 +391,17 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             delete payload.saved;
 
             // Convert storage name back to ID
-            if (payload.storage_id) {
+            if (payload.storage_id !== undefined && payload.storage_id !== null) {
                 payload.storage = payload.storage_id;
                 delete payload.storage_id;
             } else if (payload.storage && typeof payload.storage === 'string') {
                 const storage = storageOptions.find(s => s.name === payload.storage);
                 payload.storage = storage ? storage.id : null;
             }
+
+            // Remove internal fields that shouldn't be sent to API
+            delete payload._isDirty;
+            delete payload._selected;
 
             // Handle boolean fields
             if (typeof payload.compressed === 'string') {
@@ -384,16 +419,37 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 payload.name = "Unnamed Volume";
             }
 
-            // Convert empty strings to null for optional fields
+            // For new volumes (no id), include active project ID for junction table creation
+            if (!payload.id && activeProjectId && projectFilter === 'current') {
+                payload.active_project_id = activeProjectId;
+            }
+
+            // Convert capacity_bytes from GiB (user input) to bytes
+            if (payload.capacity_bytes !== null && payload.capacity_bytes !== undefined) {
+                const value = parseFloat(payload.capacity_bytes);
+                if (!isNaN(value)) {
+                    // If the value is small (< 1000), assume it's in GiB and convert to bytes
+                    // If it's already large (> 1 billion), assume it's already in bytes
+                    if (value < 1000000000) {
+                        payload.capacity_bytes = Math.round(value * (1024 ** 3));
+                    }
+                }
+            }
+
+            // Remove empty/null optional fields - don't send them at all
+            // This prevents issues with fields that can't be null in the model
+            const fieldsToKeep = ['name', 'storage', 'storage_id', 'id'];
             Object.keys(payload).forEach(key => {
-                if (payload[key] === "" && key !== "name") {
-                    payload[key] = null;
+                if (!fieldsToKeep.includes(key)) {
+                    if (payload[key] === "" || payload[key] === null || payload[key] === undefined) {
+                        delete payload[key];
+                    }
                 }
             });
 
             return payload;
         });
-    }, [storageOptions]);
+    }, [storageOptions, activeProjectId, projectFilter]);
 
     // Use ProjectViewToolbar component for table-specific actions
     // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)

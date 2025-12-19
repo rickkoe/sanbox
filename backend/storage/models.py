@@ -524,7 +524,7 @@ class Volume(models.Model):
     node = models.CharField(max_length=32, blank=True, null=True)
     block_size = models.IntegerField(blank=True, null=True)
 
-    unique_id = models.CharField(max_length=64, unique=True)
+    unique_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
     acknowledged = models.BooleanField(blank=True, null=True)
     status_label = models.CharField(max_length=32, blank=True, null=True)
     raid_level = models.CharField(max_length=32, blank=True, null=True)
