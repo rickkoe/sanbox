@@ -188,6 +188,81 @@ class Storage(models.Model):
         unique_together = ['customer', 'name']
 
 
+class Pool(models.Model):
+    """
+    Storage pool model for DS8000 and FlashSystem storage systems.
+    DS8000 pools can be FB (Fixed Block) or CKD (Count Key Data).
+    FlashSystem pools are always FB.
+    """
+    STORAGE_TYPE_CHOICES = [
+        ('FB', 'Fixed Block'),
+        ('CKD', 'Count Key Data'),
+    ]
+
+    name = models.CharField(
+        max_length=16,
+        help_text="Pool name (max 16 chars for DS8000 compatibility)"
+    )
+    storage = models.ForeignKey(
+        Storage,
+        on_delete=models.CASCADE,
+        related_name='pools'
+    )
+    storage_type = models.CharField(
+        max_length=3,
+        choices=STORAGE_TYPE_CHOICES,
+        default='FB',
+        help_text="FB (Fixed Block) or CKD (Count Key Data) - FlashSystem is always FB"
+    )
+
+    # Lifecycle tracking (following existing pattern)
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_pools',
+        help_text="Project that originally created this entity"
+    )
+
+    # Audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_pools',
+        help_text="User who last modified this pool"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+
+    # Unique identifier
+    unique_id = models.CharField(max_length=64, unique=True)
+
+    imported = models.DateTimeField(null=True, blank=True)
+    updated = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['storage', 'name']
+        ordering = ['storage', 'name']
+
+    def __str__(self):
+        return f'{self.storage.name}: {self.name}'
+
+    @property
+    def db_volumes_count(self):
+        """Count of volumes using this pool"""
+        return self.volumes.count()
+
 
 class Host(models.Model):
     name = models.CharField(max_length=200)
@@ -438,7 +513,15 @@ class Volume(models.Model):
     easy_tier_status = models.CharField(max_length=32, blank=True, null=True)
 
     pool_name = models.CharField(max_length=64, blank=True, null=True)
-    pool_id = models.CharField(max_length=64, blank=True, null=True)
+    pool_id = models.CharField(max_length=64, blank=True, null=True, help_text="Legacy pool ID string from imports")
+    pool_ref = models.ForeignKey(
+        'Pool',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='volumes',
+        help_text="Pool this volume belongs to (FK to Pool model)"
+    )
     lss_lcu = models.CharField(max_length=10, blank=True, null=True)
     node = models.CharField(max_length=32, blank=True, null=True)
     block_size = models.IntegerField(blank=True, null=True)

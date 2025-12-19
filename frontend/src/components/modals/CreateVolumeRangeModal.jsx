@@ -9,6 +9,7 @@ const CreateVolumeRangeModal = ({
   onClose,
   storageId,
   storageName,
+  storageType,
   deviceId,
   activeProjectId,
   onSuccess,
@@ -24,11 +25,26 @@ const CreateVolumeRangeModal = ({
     pool_name: "",
   });
 
+  // Pool selection state
+  const [pools, setPools] = useState([]);
+  const [loadingPools, setLoadingPools] = useState(false);
+  const [showCreatePool, setShowCreatePool] = useState(false);
+  const [newPoolName, setNewPoolName] = useState("");
+  const [newPoolType, setNewPoolType] = useState("FB");
+  const [creatingPool, setCreatingPool] = useState(false);
+
   // UI state
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [preview, setPreview] = useState(null);
   const [dscliPreview, setDscliPreview] = useState("");
+
+  // Fetch pools when modal opens
+  useEffect(() => {
+    if (show && storageId) {
+      fetchPools();
+    }
+  }, [show, storageId]);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -43,8 +59,26 @@ const CreateVolumeRangeModal = ({
       setError(null);
       setPreview(null);
       setDscliPreview("");
+      setShowCreatePool(false);
+      setNewPoolName("");
+      setNewPoolType("FB");
     }
   }, [show]);
+
+  // Fetch pools for this storage system
+  const fetchPools = async () => {
+    setLoadingPools(true);
+    try {
+      const response = await axios.get(`/api/storage/${storageId}/pools/`);
+      const poolList = response.data.results || response.data || [];
+      setPools(poolList);
+    } catch (err) {
+      console.error("Failed to load pools:", err);
+      setPools([]);
+    } finally {
+      setLoadingPools(false);
+    }
+  };
 
   // Validate hex input (4 hex digits)
   const isValidHex = (value) => /^[0-9A-Fa-f]{4}$/.test(value);
@@ -66,11 +100,70 @@ const CreateVolumeRangeModal = ({
     setDscliPreview("");
   };
 
+  // Handle pool selection
+  const handlePoolSelect = (e) => {
+    const value = e.target.value;
+    if (value === "__CREATE_NEW__") {
+      setShowCreatePool(true);
+      setFormData((prev) => ({ ...prev, pool_name: "" }));
+    } else {
+      setShowCreatePool(false);
+      setFormData((prev) => ({ ...prev, pool_name: value }));
+    }
+    // Clear preview when pool changes
+    setPreview(null);
+    setDscliPreview("");
+  };
+
+  // Create new pool
+  const handleCreatePool = async () => {
+    if (!newPoolName.trim()) {
+      setError("Pool name is required");
+      return;
+    }
+
+    if (newPoolName.length > 16) {
+      setError("Pool name must be 16 characters or less");
+      return;
+    }
+
+    setCreatingPool(true);
+    setError(null);
+
+    try {
+      const response = await axios.post(`/api/storage/${storageId}/pools/`, {
+        name: newPoolName,
+        storage: storageId,
+        storage_type: storageType === 'FlashSystem' ? 'FB' : newPoolType,
+        active_project_id: activeProjectId,
+      });
+
+      // Add new pool to list and select it
+      const newPool = response.data;
+      setPools((prev) => [...prev, newPool]);
+      setFormData((prev) => ({ ...prev, pool_name: newPool.name }));
+      setShowCreatePool(false);
+      setNewPoolName("");
+      setNewPoolType("FB");
+    } catch (err) {
+      console.error("Failed to create pool:", err);
+      setError(err.response?.data?.error || "Failed to create pool");
+    } finally {
+      setCreatingPool(false);
+    }
+  };
+
   // Calculate preview
   const calculatePreview = () => {
     setError(null);
 
-    const { start_volume, end_volume, format, capacity_gb } = formData;
+    const { start_volume, end_volume, format, capacity_gb, pool_name } = formData;
+
+    // Check if pool is being created but not yet saved
+    if (showCreatePool) {
+      setError("Please create the pool first or select an existing pool");
+      return;
+    }
 
     // Validate inputs
     if (!isValidHex(start_volume)) {
@@ -118,6 +211,7 @@ const CreateVolumeRangeModal = ({
       count,
       totalCapacityTB: totalCapacityTB.toFixed(2),
       format,
+      poolName: pool_name || "P0",
     });
 
     // Generate DSCLI preview
@@ -256,17 +350,109 @@ const CreateVolumeRangeModal = ({
             </div>
             <div className="col-md-4">
               <Form.Group className="mb-3">
-                <Form.Label>Pool Name</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="pool_name"
-                  value={formData.pool_name}
-                  onChange={handleChange}
-                  placeholder="e.g., P0"
-                />
+                <Form.Label>Pool</Form.Label>
+                {loadingPools ? (
+                  <div className="d-flex align-items-center" style={{ height: '38px' }}>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    <span>Loading pools...</span>
+                  </div>
+                ) : (
+                  <Form.Select
+                    value={showCreatePool ? "__CREATE_NEW__" : formData.pool_name}
+                    onChange={handlePoolSelect}
+                  >
+                    <option value="">-- Select Pool --</option>
+                    {pools.map((pool) => (
+                      <option key={pool.id} value={pool.name}>
+                        {pool.name} ({pool.storage_type})
+                      </option>
+                    ))}
+                    <option value="__CREATE_NEW__">+ Create New Pool</option>
+                  </Form.Select>
+                )}
               </Form.Group>
             </div>
           </div>
+
+          {/* Inline Pool Creation Form */}
+          {showCreatePool && (
+            <div className="volume-range-info-alert mb-3">
+              <strong>Create New Pool</strong>
+              <div className="row mt-2">
+                <div className="col-md-6">
+                  <Form.Group className="mb-2">
+                    <Form.Label>Pool Name</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={newPoolName}
+                      onChange={(e) => setNewPoolName(e.target.value)}
+                      placeholder="e.g., P0"
+                      maxLength={16}
+                    />
+                    <Form.Text className="volume-range-form-hint">
+                      Max 16 characters
+                    </Form.Text>
+                  </Form.Group>
+                </div>
+                <div className="col-md-6">
+                  {storageType === 'DS8000' ? (
+                    <Form.Group className="mb-2">
+                      <Form.Label>Pool Type</Form.Label>
+                      <Form.Select
+                        value={newPoolType}
+                        onChange={(e) => setNewPoolType(e.target.value)}
+                      >
+                        <option value="FB">FB (Fixed Block)</option>
+                        <option value="CKD">CKD (Count Key Data)</option>
+                      </Form.Select>
+                    </Form.Group>
+                  ) : (
+                    <Form.Group className="mb-2">
+                      <Form.Label>Pool Type</Form.Label>
+                      <Form.Control
+                        type="text"
+                        value="FB (Fixed Block)"
+                        disabled
+                        readOnly
+                      />
+                      <Form.Text className="volume-range-form-hint">
+                        FlashSystem pools are always FB
+                      </Form.Text>
+                    </Form.Group>
+                  )}
+                </div>
+              </div>
+              <div className="d-flex gap-2 mt-2">
+                <button
+                  type="button"
+                  className="btn btn-success btn-sm"
+                  onClick={handleCreatePool}
+                  disabled={creatingPool || !newPoolName.trim()}
+                >
+                  {creatingPool ? (
+                    <>
+                      <Spinner animation="border" size="sm" className="me-1" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Pool"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setShowCreatePool(false);
+                    setNewPoolName("");
+                    setNewPoolType("FB");
+                  }}
+                  disabled={creatingPool}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {preview && (
             <div className="volume-range-info-alert mt-3">
@@ -274,6 +460,8 @@ const CreateVolumeRangeModal = ({
               <br />
               Will create <strong>{preview.count}</strong> {preview.format} volumes in LSS{" "}
               <strong>{preview.lss}</strong>
+              <br />
+              Pool: <strong>{preview.poolName}</strong>
               <br />
               Total capacity: <strong>{preview.totalCapacityTB} TB</strong>
               {dscliPreview && (
@@ -294,7 +482,7 @@ const CreateVolumeRangeModal = ({
           Cancel
         </button>
         {!preview ? (
-          <button className="btn btn-primary" onClick={calculatePreview}>
+          <button className="btn btn-primary" onClick={calculatePreview} disabled={showCreatePool}>
             Preview
           </button>
         ) : (

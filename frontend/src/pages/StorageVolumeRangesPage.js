@@ -398,6 +398,7 @@ const StorageVolumeRangesPage = () => {
         onClose={() => setShowCreateModal(false)}
         storageId={parseInt(id)}
         storageName={storage?.name}
+        storageType={storage?.storage_type}
         deviceId={deviceId}
         activeProjectId={activeProjectId}
         onSuccess={handleRangeCreated}

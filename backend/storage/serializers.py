@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Storage, Volume, Host, HostWwpn, Port
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool
 from customers.serializers import CustomerSerializer
 from core.models import TableConfiguration
 
@@ -220,6 +220,49 @@ class PortSerializer(serializers.ModelSerializer):
             return obj.project_memberships.filter(project_id=active_project_id).exists()
         except Exception as e:
             print(f"Error checking in_active_project for port {obj.name}: {e}")
+            return False
+
+
+class PoolSerializer(serializers.ModelSerializer):
+    """Serializer for Pool model with project membership tracking"""
+    # Computed fields
+    db_volumes_count = serializers.IntegerField(read_only=True)
+    storage_name = serializers.CharField(source='storage.name', read_only=True)
+    storage_system_type = serializers.CharField(source='storage.storage_type', read_only=True)
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Pool
+        fields = '__all__'
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this pool belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                # If delete_me is True, return 'delete' regardless of action
+                action = 'delete' if pm.delete_me else pm.action
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for pool {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this pool is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for pool {obj.name}: {e}")
             return False
 
 

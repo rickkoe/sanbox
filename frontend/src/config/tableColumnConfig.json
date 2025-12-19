@@ -1140,5 +1140,68 @@
         "defaultVisible": true
       }
     ]
+  },
+  "pool": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Pool Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "storage",
+        "title": "Storage System",
+        "type": "dropdown",
+        "dropdownSource": "storage",
+        "required": true,
+        "defaultVisible": true,
+        "width": 200
+      },
+      {
+        "id": "storage_type",
+        "title": "Type",
+        "type": "dropdown",
+        "dropdownSource": "storage_type",
+        "required": true,
+        "defaultVisible": true,
+        "width": 100
+      },
+      {
+        "id": "db_volumes_count",
+        "title": "Volumes",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 100
+      },
+      {
+        "id": "project_memberships",
+        "title": "Projects",
+        "type": "custom",
+        "readOnly": true,
+        "defaultVisible": true
+      },
+      {
+        "id": "committed",
+        "title": "Committed",
+        "type": "checkbox",
+        "defaultVisible": true,
+        "width": 100
+      },
+      {
+        "id": "deployed",
+        "title": "Deployed",
+        "type": "checkbox",
+        "defaultVisible": true,
+        "width": 100
+      }
+    ]
   }
 }

@@ -7,14 +7,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils import timezone
-from .models import Storage, Volume, Host, HostWwpn, Port
-from .serializers import StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer, StorageFieldPreferenceSerializer
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool
+from .serializers import StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer, StorageFieldPreferenceSerializer, PoolSerializer
 import logging
 from django.core.paginator import Paginator
 from django.db.models import Q, Prefetch
 from urllib.parse import urlencode
 from core.dashboard_views import clear_dashboard_cache_for_customer
-from core.models import Project, ProjectStorage, ProjectVolume, ProjectHost, ProjectPort
+from core.models import Project, ProjectStorage, ProjectVolume, ProjectHost, ProjectPort, ProjectPool
 
 logger = logging.getLogger(__name__)
 
@@ -3033,3 +3033,487 @@ def volume_range_dscli(request, storage_id):
     except Exception as e:
         logger.error(f"Error generating DSCLI commands: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ==========================================
+# Pool Management Views
+# ==========================================
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def pool_list(request, storage_id=None):
+    """
+    Handle pool list and creation operations.
+
+    GET: Return pools filtered by storage system ID (optional) or customer with pagination.
+    POST: Create a new pool.
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    if request.method == "GET":
+        try:
+            customer_id = request.GET.get("customer")
+
+            # Get query parameters
+            search = request.GET.get('search', '').strip()
+            ordering = request.GET.get('ordering', 'name')
+
+            # Base queryset with optimizations
+            from django.db.models import Count
+            pools = Pool.objects.select_related('storage', 'created_by_project').prefetch_related(
+                Prefetch('project_memberships',
+                         queryset=ProjectPool.objects.select_related('project'))
+            ).all()
+
+            # Filter by user's customer access
+            if user and user.is_authenticated:
+                from core.permissions import filter_by_customer_access
+                accessible_storages = filter_by_customer_access(
+                    Storage.objects.all(), user
+                ).values_list('id', flat=True)
+                pools = pools.filter(storage_id__in=accessible_storages)
+
+            # Filter by storage ID if provided in URL
+            if storage_id:
+                pools = pools.filter(storage_id=storage_id)
+
+            # Filter by customer
+            if customer_id:
+                pools = pools.filter(storage__customer_id=customer_id)
+
+            # Customer View filtering: Show pools that are either:
+            # 1. Committed (committed=True), OR
+            # 2. Not referenced by any project (no junction table entries)
+            pools = pools.annotate(
+                project_count=Count('project_memberships')
+            ).filter(
+                Q(committed=True) | Q(project_count=0)
+            )
+
+            # Apply general search if provided
+            if search:
+                pools = pools.filter(
+                    Q(name__icontains=search) |
+                    Q(storage__name__icontains=search) |
+                    Q(storage_type__icontains=search) |
+                    Q(unique_id__icontains=search)
+                )
+
+            # Apply ordering
+            if ordering:
+                pools = pools.order_by(ordering)
+
+            # Get pagination parameters
+            page = int(request.GET.get('page', 1))
+            page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+            if page_size_param == 'All':
+                return JsonResponse({'error': '"All" page size is not supported. Maximum page size is 500.'}, status=400)
+
+            page_size = int(page_size_param)
+
+            if page_size > settings.MAX_PAGE_SIZE:
+                return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}. Requested: {page_size}'}, status=400)
+
+            # Apply pagination
+            paginator = Paginator(pools, page_size)
+            page_obj = paginator.get_page(page)
+
+            # Get active project ID from query params
+            project_id = request.GET.get('project_id') or request.GET.get('project')
+
+            # Serialize paginated results with context
+            context = {}
+            if project_id:
+                context['active_project_id'] = int(project_id)
+            serializer = PoolSerializer(page_obj, many=True, context=context)
+
+            return JsonResponse({
+                'results': serializer.data,
+                'count': paginator.count,
+                'num_pages': paginator.num_pages,
+                'current_page': page,
+                'page_size': page_size,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous()
+            })
+
+        except Exception as e:
+            logger.error(f"Error in pool_list GET: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            # Required fields
+            name = data.get('name')
+            storage_id_param = data.get('storage') or storage_id
+            storage_type = data.get('storage_type', 'FB')
+
+            if not name:
+                return JsonResponse({'error': 'Pool name is required'}, status=400)
+            if not storage_id_param:
+                return JsonResponse({'error': 'Storage system is required'}, status=400)
+
+            # Get storage system
+            try:
+                storage = Storage.objects.get(id=storage_id_param)
+            except Storage.DoesNotExist:
+                return JsonResponse({'error': f'Storage system {storage_id_param} not found'}, status=404)
+
+            # FlashSystem pools are always FB
+            if storage.storage_type == 'FlashSystem':
+                storage_type = 'FB'
+
+            # Check for duplicate pool name in same storage
+            if Pool.objects.filter(storage=storage, name=name).exists():
+                return JsonResponse({'error': f'Pool "{name}" already exists in storage system {storage.name}'}, status=400)
+
+            # Generate unique_id
+            unique_id = f"{storage.storage_system_id or storage.id}_{name}"
+
+            # Get project ID if provided
+            active_project_id = data.get('active_project_id')
+            project = None
+            if active_project_id:
+                try:
+                    project = Project.objects.get(id=active_project_id)
+                except Project.DoesNotExist:
+                    pass
+
+            # Create the pool
+            pool = Pool.objects.create(
+                name=name,
+                storage=storage,
+                storage_type=storage_type,
+                unique_id=unique_id,
+                committed=False,
+                deployed=False,
+                created_by_project=project,
+                last_modified_by=user
+            )
+
+            # Add to project if project ID provided
+            if project:
+                ProjectPool.objects.create(
+                    project=project,
+                    pool=pool,
+                    action='new',
+                    added_by=user
+                )
+
+            # Clear dashboard cache
+            if storage.customer:
+                clear_dashboard_cache_for_customer(storage.customer.id)
+
+            serializer = PoolSerializer(pool)
+            return JsonResponse(serializer.data, status=201)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+        except Exception as e:
+            logger.error(f"Error in pool_list POST: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "PATCH", "DELETE"])
+def pool_detail(request, pk):
+    """Handle pool detail operations (GET, PUT, PATCH, DELETE)."""
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        pool = Pool.objects.select_related('storage', 'created_by_project').get(pk=pk)
+    except Pool.DoesNotExist:
+        return JsonResponse({'error': 'Pool not found'}, status=404)
+
+    if request.method == "GET":
+        serializer = PoolSerializer(pool)
+        return JsonResponse(serializer.data)
+
+    elif request.method in ["PUT", "PATCH"]:
+        try:
+            data = json.loads(request.body)
+
+            # Update allowed fields
+            if 'name' in data:
+                # Check for duplicate name in same storage
+                new_name = data['name']
+                if Pool.objects.filter(storage=pool.storage, name=new_name).exclude(pk=pk).exists():
+                    return JsonResponse({'error': f'Pool "{new_name}" already exists in this storage system'}, status=400)
+                pool.name = new_name
+                pool.unique_id = f"{pool.storage.storage_system_id or pool.storage.id}_{new_name}"
+
+            if 'storage_type' in data:
+                # FlashSystem pools are always FB
+                if pool.storage.storage_type == 'FlashSystem':
+                    pool.storage_type = 'FB'
+                else:
+                    pool.storage_type = data['storage_type']
+
+            if 'committed' in data:
+                pool.committed = data['committed']
+
+            if 'deployed' in data:
+                pool.deployed = data['deployed']
+
+            pool.last_modified_by = user
+            pool.version += 1
+            pool.save()
+
+            # Clear dashboard cache
+            if pool.storage.customer:
+                clear_dashboard_cache_for_customer(pool.storage.customer.id)
+
+            serializer = PoolSerializer(pool)
+            return JsonResponse(serializer.data)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+        except Exception as e:
+            logger.error(f"Error in pool_detail PUT/PATCH: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "DELETE":
+        try:
+            storage = pool.storage
+
+            # Remove project memberships first
+            ProjectPool.objects.filter(pool=pool).delete()
+
+            # Delete the pool
+            pool.delete()
+
+            # Clear dashboard cache
+            if storage.customer:
+                clear_dashboard_cache_for_customer(storage.customer.id)
+
+            return JsonResponse({'message': 'Pool deleted successfully'})
+
+        except Exception as e:
+            logger.error(f"Error in pool_detail DELETE: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def pool_project_view(request, project_id):
+    """
+    Get pools in project with field_overrides applied.
+
+    GET: Returns pools with project-specific modifications merged in.
+    POST: Save multiple pool changes in project context.
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({'error': 'Project not found'}, status=404)
+
+    # Get customer from project
+    customer = project.customers.first()
+    if not customer:
+        return JsonResponse({'error': 'Project has no associated customer'}, status=400)
+
+    if request.method == "GET":
+        try:
+            project_filter = request.GET.get('project_filter', 'current')
+            search = request.GET.get('search', '').strip()
+            ordering = request.GET.get('ordering', 'name')
+            storage_id = request.GET.get('storage_id')
+
+            # Get project pool IDs for quick lookup
+            project_pool_ids = set(ProjectPool.objects.filter(
+                project=project
+            ).values_list('pool_id', flat=True))
+
+            from django.db.models import Count
+
+            # Base queryset
+            if project_filter == 'all':
+                # Return ALL customer pools with in_active_project flag
+                pools = Pool.objects.filter(
+                    storage__customer=customer
+                ).select_related('storage', 'created_by_project').prefetch_related(
+                    Prefetch('project_memberships',
+                             queryset=ProjectPool.objects.select_related('project'))
+                )
+
+                # Apply Customer View filtering
+                pools = pools.annotate(
+                    project_count=Count('project_memberships')
+                ).filter(
+                    Q(committed=True) | Q(project_count=0)
+                )
+            else:
+                # Return only pools in this project
+                pools = Pool.objects.filter(
+                    project_memberships__project=project
+                ).select_related('storage', 'created_by_project').prefetch_related(
+                    Prefetch('project_memberships',
+                             queryset=ProjectPool.objects.select_related('project'))
+                )
+
+            # Filter by storage if provided
+            if storage_id:
+                pools = pools.filter(storage_id=storage_id)
+
+            # Apply search
+            if search:
+                pools = pools.filter(
+                    Q(name__icontains=search) |
+                    Q(storage__name__icontains=search) |
+                    Q(storage_type__icontains=search)
+                )
+
+            # Apply ordering
+            if ordering:
+                pools = pools.order_by(ordering)
+
+            # Pagination
+            page = int(request.GET.get('page', 1))
+            page_size_param = request.GET.get('page_size', settings.DEFAULT_PAGE_SIZE)
+
+            if page_size_param == 'All':
+                return JsonResponse({'error': '"All" page size is not supported.'}, status=400)
+
+            page_size = int(page_size_param)
+            if page_size > settings.MAX_PAGE_SIZE:
+                return JsonResponse({'error': f'Maximum page size is {settings.MAX_PAGE_SIZE}'}, status=400)
+
+            paginator = Paginator(pools, page_size)
+            pools_page = paginator.get_page(page)
+
+            # Build merged data
+            merged_data = []
+            for pool in pools_page:
+                base_data = PoolSerializer(pool, context={'active_project_id': project_id}).data
+                in_project = pool.id in project_pool_ids
+
+                # Apply field overrides if in project
+                modified_fields = []
+                if in_project:
+                    try:
+                        pp = ProjectPool.objects.get(project=project, pool=pool)
+                        if pp.field_overrides:
+                            for field_name, override_value in pp.field_overrides.items():
+                                if field_name in base_data and base_data[field_name] != override_value:
+                                    base_data[field_name] = override_value
+                                    modified_fields.append(field_name)
+                        base_data['project_action'] = 'delete' if pp.delete_me else pp.action
+                    except ProjectPool.DoesNotExist:
+                        pass
+
+                base_data['modified_fields'] = modified_fields
+                base_data['in_active_project'] = in_project
+                merged_data.append(base_data)
+
+            return JsonResponse({
+                'results': merged_data,
+                'count': paginator.count,
+                'num_pages': paginator.num_pages,
+                'current_page': page,
+                'page_size': page_size,
+                'has_next': pools_page.has_next(),
+                'has_previous': pools_page.has_previous()
+            })
+
+        except Exception as e:
+            logger.error(f"Error in pool_project_view GET: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            rows = data.get('rows', [])
+
+            results = {'created': 0, 'updated': 0, 'errors': []}
+
+            for row in rows:
+                try:
+                    pool_id = row.get('id')
+
+                    if pool_id:
+                        # Update existing pool
+                        try:
+                            pool = Pool.objects.get(id=pool_id)
+                        except Pool.DoesNotExist:
+                            results['errors'].append(f"Pool {pool_id} not found")
+                            continue
+
+                        # Get or create project membership
+                        pp, created = ProjectPool.objects.get_or_create(
+                            project=project,
+                            pool=pool,
+                            defaults={'action': 'modified', 'added_by': user}
+                        )
+
+                        # Update field overrides
+                        overrides = pp.field_overrides or {}
+                        for field in ['name', 'storage_type']:
+                            if field in row and row[field] != getattr(pool, field):
+                                overrides[field] = row[field]
+
+                        pp.field_overrides = overrides
+                        if not created and overrides:
+                            pp.action = 'modified'
+                        pp.save()
+
+                        results['updated'] += 1
+                    else:
+                        # Create new pool
+                        storage_id = row.get('storage')
+                        if isinstance(storage_id, str):
+                            try:
+                                storage = Storage.objects.get(name=storage_id, customer=customer)
+                                storage_id = storage.id
+                            except Storage.DoesNotExist:
+                                results['errors'].append(f"Storage '{storage_id}' not found")
+                                continue
+
+                        storage = Storage.objects.get(id=storage_id)
+                        name = row.get('name')
+                        storage_type = row.get('storage_type', 'FB')
+
+                        # FlashSystem pools are always FB
+                        if storage.storage_type == 'FlashSystem':
+                            storage_type = 'FB'
+
+                        unique_id = f"{storage.storage_system_id or storage.id}_{name}"
+
+                        pool = Pool.objects.create(
+                            name=name,
+                            storage=storage,
+                            storage_type=storage_type,
+                            unique_id=unique_id,
+                            committed=False,
+                            deployed=False,
+                            created_by_project=project,
+                            last_modified_by=user
+                        )
+
+                        ProjectPool.objects.create(
+                            project=project,
+                            pool=pool,
+                            action='new',
+                            added_by=user
+                        )
+
+                        results['created'] += 1
+
+                except Exception as e:
+                    results['errors'].append(str(e))
+
+            # Clear dashboard cache
+            if customer:
+                clear_dashboard_cache_for_customer(customer.id)
+
+            return JsonResponse(results)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+        except Exception as e:
+            logger.error(f"Error in pool_project_view POST: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)

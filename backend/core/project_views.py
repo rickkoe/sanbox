@@ -12,10 +12,10 @@ from django.views.decorators.http import require_http_methods
 from django.db.models import Q, Count
 from .models import (
     Project, ProjectAlias, ProjectZone, ProjectFabric, ProjectSwitch,
-    ProjectStorage, ProjectHost, ProjectVolume, ProjectPort, UserConfig
+    ProjectStorage, ProjectHost, ProjectVolume, ProjectPort, ProjectPool, UserConfig
 )
 from san.models import Alias, Zone, Fabric, Switch
-from storage.models import Storage, Host, Volume, Port
+from storage.models import Storage, Host, Volume, Port, Pool
 from san.serializers import ProjectAliasSerializer, ProjectZoneSerializer
 
 
@@ -1059,6 +1059,72 @@ def project_remove_port(request, project_id, port_id):
         deleted_count, _ = ProjectPort.objects.filter(
             project_id=project_id,
             port_id=port_id
+        ).delete()
+
+        return JsonResponse({
+            "success": True,
+            "deleted": deleted_count > 0
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def project_add_pool(request, project_id):
+    """Add a pool to a project with specified action"""
+    try:
+        data = json.loads(request.body)
+        pool_id = data.get('pool_id')
+        action = data.get('action', 'unmodified')
+        notes = data.get('notes', '')
+
+        if not pool_id:
+            return JsonResponse({"error": "pool_id is required"}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+            pool = Pool.objects.get(id=pool_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+        except Pool.DoesNotExist:
+            return JsonResponse({"error": "Pool not found"}, status=404)
+
+        # Create or update the junction entry
+        project_pool, created = ProjectPool.objects.update_or_create(
+            project=project,
+            pool=pool,
+            defaults={
+                'action': action,
+                'added_by': request.user if request.user.is_authenticated else None,
+                'notes': notes
+            }
+        )
+
+        return JsonResponse({
+            "success": True,
+            "created": created,
+            "project_pool": {
+                "id": project_pool.id,
+                "pool_id": project_pool.pool.id,
+                "pool_name": project_pool.pool.name,
+                "action": project_pool.action
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def project_remove_pool(request, project_id, pool_id):
+    """Remove a pool from a project"""
+    try:
+        deleted_count, _ = ProjectPool.objects.filter(
+            project_id=project_id,
+            pool_id=pool_id
         ).delete()
 
         return JsonResponse({

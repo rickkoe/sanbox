@@ -25,6 +25,10 @@ from .views import (
     volume_range_create,
     volume_range_delete,
     volume_range_dscli,
+    # Pool Management
+    pool_list,
+    pool_detail,
+    pool_project_view,
 )
 
 urlpatterns = [
@@ -53,4 +57,9 @@ urlpatterns = [
     path("<int:storage_id>/volume-ranges/create/", volume_range_create, name="volume-range-create"),
     path("<int:storage_id>/volume-ranges/delete/", volume_range_delete, name="volume-range-delete"),
     path("<int:storage_id>/volume-ranges/dscli/", volume_range_dscli, name="volume-range-dscli"),
+    # Pool Management
+    path("pools/", pool_list, name="pool-list"),
+    path("pools/<int:pk>/", pool_detail, name="pool-detail"),
+    path("<int:storage_id>/pools/", pool_list, name="storage-pool-list"),
+    path("project/<int:project_id>/view/pools/", pool_project_view, name="pool-project-view"),
 ]

@@ -1444,6 +1444,65 @@ class ProjectVolume(models.Model):
         return f"{self.project.name}: {self.volume.name} ({self.action})"
 
 
+class ProjectPool(models.Model):
+    """Track what a project intends to do with a Pool"""
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_pools'
+    )
+    pool = models.ForeignKey(
+        'storage.Pool',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=PROJECT_ACTION_CHOICES,
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_pools'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'pool']
+        ordering = ['project', 'pool__name']
+        verbose_name = "Project Pool"
+        verbose_name_plural = "Project Pools"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['pool', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.pool.name} ({self.action})"
+
+
 class ProjectPort(models.Model):
     """Track what a project intends to do with a Port"""
 

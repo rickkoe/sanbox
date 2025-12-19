@@ -24,6 +24,7 @@ import {
   FileSpreadsheet,
   Router,
   History,
+  Database,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname) => {
@@ -54,6 +55,11 @@ const getSidebarLinks = (pathname) => {
             path: `/storage/${storageIdMatch[1]}/volume-ranges`,
             label: "Volume Ranges",
             icon: Layers,
+          },
+          {
+            path: `/storage/${storageIdMatch[1]}/pools`,
+            label: "Pools",
+            icon: Database,
           },
           {
             path: `/storage/${storageIdMatch[1]}/hosts`,

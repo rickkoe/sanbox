@@ -651,3 +651,314 @@ curl -X POST http://localhost:8000/api/storage/1/volume-ranges/dscli/ \
 | Route | `frontend/src/App.js` (line ~223) |
 | Nav link | `frontend/src/pages/StoragePage.js` (line ~380) |
 | Theme docs | `THEME_SYSTEM_DOCUMENTATION.md` |
+
+---
+
+## Pool Model Implementation
+
+**Added:** 2025-12-18
+
+### Overview
+
+Pools are storage containers that hold volumes. Previously, `Volume.pool_name` was a simple CharField. This implementation creates a proper `Pool` model with a ForeignKey relationship, enabling:
+
+1. **Pool management** - CRUD operations on pools via TanStack table
+2. **Pool-Storage relationship** - Each pool belongs to one storage system
+3. **Storage type enforcement** - DS8000 pools can be FB or CKD; FlashSystem pools are always FB
+4. **Project workflow** - Pools follow the same project-based editing pattern as other entities
+5. **DSCLI command generation** - Generate `mkextpool` (DS8000) or `mkmdiskgrp` (FlashSystem) commands
+
+### Architecture
+
+#### File Structure
+
+```
+backend/storage/
+├── models.py              # Pool model added (line ~191)
+├── serializers.py         # PoolSerializer added (line ~226)
+├── views.py               # pool_list, pool_detail, pool_project_view (end of file)
+├── urls.py                # Pool URL patterns added
+└── pool_utils.py          # NEW: DSCLI command generation for pools
+
+backend/core/
+├── models.py              # ProjectPool junction table added (after ProjectVolume)
+├── project_views.py       # project_add_pool, project_remove_pool added
+└── urls.py                # Pool project endpoints added
+
+frontend/src/
+├── components/tables/
+│   └── PoolTableTanStackClean.jsx    # NEW: Pool management table
+├── pages/
+│   └── StoragePoolsPage.js           # NEW: Page wrapper
+├── hooks/
+│   └── useSidebarConfig.js           # Pools link added to storage sidebar
+├── components/modals/
+│   └── CreateVolumeRangeModal.jsx    # Enhanced with pool dropdown
+├── config/
+│   └── tableColumnConfig.json        # Pool table configuration added
+└── App.js                            # Route added
+```
+
+### Backend Implementation
+
+#### Pool Model
+
+**Location:** `backend/storage/models.py` (line ~191)
+
+```python
+class Pool(models.Model):
+    STORAGE_TYPE_CHOICES = [
+        ('FB', 'Fixed Block'),
+        ('CKD', 'Count Key Data'),
+    ]
+
+    name = models.CharField(max_length=16)  # DS8000 limit
+    storage = models.ForeignKey(Storage, on_delete=models.CASCADE, related_name='pools')
+    storage_type = models.CharField(max_length=3, choices=STORAGE_TYPE_CHOICES, default='FB')
+
+    # Standard lifecycle fields
+    committed = models.BooleanField(default=False)
+    deployed = models.BooleanField(default=False)
+    created_by_project = models.ForeignKey('core.Project', null=True, blank=True, ...)
+    last_modified_by = models.ForeignKey(User, null=True, blank=True, ...)
+    unique_id = models.CharField(max_length=64, unique=True)
+
+    class Meta:
+        unique_together = ['storage', 'name']
+
+    @property
+    def db_volumes_count(self):
+        return self.volumes.count()
+```
+
+#### Volume.pool_ref ForeignKey
+
+**Location:** `backend/storage/models.py` (line ~442)
+
+```python
+# Added to Volume model (named pool_ref to avoid conflict with existing pool_id CharField)
+pool_ref = models.ForeignKey(
+    'Pool',
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name='volumes',
+    help_text="Pool this volume belongs to (FK to Pool model)"
+)
+# Existing pool_name and pool_id CharFields retained for backward compatibility
+```
+
+#### ProjectPool Junction Table
+
+**Location:** `backend/core/models.py` (after ProjectVolume)
+
+```python
+class ProjectPool(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='project_pools')
+    pool = models.ForeignKey('storage.Pool', on_delete=models.CASCADE, related_name='project_memberships')
+    action = models.CharField(max_length=10, choices=PROJECT_ACTION_CHOICES, default='new')
+    delete_me = models.BooleanField(default=False)
+    field_overrides = models.JSONField(default=dict, blank=True)
+    added_by = models.ForeignKey(User, null=True, ...)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['project', 'pool']
+```
+
+#### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/storage/pools/` | GET | List pools (Customer View filtered) |
+| `/api/storage/pools/` | POST | Create pool |
+| `/api/storage/pools/<id>/` | GET/PUT/PATCH/DELETE | Pool detail operations |
+| `/api/storage/<storage_id>/pools/` | GET | Pools for specific storage |
+| `/api/storage/project/<id>/view/pools/` | GET | Project View with field_overrides |
+| `/api/storage/project/<id>/view/pools/` | POST | Save pool changes in project |
+| `/api/core/projects/<id>/add-pool/` | POST | Add pool to project |
+| `/api/core/projects/<id>/remove-pool/<pool_id>/` | DELETE | Remove pool from project |
+
+#### pool_utils.py
+
+**Location:** `backend/storage/pool_utils.py` (NEW FILE)
+
+```python
+def generate_pool_create_command(storage, pool_name, storage_type='FB', rank_group=0):
+    """
+    DS8000: mkextpool -dev {device_id} -rankgrp {rank_group} -stgtype {fb|ckd} {pool_name}
+    FlashSystem: mkmdiskgrp -name {pool_name} -ext 1024
+    """
+
+def generate_pool_delete_command(storage, pool_name):
+    """
+    DS8000: rmextpool -dev {device_id} {pool_name}
+    FlashSystem: rmmdiskgrp {pool_name}
+    """
+
+def generate_pool_commands_for_storage(storage, pools, command_type='create'):
+    """Generate commands for multiple pools"""
+```
+
+### Frontend Implementation
+
+#### PoolTableTanStackClean.jsx
+
+**Location:** `frontend/src/components/tables/PoolTableTanStackClean.jsx` (NEW FILE)
+
+Follows `VolumeTableTanStackClean.jsx` pattern:
+- Props: `storageId`, `hideColumns`
+- Uses hooks: `useProjectViewAPI`, `useProjectViewSelection`, `useProjectViewPermissions`
+- Customer View is read-only; Project View is editable
+- storage_type dropdown: Read-only for FlashSystem (auto-set to FB), editable for DS8000
+- Tracks `storageSystemTypes` map to enforce FB for FlashSystem
+
+#### StoragePoolsPage.js
+
+**Location:** `frontend/src/pages/StoragePoolsPage.js` (NEW FILE)
+
+```jsx
+const StoragePoolsPage = () => {
+  const { id } = useParams();
+  // Fetches storage, updates breadcrumb, renders PoolTableTanStackClean
+  return (
+    <PoolTableTanStackClean
+      storageId={parseInt(id)}
+      hideColumns={['storage']}
+    />
+  );
+};
+```
+
+#### Table Column Configuration
+
+**Location:** `frontend/src/config/tableColumnConfig.json`
+
+```json
+"pool": {
+  "defaultSort": { "column": "name", "direction": "asc" },
+  "columns": [
+    { "id": "name", "title": "Pool Name", "type": "text", "required": true, "defaultVisible": true },
+    { "id": "storage", "title": "Storage System", "type": "dropdown", "dropdownSource": "storage", "required": true },
+    { "id": "storage_type", "title": "Type", "type": "dropdown", "dropdownSource": "storage_type", "required": true },
+    { "id": "db_volumes_count", "title": "Volumes", "type": "numeric", "readOnly": true },
+    { "id": "project_memberships", "title": "Projects", "type": "custom", "readOnly": true },
+    { "id": "committed", "title": "Committed", "type": "checkbox" },
+    { "id": "deployed", "title": "Deployed", "type": "checkbox" }
+  ]
+}
+```
+
+#### Sidebar & Routing
+
+**Sidebar:** `frontend/src/hooks/useSidebarConfig.js`
+```javascript
+{
+  path: `/storage/${storageIdMatch[1]}/pools`,
+  label: "Pools",
+  icon: Database,  // from lucide-react
+}
+```
+
+**Route:** `frontend/src/App.js`
+```jsx
+const StoragePoolsPage = React.lazy(() => import("./pages/StoragePoolsPage"));
+// ...
+<Route path="/storage/:id/pools" element={<StoragePoolsPage />} />
+```
+
+**Table routes pattern:** Added `location.pathname.match(/^\/storage\/\d+\/pools$/)`
+
+#### CreateVolumeRangeModal Enhancement
+
+**Location:** `frontend/src/components/modals/CreateVolumeRangeModal.jsx`
+
+Enhanced with:
+1. **Pool dropdown** - Fetches pools from `/api/storage/{storageId}/pools/`
+2. **"+ Create New Pool" option** - Shows inline form when selected
+3. **Inline pool creation form**:
+   - Pool name input (max 16 chars)
+   - Pool type dropdown (FB/CKD for DS8000, read-only FB for FlashSystem)
+4. **New prop:** `storageType` - Passed from parent to determine FlashSystem vs DS8000
+
+```jsx
+<CreateVolumeRangeModal
+  show={boolean}
+  storageId={number}
+  storageName={string}
+  storageType={string}  // NEW: 'DS8000' or 'FlashSystem'
+  deviceId={string}
+  activeProjectId={number}
+  onSuccess={function}
+/>
+```
+
+### Database Migration
+
+```bash
+# Migrations created:
+# 1. storage.0026_add_pool_model - Creates Pool table and Volume.pool_ref FK
+# 2. core.0025_add_project_pool - Creates ProjectPool junction table
+
+docker-compose -f docker-compose.dev.yml exec backend python manage.py migrate
+```
+
+**Note:** Existing volumes retain `pool_name` CharField. No auto-migration of data - `Volume.pool_ref` is nullable.
+
+### Key Behaviors
+
+1. **Customer View Filtering:** Pools shown if `committed=True` OR not in any project
+2. **Project View:** Pools can only be created/edited/deleted through projects
+3. **FlashSystem Enforcement:** storage_type auto-set to 'FB' on save
+4. **Unique Constraint:** `(storage, name)` - No duplicate pool names per storage system
+5. **Volume Count:** `db_volumes_count` property counts volumes via `pool_ref` FK
+
+### DSCLI Commands
+
+**DS8000 Pool Creation:**
+```bash
+mkextpool -dev IBM.2107-75NRC91 -rankgrp 0 -stgtype fb P0
+```
+
+**FlashSystem Pool Creation:**
+```bash
+mkmdiskgrp -name P0 -ext 1024
+```
+
+**DS8000 Pool Deletion:**
+```bash
+rmextpool -dev IBM.2107-75NRC91 P0
+```
+
+**FlashSystem Pool Deletion:**
+```bash
+rmmdiskgrp P0
+```
+
+### Files Reference
+
+| Purpose | File Path |
+|---------|-----------|
+| Pool model | `backend/storage/models.py` (line ~191) |
+| Volume.pool_ref FK | `backend/storage/models.py` (line ~442) |
+| ProjectPool junction | `backend/core/models.py` (after ProjectVolume) |
+| Pool serializer | `backend/storage/serializers.py` (line ~226) |
+| Pool views | `backend/storage/views.py` (end of file, line ~3037+) |
+| Pool URL patterns | `backend/storage/urls.py` |
+| Pool DSCLI utils | `backend/storage/pool_utils.py` (NEW) |
+| Project add/remove pool | `backend/core/project_views.py` (line ~1075) |
+| Project pool URLs | `backend/core/urls.py` (line ~179) |
+| Pool table component | `frontend/src/components/tables/PoolTableTanStackClean.jsx` (NEW) |
+| Pool page | `frontend/src/pages/StoragePoolsPage.js` (NEW) |
+| Column config | `frontend/src/config/tableColumnConfig.json` |
+| Sidebar link | `frontend/src/hooks/useSidebarConfig.js` (line ~59) |
+| Route | `frontend/src/App.js` (line ~226) |
+| Volume range modal | `frontend/src/components/modals/CreateVolumeRangeModal.jsx` |
+
+### Future Enhancements
+
+1. **Link volumes to pools** - Update existing volumes to use `pool_ref` FK instead of `pool_name`
+2. **Pool capacity tracking** - Add `capacity_bytes`, `used_capacity_bytes` fields
+3. **Pool import** - Import pools from Storage Insights API
+4. **Bulk pool operations** - Create multiple pools at once
+5. **Pool-based volume filtering** - Filter volume table by pool
