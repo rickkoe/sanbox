@@ -25,6 +25,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const tableRef = useRef(null);
 
     const [storageOptions, setStorageOptions] = useState([]);
+    const [poolOptions, setPoolOptions] = useState([]);
     const [loading, setLoading] = useState(true);
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
@@ -163,8 +164,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             available_capacity_bytes: null,
             written_capacity_bytes: null,
             written_capacity_percent: null,
-            pool_name: "",
-            pool_id: "",
+            pool: "",
             lss_lcu: "",
             node: "",
             block_size: null,
@@ -212,6 +212,37 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         loadStorageSystems();
     }, [activeCustomerId, API_ENDPOINTS.storage]);
 
+    // Load pool options for dropdown
+    useEffect(() => {
+        const loadPools = async () => {
+            if (!activeCustomerId) return;
+            try {
+                // Include project context to get committed pools + pools in active project
+                const params = new URLSearchParams();
+                params.append('customer', activeCustomerId);
+                params.append('project_filter', projectFilter || 'all');
+                if (activeProjectId) {
+                    params.append('project_id', activeProjectId);
+                }
+                // If filtering by storage, only get pools for that storage
+                if (storageId) {
+                    const response = await axios.get(`${API_URL}/api/storage/${storageId}/pools/?${params.toString()}`);
+                    const pools = response.data.results || response.data || [];
+                    setPoolOptions(pools.map(p => ({ id: p.id, name: p.name })));
+                } else {
+                    // Get all pools for customer
+                    const response = await axios.get(`${API_URL}/api/storage/pools/?${params.toString()}`);
+                    const pools = response.data.results || response.data || [];
+                    setPoolOptions(pools.map(p => ({ id: p.id, name: p.name })));
+                }
+            } catch (err) {
+                console.error('Error loading pools:', err);
+                setPoolOptions([]);
+            }
+        };
+        loadPools();
+    }, [API_URL, activeCustomerId, storageId, projectFilter, activeProjectId]);
+
     // Live/Draft toggle is now in the navbar
 
     // Handle adding volume to project
@@ -241,8 +272,9 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
     // Dynamic dropdown sources
     const dropdownSources = useMemo(() => ({
-        storage: storageOptions.map(s => s.name)
-    }), [storageOptions]);
+        storage: storageOptions.map(s => s.name),
+        pool: poolOptions.map(p => p.name)
+    }), [storageOptions, poolOptions]);
 
     // Custom renderers for special formatting
     const customRenderers = useMemo(() => ({

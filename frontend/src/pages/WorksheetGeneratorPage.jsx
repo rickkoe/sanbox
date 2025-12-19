@@ -127,7 +127,7 @@ const WorksheetGeneratorPage = () => {
   const loadContacts = async () => {
     try {
       // First, find the implementation company
-      const customersResponse = await api.get('/api/customers/?page_size=All');
+      const customersResponse = await api.get('/api/customers/?page_size=500');
       const customers = customersResponse.data.results || customersResponse.data;
       const implCompany = customers.find(c => c.is_implementation_company === true);
 
@@ -554,7 +554,7 @@ const WorksheetGeneratorPage = () => {
       let implementationCompanyId = null;
       try {
         // Look up customer with is_implementation_company = true
-        const customersResponse = await api.get('/api/customers/?page_size=All');
+        const customersResponse = await api.get('/api/customers/?page_size=500');
         const customers = customersResponse.data.results || customersResponse.data;
         const implementationCompany = customers.find(c => c.is_implementation_company === true);
 

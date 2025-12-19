@@ -124,13 +124,13 @@ def calculate_volume_ranges(volumes):
         if not lss:
             continue
 
-        # Group key includes pool_name for more precise grouping
+        # Group key includes pool name for more precise grouping
         key = (
             vol.storage_id,
             lss,
             vol.format or 'Unknown',
             vol.capacity_bytes or 0,
-            vol.pool_name or ''
+            vol.pool.name if vol.pool else ''
         )
         groups[key].append(vol)
 

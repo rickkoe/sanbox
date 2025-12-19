@@ -512,15 +512,13 @@ class Volume(models.Model):
     easy_tier = models.CharField(max_length=32, blank=True, null=True)
     easy_tier_status = models.CharField(max_length=32, blank=True, null=True)
 
-    pool_name = models.CharField(max_length=64, blank=True, null=True)
-    pool_id = models.CharField(max_length=64, blank=True, null=True, help_text="Legacy pool ID string from imports")
-    pool_ref = models.ForeignKey(
+    pool = models.ForeignKey(
         'Pool',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='volumes',
-        help_text="Pool this volume belongs to (FK to Pool model)"
+        help_text="Pool this volume belongs to"
     )
     lss_lcu = models.CharField(max_length=10, blank=True, null=True)
     node = models.CharField(max_length=32, blank=True, null=True)

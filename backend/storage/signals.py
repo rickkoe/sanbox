@@ -87,7 +87,7 @@ def volume_post_save(sender, instance, created, **kwargs):
             details={
                 'storage': instance.storage.name if instance.storage else None,
                 'capacity_gb': capacity_gb,
-                'pool_name': instance.pool_name
+                'pool_name': instance.pool.name if instance.pool else None
             }
         )
     # NOTE: We skip logging individual volume updates to avoid massive log volume

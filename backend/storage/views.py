@@ -738,7 +738,7 @@ def volume_list(request):
                 Q(volser__icontains=search) |
                 Q(format__icontains=search) |
                 Q(natural_key__icontains=search) |
-                Q(pool_name__icontains=search) |
+                Q(pool__name__icontains=search) |
                 Q(unique_id__icontains=search) |
                 Q(status_label__icontains=search)
             )
@@ -748,7 +748,7 @@ def volume_list(request):
         for param, value in request.GET.items():
             if param.startswith((
                 'name__', 'storage__', 'volume_id__', 'volume_number__', 'volser__', 'format__',
-                'natural_key__', 'pool_name__', 'pool_id__', 'lss_lcu__', 'node__', 'block_size__',
+                'natural_key__', 'pool__', 'lss_lcu__', 'node__', 'block_size__',
                 'unique_id__', 'acknowledged__', 'status_label__', 'raid_level__', 'copy_id__',
                 'safeguarded__', 'io_group__', 'formatted__', 'virtual_disk_type__', 'fast_write_state__',
                 'vdisk_mirror_copies__', 'vdisk_mirror_role__', 'compressed__', 'thin_provisioned__',
@@ -2679,12 +2679,31 @@ def volume_ranges_list(request, storage_id):
         from .storage_utils import generate_ds8000_device_id
 
         ranges = calculate_volume_ranges(volumes)
+        device_id = generate_ds8000_device_id(storage)
 
+        # Check if table format is requested (for TanStackCRUDTable compatibility)
+        table_format = request.GET.get('table_format', 'false').lower() == 'true'
+
+        if table_format:
+            # Return in TanStackCRUDTable-compatible format
+            # Add 'id' field to each range for table row identification
+            for r in ranges:
+                r['id'] = r['range_id']
+            return JsonResponse({
+                'results': ranges,
+                'count': len(ranges),
+                'storage_id': storage.id,
+                'storage_name': storage.name,
+                'storage_type': storage.storage_type,
+                'device_id': device_id,
+            })
+
+        # Return original format for backwards compatibility
         return JsonResponse({
             'storage_id': storage.id,
             'storage_name': storage.name,
             'storage_type': storage.storage_type,
-            'device_id': generate_ds8000_device_id(storage),
+            'device_id': device_id,
             'ranges': ranges,
             'range_count': len(ranges),
             'total_volumes': sum(r['volume_count'] for r in ranges),
@@ -2733,6 +2752,11 @@ def volume_range_create(request, storage_id):
         capacity_bytes = data.get('capacity_bytes', 0)
         pool_name = data.get('pool_name', '')
         active_project_id = data.get('active_project_id')
+
+        # Look up Pool by name if provided
+        pool = None
+        if pool_name:
+            pool = Pool.objects.filter(storage=storage, name=pool_name).first()
 
         # Validate the range
         from .volume_range_utils import validate_volume_range, generate_volume_ids_for_range
@@ -2785,7 +2809,7 @@ def volume_range_create(request, storage_id):
                 lss_lcu=details['lss'],
                 format=fmt,
                 capacity_bytes=capacity_bytes,
-                pool_name=pool_name or None,
+                pool=pool,
                 unique_id=unique_id,
                 committed=False,  # New volumes start uncommitted
                 deployed=False,
@@ -3035,6 +3059,246 @@ def volume_range_dscli(request, storage_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def volume_range_update(request, storage_id):
+    """
+    POST /api/storage/{storage_id}/volume-ranges/update/
+
+    Updates properties on volumes in a range, and handles range size changes.
+    If the range is shrunk (start increased or end decreased), volumes outside
+    the new range will be deleted.
+
+    Request body:
+    {
+        "volume_ids": [1, 2, 3, ...],        // Existing volume IDs in the range
+        "lss": "10",                          // 2-digit LSS
+        "new_start_volume": "00",             // New 2-digit start (within LSS)
+        "new_end_volume": "0F",               // New 2-digit end (within LSS)
+        "format": "FB",                       // FB or CKD
+        "capacity_bytes": 53687091200,        // Volume capacity in bytes
+        "pool_name": "P0",                    // Pool name
+        "preview": true/false,                // If true, returns what would change without applying
+        "active_project_id": 123              // Optional project context
+    }
+    """
+    try:
+        # Validate storage exists and is DS8000
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': f'Storage system with id {storage_id} not found'}, status=404)
+
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                'error': 'Volume range updates are only available for DS8000 storage systems.'
+            }, status=400)
+
+        # Parse request body
+        data = json.loads(request.body)
+
+        volume_ids = data.get('volume_ids', [])
+        lss = data.get('lss', '').strip().upper()
+        new_start = data.get('new_start_volume', '').strip().upper()
+        new_end = data.get('new_end_volume', '').strip().upper()
+        fmt = data.get('format', '').strip().upper()
+        capacity_bytes = data.get('capacity_bytes')
+        pool_name = data.get('pool_name', '')
+        preview = data.get('preview', False)
+        active_project_id = data.get('active_project_id')
+
+        if not volume_ids:
+            return JsonResponse({'error': 'No volume_ids provided'}, status=400)
+
+        # Validate LSS format (2 hex digits)
+        import re
+        if not re.match(r'^[0-9A-F]{2}$', lss):
+            return JsonResponse({'error': f"Invalid LSS format '{lss}': must be 2 hex digits"}, status=400)
+
+        # Construct full 4-digit volume IDs
+        full_start = (lss + new_start).upper()
+        full_end = (lss + new_end).upper()
+
+        # Validate the new range
+        from .volume_range_utils import validate_volume_range, generate_volume_ids_for_range
+
+        is_valid, error, details = validate_volume_range(full_start, full_end)
+        if not is_valid:
+            return JsonResponse({'error': error}, status=400)
+
+        # Validate format if provided
+        if fmt and fmt not in ['FB', 'CKD']:
+            return JsonResponse({'error': f"Invalid format '{fmt}': must be 'FB' or 'CKD'"}, status=400)
+
+        # Get existing volumes
+        existing_volumes = Volume.objects.filter(
+            id__in=volume_ids,
+            storage=storage
+        ).select_related('pool')
+
+        if not existing_volumes.exists():
+            return JsonResponse({'error': 'No matching volumes found'}, status=404)
+
+        # Get the current range info from existing volumes
+        existing_vol_ids_hex = set(v.volume_id.upper() for v in existing_volumes)
+
+        # Generate the new range's volume IDs
+        new_vol_ids_hex = set(generate_volume_ids_for_range(full_start, full_end))
+
+        # Calculate what changes need to happen
+        # 1. Volumes to keep (in both old and new range)
+        volumes_to_keep = existing_vol_ids_hex & new_vol_ids_hex
+        # 2. Volumes to delete (in old but not in new - range was shrunk)
+        volumes_to_delete = existing_vol_ids_hex - new_vol_ids_hex
+        # 3. Volumes to create (in new but not in old - range was expanded)
+        volumes_to_create = new_vol_ids_hex - existing_vol_ids_hex
+
+        # Look up Pool by name if provided
+        pool = None
+        if pool_name:
+            pool = Pool.objects.filter(storage=storage, name=pool_name).first()
+
+        # Prepare the response with what would change
+        changes = {
+            'volumes_to_update': len(volumes_to_keep),
+            'volumes_to_delete': len(volumes_to_delete),
+            'volumes_to_create': len(volumes_to_create),
+            'delete_volume_ids': sorted(list(volumes_to_delete)),
+            'create_volume_ids': sorted(list(volumes_to_create)),
+            'property_changes': {},
+        }
+
+        # Check what properties would change on kept volumes
+        if volumes_to_keep:
+            sample_vol = existing_volumes.first()
+            if fmt and sample_vol.format != fmt:
+                changes['property_changes']['format'] = {'from': sample_vol.format, 'to': fmt}
+            if capacity_bytes is not None and sample_vol.capacity_bytes != capacity_bytes:
+                changes['property_changes']['capacity_bytes'] = {
+                    'from': sample_vol.capacity_bytes,
+                    'to': capacity_bytes
+                }
+            if pool_name and (sample_vol.pool is None or sample_vol.pool.name != pool_name):
+                changes['property_changes']['pool'] = {
+                    'from': sample_vol.pool.name if sample_vol.pool else None,
+                    'to': pool_name
+                }
+
+        # If preview mode, just return what would change
+        if preview:
+            return JsonResponse({
+                'preview': True,
+                'changes': changes,
+                'lss': lss,
+                'new_start': full_start,
+                'new_end': full_end,
+                'will_delete_volumes': len(volumes_to_delete) > 0,
+            })
+
+        # Apply the changes
+        user = request.user if request.user.is_authenticated else None
+
+        # Get project if specified
+        project = None
+        if active_project_id:
+            try:
+                project = Project.objects.get(id=active_project_id)
+            except Project.DoesNotExist:
+                pass  # Project is optional for updates
+
+        results = {
+            'updated': 0,
+            'deleted': 0,
+            'created': 0,
+            'errors': [],
+        }
+
+        # 1. Delete volumes that are no longer in range
+        if volumes_to_delete:
+            vols_to_delete = existing_volumes.filter(volume_id__in=volumes_to_delete)
+            # Delete project memberships first
+            ProjectVolume.objects.filter(volume__in=vols_to_delete).delete()
+            delete_count = vols_to_delete.count()
+            vols_to_delete.delete()
+            results['deleted'] = delete_count
+
+        # 2. Update remaining volumes with new properties
+        if volumes_to_keep:
+            vols_to_update = existing_volumes.filter(volume_id__in=volumes_to_keep)
+            update_fields = {'last_modified_by': user}
+            if fmt:
+                update_fields['format'] = fmt
+            if capacity_bytes is not None:
+                update_fields['capacity_bytes'] = capacity_bytes
+            if pool is not None:
+                update_fields['pool'] = pool
+
+            if len(update_fields) > 1:  # More than just last_modified_by
+                vols_to_update.update(**update_fields)
+                results['updated'] = vols_to_update.count()
+
+        # 3. Create new volumes if range was expanded
+        if volumes_to_create:
+            # Check for conflicts with existing volumes
+            conflicts = Volume.objects.filter(
+                storage=storage,
+                volume_id__in=volumes_to_create
+            ).values_list('volume_id', flat=True)
+
+            if conflicts:
+                results['errors'].append(
+                    f"Cannot expand range: volumes already exist: {', '.join(conflicts)}"
+                )
+            else:
+                for vol_id in sorted(volumes_to_create):
+                    try:
+                        unique_id = f"{storage.storage_system_id or storage.serial_number or storage.id}_{vol_id}"
+                        volume = Volume.objects.create(
+                            storage=storage,
+                            name=f"{storage.name}_{vol_id}",
+                            volume_id=vol_id,
+                            lss_lcu=lss,
+                            format=fmt or 'FB',
+                            capacity_bytes=capacity_bytes,
+                            pool=pool,
+                            unique_id=unique_id,
+                            committed=False,
+                            deployed=False,
+                            created_by_project=project,
+                            last_modified_by=user,
+                        )
+                        # Add to project if specified
+                        if project:
+                            ProjectVolume.objects.create(
+                                project=project,
+                                volume=volume,
+                                action='new',
+                                added_by=user,
+                            )
+                        results['created'] += 1
+                    except Exception as e:
+                        results['errors'].append(f"Error creating volume {vol_id}: {str(e)}")
+
+        # Clear dashboard cache
+        if storage.customer_id:
+            clear_dashboard_cache_for_customer(storage.customer_id)
+
+        return JsonResponse({
+            'success': len(results['errors']) == 0,
+            'message': f"Updated {results['updated']}, deleted {results['deleted']}, created {results['created']} volumes",
+            'results': results,
+            'lss': lss,
+            'new_start': full_start,
+            'new_end': full_end,
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    except Exception as e:
+        logger.error(f"Error updating volume range: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 # ==========================================
 # Pool Management Views
 # ==========================================
@@ -3081,14 +3345,31 @@ def pool_list(request, storage_id=None):
             if customer_id:
                 pools = pools.filter(storage__customer_id=customer_id)
 
-            # Customer View filtering: Show pools that are either:
-            # 1. Committed (committed=True), OR
-            # 2. Not referenced by any project (no junction table entries)
-            pools = pools.annotate(
-                project_count=Count('project_memberships')
-            ).filter(
-                Q(committed=True) | Q(project_count=0)
-            )
+            # Get project filter parameters
+            project_filter = request.GET.get('project_filter', 'all')
+            active_project_id = request.GET.get('project_id') or request.GET.get('project')
+
+            # Apply view-based filtering
+            if project_filter == 'current' and active_project_id:
+                # Project View: Show committed pools OR pools in the active project
+                project_pool_ids = set(ProjectPool.objects.filter(
+                    project_id=active_project_id
+                ).values_list('pool_id', flat=True))
+
+                pools = pools.annotate(
+                    project_count=Count('project_memberships')
+                ).filter(
+                    Q(committed=True) | Q(project_count=0) | Q(id__in=project_pool_ids)
+                )
+            else:
+                # Customer View filtering: Show pools that are either:
+                # 1. Committed (committed=True), OR
+                # 2. Not referenced by any project (no junction table entries)
+                pools = pools.annotate(
+                    project_count=Count('project_memberships')
+                ).filter(
+                    Q(committed=True) | Q(project_count=0)
+                )
 
             # Apply general search if provided
             if search:
@@ -3119,13 +3400,10 @@ def pool_list(request, storage_id=None):
             paginator = Paginator(pools, page_size)
             page_obj = paginator.get_page(page)
 
-            # Get active project ID from query params
-            project_id = request.GET.get('project_id') or request.GET.get('project')
-
             # Serialize paginated results with context
             context = {}
-            if project_id:
-                context['active_project_id'] = int(project_id)
+            if active_project_id:
+                context['active_project_id'] = int(active_project_id)
             serializer = PoolSerializer(page_obj, many=True, context=context)
 
             return JsonResponse({

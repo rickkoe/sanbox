@@ -377,23 +377,6 @@ const StoragePage = () => {
               <div className="stat-arrow">→</div>
             </Link>
 
-            {/* Volume Ranges - DS8000 only */}
-            {storage.storage_type === 'DS8000' && (
-              <Link
-                to={`/storage/${id}/volume-ranges`}
-                className="stat-card stat-card-clickable"
-              >
-                <div className="stat-icon">
-                  <Layers size={32} />
-                </div>
-                <div className="stat-content">
-                  <div className="stat-value">Ranges</div>
-                  <div className="stat-label">Volume Ranges</div>
-                </div>
-                <div className="stat-arrow">→</div>
-              </Link>
-            )}
-
             <div className="stat-card">
               <div className="stat-icon">
                 <Database size={32} />

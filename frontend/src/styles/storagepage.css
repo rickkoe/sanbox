@@ -336,3 +336,213 @@
     padding: 1rem;
   }
 }
+
+/* ========== VOLUME RANGE CONFIRMATION MODAL ========== */
+/* Theme-aware modal styling following Bootstrap Override Pattern */
+
+/* Modal backdrop */
+.volume-range-confirm-modal .modal-dialog {
+  max-width: 500px;
+}
+
+/* Override Bootstrap modal backgrounds */
+.volume-range-confirm-modal .modal-content {
+  background-color: var(--modal-bg) !important;
+  background-image: none !important;
+  background: var(--modal-bg) !important;
+  border: 1px solid var(--modal-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--modal-shadow) !important;
+}
+
+.volume-range-confirm-modal .modal-header {
+  background-color: transparent !important;
+  background-image: none !important;
+  background: transparent !important;
+  border-bottom: 1px solid var(--color-border-default) !important;
+  padding: 1rem 1.25rem !important;
+}
+
+/* Warning header with left border accent */
+.volume-range-confirm-modal .modal-header.bg-warning {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border-left: 4px solid var(--color-attention-emphasis) !important;
+}
+
+.volume-range-confirm-modal .modal-title {
+  color: var(--primary-text) !important;
+  font-weight: 600 !important;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.volume-range-confirm-modal .modal-title svg {
+  color: var(--color-attention-emphasis) !important;
+}
+
+.volume-range-confirm-modal .btn-close {
+  filter: var(--modal-close-filter, none);
+  opacity: 0.7;
+}
+
+.volume-range-confirm-modal .btn-close:hover {
+  opacity: 1;
+}
+
+.volume-range-confirm-modal .modal-body {
+  background-color: transparent !important;
+  background-image: none !important;
+  background: transparent !important;
+  color: var(--primary-text) !important;
+  padding: 1.25rem !important;
+}
+
+.volume-range-confirm-modal .modal-body p {
+  color: var(--primary-text) !important;
+}
+
+.volume-range-confirm-modal .modal-body strong {
+  color: var(--primary-text) !important;
+}
+
+/* Details box - theme-aware styling */
+.volume-range-confirm-modal .modal-body .border.rounded {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+}
+
+/* Override bg-light class */
+.volume-range-confirm-modal .modal-body .bg-light {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+}
+
+/* Border top for multiple items */
+.volume-range-confirm-modal .modal-body .border-top {
+  border-top-color: var(--color-border-default) !important;
+}
+
+/* Text colors for range display */
+.volume-range-confirm-modal .text-danger {
+  color: var(--color-danger-fg) !important;
+}
+
+.volume-range-confirm-modal .text-success {
+  color: var(--color-success-fg) !important;
+}
+
+/* Muted text override */
+.volume-range-confirm-modal .text-muted {
+  color: var(--primary-text) !important;
+  opacity: 0.7 !important;
+}
+
+/* Monospace volume IDs */
+.volume-range-confirm-modal .font-monospace {
+  font-family: var(--font-mono, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace) !important;
+}
+
+.volume-range-confirm-modal .modal-footer {
+  background-color: transparent !important;
+  background-image: none !important;
+  background: transparent !important;
+  border-top: 1px solid var(--color-border-default) !important;
+  padding: 1rem 1.25rem !important;
+}
+
+/* Button overrides for theme */
+.volume-range-confirm-modal .btn-secondary {
+  background-color: var(--button-bg) !important;
+  border-color: var(--button-border) !important;
+  color: var(--button-text) !important;
+}
+
+.volume-range-confirm-modal .btn-secondary:hover {
+  background-color: var(--button-hover-bg) !important;
+  border-color: var(--button-hover-border) !important;
+}
+
+.volume-range-confirm-modal .btn-danger {
+  background-color: var(--color-danger-emphasis) !important;
+  border-color: var(--color-danger-emphasis) !important;
+  color: #ffffff !important;
+}
+
+.volume-range-confirm-modal .btn-danger:hover {
+  background-color: var(--color-danger-fg) !important;
+  border-color: var(--color-danger-fg) !important;
+}
+
+/* Dark theme specific modal close button filter */
+.theme-dark .volume-range-confirm-modal .btn-close,
+.theme-dark-plus .volume-range-confirm-modal .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* ========== VOLUME RANGE VALIDATION STYLES ========== */
+
+/* Validation error banner */
+.volume-range-validation-banner {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-danger-muted) !important;
+  border-left: 4px solid var(--color-danger-emphasis) !important;
+  color: var(--color-danger-fg) !important;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.volume-range-validation-banner svg {
+  color: var(--color-danger-emphasis) !important;
+  flex-shrink: 0;
+}
+
+.volume-range-validation-banner strong {
+  color: var(--color-danger-fg) !important;
+}
+
+/* Loading hint for existing volumes */
+.volume-range-loading-hint {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-left: 4px solid var(--color-accent-emphasis) !important;
+  color: var(--primary-text) !important;
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+/* Cell error styling - conflict cells */
+.volume-range-cell-error {
+  background-color: var(--color-danger-subtle, rgba(248, 81, 73, 0.15)) !important;
+  border: 1px solid var(--color-danger-emphasis, #da3633) !important;
+}
+
+/* Cell warning styling - locked cells */
+.volume-range-cell-locked {
+  background-color: var(--color-attention-subtle, rgba(187, 128, 9, 0.15)) !important;
+  font-style: italic;
+}
+
+/* LSS info hint in table */
+.volume-range-lss-info {
+  font-size: 0.75rem;
+  color: var(--primary-text);
+  opacity: 0.7;
+  margin-top: 0.25rem;
+}

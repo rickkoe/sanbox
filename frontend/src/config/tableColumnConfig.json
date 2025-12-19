@@ -481,6 +481,14 @@
         "width": 120
       },
       {
+        "id": "pool",
+        "title": "Pool",
+        "type": "dropdown",
+        "dropdownSource": "pool",
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
         "id": "volume_number",
         "title": "Volume Number",
         "type": "numeric",
@@ -546,20 +554,6 @@
         "title": "Written %",
         "type": "numeric",
         "readOnly": true,
-        "defaultVisible": false,
-        "width": 100
-      },
-      {
-        "id": "pool_name",
-        "title": "Pool Name",
-        "type": "text",
-        "defaultVisible": true,
-        "width": 150
-      },
-      {
-        "id": "pool_id",
-        "title": "Pool ID",
-        "type": "text",
         "defaultVisible": false,
         "width": 100
       },
@@ -1199,6 +1193,87 @@
         "id": "deployed",
         "title": "Deployed",
         "type": "checkbox",
+        "defaultVisible": true,
+        "width": 100
+      }
+    ]
+  },
+  "volumerange": {
+    "defaultSort": {
+      "column": "lss",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "lss",
+        "title": "LSS",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "start_volume",
+        "title": "Start",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "end_volume",
+        "title": "End",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "format",
+        "title": "Format",
+        "type": "dropdown",
+        "dropdownSource": "format",
+        "required": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "volume_count",
+        "title": "Count",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "capacity_bytes",
+        "title": "Capacity (GiB)",
+        "type": "numeric",
+        "required": true,
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "pool_name",
+        "title": "Pool",
+        "type": "dropdown",
+        "dropdownSource": "pool_name",
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "committed",
+        "title": "Committed",
+        "type": "checkbox",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 100
+      },
+      {
+        "id": "deployed",
+        "title": "Deployed",
+        "type": "checkbox",
+        "readOnly": true,
         "defaultVisible": true,
         "width": 100
       }

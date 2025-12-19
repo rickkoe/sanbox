@@ -47,9 +47,9 @@ const getSidebarLinks = (pathname) => {
             icon: Server,
           },
           {
-            path: `/storage/${storageIdMatch[1]}/volumes`,
-            label: "Volumes",
-            icon: Archive,
+            path: `/storage/${storageIdMatch[1]}/pools`,
+            label: "Pools",
+            icon: Database,
           },
           {
             path: `/storage/${storageIdMatch[1]}/volume-ranges`,
@@ -57,9 +57,9 @@ const getSidebarLinks = (pathname) => {
             icon: Layers,
           },
           {
-            path: `/storage/${storageIdMatch[1]}/pools`,
-            label: "Pools",
-            icon: Database,
+            path: `/storage/${storageIdMatch[1]}/volumes`,
+            label: "Volumes",
+            icon: Archive,
           },
           {
             path: `/storage/${storageIdMatch[1]}/hosts`,

@@ -13,15 +13,18 @@ import React from 'react';
 /**
  * @param {Object} props
  * @param {React.Component} props.ActionsDropdown - Actions dropdown component from useProjectViewSelection
+ * @param {React.ReactNode} props.extraContent - Additional content to render in the toolbar
  */
-const ProjectViewToolbar = ({ ActionsDropdown }) => {
-    // If no ActionsDropdown provided, render nothing
-    if (!ActionsDropdown) return null;
+const ProjectViewToolbar = ({ ActionsDropdown, extraContent }) => {
+    // If no ActionsDropdown and no extraContent, render nothing
+    if (!ActionsDropdown && !extraContent) return null;
 
     return (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Extra content (e.g., custom buttons) */}
+            {extraContent}
             {/* Actions Dropdown - Only show in Draft mode */}
-            <ActionsDropdown />
+            {ActionsDropdown && <ActionsDropdown />}
         </div>
     );
 };

@@ -50,10 +50,35 @@ class VolumeSerializer(serializers.ModelSerializer):
     # Project membership fields
     project_memberships = serializers.SerializerMethodField()
     in_active_project = serializers.SerializerMethodField()
+    # Pool field - use name for display, handled in validate
+    pool = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = Volume
         fields = '__all__'
+
+    def to_representation(self, instance):
+        """Return pool name instead of ID for display"""
+        ret = super().to_representation(instance)
+        # Return pool name for display
+        ret['pool'] = instance.pool.name if instance.pool else None
+        return ret
+
+    def validate_pool(self, value):
+        """Convert pool name to Pool instance, scoped to the volume's storage"""
+        if not value:
+            return None
+        # Get storage from the request data or existing instance
+        storage_id = self.initial_data.get('storage')
+        if not storage_id and self.instance:
+            storage_id = self.instance.storage_id
+        if storage_id:
+            try:
+                return Pool.objects.get(storage_id=storage_id, name=value)
+            except Pool.DoesNotExist:
+                # Pool not found - could be new or wrong name, return None
+                return None
+        return None
 
     def get_project_memberships(self, obj):
         """Return list of projects this volume belongs to"""

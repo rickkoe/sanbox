@@ -121,8 +121,11 @@
 /* Main Content */
 .scripts-content {
     max-width: 1400px;
+    width: 100%;
     margin: 0 auto;
     padding: 2rem 1.5rem 4rem;
+    flex: 1;
+    overflow-y: auto;
 }
 
 /* Selector Section */

@@ -40,13 +40,13 @@ class VolumeAdmin(admin.ModelAdmin):
         "name",
         "volume_id",
         "format",
-        "pool_name",
+        "pool",
         "capacity_bytes",
         "used_capacity_percent",
         "storage",
     )
-    search_fields = ("name", "volume_id", "unique_id", "storage__name")
-    list_filter = ("format", "pool_name", "storage")
+    search_fields = ("name", "volume_id", "unique_id", "storage__name", "pool__name")
+    list_filter = ("format", "pool", "storage")
 
 
 # Host admin registration

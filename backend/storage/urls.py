@@ -24,6 +24,7 @@ from .views import (
     volume_ranges_list,
     volume_range_create,
     volume_range_delete,
+    volume_range_update,
     volume_range_dscli,
     # Pool Management
     pool_list,
@@ -56,6 +57,7 @@ urlpatterns = [
     path("<int:storage_id>/volume-ranges/", volume_ranges_list, name="volume-ranges-list"),
     path("<int:storage_id>/volume-ranges/create/", volume_range_create, name="volume-range-create"),
     path("<int:storage_id>/volume-ranges/delete/", volume_range_delete, name="volume-range-delete"),
+    path("<int:storage_id>/volume-ranges/update/", volume_range_update, name="volume-range-update"),
     path("<int:storage_id>/volume-ranges/dscli/", volume_range_dscli, name="volume-range-dscli"),
     # Pool Management
     path("pools/", pool_list, name="pool-list"),
