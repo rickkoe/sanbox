@@ -5,7 +5,7 @@ from .models import (
     DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType,
     UserConfig, EquipmentType, WorksheetTemplate,
     ProjectFabric, ProjectSwitch, ProjectAlias, ProjectZone,
-    ProjectStorage, ProjectHost, ProjectVolume, ProjectPort
+    ProjectStorage, ProjectHost, ProjectVolume, ProjectPool, ProjectPort
 )
 
 @admin.register(Project)
@@ -543,6 +543,18 @@ class ProjectVolumeAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('project', 'volume', 'volume__storage', 'added_by')
+
+
+@admin.register(ProjectPool)
+class ProjectPoolAdmin(admin.ModelAdmin):
+    list_display = ("project", "pool", "action", "added_by", "added_at")
+    list_filter = ("action", "project", "pool__storage__customer", "added_at")
+    search_fields = ("project__name", "pool__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "pool", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('project', 'pool', 'pool__storage', 'added_by')
 
 
 @admin.register(ProjectPort)

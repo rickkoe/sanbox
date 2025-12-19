@@ -396,6 +396,85 @@ class StorageInsightsClientV2:
 
         return ports_by_system
 
+    def get_pools_parallel(
+        self,
+        storage_system_ids: List[str],
+        progress_callback: Optional[Callable] = None
+    ) -> Dict[str, List[Dict]]:
+        """
+        Get pools for multiple storage systems in parallel.
+
+        Args:
+            storage_system_ids: List of storage system IDs
+            progress_callback: Optional callback function(current, total, message)
+
+        Returns:
+            Dict mapping storage_system_id to list of pools
+        """
+        pools_by_system = {}
+        completed = 0
+        total = len(storage_system_ids)
+
+        def fetch_pools_for_system(system_id: str) -> Tuple[str, List[Dict]]:
+            """Fetch pools for a single system"""
+            try:
+                pools = self._get_pools_paginated(system_id)
+                return (system_id, pools)
+            except Exception as e:
+                logger.error(f"Error fetching pools for {system_id}: {e}")
+                return (system_id, [])
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            future_to_system = {
+                executor.submit(fetch_pools_for_system, sys_id): sys_id
+                for sys_id in storage_system_ids
+            }
+
+            for future in as_completed(future_to_system):
+                system_id, pools = future.result()
+                pools_by_system[system_id] = pools
+                completed += 1
+
+                if progress_callback:
+                    progress_callback(
+                        completed,
+                        total,
+                        f"Fetched pools for {completed}/{total} systems ({len(pools)} pools)"
+                    )
+
+        return pools_by_system
+
+    def _get_pools_paginated(
+        self,
+        storage_system_id: str
+    ) -> List[Dict]:
+        """Get all pools for a storage system with pagination"""
+        all_pools = []
+        offset = 1
+        limit = 500
+
+        while True:
+            endpoint = f"storage-systems/{storage_system_id}/pools"
+            params = {'limit': limit, 'offset': offset}
+
+            logger.info(f"Fetching pools from endpoint: {endpoint}")
+            data = self._make_request(endpoint, params)
+            pools = data.get('data', [])
+            logger.info(f"Got {len(pools)} pools from {endpoint} (offset={offset})")
+
+            if not pools:
+                break
+
+            all_pools.extend(pools)
+
+            # Check if there are more pages
+            if len(pools) < limit:
+                break
+
+            offset += limit
+
+        return all_pools
+
     def get_all_data_optimized(
         self,
         storage_system_ids: Optional[List[str]] = None,
@@ -409,17 +488,19 @@ class StorageInsightsClientV2:
             storage_system_ids: Optional list of specific system IDs to fetch
             import_options: Dict with boolean flags:
                 - storage_systems: Import system info
+                - pools: Import pools
                 - volumes: Import volumes
                 - hosts: Import hosts
                 - ports: Import ports
             progress_callback: Optional callback function(current, total, message)
 
         Returns:
-            Dict with keys: storage_systems, volumes_by_system, hosts_by_system, ports_by_system
+            Dict with keys: storage_systems, pools_by_system, volumes_by_system, hosts_by_system, ports_by_system
         """
         if import_options is None:
             import_options = {
                 'storage_systems': True,
+                'pools': True,
                 'volumes': True,
                 'hosts': True,
                 'ports': False
@@ -427,6 +508,7 @@ class StorageInsightsClientV2:
 
         result = {
             'storage_systems': [],
+            'pools_by_system': {},
             'volumes_by_system': {},
             'hosts_by_system': {},
             'ports_by_system': {}
@@ -455,19 +537,31 @@ class StorageInsightsClientV2:
             for s in result['storage_systems']
         ]
 
-        # Step 2: Get volumes in parallel
+        # Step 2: Get pools in parallel (before volumes, as volumes reference pools)
+        if import_options.get('pools', True) and system_ids:
+            if progress_callback:
+                progress_callback(15, 100, "Fetching pools...")
+
+            result['pools_by_system'] = self.get_pools_parallel(
+                system_ids,
+                progress_callback=lambda c, t, m: progress_callback(
+                    15 + int(10 * c / t), 100, m
+                ) if progress_callback else None
+            )
+
+        # Step 3: Get volumes in parallel
         if import_options.get('volumes', True) and system_ids:
             if progress_callback:
-                progress_callback(20, 100, "Fetching volumes...")
+                progress_callback(25, 100, "Fetching volumes...")
 
             result['volumes_by_system'] = self.get_volumes_parallel(
                 system_ids,
                 progress_callback=lambda c, t, m: progress_callback(
-                    20 + int(30 * c / t), 100, m
+                    25 + int(25 * c / t), 100, m
                 ) if progress_callback else None
             )
 
-        # Step 3: Get hosts in parallel
+        # Step 4: Get hosts in parallel
         if import_options.get('hosts', True) and system_ids:
             if progress_callback:
                 progress_callback(50, 100, "Fetching hosts...")
@@ -479,7 +573,7 @@ class StorageInsightsClientV2:
                 ) if progress_callback else None
             )
 
-        # Step 4: Get ports in parallel
+        # Step 5: Get ports in parallel
         if import_options.get('ports', False) and system_ids:
             if progress_callback:
                 progress_callback(80, 100, "Fetching ports...")

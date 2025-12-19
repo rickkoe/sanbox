@@ -7,7 +7,7 @@ It treats API credentials as a "parseable source" just like Cisco/Brocade CLI te
 
 from .base_parser import (
     BaseParser, ParseResult,
-    ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort
+    ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort, ParsedPool
 )
 from .insights_api_client_v2 import StorageInsightsClientV2
 from typing import Dict, Optional, List
@@ -107,6 +107,10 @@ class InsightsParser(BaseParser):
                 api_data['storage_systems']
             )
 
+            pools = self._parse_pools(
+                api_data.get('pools_by_system', {})
+            )
+
             volumes = self._parse_volumes(
                 volumes_by_system
             )
@@ -119,7 +123,7 @@ class InsightsParser(BaseParser):
                 api_data.get('ports_by_system', {})
             )
 
-            logger.info(f"InsightsParser: Parsed {len(storage_systems)} systems, {len(volumes)} volumes, {len(hosts)} hosts")
+            logger.info(f"InsightsParser: Parsed {len(storage_systems)} systems, {len(pools)} pools, {len(volumes)} volumes, {len(hosts)} hosts")
 
             return ParseResult(
                 # SAN fields (empty for storage imports)
@@ -130,6 +134,7 @@ class InsightsParser(BaseParser):
 
                 # Storage fields (populated)
                 storage_systems=storage_systems,
+                pools=pools,
                 volumes=volumes,
                 hosts=hosts,
                 ports=ports,
@@ -301,6 +306,84 @@ class InsightsParser(BaseParser):
                 logger.error(f"Error parsing system: {e}")
 
         return parsed_systems
+
+    def _parse_pools(self, pools_by_system: Dict[str, List[Dict]]) -> List[ParsedPool]:
+        """Transform API pools to ParsedPool objects"""
+        parsed_pools = []
+
+        for system_id, pools in pools_by_system.items():
+            logger.info(f"Parsing {len(pools)} pools for system {system_id}")
+            if pools and len(pools) > 0:
+                # Log first pool keys for debugging
+                first_pool = pools[0]
+                logger.info(f"Sample pool keys for system {system_id}: {list(first_pool.keys())}")
+
+            for pool in pools:
+                try:
+                    # API may return pool_id, id, or name as identifier
+                    pool_id = (
+                        pool.get('pool_id') or
+                        pool.get('id') or
+                        pool.get('name')
+                    )
+                    if not pool_id:
+                        self.add_warning(f"Pool missing ID - available keys: {list(pool.keys())}")
+                        continue
+
+                    name = pool.get('name', '')
+                    if not name:
+                        self.add_warning(f"Pool {pool_id} missing name, skipping")
+                        continue
+
+                    # Determine pool storage type (FB or CKD)
+                    # DS8000 can have CKD pools, FlashSystem is always FB
+                    storage_type = pool.get('type', 'FB')
+                    if storage_type and storage_type.upper() in ['CKD', 'FB']:
+                        storage_type = storage_type.upper()
+                    else:
+                        storage_type = 'FB'  # Default to Fixed Block
+
+                    parsed_pools.append(ParsedPool(
+                        pool_id=str(pool_id),
+                        name=name,
+                        storage_system_id=system_id,
+                        storage_type=storage_type,
+
+                        # Capacity fields
+                        capacity_bytes=pool.get('capacity_bytes'),
+                        used_capacity_bytes=pool.get('used_capacity_bytes'),
+                        used_capacity_percent=pool.get('used_capacity_percent'),
+                        available_capacity_bytes=pool.get('available_capacity_bytes'),
+                        available_capacity_percent=pool.get('available_capacity_percent'),
+                        provisioned_capacity_bytes=pool.get('provisioned_capacity_bytes'),
+                        provisioned_capacity_percent=pool.get('provisioned_capacity_percent'),
+                        written_capacity_bytes=pool.get('written_capacity_bytes'),
+                        written_capacity_percent=pool.get('written_capacity_percent'),
+
+                        # Pool properties
+                        status=pool.get('status') or pool.get('status_label'),
+                        raid_level=pool.get('raid_level'),
+                        compressed=pool.get('compressed'),
+                        easy_tier=pool.get('easy_tier'),
+                        easy_tier_status=pool.get('easy_tier_status'),
+
+                        # Tier capacity
+                        tier0_flash_capacity_bytes=pool.get('tier0_flash_capacity_bytes'),
+                        tier1_flash_capacity_bytes=pool.get('tier1_flash_capacity_bytes'),
+                        tier0_flash_capacity_percent=pool.get('tier0_flash_capacity_percent'),
+                        tier1_flash_capacity_percent=pool.get('tier1_flash_capacity_percent'),
+
+                        # Metadata
+                        volumes_count=pool.get('volumes_count') or pool.get('vdisks_count'),
+                        mdisk_count=pool.get('mdisk_count'),
+                        natural_key=pool.get('naturalKey') or pool.get('natural_key'),
+                    ))
+
+                except Exception as e:
+                    self.add_warning(f"Failed to parse pool: {e}")
+                    logger.error(f"Error parsing pool: {e}")
+
+        return parsed_pools
 
     def _parse_volumes(self, volumes_by_system: Dict[str, List[Dict]]) -> List[ParsedVolume]:
         """Transform API volumes to ParsedVolume objects"""

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Storage, Host, Volume, HostWwpn, Port
+from .models import Storage, Host, Volume, HostWwpn, Port, Pool
 from core.dashboard_views import clear_dashboard_cache_for_customer
 
 
@@ -32,6 +32,40 @@ class StorageAdmin(admin.ModelAdmin):
         # Clear dashboard cache when storage is deleted via admin
         if customer_id:
             clear_dashboard_cache_for_customer(customer_id)
+
+
+@admin.register(Pool)
+class PoolAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "storage",
+        "storage_type",
+        "unique_id",
+        "committed",
+        "imported",
+        "updated",
+    )
+    search_fields = ("name", "unique_id", "storage__name")
+    list_filter = ("storage_type", "committed", "storage")
+    raw_id_fields = ("storage",)
+    readonly_fields = ("imported", "updated")
+
+    fieldsets = (
+        ("Basic Information", {
+            'fields': ('name', 'storage', 'storage_type', 'unique_id')
+        }),
+        ("Lifecycle Tracking", {
+            'fields': ('committed',)
+        }),
+        ("Timestamps", {
+            'fields': ('imported', 'updated'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def get_queryset(self, request):
+        """Optimize queries by selecting related objects"""
+        return super().get_queryset(request).select_related('storage', 'storage__customer')
 
 
 @admin.register(Volume)

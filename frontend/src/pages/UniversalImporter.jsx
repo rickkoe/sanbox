@@ -47,6 +47,7 @@ const UniversalImporter = () => {
   const [selectedSystems, setSelectedSystems] = useState([]);
   const [storageImportOptions, setStorageImportOptions] = useState({
     storage_systems: true,
+    pools: true,
     volumes: true,
     hosts: true,
     ports: false
@@ -547,6 +548,14 @@ const UniversalImporter = () => {
                                        data.metadata?.storage_systems_created || 0,
               storage_systems_updated: data.stats?.storage_systems_updated ||
                                        data.metadata?.storage_systems_updated || 0,
+              pools_created: data.pools_created ||
+                            data.stats?.pools_created ||
+                            data.metadata?.pools_created || 0,
+              pools_updated: data.stats?.pools_updated ||
+                            data.metadata?.pools_updated || 0,
+              pools_matched: data.pools_matched ||
+                            data.stats?.pools_matched ||
+                            data.metadata?.pools_matched || 0,
               volumes_created: data.volumes_imported ||
                               data.stats?.volumes_created ||
                               data.metadata?.volumes_created || 0,
@@ -1164,6 +1173,22 @@ const UniversalImporter = () => {
                       <div className="completion-stat-label">
                         System{((completionStats.storage_systems_created || 0) +
                                (completionStats.storage_systems_updated || 0)) === 1 ? '' : 's'}
+                      </div>
+                    </div>
+                  )}
+                  {(completionStats.pools_created !== undefined ||
+                    completionStats.pools_matched !== undefined) && (
+                    ((completionStats.pools_created || 0) + (completionStats.pools_matched || 0)) > 0
+                  ) && (
+                    <div className="completion-stat-card">
+                      <div className="completion-stat-value">
+                        {(completionStats.pools_created || 0) +
+                         (completionStats.pools_matched || 0)}
+                      </div>
+                      <div className="completion-stat-label">
+                        Pool{((completionStats.pools_created || 0) +
+                             (completionStats.pools_matched || 0)) === 1 ? '' : 's'}
+                        {completionStats.pools_matched > 0 && ` (${completionStats.pools_matched} matched)`}
                       </div>
                     </div>
                   )}

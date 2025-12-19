@@ -291,6 +291,50 @@ class ParsedPort:
 
 
 @dataclass
+class ParsedPool:
+    """Represents a storage pool from IBM Storage Insights"""
+    pool_id: str
+    name: str
+    storage_system_id: str
+
+    # Pool type (FB = Fixed Block, CKD = Count Key Data)
+    storage_type: str = 'FB'
+
+    # Capacity fields
+    capacity_bytes: Optional[int] = None
+    used_capacity_bytes: Optional[int] = None
+    used_capacity_percent: Optional[float] = None
+    available_capacity_bytes: Optional[int] = None
+    available_capacity_percent: Optional[float] = None
+    provisioned_capacity_bytes: Optional[int] = None
+    provisioned_capacity_percent: Optional[float] = None
+    written_capacity_bytes: Optional[int] = None
+    written_capacity_percent: Optional[float] = None
+
+    # Pool properties
+    status: Optional[str] = None
+    raid_level: Optional[str] = None
+    compressed: Optional[bool] = None
+    easy_tier: Optional[str] = None
+    easy_tier_status: Optional[str] = None
+
+    # Tier capacity
+    tier0_flash_capacity_bytes: Optional[int] = None
+    tier1_flash_capacity_bytes: Optional[int] = None
+    tier0_flash_capacity_percent: Optional[float] = None
+    tier1_flash_capacity_percent: Optional[float] = None
+
+    # Metadata
+    volumes_count: Optional[int] = None
+    mdisk_count: Optional[int] = None
+    natural_key: Optional[str] = None
+
+    # For matching during import
+    exists_in_db: bool = False
+    db_pool_id: Optional[int] = None
+
+
+@dataclass
 class ParseResult:
     """Result of parsing operation"""
     # SAN configuration objects (existing)
@@ -301,6 +345,7 @@ class ParseResult:
 
     # Storage objects (new)
     storage_systems: List[ParsedStorageSystem] = None
+    pools: List[ParsedPool] = None
     volumes: List[ParsedVolume] = None
     hosts: List[ParsedHost] = None
     ports: List[ParsedPort] = None
@@ -319,6 +364,8 @@ class ParseResult:
             self.switches = []
         if self.storage_systems is None:
             self.storage_systems = []
+        if self.pools is None:
+            self.pools = []
         if self.volumes is None:
             self.volumes = []
         if self.hosts is None:

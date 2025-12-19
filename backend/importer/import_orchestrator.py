@@ -12,12 +12,12 @@ from typing import Dict, List, Optional, Callable
 from django.db import transaction
 from django.utils import timezone
 from san.models import Fabric, Alias, AliasWWPN, Zone, WwpnPrefix, Switch
-from storage.models import Storage, Volume, Host, HostWwpn
+from storage.models import Storage, Volume, Host, HostWwpn, Pool
 from customers.models import Customer
-from core.models import ProjectAlias, ProjectZone, ProjectHost, ProjectFabric, ProjectSwitch, ProjectStorage, ProjectVolume
+from core.models import ProjectAlias, ProjectZone, ProjectHost, ProjectFabric, ProjectSwitch, ProjectStorage, ProjectVolume, ProjectPool
 from .parsers.base_parser import (
     ParseResult, ParsedFabric, ParsedAlias, ParsedZone, ParsedSwitch,
-    ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort
+    ParsedStorageSystem, ParsedVolume, ParsedHost, ParsedPort, ParsedPool
 )
 from .parsers.cisco_parser import CiscoParser
 from .parsers.brocade_parser import BrocadeParser
@@ -57,6 +57,9 @@ class ImportOrchestrator:
             # Storage stats
             'storage_systems_created': 0,
             'storage_systems_updated': 0,
+            'pools_created': 0,
+            'pools_updated': 0,
+            'pools_matched': 0,
             'volumes_created': 0,
             'volumes_updated': 0,
             'hosts_created': 0,
@@ -468,8 +471,69 @@ class ImportOrchestrator:
             parse_result: ParseResult with storage data
 
         Returns:
-            Dict with preview information for storage systems, volumes, hosts
+            Dict with preview information for storage systems, pools, volumes, hosts
         """
+        # Check for existing pools to show match status
+        pools_preview = []
+        for pool in parse_result.pools:
+            # Try to find existing pool by name and storage type
+            try:
+                # Look up storage system first
+                storage = Storage.objects.filter(
+                    storage_system_id=pool.storage_system_id,
+                    customer=self.customer
+                ).first()
+
+                if storage:
+                    existing_pool = Pool.objects.filter(
+                        storage=storage,
+                        name=pool.name,
+                        storage_type=pool.storage_type
+                    ).first()
+
+                    pools_preview.append({
+                        'pool_id': pool.pool_id,
+                        'name': pool.name,
+                        'storage_system_id': pool.storage_system_id,
+                        'storage_type': pool.storage_type,
+                        'capacity_bytes': pool.capacity_bytes,
+                        'used_capacity_bytes': pool.used_capacity_bytes,
+                        'used_capacity_percent': pool.used_capacity_percent,
+                        'volumes_count': pool.volumes_count,
+                        'status': pool.status,
+                        'exists_in_db': existing_pool is not None,
+                        'db_pool_id': existing_pool.id if existing_pool else None
+                    })
+                else:
+                    pools_preview.append({
+                        'pool_id': pool.pool_id,
+                        'name': pool.name,
+                        'storage_system_id': pool.storage_system_id,
+                        'storage_type': pool.storage_type,
+                        'capacity_bytes': pool.capacity_bytes,
+                        'used_capacity_bytes': pool.used_capacity_bytes,
+                        'used_capacity_percent': pool.used_capacity_percent,
+                        'volumes_count': pool.volumes_count,
+                        'status': pool.status,
+                        'exists_in_db': False,
+                        'db_pool_id': None
+                    })
+            except Exception as e:
+                logger.warning(f"Error checking existing pool {pool.name}: {e}")
+                pools_preview.append({
+                    'pool_id': pool.pool_id,
+                    'name': pool.name,
+                    'storage_system_id': pool.storage_system_id,
+                    'storage_type': pool.storage_type,
+                    'capacity_bytes': pool.capacity_bytes,
+                    'used_capacity_bytes': pool.used_capacity_bytes,
+                    'used_capacity_percent': pool.used_capacity_percent,
+                    'volumes_count': pool.volumes_count,
+                    'status': pool.status,
+                    'exists_in_db': False,
+                    'db_pool_id': None
+                })
+
         return {
             'success': True,
             'import_type': 'storage',
@@ -490,6 +554,7 @@ class ImportOrchestrator:
                 }
                 for sys in parse_result.storage_systems
             ],
+            'pools': pools_preview,
             'volumes': [
                 {
                     'volume_id': vol.volume_id,
@@ -515,6 +580,7 @@ class ImportOrchestrator:
             ],
             'counts': {
                 'storage_systems': len(parse_result.storage_systems),
+                'pools': len(parse_result.pools),
                 'volumes': len(parse_result.volumes),
                 'hosts': len(parse_result.hosts),
                 'ports': len(parse_result.ports)
@@ -1363,10 +1429,10 @@ class ImportOrchestrator:
 
     def _import_storage_data(self, parse_result: ParseResult) -> Dict:
         """
-        Import storage systems, volumes, hosts from parsed IBM Storage Insights data.
+        Import storage systems, pools, volumes, hosts from parsed IBM Storage Insights data.
 
         Args:
-            parse_result: ParseResult with storage_systems, volumes, hosts populated
+            parse_result: ParseResult with storage_systems, pools, volumes, hosts populated
 
         Returns:
             Dict with import statistics
@@ -1374,14 +1440,19 @@ class ImportOrchestrator:
         self._report_progress(40, 100, "Starting storage import...")
 
         try:
-            # Import storage systems
+            # Import storage systems first
             if parse_result.storage_systems:
                 self._report_progress(45, 100, f"Importing {len(parse_result.storage_systems)} storage systems...")
                 self._import_storage_systems(parse_result.storage_systems)
 
-            # Import volumes
+            # Import pools BEFORE volumes (volumes reference pools)
+            if parse_result.pools:
+                self._report_progress(55, 100, f"Importing {len(parse_result.pools)} pools...")
+                self._import_pools(parse_result.pools)
+
+            # Import volumes (now they can be linked to pools)
             if parse_result.volumes:
-                self._report_progress(60, 100, f"Importing {len(parse_result.volumes)} volumes...")
+                self._report_progress(65, 100, f"Importing {len(parse_result.volumes)} volumes...")
                 self._import_volumes(parse_result.volumes)
 
             # Import hosts
@@ -1530,6 +1601,102 @@ class ImportOrchestrator:
 
             except Exception as e:
                 error_msg = f"Failed to import storage system {system.name}: {e}"
+                self.stats['errors'].append(error_msg)
+                logger.error(error_msg)
+
+    @transaction.atomic
+    def _import_pools(self, parsed_pools: List[ParsedPool]):
+        """
+        Import pools into database.
+
+        Pools are matched by (storage, name, storage_type) - if an existing pool
+        matches, it is updated; otherwise a new pool is created.
+        """
+        logger.info(f"Importing {len(parsed_pools)} pools")
+
+        # Build mapping of storage_system_id to Storage objects
+        system_cache = {}
+
+        for pool in parsed_pools:
+            try:
+                # Get parent storage system (with caching)
+                if pool.storage_system_id not in system_cache:
+                    try:
+                        system_cache[pool.storage_system_id] = Storage.objects.get(
+                            storage_system_id=pool.storage_system_id,
+                            customer=self.customer
+                        )
+                    except Storage.DoesNotExist:
+                        self.stats['warnings'].append(
+                            f"Storage system {pool.storage_system_id} not found for pool {pool.name}"
+                        )
+                        continue
+
+                storage = system_cache[pool.storage_system_id]
+
+                # Generate unique_id for pool
+                unique_id = f"{pool.storage_system_id}_{pool.name}_{pool.storage_type}"
+
+                # Check if pool with same name and type already exists for this storage
+                existing_pool = Pool.objects.filter(
+                    storage=storage,
+                    name=pool.name,
+                    storage_type=pool.storage_type
+                ).first()
+
+                if existing_pool:
+                    # Update existing pool
+                    existing_pool.unique_id = unique_id
+                    existing_pool.updated = timezone.now()
+                    existing_pool.save()
+                    self.stats['pools_matched'] += 1
+                    logger.info(f"Matched existing pool: {pool.name} on {storage.name}")
+                    pool_obj = existing_pool
+                else:
+                    # If importing within a project, set created_by_project for new pools
+                    created_by_project = None
+                    if self.project_id:
+                        try:
+                            from core.models import Project
+                            created_by_project = Project.objects.get(id=self.project_id)
+                        except Project.DoesNotExist:
+                            pass
+
+                    # Create new pool
+                    pool_obj = Pool.objects.create(
+                        storage=storage,
+                        name=pool.name,
+                        storage_type=pool.storage_type,
+                        unique_id=unique_id,
+                        committed=False,
+                        imported=timezone.now(),
+                        created_by_project=created_by_project
+                    )
+                    self.stats['pools_created'] += 1
+                    logger.info(f"Created pool: {pool.name} on {storage.name}")
+
+                # Assign pool to project if project_id was provided
+                if self.project_id:
+                    try:
+                        from core.models import Project
+                        project = Project.objects.get(id=self.project_id)
+                        ProjectPool.objects.get_or_create(
+                            project=project,
+                            pool=pool_obj,
+                            defaults={
+                                'action': 'new' if not existing_pool else 'unmodified',
+                                'added_by': None,
+                                'notes': 'Imported from IBM Storage Insights'
+                            }
+                        )
+                        logger.debug(f"Assigned pool {pool_obj.name} to project {project.name}")
+                    except Project.DoesNotExist:
+                        self.stats['warnings'].append(f"Project with ID {self.project_id} not found")
+                    except Exception as e:
+                        self.stats['warnings'].append(f"Error assigning pool to project: {e}")
+
+            except Exception as e:
+                error_msg = f"Failed to import pool {pool.name}: {e}"
                 self.stats['errors'].append(error_msg)
                 logger.error(error_msg)
 

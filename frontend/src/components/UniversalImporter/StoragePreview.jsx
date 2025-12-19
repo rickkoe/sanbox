@@ -1,8 +1,8 @@
 import React from 'react';
-import { HardDrive, Database, Server, CheckCircle, AlertCircle } from 'lucide-react';
+import { HardDrive, Database, Server, CheckCircle, AlertCircle, Layers } from 'lucide-react';
 
 const StoragePreview = ({ previewData }) => {
-  const { storage_systems = [], volumes = [], hosts = [], counts = {} } = previewData;
+  const { storage_systems = [], pools = [], volumes = [], hosts = [], counts = {} } = previewData;
 
   const formatBytes = (bytes) => {
     if (!bytes) return 'N/A';
@@ -29,6 +29,16 @@ const StoragePreview = ({ previewData }) => {
             <div className="stat-label">Storage Systems</div>
           </div>
           <div className="stat-value">{counts.storage_systems || 0}</div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-header">
+            <div className="stat-icon warning">
+              <Layers size={20} />
+            </div>
+            <div className="stat-label">Pools</div>
+          </div>
+          <div className="stat-value">{counts.pools || 0}</div>
         </div>
 
         <div className="stat-card">
@@ -103,6 +113,88 @@ const StoragePreview = ({ previewData }) => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pools */}
+      {pools.length > 0 && (
+        <div className="preview-section">
+          <div className="preview-section-header">
+            <div className="preview-section-title">
+              <Layers size={18} />
+              <span>Pools ({pools.length > 10 ? `${pools.length} - showing first 10` : pools.length})</span>
+            </div>
+          </div>
+          <div className="preview-table-container">
+            <table className="preview-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Capacity</th>
+                  <th>Used</th>
+                  <th>Volumes</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pools.slice(0, 10).map((pool, idx) => (
+                  <tr key={idx}>
+                    <td><strong>{pool.name}</strong></td>
+                    <td>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: 'var(--font-size-xs)',
+                        fontWeight: '500',
+                        background: pool.storage_type === 'CKD' ? 'var(--color-attention-subtle)' : 'var(--color-info-subtle)',
+                        color: pool.storage_type === 'CKD' ? 'var(--color-attention-fg)' : 'var(--color-info-fg)'
+                      }}>
+                        {pool.storage_type || 'FB'}
+                      </span>
+                    </td>
+                    <td>{formatBytes(pool.capacity_bytes)}</td>
+                    <td>
+                      <span style={{ color: pool.used_capacity_percent > 80 ? 'var(--color-danger-fg)' : 'inherit' }}>
+                        {formatPercent(pool.used_capacity_percent)}
+                      </span>
+                    </td>
+                    <td>{pool.volumes_count !== null && pool.volumes_count !== undefined ? pool.volumes_count : 'N/A'}</td>
+                    <td>
+                      {pool.exists_in_db ? (
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: 'var(--font-size-xs)',
+                          fontWeight: '500',
+                          background: 'var(--color-success-subtle)',
+                          color: 'var(--color-success-fg)'
+                        }}>
+                          Matched
+                        </span>
+                      ) : (
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: 'var(--font-size-xs)',
+                          fontWeight: '500',
+                          background: 'var(--color-info-subtle)',
+                          color: 'var(--color-info-fg)'
+                        }}>
+                          New
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {pools.length > 10 && (
+              <div style={{ textAlign: 'center', marginTop: 'var(--space-2)', color: 'var(--muted-text)' }}>
+                ... and {pools.length - 10} more pools
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -262,6 +354,7 @@ const StoragePreview = ({ previewData }) => {
         <h3 style={{ color: 'var(--primary-text)' }}>Preview Complete</h3>
         <p style={{ color: 'var(--secondary-text)', marginBottom: 'var(--space-2)' }}>
           Ready to import {counts.storage_systems} storage system{counts.storage_systems !== 1 ? 's' : ''},
+          {' '}{counts.pools || 0} pool{counts.pools !== 1 ? 's' : ''},
           {' '}{counts.volumes} volume{counts.volumes !== 1 ? 's' : ''}, and
           {' '}{counts.hosts} host{counts.hosts !== 1 ? 's' : ''}.
         </p>
