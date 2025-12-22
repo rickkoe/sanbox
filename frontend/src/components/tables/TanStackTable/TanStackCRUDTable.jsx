@@ -119,7 +119,7 @@ const TanStackCRUDTable = forwardRef(({
   const [invalidCells, setInvalidCells] = useState(new Set()); // Track cells with invalid dropdown values
 
   // Context menu state
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, cellKey: null });
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, cellKey: null, columnId: null, rowIndex: null });
 
   // Table configuration
   // Excel-like sorting: Sort once when user clicks, don't continuously re-sort on data changes
@@ -2276,6 +2276,9 @@ const TanStackCRUDTable = forwardRef(({
     event.preventDefault();
     const cellKey = `${rowIndex}-${colIndex}`;
 
+    // Get the column ID from columnDefs
+    const columnId = columnDefs[colIndex]?.accessorKey || columnDefs[colIndex]?.id || null;
+
     // If right-clicking on an unselected cell, select it
     if (!selectedCells.has(cellKey)) {
       setSelectedCells(new Set([cellKey]));
@@ -2285,7 +2288,7 @@ const TanStackCRUDTable = forwardRef(({
     // Calculate context menu position to prevent overflow
     // Estimate menu dimensions (height based on number of items, width is fixed)
     const menuWidth = 150;
-    const menuHeight = 280; // Approximate height with all menu items
+    const menuHeight = 320; // Approximate height with all menu items including Rename
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
@@ -2312,12 +2315,14 @@ const TanStackCRUDTable = forwardRef(({
       visible: true,
       x: menuX,
       y: menuY,
-      cellKey: cellKey
+      cellKey: cellKey,
+      columnId: columnId,
+      rowIndex: rowIndex
     });
-  }, [selectedCells]);
+  }, [selectedCells, columnDefs]);
 
   const hideContextMenu = useCallback(() => {
-    setContextMenu({ visible: false, x: 0, y: 0, cellKey: null });
+    setContextMenu({ visible: false, x: 0, y: 0, cellKey: null, columnId: null, rowIndex: null });
   }, []);
 
   // Close context menu when clicking elsewhere
@@ -3056,8 +3061,42 @@ const TanStackCRUDTable = forwardRef(({
     setHasChanges(true);
   }, [selectedCells, columnDefs, setNestedValue]);
 
+  // Start editing a specific cell programmatically (used by Rename context menu action)
+  const startCellEdit = useCallback((rowIndex, columnId) => {
+    // Find the column index for this columnId
+    const colIndex = columnDefs.findIndex(col =>
+      col.accessorKey === columnId || col.id === columnId
+    );
+
+    if (colIndex === -1) return;
+
+    const cellKey = `${rowIndex}-${colIndex}`;
+    setSelectedCells(new Set([cellKey]));
+    setCurrentCell({ row: rowIndex, col: colIndex });
+
+    // Trigger edit mode on the cell after a brief delay to let state update
+    setTimeout(() => {
+      const cellElement = document.querySelector(`[data-cell-key="${cellKey}"]`);
+      if (cellElement) {
+        const focusableElement = cellElement.querySelector('[tabindex="0"], input, select, textarea');
+        if (focusableElement) {
+          focusableElement.focus();
+          // Dispatch F2 to enter edit mode
+          const f2Event = new KeyboardEvent('keydown', {
+            key: 'F2',
+            bubbles: true,
+            cancelable: true
+          });
+          focusableElement.dispatchEvent(f2Event);
+        }
+      }
+    }, 50);
+  }, [columnDefs]);
+
   // Context menu action handlers
   const handleContextMenuAction = useCallback((action) => {
+    // Capture context menu data before hiding (hideContextMenu resets the state)
+    const { rowIndex: menuRowIndex, columnId: menuColumnId } = contextMenu;
     hideContextMenu();
 
     switch (action) {
@@ -3079,10 +3118,16 @@ const TanStackCRUDTable = forwardRef(({
       case 'fillRight':
         fillRight();
         break;
+      case 'rename':
+        // Start editing the name column for this row
+        if (menuRowIndex !== null && menuColumnId === 'name') {
+          startCellEdit(menuRowIndex, 'name');
+        }
+        break;
       default:
         console.warn('Unknown context menu action:', action);
     }
-  }, [hideContextMenu, handleCopy, handlePaste, clearCellContents, deleteSelectedRows, fillDown, fillRight]);
+  }, [hideContextMenu, handleCopy, handlePaste, clearCellContents, deleteSelectedRows, fillDown, fillRight, contextMenu, startCellEdit]);
 
   // Enhanced keyboard shortcuts and navigation
   const handleKeyDown = useCallback((e) => {
@@ -4895,6 +4940,26 @@ const TanStackCRUDTable = forwardRef(({
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Rename option - only shows for name column in edit mode */}
+          {contextMenu.columnId === 'name' && !readOnly && (
+            <>
+              <div
+                style={{
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  backgroundColor: 'transparent',
+                  color: 'var(--primary-text)',
+                  transition: 'background-color 0.2s'
+                }}
+                onClick={() => handleContextMenuAction('rename')}
+                onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--table-row-hover)'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+              >
+                Rename
+              </div>
+              <div style={{ height: '1px', backgroundColor: 'var(--table-border)', margin: '4px 0' }} />
+            </>
+          )}
           <div
             style={{
               padding: '8px 16px',

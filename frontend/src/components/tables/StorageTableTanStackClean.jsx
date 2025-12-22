@@ -198,36 +198,6 @@ const StorageTableTanStackClean = () => {
     // Custom renderers for special columns
     const customRenderers = useMemo(() => ({
         project_action: projectStatusRenderer,
-        id: (rowData, td, row, col, prop, value) => {
-            console.log('📋 Details renderer called with:', { rowData, value, hasId: !!rowData?.id });
-
-            // Check both rowData.id and the actual value parameter
-            const storageId = rowData?.id || value;
-
-            if (!storageId) {
-                console.log('📋 No storage ID found, rendering empty cell');
-                return { __isReactComponent: true, component: null };
-            }
-
-            console.log('📋 Rendering Details button for storage ID:', storageId);
-            return {
-                __isReactComponent: true,
-                component: (
-                    <button
-                        className="btn btn-primary btn-sm"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('🔗 Button clicked! Navigating to:', `/storage/${storageId}`);
-                            navigate(`/storage/${storageId}`);
-                        }}
-                        style={{ cursor: 'pointer' }}
-                    >
-                        Details
-                    </button>
-                )
-            };
-        },
         imported: (rowData, td, row, col, prop, value) => {
             return value ? new Date(value).toLocaleString() : "";
         },
@@ -235,8 +205,37 @@ const StorageTableTanStackClean = () => {
             return value ? new Date(value).toLocaleString() : "";
         },
         name: (rowData, td, row, col, prop, value) => {
-            // Just return the value - styling will be handled by CSS
-            return value || "";
+            const storageId = rowData?.id;
+
+            // If no ID (new unsaved row), just return plain text for editing
+            if (!storageId) {
+                return value || "";
+            }
+
+            // For saved rows, return a clickable link that navigates to storage details
+            return {
+                __isReactComponent: true,
+                component: (
+                    <span
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(`/storage/${storageId}`);
+                        }}
+                        style={{
+                            cursor: 'pointer',
+                            color: 'var(--link-text)',
+                            textDecoration: 'none',
+                            fontWeight: '600'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                        title={`View details for ${value}`}
+                    >
+                        {value || "(unnamed)"}
+                    </span>
+                )
+            };
         }
     }), [navigate, activeProjectId]);
 

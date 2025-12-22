@@ -274,13 +274,6 @@
         "defaultVisible": true
       },
       {
-        "id": "id",
-        "title": "Details",
-        "type": "custom",
-        "readOnly": true,
-        "defaultVisible": true
-      },
-      {
         "id": "storage_type",
         "title": "Type",
         "type": "dropdown",
