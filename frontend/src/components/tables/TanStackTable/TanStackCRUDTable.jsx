@@ -11,6 +11,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Maximize2, Search, Download } from 'lucide-react';
+import { Modal, Button, Form } from 'react-bootstrap';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import FilterDropdown from './components/FilterDropdown';
@@ -119,7 +120,10 @@ const TanStackCRUDTable = forwardRef(({
   const [invalidCells, setInvalidCells] = useState(new Set()); // Track cells with invalid dropdown values
 
   // Context menu state
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, cellKey: null, columnId: null, rowIndex: null });
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, cellKey: null, columnId: null, rowIndex: null, rowId: null });
+
+  // Rename modal state
+  const [renameModal, setRenameModal] = useState({ show: false, rowIndex: null, rowId: null, currentValue: '' });
 
   // Table configuration
   // Excel-like sorting: Sort once when user clicks, don't continuously re-sort on data changes
@@ -2272,7 +2276,7 @@ const TanStackCRUDTable = forwardRef(({
   }, [selectedCells, selectionRange]);
 
   // Context menu handlers
-  const handleCellRightClick = useCallback((rowIndex, colIndex, event) => {
+  const handleCellRightClick = useCallback((rowIndex, colIndex, event, rowId = null) => {
     event.preventDefault();
     const cellKey = `${rowIndex}-${colIndex}`;
 
@@ -2317,12 +2321,13 @@ const TanStackCRUDTable = forwardRef(({
       y: menuY,
       cellKey: cellKey,
       columnId: columnId,
-      rowIndex: rowIndex
+      rowIndex: rowIndex,
+      rowId: rowId
     });
   }, [selectedCells, columnDefs]);
 
   const hideContextMenu = useCallback(() => {
-    setContextMenu({ visible: false, x: 0, y: 0, cellKey: null, columnId: null, rowIndex: null });
+    setContextMenu({ visible: false, x: 0, y: 0, cellKey: null, columnId: null, rowIndex: null, rowId: null });
   }, []);
 
   // Close context menu when clicking elsewhere
@@ -3061,42 +3066,24 @@ const TanStackCRUDTable = forwardRef(({
     setHasChanges(true);
   }, [selectedCells, columnDefs, setNestedValue]);
 
-  // Start editing a specific cell programmatically (used by Rename context menu action)
-  const startCellEdit = useCallback((rowIndex, columnId) => {
-    // Find the column index for this columnId
-    const colIndex = columnDefs.findIndex(col =>
-      col.accessorKey === columnId || col.id === columnId
-    );
+  // Show rename modal for a cell
+  const showRenameModal = useCallback((rowIndex, rowId) => {
+    const currentValue = editableData[rowIndex]?.name || '';
+    setRenameModal({ show: true, rowIndex, rowId, currentValue });
+  }, [editableData]);
 
-    if (colIndex === -1) return;
-
-    const cellKey = `${rowIndex}-${colIndex}`;
-    setSelectedCells(new Set([cellKey]));
-    setCurrentCell({ row: rowIndex, col: colIndex });
-
-    // Trigger edit mode on the cell after a brief delay to let state update
-    setTimeout(() => {
-      const cellElement = document.querySelector(`[data-cell-key="${cellKey}"]`);
-      if (cellElement) {
-        const focusableElement = cellElement.querySelector('[tabindex="0"], input, select, textarea');
-        if (focusableElement) {
-          focusableElement.focus();
-          // Dispatch F2 to enter edit mode
-          const f2Event = new KeyboardEvent('keydown', {
-            key: 'F2',
-            bubbles: true,
-            cancelable: true
-          });
-          focusableElement.dispatchEvent(f2Event);
-        }
-      }
-    }, 50);
-  }, [columnDefs]);
+  // Handle rename submission
+  const handleRenameSubmit = useCallback((newName) => {
+    if (renameModal.rowIndex !== null && newName !== renameModal.currentValue) {
+      updateCellData(renameModal.rowIndex, 'name', newName);
+    }
+    setRenameModal({ show: false, rowIndex: null, rowId: null, currentValue: '' });
+  }, [renameModal, updateCellData]);
 
   // Context menu action handlers
   const handleContextMenuAction = useCallback((action) => {
     // Capture context menu data before hiding (hideContextMenu resets the state)
-    const { rowIndex: menuRowIndex, columnId: menuColumnId } = contextMenu;
+    const { rowIndex: menuRowIndex, columnId: menuColumnId, rowId: menuRowId } = contextMenu;
     hideContextMenu();
 
     switch (action) {
@@ -3119,15 +3106,15 @@ const TanStackCRUDTable = forwardRef(({
         fillRight();
         break;
       case 'rename':
-        // Start editing the name column for this row
+        // Show rename modal for this row
         if (menuRowIndex !== null && menuColumnId === 'name') {
-          startCellEdit(menuRowIndex, 'name');
+          showRenameModal(menuRowIndex, menuRowId);
         }
         break;
       default:
         console.warn('Unknown context menu action:', action);
     }
-  }, [hideContextMenu, handleCopy, handlePaste, clearCellContents, deleteSelectedRows, fillDown, fillRight, contextMenu, startCellEdit]);
+  }, [hideContextMenu, handleCopy, handlePaste, clearCellContents, deleteSelectedRows, fillDown, fillRight, contextMenu, showRenameModal]);
 
   // Enhanced keyboard shortcuts and navigation
   const handleKeyDown = useCallback((e) => {
@@ -4742,7 +4729,7 @@ const TanStackCRUDTable = forwardRef(({
                         boxShadow: (isSelectedColumn || isNameColumn) ? '2px 0 4px rgba(0, 0, 0, 0.1)' : 'none'
                       }}
                       onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
-                      onContextMenu={(e) => handleCellRightClick(rowIndex, colIndex, e)}
+                      onContextMenu={(e) => handleCellRightClick(rowIndex, colIndex, e, rowId)}
                       title={isInvalid ? 'Invalid dropdown value' : undefined}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -5064,6 +5051,52 @@ const TanStackCRUDTable = forwardRef(({
           </div>
         </div>
       )}
+
+      {/* Rename Modal - styling handled by global Bootstrap overrides in themes.css */}
+      <Modal
+        show={renameModal.show}
+        onHide={() => setRenameModal({ show: false, rowIndex: null, rowId: null, currentValue: '' })}
+        centered
+        size="sm"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Rename</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={(e) => {
+            e.preventDefault();
+            const input = e.target.elements.newName;
+            handleRenameSubmit(input.value);
+          }}>
+            <Form.Group>
+              <Form.Label>Name</Form.Label>
+              <Form.Control
+                type="text"
+                name="newName"
+                defaultValue={renameModal.currentValue}
+                autoFocus
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setRenameModal({ show: false, rowIndex: null, rowId: null, currentValue: '' })}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              const input = document.querySelector('input[name="newName"]');
+              handleRenameSubmit(input?.value || '');
+            }}
+          >
+            Save
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Floating resize line that follows cursor during drag */}
       {resizeState.isResizing && (

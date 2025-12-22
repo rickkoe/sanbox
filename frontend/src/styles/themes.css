@@ -675,3 +675,78 @@
   color: var(--form-input-disabled-text) !important;
   opacity: 0.6;
 }
+
+/* ========== BOOTSTRAP MODAL OVERRIDES ========== */
+/* Global override for ALL Bootstrap modals to use theme colors */
+/* This prevents the gray background issue in dark mode */
+
+.modal .modal-content,
+.modal-dialog .modal-content,
+.modal-content {
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+}
+
+.modal .modal-header,
+.modal-dialog .modal-header,
+.modal-content .modal-header,
+.modal-header {
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
+  border-bottom: 1px solid var(--color-border-default) !important;
+  color: var(--primary-text) !important;
+}
+
+.modal .modal-title,
+.modal-header .modal-title,
+.modal-title {
+  color: var(--primary-text) !important;
+}
+
+.modal .modal-body,
+.modal-dialog .modal-body,
+.modal-content .modal-body,
+.modal-body {
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+}
+
+.modal .modal-footer,
+.modal-dialog .modal-footer,
+.modal-content .modal-footer,
+.modal-footer {
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
+  border-top: 1px solid var(--color-border-default) !important;
+}
+
+/* Modal form controls */
+.modal-content .form-control,
+.modal .form-control {
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+.modal-content .form-control:focus,
+.modal .form-control:focus {
+  background-color: var(--secondary-bg) !important;
+  color: var(--primary-text) !important;
+  border-color: var(--link-text) !important;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+}
+
+.modal-content .form-label,
+.modal .form-label {
+  color: var(--primary-text) !important;
+}
+
+/* Close button in dark mode */
+.theme-dark .modal-header .btn-close,
+.theme-dark .modal .btn-close {
+  filter: invert(1);
+}

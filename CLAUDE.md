@@ -685,91 +685,53 @@ entities = entities.annotate(
    - **NO EMOJIS**: Never use emojis in this project - always use SVG icons instead
    - Follow the Bootstrap Background Override Pattern for all new pages
    - Use custom alert classes (not Bootstrap's `.alert-*`) - see Theme-Aware Alert Styling Pattern section
-   - **Use custom modal styling** (not Bootstrap's defaults) - see Modal Styling Pattern below
    - All pages must work in both light and dark themes
    - Key patterns to follow:
      - Wrap page in container with unique class name (e.g., `.my-page-name`)
      - Start CSS file with Bootstrap overrides (copy template from docs)
      - Use theme CSS variables for all colors (never hardcoded colors)
      - Use `var(--secondary-bg)` with 4px colored left border for alerts
-     - Use `var(--secondary-bg)` for modal backgrounds (NEVER `var(--modal-bg)` which can be gray)
      - Use SVG icons, not emojis (emojis render inconsistently across platforms)
      - Test in both themes before committing
    - **Reference**: `/THEME_SYSTEM_DOCUMENTATION.md` (comprehensive styling guide)
    - **Examples**:
      - Bootstrap overrides: `/frontend/src/styles/project-summary.css`
      - Alert styling: `/frontend/src/styles/backup.css` (search for `backup-scheduler-*-alert`)
-     - Modal styling: `/frontend/src/pages/ImportMonitor.css` (search for `MODALS`)
      - SVG icons: `/frontend/src/pages/ProjectSummary.jsx` (see `getActionIcon` function)
 
-   ### Modal Styling Pattern (REQUIRED for all modals)
+   ### Modal Styling (Automatically Handled)
 
-   Bootstrap modals have gray/white backgrounds by default that don't respect dark themes.
-   **ALWAYS** add these CSS overrides when using React Bootstrap `<Modal>`:
+   **Modals are globally styled and require NO custom CSS.** Just use React Bootstrap's `<Modal>` component directly:
 
-   ```css
-   /* Modals are rendered via React portals OUTSIDE page containers.
-    * These styles must be global (not scoped to your page class).
-    * Use var(--secondary-bg) - NEVER var(--modal-bg) or var(--color-canvas-overlay) */
+   ```jsx
+   import { Modal, Button, Form } from 'react-bootstrap';
 
-   .modal-content {
-     background-color: var(--secondary-bg) !important;
-     background-image: none !important;
-     background: var(--secondary-bg) !important;
-     border: 1px solid var(--color-border-default) !important;
-     border-radius: var(--radius-lg) !important;
-   }
-
-   .modal-header {
-     background-color: var(--secondary-bg) !important;
-     background-image: none !important;
-     background: var(--secondary-bg) !important;
-     border-bottom: 1px solid var(--color-border-default) !important;
-   }
-
-   .modal-body {
-     background-color: var(--secondary-bg) !important;
-     background-image: none !important;
-     background: var(--secondary-bg) !important;
-     color: var(--primary-text) !important;
-   }
-
-   .modal-footer {
-     background-color: var(--secondary-bg) !important;
-     background-image: none !important;
-     background: var(--secondary-bg) !important;
-     border-top: 1px solid var(--color-border-default) !important;
-   }
-
-   .modal-title {
-     color: var(--primary-text) !important;
-   }
-
-   .modal-body p, .modal-body li, .modal-body strong {
-     color: var(--primary-text) !important;
-   }
-
-   /* Cards inside modals */
-   .modal-body .card {
-     background-color: var(--secondary-bg) !important;
-     background: var(--secondary-bg) !important;
-   }
-
-   .modal-backdrop {
-     background-color: #000000 !important;
-   }
-
-   .modal-backdrop.show {
-     opacity: 0.6 !important;
-   }
+   <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+     <Modal.Header closeButton>
+       <Modal.Title>My Modal</Modal.Title>
+     </Modal.Header>
+     <Modal.Body>
+       {/* Your content here */}
+     </Modal.Body>
+     <Modal.Footer>
+       <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+       <Button variant="primary" onClick={handleSave}>Save</Button>
+     </Modal.Footer>
+   </Modal>
    ```
 
-   **Key points:**
-   - Use `var(--secondary-bg)` for ALL modal backgrounds
-   - Include `background-image: none !important` to override Bootstrap gradients
-   - Apply `!important` to all background properties
-   - Style nested elements (p, li, strong, cards) explicitly
-   - Modal backdrop should be solid black with 0.6 opacity
+   **How it works:**
+   - Global styles in `/frontend/src/styles/modals.css` and `/frontend/src/styles/themes.css` handle all modal theming
+   - Uses `var(--secondary-bg)` for backgrounds (works in both light and dark themes)
+   - Close button automatically inverts in dark mode
+   - No inline styles or custom CSS classes needed
+
+   **DO NOT:**
+   - Add custom CSS for modal backgrounds
+   - Use `var(--modal-bg)` (can cause gray backgrounds)
+   - Add inline styles for theming
+
+   **If modals look wrong**, check that the global styles haven't been overridden somewhere
 
 ## Accessing Services
 

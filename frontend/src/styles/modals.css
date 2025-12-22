@@ -2,17 +2,18 @@
 
 /* ========== GLOBAL THEME OVERRIDES FOR ALL MODALS ========== */
 /* These apply to modals rendered anywhere in the app */
+/* Use --secondary-bg instead of --modal-bg to avoid gray backgrounds in dark mode */
 
 .theme-dark .modal-content,
 .theme-light .modal-content {
-  background-color: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
   border-color: var(--modal-border) !important;
   color: var(--primary-text) !important;
 }
 
 .theme-dark .modal-header,
 .theme-light .modal-header {
-  background-color: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
   border-bottom: none !important;
 }
 
@@ -23,13 +24,13 @@
 
 .theme-dark .modal-footer,
 .theme-light .modal-footer {
-  background-color: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
   border-top: none !important;
 }
 
 .theme-dark .modal-body,
 .theme-light .modal-body {
-  background-color: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
   color: var(--primary-text) !important;
 }
 
@@ -66,8 +67,8 @@
 
 /* Modal Container - The actual modal box */
 .modal-container {
-  background-color: var(--modal-bg) !important;
-  background: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
   border: 1px solid var(--modal-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--modal-shadow);
@@ -81,32 +82,32 @@
 /* Theme-specific overrides for custom modal classes */
 .theme-dark .modal-container,
 .theme-light .modal-container {
-  background-color: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
   background-image: none !important;
-  background: var(--modal-bg) !important;
+  background: var(--secondary-bg) !important;
   border-color: var(--modal-border) !important;
 }
 
 .theme-dark .modal-header,
 .theme-light .modal-header {
-  background-color: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
   background-image: none !important;
-  background: var(--modal-bg) !important;
+  background: var(--secondary-bg) !important;
   border-bottom: none !important;
 }
 
 .theme-dark .modal-body,
 .theme-light .modal-body {
-  background-color: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
   background-image: none !important;
-  background: var(--modal-bg) !important;
+  background: var(--secondary-bg) !important;
 }
 
 .theme-dark .modal-footer,
 .theme-light .modal-footer {
-  background-color: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
   background-image: none !important;
-  background: var(--modal-bg) !important;
+  background: var(--secondary-bg) !important;
   border-top: none !important;
 }
 
@@ -154,7 +155,7 @@
   justify-content: space-between;
   padding: var(--space-5) var(--space-5) var(--space-4) var(--space-5);
   border-bottom: none;
-  background: var(--modal-bg) !important;
+  background: var(--secondary-bg) !important;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   flex-shrink: 0;
 }
@@ -211,8 +212,8 @@
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
   border-top: none;
-  background-color: var(--modal-bg) !important;
-  background: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   flex-shrink: 0;
 }
