@@ -27,6 +27,7 @@ from .views import (
     volume_range_delete,
     volume_range_update,
     volume_range_dscli,
+    volume_dscli_scripts_project_view,
     # Pool Management
     pool_list,
     pool_detail,
@@ -52,6 +53,7 @@ urlpatterns = [
     path("check-wwpn-conflicts/", check_wwpn_conflicts_view, name="check-wwpn-conflicts"),
     path("mkhost-scripts/<int:customer_id>/", mkhost_scripts_view, name="mkhost-scripts"),
     path("mkhost-scripts/project/<int:project_id>/", mkhost_scripts_project_view, name="mkhost-scripts-project"),
+    path("volume-scripts/project/<int:project_id>/", volume_dscli_scripts_project_view, name="volume-scripts-project"),
     path("ports/", port_list, name="port-list"),
     path("ports/<int:pk>/", port_detail, name="port-detail"),
     path("project/<int:project_id>/view/ports/", port_project_view, name="port-project-view"),

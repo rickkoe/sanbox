@@ -621,17 +621,37 @@
 }
 
 /* ========== MODALS (Override Bootstrap) ========== */
+/*
+ * IMPORTANT: Modals are rendered via React portals OUTSIDE the page container.
+ * These styles must be global (not scoped to .import-monitor-page).
+ * We use the theme's --secondary-bg for consistent dark backgrounds.
+ *
+ * Pattern: Use var(--secondary-bg) for modal backgrounds - NEVER use
+ * var(--modal-bg) or var(--color-canvas-overlay) as these can be gray.
+ */
+
+.modal {
+  background: transparent !important;
+}
+
+.modal-dialog {
+  background: transparent !important;
+}
 
 .modal-content {
-  background: var(--modal-bg) !important;
-  border: 1px solid var(--modal-border) !important;
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
   border-radius: var(--radius-lg) !important;
-  box-shadow: var(--modal-shadow) !important;
+  box-shadow: var(--shadow-lg) !important;
 }
 
 .modal-header {
-  background: var(--modal-header-bg) !important;
-  border-bottom: 1px solid var(--modal-border) !important;
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border-bottom: 1px solid var(--color-border-default) !important;
   padding: var(--space-4) !important;
 }
 
@@ -642,7 +662,9 @@
 }
 
 .modal-body {
-  background: var(--modal-bg) !important;
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
   color: var(--primary-text) !important;
   padding: var(--space-4) !important;
 }
@@ -655,25 +677,41 @@
   color: var(--primary-text) !important;
 }
 
+.modal-body li {
+  color: var(--primary-text) !important;
+}
+
 .modal-body strong {
   color: var(--primary-text) !important;
 }
 
+.modal-body .card {
+  background-color: var(--secondary-bg) !important;
+  background: var(--secondary-bg) !important;
+}
+
+.modal-body .card-body {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
 .modal-footer {
-  background: var(--modal-bg) !important;
-  border-top: 1px solid var(--modal-border) !important;
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border-top: 1px solid var(--color-border-default) !important;
   padding: var(--space-4) !important;
 }
 
 .modal-backdrop {
-  background-color: var(--modal-backdrop) !important;
+  background-color: #000000 !important;
 }
 
 .modal-backdrop.show {
-  opacity: 0.5 !important;
+  opacity: 0.6 !important;
 }
 
-/* Close button */
+/* Close button - invert for dark themes */
 .btn-close {
   filter: var(--close-button-filter);
   opacity: 0.7;
@@ -743,4 +781,120 @@
   .table tbody td {
     padding: var(--space-2) !important;
   }
+}
+
+/* ========== CANCEL MODAL STYLES ========== */
+
+/* Theme-aware alert for stuck imports (follows ALERT_BOX_PATTERN.md) */
+.import-monitor-stuck-alert {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-left: 4px solid var(--color-attention-emphasis) !important;
+  color: var(--primary-text) !important;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.import-monitor-stuck-alert strong {
+  color: var(--primary-text) !important;
+}
+
+.import-monitor-stuck-alert p {
+  color: var(--primary-text) !important;
+  opacity: 0.9;
+  margin-bottom: 0;
+}
+
+/* Cancel options container */
+.cancel-options {
+  margin-top: var(--space-3);
+}
+
+/* Cancel option cards - use theme-aware backgrounds */
+.cancel-option-card {
+  background-color: var(--secondary-bg) !important;
+  background-image: none !important;
+  background: var(--secondary-bg) !important;
+  border: 1px solid var(--color-border-default) !important;
+  border-left: 4px solid var(--color-accent-emphasis) !important;
+  border-radius: var(--radius-md) !important;
+  transition: all var(--transition-speed) var(--transition-timing);
+}
+
+.cancel-option-card:hover {
+  border-color: var(--color-accent-muted) !important;
+  border-left-color: var(--color-accent-emphasis) !important;
+}
+
+.cancel-option-card .card-body {
+  background: transparent !important;
+  padding: var(--space-4) !important;
+}
+
+.cancel-option-card h6 {
+  color: var(--primary-text) !important;
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.cancel-option-card p {
+  color: var(--primary-text) !important;
+  opacity: 0.8;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  max-width: 400px;
+}
+
+.cancel-option-card .text-danger {
+  color: var(--color-danger-fg) !important;
+  opacity: 1;
+}
+
+/* Force cancel option - danger styling with left border */
+.cancel-option-force {
+  border-color: var(--color-danger-muted) !important;
+  border-left: 4px solid var(--color-danger-emphasis) !important;
+}
+
+.cancel-option-force:hover {
+  border-color: var(--color-danger-muted) !important;
+  border-left-color: var(--color-danger-emphasis) !important;
+}
+
+/* Button styles in cancel modal */
+.cancel-option-card .btn {
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.cancel-option-card .btn-outline-warning {
+  background: transparent !important;
+  color: var(--color-attention-fg) !important;
+  border-color: var(--color-attention-muted) !important;
+}
+
+.cancel-option-card .btn-outline-warning:hover {
+  background: var(--color-attention-emphasis) !important;
+  color: var(--color-fg-onEmphasis) !important;
+  border-color: var(--color-attention-emphasis) !important;
+}
+
+.cancel-option-card .btn-outline-warning:disabled,
+.cancel-option-card .btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Import details list in modal */
+.import-monitor-page .modal-body ul {
+  color: var(--primary-text) !important;
+  padding-left: 1.25rem;
+}
+
+.import-monitor-page .modal-body li {
+  color: var(--primary-text) !important;
+  margin-bottom: var(--space-1);
 }

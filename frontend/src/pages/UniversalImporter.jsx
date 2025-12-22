@@ -1300,6 +1300,17 @@ const UniversalImporter = () => {
                       View Storage Systems
                     </button>
                   )}
+                  {((completionStats.pools_created || 0) + (completionStats.pools_matched || 0)) > 0 && (
+                    <button
+                      className="nav-button primary"
+                      onClick={() => {
+                        setShowCompletionModal(false);
+                        navigate('/storage/pools');
+                      }}
+                    >
+                      View Pools
+                    </button>
+                  )}
                   {((completionStats.volumes_created || 0) + (completionStats.volumes_updated || 0)) > 0 && (
                     <button
                       className="nav-button primary"

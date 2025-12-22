@@ -200,6 +200,9 @@ class ParsedVolume:
     name: str
     storage_system_id: str  # Links to ParsedStorageSystem
 
+    # Format (FB = Fixed Block, CKD = Count Key Data)
+    format: Optional[str] = None
+
     # Capacity
     capacity_bytes: Optional[int] = None
     used_capacity_bytes: Optional[int] = None

@@ -13,6 +13,7 @@ const ImportMonitor = () => {
     const [logs, setLogs] = useState({});
     const [cancelModalShow, setCancelModalShow] = useState(false);
     const [importToCancel, setImportToCancel] = useState(null);
+    const [cancelling, setCancelling] = useState(false);
 
     // Filter state
     const [statusFilter, setStatusFilter] = useState('all');
@@ -94,16 +95,31 @@ const ImportMonitor = () => {
         setCancelModalShow(true);
     };
 
-    const confirmCancel = async () => {
+    const confirmCancel = async (force = false) => {
+        setCancelling(true);
         try {
-            await axios.post(`/api/importer/cancel/${importToCancel.id}/`);
+            await axios.post(`/api/importer/cancel/${importToCancel.id}/`, { force });
             setCancelModalShow(false);
             setImportToCancel(null);
             fetchImports(); // Refresh list
         } catch (err) {
             console.error('Failed to cancel import:', err);
             alert('Failed to cancel import: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setCancelling(false);
         }
+    };
+
+    // Check if import appears to be stuck (running for > 5 minutes with no recent progress)
+    const isImportStuck = (importRecord) => {
+        if (importRecord.status !== 'running') return false;
+
+        const startedAt = new Date(importRecord.started_at);
+        const now = new Date();
+        const runningMinutes = (now - startedAt) / (1000 * 60);
+
+        // Consider stuck if running for more than 5 minutes
+        return runningMinutes > 5;
     };
 
     // Format duration
@@ -457,32 +473,82 @@ const ImportMonitor = () => {
             </Card>
 
             {/* Cancel Confirmation Modal */}
-            <Modal show={cancelModalShow} onHide={() => setCancelModalShow(false)}>
+            <Modal show={cancelModalShow} onHide={() => !cancelling && setCancelModalShow(false)} size="lg">
                 <Modal.Header closeButton>
                     <Modal.Title>Cancel Import</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Alert variant="warning">
-                        <strong>Are you sure you want to cancel this import?</strong>
-                    </Alert>
-                    <p>The import will stop processing new items. Any data already imported will remain in the database.</p>
                     {importToCancel && (
-                        <div className="mt-3">
-                            <strong>Import Details:</strong>
-                            <ul>
-                                <li>Type: {importToCancel.import_type}</li>
-                                <li>Started: {formatRelativeTime(importToCancel.started_at)}</li>
-                                {importToCancel.import_name && <li>Name: {importToCancel.import_name}</li>}
-                            </ul>
-                        </div>
+                        <>
+                            <div className="mb-3">
+                                <strong>Import Details:</strong>
+                                <ul className="mb-0">
+                                    <li>Type: {importToCancel.import_type}</li>
+                                    <li>Started: {formatRelativeTime(importToCancel.started_at)}</li>
+                                    {importToCancel.import_name && <li>Name: {importToCancel.import_name}</li>}
+                                </ul>
+                            </div>
+
+                            {isImportStuck(importToCancel) && (
+                                <div className="import-monitor-stuck-alert">
+                                    <strong>This import appears to be stuck.</strong>
+                                    <p className="mt-1">It has been running for more than 5 minutes. Consider using <strong>Force Cancel</strong> if a regular cancel doesn't work.</p>
+                                </div>
+                            )}
+
+                            <div className="cancel-options">
+                                <Card className="cancel-option-card mb-3">
+                                    <Card.Body>
+                                        <div className="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6>Graceful Cancel</h6>
+                                                <p className="mb-0">
+                                                    Requests the import to stop at the next checkpoint.
+                                                    The task will complete its current operation and then stop cleanly.
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="outline-warning"
+                                                onClick={() => confirmCancel(false)}
+                                                disabled={cancelling}
+                                            >
+                                                {cancelling ? <Spinner size="sm" className="me-1" /> : null}
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </Card.Body>
+                                </Card>
+
+                                <Card className="cancel-option-card cancel-option-force">
+                                    <Card.Body>
+                                        <div className="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6>Force Cancel</h6>
+                                                <p className="mb-0">
+                                                    Immediately terminates the worker process. Use this if the import is hung or
+                                                    not responding to graceful cancellation.
+                                                    <br />
+                                                    <span className="text-danger">Warning: May leave partial data in an inconsistent state.</span>
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="danger"
+                                                onClick={() => confirmCancel(true)}
+                                                disabled={cancelling}
+                                            >
+                                                {cancelling ? <Spinner size="sm" className="me-1" /> : null}
+                                                Force Cancel
+                                            </Button>
+                                        </div>
+                                    </Card.Body>
+                                </Card>
+                            </div>
+                        </>
                     )}
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setCancelModalShow(false)}>
-                        No, Keep Running
-                    </Button>
-                    <Button variant="danger" onClick={confirmCancel}>
-                        Yes, Cancel Import
+                    <Button variant="secondary" onClick={() => setCancelModalShow(false)} disabled={cancelling}>
+                        Keep Running
                     </Button>
                 </Modal.Footer>
             </Modal>

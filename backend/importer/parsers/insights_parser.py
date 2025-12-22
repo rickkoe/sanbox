@@ -63,6 +63,7 @@ class InsightsParser(BaseParser):
             selected_systems = config.get('selected_systems', None)
             import_options = config.get('import_options', {
                 'storage_systems': True,
+                'pools': True,
                 'volumes': True,
                 'hosts': True,
                 'ports': False
@@ -409,10 +410,29 @@ class InsightsParser(BaseParser):
                         self.add_warning(f"Volume missing ID - available keys: {list(volume.keys())}, name: {volume.get('name', 'unknown')}")
                         continue
 
+                    # Determine volume format (FB or CKD)
+                    # The API may use 'type', 'format', or 'volume_type' depending on system
+                    volume_format = (
+                        volume.get('type') or
+                        volume.get('format') or
+                        volume.get('volume_type') or
+                        ''
+                    )
+                    # Normalize to FB or CKD
+                    if volume_format and volume_format.upper() in ['CKD', 'FB']:
+                        volume_format = volume_format.upper()
+                    elif volume_format and 'CKD' in volume_format.upper():
+                        volume_format = 'CKD'
+                    else:
+                        volume_format = 'FB'  # Default to Fixed Block
+
                     parsed_volumes.append(ParsedVolume(
                         volume_id=volume_id,
                         name=volume.get('name', ''),
                         storage_system_id=system_id,
+
+                        # Format
+                        format=volume_format,
 
                         # Capacity
                         capacity_bytes=volume.get('capacity_bytes'),

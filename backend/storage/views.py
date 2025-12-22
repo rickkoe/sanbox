@@ -2082,6 +2082,9 @@ def volume_project_view(request, project_id):
     # Get project filter parameter
     project_filter = request.GET.get('project_filter', 'current')
 
+    # Get storage_id filter if provided (for viewing volumes of a specific storage system)
+    storage_id_filter = request.GET.get('storage_id')
+
     # Get project volume IDs for membership checking
     project_volume_ids = set(ProjectVolume.objects.filter(
         project=project
@@ -2094,7 +2097,13 @@ def volume_project_view(request, project_id):
 
         all_volumes = Volume.objects.filter(
             storage_id__in=customer_storage_ids
-        ).select_related(
+        )
+
+        # Apply storage_id filter if provided
+        if storage_id_filter:
+            all_volumes = all_volumes.filter(storage_id=storage_id_filter)
+
+        all_volumes = all_volumes.select_related(
             'storage',
             'storage__customer'
         ).prefetch_related(
@@ -2177,6 +2186,10 @@ def volume_project_view(request, project_id):
                  queryset=ProjectVolume.objects.select_related('project'))
     )
 
+    # Apply storage_id filter if provided (for viewing volumes of a specific storage system)
+    if storage_id_filter:
+        project_volumes = project_volumes.filter(volume__storage_id=storage_id_filter)
+
     # Get search parameter
     search = request.GET.get('search', '').strip()
 
@@ -2193,8 +2206,8 @@ def volume_project_view(request, project_id):
     # Frontend sends params like 'name__icontains', we need to map to 'volume__name__icontains'
     filter_params = {}
     for param, value in request.GET.items():
-        # Skip pagination and search params
-        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter']:
+        # Skip pagination, search, and special params already handled
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter', 'storage_id']:
             continue
 
         # Map frontend parameter to Django ORM lookup through junction table
@@ -2815,18 +2828,19 @@ def volume_ranges_list(request, storage_id):
         active_project_id = request.GET.get('active_project_id')
         project_filter = request.GET.get('project_filter', 'all')
 
-        # Get volumes for this storage
+        # Get volumes for this storage with pool relation for range calculation
         from django.db.models import Q, Count
-        volumes = Volume.objects.filter(storage=storage).select_related('storage')
+        volumes = Volume.objects.filter(storage=storage).select_related('storage', 'pool')
 
         # Apply filtering based on view mode
-        if project_filter == 'current' and active_project_id:
-            # Draft mode: Show committed volumes OR volumes in the active project
+        # Always show committed volumes, plus uncommitted volumes in the active project (if set)
+        if active_project_id:
+            # With active project: Show committed volumes OR volumes in the active project
             volumes = volumes.filter(
                 Q(committed=True) | Q(project_memberships__project_id=active_project_id)
             ).distinct()
         else:
-            # Committed mode: Show only committed volumes OR orphaned volumes (not in any project)
+            # Without active project: Show only committed volumes OR orphaned volumes (not in any project)
             volumes = volumes.annotate(
                 project_count=Count('project_memberships')
             ).filter(
@@ -3473,6 +3487,90 @@ def volume_range_update(request, storage_id):
     except Exception as e:
         logger.error(f"Error updating volume range: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def volume_dscli_scripts_project_view(request, project_id):
+    """
+    GET /api/storage/volume-scripts/project/{project_id}/
+
+    Generate DSCLI commands (mkfbvol/mkckdvol) for DS8000 volumes in a project.
+    Only includes uncommitted volumes (new volumes created in the project).
+    """
+    try:
+        from core.models import Project, ProjectStorage, ProjectVolume
+        from .volume_range_utils import calculate_volume_ranges, generate_dscli_commands
+        from .storage_utils import generate_ds8000_device_id
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Get DS8000 storage systems in this project
+        storage_ids = ProjectStorage.objects.filter(project=project).values_list('storage_id', flat=True)
+        ds8000_systems = Storage.objects.filter(
+            id__in=storage_ids,
+            storage_type='DS8000'
+        ).order_by('name')
+
+        if not ds8000_systems.exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "No DS8000 storage systems found in this project"
+            })
+
+        storage_scripts = {}
+
+        for storage in ds8000_systems:
+            # Get volumes in this project for this storage that are uncommitted (new)
+            project_volume_ids = ProjectVolume.objects.filter(
+                project=project,
+                volume__storage=storage,
+                volume__committed=False  # Only new/uncommitted volumes
+            ).values_list('volume_id', flat=True)
+
+            if not project_volume_ids:
+                continue
+
+            # Get the actual volumes
+            volumes = Volume.objects.filter(
+                id__in=project_volume_ids
+            ).select_related('storage', 'pool')
+
+            if not volumes.exists():
+                continue
+
+            # Calculate ranges for these volumes
+            ranges = calculate_volume_ranges(volumes)
+
+            if not ranges:
+                continue
+
+            # Generate DSCLI commands
+            device_id = generate_ds8000_device_id(storage)
+            result = generate_dscli_commands(storage, ranges, 'create')
+
+            storage_scripts[storage.name] = {
+                'storage_type': storage.storage_type,
+                'device_id': device_id,
+                'commands': result['commands'],
+                'command_count': result['command_count'],
+                'range_count': len(ranges),
+                'volume_count': sum(r['volume_count'] for r in ranges),
+            }
+
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+
+    except Exception as e:
+        logger.error(f"Error generating volume DSCLI scripts: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 # ==========================================

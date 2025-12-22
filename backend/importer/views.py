@@ -80,8 +80,26 @@ def import_status(request, import_id):
 @csrf_exempt
 @require_http_methods(['POST'])
 def cancel_import(request, import_id):
-    """Cancel a running import"""
+    """
+    Cancel a running import.
+
+    Supports two modes:
+    - Regular cancel: Sets cancellation flag, waits for task to check it (graceful)
+    - Force cancel: Terminates the worker process immediately (for hung tasks)
+
+    Request body (optional):
+    - force: boolean - If true, force-terminate the Celery worker
+    """
     try:
+        # Parse request body for force flag
+        force = False
+        if request.body:
+            try:
+                data = json.loads(request.body)
+                force = data.get('force', False)
+            except json.JSONDecodeError:
+                pass
+
         import_record = get_object_or_404(StorageImport, id=import_id)
 
         # Check if user is authenticated and owns this import
@@ -95,27 +113,71 @@ def cancel_import(request, import_id):
                 status=400
             )
 
-        # Set cancellation flag for graceful shutdown
+        # Set cancellation flag
         from django.utils import timezone
         import_record.cancelled = True
         import_record.cancelled_at = timezone.now()
+
+        # If force cancel, immediately mark as cancelled (task won't update status)
+        if force:
+            import_record.status = 'cancelled'
+            import_record.completed_at = timezone.now()
+            import_record.error_message = 'Import force-cancelled by user. Partial data may have been imported.'
+
         import_record.save()
 
-        # Try to revoke the Celery task (will be handled gracefully by task)
+        # Try to revoke the Celery task
+        task_revoked = False
         if import_record.celery_task_id:
             try:
                 from celery.result import AsyncResult
-                result = AsyncResult(import_record.celery_task_id)
-                result.revoke(terminate=False)  # Don't force terminate, let task check flag
+                from sanbox.celery import app as celery_app
+
+                if force:
+                    # Force terminate - sends SIGTERM to the worker process
+                    # This is more aggressive and will kill the task immediately
+                    celery_app.control.revoke(
+                        import_record.celery_task_id,
+                        terminate=True,
+                        signal='SIGTERM'
+                    )
+                    task_revoked = True
+                    print(f"Force-terminated Celery task {import_record.celery_task_id}")
+                else:
+                    # Graceful revoke - sets revoked flag, task checks cancellation
+                    result = AsyncResult(import_record.celery_task_id)
+                    result.revoke(terminate=False)
+                    print(f"Requested graceful cancellation of Celery task {import_record.celery_task_id}")
             except Exception as e:
                 # Log the error but continue
                 print(f"Failed to revoke Celery task {import_record.celery_task_id}: {e}")
 
-        return JsonResponse({
-            'message': 'Import cancellation requested. The import will stop processing new items.',
-            'import_id': import_record.id,
-            'cancelled_at': import_record.cancelled_at.isoformat() if import_record.cancelled_at else None
-        })
+        # Log the cancellation
+        try:
+            from .logger import ImportLogger
+            import_logger = ImportLogger(import_record)
+            if force:
+                import_logger.warning('Import force-cancelled by user. Task was terminated.')
+            else:
+                import_logger.info('Import cancellation requested. Waiting for task to stop.')
+        except Exception as log_error:
+            print(f"Failed to log cancellation: {log_error}")
+
+        if force:
+            return JsonResponse({
+                'message': 'Import force-cancelled. The task has been terminated.',
+                'import_id': import_record.id,
+                'cancelled_at': import_record.cancelled_at.isoformat() if import_record.cancelled_at else None,
+                'force': True,
+                'task_revoked': task_revoked
+            })
+        else:
+            return JsonResponse({
+                'message': 'Import cancellation requested. The import will stop processing new items.',
+                'import_id': import_record.id,
+                'cancelled_at': import_record.cancelled_at.isoformat() if import_record.cancelled_at else None,
+                'force': False
+            })
 
     except Exception as e:
         return JsonResponse(

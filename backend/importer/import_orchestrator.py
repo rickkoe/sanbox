@@ -1735,6 +1735,7 @@ class ImportOrchestrator:
                 # Add all optional fields that have values
                 # Note: pool_name and pool_id are from parsed data but Volume model uses pool ForeignKey
                 optional_fields = [
+                    'format',  # FB or CKD
                     'capacity_bytes', 'used_capacity_bytes', 'used_capacity_percent',
                     'available_capacity_bytes', 'written_capacity_bytes', 'written_capacity_percent',
                     'reserved_volume_capacity_bytes',
