@@ -63,6 +63,7 @@ const TanStackCRUDTable = forwardRef(({
   height = '600px',
   storageKey,
   readOnly = false,
+  selectCheckboxDisabled = false, // When true, the _selected checkbox column is disabled (for Customer View)
   pageSizeOptions = [25, 50, 100, 250, 500], // Customizable page size options
   defaultSort, // Default sort configuration: { column: 'name', direction: 'asc'|'desc' }
 
@@ -270,6 +271,26 @@ const TanStackCRUDTable = forwardRef(({
     }
     return null;
   }, [deleteUrl]);
+
+  // Helper to get project status class and tooltip for row border indicators
+  const getProjectStatusInfo = useCallback((projectAction) => {
+    if (!projectAction) {
+      return { className: '', tooltip: '' };
+    }
+    switch (projectAction.toLowerCase()) {
+      case 'new':
+      case 'create':
+        return { className: 'project-status-new', tooltip: 'New - Created in this project' };
+      case 'modified':
+        return { className: 'project-status-modified', tooltip: 'Modified - Changes pending in this project' };
+      case 'delete':
+        return { className: 'project-status-delete', tooltip: 'Marked for Deletion' };
+      case 'unmodified':
+      case 'reference':
+      default:
+        return { className: 'project-status-unmodified', tooltip: '' };
+    }
+  }, []);
 
   // Fetch user's active customer for global tables
   useEffect(() => {
@@ -1716,6 +1737,8 @@ const TanStackCRUDTable = forwardRef(({
           isCheckboxColumn ? ({ table: tableInstance }) => {
           // Get current data from table
           const currentData = tableInstance.options.data;
+          // Disable header checkbox for _selected column when selectCheckboxDisabled is true
+          const isSelectionColumn = accessorKey === '_selected';
           return (
             <CheckboxHeaderCell
               columnKey={accessorKey}
@@ -1727,6 +1750,7 @@ const TanStackCRUDTable = forwardRef(({
               table={tableInstance}
               totalCheckboxSelected={totalCheckboxSelected}
               onClearAllCheckboxes={onClearAllCheckboxes}
+              disabled={isSelectionColumn ? selectCheckboxDisabled : false}
             />
           );
         } : headerName,
@@ -1761,7 +1785,7 @@ const TanStackCRUDTable = forwardRef(({
           if (isCheckbox) {
             // Use silent updater for _selected column (doesn't trigger dirty state)
             const updateFn = accessorKey === '_selected' ? updateCellDataSilently : updateCellData;
-            // _selected column should always be editable (for row selection), regardless of table readOnly state
+            // _selected column: use selectCheckboxDisabled prop (for Customer View vs Project View)
             const isSelectionCheckbox = accessorKey === '_selected';
             return (
               <ExistsCheckboxCell
@@ -1769,7 +1793,7 @@ const TanStackCRUDTable = forwardRef(({
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
                 updateCellData={updateFn}
-                readOnly={isSelectionCheckbox ? false : readOnly}
+                readOnly={isSelectionCheckbox ? selectCheckboxDisabled : readOnly}
               />
             );
           }
@@ -4630,14 +4654,28 @@ const TanStackCRUDTable = forwardRef(({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row, visualRowIndex) => (
+            {table.getRowModel().rows.map((row, visualRowIndex) => {
+              // Get project status info for row border indicator
+              const projectAction = row.original?.project_action;
+              const statusInfo = getProjectStatusInfo(projectAction);
+
+              return (
               <tr
                 key={row.id}
+                title={statusInfo.tooltip}
                 style={{
-                  transition: 'background-color 0.15s',
+                  transition: 'background-color 0.15s, border-color 0.15s',
                 }}
               >
                 {row.getVisibleCells().map((cell, cellIndex) => {
+                  // Apply project status border to first cell (border-left on <tr> doesn't work reliably)
+                  const isFirstCell = cellIndex === 0;
+                  const statusBorderStyle = isFirstCell && statusInfo.className ? {
+                    borderLeft: statusInfo.className === 'project-status-new' ? '4px solid var(--color-success-emphasis)' :
+                                statusInfo.className === 'project-status-modified' ? '4px solid var(--color-attention-emphasis)' :
+                                statusInfo.className === 'project-status-delete' ? '4px solid var(--color-danger-emphasis)' :
+                                undefined
+                  } : {};
                   // CRITICAL: Find the data row index in the original editableData array
                   // row.index is the index in sortedEditableData, but we need the index in editableData
                   // Use the row ID to find it in editableData
@@ -4701,6 +4739,11 @@ const TanStackCRUDTable = forwardRef(({
                     cellBg = 'var(--color-accent-subtle)';
                   }
 
+                  // Determine borderLeft: status border (first cell) > modified field > none
+                  const cellBorderLeft = statusBorderStyle.borderLeft
+                    ? statusBorderStyle.borderLeft
+                    : (isModifiedField ? '3px solid var(--color-accent-emphasis)' : 'none');
+
                   return (
                     <td
                       key={cell.id}
@@ -4710,7 +4753,7 @@ const TanStackCRUDTable = forwardRef(({
                         border: 'none',
                         borderBottom: '1px solid var(--table-border)',
                         borderRight: '1px solid var(--table-border)',
-                        borderLeft: isModifiedField ? '3px solid var(--color-accent-emphasis)' : 'none',
+                        borderLeft: cellBorderLeft,
                         width: cell.column.getSize(),
                         backgroundColor: isInvalid ? 'var(--color-danger-subtle)' : (isSelected ? ((isNameColumn || isSelectedColumn) ? cellBg : 'var(--table-row-selected)') : cellBg),
                         // Layer backgrounds to ensure fully opaque modified cells
@@ -4737,7 +4780,8 @@ const TanStackCRUDTable = forwardRef(({
                   );
                 })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -6194,7 +6238,8 @@ const CheckboxHeaderCell = ({
   hasActiveClientFilters,
   table,
   totalCheckboxSelected,
-  onClearAllCheckboxes
+  onClearAllCheckboxes,
+  disabled = false
 }) => {
   // Helper function to get nested value
   const getNestedValue = (obj, path) => {
@@ -6315,6 +6360,7 @@ const CheckboxHeaderCell = ({
         type="checkbox"
         className="header-checkbox"
         checked={allChecked}
+        disabled={disabled}
         ref={input => {
           if (input) {
             input.indeterminate = !allChecked && someChecked;
@@ -6323,10 +6369,11 @@ const CheckboxHeaderCell = ({
         onChange={handleCheckAll}
         onClick={(e) => e.stopPropagation()}
         style={{
-          cursor: 'pointer',
+          cursor: disabled ? 'not-allowed' : 'pointer',
           transform: 'scale(1.2)',
           margin: 0,
-          accentColor: 'var(--link-text)'
+          accentColor: 'var(--link-text)',
+          opacity: disabled ? 0.5 : 1
         }}
       />
       {headerName && <span>{headerName}</span>}

@@ -10,7 +10,6 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Storage management
@@ -147,13 +146,14 @@ const StorageTableTanStackClean = () => {
 
     // Core storage columns (most commonly used)
     // Load columns from centralized configuration
+    // _selected column is always included for consistent layout
     const columns = useMemo(() => {
-        return getTableColumns('storage', projectFilter === 'current');
-    }, [projectFilter]);
+        return getTableColumns('storage');
+    }, []);
 
     const colHeaders = useMemo(() => {
-        return getColumnHeaders('storage', projectFilter === 'current');
-    }, [projectFilter]);
+        return getColumnHeaders('storage');
+    }, []);
 
     const defaultSort = getDefaultSort('storage');
 
@@ -196,8 +196,8 @@ const StorageTableTanStackClean = () => {
     }), []);
 
     // Custom renderers for special columns
+    // Note: project_action is now shown via colored row borders, not a column
     const customRenderers = useMemo(() => ({
-        project_action: projectStatusRenderer,
         imported: (rowData, td, row, col, prop, value) => {
             return value ? new Date(value).toLocaleString() : "";
         },
@@ -340,6 +340,7 @@ const StorageTableTanStackClean = () => {
                 activeProjectId={activeProjectId}
                 tableName="storage"
                 readOnly={isReadOnly}
+                selectCheckboxDisabled={projectFilter !== 'current'}
 
                 // Column Configuration
                 columns={columns}

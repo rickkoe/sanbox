@@ -10,7 +10,6 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Alias management
@@ -165,9 +164,10 @@ const AliasTableTanStackClean = () => {
     }, [API_URL, apiUrl]);
 
     // Base alias columns (non-WWPN columns) - loaded from centralized configuration
+    // _selected column is always included for consistent layout
     const baseColumns = useMemo(() => {
-        return getTableColumns('alias', projectFilter === 'current');
-    }, [projectFilter]);
+        return getTableColumns('alias');
+    }, []);
 
     // Get default sort configuration
     const defaultSort = getDefaultSort('alias');
@@ -222,28 +222,16 @@ const AliasTableTanStackClean = () => {
 
     // Combine base columns with WWPN columns (WWPNs come after name)
     const columns = useMemo(() => {
-        // In Project View: [_selected] [project_action] [name] [WWPNs...] [other columns...]
-        // In Customer View: [name] [WWPNs...] [other columns...]
-        let finalColumns;
-        if (projectFilter === 'current') {
-            // Dynamic lookup by column data property (robust against column order changes)
-            const selectionColumn = baseColumns.filter(col => col.data === "_selected");
-            const projectStatusColumn = baseColumns.filter(col => col.data === "project_action");
-            const nameColumn = baseColumns.filter(col => col.data === "name");
-            const otherColumns = baseColumns.filter(col =>
-                col.data !== "_selected" &&
-                col.data !== "project_action" &&
-                col.data !== "name"
-            );
-            finalColumns = [...selectionColumn, ...projectStatusColumn, ...nameColumn, ...wwpnColumns, ...otherColumns];
-        } else {
-            // Customer View: name first, then WWPNs, then everything else
-            const nameColumn = baseColumns.filter(col => col.data === "name");
-            const otherColumns = baseColumns.filter(col => col.data !== "name");
-            finalColumns = [...nameColumn, ...wwpnColumns, ...otherColumns];
-        }
-        return finalColumns;
-    }, [baseColumns, wwpnColumns, projectFilter]);
+        // Both views: [_selected] [name] [WWPNs...] [other columns...]
+        // _selected is always first for consistent layout (disabled in Customer View)
+        const selectionColumn = baseColumns.filter(col => col.data === "_selected");
+        const nameColumn = baseColumns.filter(col => col.data === "name");
+        const otherColumns = baseColumns.filter(col =>
+            col.data !== "_selected" &&
+            col.data !== "name"
+        );
+        return [...selectionColumn, ...nameColumn, ...wwpnColumns, ...otherColumns];
+    }, [baseColumns, wwpnColumns]);
 
     // Generate list of default visible columns (includes all WWPN columns and _selected in Project View)
     const defaultVisibleColumns = useMemo(() => {
@@ -607,10 +595,9 @@ const AliasTableTanStackClean = () => {
     }, [handleAddAliasToProject, handleRemoveAliasFromProject, activeProjectId, config]);
 
     // Custom renderers for WWPN formatting
+    // Note: project_action is now shown via colored row borders, not a column
     const customRenderers = useMemo(() => {
-        const renderers = {
-            project_action: projectStatusRenderer
-        };
+        const renderers = {};
 
         // Add renderer for each WWPN column - just format the value
         // TanStackCRUDTable calls: customRenderer(rowData, null, rowIndex, colIndex, accessorKey, value)
@@ -983,6 +970,7 @@ const AliasTableTanStackClean = () => {
                 height="calc(100vh - 200px)"
                 storageKey={`alias-table-${activeProjectId || 'default'}-${projectFilter}`}
                 readOnly={isReadOnly}
+                selectCheckboxDisabled={projectFilter !== 'current'}
 
                 // Custom save handler - bypass default CRUD and use bulk save
                 customSaveHandler={handleAliasSave}

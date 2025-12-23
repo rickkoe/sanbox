@@ -7,12 +7,14 @@
  * Usage:
  *   import { getTableColumns, getDefaultSort } from '../../utils/tableConfigLoader';
  *
- *   const columns = getTableColumns('alias', projectFilter === 'current');
+ *   const columns = getTableColumns('alias');
  *   const defaultSort = getDefaultSort('alias');
+ *
+ * Note: The _selected checkbox column is always included for consistent layout.
+ * Project status is shown via colored row borders (not a separate column).
  */
 
 import tableColumnConfig from '../config/tableColumnConfig.json';
-import { projectStatusColumn } from './projectStatusRenderer';
 
 /**
  * Get the full configuration for a table
@@ -35,16 +37,16 @@ export function getTableConfig(tableName) {
 }
 
 /**
- * Get columns for a table with optional Project View columns
+ * Get columns for a table
  * @param {string} tableName - Name of the table
- * @param {boolean} includeProjectColumns - Whether to include _selected and project_action columns
+ * @param {boolean} includeSelectColumn - Whether to include _selected checkbox column (default: true)
  * @returns {array} Array of column definitions
  *
- * CONFIGURATION:
- * - To change _selected position: Change where it's added below (currently first)
- * - To change project_action position: Modify insertIndex calculation (currently after name)
+ * Note: The _selected column is always included by default for consistent layout.
+ * It will be disabled in Customer View via the selectCheckboxDisabled prop.
+ * Project status is shown via colored row borders (green=new, yellow=modified, red=delete).
  */
-export function getTableColumns(tableName, includeProjectColumns = false) {
+export function getTableColumns(tableName, includeSelectColumn = true) {
     const config = getTableConfig(tableName);
     if (!config || !config.columns) {
         return [];
@@ -53,10 +55,10 @@ export function getTableColumns(tableName, includeProjectColumns = false) {
     const columns = [];
 
     // ============================================================
-    // POSITION 1: _selected checkbox column (Project View only)
-    // To move this column, cut this block and paste it elsewhere
+    // _selected checkbox column (always included for consistent layout)
+    // Disabled in Customer View, enabled in Project View
     // ============================================================
-    if (includeProjectColumns) {
+    if (includeSelectColumn) {
         columns.push({
             data: "_selected",
             accessorKey: "_selected",
@@ -85,25 +87,8 @@ export function getTableColumns(tableName, includeProjectColumns = false) {
         });
     });
 
-    // ============================================================
-    // POSITION 2: project_action status column (Project View only)
-    // Currently inserted BEFORE "name" column (right after _selected)
-    // To change position, modify the insertIndex calculation below:
-    // - After a different column: change "name" to another column id and use +1
-    // - At the end: set insertIndex = columns.length
-    // - At a specific position: set insertIndex = <number>
-    // ============================================================
-    if (includeProjectColumns) {
-        // Find the index of the name column and insert project_action before it
-        const selectedIndex = columns.findIndex(col => col.data === "name");
-        const insertIndex = selectedIndex >= 0 ? selectedIndex : 1;
-
-        columns.splice(insertIndex, 0, {
-            ...projectStatusColumn,
-            defaultVisible: true,
-            required: true  // Always visible, can't be hidden
-        });
-    }
+    // Note: project_action status is now shown via colored row borders
+    // instead of a dedicated column. See TanStackCRUDTable for implementation.
 
     return columns;
 }
@@ -129,11 +114,11 @@ export function getDefaultSort(tableName) {
 /**
  * Get column headers (titles) for a table
  * @param {string} tableName - Name of the table
- * @param {boolean} includeProjectColumns - Whether to include Project View columns
+ * @param {boolean} includeSelectColumn - Whether to include _selected checkbox column (default: true)
  * @returns {array} Array of column header strings
  */
-export function getColumnHeaders(tableName, includeProjectColumns = false) {
-    const columns = getTableColumns(tableName, includeProjectColumns);
+export function getColumnHeaders(tableName, includeSelectColumn = true) {
+    const columns = getTableColumns(tableName, includeSelectColumn);
     return columns.map(col => col.title);
 }
 
@@ -150,11 +135,11 @@ export function getRequiredColumns(tableName) {
 /**
  * Get default visible column IDs for a table
  * @param {string} tableName - Name of the table
- * @param {boolean} includeProjectColumns - Whether to include Project View columns
+ * @param {boolean} includeSelectColumn - Whether to include _selected checkbox column (default: true)
  * @returns {array} Array of default visible column IDs
  */
-export function getDefaultVisibleColumns(tableName, includeProjectColumns = false) {
-    const columns = getTableColumns(tableName, includeProjectColumns);
+export function getDefaultVisibleColumns(tableName, includeSelectColumn = true) {
+    const columns = getTableColumns(tableName, includeSelectColumn);
     return columns
         .filter(col => col.defaultVisible)
         .map(col => col.data);

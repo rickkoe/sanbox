@@ -8,7 +8,6 @@ import api from "../../api";
 import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Fabric management
@@ -83,8 +82,9 @@ const FabricTableTanStackClean = () => {
     ];
 
     // Load columns from centralized configuration
-    const columns = getTableColumns('fabric', projectFilter === 'current');
-    const colHeaders = getColumnHeaders('fabric', projectFilter === 'current');
+    // _selected column is always included for consistent layout
+    const columns = getTableColumns('fabric');
+    const colHeaders = getColumnHeaders('fabric');
     const defaultSort = getDefaultSort('fabric');
 
     // Debug: Log default sort config
@@ -108,8 +108,8 @@ const FabricTableTanStackClean = () => {
     };
 
     // Custom renderers
+    // Note: project_action is now shown via colored row borders, not a column
     const customRenderers = {
-        project_action: projectStatusRenderer,
         project_memberships: (_rowData, _prop, _rowIndex, _colIndex, _accessorKey, value) => {
             try {
                 if (!value || !Array.isArray(value) || value.length === 0) {
@@ -406,6 +406,7 @@ const FabricTableTanStackClean = () => {
                 height="calc(100vh - 280px)"
                 storageKey={`fabric-table-${customerId || 'default'}`}
                 readOnly={isReadOnly}
+                selectCheckboxDisabled={projectFilter !== 'current'}
 
                 // Selection tracking - pass total selected count across all pages
                 totalCheckboxSelected={selectedRows.size}

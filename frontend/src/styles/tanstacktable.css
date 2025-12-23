@@ -839,3 +839,24 @@ button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
 .hide-banner-modal-content .btn-primary:hover {
   background-color: var(--button-primary-hover) !important;
 }
+
+/* ========== PROJECT STATUS ROW BORDERS ========== */
+/* Left border indicators for project status in Project View */
+/* Shows status via colored left border instead of a dedicated column */
+
+.project-status-new {
+  border-left: 4px solid var(--color-success-emphasis) !important;
+}
+
+.project-status-modified {
+  border-left: 4px solid var(--color-attention-emphasis) !important;
+}
+
+.project-status-delete {
+  border-left: 4px solid var(--color-danger-emphasis) !important;
+}
+
+/* Unmodified rows have no special border */
+.project-status-unmodified {
+  border-left: 4px solid transparent !important;
+}

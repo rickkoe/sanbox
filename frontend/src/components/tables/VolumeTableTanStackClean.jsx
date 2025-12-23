@@ -10,7 +10,6 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Volume management
@@ -126,9 +125,10 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, []);
 
     // Load columns from centralized configuration
+    // _selected column is always included for consistent layout
     const allColumns = useMemo(() => {
-        return getTableColumns('volume', projectFilter === 'current');
-    }, [projectFilter]);
+        return getTableColumns('volume');
+    }, []);
 
     // Filter columns based on hideColumns prop
     const columns = allColumns.filter(col => !hideColumns.includes(col.data));
@@ -290,8 +290,8 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }), [storageOptions, poolOptions]);
 
     // Custom renderers for special formatting
+    // Note: project_action is now shown via colored row borders, not a column
     const customRenderers = useMemo(() => ({
-        project_action: projectStatusRenderer,
         imported: (rowData, td, row, col, prop, value) => {
             return value ? new Date(value).toLocaleString() : "";
         },
@@ -495,6 +495,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 customerId={activeCustomerId}
                 tableName="volumes"
                 readOnly={isReadOnly}
+                selectCheckboxDisabled={projectFilter !== 'current'}
 
                 // Column Configuration
                 columns={columns}

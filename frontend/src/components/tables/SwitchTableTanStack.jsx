@@ -9,7 +9,6 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // TanStack Table implementation for Switch management
@@ -150,13 +149,14 @@ const SwitchTableTanStack = () => {
     };
 
     // Load columns from centralized configuration
+    // _selected column is always included for consistent layout
     const columns = useMemo(() => {
-        return getTableColumns('switch', projectFilter === 'current');
-    }, [projectFilter]);
+        return getTableColumns('switch');
+    }, []);
 
     const colHeaders = useMemo(() => {
-        return getColumnHeaders('switch', projectFilter === 'current');
-    }, [projectFilter]);
+        return getColumnHeaders('switch');
+    }, []);
 
     const defaultSort = getDefaultSort('switch');
 
@@ -185,8 +185,8 @@ const SwitchTableTanStack = () => {
     };
 
     // Custom renderers for WWNN formatting and project columns
+    // Note: project_action is now shown via colored row borders, not a column
     const customRenderers = {
-        project_action: projectStatusRenderer,
         wwnn: (rowData, td, row, col, prop, value) => {
             if (value && isValidWWNNFormat(value)) {
                 return formatWWNN(value);
@@ -473,6 +473,7 @@ const SwitchTableTanStack = () => {
                 height="calc(100vh - 280px)"
                 storageKey={`switch-table-${customerId || 'default'}-${projectFilter}`}
                 readOnly={isReadOnly}
+                selectCheckboxDisabled={projectFilter !== 'current'}
 
                 // Event Handlers
                 onSave={(result) => {

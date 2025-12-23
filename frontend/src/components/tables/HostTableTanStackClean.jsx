@@ -10,7 +10,6 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Host management
@@ -126,9 +125,10 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [projectFilter, activeProjectId]);
 
     // Load columns from centralized configuration
+    // _selected column is always included for consistent layout
     const allColumns = useMemo(() => {
-        return getTableColumns('host', projectFilter === 'current');
-    }, [projectFilter]);
+        return getTableColumns('host');
+    }, []);
 
     // Filter columns based on hideColumns prop
     const columns = allColumns.filter(col => !hideColumns.includes(col.data));
@@ -233,8 +233,8 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }), [storageOptions]);
 
     // Custom renderers for special formatting
+    // Note: project_action is now shown via colored row borders, not a column
     const customRenderers = useMemo(() => ({
-        project_action: projectStatusRenderer,
         imported: (rowData, td, row, col, prop, value) => {
             return value ? new Date(value).toLocaleString() : "";
         },
@@ -356,6 +356,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 height="calc(100vh - 200px)"
                 storageKey={`host-table-${storageId || activeCustomerId || 'default'}-${projectFilter}`}
                 readOnly={isReadOnly}
+                selectCheckboxDisabled={projectFilter !== 'current'}
 
                 // Event Handlers
                 onSave={(result) => {

@@ -11,7 +11,6 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort } from "../../utils/tableConfigLoader";
 import "../../styles/zone-table.css";
 import { Form } from "react-bootstrap";
@@ -309,26 +308,28 @@ const ZoneTableTanStackClean = () => {
 
     // Base zone columns (main columns before member columns) - loaded from centralized configuration
     // Zone table has complex structure: base columns + dynamic member columns + trailing columns
+    // _selected column is always included for consistent layout
     const baseColumns = useMemo(() => {
-        // Get columns from config - this includes selection, name, project_action, and initial fields
-        const configColumns = getTableColumns('zone', projectFilter === 'current');
+        // Get columns from config - this includes selection, name, and initial fields
+        const configColumns = getTableColumns('zone');
 
-        // Filter to only get initial columns (name, fabric, zone_type)
+        // Filter to only get initial columns (_selected, name, fabric, zone_type)
         // The rest (committed, deployed, etc.) will be trailing columns
+        // Note: project_action is now shown via row borders, not a column
         return configColumns.filter(col =>
-            ['_selected', 'name', 'project_action', 'fabric', 'zone_type'].includes(col.data)
+            ['_selected', 'name', 'fabric', 'zone_type'].includes(col.data)
         );
-    }, [projectFilter]);
+    }, []);
 
     // Trailing columns (appear after member columns) - from config
     const trailingColumns = useMemo(() => {
-        const configColumns = getTableColumns('zone', projectFilter === 'current');
+        const configColumns = getTableColumns('zone');
 
         // Get the trailing columns (everything after zone_type)
         return configColumns.filter(col =>
             ['committed', 'deployed', 'exists', 'member_count', 'imported', 'updated', 'notes'].includes(col.data)
         );
-    }, [projectFilter]);
+    }, []);
 
     // Generate dynamic member columns organized by use type
     const memberColumns = useMemo(() => {
@@ -762,10 +763,9 @@ const ZoneTableTanStackClean = () => {
     }, [aliasOptions, settings]);
 
     // Custom renderers for member dropdowns
+    // Note: project_action is now shown via colored row borders, not a column
     const customRenderers = useMemo(() => {
-        const renderers = {
-            project_action: projectStatusRenderer
-        };
+        const renderers = {};
 
         // Get all member column keys for all types
         const allMemberColumns = [
@@ -1780,6 +1780,7 @@ const ZoneTableTanStackClean = () => {
                 height="calc(100vh - 200px)"
                 storageKey={`zone-table-${activeProjectId || 'default'}-bytype`}
                 readOnly={isReadOnly}
+                selectCheckboxDisabled={projectFilter !== 'current'}
 
                 // Event Handlers
                 onSave={(result) => {

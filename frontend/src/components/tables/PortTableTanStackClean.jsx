@@ -10,7 +10,6 @@ import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
-import { projectStatusRenderer } from "../../utils/projectStatusRenderer";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 
 // Clean TanStack Table implementation for Port management
@@ -248,9 +247,10 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, []);
 
     // Load columns from centralized configuration
+    // _selected column is always included for consistent layout
     const allColumns = useMemo(() => {
-        return getTableColumns('port', projectFilter === 'current');
-    }, [projectFilter]);
+        return getTableColumns('port');
+    }, []);
 
     // Filter columns based on hideColumns prop
     const columns = allColumns.filter(col => !hideColumns.includes(col.data));
@@ -358,8 +358,8 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [columns, storageOptions, aliasOptions, activeProjectId, getSpeedOptions, getProtocolOptions]);
 
     // Custom renderers
+    // Note: project_action is now shown via colored row borders, not a column
     const customRenderers = useMemo(() => ({
-        project_action: projectStatusRenderer,
         name: (rowData, td, row, col, prop, value) => {
             return value || "";
         },
@@ -585,6 +585,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 customerId={activeCustomerId}
                 tableName="ports"
                 readOnly={isReadOnly}
+                selectCheckboxDisabled={projectFilter !== 'current'}
 
                 // Column Configuration
                 columns={columns}
