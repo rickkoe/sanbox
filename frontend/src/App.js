@@ -215,8 +215,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/insights" element={<InsightsPage />} />
                     <Route path="/san/aliases" element={<AliasTable />} />
                     <Route path="/san/zones" element={<ZoneTable />} />
-                    <Route path="/storage" element={<StorageLandingPage />} />
-                    <Route path="/storage/systems" element={<StorageTable />} />
+                    <Route path="/storage" element={<StorageTable />} />
                     <Route path="/storage/hosts" element={<HostTable />} />
                     <Route path="/storage/ports" element={<PortTable />} />
                     <Route path="/storage/volumes" element={<AllVolumesPage />} />

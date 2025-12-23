@@ -38,7 +38,7 @@ const getSidebarLinks = (pathname) => {
         icon: Menu,
         storageId: storageIdMatch[1],
         showBackButton: true,
-        backPath: "/storage/systems",
+        backPath: "/storage",
         showHeaderInNav: true, // Show the dynamic header at the top of nav links
         links: [
           {
@@ -111,7 +111,7 @@ const getSidebarLinks = (pathname) => {
         icon: HardDrive,
         expandable: true,
         subLinks: [
-          { path: "/storage/systems", label: "Systems", icon: Server },
+          { path: "/storage", label: "Systems", icon: Server },
           { path: "/storage/volumes", label: "Volumes", icon: Archive },
           { path: "/storage/hosts", label: "Hosts", icon: Monitor },
           { path: "/storage/ports", label: "Ports", icon: Cable },
