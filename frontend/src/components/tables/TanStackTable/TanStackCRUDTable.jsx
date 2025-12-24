@@ -140,6 +140,7 @@ const TanStackCRUDTable = forwardRef(({
   const lastSortRef = useRef(null); // Track last applied sort to prevent re-sorting on data changes
   const processedColumnsRef = useRef(null); // Track which column set we've processed for auto-sizing
   const initialLoadCompleteRef = useRef(false); // Track when initial data load completes (even if empty)
+  const [initialSizingComplete, setInitialSizingComplete] = useState(false); // Prevents column width "flash" on load
   const [frozenSortOrder, setFrozenSortOrder] = useState(null); // Captures sorted order to prevent auto-resorting
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
@@ -1137,6 +1138,7 @@ const TanStackCRUDTable = forwardRef(({
     });
 
     setColumnSizing(newSizing);
+    setInitialSizingComplete(true); // Mark sizing complete to reveal table
 
     // Save to database
     if (Object.keys(newSizing).length > 0) {
@@ -1164,6 +1166,10 @@ const TanStackCRUDTable = forwardRef(({
 
     // Skip if we've already processed this exact column set
     if (processedColumnsRef.current === columnKey && missingColumns.length === 0) {
+      // Already have all column widths - mark sizing complete
+      if (!initialSizingComplete) {
+        setInitialSizingComplete(true);
+      }
       return;
     }
 
@@ -1240,14 +1246,20 @@ const TanStackCRUDTable = forwardRef(({
         });
 
         setColumnSizing(newSizing);
+        setInitialSizingComplete(true); // Mark sizing complete to reveal table
 
         // Save updated widths
         if (Object.keys(newSizing).length > 0) {
           saveTableConfig({ column_widths: newSizing });
         }
       }, 100);
+    } else {
+      // All column widths already exist from saved config - mark sizing complete immediately
+      console.log(`[${tableName}] Using saved column widths - no auto-sizing needed`);
+      processedColumnsRef.current = columnKey;
+      setInitialSizingComplete(true);
     }
-  }, [editableData, tableName, customerId, columnSizing, isLoading, autoSizeColumns, columns, colHeaders, dropdownSources, saveTableConfig]);
+  }, [editableData, tableName, customerId, columnSizing, isLoading, autoSizeColumns, columns, colHeaders, dropdownSources, saveTableConfig, initialSizingComplete]);
 
   // Handle resize events
   useEffect(() => {
@@ -4563,7 +4575,9 @@ const TanStackCRUDTable = forwardRef(({
           userSelect: 'none',
           WebkitUserSelect: 'none',
           MozUserSelect: 'none',
-          msUserSelect: 'none'
+          msUserSelect: 'none',
+          opacity: initialSizingComplete ? 1 : 0,
+          transition: 'opacity 0.15s ease-in'
         }}>
           <thead>
             {table.getHeaderGroups().map(headerGroup => (
