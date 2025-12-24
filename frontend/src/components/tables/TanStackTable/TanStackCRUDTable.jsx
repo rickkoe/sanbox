@@ -139,6 +139,7 @@ const TanStackCRUDTable = forwardRef(({
   });
   const lastSortRef = useRef(null); // Track last applied sort to prevent re-sorting on data changes
   const processedColumnsRef = useRef(null); // Track which column set we've processed for auto-sizing
+  const initialLoadCompleteRef = useRef(false); // Track when initial data load completes (even if empty)
   const [frozenSortOrder, setFrozenSortOrder] = useState(null); // Captures sorted order to prevent auto-resorting
   const [columnFilters, setColumnFilters] = useState([]);
   const [columnSizing, setColumnSizing] = useState({});
@@ -664,6 +665,7 @@ const TanStackCRUDTable = forwardRef(({
       return 0; // Return 0 on error
     } finally {
       setIsLoading(false);
+      initialLoadCompleteRef.current = true; // Mark initial load complete (even if empty)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildApiUrl, currentPage, pageSize, globalFilter, activeFilters, useServerSideFiltering]);
@@ -942,6 +944,14 @@ const TanStackCRUDTable = forwardRef(({
     }
   }, [loadData, loadAllDataForFiltering, apiUrl, configLoaded, tableName, customerId, reloadTrigger]);
 
+  // For tables without an apiUrl (using passed-in data), mark initial load as complete
+  // This ensures auto-sizing works for static/prop-based tables too
+  useEffect(() => {
+    if (!apiUrl && columns.length > 0 && configLoaded) {
+      initialLoadCompleteRef.current = true;
+    }
+  }, [apiUrl, columns.length, configLoaded]);
+
   // Reset to page 1 when search filter changes
   useEffect(() => {
     if (currentPage !== 1) {
@@ -1135,102 +1145,107 @@ const TanStackCRUDTable = forwardRef(({
   }, [columns, colHeaders, currentTableData, dropdownSources, saveTableConfig]);
 
   // Auto-size columns on first load if no saved configuration exists, or if some columns are missing widths
+  // This also handles empty tables - columns are sized based on headers and dropdown options
   useEffect(() => {
-    if (editableData.length > 0 && // Data has loaded
-        tableName && customerId && // Required for persistence
-        !isLoading) { // Not currently loading
+    // Wait for initial load to complete (even if table is empty) and required config
+    if (!initialLoadCompleteRef.current || // Initial data load not complete yet
+        !tableName || !customerId || // Required for persistence
+        isLoading || // Currently loading
+        columns.length === 0) { // No columns defined yet
+      return;
+    }
 
-      // Get all current column IDs
-      const currentColumnIds = columns.map(col => col.data || col.accessorKey).filter(Boolean);
-      const columnKey = currentColumnIds.sort().join(',');
+    // Get all current column IDs
+    const currentColumnIds = columns.map(col => col.data || col.accessorKey).filter(Boolean);
+    const columnKey = currentColumnIds.sort().join(',');
 
-      // Check if any columns are missing widths (handles switching from Customer View to Project View)
-      const missingColumns = currentColumnIds.filter(colId => !columnSizing[colId]);
+    // Check if any columns are missing widths (handles switching from Customer View to Project View)
+    const missingColumns = currentColumnIds.filter(colId => !columnSizing[colId]);
 
-      // Skip if we've already processed this exact column set
-      if (processedColumnsRef.current === columnKey && missingColumns.length === 0) {
-        return;
-      }
+    // Skip if we've already processed this exact column set
+    if (processedColumnsRef.current === columnKey && missingColumns.length === 0) {
+      return;
+    }
 
-      console.log(`[${tableName}] Auto-size check:`, {
-        columnCount: currentColumnIds.length,
-        savedWidths: Object.keys(columnSizing).length,
-        missingColumns: missingColumns
-      });
+    console.log(`[${tableName}] Auto-size check:`, {
+      columnCount: currentColumnIds.length,
+      savedWidths: Object.keys(columnSizing).length,
+      missingColumns: missingColumns,
+      dataRows: editableData.length
+    });
 
-      if (Object.keys(columnSizing).length === 0) {
-        // No existing column sizes - auto-size all columns
-        console.log(`[${tableName}] Auto-sizing ALL columns`);
-        processedColumnsRef.current = columnKey;
-        setTimeout(() => {
-          autoSizeColumns();
-        }, 100);
-      } else if (missingColumns.length > 0) {
-        // Some columns are missing widths - auto-size only missing columns and merge
-        console.log(`[${tableName}] Auto-sizing MISSING columns:`, missingColumns);
-        processedColumnsRef.current = columnKey;
-        setTimeout(() => {
-          // Calculate widths for missing columns only
-          const newSizing = { ...columnSizing };
+    if (Object.keys(columnSizing).length === 0) {
+      // No existing column sizes - auto-size all columns
+      console.log(`[${tableName}] Auto-sizing ALL columns (empty table: ${editableData.length === 0})`);
+      processedColumnsRef.current = columnKey;
+      setTimeout(() => {
+        autoSizeColumns();
+      }, 100);
+    } else if (missingColumns.length > 0) {
+      // Some columns are missing widths - auto-size only missing columns and merge
+      console.log(`[${tableName}] Auto-sizing MISSING columns:`, missingColumns);
+      processedColumnsRef.current = columnKey;
+      setTimeout(() => {
+        // Calculate widths for missing columns only
+        const newSizing = { ...columnSizing };
 
-          // Helper function to get nested value
-          const getNestedValue = (obj, path) => {
-            if (!path) return undefined;
-            return path.split('.').reduce((current, prop) => current?.[prop], obj);
-          };
+        // Helper function to get nested value
+        const getNestedValue = (obj, path) => {
+          if (!path) return undefined;
+          return path.split('.').reduce((current, prop) => current?.[prop], obj);
+        };
 
-          missingColumns.forEach(accessorKey => {
-            const columnIndex = columns.findIndex(col => (col.data || col.accessorKey) === accessorKey);
-            if (columnIndex === -1) return;
+        missingColumns.forEach(accessorKey => {
+          const columnIndex = columns.findIndex(col => (col.data || col.accessorKey) === accessorKey);
+          if (columnIndex === -1) return;
 
-            const column = columns[columnIndex];
-            const headerName = colHeaders[columnIndex] || column.header || column.data || `Column ${columnIndex + 1}`;
+          const column = columns[columnIndex];
+          const headerName = colHeaders[columnIndex] || column.header || column.data || `Column ${columnIndex + 1}`;
 
-            // Calculate width based on header
-            const hasCustomHeader = column.customHeader;
-            const customHeaderPadding = hasCustomHeader ? 40 : 0;
-            const headerText = typeof headerName === 'string' ? headerName : column.title || column.data || `Column ${columnIndex + 1}`;
-            const headerWidth = Math.max(120, headerText.length * 10 + 60 + customHeaderPadding);
+          // Calculate width based on header
+          const hasCustomHeader = column.customHeader;
+          const customHeaderPadding = hasCustomHeader ? 40 : 0;
+          const headerText = typeof headerName === 'string' ? headerName : column.title || column.data || `Column ${columnIndex + 1}`;
+          const headerWidth = Math.max(120, headerText.length * 10 + 60 + customHeaderPadding);
 
-            let maxContentWidth = headerWidth;
+          let maxContentWidth = headerWidth;
 
-            // For dropdown columns, consider options
-            if (column.type === 'dropdown' && dropdownSources && dropdownSources[accessorKey]) {
-              const dropdownOptions = dropdownSources[accessorKey] || [];
-              dropdownOptions.forEach(option => {
-                if (option) {
-                  const optionWidth = String(option).length * 10 + 80;
-                  maxContentWidth = Math.max(maxContentWidth, optionWidth);
-                }
-              });
-            }
+          // For dropdown columns, consider options
+          if (column.type === 'dropdown' && dropdownSources && dropdownSources[accessorKey]) {
+            const dropdownOptions = dropdownSources[accessorKey] || [];
+            dropdownOptions.forEach(option => {
+              if (option) {
+                const optionWidth = String(option).length * 10 + 80;
+                maxContentWidth = Math.max(maxContentWidth, optionWidth);
+              }
+            });
+          }
 
-            // Sample content for width calculation
-            if (editableData && editableData.length > 0) {
-              const sampleSize = Math.min(100, editableData.length);
-              for (let i = 0; i < sampleSize; i++) {
-                const cellValue = getNestedValue(editableData[i], accessorKey);
-                if (cellValue) {
-                  const extraPadding = column.type === 'dropdown' ? 80 : 40;
-                  const cellWidth = String(cellValue).length * 10 + extraPadding;
-                  maxContentWidth = Math.max(maxContentWidth, cellWidth);
-                }
+          // Sample content for width calculation (if table has data)
+          if (editableData && editableData.length > 0) {
+            const sampleSize = Math.min(100, editableData.length);
+            for (let i = 0; i < sampleSize; i++) {
+              const cellValue = getNestedValue(editableData[i], accessorKey);
+              if (cellValue) {
+                const extraPadding = column.type === 'dropdown' ? 80 : 40;
+                const cellWidth = String(cellValue).length * 10 + extraPadding;
+                maxContentWidth = Math.max(maxContentWidth, cellWidth);
               }
             }
-
-            // Set reasonable limits
-            const finalWidth = Math.min(Math.max(maxContentWidth, 80), column.type === 'dropdown' ? 350 : 400);
-            newSizing[accessorKey] = finalWidth;
-          });
-
-          setColumnSizing(newSizing);
-
-          // Save updated widths
-          if (Object.keys(newSizing).length > 0) {
-            saveTableConfig({ column_widths: newSizing });
           }
-        }, 100);
-      }
+
+          // Set reasonable limits
+          const finalWidth = Math.min(Math.max(maxContentWidth, 80), column.type === 'dropdown' ? 350 : 400);
+          newSizing[accessorKey] = finalWidth;
+        });
+
+        setColumnSizing(newSizing);
+
+        // Save updated widths
+        if (Object.keys(newSizing).length > 0) {
+          saveTableConfig({ column_widths: newSizing });
+        }
+      }, 100);
     }
   }, [editableData, tableName, customerId, columnSizing, isLoading, autoSizeColumns, columns, colHeaders, dropdownSources, saveTableConfig]);
 
