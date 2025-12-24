@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { Dropdown } from 'react-bootstrap';
-import { MoreVertical, GitCommit, ListChecks, Trash2 } from 'lucide-react';
+import { ChevronDown, GitCommit, ListChecks, Trash2 } from 'lucide-react';
 import { ConfigContext } from '../../context/ConfigContext';
 import { useProjectFilter } from '../../context/ProjectFilterContext';
 import CommitProjectModal from '../modals/CommitProjectModal';
@@ -10,10 +10,11 @@ import BulkEntitySelectorModal from '../modals/BulkEntitySelectorModal';
 /**
  * ProjectOptionsDropdown Component
  *
- * Dropdown menu for project-level actions.
+ * Labeled dropdown menu for project-level actions.
  * Contains:
- * - Commit Project: Opens the commit modal to push changes to Committed
+ * - Commit Changes: Opens the commit modal to push changes to Committed
  * - Bulk Add/Remove: Opens modal to bulk manage entity membership
+ * - Discard Changes: Opens modal to discard uncommitted changes
  *
  * Disabled when:
  * - No active project selected, OR
@@ -51,71 +52,36 @@ const ProjectOptionsDropdown = () => {
         if (!isDraftMode) {
             return 'Switch to Draft mode to access project options';
         }
-        return 'Project options';
+        return 'Project actions';
     };
 
     return (
         <>
-            <Dropdown>
+            <Dropdown className="project-actions-dropdown">
                 <Dropdown.Toggle
                     variant="outline-secondary"
                     size="sm"
                     disabled={isDisabled}
                     title={getTooltip()}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '6px 8px',
-                        backgroundColor: 'var(--dropdown-bg)',
-                        color: isDisabled ? 'var(--color-fg-muted)' : 'var(--dropdown-text)',
-                        border: '1px solid var(--border-color)',
-                        opacity: isDisabled ? 0.5 : 1,
-                        cursor: isDisabled ? 'not-allowed' : 'pointer'
-                    }}
+                    className="project-actions-toggle"
                 >
-                    <MoreVertical size={18} />
+                    <span>Actions</span>
+                    <ChevronDown size={14} />
                 </Dropdown.Toggle>
 
-                <Dropdown.Menu
-                    style={{
-                        backgroundColor: 'var(--dropdown-bg)',
-                        border: '1px solid var(--border-color)'
-                    }}
-                >
-                    <Dropdown.Item
-                        onClick={handleCommitClick}
-                        style={{
-                            color: 'var(--dropdown-text)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                    >
+                <Dropdown.Menu className="project-actions-menu">
+                    <Dropdown.Item onClick={handleCommitClick}>
                         <GitCommit size={16} />
                         Commit Changes
                     </Dropdown.Item>
-                    <Dropdown.Item
-                        onClick={() => setShowBulkModal(true)}
-                        style={{
-                            color: 'var(--dropdown-text)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                    >
+                    <Dropdown.Item onClick={() => setShowBulkModal(true)}>
                         <ListChecks size={16} />
                         Bulk Add/Remove
                     </Dropdown.Item>
-                    <Dropdown.Divider style={{ borderColor: 'var(--border-color)' }} />
+                    <Dropdown.Divider />
                     <Dropdown.Item
                         onClick={() => setShowDiscardModal(true)}
-                        style={{
-                            color: 'var(--color-danger-fg)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
+                        className="text-danger"
                     >
                         <Trash2 size={16} />
                         Discard Changes

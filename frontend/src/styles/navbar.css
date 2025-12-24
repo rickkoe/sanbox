@@ -957,3 +957,59 @@ nav.navbar.theme-dark .dropdown-menu a.active * {
   padding: 6px 12px;
   font-size: 13px;
 }
+
+/* ========== PROJECT ACTIONS DROPDOWN ========== */
+/* Labeled dropdown for project actions (Commit, Bulk, Discard) */
+
+.project-actions-dropdown .project-actions-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  background-color: var(--dropdown-bg);
+  color: var(--dropdown-text);
+  border: 1px solid var(--border-color);
+}
+
+.project-actions-dropdown .project-actions-toggle:hover:not(:disabled) {
+  background-color: var(--color-accent-subtle);
+}
+
+.project-actions-dropdown .project-actions-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Hide Bootstrap's default caret since we use ChevronDown icon */
+.project-actions-dropdown .project-actions-toggle::after {
+  display: none;
+}
+
+.project-actions-menu {
+  background-color: var(--dropdown-bg);
+  border: 1px solid var(--border-color);
+  min-width: 180px;
+}
+
+.project-actions-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--dropdown-text);
+}
+
+.project-actions-menu .dropdown-item:hover {
+  background-color: var(--color-accent-subtle);
+}
+
+.project-actions-menu .dropdown-item.text-danger {
+  color: var(--color-danger-fg);
+}
+
+.project-actions-menu .dropdown-divider {
+  border-color: var(--border-color);
+}
