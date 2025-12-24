@@ -4818,23 +4818,23 @@ const TanStackCRUDTable = forwardRef(({
       {/* Pagination Footer */}
       <PaginationFooter />
 
-      {/* Loading Overlay */}
-      {isLoading && (
+      {/* Loading Overlay - show while loading OR while waiting for column sizing to complete */}
+      {(isLoading || !initialSizingComplete) && (
         <div style={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          backgroundColor: 'var(--table-bg)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
         }}>
-          <div style={{ textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', color: 'var(--text-color)' }}>
             <div style={{ fontSize: '24px', marginBottom: '8px' }}>⏳</div>
-            <div>Loading...</div>
+            <div>{isLoading ? 'Loading...' : 'Preparing table...'}</div>
           </div>
         </div>
       )}
