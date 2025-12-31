@@ -178,7 +178,8 @@ const MapVolumesToHostModal = ({
                 name: newEntityName,
                 storage: storageId,
                 hosts: newEntityHosts,
-                notes: ''
+                notes: '',
+                project_id: activeProjectId
             });
 
             // Select the newly created entity

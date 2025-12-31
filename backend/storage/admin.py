@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Storage, Host, Volume, HostWwpn, Port, Pool
+from .models import Storage, Host, Volume, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping
 from core.dashboard_views import clear_dashboard_cache_for_customer
 
 
@@ -196,3 +196,150 @@ class PortAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         })
     )
+
+
+@admin.register(HostCluster)
+class HostClusterAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "storage",
+        "host_count",
+        "volume_count",
+        "committed",
+        "deployed",
+        "created_at",
+    )
+    search_fields = ("name", "storage__name", "notes")
+    list_filter = ("storage", "committed", "deployed")
+    raw_id_fields = ("storage", "created_by_project", "last_modified_by")
+    filter_horizontal = ("hosts",)
+    readonly_fields = ("created_at", "updated_at", "last_modified_at")
+
+    fieldsets = (
+        ("Basic Information", {
+            'fields': ('name', 'storage', 'notes')
+        }),
+        ("Hosts", {
+            'fields': ('hosts',),
+            'description': 'All hosts in this cluster will share the same volumes'
+        }),
+        ("Lifecycle Tracking", {
+            'fields': ('committed', 'deployed', 'created_by_project')
+        }),
+        ("Audit Information", {
+            'fields': ('last_modified_by', 'last_modified_at', 'version', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def host_count(self, obj):
+        return obj.host_count
+    host_count.short_description = "Hosts"
+
+    def volume_count(self, obj):
+        return obj.volume_count
+    volume_count.short_description = "Volumes"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('storage', 'storage__customer').prefetch_related('hosts')
+
+
+@admin.register(IBMiLPAR)
+class IBMiLPARAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "storage",
+        "host_count",
+        "volume_count",
+        "committed",
+        "deployed",
+        "created_at",
+    )
+    search_fields = ("name", "storage__name", "notes")
+    list_filter = ("storage", "committed", "deployed")
+    raw_id_fields = ("storage", "created_by_project", "last_modified_by")
+    filter_horizontal = ("hosts",)
+    readonly_fields = ("created_at", "updated_at", "last_modified_at")
+
+    fieldsets = (
+        ("Basic Information", {
+            'fields': ('name', 'storage', 'notes')
+        }),
+        ("Hosts", {
+            'fields': ('hosts',),
+            'description': 'Volumes will be distributed evenly across these hosts (LSS-aware for DS8000)'
+        }),
+        ("Lifecycle Tracking", {
+            'fields': ('committed', 'deployed', 'created_by_project')
+        }),
+        ("Audit Information", {
+            'fields': ('last_modified_by', 'last_modified_at', 'version', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def host_count(self, obj):
+        return obj.host_count
+    host_count.short_description = "Hosts"
+
+    def volume_count(self, obj):
+        return obj.volume_count
+    volume_count.short_description = "Volumes"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('storage', 'storage__customer').prefetch_related('hosts')
+
+
+@admin.register(VolumeMapping)
+class VolumeMappingAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "volume",
+        "target_type",
+        "target_name",
+        "assigned_host",
+        "lun_id",
+        "committed",
+        "deployed",
+        "created_at",
+    )
+    search_fields = ("volume__name", "volume__volume_id", "target_host__name", "target_cluster__name", "target_lpar__name")
+    list_filter = ("target_type", "committed", "deployed", "volume__storage")
+    raw_id_fields = ("volume", "target_host", "target_cluster", "target_lpar", "assigned_host", "created_by_project", "last_modified_by")
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        ("Volume", {
+            'fields': ('volume',)
+        }),
+        ("Target", {
+            'fields': ('target_type', 'target_host', 'target_cluster', 'target_lpar'),
+            'description': 'Set only ONE target based on target_type'
+        }),
+        ("LPAR Assignment", {
+            'fields': ('assigned_host',),
+            'description': 'For LPAR targets: the specific host this volume was assigned to',
+            'classes': ('collapse',)
+        }),
+        ("Configuration", {
+            'fields': ('lun_id',)
+        }),
+        ("Lifecycle Tracking", {
+            'fields': ('committed', 'deployed', 'created_by_project')
+        }),
+        ("Audit Information", {
+            'fields': ('last_modified_by', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def target_name(self, obj):
+        return obj.get_target_name()
+    target_name.short_description = "Target"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'volume', 'volume__storage',
+            'target_host', 'target_cluster', 'target_lpar',
+            'assigned_host'
+        )

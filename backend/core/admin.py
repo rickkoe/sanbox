@@ -5,7 +5,8 @@ from .models import (
     DashboardPreset, DashboardTheme, DashboardWidget, WidgetDataSource, WidgetType,
     UserConfig, EquipmentType, WorksheetTemplate,
     ProjectFabric, ProjectSwitch, ProjectAlias, ProjectZone,
-    ProjectStorage, ProjectHost, ProjectVolume, ProjectPool, ProjectPort
+    ProjectStorage, ProjectHost, ProjectVolume, ProjectPool, ProjectPort,
+    ProjectHostCluster, ProjectIBMiLPAR, ProjectVolumeMapping
 )
 
 @admin.register(Project)
@@ -567,3 +568,45 @@ class ProjectPortAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('project', 'port', 'port__storage', 'added_by')
+
+
+@admin.register(ProjectHostCluster)
+class ProjectHostClusterAdmin(admin.ModelAdmin):
+    list_display = ("project", "host_cluster", "action", "delete_me", "added_by", "added_at")
+    list_filter = ("action", "delete_me", "project", "host_cluster__storage__customer", "added_at")
+    search_fields = ("project__name", "host_cluster__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "host_cluster", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'project', 'host_cluster', 'host_cluster__storage', 'host_cluster__storage__customer', 'added_by'
+        )
+
+
+@admin.register(ProjectIBMiLPAR)
+class ProjectIBMiLPARAdmin(admin.ModelAdmin):
+    list_display = ("project", "ibmi_lpar", "action", "delete_me", "added_by", "added_at")
+    list_filter = ("action", "delete_me", "project", "ibmi_lpar__storage__customer", "added_at")
+    search_fields = ("project__name", "ibmi_lpar__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "ibmi_lpar", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'project', 'ibmi_lpar', 'ibmi_lpar__storage', 'ibmi_lpar__storage__customer', 'added_by'
+        )
+
+
+@admin.register(ProjectVolumeMapping)
+class ProjectVolumeMappingAdmin(admin.ModelAdmin):
+    list_display = ("project", "volume_mapping", "action", "delete_me", "added_by", "added_at")
+    list_filter = ("action", "delete_me", "project", "volume_mapping__volume__storage__customer", "added_at")
+    search_fields = ("project__name", "volume_mapping__volume__name", "notes")
+    readonly_fields = ("added_at", "updated_at")
+    raw_id_fields = ("project", "volume_mapping", "added_by")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'project', 'volume_mapping', 'volume_mapping__volume', 'volume_mapping__volume__storage', 'added_by'
+        )

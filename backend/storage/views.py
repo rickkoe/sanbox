@@ -4347,11 +4347,20 @@ def host_cluster_list(request, storage_id=None):
             name = data.get('name')
             host_ids = data.get('hosts', [])
             notes = data.get('notes', '')
+            project_id = data.get('project_id') or data.get('active_project_id')
 
             if not storage_id or not name:
                 return JsonResponse({'error': 'storage and name are required'}, status=400)
 
             storage = Storage.objects.get(id=storage_id)
+
+            # Get project if provided (required for proper lifecycle)
+            project = None
+            if project_id:
+                try:
+                    project = Project.objects.get(id=project_id)
+                except Project.DoesNotExist:
+                    return JsonResponse({'error': 'Project not found'}, status=404)
 
             cluster = HostCluster.objects.create(
                 storage=storage,
@@ -4359,6 +4368,7 @@ def host_cluster_list(request, storage_id=None):
                 notes=notes,
                 committed=False,
                 deployed=False,
+                created_by_project=project,
                 last_modified_by=user
             )
 
@@ -4366,6 +4376,15 @@ def host_cluster_list(request, storage_id=None):
             if host_ids:
                 hosts = Host.objects.filter(id__in=host_ids, storage=storage)
                 cluster.hosts.set(hosts)
+
+            # Create project junction table entry if project provided
+            if project:
+                ProjectHostCluster.objects.create(
+                    project=project,
+                    host_cluster=cluster,
+                    action='new',
+                    added_by=user
+                )
 
             serializer = HostClusterSerializer(cluster, context={'request': request})
             return JsonResponse(serializer.data, status=201)
@@ -4476,11 +4495,20 @@ def ibmi_lpar_list(request, storage_id=None):
             name = data.get('name')
             host_ids = data.get('hosts', [])
             notes = data.get('notes', '')
+            project_id = data.get('project_id') or data.get('active_project_id')
 
             if not storage_id or not name:
                 return JsonResponse({'error': 'storage and name are required'}, status=400)
 
             storage = Storage.objects.get(id=storage_id)
+
+            # Get project if provided (required for proper lifecycle)
+            project = None
+            if project_id:
+                try:
+                    project = Project.objects.get(id=project_id)
+                except Project.DoesNotExist:
+                    return JsonResponse({'error': 'Project not found'}, status=404)
 
             lpar = IBMiLPAR.objects.create(
                 storage=storage,
@@ -4488,6 +4516,7 @@ def ibmi_lpar_list(request, storage_id=None):
                 notes=notes,
                 committed=False,
                 deployed=False,
+                created_by_project=project,
                 last_modified_by=user
             )
 
@@ -4495,6 +4524,15 @@ def ibmi_lpar_list(request, storage_id=None):
             if host_ids:
                 hosts = Host.objects.filter(id__in=host_ids, storage=storage)
                 lpar.hosts.set(hosts)
+
+            # Create project junction table entry if project provided
+            if project:
+                ProjectIBMiLPAR.objects.create(
+                    project=project,
+                    ibmi_lpar=lpar,
+                    action='new',
+                    added_by=user
+                )
 
             serializer = IBMiLPARSerializer(lpar, context={'request': request})
             return JsonResponse(serializer.data, status=201)
