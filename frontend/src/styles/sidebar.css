@@ -156,8 +156,7 @@
 /* Navigation Header (for storage system name, etc.) */
 .sidebar-nav-header {
   padding: var(--space-4) var(--space-4) var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--sidebar-border);
-  margin-bottom: var(--space-2);
+  margin-bottom: 0;
 }
 
 .sidebar-nav-header-title {
@@ -196,6 +195,15 @@
 
 .sidebar-menu-item {
   margin-bottom: var(--space-1);
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--sidebar-border);
+  margin: var(--space-2) calc(-1 * var(--space-4));
+  list-style: none;
+  border: none;
+  padding: 0;
 }
 
 .sidebar-link {
@@ -878,6 +886,11 @@
   margin-top: auto !important;
   border-top: 1px solid var(--sidebar-border);
   padding-top: var(--space-3);
+}
+
+/* Don't show border-top if preceded by an explicit divider */
+.sidebar-divider + .sidebar-menu-item {
+  border-top: none;
 }
 
 /* Add some extra spacing above the bottom item when not collapsed */

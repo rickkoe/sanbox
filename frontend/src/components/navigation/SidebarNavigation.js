@@ -188,14 +188,19 @@ const SidebarNavigation = ({ links, isCollapsed, headerTitle }) => {
       <nav className="sidebar-nav">
         {/* Display storage system name at the top if provided */}
         {headerTitle && !isCollapsed && (
-          <div className="sidebar-nav-header">
-            <h3 className="sidebar-nav-header-title">{headerTitle}</h3>
-          </div>
+          <>
+            <div className="sidebar-nav-header">
+              <h3 className="sidebar-nav-header-title">{headerTitle}</h3>
+            </div>
+            <div className="sidebar-divider" />
+          </>
         )}
         <ul className="sidebar-menu">
           {links.map((link, index) => {
             const isLastItem = index === links.length - 1;
-            if (link.expandable) {
+            if (link.divider) {
+              return <li key={`divider-${index}`} className="sidebar-divider" />;
+            } else if (link.expandable) {
               return renderExpandableSection(link, index);
             } else {
               return renderLink(link, link.path, isLastItem);
@@ -277,6 +282,10 @@ SidebarNavigation.propTypes = {
             icon: PropTypes.elementType,
           })
         ).isRequired,
+      }),
+      // Divider
+      PropTypes.shape({
+        divider: PropTypes.bool.isRequired,
       })
     ])
   ).isRequired,

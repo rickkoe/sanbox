@@ -71,6 +71,12 @@ const getSidebarLinks = (pathname) => {
             label: "Ports",
             icon: Cable,
           },
+          { divider: true },
+          {
+            path: "/scripts/storage",
+            label: "Storage Scripts",
+            icon: Terminal,
+          },
         ],
       };
     }
@@ -107,15 +113,9 @@ const getSidebarLinks = (pathname) => {
         ]
       },
       {
-        label: "Storage",
-        icon: HardDrive,
-        expandable: true,
-        subLinks: [
-          { path: "/storage", label: "Systems", icon: Server },
-          { path: "/storage/volumes", label: "Volumes", icon: Archive },
-          { path: "/storage/hosts", label: "Hosts", icon: Monitor },
-          { path: "/storage/ports", label: "Ports", icon: Cable },
-        ]
+        path: "/storage",
+        label: "Storage Systems",
+        icon: HardDrive
       },
       { 
         label: "Scripts", 

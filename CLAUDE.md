@@ -9,6 +9,10 @@ Sanbox is a full-stack application for managing SAN (Storage Area Network) infra
 **Architecture**: React frontend (port 3000) + Django REST API backend (port 8000)
 **Deployment**: Docker containers for development and production
 
+## Terminology
+
+- **Storage Detail** (or "Storage Detail View"): The area when viewing a specific storage system (`/storage/:id/*`) with sub-navigation for Properties, Pools, Volume Ranges, Volumes, Hosts, Ports. Use "Storage Detail sidebar" for the navigation menu, "Storage Detail pages" for the page content.
+
 ## Development Commands (Container-Based)
 
 ### Quick Start
