@@ -58,6 +58,7 @@ const StorageVolumeRangesPage = React.lazy(() => import("./pages/StorageVolumeRa
 const StoragePoolsPage = React.lazy(() => import("./pages/StoragePoolsPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
 const StoragePortsPage = React.lazy(() => import("./pages/StoragePortsPage"));
+const StorageDetailScriptsPage = React.lazy(() => import("./pages/StorageDetailScriptsPage"));
 const AllVolumesPage = React.lazy(() => import("./pages/AllVolumesPage"));
 const PortTable = React.lazy(() => import("./components/tables/PortTableTanStackClean"));
 const HostTable = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
@@ -225,6 +226,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage/:id/pools" element={<StoragePoolsPage />} />
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
                     <Route path="/storage/:id/ports" element={<StoragePortsPage />} />
+                    <Route path="/storage/:id/scripts" element={<StorageDetailScriptsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
                     <Route path="/san/switches" element={<SwitchTable />} />
                     <Route path="/settings" element={<div style={{padding: '2rem'}}><h2>Settings</h2><p>Choose a settings category from the Settings dropdown in the navbar.</p></div>} />

@@ -115,6 +115,18 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             const payload = { ...row };
             delete payload.saved;
 
+            // Convert storage_system name to storage ID (backend expects 'storage' field with ID)
+            if (payload.storage_system && !payload.storage) {
+                const storageSystem = storageOptions.find(s => s.name === payload.storage_system);
+                if (storageSystem) {
+                    payload.storage = storageSystem.id;
+                }
+            }
+            // If storageId prop is provided, use it directly
+            if (storageId && !payload.storage) {
+                payload.storage = storageId;
+            }
+
             // Add active project ID if in Project View (for creating junction table entry)
             if (projectFilter === 'current' && activeProjectId) {
                 payload.active_project_id = activeProjectId;
@@ -122,7 +134,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
             return payload;
         });
-    }, [projectFilter, activeProjectId]);
+    }, [projectFilter, activeProjectId, storageOptions, storageId]);
 
     // Load columns from centralized configuration
     // _selected column is always included for consistent layout

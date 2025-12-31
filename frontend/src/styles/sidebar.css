@@ -200,7 +200,7 @@
 .sidebar-divider {
   height: 1px;
   background: var(--sidebar-border);
-  margin: var(--space-2) calc(-1 * var(--space-4));
+  margin: var(--space-1) calc(-1 * var(--space-4));
   list-style: none;
   border: none;
   padding: 0;
@@ -888,13 +888,21 @@
   padding-top: var(--space-3);
 }
 
-/* Don't show border-top if preceded by an explicit divider */
+/* Don't show border-top or extra padding if preceded by an explicit divider */
 .sidebar-divider + .sidebar-menu-item {
   border-top: none;
+  padding-top: 0;
+  margin-top: 0 !important;
+}
+
+.sidebar-divider + .sidebar-menu-item.sidebar-menu-item-bottom {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0 !important;
 }
 
 /* Add some extra spacing above the bottom item when not collapsed */
-.modern-sidebar:not(.collapsed) .sidebar-menu-item-bottom {
+.modern-sidebar:not(.collapsed) .sidebar-menu-item-bottom:not(.sidebar-divider + *) {
   margin-top: var(--space-4) !important;
 }
 

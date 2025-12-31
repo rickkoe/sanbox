@@ -73,7 +73,7 @@ const getSidebarLinks = (pathname) => {
           },
           { divider: true },
           {
-            path: "/scripts/storage",
+            path: `/storage/${storageIdMatch[1]}/scripts`,
             label: "Storage Scripts",
             icon: Terminal,
           },

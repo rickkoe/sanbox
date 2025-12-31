@@ -23,6 +23,47 @@ TOKEN_CACHE_DIR = os.path.join(settings.BASE_DIR, 'token_cache')
 os.makedirs(TOKEN_CACHE_DIR, exist_ok=True)
 
 
+def sync_host_wwpns_from_legacy(host):
+    """
+    Sync WWPNs from the legacy host.wwpns text field to the HostWwpn table.
+    This ensures both data sources stay in sync when editing hosts via the table.
+    """
+    if not host.wwpns:
+        # If wwpns field is empty, remove all manual WWPNs
+        HostWwpn.objects.filter(host=host, source_type='manual').delete()
+        return
+
+    # Parse the legacy comma-separated wwpns field
+    legacy_wwpns = set()
+    for wwpn in host.wwpns.split(','):
+        clean_wwpn = wwpn.replace(':', '').replace('-', '').strip().upper()
+        if clean_wwpn:
+            legacy_wwpns.add(clean_wwpn)
+
+    # Get existing manual WWPNs
+    existing_manual = set(
+        HostWwpn.objects.filter(host=host, source_type='manual')
+        .values_list('wwpn', flat=True)
+    )
+    # Normalize existing WWPNs for comparison
+    existing_manual_normalized = {w.replace(':', '').replace('-', '').upper() for w in existing_manual}
+
+    # Add new WWPNs that don't exist
+    for wwpn in legacy_wwpns:
+        if wwpn not in existing_manual_normalized:
+            HostWwpn.objects.create(
+                host=host,
+                wwpn=wwpn,
+                source_type='manual'
+            )
+            logger.info(f"Added WWPN {wwpn} to host {host.name}")
+
+    # Remove WWPNs that are no longer in the legacy field
+    for existing_wwpn in existing_manual:
+        normalized = existing_wwpn.replace(':', '').replace('-', '').upper()
+        if normalized not in legacy_wwpns:
+            HostWwpn.objects.filter(host=host, wwpn=existing_wwpn, source_type='manual').delete()
+            logger.info(f"Removed WWPN {existing_wwpn} from host {host.name}")
 
 
 @csrf_exempt
@@ -1250,6 +1291,10 @@ def host_detail(request, pk):
                     update_fields.append('last_modified_by')
                 host_instance.save(update_fields=update_fields)
 
+                # Sync legacy wwpns field to HostWwpn table
+                if 'wwpns' in data:
+                    sync_host_wwpns_from_legacy(host_instance)
+
                 return JsonResponse(serializer.data)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
@@ -1345,6 +1390,50 @@ def mkhost_scripts_project_view(request, project_id):
 
     except Exception as e:
         print(f"❌ Error generating mkhost scripts for project: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def mkhost_scripts_storage_view(request, project_id, storage_id):
+    """Generate mkhost scripts for a specific storage system in a project."""
+    print(f"🔥 MkHost Scripts (Storage) - Project ID: {project_id}, Storage ID: {storage_id}")
+
+    try:
+        from core.models import Project, ProjectStorage
+        from .storage_utils import generate_mkhost_scripts
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Get the specific storage system
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({"error": "Storage system not found"}, status=404)
+
+        # Verify storage is in this project
+        if not ProjectStorage.objects.filter(project=project, storage=storage).exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "Storage system not in this project"
+            })
+
+        # Generate scripts for this single storage system
+        storage_scripts = generate_mkhost_scripts([storage], project=project)
+
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+
+    except Exception as e:
+        print(f"❌ Error generating mkhost scripts for storage: {e}")
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
@@ -3568,6 +3657,91 @@ def volume_dscli_scripts_project_view(request, project_id):
 
     except Exception as e:
         logger.error(f"Error generating volume DSCLI scripts: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def volume_dscli_scripts_storage_view(request, project_id, storage_id):
+    """
+    GET /api/storage/volume-scripts/project/{project_id}/storage/{storage_id}/
+
+    Generate DSCLI commands (mkfbvol/mkckdvol) for a specific DS8000 storage system.
+    Only includes uncommitted volumes (new volumes created in the project).
+    """
+    try:
+        from core.models import Project, ProjectStorage, ProjectVolume
+        from .volume_range_utils import calculate_volume_ranges, generate_dscli_commands
+        from .storage_utils import generate_ds8000_device_id
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Get the specific storage system
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({"error": "Storage system not found"}, status=404)
+
+        # Verify storage is in this project
+        if not ProjectStorage.objects.filter(project=project, storage=storage).exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "Storage system not in this project"
+            })
+
+        # Only DS8000 systems have volume scripts
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "Volume scripts are only available for DS8000 storage systems"
+            })
+
+        storage_scripts = {}
+
+        # Get volumes in this project for this storage that are uncommitted (new)
+        project_volume_ids = ProjectVolume.objects.filter(
+            project=project,
+            volume__storage=storage,
+            volume__committed=False  # Only new/uncommitted volumes
+        ).values_list('volume_id', flat=True)
+
+        if project_volume_ids:
+            # Get the actual volumes
+            volumes = Volume.objects.filter(
+                id__in=project_volume_ids
+            ).select_related('storage', 'pool')
+
+            if volumes.exists():
+                # Calculate ranges for these volumes
+                ranges = calculate_volume_ranges(volumes)
+
+                if ranges:
+                    # Generate DSCLI commands
+                    device_id = generate_ds8000_device_id(storage)
+                    result = generate_dscli_commands(storage, ranges, 'create')
+
+                    storage_scripts[storage.name] = {
+                        'storage_type': storage.storage_type,
+                        'device_id': device_id,
+                        'commands': result['commands'],
+                        'command_count': result['command_count'],
+                        'range_count': len(ranges),
+                        'volume_count': sum(r['volume_count'] for r in ranges),
+                    }
+
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+
+    except Exception as e:
+        logger.error(f"Error generating volume DSCLI scripts for storage: {str(e)}")
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)

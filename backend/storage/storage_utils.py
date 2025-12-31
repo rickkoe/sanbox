@@ -45,11 +45,11 @@ def generate_mkhost_scripts(storage_systems, project=None):
         commands = []
 
         for host in hosts:
-            # Get WWPNs from HostWwpn records
+            # Get WWPNs from HostWwpn records first
             from storage.models import HostWwpn
             host_wwpns = HostWwpn.objects.filter(host=host)
 
-            # Collect WWPNs
+            # Collect WWPNs from HostWwpn table
             wwpn_list = []
             for hw in host_wwpns:
                 if hw.wwpn:
@@ -58,9 +58,20 @@ def generate_mkhost_scripts(storage_systems, project=None):
                     if clean_wwpn and clean_wwpn not in wwpn_list:  # Avoid duplicates
                         wwpn_list.append(clean_wwpn)
 
+            # Fallback to legacy wwpns field if no HostWwpn records
+            if not wwpn_list and host.wwpns:
+                # Parse legacy comma-separated wwpns field
+                legacy_wwpns = host.wwpns.split(',')
+                for wwpn in legacy_wwpns:
+                    clean_wwpn = wwpn.replace(':', '').replace('-', '').strip()
+                    if clean_wwpn and clean_wwpn not in wwpn_list:
+                        wwpn_list.append(clean_wwpn)
+                if wwpn_list:
+                    print(f"ℹ️ Using legacy wwpns field for host {host.name}")
+
             # Skip hosts without WWPNs
             if not wwpn_list:
-                print(f"⚠️ Skipping host {host.name} - no WWPNs found in HostWwpn records")
+                print(f"⚠️ Skipping host {host.name} - no WWPNs found")
                 continue
             
             # Generate command based on storage type
