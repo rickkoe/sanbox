@@ -13,7 +13,7 @@
   min-height: 0;
   flex: 1;
   width: 100%;
-  height: calc(100vh - 124px); /* navbar(50px) + topbar(50px) + toolbar(24px) */
+  /* Let flex handle height instead of fixed calculation */
   background: transparent !important;
   border-radius: 0;
   box-shadow: none;
@@ -353,10 +353,6 @@ button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
 /* ========== RESPONSIVE DESIGN ========== */
 
 @media (max-width: 768px) {
-  .modern-table-container {
-    height: calc(100vh - 100px);
-  }
-
   .pagination-btn {
     padding: 4px 8px;
     min-width: 32px;
@@ -616,7 +612,7 @@ button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
 .table-dropdown-menu {
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 0;
   z-index: 1050;
   display: block;
   min-width: 280px;

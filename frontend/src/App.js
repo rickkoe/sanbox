@@ -59,6 +59,9 @@ const StoragePoolsPage = React.lazy(() => import("./pages/StoragePoolsPage"));
 const StorageHostsPage = React.lazy(() => import("./pages/StorageHostsPage"));
 const StoragePortsPage = React.lazy(() => import("./pages/StoragePortsPage"));
 const StorageDetailScriptsPage = React.lazy(() => import("./pages/StorageDetailScriptsPage"));
+const StorageHostClustersPage = React.lazy(() => import("./pages/StorageHostClustersPage"));
+const StorageIBMiLPARsPage = React.lazy(() => import("./pages/StorageIBMiLPARsPage"));
+const StorageVolumeMappingsPage = React.lazy(() => import("./pages/StorageVolumeMappingsPage"));
 const AllVolumesPage = React.lazy(() => import("./pages/AllVolumesPage"));
 const PortTable = React.lazy(() => import("./components/tables/PortTableTanStackClean"));
 const HostTable = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
@@ -111,7 +114,10 @@ function AppContent() {
                      location.pathname.match(/^\/storage\/\d+\/volumes$/) ||
                      location.pathname.match(/^\/storage\/\d+\/pools$/) ||
                      location.pathname.match(/^\/storage\/\d+\/hosts$/) ||
-                     location.pathname.match(/^\/storage\/\d+\/ports$/);
+                     location.pathname.match(/^\/storage\/\d+\/ports$/) ||
+                     location.pathname.match(/^\/storage\/\d+\/host-clusters$/) ||
+                     location.pathname.match(/^\/storage\/\d+\/ibmi-lpars$/) ||
+                     location.pathname.match(/^\/storage\/\d+\/volume-mappings$/);
 
   // Define routes that should scroll normally (non-table pages)
   const scrollableRoutes = [
@@ -226,6 +232,9 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage/:id/pools" element={<StoragePoolsPage />} />
                     <Route path="/storage/:id/hosts" element={<StorageHostsPage />} />
                     <Route path="/storage/:id/ports" element={<StoragePortsPage />} />
+                    <Route path="/storage/:id/host-clusters" element={<StorageHostClustersPage />} />
+                    <Route path="/storage/:id/ibmi-lpars" element={<StorageIBMiLPARsPage />} />
+                    <Route path="/storage/:id/volume-mappings" element={<StorageVolumeMappingsPage />} />
                     <Route path="/storage/:id/scripts" element={<StorageDetailScriptsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
                     <Route path="/san/switches" element={<SwitchTable />} />

@@ -4440,6 +4440,47 @@ def host_cluster_detail(request, pk):
         return JsonResponse({"message": "Host cluster deleted"})
 
 
+@csrf_exempt
+@require_http_methods(["GET"])
+def host_cluster_project_view(request, project_id):
+    """
+    GET: List host clusters in the project
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    try:
+        # Get clusters that are in this project
+        project_cluster_ids = ProjectHostCluster.objects.filter(
+            project=project
+        ).values_list('host_cluster_id', flat=True)
+
+        clusters = HostCluster.objects.filter(
+            id__in=project_cluster_ids
+        ).select_related('storage', 'created_by_project').prefetch_related(
+            'hosts',
+            Prefetch('project_memberships',
+                     queryset=ProjectHostCluster.objects.select_related('project'))
+        )
+
+        # Optional storage_id filtering
+        storage_id = request.GET.get('storage_id')
+        if storage_id:
+            clusters = clusters.filter(storage_id=storage_id)
+
+        serializer = HostClusterSerializer(
+            clusters, many=True,
+            context={'request': request, 'active_project_id': project_id}
+        )
+        return JsonResponse(serializer.data, safe=False)
+
+    except Exception as e:
+        logger.error(f"Error in host_cluster_project_view GET: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 # ============================================================================
 # IBM i LPAR VIEWS
 # ============================================================================
@@ -4586,6 +4627,47 @@ def ibmi_lpar_detail(request, pk):
     elif request.method == "DELETE":
         lpar.delete()
         return JsonResponse({"message": "IBM i LPAR deleted"})
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def ibmi_lpar_project_view(request, project_id):
+    """
+    GET: List IBM i LPARs in the project
+    """
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    try:
+        # Get LPARs that are in this project
+        project_lpar_ids = ProjectIBMiLPAR.objects.filter(
+            project=project
+        ).values_list('ibmi_lpar_id', flat=True)
+
+        lpars = IBMiLPAR.objects.filter(
+            id__in=project_lpar_ids
+        ).select_related('storage', 'created_by_project').prefetch_related(
+            'hosts',
+            Prefetch('project_memberships',
+                     queryset=ProjectIBMiLPAR.objects.select_related('project'))
+        )
+
+        # Optional storage_id filtering
+        storage_id = request.GET.get('storage_id')
+        if storage_id:
+            lpars = lpars.filter(storage_id=storage_id)
+
+        serializer = IBMiLPARSerializer(
+            lpars, many=True,
+            context={'request': request, 'active_project_id': project_id}
+        )
+        return JsonResponse(serializer.data, safe=False)
+
+    except Exception as e:
+        logger.error(f"Error in ibmi_lpar_project_view GET: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 # ============================================================================

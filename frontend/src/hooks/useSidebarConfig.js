@@ -52,19 +52,48 @@ const getSidebarLinks = (pathname) => {
             icon: Database,
           },
           {
-            path: `/storage/${storageIdMatch[1]}/volume-ranges`,
-            label: "Volume Ranges",
-            icon: Layers,
-          },
-          {
-            path: `/storage/${storageIdMatch[1]}/volumes`,
             label: "Volumes",
             icon: Archive,
+            expandable: true,
+            subLinks: [
+              {
+                path: `/storage/${storageIdMatch[1]}/volumes`,
+                label: "Volumes",
+                icon: Archive,
+              },
+              {
+                path: `/storage/${storageIdMatch[1]}/volume-ranges`,
+                label: "Volume Ranges",
+                icon: Layers,
+              },
+              {
+                path: `/storage/${storageIdMatch[1]}/volume-mappings`,
+                label: "Volume Mappings",
+                icon: GitBranch,
+              },
+            ],
           },
           {
-            path: `/storage/${storageIdMatch[1]}/hosts`,
             label: "Hosts",
             icon: Monitor,
+            expandable: true,
+            subLinks: [
+              {
+                path: `/storage/${storageIdMatch[1]}/hosts`,
+                label: "Hosts",
+                icon: Monitor,
+              },
+              {
+                path: `/storage/${storageIdMatch[1]}/host-clusters`,
+                label: "Host Clusters",
+                icon: Users,
+              },
+              {
+                path: `/storage/${storageIdMatch[1]}/ibmi-lpars`,
+                label: "IBM i LPARs",
+                icon: Layers,
+              },
+            ],
           },
           {
             path: `/storage/${storageIdMatch[1]}/ports`,

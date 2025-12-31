@@ -3703,6 +3703,8 @@ const TanStackCRUDTable = forwardRef(({
   return (
     <div className={`tanstack-crud-table-container theme-${theme}`} style={{
       height,
+      flex: 1,
+      minHeight: 0,
       display: 'flex',
       flexDirection: 'column',
       backgroundColor: 'var(--table-bg)',

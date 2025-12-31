@@ -1030,20 +1030,13 @@ const VolumeRangeTableTanStackClean = ({
     return (
         <div className="modern-table-container">
             {/* Selection Banner from useProjectViewSelection hook */}
-            {BannerSlot}
+            <BannerSlot />
 
             {/* Validation Error Banner */}
             {validationErrorSummary && (
                 <div className="volume-range-validation-banner">
                     <AlertTriangle size={18} className="me-2" />
                     <strong>Validation errors:</strong> {validationErrorSummary}. Fix these issues before saving.
-                </div>
-            )}
-
-            {/* Loading indicator for existing volumes */}
-            {loadingVolumes && (
-                <div className="volume-range-loading-hint">
-                    Loading existing volumes for validation...
                 </div>
             )}
 
@@ -1080,8 +1073,8 @@ const VolumeRangeTableTanStackClean = ({
                 // Custom toolbar content
                 customToolbarContent={customToolbarContent}
 
-                // Table Settings
-                height="calc(100vh - 350px)"
+                // Table Settings - use flex to fill container
+                height="100%"
                 stretchH="all"
                 autoColumnSize={true}
                 manualColumnResize={true}
@@ -1090,7 +1083,7 @@ const VolumeRangeTableTanStackClean = ({
                 // Feature Flags
                 enableFilters={true}
                 enableExport={true}
-                enablePagination={false}
+                enablePagination={true}
             />
 
             {/* Create Range Modal for complex range creation */}

@@ -1277,5 +1277,220 @@
         "width": 100
       }
     ]
+  },
+  "hostcluster": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "Cluster Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 200
+      },
+      {
+        "id": "storage_name",
+        "title": "Storage",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "host_count",
+        "title": "Hosts",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "volume_count",
+        "title": "Volumes",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "hosts_display",
+        "title": "Member Hosts",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 300
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 200
+      },
+      {
+        "id": "committed",
+        "title": "Committed",
+        "type": "checkbox",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "deployed",
+        "title": "Deployed",
+        "type": "checkbox",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 100
+      }
+    ]
+  },
+  "ibmilpar": {
+    "defaultSort": {
+      "column": "name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "name",
+        "title": "LPAR Name",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 200
+      },
+      {
+        "id": "storage_name",
+        "title": "Storage",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "host_count",
+        "title": "Hosts",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "volume_count",
+        "title": "Volumes",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "hosts_display",
+        "title": "Member Hosts",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 300
+      },
+      {
+        "id": "notes",
+        "title": "Notes",
+        "type": "text",
+        "defaultVisible": true,
+        "width": 200
+      },
+      {
+        "id": "committed",
+        "title": "Committed",
+        "type": "checkbox",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "deployed",
+        "title": "Deployed",
+        "type": "checkbox",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 100
+      }
+    ]
+  },
+  "volumemapping": {
+    "defaultSort": {
+      "column": "volume_name",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "volume_name",
+        "title": "Volume Name",
+        "type": "text",
+        "readOnly": true,
+        "required": true,
+        "defaultVisible": true,
+        "width": 180
+      },
+      {
+        "id": "volume_id_hex",
+        "title": "Volume ID",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 100
+      },
+      {
+        "id": "target_type_display",
+        "title": "Target Type",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
+        "id": "target_name",
+        "title": "Target Name",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 180
+      },
+      {
+        "id": "assigned_host_name",
+        "title": "Assigned Host",
+        "type": "text",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 150
+      },
+      {
+        "id": "lun_id",
+        "title": "LUN ID",
+        "type": "numeric",
+        "readOnly": true,
+        "defaultVisible": true,
+        "width": 80
+      },
+      {
+        "id": "committed",
+        "title": "Committed",
+        "type": "checkbox",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 100
+      },
+      {
+        "id": "deployed",
+        "title": "Deployed",
+        "type": "checkbox",
+        "readOnly": true,
+        "defaultVisible": false,
+        "width": 100
+      }
+    ]
   }
 }

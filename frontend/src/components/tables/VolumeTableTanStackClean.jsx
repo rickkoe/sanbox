@@ -548,7 +548,7 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 onClearAllCheckboxes={handleClearSelection}
 
                 // Table Settings
-                height="calc(100vh - 250px)"
+                height="calc(100vh - 200px)"
                 stretchH="all"
                 autoColumnSize={true}
                 manualColumnResize={true}

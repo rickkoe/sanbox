@@ -37,9 +37,11 @@ from .views import (
     # Host Cluster Management
     host_cluster_list,
     host_cluster_detail,
+    host_cluster_project_view,
     # IBM i LPAR Management
     ibmi_lpar_list,
     ibmi_lpar_detail,
+    ibmi_lpar_project_view,
     # Volume Mapping Management
     volume_mapping_list,
     volume_mapping_detail,
@@ -88,10 +90,12 @@ urlpatterns = [
     path("host-clusters/", host_cluster_list, name="host-cluster-list"),
     path("host-clusters/<int:pk>/", host_cluster_detail, name="host-cluster-detail"),
     path("<int:storage_id>/host-clusters/", host_cluster_list, name="storage-host-cluster-list"),
+    path("project/<int:project_id>/view/host-clusters/", host_cluster_project_view, name="host-cluster-project-view"),
     # IBM i LPAR Management
     path("ibmi-lpars/", ibmi_lpar_list, name="ibmi-lpar-list"),
     path("ibmi-lpars/<int:pk>/", ibmi_lpar_detail, name="ibmi-lpar-detail"),
     path("<int:storage_id>/ibmi-lpars/", ibmi_lpar_list, name="storage-ibmi-lpar-list"),
+    path("project/<int:project_id>/view/ibmi-lpars/", ibmi_lpar_project_view, name="ibmi-lpar-project-view"),
     # Volume Mapping Management
     path("volume-mappings/", volume_mapping_list, name="volume-mapping-list"),
     path("volume-mappings/<int:pk>/", volume_mapping_detail, name="volume-mapping-detail"),

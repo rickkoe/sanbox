@@ -1,19 +1,24 @@
 import React, { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom";
+import VolumeMappingTableTanStackClean from "../components/tables/VolumeMappingTableTanStackClean";
 import axios from "axios";
 import { BreadcrumbContext } from "../context/BreadcrumbContext";
 import { ConfigContext } from "../context/ConfigContext";
-import VolumeRangeTableTanStackClean from "../components/tables/VolumeRangeTableTanStackClean";
 
-const StorageVolumeRangesPage = () => {
+/**
+ * StorageVolumeMappingsPage - Displays volume mappings for a specific storage system
+ *
+ * This page wraps the VolumeMappingTableTanStackClean component with a storage filter.
+ *
+ * URL: /storage/:id/volume-mappings
+ */
+const StorageVolumeMappingsPage = () => {
   const { id } = useParams();
   const API_URL = process.env.REACT_APP_API_URL || '';
-  const { setBreadcrumbMap } = useContext(BreadcrumbContext);
   const { config } = useContext(ConfigContext);
-
   const [storage, setStorage] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { setBreadcrumbMap } = useContext(BreadcrumbContext);
 
   const activeCustomerId = config?.customer?.id;
 
@@ -22,22 +27,11 @@ const StorageVolumeRangesPage = () => {
       if (!activeCustomerId) return;
 
       try {
-        setLoading(true);
-        setError(null);
-
         const response = await axios.get(`${API_URL}/api/storage/${id}/`);
         setStorage(response.data);
-        setBreadcrumbMap((prev) => ({ ...prev, [id]: response.data.name }));
-
-        // Verify it's DS8000
-        if (response.data.storage_type !== "DS8000") {
-          setError(
-            `Volume ranges are only available for DS8000 storage systems. This storage is type: ${response.data.storage_type}`
-          );
-        }
-      } catch (err) {
-        console.error("Failed to load storage details:", err);
-        setError(err.response?.data?.error || "Failed to load storage details");
+        setBreadcrumbMap(prev => ({ ...prev, [id]: response.data.name }));
+      } catch (error) {
+        console.error("Failed to fetch storage system:", error);
       } finally {
         setLoading(false);
       }
@@ -50,22 +44,18 @@ const StorageVolumeRangesPage = () => {
     return <div className="container mt-4">Loading storage system...</div>;
   }
 
-  if (error) {
-    return <div className="container mt-4"><div className="alert alert-warning">{error}</div></div>;
-  }
-
   if (!storage) {
     return <div className="container mt-4">Storage system not found.</div>;
   }
 
   return (
     <>
-      <VolumeRangeTableTanStackClean
+      <VolumeMappingTableTanStackClean
         storageId={parseInt(id)}
-        storageName={storage?.name}
+        hideColumns={[]}
       />
     </>
   );
 };
 
-export default StorageVolumeRangesPage;
+export default StorageVolumeMappingsPage;
