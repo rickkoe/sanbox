@@ -10,7 +10,7 @@ import { Server, Layers, Database, ChevronRight, ChevronLeft, Check } from "luci
  * Supports three target types:
  * - Host: Direct mapping to a single host
  * - Host Cluster: All hosts in cluster share all volumes
- * - IBM i LPAR: Volumes distributed evenly across hosts (LSS-aware for DS8000)
+ * - IBM i LPAR: Volumes distributed evenly across hosts (LSS-split for DS8000 - each LSS is split across all hosts)
  */
 const MapVolumesToHostModal = ({
     show,
@@ -395,6 +395,29 @@ const MapVolumesToHostModal = ({
         </div>
     );
 
+    // Format volume ranges for display (e.g., "50: 00-1F, 40-5F")
+    const formatVolumeRanges = (ranges) => {
+        if (!ranges || ranges.length === 0) return '-';
+
+        // Group ranges by LSS
+        const byLss = {};
+        ranges.forEach(r => {
+            if (!byLss[r.lss]) byLss[r.lss] = [];
+            const rangeStr = r.start === r.end ? r.start : `${r.start}-${r.end}`;
+            byLss[r.lss].push(rangeStr);
+        });
+
+        // Format as "LSS: ranges" for each LSS
+        return Object.keys(byLss).sort().map(lss => {
+            const rangeStrs = byLss[lss];
+            // If too many ranges, summarize
+            if (rangeStrs.length > 4) {
+                return `${lss}: ${rangeStrs.slice(0, 3).join(', ')}... (+${rangeStrs.length - 3} more)`;
+            }
+            return `${lss}: ${rangeStrs.join(', ')}`;
+        }).join(' | ');
+    };
+
     const renderStep3 = () => (
         <div className="map-volumes-step">
             <h6 className="mb-3">Preview Distribution</h6>
@@ -406,6 +429,15 @@ const MapVolumesToHostModal = ({
                 </div>
             ) : preview ? (
                 <>
+                    {/* Warning if some volumes already have mappings */}
+                    {preview.summary?.already_mapped > 0 && (
+                        <Alert variant="warning" className="mb-3">
+                            <strong>{preview.summary.already_mapped} volume{preview.summary.already_mapped !== 1 ? 's' : ''} already mapped</strong>
+                            <br />
+                            <small>These volumes will be skipped. Only unmapped volumes are shown below.</small>
+                        </Alert>
+                    )}
+
                     <Alert variant="info" className="mb-3">
                         <strong>{preview.summary?.distribution_type}</strong>
                         <br />
@@ -416,9 +448,11 @@ const MapVolumesToHostModal = ({
                     <Table size="sm" bordered>
                         <thead>
                             <tr>
-                                <th>Host</th>
-                                <th>Volumes</th>
-                                {storageType === 'DS8000' && targetType === 'lpar' && <th>LSS Groups</th>}
+                                <th style={{ width: '25%' }}>Host</th>
+                                <th style={{ width: '10%' }}>Count</th>
+                                {storageType === 'DS8000' && targetType === 'lpar' && (
+                                    <th>Volume Ranges</th>
+                                )}
                             </tr>
                         </thead>
                         <tbody>
@@ -427,7 +461,9 @@ const MapVolumesToHostModal = ({
                                     <td>{host.host_name}</td>
                                     <td>{host.volume_count}</td>
                                     {storageType === 'DS8000' && targetType === 'lpar' && (
-                                        <td>{host.lss_groups?.join(', ') || '-'}</td>
+                                        <td className="small" style={{ fontFamily: 'monospace' }}>
+                                            {formatVolumeRanges(host.volume_ranges)}
+                                        </td>
                                     )}
                                 </tr>
                             ))}
@@ -440,30 +476,40 @@ const MapVolumesToHostModal = ({
         </div>
     );
 
-    const renderStep4 = () => (
-        <div className="map-volumes-step text-center py-4">
-            {success ? (
-                <>
-                    <Check size={48} className="text-success mb-3" />
-                    <h5>Mappings Created Successfully!</h5>
-                    <p className="text-muted">
-                        {selectedVolumeIds.length} volume{selectedVolumeIds.length !== 1 ? 's' : ''} mapped to {getSelectedTargetName()}
-                    </p>
-                </>
-            ) : (
-                <>
-                    <h6 className="mb-3">Confirm Mapping</h6>
-                    <p>
-                        Map <strong>{selectedVolumeIds.length}</strong> volume{selectedVolumeIds.length !== 1 ? 's' : ''} to{' '}
-                        <strong>{getSelectedTargetName()}</strong>?
-                    </p>
-                    <p className="text-muted small">
-                        This will create volume mappings in your active project.
-                    </p>
-                </>
-            )}
-        </div>
-    );
+    const renderStep4 = () => {
+        const volumesToMap = preview?.summary?.total_volumes || selectedVolumeIds.length;
+        const alreadyMapped = preview?.summary?.already_mapped || 0;
+
+        return (
+            <div className="map-volumes-step text-center py-4">
+                {success ? (
+                    <>
+                        <Check size={48} className="text-success mb-3" />
+                        <h5>Mappings Created Successfully!</h5>
+                        <p className="text-muted">
+                            {volumesToMap} volume{volumesToMap !== 1 ? 's' : ''} mapped to {getSelectedTargetName()}
+                        </p>
+                    </>
+                ) : (
+                    <>
+                        <h6 className="mb-3">Confirm Mapping</h6>
+                        {alreadyMapped > 0 && (
+                            <Alert variant="warning" className="text-start mb-3">
+                                <small><strong>{alreadyMapped}</strong> volume{alreadyMapped !== 1 ? 's' : ''} will be skipped (already mapped)</small>
+                            </Alert>
+                        )}
+                        <p>
+                            Map <strong>{volumesToMap}</strong> volume{volumesToMap !== 1 ? 's' : ''} to{' '}
+                            <strong>{getSelectedTargetName()}</strong>?
+                        </p>
+                        <p className="text-muted small">
+                            This will create volume mappings in your active project.
+                        </p>
+                    </>
+                )}
+            </div>
+        );
+    };
 
     return (
         <Modal show={show} onHide={onClose} size="lg" centered>

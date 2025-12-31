@@ -4643,6 +4643,7 @@ def volume_mapping_preview(request):
     """
     Preview volume distribution for LPAR mappings before creating.
     Returns how volumes would be distributed across hosts.
+    Also shows which volumes already have mappings and would be skipped.
     """
     try:
         data = json.loads(request.body)
@@ -4660,9 +4661,36 @@ def volume_mapping_preview(request):
         if not volumes.exists():
             return JsonResponse({'error': 'No volumes found'}, status=404)
 
+        # Check for volumes that already have mappings
+        existing_mappings = VolumeMapping.objects.filter(volume_id__in=volume_ids).values_list('volume_id', flat=True)
+        already_mapped_ids = set(existing_mappings)
+        already_mapped_count = len(already_mapped_ids)
+
+        # Filter to only volumes that can be mapped
+        mappable_volumes = volumes.exclude(id__in=already_mapped_ids)
+
+        if not mappable_volumes.exists() and already_mapped_count > 0:
+            return JsonResponse({
+                'error': 'All selected volumes already have mappings',
+                'already_mapped': already_mapped_count,
+                'hosts': [],
+                'summary': {
+                    'total_volumes': 0,
+                    'already_mapped': already_mapped_count,
+                    'total_hosts': 0,
+                    'distribution_type': 'N/A',
+                    'balanced': True
+                }
+            }, status=400)
+
+        # Use filtered volumes for preview
+        volumes = mappable_volumes
+
         # Get storage type from first volume
-        storage = volumes.first().storage
+        storage = volumes.first().storage if volumes.exists() else None
         storage_type = storage.storage_type if storage else 'Unknown'
+
+        mappable_count = volumes.count()
 
         if target_type == 'lpar':
             try:
@@ -4672,6 +4700,8 @@ def volume_mapping_preview(request):
 
             from .volume_distribution import preview_distribution
             preview = preview_distribution(list(volumes), list(lpar.hosts.all()), storage_type)
+            # Add already_mapped info to summary
+            preview['summary']['already_mapped'] = already_mapped_count
             return JsonResponse(preview)
 
         elif target_type == 'cluster':
@@ -4685,7 +4715,7 @@ def volume_mapping_preview(request):
                 {
                     'host_id': host.id,
                     'host_name': host.name,
-                    'volume_count': len(volume_ids),
+                    'volume_count': mappable_count,
                     'volumes': [{'id': v.id, 'name': v.name, 'volume_id': v.volume_id} for v in volumes]
                 }
                 for host in cluster.hosts.all()
@@ -4693,7 +4723,8 @@ def volume_mapping_preview(request):
             return JsonResponse({
                 'hosts': hosts_data,
                 'summary': {
-                    'total_volumes': len(volume_ids),
+                    'total_volumes': mappable_count,
+                    'already_mapped': already_mapped_count,
                     'total_hosts': cluster.hosts.count(),
                     'distribution_type': 'Shared (all hosts get all volumes)',
                     'balanced': True
@@ -4710,11 +4741,12 @@ def volume_mapping_preview(request):
                 'hosts': [{
                     'host_id': host.id,
                     'host_name': host.name,
-                    'volume_count': len(volume_ids),
+                    'volume_count': mappable_count,
                     'volumes': [{'id': v.id, 'name': v.name, 'volume_id': v.volume_id} for v in volumes]
                 }],
                 'summary': {
-                    'total_volumes': len(volume_ids),
+                    'total_volumes': mappable_count,
+                    'already_mapped': already_mapped_count,
                     'total_hosts': 1,
                     'distribution_type': 'Direct mapping',
                     'balanced': True
@@ -4766,11 +4798,34 @@ def volume_mapping_create(request):
         if not volumes.exists():
             return JsonResponse({'error': 'No volumes found'}, status=404)
 
+        # Check for volumes that already have mappings
+        existing_mappings = VolumeMapping.objects.filter(volume_id__in=volume_ids).values_list('volume_id', flat=True)
+        already_mapped_ids = set(existing_mappings)
+
+        # Filter out already mapped volumes
+        volumes_to_map = volumes.exclude(id__in=already_mapped_ids)
+
         storage = volumes.first().storage
         storage_type = storage.storage_type if storage else 'Unknown'
 
         created_mappings = []
-        results = {'created': 0, 'errors': []}
+        results = {'created': 0, 'errors': [], 'skipped': len(already_mapped_ids)}
+
+        if already_mapped_ids:
+            # Get names of skipped volumes for the error message
+            skipped_names = list(volumes.filter(id__in=already_mapped_ids).values_list('name', flat=True)[:5])
+            if len(already_mapped_ids) > 5:
+                skipped_names.append(f"...and {len(already_mapped_ids) - 5} more")
+            results['errors'].append(f"Skipped {len(already_mapped_ids)} already mapped volume(s): {', '.join(skipped_names)}")
+
+        if not volumes_to_map.exists():
+            return JsonResponse({
+                'error': 'All selected volumes already have mappings',
+                'skipped': len(already_mapped_ids)
+            }, status=400)
+
+        # Use filtered volumes for mapping
+        volumes = volumes_to_map
 
         if target_type == 'host':
             try:

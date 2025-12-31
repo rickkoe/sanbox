@@ -45,13 +45,20 @@ def distribute_volumes_to_lpar(volumes, lpar_hosts, storage_type='DS8000'):
 
 def _distribute_ds8000_volumes(volumes, hosts):
     """
-    DS8000-specific distribution: Group by LSS, then distribute LSS groups.
+    DS8000-specific distribution: Split each LSS into contiguous ranges across hosts.
 
     Logic:
     1. Group volumes by LSS (first 2 hex digits of volume_id)
-    2. Sort LSS groups by size (largest first for better balance)
-    3. Assign entire LSS groups to hosts round-robin
-    4. This keeps volumes from same LSS on same host (I/O optimization)
+    2. For each LSS, assign contiguous ranges to each host
+    3. Alternate which host gets the first range of each LSS for better balance
+
+    Example: If LSS 50 has 107 volumes and there are 2 hosts:
+    - Host 1 gets volumes 5000-5035 (54 volumes, contiguous)
+    - Host 2 gets volumes 5036-506A (53 volumes, contiguous)
+
+    For LSS 51, the order reverses to balance:
+    - Host 2 gets volumes 5100-5134 (53 volumes, contiguous)
+    - Host 1 gets volumes 5135-516A (54 volumes, contiguous)
     """
     # Group volumes by LSS
     lss_groups = defaultdict(list)
@@ -64,25 +71,53 @@ def _distribute_ds8000_volumes(volumes, hosts):
             # Volumes without LSS go to a special group
             lss_groups['__no_lss__'].append(vol)
 
-    # Sort LSS groups by volume count (largest first for better balance)
-    sorted_lss = sorted(lss_groups.keys(), key=lambda x: len(lss_groups[x]), reverse=True)
+    # Sort LSS groups by name for consistent ordering
+    sorted_lss = sorted(lss_groups.keys())
 
-    # Track volume counts per host for load balancing
-    host_loads = {host.id: 0 for host in hosts}
+    # Initialize distribution
     distribution = {host.id: [] for host in hosts}
+    host_list = list(hosts)
+    host_count = len(host_list)
 
-    # Assign each LSS group to the host with least volumes
+    # Track which host starts each LSS (alternate to balance)
+    start_host_offset = 0
+
+    # For each LSS, split volumes into contiguous ranges
     for lss in sorted_lss:
         lss_volumes = lss_groups[lss]
-        # Find host with minimum load
-        min_host_id = min(host_loads, key=host_loads.get)
+        # Sort volumes within LSS for contiguous assignment
+        lss_volumes_sorted = sorted(
+            lss_volumes,
+            key=lambda v: v.volume_id if hasattr(v, 'volume_id') else v.get('volume_id', '')
+        )
 
-        # Assign all volumes from this LSS to this host
-        for vol in lss_volumes:
-            vol_id = vol.id if hasattr(vol, 'id') else vol.get('id')
-            distribution[min_host_id].append(vol_id)
+        total_vols = len(lss_volumes_sorted)
+        if total_vols == 0:
+            continue
 
-        host_loads[min_host_id] += len(lss_volumes)
+        # Calculate how many volumes each host gets from this LSS
+        base_count = total_vols // host_count
+        remainder = total_vols % host_count
+
+        # Assign contiguous ranges to each host
+        current_idx = 0
+        for i in range(host_count):
+            # Rotate which host gets volumes first (for balance across LSS groups)
+            host_idx = (i + start_host_offset) % host_count
+            host = host_list[host_idx]
+
+            # This host gets base_count volumes, plus 1 extra if we still have remainder
+            count = base_count + (1 if i < remainder else 0)
+
+            # Assign contiguous range
+            for vol in lss_volumes_sorted[current_idx:current_idx + count]:
+                vol_id = vol.id if hasattr(vol, 'id') else vol.get('id')
+                distribution[host.id].append(vol_id)
+
+            current_idx += count
+
+        # Alternate starting host for next LSS to balance overall distribution
+        start_host_offset = (start_host_offset + 1) % host_count
 
     return distribution
 
@@ -102,6 +137,73 @@ def _distribute_round_robin(volumes, hosts):
     return distribution
 
 
+def _calculate_volume_ranges(volumes):
+    """
+    Calculate volume ranges from a list of volumes.
+    Groups consecutive volume IDs into ranges.
+
+    Args:
+        volumes: List of volume objects or dicts with 'volume_id' field
+
+    Returns:
+        list: [{'lss': '50', 'start': '00', 'end': '3F', 'count': 64}, ...]
+    """
+    if not volumes:
+        return []
+
+    # Group volumes by LSS
+    lss_volumes = defaultdict(list)
+    for vol in volumes:
+        vol_id = vol.volume_id if hasattr(vol, 'volume_id') else vol.get('volume_id', '')
+        if vol_id and len(vol_id) >= 4:
+            lss = vol_id[:2].upper()
+            addr = vol_id[2:4].upper()
+            lss_volumes[lss].append(addr)
+
+    # Build ranges for each LSS
+    ranges = []
+    for lss in sorted(lss_volumes.keys()):
+        addrs = sorted(lss_volumes[lss], key=lambda x: int(x, 16))
+
+        if not addrs:
+            continue
+
+        # Find consecutive sequences
+        current_start = addrs[0]
+        current_end = addrs[0]
+        current_count = 1
+
+        for i in range(1, len(addrs)):
+            current_val = int(current_end, 16)
+            next_val = int(addrs[i], 16)
+
+            if next_val == current_val + 1:
+                # Consecutive
+                current_end = addrs[i]
+                current_count += 1
+            else:
+                # Gap found, save current range and start new one
+                ranges.append({
+                    'lss': lss,
+                    'start': current_start,
+                    'end': current_end,
+                    'count': current_count
+                })
+                current_start = addrs[i]
+                current_end = addrs[i]
+                current_count = 1
+
+        # Don't forget the last range
+        ranges.append({
+            'lss': lss,
+            'start': current_start,
+            'end': current_end,
+            'count': current_count
+        })
+
+    return ranges
+
+
 def preview_distribution(volumes, lpar_hosts, storage_type='DS8000'):
     """
     Generate a preview of the distribution for UI display.
@@ -119,6 +221,7 @@ def preview_distribution(volumes, lpar_hosts, storage_type='DS8000'):
                     'host_name': str,
                     'volume_count': int,
                     'lss_groups': ['10', '20', ...],  # For DS8000
+                    'volume_ranges': [{'lss': '50', 'start': '00', 'end': '3F', 'count': 64}, ...],
                     'volumes': [{'id': int, 'name': str, 'volume_id': str}, ...]
                 },
                 ...
@@ -154,11 +257,15 @@ def preview_distribution(volumes, lpar_hosts, storage_type='DS8000'):
                 if lss:
                     lss_set.add(lss)
 
+        # Calculate volume ranges for this host
+        volume_ranges = _calculate_volume_ranges(host_vols) if storage_type == 'DS8000' else []
+
         hosts_data.append({
             'host_id': host.id,
             'host_name': host.name,
             'volume_count': len(host_vol_ids),
             'lss_groups': sorted(lss_set),
+            'volume_ranges': volume_ranges,
             'volumes': [
                 {
                     'id': v.id if hasattr(v, 'id') else v.get('id'),
@@ -178,7 +285,7 @@ def preview_distribution(volumes, lpar_hosts, storage_type='DS8000'):
         'summary': {
             'total_volumes': len(volumes),
             'total_hosts': len(lpar_hosts),
-            'distribution_type': 'LSS-aware' if storage_type == 'DS8000' else 'Round-robin',
+            'distribution_type': 'Contiguous ranges' if storage_type == 'DS8000' else 'Round-robin',
             'balanced': balanced
         }
     }
