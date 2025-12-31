@@ -6,11 +6,11 @@ import '../../styles/view-mode-toggle.css';
 /**
  * ViewModeToggle Component
  *
- * A sliding toggle switch for switching between Committed and Draft modes.
+ * A sliding toggle switch for switching between Committed and Project modes.
  * - Committed mode: Read-only view of committed data
- * - Draft mode: Editable view for project work-in-progress
+ * - Project mode: Editable view for project work-in-progress
  *
- * Draft mode is disabled when no project is selected.
+ * Project mode is disabled when no project is selected.
  */
 const ViewModeToggle = () => {
     const { config } = useContext(ConfigContext);
@@ -21,7 +21,7 @@ const ViewModeToggle = () => {
     const isDraftMode = projectFilter === 'current';
 
     const handleToggle = () => {
-        if (!hasProject) return; // Can't switch to draft without a project
+        if (!hasProject) return; // Can't switch to Project mode without a project
 
         if (isDraftMode) {
             setProjectFilter('all');
@@ -31,13 +31,13 @@ const ViewModeToggle = () => {
     };
 
     const handleLiveClick = () => {
-        if (!isDraftMode) return; // Already in Live mode
+        if (!isDraftMode) return; // Already in Committed mode
         setProjectFilter('all');
     };
 
-    const handleDraftClick = () => {
-        if (!hasProject) return; // Can't switch to draft without a project
-        if (isDraftMode) return; // Already in Draft mode
+    const handleProjectClick = () => {
+        if (!hasProject) return; // Can't switch to Project mode without a project
+        if (isDraftMode) return; // Already in Project mode
         setProjectFilter('current');
     };
 
@@ -58,21 +58,21 @@ const ViewModeToggle = () => {
                 className={`view-mode-toggle ${isDraftMode ? 'draft' : 'live'} ${!hasProject ? 'disabled' : ''}`}
                 onClick={handleToggle}
                 disabled={!hasProject && !isDraftMode}
-                title={!hasProject ? 'Select a project to enable Draft mode' : (isDraftMode ? 'Switch to Committed mode' : 'Switch to Draft mode')}
-                aria-label={isDraftMode ? 'Switch to Committed mode' : 'Switch to Draft mode'}
+                title={!hasProject ? 'Select a project to enable Project mode' : (isDraftMode ? 'Switch to Committed mode' : 'Switch to Project mode')}
+                aria-label={isDraftMode ? 'Switch to Committed mode' : 'Switch to Project mode'}
             >
                 <span className="toggle-slider" />
             </button>
 
             <span
                 className={`view-mode-label ${isDraftMode ? 'active' : ''} ${!hasProject ? 'disabled' : ''}`}
-                onClick={handleDraftClick}
+                onClick={handleProjectClick}
                 role="button"
                 tabIndex={hasProject ? 0 : -1}
-                onKeyDown={(e) => e.key === 'Enter' && handleDraftClick()}
-                title={!hasProject ? 'Select a project to enable Draft mode' : undefined}
+                onKeyDown={(e) => e.key === 'Enter' && handleProjectClick()}
+                title={!hasProject ? 'Select a project to enable Project mode' : undefined}
             >
-                Draft
+                Project
             </span>
         </div>
     );

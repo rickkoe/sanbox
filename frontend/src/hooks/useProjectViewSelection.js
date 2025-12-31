@@ -417,7 +417,7 @@ export const useProjectViewSelection = ({
                                 >
                                     Open or create a project
                                 </a>{' '}
-                                to make changes in Draft mode.
+                                to make changes in Project View.
                             </span>
                         </div>
                         <button
@@ -526,7 +526,7 @@ export const useProjectViewSelection = ({
                                 strokeWidth={2}
                             />
                             <span style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
-                                <strong>You are in Draft Mode:</strong> Edit items here via the active project. Commit changes when complete.
+                                <strong>You are in Project View:</strong> Edit items here via the active project. Commit changes when complete.
                             </span>
                         </div>
                         <button

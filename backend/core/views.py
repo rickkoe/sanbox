@@ -2247,8 +2247,8 @@ def audit_log_purge(request):
         from datetime import timedelta
         from django.utils import timezone
 
-        # Get retention setting
-        settings = AppSettings.get_settings()
+        # Get retention setting for the current user
+        settings = AppSettings.get_settings(user=user)
         retention_days = settings.audit_log_retention_days
 
         # Calculate cutoff date

@@ -11,78 +11,135 @@ const SettingsPage = () => {
     const [saveStatus, setSaveStatus] = useState("");
     const [saving, setSaving] = useState(false);
 
+    // Local form state
+    const [localSettings, setLocalSettings] = useState({
+        items_per_page: 'All',
+        notifications: true,
+        show_advanced_features: false,
+        zone_ratio: 'one-to-one',
+        alias_max_zones: 1,
+        audit_log_retention_days: 90,
+        hide_mode_banners: false
+    });
+    const [hasChanges, setHasChanges] = useState(false);
+
     // Audit log state
     const [auditLogCount, setAuditLogCount] = useState(0);
     const [purging, setPurging] = useState(false);
     const [purgeStatus, setPurgeStatus] = useState("");
 
+    // Sync local settings with context when loaded (only on initial load)
+    const [initialized, setInitialized] = useState(false);
 
-    const handleInputChange = async (e) => {
+    useEffect(() => {
+        if (!loading && settings && !initialized) {
+            setLocalSettings({
+                items_per_page: settings.items_per_page ?? 'All',
+                notifications: settings.notifications ?? true,
+                show_advanced_features: settings.show_advanced_features ?? false,
+                zone_ratio: settings.zone_ratio ?? 'one-to-one',
+                alias_max_zones: settings.alias_max_zones ?? 1,
+                audit_log_retention_days: settings.audit_log_retention_days ?? 90,
+                hide_mode_banners: settings.hide_mode_banners ?? false
+            });
+            setInitialized(true);
+        }
+    }, [loading, settings, initialized]);
+
+    const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
-        const newValue = type === 'checkbox' ? checked : value;
-        
-        // Auto-save the change using context
-        await autoSave({ [name]: newValue });
+        let newValue;
+
+        if (type === 'checkbox') {
+            newValue = checked;
+        } else if (type === 'number') {
+            // Keep as string while typing, will convert on save
+            newValue = value;
+        } else {
+            newValue = value;
+        }
+
+        setLocalSettings(prev => ({
+            ...prev,
+            [name]: newValue
+        }));
+        setHasChanges(true);
     };
 
     const handleThemeChange = async (newTheme) => {
         setSaving(true);
         setSaveStatus("");
-        
+
         try {
             await updateTheme(newTheme);
-            setSaveStatus("Theme updated successfully");
-            // Clear success message after 2 seconds
+            setSaveStatus("Theme updated");
             setTimeout(() => setSaveStatus(""), 2000);
         } catch (error) {
             console.error("Error updating theme:", error);
             setSaveStatus("Error updating theme");
-            // Clear error message after 4 seconds
-            setTimeout(() => setSaveStatus(""), 4000);
-        } finally {
-            setSaving(false);
-        }
-    };
-    
-    const autoSave = async (changedField) => {
-        setSaving(true);
-        setSaveStatus("");
-        
-        try {
-            // Create updated settings object with the changed field
-            const updatedSettings = { ...settings, ...changedField };
-            const result = await updateSettings(updatedSettings);
-            
-            if (result.success) {
-                setSaveStatus("Saved successfully");
-                // Clear success message after 2 seconds
-                setTimeout(() => setSaveStatus(""), 2000);
-            } else {
-                setSaveStatus("Error saving settings");
-                // Clear error message after 4 seconds
-                setTimeout(() => setSaveStatus(""), 4000);
-            }
-        } catch (error) {
-            console.error("Error auto-saving settings:", error);
-            setSaveStatus("Error saving settings");
-            // Clear error message after 4 seconds
             setTimeout(() => setSaveStatus(""), 4000);
         } finally {
             setSaving(false);
         }
     };
 
-    const handleReset = async () => {
+    const handleSave = async () => {
+        setSaving(true);
+        setSaveStatus("");
+
+        try {
+            // Convert number fields to integers before saving
+            const settingsToSave = {
+                ...localSettings,
+                alias_max_zones: parseInt(localSettings.alias_max_zones, 10) || 1,
+                audit_log_retention_days: parseInt(localSettings.audit_log_retention_days, 10) || 90
+            };
+
+            const result = await updateSettings(settingsToSave);
+
+            if (result.success) {
+                setSaveStatus("Settings saved");
+                setHasChanges(false);
+                setTimeout(() => setSaveStatus(""), 2000);
+            } else {
+                setSaveStatus("Error saving settings");
+                setTimeout(() => setSaveStatus(""), 4000);
+            }
+        } catch (error) {
+            console.error("Error saving settings:", error);
+            setSaveStatus("Error saving settings");
+            setTimeout(() => setSaveStatus(""), 4000);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleReset = () => {
         const defaultSettings = {
             items_per_page: 'All',
             notifications: true,
             show_advanced_features: false,
             zone_ratio: 'one-to-one',
-            alias_max_zones: 1
+            alias_max_zones: 1,
+            audit_log_retention_days: 90,
+            hide_mode_banners: false
         };
+        setLocalSettings(defaultSettings);
+        setHasChanges(true);
+    };
 
-        // Auto-save the reset using context
-        await autoSave(defaultSettings);
+    const handleCancel = () => {
+        // Revert to saved settings
+        setLocalSettings({
+            items_per_page: settings.items_per_page ?? 'All',
+            notifications: settings.notifications ?? true,
+            show_advanced_features: settings.show_advanced_features ?? false,
+            zone_ratio: settings.zone_ratio ?? 'one-to-one',
+            alias_max_zones: settings.alias_max_zones ?? 1,
+            audit_log_retention_days: settings.audit_log_retention_days ?? 90,
+            hide_mode_banners: settings.hide_mode_banners ?? false
+        });
+        setHasChanges(false);
     };
 
     // Fetch audit log count
@@ -98,7 +155,7 @@ const SettingsPage = () => {
     // Purge old audit logs
     const handlePurgeAuditLogs = async () => {
         const confirmed = window.confirm(
-            `This will delete all audit logs older than ${settings.audit_log_retention_days || 90} days. ` +
+            `This will delete all audit logs older than ${localSettings.audit_log_retention_days || 90} days. ` +
             'This action cannot be undone. Continue?'
         );
 
@@ -110,16 +167,11 @@ const SettingsPage = () => {
         try {
             const response = await axios.post('/api/core/audit-log/purge/');
             setPurgeStatus(`Successfully deleted ${response.data.deleted_count} old audit logs`);
-
-            // Refresh count
             await fetchAuditLogCount();
-
-            // Clear success message after 5 seconds
             setTimeout(() => setPurgeStatus(''), 5000);
         } catch (error) {
             console.error('Error purging audit logs:', error);
             setPurgeStatus(error.response?.data?.error || 'Error purging audit logs');
-            // Clear error message after 5 seconds
             setTimeout(() => setPurgeStatus(''), 5000);
         } finally {
             setPurging(false);
@@ -156,9 +208,11 @@ const SettingsPage = () => {
                         <h1 className="page-title">Application Settings</h1>
                     </div>
                     <p className="page-subtitle">Configure your application preferences and behavior</p>
-                    {saving && <div className="auto-save-indicator saving">Saving...</div>}
+                    {hasChanges && (
+                        <div className="auto-save-indicator saving">Unsaved changes</div>
+                    )}
                     {saveStatus && (
-                        <div className={`auto-save-indicator ${saveStatus.includes('successfully') || saveStatus.includes('Saved') ? 'success' : 'error'}`}>
+                        <div className={`auto-save-indicator ${saveStatus.includes('saved') || saveStatus.includes('updated') ? 'success' : 'error'}`}>
                             {saveStatus}
                         </div>
                     )}
@@ -166,12 +220,12 @@ const SettingsPage = () => {
             </div>
 
             <div className="settings-form-card">
-                <form className="settings-form">
+                <form className="settings-form" onSubmit={(e) => e.preventDefault()}>
                     {/* Theme Settings */}
                     <div className="settings-section">
                         <h3><FaPalette className="settings-icon" /> Application Theme</h3>
                         <p className="settings-description">Choose a theme that affects the entire application appearance</p>
-                        
+
                         <div className="theme-selection-grid">
                             {[
                                 { name: 'light', display: 'Light', description: 'Clean and bright interface with excellent readability', color: '#ffffff', textColor: '#2563eb' },
@@ -183,9 +237,9 @@ const SettingsPage = () => {
                                     onClick={() => handleThemeChange(themeOption.name)}
                                 >
                                     <div className="theme-preview-area">
-                                        <div 
+                                        <div
                                             className={`theme-preview-color theme-preview-${themeOption.name}`}
-                                            style={{ 
+                                            style={{
                                                 backgroundColor: themeOption.color,
                                                 border: themeOption.name === 'light' ? '2px solid #e5e7eb' : 'none'
                                             }}
@@ -212,10 +266,10 @@ const SettingsPage = () => {
 
                             <div className="form-group">
                                 <label className="form-label">Items per page</label>
-                                <select 
-                                    className="form-select" 
-                                    name="items_per_page" 
-                                    value={settings.items_per_page} 
+                                <select
+                                    className="form-select"
+                                    name="items_per_page"
+                                    value={localSettings.items_per_page}
                                     onChange={handleInputChange}
                                 >
                                     <option value={25}>25</option>
@@ -236,10 +290,10 @@ const SettingsPage = () => {
                         <div className="settings-grid">
                             <div className="form-group">
                                 <label className="form-label">Zone ratio</label>
-                                <select 
-                                    className="form-select" 
-                                    name="zone_ratio" 
-                                    value={settings.zone_ratio} 
+                                <select
+                                    className="form-select"
+                                    name="zone_ratio"
+                                    value={localSettings.zone_ratio}
                                     onChange={handleInputChange}
                                 >
                                     <option value="one-to-one">One-to-one</option>
@@ -255,7 +309,7 @@ const SettingsPage = () => {
                                     type="number"
                                     className="form-select"
                                     name="alias_max_zones"
-                                    value={settings.alias_max_zones}
+                                    value={localSettings.alias_max_zones}
                                     onChange={handleInputChange}
                                     min="1"
                                     max="100"
@@ -277,7 +331,7 @@ const SettingsPage = () => {
                                     type="number"
                                     className="form-select"
                                     name="audit_log_retention_days"
-                                    value={settings.audit_log_retention_days || 90}
+                                    value={localSettings.audit_log_retention_days}
                                     onChange={handleInputChange}
                                     min="1"
                                     max="365"
@@ -340,69 +394,109 @@ const SettingsPage = () => {
                     {/* Notifications & Features */}
                     <div className="settings-section">
                         <h3>Notifications & Features</h3>
-                        <div className="settings-grid">
-                            <div className="form-group checkbox-group">
-                                <label className="checkbox-label">
+                        <div className="toggle-cards-grid">
+                            <div
+                                className={`toggle-card ${localSettings.notifications ? 'active' : ''}`}
+                                onClick={() => {
+                                    setLocalSettings(prev => ({ ...prev, notifications: !prev.notifications }));
+                                    setHasChanges(true);
+                                }}
+                            >
+                                <div className="toggle-card-checkbox">
                                     <input
                                         type="checkbox"
                                         name="notifications"
-                                        checked={settings.notifications}
+                                        checked={localSettings.notifications}
                                         onChange={handleInputChange}
+                                        onClick={(e) => e.stopPropagation()}
                                     />
-                                    <span className="checkbox-text">Enable notifications</span>
-                                </label>
-                                <small className="form-help">Show browser notifications for important events</small>
+                                </div>
+                                <div className="toggle-card-info">
+                                    <h4 className="toggle-card-title">Enable notifications</h4>
+                                    <p className="toggle-card-description">Show browser notifications for important events</p>
+                                </div>
                             </div>
 
-                            <div className="form-group checkbox-group">
-                                <label className="checkbox-label">
+                            <div
+                                className={`toggle-card ${localSettings.show_advanced_features ? 'active' : ''}`}
+                                onClick={() => {
+                                    setLocalSettings(prev => ({ ...prev, show_advanced_features: !prev.show_advanced_features }));
+                                    setHasChanges(true);
+                                }}
+                            >
+                                <div className="toggle-card-checkbox">
                                     <input
                                         type="checkbox"
                                         name="show_advanced_features"
-                                        checked={settings.show_advanced_features}
+                                        checked={localSettings.show_advanced_features}
                                         onChange={handleInputChange}
+                                        onClick={(e) => e.stopPropagation()}
                                     />
-                                    <span className="checkbox-text">Show advanced features</span>
-                                </label>
-                                <small className="form-help">Display advanced options and debugging tools</small>
+                                </div>
+                                <div className="toggle-card-info">
+                                    <h4 className="toggle-card-title">Show advanced features</h4>
+                                    <p className="toggle-card-description">Display advanced options and debugging tools</p>
+                                </div>
                             </div>
 
-                            <div className="form-group checkbox-group">
-                                <label className="checkbox-label">
+                            <div
+                                className={`toggle-card ${!localSettings.hide_mode_banners ? 'active' : ''}`}
+                                onClick={() => {
+                                    setLocalSettings(prev => ({ ...prev, hide_mode_banners: !prev.hide_mode_banners }));
+                                    setHasChanges(true);
+                                }}
+                            >
+                                <div className="toggle-card-checkbox">
                                     <input
                                         type="checkbox"
-                                        name="show_mode_banners"
-                                        checked={!settings.hide_mode_banners}
-                                        onChange={(e) => handleInputChange({
-                                            target: { name: 'hide_mode_banners', checked: !e.target.checked, type: 'checkbox' }
-                                        })}
+                                        name="hide_mode_banners"
+                                        checked={!localSettings.hide_mode_banners}
+                                        onChange={(e) => {
+                                            setLocalSettings(prev => ({ ...prev, hide_mode_banners: !e.target.checked }));
+                                            setHasChanges(true);
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
                                     />
-                                    <span className="checkbox-text">Show mode banners</span>
-                                </label>
-                                <small className="form-help">Display Committed/Draft mode notification banners in table views</small>
+                                </div>
+                                <div className="toggle-card-info">
+                                    <h4 className="toggle-card-title">Show mode banners</h4>
+                                    <p className="toggle-card-description">Display Committed/Draft mode notification banners in table views</p>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Action Buttons */}
                     <div className="settings-actions">
-                        <button 
-                            type="button" 
-                            className="reset-btn"
-                            onClick={handleReset}
-                            disabled={saving}
-                        >
-                            Reset to Defaults
-                        </button>
-                        
-                        <div className="auto-save-notice">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
-                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                                <polyline points="7 3 7 8 15 8"></polyline>
-                            </svg>
-                            Changes are saved automatically
+                        <div className="settings-actions-left">
+                            <button
+                                type="button"
+                                className="reset-btn"
+                                onClick={handleReset}
+                                disabled={saving}
+                            >
+                                Reset to Defaults
+                            </button>
+                            {hasChanges && (
+                                <button
+                                    type="button"
+                                    className="cancel-btn"
+                                    onClick={handleCancel}
+                                    disabled={saving}
+                                >
+                                    Cancel
+                                </button>
+                            )}
                         </div>
+
+                        <button
+                            type="button"
+                            className="save-btn"
+                            onClick={handleSave}
+                            disabled={saving || !hasChanges}
+                        >
+                            {saving ? 'Saving...' : 'Save Settings'}
+                        </button>
                     </div>
                 </form>
             </div>

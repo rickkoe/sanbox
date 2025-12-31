@@ -893,7 +893,7 @@ const VolumeRangeTableTanStackClean = ({
                     className="btn btn-primary btn-sm"
                     onClick={() => setShowCreateModal(true)}
                     disabled={isReadOnly}
-                    title={isReadOnly ? "Switch to Draft mode with an active project to create volume ranges" : "Create a new volume range using the wizard"}
+                    title={isReadOnly ? "Switch to Project View with an active project to create volume ranges" : "Create a new volume range using the wizard"}
                 >
                     <Plus size={16} className="me-1" />
                     Create Range

@@ -153,6 +153,7 @@ class AppSettingsSerializer(serializers.ModelSerializer):
             'hide_mode_banners',
             'zone_ratio',
             'alias_max_zones',
+            'audit_log_retention_days',
             'created_at',
             'updated_at'
         ]

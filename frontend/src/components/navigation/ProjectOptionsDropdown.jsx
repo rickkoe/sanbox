@@ -50,7 +50,7 @@ const ProjectOptionsDropdown = () => {
             return 'Select a project to access options';
         }
         if (!isDraftMode) {
-            return 'Switch to Draft mode to access project options';
+            return 'Switch to Project View to access project options';
         }
         return 'Project actions';
     };
@@ -65,7 +65,7 @@ const ProjectOptionsDropdown = () => {
                     title={getTooltip()}
                     className="project-actions-toggle"
                 >
-                    <span>Actions</span>
+                    <span>Project Actions</span>
                     <ChevronDown size={14} />
                 </Dropdown.Toggle>
 
