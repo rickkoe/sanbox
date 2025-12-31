@@ -34,6 +34,18 @@ from .views import (
     pool_list,
     pool_detail,
     pool_project_view,
+    # Host Cluster Management
+    host_cluster_list,
+    host_cluster_detail,
+    # IBM i LPAR Management
+    ibmi_lpar_list,
+    ibmi_lpar_detail,
+    # Volume Mapping Management
+    volume_mapping_list,
+    volume_mapping_detail,
+    volume_mapping_create,
+    volume_mapping_preview,
+    volume_mapping_project_view,
 )
 
 urlpatterns = [
@@ -72,4 +84,18 @@ urlpatterns = [
     path("pools/<int:pk>/", pool_detail, name="pool-detail"),
     path("<int:storage_id>/pools/", pool_list, name="storage-pool-list"),
     path("project/<int:project_id>/view/pools/", pool_project_view, name="pool-project-view"),
+    # Host Cluster Management
+    path("host-clusters/", host_cluster_list, name="host-cluster-list"),
+    path("host-clusters/<int:pk>/", host_cluster_detail, name="host-cluster-detail"),
+    path("<int:storage_id>/host-clusters/", host_cluster_list, name="storage-host-cluster-list"),
+    # IBM i LPAR Management
+    path("ibmi-lpars/", ibmi_lpar_list, name="ibmi-lpar-list"),
+    path("ibmi-lpars/<int:pk>/", ibmi_lpar_detail, name="ibmi-lpar-detail"),
+    path("<int:storage_id>/ibmi-lpars/", ibmi_lpar_list, name="storage-ibmi-lpar-list"),
+    # Volume Mapping Management
+    path("volume-mappings/", volume_mapping_list, name="volume-mapping-list"),
+    path("volume-mappings/<int:pk>/", volume_mapping_detail, name="volume-mapping-detail"),
+    path("volume-mappings/create/", volume_mapping_create, name="volume-mapping-create"),
+    path("volume-mappings/preview/", volume_mapping_preview, name="volume-mapping-preview"),
+    path("project/<int:project_id>/view/volume-mappings/", volume_mapping_project_view, name="volume-mapping-project-view"),
 ]

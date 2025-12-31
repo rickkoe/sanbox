@@ -51,20 +51,28 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         if (projectFilterLoading) {
             return null; // Don't fetch until projectFilter is loaded
         }
+
+        // Build storage filter parameter if storageId is provided
+        const storageFilter = storageId ? `storage_id=${storageId}` : '';
+
         if (projectFilter === 'current' && activeProjectId) {
             // Project View: Returns merged data with field_overrides and project_action
-            return `${API_URL}/api/storage/project/${activeProjectId}/view/hosts/`;
+            const baseUrl = `${API_URL}/api/storage/project/${activeProjectId}/view/hosts/`;
+            return storageFilter ? `${baseUrl}?${storageFilter}` : baseUrl;
         } else if (activeProjectId) {
             // Customer View with project context: Adds in_active_project flag
-            return `${API_URL}/api/storage/project/${activeProjectId}/view/hosts/?project_filter=${projectFilter}`;
+            const baseUrl = `${API_URL}/api/storage/project/${activeProjectId}/view/hosts/?project_filter=${projectFilter}`;
+            return storageFilter ? `${baseUrl}&${storageFilter}` : baseUrl;
         } else if (activeCustomerId) {
             // Customer View without project: Basic customer data
-            return `${API_URL}/api/storage/hosts/?customer=${activeCustomerId}`;
+            const baseUrl = `${API_URL}/api/storage/hosts/?customer=${activeCustomerId}`;
+            return storageFilter ? `${baseUrl}&${storageFilter}` : baseUrl;
         } else {
             // Fallback: No customer or project selected
-            return `${API_URL}/api/storage/hosts/`;
+            const baseUrl = `${API_URL}/api/storage/hosts/`;
+            return storageFilter ? `${baseUrl}?${storageFilter}` : baseUrl;
         }
-    }, [API_URL, projectFilter, activeProjectId, activeCustomerId, projectFilterLoading]);
+    }, [API_URL, projectFilter, activeProjectId, activeCustomerId, projectFilterLoading, storageId]);
 
     // Use centralized permissions hook
     const { canEdit, canDelete, isViewer, isProjectOwner, isAdmin, readOnlyMessage } = useProjectViewPermissions({

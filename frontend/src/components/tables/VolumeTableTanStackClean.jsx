@@ -11,6 +11,7 @@ import { useProjectViewAPI } from "../../hooks/useProjectViewAPI";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
+import MapVolumesToHostModal from "../modals/MapVolumesToHostModal";
 
 // Clean TanStack Table implementation for Volume management
 // Props:
@@ -29,6 +30,10 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Project filter state - synchronized across all tables via ProjectFilterContext
     const { projectFilter, setProjectFilter, loading: projectFilterLoading } = useProjectFilter();
     const [totalRowCount, setTotalRowCount] = useState(0);
+
+    // Map to Host modal state
+    const [showMapToHostModal, setShowMapToHostModal] = useState(false);
+    const [selectedVolumeIdsForMapping, setSelectedVolumeIdsForMapping] = useState([]);
 
     const activeCustomerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
@@ -74,7 +79,20 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         entityName: 'volumes'
     });
 
-    // Use centralized selection hook
+    // Handler for Map to Host action
+    const handleMapToHost = useCallback((volumeIds) => {
+        setSelectedVolumeIdsForMapping(volumeIds);
+        setShowMapToHostModal(true);
+    }, []);
+
+    // Handler when mapping is successful
+    const handleMapToHostSuccess = useCallback((result) => {
+        console.log('Volume mappings created:', result);
+        // Optionally clear selection after successful mapping
+        handleClearSelection?.();
+    }, []);
+
+    // Use centralized selection hook with Map to Host action
     const {
         selectedRows,
         handleSelectAllPages,
@@ -89,7 +107,8 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         apiUrl,
         entityType: 'volume',
         API_URL,
-        totalRowCount
+        totalRowCount,
+        onMapToHost: handleMapToHost
     });
 
     // Selection state and actions dropdown are now managed by useProjectViewSelection hook
@@ -98,6 +117,14 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Check permissions - All authenticated users have full access
     // Customer View is always read-only; Project View depends on permissions
     const isReadOnly = projectFilter !== 'current' || !canEdit;
+
+    // Get storage info for the Map to Host modal (must be before early returns)
+    const currentStorage = useMemo(() => {
+        if (storageId && storageOptions.length > 0) {
+            return storageOptions.find(s => s.id === parseInt(storageId) || s.id === storageId);
+        }
+        return null;
+    }, [storageId, storageOptions]);
 
     // API endpoints - volumes URL now comes from hook
     const API_ENDPOINTS = useMemo(() => {
@@ -533,6 +560,23 @@ const VolumeTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 enablePagination={true}
                 defaultPageSize={50}
             />
+
+            {/* Map Volumes to Host Modal */}
+            {showMapToHostModal && storageId && (
+                <MapVolumesToHostModal
+                    show={showMapToHostModal}
+                    onClose={() => {
+                        setShowMapToHostModal(false);
+                        setSelectedVolumeIdsForMapping([]);
+                    }}
+                    selectedVolumeIds={selectedVolumeIdsForMapping}
+                    storageId={storageId}
+                    storageName={currentStorage?.name || 'Unknown Storage'}
+                    storageType={currentStorage?.storage_type || 'Unknown'}
+                    activeProjectId={activeProjectId}
+                    onSuccess={handleMapToHostSuccess}
+                />
+            )}
         </div>
     );
 };

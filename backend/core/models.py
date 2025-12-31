@@ -1560,3 +1560,180 @@ class ProjectPort(models.Model):
 
     def __str__(self):
         return f"{self.project.name}: {self.port.name} ({self.action})"
+
+
+class ProjectHostCluster(models.Model):
+    """Track what a project intends to do with a HostCluster"""
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_host_clusters'
+    )
+    host_cluster = models.ForeignKey(
+        'storage.HostCluster',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=PROJECT_ACTION_CHOICES,
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_host_clusters'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'host_cluster']
+        ordering = ['project', 'host_cluster__name']
+        verbose_name = "Project Host Cluster"
+        verbose_name_plural = "Project Host Clusters"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['host_cluster', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.host_cluster.name} ({self.action})"
+
+
+class ProjectIBMiLPAR(models.Model):
+    """Track what a project intends to do with an IBMiLPAR"""
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_ibmi_lpars'
+    )
+    ibmi_lpar = models.ForeignKey(
+        'storage.IBMiLPAR',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=PROJECT_ACTION_CHOICES,
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_ibmi_lpars'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'ibmi_lpar']
+        ordering = ['project', 'ibmi_lpar__name']
+        verbose_name = "Project IBM i LPAR"
+        verbose_name_plural = "Project IBM i LPARs"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['ibmi_lpar', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.ibmi_lpar.name} ({self.action})"
+
+
+class ProjectVolumeMapping(models.Model):
+    """Track what a project intends to do with a VolumeMapping"""
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_volume_mappings'
+    )
+    volume_mapping = models.ForeignKey(
+        'storage.VolumeMapping',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=PROJECT_ACTION_CHOICES,
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_volume_mappings'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'volume_mapping']
+        ordering = ['project', 'volume_mapping__volume__name']
+        verbose_name = "Project Volume Mapping"
+        verbose_name_plural = "Project Volume Mappings"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['volume_mapping', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.volume_mapping} ({self.action})"

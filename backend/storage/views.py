@@ -7,14 +7,21 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils import timezone
-from .models import Storage, Volume, Host, HostWwpn, Port, Pool
-from .serializers import StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer, StorageFieldPreferenceSerializer, PoolSerializer
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping
+from .serializers import (
+    StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer,
+    StorageFieldPreferenceSerializer, PoolSerializer,
+    HostClusterSerializer, IBMiLPARSerializer, VolumeMappingSerializer
+)
 import logging
 from django.core.paginator import Paginator
 from django.db.models import Q, Prefetch
 from urllib.parse import urlencode
 from core.dashboard_views import clear_dashboard_cache_for_customer
-from core.models import Project, ProjectStorage, ProjectVolume, ProjectHost, ProjectPort, ProjectPool
+from core.models import (
+    Project, ProjectStorage, ProjectVolume, ProjectHost, ProjectPort, ProjectPool,
+    ProjectHostCluster, ProjectIBMiLPAR, ProjectVolumeMapping
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1056,14 +1063,26 @@ def _handle_host_list_get(request, user):
         if storage_id:
             hosts = hosts.filter(storage_id=storage_id)
 
-        # Customer View filtering: Show hosts that are either:
-        # 1. Committed (committed=True), OR
-        # 2. Not referenced by any project (no junction table entries)
-        hosts = hosts.annotate(
-            project_count=Count('project_memberships')  # Correct relationship name
-        ).filter(
-            Q(committed=True) | Q(project_count=0)
-        )
+        # Check if a specific project context is provided
+        # When project_id is provided, include hosts that are either committed OR in that project
+        project_id = request.GET.get('project_id')
+
+        if project_id:
+            # Project-aware filtering: Show hosts that are either:
+            # 1. Committed (committed=True), OR
+            # 2. In the specified project (have a junction table entry for this project)
+            hosts = hosts.filter(
+                Q(committed=True) | Q(project_memberships__project_id=project_id)
+            ).distinct()
+        else:
+            # Customer View filtering: Show hosts that are either:
+            # 1. Committed (committed=True), OR
+            # 2. Not referenced by any project (no junction table entries)
+            hosts = hosts.annotate(
+                project_count=Count('project_memberships')  # Correct relationship name
+            ).filter(
+                Q(committed=True) | Q(project_count=0)
+            )
 
         # Apply general search if provided
         if search:
@@ -2423,19 +2442,39 @@ def host_project_view(request, project_id):
     # Get project filter parameter
     project_filter = request.GET.get('project_filter', 'current')
 
+    # Get optional storage_id filter
+    storage_id = request.GET.get('storage_id')
+
     # Get project host IDs for membership checking
     project_host_ids = set(ProjectHost.objects.filter(
         project=project
     ).values_list('host_id', flat=True))
 
     if project_filter == 'all' and customer:
-        # Return ALL customer hosts with in_active_project flag
+        # Return customer hosts with in_active_project flag
+        # Apply Customer View filtering: Show hosts that are either committed OR not in any project
         # Get customer storage IDs first
         customer_storage_ids = Storage.objects.filter(customer=customer).values_list('id', flat=True)
 
         all_hosts = Host.objects.filter(
             storage_id__in=customer_storage_ids
-        ).select_related(
+        )
+
+        # Filter by specific storage if provided
+        if storage_id:
+            all_hosts = all_hosts.filter(storage_id=storage_id)
+
+        # Customer View filtering: Show hosts that are either:
+        # 1. Committed (committed=True), OR
+        # 2. Not referenced by any project (no junction table entries)
+        from django.db.models import Count
+        all_hosts = all_hosts.annotate(
+            project_count=Count('project_memberships')
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
+        )
+
+        all_hosts = all_hosts.select_related(
             'storage',
             'storage__customer'
         ).prefetch_related(
@@ -2510,7 +2549,13 @@ def host_project_view(request, project_id):
     # Get all ProjectHost entries for this project
     project_hosts = ProjectHost.objects.filter(
         project=project
-    ).select_related(
+    )
+
+    # Filter by specific storage if provided
+    if storage_id:
+        project_hosts = project_hosts.filter(host__storage_id=storage_id)
+
+    project_hosts = project_hosts.select_related(
         'host',
         'host__storage',
         'host__storage__customer'
@@ -4245,3 +4290,618 @@ def pool_project_view(request, project_id):
         except Exception as e:
             logger.error(f"Error in pool_project_view POST: {str(e)}")
             return JsonResponse({"error": str(e)}, status=500)
+
+
+# ============================================================================
+# HOST CLUSTER VIEWS
+# ============================================================================
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def host_cluster_list(request, storage_id=None):
+    """
+    GET: List host clusters (optionally filtered by storage_id)
+    POST: Create a new host cluster
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    if request.method == "GET":
+        try:
+            clusters = HostCluster.objects.select_related('storage', 'created_by_project').prefetch_related(
+                'hosts',
+                Prefetch('project_memberships',
+                         queryset=ProjectHostCluster.objects.select_related('project'))
+            ).all()
+
+            if storage_id:
+                clusters = clusters.filter(storage_id=storage_id)
+
+            # Check if a specific project context is provided
+            project_id = request.GET.get('project_id')
+
+            if project_id:
+                # Project-aware filtering: Show clusters that are either committed OR in this project
+                clusters = clusters.filter(
+                    Q(committed=True) | Q(project_memberships__project_id=project_id)
+                ).distinct()
+            else:
+                # Customer View filtering: Show clusters that are either committed OR not in any project
+                from django.db.models import Count
+                clusters = clusters.annotate(
+                    project_count=Count('project_memberships')
+                ).filter(
+                    Q(committed=True) | Q(project_count=0)
+                )
+
+            serializer = HostClusterSerializer(clusters, many=True, context={'request': request})
+            return JsonResponse(serializer.data, safe=False)
+
+        except Exception as e:
+            logger.error(f"Error in host_cluster_list GET: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            storage_id = data.get('storage')
+            name = data.get('name')
+            host_ids = data.get('hosts', [])
+            notes = data.get('notes', '')
+
+            if not storage_id or not name:
+                return JsonResponse({'error': 'storage and name are required'}, status=400)
+
+            storage = Storage.objects.get(id=storage_id)
+
+            cluster = HostCluster.objects.create(
+                storage=storage,
+                name=name,
+                notes=notes,
+                committed=False,
+                deployed=False,
+                last_modified_by=user
+            )
+
+            # Add hosts if provided
+            if host_ids:
+                hosts = Host.objects.filter(id__in=host_ids, storage=storage)
+                cluster.hosts.set(hosts)
+
+            serializer = HostClusterSerializer(cluster, context={'request': request})
+            return JsonResponse(serializer.data, status=201)
+
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': 'Storage not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+        except Exception as e:
+            logger.error(f"Error in host_cluster_list POST: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def host_cluster_detail(request, pk):
+    """Handle individual host cluster operations"""
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        cluster = HostCluster.objects.select_related('storage').prefetch_related('hosts').get(pk=pk)
+    except HostCluster.DoesNotExist:
+        return JsonResponse({"error": "Host cluster not found"}, status=404)
+
+    if request.method == "GET":
+        serializer = HostClusterSerializer(cluster, context={'request': request})
+        return JsonResponse(serializer.data)
+
+    elif request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+            cluster.name = data.get('name', cluster.name)
+            cluster.notes = data.get('notes', cluster.notes)
+            cluster.last_modified_by = user
+            cluster.save()
+
+            # Update hosts if provided
+            if 'hosts' in data:
+                hosts = Host.objects.filter(id__in=data['hosts'], storage=cluster.storage)
+                cluster.hosts.set(hosts)
+
+            serializer = HostClusterSerializer(cluster, context={'request': request})
+            return JsonResponse(serializer.data)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            logger.error(f"Error updating host cluster: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "DELETE":
+        cluster.delete()
+        return JsonResponse({"message": "Host cluster deleted"})
+
+
+# ============================================================================
+# IBM i LPAR VIEWS
+# ============================================================================
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def ibmi_lpar_list(request, storage_id=None):
+    """
+    GET: List IBM i LPARs (optionally filtered by storage_id)
+    POST: Create a new IBM i LPAR
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    if request.method == "GET":
+        try:
+            lpars = IBMiLPAR.objects.select_related('storage', 'created_by_project').prefetch_related(
+                'hosts',
+                Prefetch('project_memberships',
+                         queryset=ProjectIBMiLPAR.objects.select_related('project'))
+            ).all()
+
+            if storage_id:
+                lpars = lpars.filter(storage_id=storage_id)
+
+            # Check if a specific project context is provided
+            project_id = request.GET.get('project_id')
+
+            if project_id:
+                # Project-aware filtering: Show LPARs that are either committed OR in this project
+                lpars = lpars.filter(
+                    Q(committed=True) | Q(project_memberships__project_id=project_id)
+                ).distinct()
+            else:
+                # Customer View filtering
+                from django.db.models import Count
+                lpars = lpars.annotate(
+                    project_count=Count('project_memberships')
+                ).filter(
+                    Q(committed=True) | Q(project_count=0)
+                )
+
+            serializer = IBMiLPARSerializer(lpars, many=True, context={'request': request})
+            return JsonResponse(serializer.data, safe=False)
+
+        except Exception as e:
+            logger.error(f"Error in ibmi_lpar_list GET: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            storage_id = data.get('storage')
+            name = data.get('name')
+            host_ids = data.get('hosts', [])
+            notes = data.get('notes', '')
+
+            if not storage_id or not name:
+                return JsonResponse({'error': 'storage and name are required'}, status=400)
+
+            storage = Storage.objects.get(id=storage_id)
+
+            lpar = IBMiLPAR.objects.create(
+                storage=storage,
+                name=name,
+                notes=notes,
+                committed=False,
+                deployed=False,
+                last_modified_by=user
+            )
+
+            # Add hosts if provided
+            if host_ids:
+                hosts = Host.objects.filter(id__in=host_ids, storage=storage)
+                lpar.hosts.set(hosts)
+
+            serializer = IBMiLPARSerializer(lpar, context={'request': request})
+            return JsonResponse(serializer.data, status=201)
+
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': 'Storage not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+        except Exception as e:
+            logger.error(f"Error in ibmi_lpar_list POST: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def ibmi_lpar_detail(request, pk):
+    """Handle individual IBM i LPAR operations"""
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        lpar = IBMiLPAR.objects.select_related('storage').prefetch_related('hosts').get(pk=pk)
+    except IBMiLPAR.DoesNotExist:
+        return JsonResponse({"error": "IBM i LPAR not found"}, status=404)
+
+    if request.method == "GET":
+        serializer = IBMiLPARSerializer(lpar, context={'request': request})
+        return JsonResponse(serializer.data)
+
+    elif request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+            lpar.name = data.get('name', lpar.name)
+            lpar.notes = data.get('notes', lpar.notes)
+            lpar.last_modified_by = user
+            lpar.save()
+
+            # Update hosts if provided
+            if 'hosts' in data:
+                hosts = Host.objects.filter(id__in=data['hosts'], storage=lpar.storage)
+                lpar.hosts.set(hosts)
+
+            serializer = IBMiLPARSerializer(lpar, context={'request': request})
+            return JsonResponse(serializer.data)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            logger.error(f"Error updating LPAR: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "DELETE":
+        lpar.delete()
+        return JsonResponse({"message": "IBM i LPAR deleted"})
+
+
+# ============================================================================
+# VOLUME MAPPING VIEWS
+# ============================================================================
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def volume_mapping_list(request):
+    """List volume mappings with filtering"""
+    try:
+        mappings = VolumeMapping.objects.select_related(
+            'volume', 'volume__storage',
+            'target_host', 'target_cluster', 'target_lpar',
+            'assigned_host', 'created_by_project'
+        ).prefetch_related(
+            Prefetch('project_memberships',
+                     queryset=ProjectVolumeMapping.objects.select_related('project'))
+        ).all()
+
+        # Filter by storage
+        storage_id = request.GET.get('storage')
+        if storage_id:
+            mappings = mappings.filter(volume__storage_id=storage_id)
+
+        # Filter by volume
+        volume_id = request.GET.get('volume')
+        if volume_id:
+            mappings = mappings.filter(volume_id=volume_id)
+
+        # Filter by target type
+        target_type = request.GET.get('target_type')
+        if target_type:
+            mappings = mappings.filter(target_type=target_type)
+
+        # Customer View filtering
+        from django.db.models import Count
+        mappings = mappings.annotate(
+            project_count=Count('project_memberships')
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
+        )
+
+        serializer = VolumeMappingSerializer(mappings, many=True, context={'request': request})
+        return JsonResponse(serializer.data, safe=False)
+
+    except Exception as e:
+        logger.error(f"Error in volume_mapping_list: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def volume_mapping_preview(request):
+    """
+    Preview volume distribution for LPAR mappings before creating.
+    Returns how volumes would be distributed across hosts.
+    """
+    try:
+        data = json.loads(request.body)
+        volume_ids = data.get('volume_ids', [])
+        target_type = data.get('target_type')
+        target_id = data.get('target_id')
+
+        if not volume_ids:
+            return JsonResponse({'error': 'volume_ids is required'}, status=400)
+
+        if not target_type or not target_id:
+            return JsonResponse({'error': 'target_type and target_id are required'}, status=400)
+
+        volumes = Volume.objects.filter(id__in=volume_ids)
+        if not volumes.exists():
+            return JsonResponse({'error': 'No volumes found'}, status=404)
+
+        # Get storage type from first volume
+        storage = volumes.first().storage
+        storage_type = storage.storage_type if storage else 'Unknown'
+
+        if target_type == 'lpar':
+            try:
+                lpar = IBMiLPAR.objects.prefetch_related('hosts').get(id=target_id)
+            except IBMiLPAR.DoesNotExist:
+                return JsonResponse({'error': 'LPAR not found'}, status=404)
+
+            from .volume_distribution import preview_distribution
+            preview = preview_distribution(list(volumes), list(lpar.hosts.all()), storage_type)
+            return JsonResponse(preview)
+
+        elif target_type == 'cluster':
+            try:
+                cluster = HostCluster.objects.prefetch_related('hosts').get(id=target_id)
+            except HostCluster.DoesNotExist:
+                return JsonResponse({'error': 'Host cluster not found'}, status=404)
+
+            # For clusters, all hosts get all volumes
+            hosts_data = [
+                {
+                    'host_id': host.id,
+                    'host_name': host.name,
+                    'volume_count': len(volume_ids),
+                    'volumes': [{'id': v.id, 'name': v.name, 'volume_id': v.volume_id} for v in volumes]
+                }
+                for host in cluster.hosts.all()
+            ]
+            return JsonResponse({
+                'hosts': hosts_data,
+                'summary': {
+                    'total_volumes': len(volume_ids),
+                    'total_hosts': cluster.hosts.count(),
+                    'distribution_type': 'Shared (all hosts get all volumes)',
+                    'balanced': True
+                }
+            })
+
+        elif target_type == 'host':
+            try:
+                host = Host.objects.get(id=target_id)
+            except Host.DoesNotExist:
+                return JsonResponse({'error': 'Host not found'}, status=404)
+
+            return JsonResponse({
+                'hosts': [{
+                    'host_id': host.id,
+                    'host_name': host.name,
+                    'volume_count': len(volume_ids),
+                    'volumes': [{'id': v.id, 'name': v.name, 'volume_id': v.volume_id} for v in volumes]
+                }],
+                'summary': {
+                    'total_volumes': len(volume_ids),
+                    'total_hosts': 1,
+                    'distribution_type': 'Direct mapping',
+                    'balanced': True
+                }
+            })
+
+        else:
+            return JsonResponse({'error': 'Invalid target_type'}, status=400)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.error(f"Error in volume_mapping_preview: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def volume_mapping_create(request):
+    """
+    Create volume mappings for selected volumes to a target (Host, Cluster, or LPAR).
+    For LPAR targets, uses the distribution algorithm to assign hosts.
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        data = json.loads(request.body)
+        volume_ids = data.get('volume_ids', [])
+        target_type = data.get('target_type')
+        target_id = data.get('target_id')
+        project_id = data.get('project_id')
+
+        if not volume_ids:
+            return JsonResponse({'error': 'volume_ids is required'}, status=400)
+
+        if not target_type or not target_id:
+            return JsonResponse({'error': 'target_type and target_id are required'}, status=400)
+
+        if not project_id:
+            return JsonResponse({'error': 'project_id is required'}, status=400)
+
+        # Validate project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({'error': 'Project not found'}, status=404)
+
+        volumes = Volume.objects.filter(id__in=volume_ids)
+        if not volumes.exists():
+            return JsonResponse({'error': 'No volumes found'}, status=404)
+
+        storage = volumes.first().storage
+        storage_type = storage.storage_type if storage else 'Unknown'
+
+        created_mappings = []
+        results = {'created': 0, 'errors': []}
+
+        if target_type == 'host':
+            try:
+                host = Host.objects.get(id=target_id)
+            except Host.DoesNotExist:
+                return JsonResponse({'error': 'Host not found'}, status=404)
+
+            for volume in volumes:
+                try:
+                    mapping = VolumeMapping.objects.create(
+                        volume=volume,
+                        target_type='host',
+                        target_host=host,
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project,
+                        last_modified_by=user
+                    )
+                    ProjectVolumeMapping.objects.create(
+                        project=project,
+                        volume_mapping=mapping,
+                        action='new',
+                        added_by=user
+                    )
+                    created_mappings.append(mapping.id)
+                    results['created'] += 1
+                except Exception as e:
+                    results['errors'].append(f"Volume {volume.name}: {str(e)}")
+
+        elif target_type == 'cluster':
+            try:
+                cluster = HostCluster.objects.get(id=target_id)
+            except HostCluster.DoesNotExist:
+                return JsonResponse({'error': 'Host cluster not found'}, status=404)
+
+            for volume in volumes:
+                try:
+                    mapping = VolumeMapping.objects.create(
+                        volume=volume,
+                        target_type='cluster',
+                        target_cluster=cluster,
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project,
+                        last_modified_by=user
+                    )
+                    ProjectVolumeMapping.objects.create(
+                        project=project,
+                        volume_mapping=mapping,
+                        action='new',
+                        added_by=user
+                    )
+                    created_mappings.append(mapping.id)
+                    results['created'] += 1
+                except Exception as e:
+                    results['errors'].append(f"Volume {volume.name}: {str(e)}")
+
+        elif target_type == 'lpar':
+            try:
+                lpar = IBMiLPAR.objects.prefetch_related('hosts').get(id=target_id)
+            except IBMiLPAR.DoesNotExist:
+                return JsonResponse({'error': 'LPAR not found'}, status=404)
+
+            # Use distribution algorithm
+            from .volume_distribution import distribute_volumes_to_lpar
+            distribution = distribute_volumes_to_lpar(list(volumes), list(lpar.hosts.all()), storage_type)
+
+            # Create mappings with assigned hosts
+            host_lookup = {h.id: h for h in lpar.hosts.all()}
+            for host_id, vol_ids in distribution.items():
+                host = host_lookup.get(host_id)
+                for vol_id in vol_ids:
+                    volume = volumes.get(id=vol_id)
+                    try:
+                        mapping = VolumeMapping.objects.create(
+                            volume=volume,
+                            target_type='lpar',
+                            target_lpar=lpar,
+                            assigned_host=host,
+                            committed=False,
+                            deployed=False,
+                            created_by_project=project,
+                            last_modified_by=user
+                        )
+                        ProjectVolumeMapping.objects.create(
+                            project=project,
+                            volume_mapping=mapping,
+                            action='new',
+                            added_by=user
+                        )
+                        created_mappings.append(mapping.id)
+                        results['created'] += 1
+                    except Exception as e:
+                        results['errors'].append(f"Volume {volume.name}: {str(e)}")
+
+        else:
+            return JsonResponse({'error': 'Invalid target_type'}, status=400)
+
+        results['mapping_ids'] = created_mappings
+        return JsonResponse(results, status=201 if results['created'] > 0 else 400)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.error(f"Error in volume_mapping_create: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "DELETE"])
+def volume_mapping_detail(request, pk):
+    """Handle individual volume mapping operations"""
+    try:
+        mapping = VolumeMapping.objects.select_related(
+            'volume', 'target_host', 'target_cluster', 'target_lpar', 'assigned_host'
+        ).get(pk=pk)
+    except VolumeMapping.DoesNotExist:
+        return JsonResponse({"error": "Volume mapping not found"}, status=404)
+
+    if request.method == "GET":
+        serializer = VolumeMappingSerializer(mapping, context={'request': request})
+        return JsonResponse(serializer.data)
+
+    elif request.method == "DELETE":
+        mapping.delete()
+        return JsonResponse({"message": "Volume mapping deleted"})
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def volume_mapping_project_view(request, project_id):
+    """
+    GET: List volume mappings in the project
+    POST: Create volume mappings within project context
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        project = Project.objects.get(id=project_id)
+    except Project.DoesNotExist:
+        return JsonResponse({"error": "Project not found"}, status=404)
+
+    if request.method == "GET":
+        try:
+            # Get mappings that are in this project
+            project_mapping_ids = ProjectVolumeMapping.objects.filter(
+                project=project
+            ).values_list('volume_mapping_id', flat=True)
+
+            mappings = VolumeMapping.objects.filter(
+                id__in=project_mapping_ids
+            ).select_related(
+                'volume', 'volume__storage',
+                'target_host', 'target_cluster', 'target_lpar', 'assigned_host'
+            ).prefetch_related(
+                Prefetch('project_memberships',
+                         queryset=ProjectVolumeMapping.objects.select_related('project'))
+            )
+
+            serializer = VolumeMappingSerializer(
+                mappings, many=True,
+                context={'request': request, 'active_project_id': project_id}
+            )
+            return JsonResponse(serializer.data, safe=False)
+
+        except Exception as e:
+            logger.error(f"Error in volume_mapping_project_view GET: {str(e)}")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "POST":
+        # Delegate to volume_mapping_create with project_id injected
+        return volume_mapping_create(request)

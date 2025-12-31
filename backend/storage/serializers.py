@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Storage, Volume, Host, HostWwpn, Port, Pool
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping
 from customers.serializers import CustomerSerializer
 from core.models import TableConfiguration
 
@@ -336,3 +336,180 @@ class StorageFieldPreferenceSerializer(serializers.Serializer):
                 'capacity_bytes', 'used_capacity_percent', 'available_capacity_bytes'
             ]
         }
+
+
+class HostClusterSerializer(serializers.ModelSerializer):
+    """Serializer for HostCluster model with project membership tracking"""
+    # Computed fields
+    host_count = serializers.IntegerField(read_only=True)
+    volume_count = serializers.IntegerField(read_only=True)
+    storage_name = serializers.CharField(source='storage.name', read_only=True)
+    storage_type = serializers.CharField(source='storage.storage_type', read_only=True)
+
+    # Host details for display
+    hosts_details = serializers.SerializerMethodField()
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HostCluster
+        fields = '__all__'
+
+    def get_hosts_details(self, obj):
+        """Return list of hosts in this cluster"""
+        return [
+            {'id': host.id, 'name': host.name}
+            for host in obj.hosts.all()
+        ]
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this host cluster belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                action = 'delete' if pm.delete_me else pm.action
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for host cluster {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this host cluster is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for host cluster {obj.name}: {e}")
+            return False
+
+
+class IBMiLPARSerializer(serializers.ModelSerializer):
+    """Serializer for IBMiLPAR model with project membership tracking"""
+    # Computed fields
+    host_count = serializers.IntegerField(read_only=True)
+    volume_count = serializers.IntegerField(read_only=True)
+    storage_name = serializers.CharField(source='storage.name', read_only=True)
+    storage_type = serializers.CharField(source='storage.storage_type', read_only=True)
+
+    # Host details for display
+    hosts_details = serializers.SerializerMethodField()
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = IBMiLPAR
+        fields = '__all__'
+
+    def get_hosts_details(self, obj):
+        """Return list of hosts in this LPAR"""
+        return [
+            {'id': host.id, 'name': host.name}
+            for host in obj.hosts.all()
+        ]
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this LPAR belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                action = 'delete' if pm.delete_me else pm.action
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for LPAR {obj.name}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this LPAR is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for LPAR {obj.name}: {e}")
+            return False
+
+
+class VolumeMappingSerializer(serializers.ModelSerializer):
+    """Serializer for VolumeMapping model with project membership tracking"""
+    # Volume details
+    volume_name = serializers.CharField(source='volume.name', read_only=True)
+    volume_id_hex = serializers.CharField(source='volume.volume_id', read_only=True)
+    storage_name = serializers.CharField(source='volume.storage.name', read_only=True)
+
+    # Target details
+    target_name = serializers.SerializerMethodField()
+    target_details = serializers.SerializerMethodField()
+
+    # Assigned host details (for LPAR mappings)
+    assigned_host_name = serializers.CharField(source='assigned_host.name', read_only=True)
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = VolumeMapping
+        fields = '__all__'
+
+    def get_target_name(self, obj):
+        """Return the target's name"""
+        return obj.get_target_name()
+
+    def get_target_details(self, obj):
+        """Return detailed info about the target"""
+        target = obj.get_target()
+        if not target:
+            return None
+
+        result = {
+            'id': target.id,
+            'name': target.name,
+            'type': obj.target_type
+        }
+
+        # Add host count for clusters and LPARs
+        if obj.target_type in ('cluster', 'lpar'):
+            result['host_count'] = target.host_count
+
+        return result
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this mapping belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                action = 'delete' if pm.delete_me else pm.action
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for mapping {obj}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this mapping is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for mapping {obj}: {e}")
+            return False

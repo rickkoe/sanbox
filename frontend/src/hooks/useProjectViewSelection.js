@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Trash2, Edit3, X } from 'lucide-react';
+import { Trash2, Edit3, X, Server } from 'lucide-react';
 import { Modal, Button } from 'react-bootstrap';
 import { useSettings } from '../context/SettingsContext';
 import api from '../api';
@@ -20,6 +20,7 @@ import api from '../api';
  * @param {string} options.entityType - Entity type (e.g., 'alias', 'zone', 'fabric')
  * @param {string} options.API_URL - Base API URL (e.g., process.env.REACT_APP_API_URL)
  * @param {number|null} options.totalRowCount - Total number of rows across all pages
+ * @param {Function|null} options.onMapToHost - Optional callback for "Map to Host" action (volumes only)
  * @returns {Object} Selection state, handlers, and components
  */
 export const useProjectViewSelection = ({
@@ -29,7 +30,8 @@ export const useProjectViewSelection = ({
     apiUrl,
     entityType,
     API_URL,
-    totalRowCount
+    totalRowCount,
+    onMapToHost = null
 }) => {
     // Get user settings for banner visibility
     const { settings, updateSettings } = useSettings();
@@ -670,11 +672,36 @@ export const useProjectViewSelection = ({
                                 Unmark for Deletion
                             </button>
                         </li>
+                        {onMapToHost && (
+                            <li>
+                                <button
+                                    className="table-dropdown-item"
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowActionsDropdown(false);
+                                        onMapToHost(Array.from(selectedRows));
+                                    }}
+                                    style={{
+                                        color: 'var(--color-accent-emphasis)'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'var(--color-accent-subtle)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                    }}
+                                >
+                                    <Server size={16} />
+                                    Map to Host...
+                                </button>
+                            </li>
+                        )}
                     </ul>
                 )}
             </div>
         );
-    }, [projectFilter, selectedRows.size, showActionsDropdown, handleMarkForDeletion, handleUnmarkForDeletion]);
+    }, [projectFilter, selectedRows.size, showActionsDropdown, handleMarkForDeletion, handleUnmarkForDeletion, onMapToHost, selectedRows]);
 
     return {
         selectedRows,

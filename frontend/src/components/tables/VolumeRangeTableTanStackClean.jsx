@@ -4,11 +4,13 @@ import { ConfigContext } from "../../context/ConfigContext";
 import { useProjectFilter } from "../../context/ProjectFilterContext";
 import TanStackCRUDTable from "./TanStackTable/TanStackCRUDTable";
 import EmptyConfigMessage from "../common/EmptyConfigMessage";
+import { useProjectViewSelection } from "../../hooks/useProjectViewSelection";
 import { useProjectViewPermissions } from "../../hooks/useProjectViewPermissions";
 import ProjectViewToolbar from "./ProjectView/ProjectViewToolbar";
 import { getTableColumns, getDefaultSort, getColumnHeaders } from "../../utils/tableConfigLoader";
 import { Plus, AlertTriangle } from "lucide-react";
 import CreateVolumeRangeModal from "../modals/CreateVolumeRangeModal";
+import MapVolumesToHostModal from "../modals/MapVolumesToHostModal";
 import { Modal, Button } from "react-bootstrap";
 import "../../styles/storagepage.css";
 
@@ -52,6 +54,13 @@ const VolumeRangeTableTanStackClean = ({
     // Validation state - tracks errors per row
     const [rowValidationErrors, setRowValidationErrors] = useState({});
 
+    // Map to Host modal state
+    const [showMapToHostModal, setShowMapToHostModal] = useState(false);
+    const [selectedVolumeIdsForMapping, setSelectedVolumeIdsForMapping] = useState([]);
+
+    // Track total row count for selection banner
+    const [totalRowCount, setTotalRowCount] = useState(0);
+
     const activeCustomerId = config?.customer?.id;
     const activeProjectId = config?.active_project?.id;
 
@@ -66,7 +75,7 @@ const VolumeRangeTableTanStackClean = ({
     const isInDraftMode = projectFilter === 'current' && activeProjectId;
     const isReadOnly = !isInDraftMode || !canEdit;
 
-    // API endpoints
+    // API endpoints (must be defined before useProjectViewSelection hook)
     const apiUrl = useMemo(() => {
         if (projectFilterLoading || !storageId) {
             return null;
@@ -79,6 +88,67 @@ const VolumeRangeTableTanStackClean = ({
         params.append('table_format', 'true'); // Request table-compatible format
         return `${API_URL}/api/storage/${storageId}/volume-ranges/?${params.toString()}`;
     }, [API_URL, storageId, activeProjectId, projectFilter, projectFilterLoading]);
+
+    // Effect to track total row count for selection banner
+    useEffect(() => {
+        if (projectFilter === 'current' && tableRef.current) {
+            const timer = setInterval(() => {
+                const paginationInfo = tableRef.current?.getPaginationInfo?.();
+                if (paginationInfo && paginationInfo.totalItems !== totalRowCount) {
+                    setTotalRowCount(paginationInfo.totalItems);
+                }
+            }, 500);
+
+            return () => clearInterval(timer);
+        }
+    }, [projectFilter, totalRowCount]);
+
+    // Handler for Map to Host action - expands volume ranges to individual volume IDs
+    const handleMapToHost = useCallback((rangeIds) => {
+        // Get the current table data to find the volume_ids for selected ranges
+        const currentData = tableRef.current?.getTableData() || [];
+        const allVolumeIds = [];
+
+        rangeIds.forEach(rangeId => {
+            const range = currentData.find(r => r.id === rangeId || r.range_id === rangeId);
+            if (range && range.volume_ids && Array.isArray(range.volume_ids)) {
+                allVolumeIds.push(...range.volume_ids);
+            }
+        });
+
+        if (allVolumeIds.length === 0) {
+            alert('No volumes found in selected ranges. Please select ranges with existing volumes.');
+            return;
+        }
+
+        setSelectedVolumeIdsForMapping(allVolumeIds);
+        setShowMapToHostModal(true);
+    }, []);
+
+    // Handler when mapping is successful
+    const handleMapToHostSuccess = useCallback((result) => {
+        console.log('Volume mappings created from ranges:', result);
+        // Clear selection after successful mapping
+        handleClearSelection?.();
+    }, []);
+
+    // Use centralized selection hook with Map to Host action
+    const {
+        selectedRows,
+        handleSelectAllPages,
+        handleClearSelection,
+        BannerSlot,
+        ActionsDropdown
+    } = useProjectViewSelection({
+        tableRef,
+        projectFilter,
+        activeProjectId,
+        apiUrl,
+        entityType: 'volumeRange',
+        API_URL,
+        totalRowCount,
+        onMapToHost: handleMapToHost
+    });
 
     // Load pools for dropdown
     useEffect(() => {
@@ -261,13 +331,16 @@ const VolumeRangeTableTanStackClean = ({
     }, [isValidHex2, getLssInfo, getConflictingVolumes]);
 
     // Column configuration
+    // Include select column in Project View for bulk actions
+    const includeSelectColumn = projectFilter === 'current';
+
     const columns = useMemo(() => {
-        return getTableColumns('volumeRange', false);
-    }, []);
+        return getTableColumns('volumeRange', includeSelectColumn);
+    }, [includeSelectColumn]);
 
     const colHeaders = useMemo(() => {
-        return getColumnHeaders('volumeRange', false);
-    }, []);
+        return getColumnHeaders('volumeRange', includeSelectColumn);
+    }, [includeSelectColumn]);
 
     const defaultSort = getDefaultSort('volumeRange');
 
@@ -884,10 +957,10 @@ const VolumeRangeTableTanStackClean = ({
         }
     }, [onRangeCreated]);
 
-    // Custom toolbar content with Create Range button
+    // Custom toolbar content with Create Range button and Actions dropdown
     const customToolbarContent = (
         <ProjectViewToolbar
-            ActionsDropdown={null}
+            ActionsDropdown={projectFilter === 'current' ? ActionsDropdown : null}
             extraContent={
                 <button
                     className="btn btn-primary btn-sm"
@@ -956,6 +1029,9 @@ const VolumeRangeTableTanStackClean = ({
 
     return (
         <div className="modern-table-container">
+            {/* Selection Banner from useProjectViewSelection hook */}
+            {BannerSlot}
+
             {/* Validation Error Banner */}
             {validationErrorSummary && (
                 <div className="volume-range-validation-banner">
@@ -1085,6 +1161,23 @@ const VolumeRangeTableTanStackClean = ({
                     </Button>
                 </Modal.Footer>
             </Modal>
+
+            {/* Map Volumes to Host Modal */}
+            {showMapToHostModal && storageId && (
+                <MapVolumesToHostModal
+                    show={showMapToHostModal}
+                    onClose={() => {
+                        setShowMapToHostModal(false);
+                        setSelectedVolumeIdsForMapping([]);
+                    }}
+                    selectedVolumeIds={selectedVolumeIdsForMapping}
+                    storageId={storageId}
+                    storageName={storageName || 'Unknown Storage'}
+                    storageType="DS8000"
+                    activeProjectId={activeProjectId}
+                    onSuccess={handleMapToHostSuccess}
+                />
+            )}
         </div>
     );
 };

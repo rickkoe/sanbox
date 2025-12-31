@@ -576,3 +576,259 @@ class Volume(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class HostCluster(models.Model):
+    """
+    Groups multiple hosts that SHARE the same volumes.
+    All hosts in a cluster receive identical volume mappings.
+    Scoped to a single storage system.
+    """
+    name = models.CharField(max_length=200)
+    storage = models.ForeignKey(
+        Storage,
+        on_delete=models.CASCADE,
+        related_name='host_clusters'
+    )
+    hosts = models.ManyToManyField(
+        Host,
+        related_name='clusters',
+        blank=True,
+        help_text="Hosts in this cluster that share volumes"
+    )
+    notes = models.TextField(null=True, blank=True)
+
+    # Lifecycle tracking (matches existing pattern)
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_host_clusters',
+        help_text="Project that originally created this entity"
+    )
+
+    # Audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_host_clusters',
+        help_text="User who last modified this host cluster"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['storage', 'name']
+        ordering = ['storage', 'name']
+
+    def __str__(self):
+        return f"{self.storage.name}: {self.name} ({self.hosts.count()} hosts)"
+
+    @property
+    def host_count(self):
+        """Returns the count of hosts in this cluster"""
+        return self.hosts.count()
+
+    @property
+    def volume_count(self):
+        """Returns the count of volumes mapped to this cluster"""
+        return self.volume_mappings.count()
+
+
+class IBMiLPAR(models.Model):
+    """
+    Groups hosts for EVEN DISTRIBUTION of volumes (round-robin).
+    For DS8000: Also distributes evenly across LSS.
+    Scoped to a single storage system.
+    """
+    name = models.CharField(max_length=200)
+    storage = models.ForeignKey(
+        Storage,
+        on_delete=models.CASCADE,
+        related_name='ibmi_lpars'
+    )
+    hosts = models.ManyToManyField(
+        Host,
+        related_name='ibmi_lpars',
+        blank=True,
+        help_text="Hosts in this LPAR that receive distributed volumes"
+    )
+    notes = models.TextField(null=True, blank=True)
+
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_ibmi_lpars',
+        help_text="Project that originally created this entity"
+    )
+
+    # Audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_ibmi_lpars',
+        help_text="User who last modified this LPAR"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['storage', 'name']
+        ordering = ['storage', 'name']
+        verbose_name = "IBM i LPAR"
+        verbose_name_plural = "IBM i LPARs"
+
+    def __str__(self):
+        return f"{self.storage.name}: {self.name} ({self.hosts.count()} hosts)"
+
+    @property
+    def host_count(self):
+        """Returns the count of hosts in this LPAR"""
+        return self.hosts.count()
+
+    @property
+    def volume_count(self):
+        """Returns the count of volumes mapped to this LPAR"""
+        return self.volume_mappings.count()
+
+
+class VolumeMapping(models.Model):
+    """
+    Tracks volume-to-target mappings with project lifecycle support.
+    Target can be Host, HostCluster, or IBMiLPAR.
+    Uses separate FK fields for simpler queries (vs GenericForeignKey).
+    """
+    TARGET_TYPE_CHOICES = [
+        ('host', 'Host'),
+        ('cluster', 'Host Cluster'),
+        ('lpar', 'IBM i LPAR'),
+    ]
+
+    volume = models.ForeignKey(
+        Volume,
+        on_delete=models.CASCADE,
+        related_name='volume_mappings'
+    )
+
+    # Target polymorphism (only one populated based on target_type)
+    target_type = models.CharField(max_length=10, choices=TARGET_TYPE_CHOICES)
+    target_host = models.ForeignKey(
+        Host,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='direct_volume_mappings'
+    )
+    target_cluster = models.ForeignKey(
+        HostCluster,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='volume_mappings'
+    )
+    target_lpar = models.ForeignKey(
+        IBMiLPAR,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='volume_mappings'
+    )
+
+    # For LPAR mappings, track which specific host received this volume
+    assigned_host = models.ForeignKey(
+        Host,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_volume_mappings',
+        help_text="For LPAR targets: the specific host this volume was assigned to"
+    )
+
+    # LUN ID if specified
+    lun_id = models.IntegerField(null=True, blank=True)
+
+    # Lifecycle tracking
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_volume_mappings',
+        help_text="Project that originally created this entity"
+    )
+
+    # Audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_volume_mappings',
+        help_text="User who last modified this mapping"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['volume', 'target_type']
+        indexes = [
+            models.Index(fields=['volume', 'target_type']),
+            models.Index(fields=['target_host']),
+            models.Index(fields=['target_cluster']),
+            models.Index(fields=['target_lpar']),
+        ]
+
+    def get_target(self):
+        """Return the actual target object"""
+        if self.target_type == 'host':
+            return self.target_host
+        elif self.target_type == 'cluster':
+            return self.target_cluster
+        elif self.target_type == 'lpar':
+            return self.target_lpar
+        return None
+
+    def get_target_name(self):
+        """Return the target's name for display"""
+        target = self.get_target()
+        return target.name if target else 'Unknown'
+
+    def __str__(self):
+        target = self.get_target()
+        return f"{self.volume.name} -> {target.name if target else 'Unknown'}"
