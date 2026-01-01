@@ -341,6 +341,39 @@
     font-weight: 500;
 }
 
+/* Warning banner for missing SSIDs */
+.script-warning-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--color-attention-muted);
+    border-left: 4px solid var(--color-attention-emphasis);
+    border-radius: var(--radius-md);
+}
+
+.script-warning-banner svg {
+    flex-shrink: 0;
+    color: var(--color-attention-emphasis);
+    margin-top: 2px;
+}
+
+.script-warning-banner .warning-content {
+    flex: 1;
+}
+
+.script-warning-banner .warning-content strong {
+    color: var(--primary-text);
+}
+
+.script-warning-banner .warning-hint {
+    margin-top: 4px;
+    font-size: 0.875rem;
+    color: var(--muted-text);
+}
+
 /* Code Container */
 .script-code-container {
     max-height: calc(100vh - 400px);

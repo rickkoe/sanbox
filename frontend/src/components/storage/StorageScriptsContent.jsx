@@ -26,11 +26,12 @@ const StorageScriptsContent = ({
   const [mkHostScripts, setMkHostScripts] = useState({});
   const [volumeScripts, setVolumeScripts] = useState({});
   const [volumeMappingScripts, setVolumeMappingScripts] = useState({});
+  const [mklcuScripts, setMklcuScripts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copyButtonText, setCopyButtonText] = useState("Copy to clipboard");
   const [activeTab, setActiveTab] = useState(null);
-  const [scriptType, setScriptType] = useState("mkhost"); // "mkhost", "volume", "mapping", or "all"
+  const [scriptType, setScriptType] = useState("mkhost"); // "mkhost", "volume", "mapping", "mklcu", or "all"
   const navigate = useNavigate();
 
   // Download modal state
@@ -41,6 +42,7 @@ const StorageScriptsContent = ({
     mkhost: true,
     volume: true,
     mapping: true,
+    mklcu: true,
     all: false
   });
   const [includeComments, setIncludeComments] = useState(true);
@@ -61,16 +63,24 @@ const StorageScriptsContent = ({
     const allStorageNames = new Set([
       ...Object.keys(mkHostScripts),
       ...Object.keys(volumeScripts),
-      ...Object.keys(volumeMappingScripts)
+      ...Object.keys(volumeMappingScripts),
+      ...Object.keys(mklcuScripts)
     ]);
 
     allStorageNames.forEach(storageName => {
       const mkHost = mkHostScripts[storageName];
       const volume = volumeScripts[storageName];
       const mapping = volumeMappingScripts[storageName];
+      const mklcu = mklcuScripts[storageName];
 
       // Combine all commands (backend already includes section headers)
       const allCommands = [];
+
+      // MkLCU commands should come first (create LCUs before volumes)
+      if (mklcu && mklcu.commands && mklcu.commands.length > 0) {
+        allCommands.push(...mklcu.commands);
+        allCommands.push('');
+      }
 
       if (mkHost && mkHost.commands && mkHost.commands.length > 0) {
         allCommands.push(...mkHost.commands);
@@ -89,24 +99,26 @@ const StorageScriptsContent = ({
       // Only include if there are any commands
       if (allCommands.length > 0) {
         combined[storageName] = {
-          storage_type: mkHost?.storage_type || volume?.storage_type || mapping?.storage_type || "Unknown",
+          storage_type: mkHost?.storage_type || volume?.storage_type || mapping?.storage_type || mklcu?.storage_type || "Unknown",
           host_count: mkHost?.host_count || 0,
           volume_count: volume?.volume_count || mapping?.volume_count || 0,
           range_count: volume?.range_count || 0,
           mapping_count: mapping?.mapping_count || 0,
+          lcu_count: mklcu?.lcu_count || 0,
           mkhost_command_count: mkHost?.host_count || 0,
           volume_command_count: volume?.command_count || 0,
           mapping_command_count: mapping?.mapping_count || 0,
+          mklcu_command_count: mklcu?.lcu_count || 0,
           commands: allCommands
         };
       }
     });
 
     return combined;
-  }, [mkHostScripts, volumeScripts, volumeMappingScripts]);
+  }, [mkHostScripts, volumeScripts, volumeMappingScripts, mklcuScripts]);
 
   // Get the current scripts based on scriptType
-  const scripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : scriptType === "mapping" ? volumeMappingScripts : allScripts;
+  const scripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : scriptType === "mapping" ? volumeMappingScripts : scriptType === "mklcu" ? mklcuScripts : allScripts;
 
   useEffect(() => {
     // Wait until we actually have config loaded
@@ -125,38 +137,44 @@ const StorageScriptsContent = ({
         const projectId = config.active_project.id;
 
         // Build API URLs based on whether we're filtering to a specific storage
-        let mkHostUrl, volumeUrl, mappingUrl;
+        let mkHostUrl, volumeUrl, mappingUrl, mklcuUrl;
         if (storageId) {
           mkHostUrl = `/api/storage/mkhost-scripts/project/${projectId}/storage/${storageId}/`;
           volumeUrl = `/api/storage/volume-scripts/project/${projectId}/storage/${storageId}/`;
           mappingUrl = `/api/storage/volume-mapping-scripts/project/${projectId}/storage/${storageId}/`;
+          mklcuUrl = `/api/storage/mklcu-scripts/project/${projectId}/storage/${storageId}/`;
         } else {
           mkHostUrl = `/api/storage/mkhost-scripts/project/${projectId}/`;
           volumeUrl = `/api/storage/volume-scripts/project/${projectId}/`;
           mappingUrl = `/api/storage/volume-mapping-scripts/project/${projectId}/`;
+          mklcuUrl = `/api/storage/mklcu-scripts/project/${projectId}/`;
         }
 
-        // Fetch mkhost scripts, volume DSCLI scripts, and volume mapping scripts in parallel
-        const [mkHostResponse, volumeResponse, mappingResponse] = await Promise.all([
+        // Fetch mkhost scripts, volume DSCLI scripts, volume mapping scripts, and mklcu scripts in parallel
+        const [mkHostResponse, volumeResponse, mappingResponse, mklcuResponse] = await Promise.all([
           axios.get(mkHostUrl),
           axios.get(volumeUrl),
-          axios.get(mappingUrl)
+          axios.get(mappingUrl),
+          axios.get(mklcuUrl)
         ]);
 
         console.log('MkHost scripts response:', mkHostResponse.data);
         console.log('Volume scripts response:', volumeResponse.data);
         console.log('Volume mapping scripts response:', mappingResponse.data);
+        console.log('MkLCU scripts response:', mklcuResponse.data);
 
         const mkHostData = mkHostResponse.data.storage_scripts || {};
         const volumeData = volumeResponse.data.storage_scripts || {};
         const mappingData = mappingResponse.data.storage_scripts || {};
+        const mklcuData = mklcuResponse.data.storage_scripts || {};
 
         setMkHostScripts(mkHostData);
         setVolumeScripts(volumeData);
         setVolumeMappingScripts(mappingData);
+        setMklcuScripts(mklcuData);
 
         // Set first tab as active based on current script type
-        const currentScripts = scriptType === "mkhost" ? mkHostData : scriptType === "volume" ? volumeData : mappingData;
+        const currentScripts = scriptType === "mkhost" ? mkHostData : scriptType === "volume" ? volumeData : scriptType === "mklcu" ? mklcuData : mappingData;
         const scriptKeys = Object.keys(currentScripts);
         if (!activeTab && scriptKeys.length > 0) {
           setActiveTab(scriptKeys[0]);
@@ -174,14 +192,14 @@ const StorageScriptsContent = ({
 
   // Update activeTab when scriptType changes
   useEffect(() => {
-    const currentScripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : scriptType === "mapping" ? volumeMappingScripts : allScripts;
+    const currentScripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : scriptType === "mapping" ? volumeMappingScripts : scriptType === "mklcu" ? mklcuScripts : allScripts;
     const scriptKeys = Object.keys(currentScripts);
     if (scriptKeys.length > 0) {
       setActiveTab(scriptKeys[0]);
     } else {
       setActiveTab(null);
     }
-  }, [scriptType, mkHostScripts, volumeScripts, volumeMappingScripts, allScripts]);
+  }, [scriptType, mkHostScripts, volumeScripts, volumeMappingScripts, mklcuScripts, allScripts]);
 
   const handleCopyToClipboard = () => {
     if (activeTab && scripts[activeTab]) {
@@ -235,12 +253,14 @@ const StorageScriptsContent = ({
     const hasMkHost = mkHostScripts[activeTab]?.commands?.length > 0;
     const hasVolume = volumeScripts[activeTab]?.commands?.length > 0;
     const hasMapping = volumeMappingScripts[activeTab]?.commands?.length > 0;
-    const hasAny = hasMkHost || hasVolume || hasMapping;
+    const hasMklcu = mklcuScripts[activeTab]?.commands?.length > 0;
+    const hasAny = hasMkHost || hasVolume || hasMapping || hasMklcu;
 
     setSelectedScriptTypes({
       mkhost: hasMkHost,
       volume: hasVolume,
       mapping: hasMapping,
+      mklcu: hasMklcu,
       all: hasAny
     });
 
@@ -259,12 +279,14 @@ const StorageScriptsContent = ({
     const hasMkHost = mkHostScripts[activeTab]?.commands?.length > 0;
     const hasVolume = volumeScripts[activeTab]?.commands?.length > 0;
     const hasMapping = volumeMappingScripts[activeTab]?.commands?.length > 0;
-    const hasAny = hasMkHost || hasVolume || hasMapping;
+    const hasMklcu = mklcuScripts[activeTab]?.commands?.length > 0;
+    const hasAny = hasMkHost || hasVolume || hasMapping || hasMklcu;
 
     setSelectedScriptTypes({
       mkhost: checked && hasMkHost,
       volume: checked && hasVolume,
       mapping: checked && hasMapping,
+      mklcu: checked && hasMklcu,
       all: checked && hasAny
     });
   };
@@ -328,6 +350,15 @@ const StorageScriptsContent = ({
         const filteredCommands = filterComments(data.commands);
         const commandsText = filteredCommands.join("\n");
         const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mapvol_${timestamp}.txt`;
+        zip.file(fileName, commandsText);
+      }
+
+      if (selectedScriptTypes.mklcu && mklcuScripts[storageNameKey]?.commands?.length > 0) {
+        const data = mklcuScripts[storageNameKey];
+        const storageType = data.storage_type || "Unknown";
+        const filteredCommands = filterComments(data.commands);
+        const commandsText = filteredCommands.join("\n");
+        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mklcu_${timestamp}.txt`;
         zip.file(fileName, commandsText);
       }
 
@@ -396,7 +427,8 @@ const StorageScriptsContent = ({
   const hasMkHostScripts = Object.keys(mkHostScripts).length > 0;
   const hasVolumeScripts = Object.keys(volumeScripts).length > 0;
   const hasVolumeMappingScripts = Object.keys(volumeMappingScripts).length > 0;
-  const hasAnyScripts = hasMkHostScripts || hasVolumeScripts || hasVolumeMappingScripts;
+  const hasMklcuScripts = Object.keys(mklcuScripts).length > 0;
+  const hasAnyScripts = hasMkHostScripts || hasVolumeScripts || hasVolumeMappingScripts || hasMklcuScripts;
 
   // Determine title based on context
   const pageTitle = storageName ? `${storageName} Scripts` : "Storage Scripts";
@@ -481,6 +513,18 @@ const StorageScriptsContent = ({
           <>
             {/* Script Type Toggle */}
             <div className="script-type-toggle">
+              <button
+                className={`script-type-btn ${scriptType === "mklcu" ? "active" : ""}`}
+                onClick={() => setScriptType("mklcu")}
+                title="MkLCU commands for DS8000 CKD volumes only"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <path d="M9 3v18"/>
+                  <path d="M3 9h18"/>
+                </svg>
+                MkLCU Commands
+              </button>
               <button
                 className={`script-type-btn ${scriptType === "mkhost" ? "active" : ""}`}
                 onClick={() => setScriptType("mkhost")}
@@ -587,13 +631,30 @@ const StorageScriptsContent = ({
                           <span className="command-count">{volumeCount} volumes in {rangeCount} ranges - {commands.length} commands</span>
                         ) : scriptType === "mapping" ? (
                           <span className="command-count">{volumeCount} volumes - {commands.length} commands</span>
+                        ) : scriptType === "mklcu" ? (
+                          <span className="command-count">{currentScript?.lcu_count || 0} LCUs - {commands.length} commands</span>
                         ) : (
                           <span className="command-count">
-                            {currentScript?.mkhost_command_count || 0} mkhost, {currentScript?.volume_command_count || 0} mkvol, {currentScript?.mapping_command_count || 0} mapvol
+                            {currentScript?.mklcu_command_count || 0} mklcu, {currentScript?.mkhost_command_count || 0} mkhost, {currentScript?.volume_command_count || 0} mkvol, {currentScript?.mapping_command_count || 0} mapvol
                           </span>
                         )}
                       </div>
                     </div>
+
+                    {/* Warning for CKD LSSs without SSID defined */}
+                    {scriptType === "mklcu" && currentScript?.lss_without_ssid?.length > 0 && (
+                      <div className="script-warning-banner">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                          <line x1="12" y1="9" x2="12" y2="13"/>
+                          <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        <div className="warning-content">
+                          <strong>Warning:</strong> {currentScript.lss_without_ssid.length} CKD LSS{currentScript.lss_without_ssid.length > 1 ? 's' : ''} without SSID defined: {currentScript.lss_without_ssid.join(', ')}
+                          <div className="warning-hint">Go to LSS Summary to define SSIDs for these LSSs.</div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="script-code-container">
                       {filterComments(commands).length > 0 ? (
@@ -604,7 +665,7 @@ const StorageScriptsContent = ({
                         </div>
                       ) : (
                         <div className="empty-state-inline">
-                          <p>{scriptType === "mkhost" ? "No hosts found for this storage system" : scriptType === "volume" ? "No volumes found for this storage system" : scriptType === "mapping" ? "No volume mappings found for this storage system" : "No commands found for this storage system"}</p>
+                          <p>{scriptType === "mkhost" ? "No hosts found for this storage system" : scriptType === "volume" ? "No volumes found for this storage system" : scriptType === "mapping" ? "No volume mappings found for this storage system" : scriptType === "mklcu" ? "No CKD volumes found for this DS8000 storage system" : "No commands found for this storage system"}</p>
                         </div>
                       )}
                     </div>
@@ -626,7 +687,7 @@ const StorageScriptsContent = ({
                   <line x1="12" y1="8" x2="12" y2="12"/>
                   <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                <p>No {scriptType === "mkhost" ? "mkhost" : scriptType === "volume" ? "volume" : scriptType === "mapping" ? "volume mapping" : ""} scripts available</p>
+                <p>No {scriptType === "mkhost" ? "mkhost" : scriptType === "volume" ? "volume" : scriptType === "mapping" ? "volume mapping" : scriptType === "mklcu" ? "mklcu" : ""} scripts available</p>
                 <small>
                   {scriptType === "mkhost"
                     ? "Make sure you have hosts assigned to storage systems"
@@ -634,6 +695,8 @@ const StorageScriptsContent = ({
                     ? "Make sure you have uncommitted DS8000 volumes in this project"
                     : scriptType === "mapping"
                     ? "Make sure you have volume mappings defined in this project"
+                    : scriptType === "mklcu"
+                    ? "Make sure you have DS8000 storage systems with CKD volumes in this project"
                     : "Make sure you have hosts, volumes, or mappings defined in this project"}
                 </small>
               </div>
@@ -689,6 +752,7 @@ const StorageScriptsContent = ({
                   (mkHostScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.mkhost : true) &&
                   (volumeScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.volume : true) &&
                   (volumeMappingScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.mapping : true) &&
+                  (mklcuScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.mklcu : true) &&
                   (allScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.all : true)
                 }
                 onChange={(e) => handleSelectAllScriptTypes(e.target.checked)}
@@ -770,6 +834,30 @@ const StorageScriptsContent = ({
                 </div>
               )}
 
+              {/* MkLCU option (DS8000 CKD only) */}
+              {mklcuScripts[activeTab]?.commands?.length > 0 && (
+                <div className="fabric-item">
+                  <Form.Check
+                    type="checkbox"
+                    id="type-mklcu"
+                    checked={selectedScriptTypes.mklcu}
+                    onChange={() => handleToggleScriptType('mklcu')}
+                    className="fabric-checkbox"
+                  />
+                  <label htmlFor="type-mklcu" className="fabric-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <path d="M9 3v18"/>
+                      <path d="M3 9h18"/>
+                    </svg>
+                    <span className="fabric-name">MkLCU Commands</span>
+                    <span className="fabric-command-count">
+                      {mklcuScripts[activeTab]?.lcu_count || 0} LCUs - {mklcuScripts[activeTab]?.commands?.length || 0} commands
+                    </span>
+                  </label>
+                </div>
+              )}
+
               {/* All Commands option */}
               {allScripts[activeTab]?.commands?.length > 0 && (
                 <div className="fabric-item">
@@ -798,7 +886,8 @@ const StorageScriptsContent = ({
               {/* Show message if no scripts available */}
               {!mkHostScripts[activeTab]?.commands?.length &&
                !volumeScripts[activeTab]?.commands?.length &&
-               !volumeMappingScripts[activeTab]?.commands?.length && (
+               !volumeMappingScripts[activeTab]?.commands?.length &&
+               !mklcuScripts[activeTab]?.commands?.length && (
                 <div className="empty-state-inline">
                   <p>No scripts available for this storage system</p>
                 </div>

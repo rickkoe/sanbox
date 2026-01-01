@@ -377,6 +377,96 @@ def format_volume_ids_as_ranges(volume_ids):
     return ','.join(ranges)
 
 
+def generate_mklcu_scripts(storage_systems, project=None):
+    """
+    Generate mklcu scripts for DS8000 storage systems with CKD volumes.
+
+    mklcu creates Logical Control Units (LCUs) for CKD volumes.
+    Each LSS that contains CKD volumes needs an LCU with a defined SSID.
+
+    Args:
+        storage_systems: QuerySet of Storage objects
+        project: Optional Project object (not used for filtering, but for consistency)
+
+    Returns:
+        dict: mklcu scripts organized by storage system name
+    """
+    from storage.models import Volume, LSSSummary
+    from .views import get_lss_from_volume_id
+
+    storage_scripts = {}
+
+    for storage in storage_systems:
+        # Only DS8000 storage systems support mklcu
+        if storage.storage_type != 'DS8000':
+            continue
+
+        # Get all CKD volumes for this storage
+        ckd_volumes = Volume.objects.filter(
+            storage=storage,
+            format='CKD'
+        )
+
+        if not ckd_volumes.exists():
+            continue
+
+        # Group volumes by LSS to find CKD LSSs
+        ckd_lss_set = set()
+        for volume in ckd_volumes:
+            lss = get_lss_from_volume_id(volume.volume_id)
+            if lss:
+                ckd_lss_set.add(lss.upper())
+
+        if not ckd_lss_set:
+            continue
+
+        # Get LSS Summary records for these CKD LSSs
+        lss_summaries = LSSSummary.objects.filter(
+            storage=storage,
+            lss__in=ckd_lss_set
+        ).order_by('lss')
+
+        # Build commands and track warnings
+        commands = []
+        lss_with_ssid = []
+        lss_without_ssid = []
+        device_id = generate_ds8000_device_id(storage)
+
+        for lss in sorted(ckd_lss_set):
+            lss_summary = lss_summaries.filter(lss=lss).first()
+            ssid = lss_summary.ssid if lss_summary else None
+
+            if ssid:
+                lss_with_ssid.append(lss)
+                # Generate mklcu command
+                # mklcu -dev {device_id} -qty 1 -id {lss} -ss {ssid}
+                command = f"mklcu -dev {device_id} -qty 1 -id {lss} -ss {ssid}"
+                commands.append(command)
+            else:
+                lss_without_ssid.append(lss)
+
+        # Add section header at the beginning if there are commands
+        if commands:
+            commands.insert(0, f"### {storage.name.upper()} MKLCU COMMANDS")
+
+        storage_scripts[storage.name] = {
+            "commands": commands,
+            "storage_type": storage.storage_type,
+            "device_id": device_id,
+            "lcu_count": len(lss_with_ssid),
+            "lss_without_ssid": lss_without_ssid,
+            "lss_without_ssid_count": len(lss_without_ssid),
+            "total_ckd_lss": len(ckd_lss_set),
+        }
+
+        if lss_without_ssid:
+            print(f"⚠️ {storage.name}: {len(lss_without_ssid)} CKD LSSs without SSID: {', '.join(lss_without_ssid)}")
+
+        print(f"✅ Generated {len(commands) - 1 if commands else 0} mklcu commands for storage {storage.name}")
+
+    return storage_scripts
+
+
 def generate_flashsystem_volume_mapping_commands(storage, mappings):
     """
     Generate FlashSystem volume mapping commands.

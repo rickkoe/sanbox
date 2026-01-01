@@ -1543,6 +1543,117 @@ def volume_mapping_scripts_storage_view(request, project_id, storage_id):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+# ==========================================
+# MkLCU Script Generation Views
+# ==========================================
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def mklcu_scripts_project_view(request, project_id):
+    """
+    GET /api/storage/mklcu-scripts/project/{project_id}/
+
+    Generate mklcu commands for DS8000 storage systems with CKD volumes.
+    Only includes CKD LSSs that have SSIDs defined.
+    Returns warnings for CKD LSSs without SSIDs.
+    """
+    print(f"🔥 MkLCU Scripts (Project) - Project ID: {project_id}")
+
+    try:
+        from core.models import Project, ProjectStorage
+        from .storage_utils import generate_mklcu_scripts
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Get DS8000 storage systems in this project
+        storage_ids = ProjectStorage.objects.filter(project=project).values_list('storage_id', flat=True)
+        ds8000_systems = Storage.objects.filter(
+            id__in=storage_ids,
+            storage_type='DS8000'
+        ).order_by('name')
+
+        if not ds8000_systems.exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "No DS8000 storage systems found in this project"
+            })
+
+        # Generate mklcu scripts
+        storage_scripts = generate_mklcu_scripts(ds8000_systems, project=project)
+
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+
+    except Exception as e:
+        print(f"❌ Error generating mklcu scripts: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def mklcu_scripts_storage_view(request, project_id, storage_id):
+    """
+    GET /api/storage/mklcu-scripts/project/{project_id}/storage/{storage_id}/
+
+    Generate mklcu commands for a specific DS8000 storage system.
+    Only includes CKD LSSs that have SSIDs defined.
+    Returns warnings for CKD LSSs without SSIDs.
+    """
+    print(f"🔥 MkLCU Scripts (Storage) - Project ID: {project_id}, Storage ID: {storage_id}")
+
+    try:
+        from core.models import Project, ProjectStorage
+        from .storage_utils import generate_mklcu_scripts
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Get the specific storage system
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({"error": "Storage system not found"}, status=404)
+
+        # Verify storage is DS8000
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "MkLCU scripts are only available for DS8000 storage systems"
+            })
+
+        # Verify storage is in this project
+        if not ProjectStorage.objects.filter(project=project, storage=storage).exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "Storage system not in this project"
+            })
+
+        # Generate mklcu scripts for this single storage system
+        storage_scripts = generate_mklcu_scripts([storage], project=project)
+
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+
+    except Exception as e:
+        print(f"❌ Error generating mklcu scripts for storage: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def host_wwpns_view(request, host_id):
