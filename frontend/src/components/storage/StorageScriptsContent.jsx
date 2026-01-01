@@ -30,17 +30,83 @@ const StorageScriptsContent = ({
   const [error, setError] = useState(null);
   const [copyButtonText, setCopyButtonText] = useState("Copy to clipboard");
   const [activeTab, setActiveTab] = useState(null);
-  const [scriptType, setScriptType] = useState("mkhost"); // "mkhost", "volume", or "mapping"
+  const [scriptType, setScriptType] = useState("mkhost"); // "mkhost", "volume", "mapping", or "all"
   const navigate = useNavigate();
 
   // Download modal state
   const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [selectedStorage, setSelectedStorage] = useState({});
   const [downloadFilename, setDownloadFilename] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedScriptTypes, setSelectedScriptTypes] = useState({
+    mkhost: true,
+    volume: true,
+    mapping: true,
+    all: false
+  });
+  const [includeComments, setIncludeComments] = useState(true);
+
+  // Helper function to filter out comments from commands
+  const filterComments = (commandsList) => {
+    if (includeComments || !commandsList) return commandsList;
+    return commandsList.filter(cmd => {
+      const trimmed = cmd.trim();
+      // Keep non-comment lines and non-empty lines
+      return trimmed && !trimmed.startsWith('#');
+    });
+  };
+
+  // Build combined "all" scripts that merge all command types per storage system
+  const allScripts = React.useMemo(() => {
+    const combined = {};
+    const allStorageNames = new Set([
+      ...Object.keys(mkHostScripts),
+      ...Object.keys(volumeScripts),
+      ...Object.keys(volumeMappingScripts)
+    ]);
+
+    allStorageNames.forEach(storageName => {
+      const mkHost = mkHostScripts[storageName];
+      const volume = volumeScripts[storageName];
+      const mapping = volumeMappingScripts[storageName];
+
+      // Combine all commands (backend already includes section headers)
+      const allCommands = [];
+
+      if (mkHost && mkHost.commands && mkHost.commands.length > 0) {
+        allCommands.push(...mkHost.commands);
+        allCommands.push('');
+      }
+
+      if (volume && volume.commands && volume.commands.length > 0) {
+        allCommands.push(...volume.commands);
+        allCommands.push('');
+      }
+
+      if (mapping && mapping.commands && mapping.commands.length > 0) {
+        allCommands.push(...mapping.commands);
+      }
+
+      // Only include if there are any commands
+      if (allCommands.length > 0) {
+        combined[storageName] = {
+          storage_type: mkHost?.storage_type || volume?.storage_type || mapping?.storage_type || "Unknown",
+          host_count: mkHost?.host_count || 0,
+          volume_count: volume?.volume_count || mapping?.volume_count || 0,
+          range_count: volume?.range_count || 0,
+          mapping_count: mapping?.mapping_count || 0,
+          mkhost_command_count: mkHost?.host_count || 0,
+          volume_command_count: volume?.command_count || 0,
+          mapping_command_count: mapping?.mapping_count || 0,
+          commands: allCommands
+        };
+      }
+    });
+
+    return combined;
+  }, [mkHostScripts, volumeScripts, volumeMappingScripts]);
 
   // Get the current scripts based on scriptType
-  const scripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : volumeMappingScripts;
+  const scripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : scriptType === "mapping" ? volumeMappingScripts : allScripts;
 
   useEffect(() => {
     // Wait until we actually have config loaded
@@ -95,19 +161,6 @@ const StorageScriptsContent = ({
         if (!activeTab && scriptKeys.length > 0) {
           setActiveTab(scriptKeys[0]);
         }
-
-        // Initialize all storage systems as selected
-        const initialSelection = {};
-        Object.keys(mkHostData).forEach(key => {
-          initialSelection[key] = true;
-        });
-        Object.keys(volumeData).forEach(key => {
-          initialSelection[key] = true;
-        });
-        Object.keys(mappingData).forEach(key => {
-          initialSelection[key] = true;
-        });
-        setSelectedStorage(initialSelection);
       } catch (err) {
         console.error("Error fetching storage scripts:", err);
         setError("Error fetching storage scripts");
@@ -121,24 +174,21 @@ const StorageScriptsContent = ({
 
   // Update activeTab when scriptType changes
   useEffect(() => {
-    const currentScripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : volumeMappingScripts;
+    const currentScripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : scriptType === "mapping" ? volumeMappingScripts : allScripts;
     const scriptKeys = Object.keys(currentScripts);
     if (scriptKeys.length > 0) {
       setActiveTab(scriptKeys[0]);
     } else {
       setActiveTab(null);
     }
-  }, [scriptType, mkHostScripts, volumeScripts, volumeMappingScripts]);
+  }, [scriptType, mkHostScripts, volumeScripts, volumeMappingScripts, allScripts]);
 
   const handleCopyToClipboard = () => {
     if (activeTab && scripts[activeTab]) {
       const scriptData = scripts[activeTab];
-      const headerType = scriptType === "mkhost" ? "MKHOST" : scriptType === "volume" ? "MKVOL" : "MAPVOL";
-      const header = `### ${activeTab.toUpperCase()} ${headerType} COMMANDS`;
-      const commands = scriptData.commands || [];
-      const commandsText = Array.isArray(commands) ? commands.join("\n") : "";
-
-      const textToCopy = `${header}\n${commandsText}`;
+      const commands = filterComments(scriptData.commands || []);
+      // Backend already includes section headers with storage name, so just join the commands
+      const textToCopy = Array.isArray(commands) ? commands.join("\n") : "";
 
       navigator.clipboard
         .writeText(textToCopy)
@@ -155,7 +205,7 @@ const StorageScriptsContent = ({
     }
   };
 
-  const getDefaultFilename = () => {
+  const getDefaultFilename = (storageNameForFile) => {
     const projectName = config.active_project?.name || "project";
     const customerName = config.customer?.name || "Customer";
     const now = new Date();
@@ -173,43 +223,61 @@ const StorageScriptsContent = ({
       String(now.getSeconds()).padStart(2, "0");
     const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, "_");
     const cleanCustomerName = customerName.replace(/[^a-zA-Z0-9-_]/g, "_");
-    const scriptTypeName = scriptType === "mkhost" ? "MkHost" : scriptType === "volume" ? "MkVol" : "MapVol";
+    const cleanStorageName = (storageNameForFile || "Storage").replace(/[^a-zA-Z0-9-_]/g, "_");
 
-    // Include storage name in filename if filtering to single storage
-    if (storageName) {
-      const cleanStorageName = storageName.replace(/[^a-zA-Z0-9-_]/g, "_");
-      return `${cleanCustomerName}_${cleanProjectName}_${cleanStorageName}_${scriptTypeName}_Scripts_${timestamp}.zip`;
-    }
-    return `${cleanCustomerName}_${cleanProjectName}_Storage_${scriptTypeName}_Scripts_${timestamp}.zip`;
+    return `${cleanCustomerName}_${cleanProjectName}_${cleanStorageName}_Scripts_${timestamp}.zip`;
   };
 
   const handleOpenDownloadModal = () => {
-    setDownloadFilename(getDefaultFilename());
+    if (!activeTab) return;
+
+    // Reset script type selections based on what's available for this storage
+    const hasMkHost = mkHostScripts[activeTab]?.commands?.length > 0;
+    const hasVolume = volumeScripts[activeTab]?.commands?.length > 0;
+    const hasMapping = volumeMappingScripts[activeTab]?.commands?.length > 0;
+    const hasAny = hasMkHost || hasVolume || hasMapping;
+
+    setSelectedScriptTypes({
+      mkhost: hasMkHost,
+      volume: hasVolume,
+      mapping: hasMapping,
+      all: hasAny
+    });
+
+    setDownloadFilename(getDefaultFilename(activeTab));
     setShowDownloadModal(true);
   };
 
-  const handleSelectAll = (checked) => {
-    const newSelection = {};
-    Object.keys(scripts).forEach(key => {
-      newSelection[key] = checked;
-    });
-    setSelectedStorage(prev => ({ ...prev, ...newSelection }));
-  };
-
-  const handleToggleStorage = (storageName) => {
-    setSelectedStorage(prev => ({
+  const handleToggleScriptType = (type) => {
+    setSelectedScriptTypes(prev => ({
       ...prev,
-      [storageName]: !prev[storageName]
+      [type]: !prev[type]
     }));
   };
 
-  const handleDownloadSelected = async () => {
-    const selectedCount = Object.entries(selectedStorage)
-      .filter(([key, val]) => val && scripts[key])
-      .length;
+  const handleSelectAllScriptTypes = (checked) => {
+    const hasMkHost = mkHostScripts[activeTab]?.commands?.length > 0;
+    const hasVolume = volumeScripts[activeTab]?.commands?.length > 0;
+    const hasMapping = volumeMappingScripts[activeTab]?.commands?.length > 0;
+    const hasAny = hasMkHost || hasVolume || hasMapping;
 
+    setSelectedScriptTypes({
+      mkhost: checked && hasMkHost,
+      volume: checked && hasVolume,
+      mapping: checked && hasMapping,
+      all: checked && hasAny
+    });
+  };
+
+  const handleDownloadSelected = async () => {
+    if (!activeTab) {
+      alert("No storage system selected.");
+      return;
+    }
+
+    const selectedCount = Object.values(selectedScriptTypes).filter(Boolean).length;
     if (selectedCount === 0) {
-      alert("Please select at least one storage system to download.");
+      alert("Please select at least one script type to download.");
       return;
     }
 
@@ -217,42 +285,61 @@ const StorageScriptsContent = ({
       setIsDownloading(true);
 
       const zip = new JSZip();
-      const scriptTypeName = scriptType === "mkhost" ? "mkhost" : scriptType === "volume" ? "mkvol" : "mapvol";
+      const storageNameKey = activeTab;
+      const projectName = config.active_project?.name || "project";
+      const now = new Date();
+      const timestamp =
+        now.getFullYear() +
+        "-" +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(now.getDate()).padStart(2, "0") +
+        "_" +
+        String(now.getHours()).padStart(2, "0") +
+        "." +
+        String(now.getMinutes()).padStart(2, "0") +
+        "." +
+        String(now.getSeconds()).padStart(2, "0");
+      const cleanStorageName = storageNameKey.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, "_");
 
-      // Add each selected storage system's commands as a separate text file
-      Object.entries(scripts).forEach(([storageNameKey, storageData]) => {
-        if (!selectedStorage[storageNameKey]) return;
+      // Add selected script types as separate files (backend already includes section headers)
+      if (selectedScriptTypes.mkhost && mkHostScripts[storageNameKey]?.commands?.length > 0) {
+        const data = mkHostScripts[storageNameKey];
+        const storageType = data.storage_type || "Unknown";
+        const filteredCommands = filterComments(data.commands);
+        const commandsText = filteredCommands.join("\n");
+        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mkhost_${timestamp}.txt`;
+        zip.file(fileName, commandsText);
+      }
 
-        const commands = storageData.commands || [];
-        const storageType = storageData.storage_type || "Unknown";
-        const headerType = scriptType === "mkhost" ? "MKHOST" : scriptType === "volume" ? "MKVOL" : "MAPVOL";
+      if (selectedScriptTypes.volume && volumeScripts[storageNameKey]?.commands?.length > 0) {
+        const data = volumeScripts[storageNameKey];
+        const storageType = data.storage_type || "Unknown";
+        const filteredCommands = filterComments(data.commands);
+        const commandsText = filteredCommands.join("\n");
+        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mkvol_${timestamp}.txt`;
+        zip.file(fileName, commandsText);
+      }
 
-        // Create file content
-        const header = `### ${storageNameKey.toUpperCase()} ${headerType} COMMANDS (${storageType})`;
-        const commandsText = Array.isArray(commands) ? commands.join("\n") : "";
-        const fileContent = `${header}\n${commandsText}`;
+      if (selectedScriptTypes.mapping && volumeMappingScripts[storageNameKey]?.commands?.length > 0) {
+        const data = volumeMappingScripts[storageNameKey];
+        const storageType = data.storage_type || "Unknown";
+        const filteredCommands = filterComments(data.commands);
+        const commandsText = filteredCommands.join("\n");
+        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mapvol_${timestamp}.txt`;
+        zip.file(fileName, commandsText);
+      }
 
-        // Create filename with storage name, project name and timestamp
-        const projectName = config.active_project?.name || "project";
-        const now = new Date();
-        const timestamp =
-          now.getFullYear() +
-          "-" +
-          String(now.getMonth() + 1).padStart(2, "0") +
-          "-" +
-          String(now.getDate()).padStart(2, "0") +
-          "_" +
-          String(now.getHours()).padStart(2, "0") +
-          "." +
-          String(now.getMinutes()).padStart(2, "0") +
-          "." +
-          String(now.getSeconds()).padStart(2, "0");
-        const cleanStorageName = storageNameKey.replace(/[^a-zA-Z0-9-_]/g, "_");
-        const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, "_");
-        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_${scriptTypeName}_scripts_${timestamp}.txt`;
-
-        zip.file(fileName, fileContent);
-      });
+      // Add combined "all" file if selected (backend already includes section headers)
+      if (selectedScriptTypes.all && allScripts[storageNameKey]?.commands?.length > 0) {
+        const data = allScripts[storageNameKey];
+        const storageType = data.storage_type || "Unknown";
+        const filteredCommands = filterComments(data.commands);
+        const commandsText = filteredCommands.join("\n");
+        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_all_${timestamp}.txt`;
+        zip.file(fileName, commandsText);
+      }
 
       // Generate the ZIP file
       const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -304,7 +391,6 @@ const StorageScriptsContent = ({
   const hostCount = currentScript ? (currentScript.host_count || 0) : 0;
   const volumeCount = currentScript ? (currentScript.volume_count || 0) : 0;
   const rangeCount = currentScript ? (currentScript.range_count || 0) : 0;
-  const mappingCount = currentScript ? (currentScript.mapping_count || 0) : 0;
 
   // Check if there are any scripts available
   const hasMkHostScripts = Object.keys(mkHostScripts).length > 0;
@@ -339,6 +425,17 @@ const StorageScriptsContent = ({
           </div>
 
           <div className="header-actions">
+            <div className="comments-toggle">
+              <Form.Check
+                type="switch"
+                id="include-comments-switch"
+                label="Include comments"
+                checked={includeComments}
+                onChange={(e) => setIncludeComments(e.target.checked)}
+                className="comments-switch"
+              />
+            </div>
+
             <button
               className="script-action-btn script-action-btn-secondary"
               onClick={handleCopyToClipboard}
@@ -365,7 +462,7 @@ const StorageScriptsContent = ({
             <button
               className="script-action-btn script-action-btn-primary"
               onClick={handleOpenDownloadModal}
-              disabled={!scripts || Object.keys(scripts).length === 0}
+              disabled={!activeTab}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -394,9 +491,6 @@ const StorageScriptsContent = ({
                   <line x1="12" y1="17" x2="12" y2="21"/>
                 </svg>
                 MkHost Commands
-                {hasMkHostScripts && (
-                  <span className="script-count-badge">{Object.keys(mkHostScripts).length}</span>
-                )}
               </button>
               <button
                 className={`script-type-btn ${scriptType === "volume" ? "active" : ""}`}
@@ -406,9 +500,6 @@ const StorageScriptsContent = ({
                   <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
                 </svg>
                 MkVol Commands
-                {hasVolumeScripts && (
-                  <span className="script-count-badge">{Object.keys(volumeScripts).length}</span>
-                )}
               </button>
               <button
                 className={`script-type-btn ${scriptType === "mapping" ? "active" : ""}`}
@@ -420,9 +511,18 @@ const StorageScriptsContent = ({
                   <path d="M2 12l10 5 10-5"/>
                 </svg>
                 MapVol Commands
-                {hasVolumeMappingScripts && (
-                  <span className="script-count-badge">{Object.keys(volumeMappingScripts).length}</span>
-                )}
+              </button>
+              <button
+                className={`script-type-btn ${scriptType === "all" ? "active" : ""}`}
+                onClick={() => setScriptType("all")}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7"/>
+                  <rect x="14" y="3" width="7" height="7"/>
+                  <rect x="14" y="14" width="7" height="7"/>
+                  <rect x="3" y="14" width="7" height="7"/>
+                </svg>
+                All Commands
               </button>
             </div>
 
@@ -449,11 +549,13 @@ const StorageScriptsContent = ({
                         const type = storageData.storage_type || "Unknown";
                         const hosts = storageData.host_count || 0;
                         const vols = storageData.volume_count || 0;
-                        const maps = storageData.mapping_count || 0;
 
                         let countLabel;
                         if (scriptType === "mkhost") {
                           countLabel = `(${hosts} hosts)`;
+                        } else if (scriptType === "all") {
+                          const totalCmds = (storageData.mkhost_command_count || 0) + (storageData.volume_command_count || 0) + (storageData.mapping_command_count || 0);
+                          countLabel = `(${totalCmds} commands)`;
                         } else {
                           countLabel = `(${vols} volumes)`;
                         }
@@ -483,22 +585,26 @@ const StorageScriptsContent = ({
                           <span className="command-count">{hostCount} hosts - {commands.length} commands</span>
                         ) : scriptType === "volume" ? (
                           <span className="command-count">{volumeCount} volumes in {rangeCount} ranges - {commands.length} commands</span>
-                        ) : (
+                        ) : scriptType === "mapping" ? (
                           <span className="command-count">{volumeCount} volumes - {commands.length} commands</span>
+                        ) : (
+                          <span className="command-count">
+                            {currentScript?.mkhost_command_count || 0} mkhost, {currentScript?.volume_command_count || 0} mkvol, {currentScript?.mapping_command_count || 0} mapvol
+                          </span>
                         )}
                       </div>
                     </div>
 
                     <div className="script-code-container">
-                      {commands.length > 0 ? (
+                      {filterComments(commands).length > 0 ? (
                         <div className="code-block">
-                          {commands.map((command, index) => (
-                            <pre key={index} className="code-line">{command}</pre>
+                          {filterComments(commands).map((command, index) => (
+                            <pre key={index} className={`code-line${command === '' ? ' blank-line' : ''}`}>{command || '\u00A0'}</pre>
                           ))}
                         </div>
                       ) : (
                         <div className="empty-state-inline">
-                          <p>{scriptType === "mkhost" ? "No hosts found for this storage system" : scriptType === "volume" ? "No volumes found for this storage system" : "No volume mappings found for this storage system"}</p>
+                          <p>{scriptType === "mkhost" ? "No hosts found for this storage system" : scriptType === "volume" ? "No volumes found for this storage system" : scriptType === "mapping" ? "No volume mappings found for this storage system" : "No commands found for this storage system"}</p>
                         </div>
                       )}
                     </div>
@@ -520,13 +626,15 @@ const StorageScriptsContent = ({
                   <line x1="12" y1="8" x2="12" y2="12"/>
                   <line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                <p>No {scriptType === "mkhost" ? "mkhost" : scriptType === "volume" ? "volume" : "volume mapping"} scripts available</p>
+                <p>No {scriptType === "mkhost" ? "mkhost" : scriptType === "volume" ? "volume" : scriptType === "mapping" ? "volume mapping" : ""} scripts available</p>
                 <small>
                   {scriptType === "mkhost"
                     ? "Make sure you have hosts assigned to storage systems"
                     : scriptType === "volume"
                     ? "Make sure you have uncommitted DS8000 volumes in this project"
-                    : "Make sure you have volume mappings defined in this project"}
+                    : scriptType === "mapping"
+                    ? "Make sure you have volume mappings defined in this project"
+                    : "Make sure you have hosts, volumes, or mappings defined in this project"}
                 </small>
               </div>
             )}
@@ -557,7 +665,7 @@ const StorageScriptsContent = ({
         className={`download-modal theme-${theme}`}
       >
         <Modal.Header closeButton className="download-modal-header">
-          <Modal.Title>Download {scriptType === "mkhost" ? "MkHost" : scriptType === "volume" ? "MkVol" : "MapVol"} Scripts</Modal.Title>
+          <Modal.Title>Download Scripts for {activeTab}</Modal.Title>
         </Modal.Header>
         <Modal.Body className="download-modal-body">
           <div className="download-modal-section">
@@ -571,56 +679,130 @@ const StorageScriptsContent = ({
           </div>
 
           <div className="download-modal-section">
+            <label className="download-modal-label">Select Script Types</label>
             <div className="select-all-header">
               <Form.Check
                 type="checkbox"
-                id="select-all-storage"
+                id="select-all-types"
                 label="Select All"
-                checked={Object.keys(scripts).length > 0 && Object.keys(scripts).every(key => selectedStorage[key])}
-                onChange={(e) => handleSelectAll(e.target.checked)}
+                checked={
+                  (mkHostScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.mkhost : true) &&
+                  (volumeScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.volume : true) &&
+                  (volumeMappingScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.mapping : true) &&
+                  (allScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.all : true)
+                }
+                onChange={(e) => handleSelectAllScriptTypes(e.target.checked)}
                 className="select-all-checkbox"
               />
               <span className="selection-count">
-                {Object.entries(selectedStorage).filter(([key, val]) => val && scripts[key]).length} of {Object.keys(scripts).length} selected
+                {Object.values(selectedScriptTypes).filter(Boolean).length} selected
               </span>
             </div>
 
             <div className="fabric-list">
-              {Object.entries(scripts).map(([storageNameKey, storageData]) => {
-                const storageTypeVal = storageData.storage_type || "Unknown";
-                const hostCountVal = storageData.host_count || 0;
-                const volumeCountVal = storageData.volume_count || 0;
-                const mappingCountVal = storageData.mapping_count || 0;
-                const commandsArr = storageData.commands || [];
+              {/* MkHost option */}
+              {mkHostScripts[activeTab]?.commands?.length > 0 && (
+                <div className="fabric-item">
+                  <Form.Check
+                    type="checkbox"
+                    id="type-mkhost"
+                    checked={selectedScriptTypes.mkhost}
+                    onChange={() => handleToggleScriptType('mkhost')}
+                    className="fabric-checkbox"
+                  />
+                  <label htmlFor="type-mkhost" className="fabric-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                      <line x1="8" y1="21" x2="16" y2="21"/>
+                      <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    <span className="fabric-name">MkHost Commands</span>
+                    <span className="fabric-command-count">
+                      {mkHostScripts[activeTab]?.host_count || 0} hosts - {mkHostScripts[activeTab]?.commands?.length || 0} commands
+                    </span>
+                  </label>
+                </div>
+              )}
 
-                let countLabel;
-                if (scriptType === "mkhost") {
-                  countLabel = `${hostCountVal} hosts`;
-                } else {
-                  countLabel = `${volumeCountVal} volumes`;
-                }
+              {/* MkVol option */}
+              {volumeScripts[activeTab]?.commands?.length > 0 && (
+                <div className="fabric-item">
+                  <Form.Check
+                    type="checkbox"
+                    id="type-volume"
+                    checked={selectedScriptTypes.volume}
+                    onChange={() => handleToggleScriptType('volume')}
+                    className="fabric-checkbox"
+                  />
+                  <label htmlFor="type-volume" className="fabric-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    </svg>
+                    <span className="fabric-name">MkVol Commands</span>
+                    <span className="fabric-command-count">
+                      {volumeScripts[activeTab]?.volume_count || 0} volumes - {volumeScripts[activeTab]?.commands?.length || 0} commands
+                    </span>
+                  </label>
+                </div>
+              )}
 
-                return (
-                  <div key={storageNameKey} className="fabric-item">
-                    <Form.Check
-                      type="checkbox"
-                      id={`storage-${storageNameKey}`}
-                      checked={selectedStorage[storageNameKey] || false}
-                      onChange={() => handleToggleStorage(storageNameKey)}
-                      className="fabric-checkbox"
-                    />
-                    <label htmlFor={`storage-${storageNameKey}`} className="fabric-label">
-                      <span className={`vendor-badge-sm vendor-badge-${storageTypeVal === "FlashSystem" ? "flashsystem" : storageTypeVal === "DS8000" ? "ds8000" : "generic"}`}>
-                        {storageTypeVal}
-                      </span>
-                      <span className="fabric-name">{storageNameKey}</span>
-                      <span className="fabric-command-count">
-                        {countLabel} - {commandsArr.length} commands
-                      </span>
-                    </label>
-                  </div>
-                );
-              })}
+              {/* MapVol option */}
+              {volumeMappingScripts[activeTab]?.commands?.length > 0 && (
+                <div className="fabric-item">
+                  <Form.Check
+                    type="checkbox"
+                    id="type-mapping"
+                    checked={selectedScriptTypes.mapping}
+                    onChange={() => handleToggleScriptType('mapping')}
+                    className="fabric-checkbox"
+                  />
+                  <label htmlFor="type-mapping" className="fabric-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                      <path d="M2 17l10 5 10-5"/>
+                      <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                    <span className="fabric-name">MapVol Commands</span>
+                    <span className="fabric-command-count">
+                      {volumeMappingScripts[activeTab]?.volume_count || 0} volumes - {volumeMappingScripts[activeTab]?.commands?.length || 0} commands
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {/* All Commands option */}
+              {allScripts[activeTab]?.commands?.length > 0 && (
+                <div className="fabric-item">
+                  <Form.Check
+                    type="checkbox"
+                    id="type-all"
+                    checked={selectedScriptTypes.all}
+                    onChange={() => handleToggleScriptType('all')}
+                    className="fabric-checkbox"
+                  />
+                  <label htmlFor="type-all" className="fabric-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                      <rect x="3" y="3" width="7" height="7"/>
+                      <rect x="14" y="3" width="7" height="7"/>
+                      <rect x="14" y="14" width="7" height="7"/>
+                      <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    <span className="fabric-name">All Commands (combined)</span>
+                    <span className="fabric-command-count">
+                      {allScripts[activeTab]?.commands?.length || 0} total commands
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {/* Show message if no scripts available */}
+              {!mkHostScripts[activeTab]?.commands?.length &&
+               !volumeScripts[activeTab]?.commands?.length &&
+               !volumeMappingScripts[activeTab]?.commands?.length && (
+                <div className="empty-state-inline">
+                  <p>No scripts available for this storage system</p>
+                </div>
+              )}
             </div>
           </div>
         </Modal.Body>
@@ -635,7 +817,7 @@ const StorageScriptsContent = ({
           <button
             className="modal-btn modal-btn-primary"
             onClick={handleDownloadSelected}
-            disabled={isDownloading || Object.entries(selectedStorage).filter(([key, val]) => val && scripts[key]).length === 0}
+            disabled={isDownloading || Object.values(selectedScriptTypes).filter(Boolean).length === 0}
           >
             {isDownloading ? (
               <>
@@ -649,7 +831,7 @@ const StorageScriptsContent = ({
                   <polyline points="7,10 12,15 17,10"/>
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                Download ({Object.entries(selectedStorage).filter(([key, val]) => val && scripts[key]).length})
+                Download ({Object.values(selectedScriptTypes).filter(Boolean).length})
               </>
             )}
           </button>

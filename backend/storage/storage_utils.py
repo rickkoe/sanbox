@@ -73,20 +73,24 @@ def generate_mkhost_scripts(storage_systems, project=None):
             if not wwpn_list:
                 print(f"⚠️ Skipping host {host.name} - no WWPNs found")
                 continue
-            
+
             # Generate command based on storage type
             command = generate_mkhost_command(storage, host, wwpn_list)
             if command:
                 commands.append(command)
-                print(f"✅ Generated command for host {host.name}: {command}")
-        
+                print(f"✅ Generated command for host {host.name}")
+
+        # Add section header at the beginning if there are commands
+        if commands:
+            commands.insert(0, f"### {storage.name.upper()} MKHOST COMMANDS")
+
         storage_scripts[storage.name] = {
             "commands": commands,
             "storage_type": storage.storage_type,
-            "host_count": len(commands)
+            "host_count": len([c for c in commands if not c.startswith('#')])
         }
-        
-        print(f"✅ Generated {len(commands)} commands for storage {storage.name}")
+
+        print(f"✅ Generated {len(commands) - 1 if commands else 0} commands for storage {storage.name}")
     
     return storage_scripts
 
@@ -115,13 +119,13 @@ def generate_mkhost_command(storage, host, wwpn_list):
 def generate_flashsystem_mkhost(storage, host, wwpn_list):
     """
     Generate FlashSystem mkhost command.
-    
+
     FlashSystem syntax: mkhost -name {name} -protocol fcscsi -fcwwpn {wwpn_list} -force -type {host_type}
     """
-    # Join WWPNs with commas (no spaces) for FlashSystem
+    # Join WWPNs with colons for FlashSystem
     wwpn_string = ':'.join(wwpn_list)
     host_type = host.host_type or "generic"
-    
+
     command = f"mkhost -name {host.name} -protocol fcscsi -fcwwpn {wwpn_string} -force -type {host_type}"
     return command
 
@@ -129,17 +133,16 @@ def generate_flashsystem_mkhost(storage, host, wwpn_list):
 def generate_ds8000_mkhost(storage, host, wwpn_list):
     """
     Generate DS8000 mkhost command.
-    
+
     DS8000 syntax: mkhost -dev {device-id} -type "{host_type}" -hostport {wwpn_list} {name}
     """
     # Join WWPNs with commas (no spaces) for DS8000
     wwpn_string = ','.join(wwpn_list)
     host_type = host.host_type or "generic"
-    
+
     # Build device-id from serial number: drop 0 from end, add 1 to end
     device_id = generate_ds8000_device_id(storage)
-    
-    # Put host_type in quotes for DS8000
+
     command = f'mkhost -dev {device_id} -type "{host_type}" -hostport {wwpn_string} {host.name}'
     return command
 
@@ -228,14 +231,18 @@ def generate_volume_mapping_scripts(storage_systems, project=None):
         else:
             print(f"⚠️ Skipping storage {storage.name} - unknown storage type: {storage.storage_type}")
 
+        # Add section header at the beginning if there are commands
+        if commands:
+            commands.insert(0, f"### {storage.name.upper()} MAPVOL COMMANDS")
+
         storage_scripts[storage.name] = {
             "commands": commands,
             "storage_type": storage.storage_type,
-            "mapping_count": len(commands),
+            "mapping_count": len([c for c in commands if not c.startswith('#')]),
             "volume_count": volume_count
         }
 
-        print(f"✅ Generated {len(commands)} volume mapping commands for {volume_count} volumes on storage {storage.name}")
+        print(f"✅ Generated {len(commands) - 1 if commands else 0} volume mapping commands for {volume_count} volumes on storage {storage.name}")
 
     return storage_scripts
 

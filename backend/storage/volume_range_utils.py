@@ -345,18 +345,22 @@ def generate_dscli_commands(storage, ranges, command_type='create'):
     for r in ranges:
         if command_type == 'create':
             cmd = _generate_create_command(device_id, r)
+            if cmd:
+                commands.append(cmd)
         elif command_type == 'delete':
             cmd = _generate_delete_command(device_id, r)
-        else:
-            continue
+            if cmd:
+                commands.append(cmd)
 
-        if cmd:
-            commands.append(cmd)
+    # Add section header at the beginning if there are commands
+    if commands:
+        header = f"### {storage.name.upper()} MKVOL COMMANDS" if command_type == 'create' else f"### {storage.name.upper()} RMVOL COMMANDS"
+        commands.insert(0, header)
 
     return {
         'device_id': device_id,
         'commands': commands,
-        'command_count': len(commands),
+        'command_count': len([c for c in commands if not c.startswith('#')]),
     }
 
 
