@@ -505,6 +505,38 @@ const VolumeRangeTableTanStackClean = ({
                 }
             }
 
+            // Bidirectional volume count calculation
+            if (hotInstance) {
+                const currentStart = columnKey === 'start_volume' ? newValue : rowData.start_volume;
+                const currentEnd = columnKey === 'end_volume' ? newValue : rowData.end_volume;
+                const currentCount = columnKey === 'volume_count' ? newValue : rowData.volume_count;
+
+                // When start or end changes, calculate count
+                if ((columnKey === 'start_volume' || columnKey === 'end_volume') &&
+                    isValidHex2(currentStart) && isValidHex2(currentEnd)) {
+                    const startInt = parseInt(currentStart, 16);
+                    const endInt = parseInt(currentEnd, 16);
+                    if (endInt >= startInt) {
+                        const calculatedCount = endInt - startInt + 1;
+                        hotInstance.setDataAtRowProp(rowIndex, 'volume_count', calculatedCount);
+                    }
+                }
+
+                // When count changes and start is valid, calculate end
+                if (columnKey === 'volume_count' && isValidHex2(currentStart) && currentCount) {
+                    const startInt = parseInt(currentStart, 16);
+                    const count = parseInt(currentCount, 10);
+                    if (!isNaN(count) && count > 0 && count <= 256) {
+                        const endInt = startInt + count - 1;
+                        // Ensure end doesn't exceed FF (255)
+                        if (endInt <= 255) {
+                            const endHex = endInt.toString(16).toUpperCase().padStart(2, '0');
+                            hotInstance.setDataAtRowProp(rowIndex, 'end_volume', endHex);
+                        }
+                    }
+                }
+            }
+
             // Validate the row (use updated values for validation)
             const updatedRowData = { ...rowData };
             if (columnKey === 'lss' && lssInfo) {

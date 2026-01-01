@@ -1240,7 +1240,6 @@
         "id": "volume_count",
         "title": "Count",
         "type": "numeric",
-        "readOnly": true,
         "defaultVisible": true,
         "width": 80
       },

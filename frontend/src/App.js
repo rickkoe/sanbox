@@ -112,6 +112,7 @@ function AppContent() {
   // Check for table routes including dynamic routes
   const isTablePage = tableRoutes.some(route => location.pathname === route) ||
                      location.pathname.match(/^\/storage\/\d+\/volumes$/) ||
+                     location.pathname.match(/^\/storage\/\d+\/volume-ranges$/) ||
                      location.pathname.match(/^\/storage\/\d+\/pools$/) ||
                      location.pathname.match(/^\/storage\/\d+\/hosts$/) ||
                      location.pathname.match(/^\/storage\/\d+\/ports$/) ||
