@@ -51,6 +51,10 @@ from .views import (
     # Volume Mapping Scripts
     volume_mapping_scripts_project_view,
     volume_mapping_scripts_storage_view,
+    # LSS Summary Management
+    lss_summary_list,
+    lss_summary_detail,
+    lss_summary_bulk_update,
 )
 
 urlpatterns = [
@@ -108,4 +112,8 @@ urlpatterns = [
     path("volume-mappings/create/", volume_mapping_create, name="volume-mapping-create"),
     path("volume-mappings/preview/", volume_mapping_preview, name="volume-mapping-preview"),
     path("project/<int:project_id>/view/volume-mappings/", volume_mapping_project_view, name="volume-mapping-project-view"),
+    # LSS Summary Management (DS8000 only)
+    path("<int:storage_id>/lss-summary/", lss_summary_list, name="lss-summary-list"),
+    path("<int:storage_id>/lss-summary/<int:pk>/", lss_summary_detail, name="lss-summary-detail"),
+    path("<int:storage_id>/lss-summary/bulk-update/", lss_summary_bulk_update, name="lss-summary-bulk-update"),
 ]

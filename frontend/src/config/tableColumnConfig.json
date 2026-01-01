@@ -1491,5 +1491,57 @@
         "width": 100
       }
     ]
+  },
+  "lsssummary": {
+    "defaultSort": {
+      "column": "lss",
+      "direction": "asc"
+    },
+    "columns": [
+      {
+        "id": "lss",
+        "title": "LSS",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "readOnly": true,
+        "width": 80
+      },
+      {
+        "id": "type",
+        "title": "Type",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "readOnly": true,
+        "width": 80
+      },
+      {
+        "id": "volumes",
+        "title": "Volumes",
+        "type": "numeric",
+        "required": true,
+        "defaultVisible": true,
+        "readOnly": true,
+        "width": 100
+      },
+      {
+        "id": "aliases",
+        "title": "Aliases",
+        "type": "numeric",
+        "required": true,
+        "defaultVisible": true,
+        "readOnly": true,
+        "width": 100
+      },
+      {
+        "id": "ssid",
+        "title": "SSID",
+        "type": "text",
+        "required": false,
+        "defaultVisible": true,
+        "width": 100
+      }
+    ]
   }
 }

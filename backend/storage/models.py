@@ -541,6 +541,10 @@ class Volume(models.Model):
     vdisk_mirror_copies = models.CharField(max_length=10, blank=True, null=True)
     vdisk_mirror_role = models.CharField(max_length=16, blank=True, null=True)
     deduplicated = models.CharField(max_length=10, blank=True, null=True)
+    alias = models.BooleanField(
+        default=False,
+        help_text="True if this volume is an alias volume"
+    )
     imported = models.DateTimeField(null=True, blank=True)
     updated = models.DateTimeField(null=True, blank=True)
 
@@ -832,3 +836,67 @@ class VolumeMapping(models.Model):
     def __str__(self):
         target = self.get_target()
         return f"{self.volume.name} -> {target.name if target else 'Unknown'}"
+
+
+class LSSSummary(models.Model):
+    """
+    Stores per-LSS configuration (SSID) for DS8000 storage systems.
+    LSS data (volume counts, type) is computed from Volume table.
+    LSS = first 2 hex digits of DS8000 volume_id (e.g., 50 for volumes 5000-50FF).
+    """
+    storage = models.ForeignKey(
+        Storage,
+        on_delete=models.CASCADE,
+        related_name='lss_summaries'
+    )
+    lss = models.CharField(
+        max_length=2,
+        help_text="2 hex digit LSS identifier (00-FF)"
+    )
+    ssid = models.CharField(
+        max_length=4,
+        blank=True,
+        null=True,
+        help_text="4 hex digit SSID (e.g., 0000-FFFF)"
+    )
+
+    # Lifecycle tracking (following existing patterns)
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_lss_summaries',
+        help_text="Project that originally created this entity"
+    )
+
+    # Audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_lss_summaries',
+        help_text="User who last modified this LSS summary"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=1, help_text="Version number for optimistic locking")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['storage', 'lss']
+        ordering = ['storage', 'lss']
+        verbose_name = "LSS Summary"
+        verbose_name_plural = "LSS Summaries"
+
+    def __str__(self):
+        return f"{self.storage.name}: LSS {self.lss}"

@@ -27,12 +27,40 @@ import {
   Database,
 } from "lucide-react";
 
-const getSidebarLinks = (pathname) => {
+const getSidebarLinks = (pathname, storageType) => {
 
   // Only use layered navigation for individual storage system detail pages
   if (pathname.startsWith("/storage/")) {
     const storageIdMatch = pathname.match(/^\/storage\/(\d+)/);
     if (storageIdMatch) {
+      // Build Volumes subLinks - LSS Summary only for DS8000
+      const volumeSubLinks = [
+        {
+          path: `/storage/${storageIdMatch[1]}/volumes`,
+          label: "Volumes",
+          icon: Archive,
+        },
+        {
+          path: `/storage/${storageIdMatch[1]}/volume-ranges`,
+          label: "Volume Ranges",
+          icon: Layers,
+        },
+        {
+          path: `/storage/${storageIdMatch[1]}/volume-mappings`,
+          label: "Volume Mappings",
+          icon: GitBranch,
+        },
+      ];
+
+      // Add LSS Summary only for DS8000 storage systems
+      if (storageType === 'DS8000') {
+        volumeSubLinks.push({
+          path: `/storage/${storageIdMatch[1]}/lss-summary`,
+          label: "LSS Summary",
+          icon: Layers,
+        });
+      }
+
       return {
         header: "Storage System",
         icon: Menu,
@@ -55,23 +83,7 @@ const getSidebarLinks = (pathname) => {
             label: "Volumes",
             icon: Archive,
             expandable: true,
-            subLinks: [
-              {
-                path: `/storage/${storageIdMatch[1]}/volumes`,
-                label: "Volumes",
-                icon: Archive,
-              },
-              {
-                path: `/storage/${storageIdMatch[1]}/volume-ranges`,
-                label: "Volume Ranges",
-                icon: Layers,
-              },
-              {
-                path: `/storage/${storageIdMatch[1]}/volume-mappings`,
-                label: "Volume Mappings",
-                icon: GitBranch,
-              },
-            ],
+            subLinks: volumeSubLinks,
           },
           {
             label: "Hosts",
@@ -181,11 +193,16 @@ const getSidebarLinks = (pathname) => {
 
 export const useSidebarConfig = () => {
   const location = useLocation();
-  const { breadcrumbMap } = useContext(BreadcrumbContext);
+  const { breadcrumbMap, storageTypeMap } = useContext(BreadcrumbContext);
+
+  // Get storage ID from pathname for storage detail pages
+  const storageIdMatch = location.pathname.match(/^\/storage\/(\d+)/);
+  const storageId = storageIdMatch ? storageIdMatch[1] : null;
+  const storageType = storageId ? storageTypeMap[storageId] : null;
 
   const config = useMemo(
-    () => getSidebarLinks(location.pathname),
-    [location.pathname]
+    () => getSidebarLinks(location.pathname, storageType),
+    [location.pathname, storageType]
   );
 
   const dynamicHeader = useMemo(() => {

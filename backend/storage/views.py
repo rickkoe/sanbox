@@ -7,7 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils import timezone
-from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, LSSSummary
 from .serializers import (
     StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer,
     StorageFieldPreferenceSerializer, PoolSerializer,
@@ -5177,3 +5177,343 @@ def volume_mapping_project_view(request, project_id):
     elif request.method == "POST":
         # Delegate to volume_mapping_create with project_id injected
         return volume_mapping_create(request)
+
+
+# =============================================================================
+# LSS Summary Views
+# =============================================================================
+
+def get_lss_from_volume_id(volume_id):
+    """
+    Extract LSS (first 2 hex digits) from a 4-character volume_id.
+    Returns uppercase 2-char hex string or None if invalid.
+    """
+    if volume_id and len(volume_id) >= 2:
+        return volume_id[:2].upper()
+    return None
+
+
+def lss_summary_list(request, storage_id):
+    """
+    GET /api/storage/{storage_id}/lss-summary/
+
+    Returns LSS summary data for a DS8000 storage system.
+    LSS data is computed from volumes; SSID is stored in LSSSummary model.
+    Only works for storage_type='DS8000'.
+
+    Query params:
+    - active_project_id: ID of the active project (for Project View mode)
+    - project_filter: 'current' for Project View, anything else for Customer View
+    - table_format: 'true' to return TanStackCRUDTable-compatible format
+    """
+    try:
+        # Validate storage exists
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': f'Storage system with id {storage_id} not found'}, status=404)
+
+        # Validate it's a DS8000
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                'error': f'LSS Summary is only available for DS8000 storage systems. This storage is type: {storage.storage_type}'
+            }, status=400)
+
+        # Get query params for view mode
+        active_project_id = request.GET.get('active_project_id')
+        project_filter = request.GET.get('project_filter', 'all')
+        table_format = request.GET.get('table_format', 'false').lower() == 'true'
+
+        # Get volumes for this storage
+        from django.db.models import Q, Count
+        volumes = Volume.objects.filter(storage=storage)
+
+        # Apply filtering based on view mode
+        # project_filter='current' means Project View; anything else means Committed/Customer View
+        if project_filter == 'current' and active_project_id:
+            # Project View: Show committed volumes OR volumes in the active project
+            volumes = volumes.filter(
+                Q(committed=True) | Q(project_memberships__project_id=active_project_id)
+            ).distinct()
+        else:
+            # Committed/Customer View: Show only committed volumes OR orphaned volumes
+            # This applies whether or not there's an active_project_id
+            volumes = volumes.annotate(
+                project_count=Count('project_memberships')
+            ).filter(
+                Q(committed=True) | Q(project_count=0)
+            )
+
+        # Group volumes by LSS and compute summary
+        lss_data = {}
+        for volume in volumes:
+            lss = get_lss_from_volume_id(volume.volume_id)
+            if not lss:
+                continue
+
+            if lss not in lss_data:
+                lss_data[lss] = {
+                    'lss': lss,
+                    'type': volume.format or 'FB',  # Default to FB if not set
+                    'volumes': 0,
+                    'aliases': 0,
+                }
+
+            # Count volumes and aliases
+            if volume.alias:
+                lss_data[lss]['aliases'] += 1
+            else:
+                lss_data[lss]['volumes'] += 1
+
+        # Get or create LSSSummary records for SSID data
+        # First, ensure all LSS values have a record
+        existing_lss_summaries = {
+            ls.lss: ls for ls in LSSSummary.objects.filter(storage=storage)
+        }
+
+        # Create missing LSSSummary records
+        new_lss_records = []
+        for lss in lss_data.keys():
+            if lss not in existing_lss_summaries:
+                new_lss_records.append(LSSSummary(
+                    storage=storage,
+                    lss=lss,
+                    ssid=None,
+                    committed=False,
+                    deployed=False
+                ))
+
+        if new_lss_records:
+            LSSSummary.objects.bulk_create(new_lss_records, ignore_conflicts=True)
+            # Refresh the cache
+            existing_lss_summaries = {
+                ls.lss: ls for ls in LSSSummary.objects.filter(storage=storage)
+            }
+
+        # Build result list with SSID data
+        results = []
+        for lss, data in sorted(lss_data.items()):
+            lss_summary = existing_lss_summaries.get(lss)
+            results.append({
+                'id': lss_summary.id if lss_summary else None,
+                'lss': data['lss'],
+                'type': data['type'],
+                'volumes': data['volumes'],
+                'aliases': data['aliases'],
+                'ssid': lss_summary.ssid if lss_summary else None,
+                'version': lss_summary.version if lss_summary else 1,
+            })
+
+        if table_format:
+            return JsonResponse({
+                'results': results,
+                'count': len(results),
+                'storage_id': storage.id,
+                'storage_name': storage.name,
+                'storage_type': storage.storage_type,
+            })
+
+        return JsonResponse({
+            'storage_id': storage.id,
+            'storage_name': storage.name,
+            'storage_type': storage.storage_type,
+            'lss_summaries': results,
+            'lss_count': len(results),
+        })
+
+    except Exception as e:
+        logger.error(f"Error calculating LSS summary: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["PUT", "PATCH"])
+def lss_summary_detail(request, storage_id, pk):
+    """
+    PUT/PATCH /api/storage/{storage_id}/lss-summary/{pk}/
+
+    Updates SSID for an LSS Summary record.
+    Only SSID field can be updated.
+
+    Request body:
+    {
+        "ssid": "0000",  // 4 hex digits or null
+        "version": 1,    // for optimistic locking
+        "active_project_id": 123  // optional
+    }
+    """
+    try:
+        # Validate storage exists
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': f'Storage system with id {storage_id} not found'}, status=404)
+
+        # Validate it's a DS8000
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                'error': f'LSS Summary is only available for DS8000 storage systems.'
+            }, status=400)
+
+        # Get the LSS Summary record
+        try:
+            lss_summary = LSSSummary.objects.get(id=pk, storage=storage)
+        except LSSSummary.DoesNotExist:
+            return JsonResponse({'error': f'LSS Summary with id {pk} not found'}, status=404)
+
+        # Parse request body
+        data = json.loads(request.body)
+
+        # Validate version for optimistic locking
+        client_version = data.get('version', 0)
+        if client_version != lss_summary.version:
+            return JsonResponse({
+                'error': 'Record has been modified by another user. Please refresh and try again.',
+                'current_version': lss_summary.version
+            }, status=409)
+
+        # Validate SSID format (4 hex characters or empty)
+        ssid = data.get('ssid')
+        if ssid is not None and ssid != '':
+            ssid = ssid.strip().upper()
+            if len(ssid) != 4:
+                return JsonResponse({'error': 'SSID must be exactly 4 characters'}, status=400)
+            import re
+            if not re.match(r'^[0-9A-F]{4}$', ssid):
+                return JsonResponse({'error': 'SSID must be 4 hexadecimal characters (0-9, A-F)'}, status=400)
+        else:
+            ssid = None
+
+        # Update the record
+        lss_summary.ssid = ssid
+        lss_summary.version += 1
+        lss_summary.last_modified_by = request.user if request.user.is_authenticated else None
+
+        # Handle project association
+        active_project_id = data.get('active_project_id')
+        if active_project_id:
+            try:
+                project = Project.objects.get(id=active_project_id)
+                if not lss_summary.created_by_project:
+                    lss_summary.created_by_project = project
+            except Project.DoesNotExist:
+                pass
+
+        lss_summary.save()
+
+        return JsonResponse({
+            'id': lss_summary.id,
+            'lss': lss_summary.lss,
+            'ssid': lss_summary.ssid,
+            'version': lss_summary.version,
+            'success': True,
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    except Exception as e:
+        logger.error(f"Error updating LSS summary: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def lss_summary_bulk_update(request, storage_id):
+    """
+    POST /api/storage/{storage_id}/lss-summary/bulk-update/
+
+    Bulk updates SSID values for multiple LSS Summary records.
+
+    Request body:
+    {
+        "updates": [
+            {"id": 1, "ssid": "0000", "version": 1},
+            {"id": 2, "ssid": "0001", "version": 1}
+        ],
+        "active_project_id": 123  // optional
+    }
+    """
+    try:
+        # Validate storage exists
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({'error': f'Storage system with id {storage_id} not found'}, status=404)
+
+        if storage.storage_type != 'DS8000':
+            return JsonResponse({
+                'error': f'LSS Summary is only available for DS8000 storage systems.'
+            }, status=400)
+
+        data = json.loads(request.body)
+        updates = data.get('updates', [])
+        active_project_id = data.get('active_project_id')
+
+        if not updates:
+            return JsonResponse({'error': 'No updates provided'}, status=400)
+
+        import re
+        results = []
+        errors = []
+
+        for update in updates:
+            pk = update.get('id')
+            ssid = update.get('ssid')
+            client_version = update.get('version', 0)
+
+            try:
+                lss_summary = LSSSummary.objects.get(id=pk, storage=storage)
+
+                # Version check
+                if client_version != lss_summary.version:
+                    errors.append({
+                        'id': pk,
+                        'error': 'Version mismatch',
+                        'current_version': lss_summary.version
+                    })
+                    continue
+
+                # Validate SSID
+                if ssid is not None and ssid != '':
+                    ssid = ssid.strip().upper()
+                    if len(ssid) != 4 or not re.match(r'^[0-9A-F]{4}$', ssid):
+                        errors.append({
+                            'id': pk,
+                            'error': 'Invalid SSID format'
+                        })
+                        continue
+                else:
+                    ssid = None
+
+                # Update
+                lss_summary.ssid = ssid
+                lss_summary.version += 1
+                lss_summary.last_modified_by = request.user if request.user.is_authenticated else None
+                lss_summary.save()
+
+                results.append({
+                    'id': lss_summary.id,
+                    'lss': lss_summary.lss,
+                    'ssid': lss_summary.ssid,
+                    'version': lss_summary.version,
+                })
+
+            except LSSSummary.DoesNotExist:
+                errors.append({
+                    'id': pk,
+                    'error': 'Record not found'
+                })
+
+        return JsonResponse({
+            'success': len(errors) == 0,
+            'updated': results,
+            'errors': errors,
+            'updated_count': len(results),
+            'error_count': len(errors),
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
+    except Exception as e:
+        logger.error(f"Error in bulk LSS summary update: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)

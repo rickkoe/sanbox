@@ -17,7 +17,7 @@ const StoragePortsPage = () => {
     const { id } = useParams(); // Storage system ID from URL
     const API_URL = process.env.REACT_APP_API_URL || '';
     const { config } = useContext(ConfigContext);
-    const { setBreadcrumbMap } = useContext(BreadcrumbContext);
+    const { setBreadcrumbMap, setStorageTypeMap } = useContext(BreadcrumbContext);
 
     const [storageSystem, setStorageSystem] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -34,6 +34,7 @@ const StoragePortsPage = () => {
                 setStorageSystem(response.data);
                 // Update breadcrumb with storage system name
                 setBreadcrumbMap(prev => ({ ...prev, [id]: response.data.name }));
+                setStorageTypeMap(prev => ({ ...prev, [id]: response.data.storage_type }));
                 setLoading(false);
             } catch (error) {
                 console.error("Failed to fetch storage system:", error);
@@ -41,7 +42,7 @@ const StoragePortsPage = () => {
             }
         };
         fetchStorage();
-    }, [id, activeCustomerId, API_URL, setBreadcrumbMap]);
+    }, [id, activeCustomerId, API_URL, setBreadcrumbMap, setStorageTypeMap]);
 
     if (loading) {
         return <div className="container mt-4">Loading storage system...</div>;

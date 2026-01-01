@@ -3,9 +3,17 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import { BreadcrumbContext } from "../context/BreadcrumbContext";
 import { ConfigContext } from "../context/ConfigContext";
-import VolumeRangeTableTanStackClean from "../components/tables/VolumeRangeTableTanStackClean";
+import LSSSummaryTableTanStackClean from "../components/tables/LSSSummaryTableTanStackClean";
 
-const StorageVolumeRangesPage = () => {
+/**
+ * StorageLSSSummaryPage - Displays LSS Summary for a DS8000 storage system
+ *
+ * LSS (Logical Subsystem) data is computed from volumes.
+ * Only available for DS8000 storage systems.
+ *
+ * URL: /storage/:id/lss-summary
+ */
+const StorageLSSSummaryPage = () => {
   const { id } = useParams();
   const API_URL = process.env.REACT_APP_API_URL || '';
   const { setBreadcrumbMap, setStorageTypeMap } = useContext(BreadcrumbContext);
@@ -33,7 +41,7 @@ const StorageVolumeRangesPage = () => {
         // Verify it's DS8000
         if (response.data.storage_type !== "DS8000") {
           setError(
-            `Volume ranges are only available for DS8000 storage systems. This storage is type: ${response.data.storage_type}`
+            `LSS Summary is only available for DS8000 storage systems. This storage is type: ${response.data.storage_type}`
           );
         }
       } catch (err) {
@@ -52,7 +60,11 @@ const StorageVolumeRangesPage = () => {
   }
 
   if (error) {
-    return <div className="container mt-4"><div className="alert alert-warning">{error}</div></div>;
+    return (
+      <div className="container mt-4">
+        <div className="alert alert-warning">{error}</div>
+      </div>
+    );
   }
 
   if (!storage) {
@@ -60,13 +72,8 @@ const StorageVolumeRangesPage = () => {
   }
 
   return (
-    <>
-      <VolumeRangeTableTanStackClean
-        storageId={parseInt(id)}
-        storageName={storage?.name}
-      />
-    </>
+    <LSSSummaryTableTanStackClean storageId={parseInt(id)} />
   );
 };
 
-export default StorageVolumeRangesPage;
+export default StorageLSSSummaryPage;

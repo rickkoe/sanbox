@@ -62,6 +62,7 @@ const StorageDetailScriptsPage = React.lazy(() => import("./pages/StorageDetailS
 const StorageHostClustersPage = React.lazy(() => import("./pages/StorageHostClustersPage"));
 const StorageIBMiLPARsPage = React.lazy(() => import("./pages/StorageIBMiLPARsPage"));
 const StorageVolumeMappingsPage = React.lazy(() => import("./pages/StorageVolumeMappingsPage"));
+const StorageLSSSummaryPage = React.lazy(() => import("./pages/StorageLSSSummaryPage"));
 const AllVolumesPage = React.lazy(() => import("./pages/AllVolumesPage"));
 const PortTable = React.lazy(() => import("./components/tables/PortTableTanStackClean"));
 const HostTable = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
@@ -90,6 +91,7 @@ const ProjectSummary = React.lazy(() => import("./pages/ProjectSummary"));
 // Main app content with routing-aware CSS classes
 function AppContent() {
   const [breadcrumbMap, setBreadcrumbMap] = useState({});
+  const [storageTypeMap, setStorageTypeMap] = useState({});
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
 
@@ -118,7 +120,8 @@ function AppContent() {
                      location.pathname.match(/^\/storage\/\d+\/ports$/) ||
                      location.pathname.match(/^\/storage\/\d+\/host-clusters$/) ||
                      location.pathname.match(/^\/storage\/\d+\/ibmi-lpars$/) ||
-                     location.pathname.match(/^\/storage\/\d+\/volume-mappings$/);
+                     location.pathname.match(/^\/storage\/\d+\/volume-mappings$/) ||
+                     location.pathname.match(/^\/storage\/\d+\/lss-summary$/);
 
   // Define routes that should scroll normally (non-table pages)
   const scrollableRoutes = [
@@ -163,6 +166,8 @@ function AppContent() {
           <ThemedAppLayout
             breadcrumbMap={breadcrumbMap}
             setBreadcrumbMap={setBreadcrumbMap}
+            storageTypeMap={storageTypeMap}
+            setStorageTypeMap={setStorageTypeMap}
             isSidebarCollapsed={isSidebarCollapsed}
             setIsSidebarCollapsed={setIsSidebarCollapsed}
             getMainContentClass={getMainContentClass}
@@ -174,15 +179,15 @@ function AppContent() {
 }
 
 // Component that has access to theme context
-function ThemedAppLayout({ breadcrumbMap, setBreadcrumbMap, isSidebarCollapsed, setIsSidebarCollapsed, getMainContentClass }) {
+function ThemedAppLayout({ breadcrumbMap, setBreadcrumbMap, storageTypeMap, setStorageTypeMap, isSidebarCollapsed, setIsSidebarCollapsed, getMainContentClass }) {
   const { theme } = useTheme();
-  
+
   return (
     <SanVendorProvider>
       <ImportStatusProvider>
         <SettingsProvider>
           <TableControlsProvider>
-            <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap }}>
+            <BreadcrumbContext.Provider value={{ breadcrumbMap, setBreadcrumbMap, storageTypeMap, setStorageTypeMap }}>
               <AppLayoutWithTableControls 
                 theme={theme}
                 isSidebarCollapsed={isSidebarCollapsed}
@@ -236,6 +241,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage/:id/host-clusters" element={<StorageHostClustersPage />} />
                     <Route path="/storage/:id/ibmi-lpars" element={<StorageIBMiLPARsPage />} />
                     <Route path="/storage/:id/volume-mappings" element={<StorageVolumeMappingsPage />} />
+                    <Route path="/storage/:id/lss-summary" element={<StorageLSSSummaryPage />} />
                     <Route path="/storage/:id/scripts" element={<StorageDetailScriptsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
                     <Route path="/san/switches" element={<SwitchTable />} />

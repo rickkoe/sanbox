@@ -63,6 +63,7 @@ const TanStackCRUDTable = forwardRef(({
   height = '600px',
   storageKey,
   readOnly = false,
+  hideAddButton = false, // When true, hides the Add Row button even when not readOnly
   selectCheckboxDisabled = false, // When true, the _selected checkbox column is disabled (for Customer View)
   pageSizeOptions = [25, 50, 100, 250, 500], // Customizable page size options
   defaultSort, // Default sort configuration: { column: 'name', direction: 'asc'|'desc' }
@@ -1796,6 +1797,9 @@ const TanStackCRUDTable = forwardRef(({
             (accessorKey.startsWith('member_') && !accessorKey.includes('count'));
           const isMultiSelect = actualColumnConfig?.allowMultiple === true;
 
+          // Column-level readOnly: if either table is readOnly OR column is marked readOnly in config
+          const isColumnReadOnly = readOnly || actualColumnConfig?.readOnly === true;
+
           //   value,
           //   isCheckbox,
           //   isDropdown,
@@ -1820,7 +1824,7 @@ const TanStackCRUDTable = forwardRef(({
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
                 updateCellData={updateFn}
-                readOnly={isSelectionCheckbox ? selectCheckboxDisabled : readOnly}
+                readOnly={isSelectionCheckbox ? selectCheckboxDisabled : isColumnReadOnly}
               />
             );
           }
@@ -1837,7 +1841,7 @@ const TanStackCRUDTable = forwardRef(({
                 rowData={row.original}
                 allTableData={tableData}
                 theme={theme}
-                readOnly={readOnly}
+                readOnly={isColumnReadOnly}
               />
             );
           }
@@ -1876,7 +1880,7 @@ const TanStackCRUDTable = forwardRef(({
                 invalidCells={invalidCells}
                 setInvalidCells={setInvalidCells}
                 theme={theme}
-                readOnly={readOnly}
+                readOnly={isColumnReadOnly}
               />
             );
           }
@@ -1916,7 +1920,7 @@ const TanStackCRUDTable = forwardRef(({
                 invalidCells={invalidCells}
                 setInvalidCells={setInvalidCells}
                 theme={theme}
-                readOnly={readOnly}
+                readOnly={isColumnReadOnly}
               />
             );
           }
@@ -1978,7 +1982,7 @@ const TanStackCRUDTable = forwardRef(({
                   rowIndex={rowIndex}
                   columnKey={accessorKey}
                   updateCellData={updateCellData}
-                  readOnly={readOnly}
+                  readOnly={isColumnReadOnly}
                 />
               );
             }
@@ -1995,7 +1999,7 @@ const TanStackCRUDTable = forwardRef(({
                   rowIndex={rowIndex}
                   columnKey={accessorKey}
                   updateCellData={updateCellData}
-                  readOnly={readOnly}
+                  readOnly={isColumnReadOnly}
                 />
               );
             }
@@ -2007,7 +2011,7 @@ const TanStackCRUDTable = forwardRef(({
                 rowIndex={rowIndex}
                 columnKey={accessorKey}
                 updateCellData={updateCellData}
-                readOnly={readOnly}
+                readOnly={isColumnReadOnly}
                 selectedCells={selectedCells}
               />
             );
@@ -2032,7 +2036,7 @@ const TanStackCRUDTable = forwardRef(({
               rowIndex={rowIndex}
               columnKey={accessorKey}
               updateCellData={updateCellData}
-              readOnly={readOnly}
+              readOnly={isColumnReadOnly}
             />
           );
         },
@@ -4087,8 +4091,8 @@ const TanStackCRUDTable = forwardRef(({
             </button>
 
             {/* Action Buttons */}
-            {/* Conditional rendering for Add Actions */}
-            {customAddActions ? (
+            {/* Conditional rendering for Add Actions - hidden when hideAddButton is true */}
+            {!hideAddButton && customAddActions ? (
               <div className="dropdown" ref={addActionsMenuRef}>
                 <button
                   type="button"
@@ -4137,7 +4141,7 @@ const TanStackCRUDTable = forwardRef(({
                 </ul>
                 )}
               </div>
-            ) : (
+            ) : !hideAddButton ? (
               <button
                 onClick={addNewRow}
                 style={{
@@ -4157,7 +4161,7 @@ const TanStackCRUDTable = forwardRef(({
               >
                 Add Row
               </button>
-            )}
+            ) : null}
           </>
         )}
 

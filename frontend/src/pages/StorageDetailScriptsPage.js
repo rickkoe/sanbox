@@ -19,7 +19,7 @@ const StorageDetailScriptsPage = () => {
   const { config } = useContext(ConfigContext);
   const [storage, setStorage] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { setBreadcrumbMap } = useContext(BreadcrumbContext);
+  const { setBreadcrumbMap, setStorageTypeMap } = useContext(BreadcrumbContext);
 
   const activeCustomerId = config?.customer?.id;
 
@@ -32,6 +32,7 @@ const StorageDetailScriptsPage = () => {
         setStorage(response.data);
         // Update breadcrumb with storage system name
         setBreadcrumbMap(prev => ({ ...prev, [id]: response.data.name }));
+        setStorageTypeMap(prev => ({ ...prev, [id]: response.data.storage_type }));
       } catch (error) {
         console.error("Failed to fetch storage system:", error);
       } finally {
@@ -40,7 +41,7 @@ const StorageDetailScriptsPage = () => {
     };
 
     fetchStorage();
-  }, [id, activeCustomerId, API_URL, setBreadcrumbMap]);
+  }, [id, activeCustomerId, API_URL, setBreadcrumbMap, setStorageTypeMap]);
 
   if (loading) {
     return <div className="container mt-4">Loading storage system...</div>;

@@ -79,7 +79,7 @@ const StoragePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const { setBreadcrumbMap } = useContext(BreadcrumbContext);
+  const { setBreadcrumbMap, setStorageTypeMap } = useContext(BreadcrumbContext);
   const { theme } = useTheme();
 
   // Field filter modal state
@@ -99,6 +99,7 @@ const StoragePage = () => {
         setStorage(response.data);
         setFormData(response.data);
         setBreadcrumbMap(prev => ({ ...prev, [id]: response.data.name }));
+        setStorageTypeMap(prev => ({ ...prev, [id]: response.data.storage_type }));
 
         // Fetch field preferences
         try {
@@ -119,7 +120,7 @@ const StoragePage = () => {
     };
 
     fetchData();
-  }, [id, setBreadcrumbMap]);
+  }, [id, setBreadcrumbMap, setStorageTypeMap]);
 
   const handleChange = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }));
