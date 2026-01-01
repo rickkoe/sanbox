@@ -1073,8 +1073,8 @@ const VolumeRangeTableTanStackClean = ({
                 // Custom toolbar content
                 customToolbarContent={customToolbarContent}
 
-                // Table Settings - use flex to fill container
-                height="100%"
+                // Table Settings
+                height="calc(100vh - 200px)"
                 stretchH="all"
                 autoColumnSize={true}
                 manualColumnResize={true}

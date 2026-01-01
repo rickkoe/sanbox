@@ -179,7 +179,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             status: "",
             host_type: "",
             aliases_count: 0,
-            vols_count: 0,
+            volume_count: 0,
             fc_ports_count: 0,
             associated_resource: "",
             volume_group: "",

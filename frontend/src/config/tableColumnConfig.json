@@ -750,8 +750,8 @@
         "defaultVisible": true
       },
       {
-        "id": "vols_count",
-        "title": "Volumes Count",
+        "id": "volume_count",
+        "title": "Volumes",
         "type": "numeric",
         "readOnly": true,
         "defaultVisible": true

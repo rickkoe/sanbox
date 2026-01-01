@@ -50,15 +50,12 @@ def _distribute_ds8000_volumes(volumes, hosts):
     Logic:
     1. Group volumes by LSS (first 2 hex digits of volume_id)
     2. For each LSS, assign contiguous ranges to each host
-    3. Alternate which host gets the first range of each LSS for better balance
+    3. Use global volume count tracking to decide which hosts get extras
+    4. Final rebalancing ensures max 1-volume difference between any hosts
 
     Example: If LSS 50 has 107 volumes and there are 2 hosts:
     - Host 1 gets volumes 5000-5035 (54 volumes, contiguous)
     - Host 2 gets volumes 5036-506A (53 volumes, contiguous)
-
-    For LSS 51, the order reverses to balance:
-    - Host 2 gets volumes 5100-5134 (53 volumes, contiguous)
-    - Host 1 gets volumes 5135-516A (54 volumes, contiguous)
     """
     # Group volumes by LSS
     lss_groups = defaultdict(list)
@@ -79,8 +76,15 @@ def _distribute_ds8000_volumes(volumes, hosts):
     host_list = list(hosts)
     host_count = len(host_list)
 
-    # Track which host starts each LSS (alternate to balance)
-    start_host_offset = 0
+    # Calculate the ideal global distribution
+    total_volumes = len(volumes)
+    ideal_base = total_volumes // host_count
+    ideal_remainder = total_volumes % host_count
+    # Hosts 0 through (ideal_remainder-1) should get ideal_base+1 volumes
+    # Hosts ideal_remainder through (host_count-1) should get ideal_base volumes
+
+    # Track running total for each host to guide distribution decisions
+    host_counts = {host.id: 0 for host in host_list}
 
     # For each LSS, split volumes into contiguous ranges
     for lss in sorted_lss:
@@ -99,13 +103,13 @@ def _distribute_ds8000_volumes(volumes, hosts):
         base_count = total_vols // host_count
         remainder = total_vols % host_count
 
+        # Sort hosts by current count (ascending) to give extras to hosts with fewer volumes
+        # This ensures global balance across LSS groups
+        sorted_hosts = sorted(host_list, key=lambda h: host_counts[h.id])
+
         # Assign contiguous ranges to each host
         current_idx = 0
-        for i in range(host_count):
-            # Rotate which host gets volumes first (for balance across LSS groups)
-            host_idx = (i + start_host_offset) % host_count
-            host = host_list[host_idx]
-
+        for i, host in enumerate(sorted_hosts):
             # This host gets base_count volumes, plus 1 extra if we still have remainder
             count = base_count + (1 if i < remainder else 0)
 
@@ -113,11 +117,9 @@ def _distribute_ds8000_volumes(volumes, hosts):
             for vol in lss_volumes_sorted[current_idx:current_idx + count]:
                 vol_id = vol.id if hasattr(vol, 'id') else vol.get('id')
                 distribution[host.id].append(vol_id)
+                host_counts[host.id] += 1
 
             current_idx += count
-
-        # Alternate starting host for next LSS to balance overall distribution
-        start_host_offset = (start_host_offset + 1) % host_count
 
     return distribution
 

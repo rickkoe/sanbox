@@ -122,6 +122,7 @@ class HostWwpnSerializer(serializers.ModelSerializer):
 class HostSerializer(serializers.ModelSerializer):
     wwpn_details = serializers.SerializerMethodField()
     wwpn_display = serializers.SerializerMethodField()
+    volume_count = serializers.SerializerMethodField()
 
     # Project membership fields
     project_memberships = serializers.SerializerMethodField()
@@ -138,6 +139,55 @@ class HostSerializer(serializers.ModelSerializer):
     def get_wwpn_display(self, obj):
         """Return comma-separated WWPN string for table display"""
         return obj.get_wwpn_display_string()
+
+    def get_volume_count(self, obj):
+        """
+        Return the count of volumes mapped to this host.
+
+        Counts volumes from:
+        1. Direct host mappings (target_type='host', target_host=this host)
+        2. LPAR mappings assigned to this host (target_type='lpar', assigned_host=this host)
+        3. Cluster mappings where this host is a member (target_type='cluster')
+
+        Filtering:
+        - Customer View (no active_project_id): Only committed mappings
+        - Project View: Committed mappings + mappings in the active project
+        """
+        from storage.models import VolumeMapping
+        from django.db.models import Q
+
+        active_project_id = self.context.get('active_project_id')
+        is_project_view = self.context.get('is_project_view', False)
+
+        try:
+            # Base query: mappings where this host is the target
+            # Either directly, via LPAR assignment, or via cluster membership
+            cluster_ids = list(obj.clusters.values_list('id', flat=True))
+
+            base_q = Q(target_host=obj) | Q(assigned_host=obj)
+            if cluster_ids:
+                base_q |= Q(target_cluster_id__in=cluster_ids)
+
+            if is_project_view and active_project_id:
+                # Project View: Show committed + in active project
+                from core.models import ProjectVolumeMapping
+                project_mapping_ids = ProjectVolumeMapping.objects.filter(
+                    project_id=active_project_id
+                ).values_list('volume_mapping_id', flat=True)
+
+                count = VolumeMapping.objects.filter(base_q).filter(
+                    Q(committed=True) | Q(id__in=project_mapping_ids)
+                ).count()
+            else:
+                # Customer View: Only committed mappings
+                count = VolumeMapping.objects.filter(base_q).filter(
+                    committed=True
+                ).count()
+
+            return count
+        except Exception as e:
+            print(f"Error getting volume_count for host {obj.name}: {e}")
+            return 0
 
     def get_project_memberships(self, obj):
         """Return list of projects this host belongs to"""

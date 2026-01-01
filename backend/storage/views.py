@@ -1138,7 +1138,7 @@ def _handle_host_list_get(request, user):
         project_id = request.GET.get('project_id') or request.GET.get('project')
 
         # Serialize paginated results with context
-        context = {}
+        context = {'is_project_view': False}
         if project_id:
             context['active_project_id'] = int(project_id)
         serializer = HostSerializer(page_obj, many=True, context=context)
@@ -1453,6 +1453,91 @@ def mkhost_scripts_storage_view(request, project_id, storage_id):
 
     except Exception as e:
         print(f"❌ Error generating mkhost scripts for storage: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def volume_mapping_scripts_project_view(request, project_id):
+    """Generate volume mapping scripts for storage systems in a project."""
+    print(f"🔥 Volume Mapping Scripts (Project) - Method: {request.method}, Project ID: {project_id}")
+
+    try:
+        from core.models import Project, ProjectStorage
+        from .storage_utils import generate_volume_mapping_scripts
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Get storage systems that are in this project via junction table
+        storage_ids = ProjectStorage.objects.filter(project=project).values_list('storage_id', flat=True)
+        storage_systems = Storage.objects.filter(id__in=storage_ids).order_by('name')
+
+        if not storage_systems.exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "No storage systems found for this project"
+            })
+
+        # Generate volume mapping scripts using utility function with project filter
+        storage_scripts = generate_volume_mapping_scripts(storage_systems, project=project)
+
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+
+    except Exception as e:
+        print(f"❌ Error generating volume mapping scripts for project: {e}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def volume_mapping_scripts_storage_view(request, project_id, storage_id):
+    """Generate volume mapping scripts for a specific storage system in a project."""
+    print(f"🔥 Volume Mapping Scripts (Storage) - Project ID: {project_id}, Storage ID: {storage_id}")
+
+    try:
+        from core.models import Project, ProjectStorage
+        from .storage_utils import generate_volume_mapping_scripts
+
+        # Get project
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        # Get the specific storage system
+        try:
+            storage = Storage.objects.get(id=storage_id)
+        except Storage.DoesNotExist:
+            return JsonResponse({"error": "Storage system not found"}, status=404)
+
+        # Verify storage is in this project
+        if not ProjectStorage.objects.filter(project=project, storage=storage).exists():
+            return JsonResponse({
+                "storage_scripts": {},
+                "message": "Storage system not in this project"
+            })
+
+        # Generate volume mapping scripts for this single storage system
+        storage_scripts = generate_volume_mapping_scripts([storage], project=project)
+
+        return JsonResponse({
+            "storage_scripts": storage_scripts,
+            "total_storage_systems": len(storage_scripts)
+        })
+
+    except Exception as e:
+        print(f"❌ Error generating volume mapping scripts for storage: {e}")
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
@@ -2467,7 +2552,7 @@ def host_project_view(request, project_id):
         # Customer View filtering: Show hosts that are either:
         # 1. Committed (committed=True), OR
         # 2. Not referenced by any project (no junction table entries)
-        from django.db.models import Count
+        from django.db.models import Count, Q
         all_hosts = all_hosts.annotate(
             project_count=Count('project_memberships')
         ).filter(
@@ -2506,8 +2591,14 @@ def host_project_view(request, project_id):
 
         merged_data = []
 
+        # Context for Customer View (is_project_view=False)
+        serializer_context = {
+            'active_project_id': project_id,
+            'is_project_view': False
+        }
+
         for host in hosts_page:
-            base_data = HostSerializer(host).data
+            base_data = HostSerializer(host, context=serializer_context).data
             in_project = host.id in project_host_ids
 
             # If in project, get overrides
@@ -2642,9 +2733,15 @@ def host_project_view(request, project_id):
 
     merged_data = []
 
+    # Context for Project View (is_project_view=True)
+    serializer_context = {
+        'active_project_id': project_id,
+        'is_project_view': True
+    }
+
     for ph in project_hosts_page:
         # Serialize base host
-        base_data = HostSerializer(ph.host).data
+        base_data = HostSerializer(ph.host, context=serializer_context).data
 
         # Track which fields have overrides
         modified_fields = []

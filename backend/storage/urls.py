@@ -48,6 +48,9 @@ from .views import (
     volume_mapping_create,
     volume_mapping_preview,
     volume_mapping_project_view,
+    # Volume Mapping Scripts
+    volume_mapping_scripts_project_view,
+    volume_mapping_scripts_storage_view,
 )
 
 urlpatterns = [
@@ -72,6 +75,9 @@ urlpatterns = [
     path("mkhost-scripts/project/<int:project_id>/storage/<int:storage_id>/", mkhost_scripts_storage_view, name="mkhost-scripts-storage"),
     path("volume-scripts/project/<int:project_id>/", volume_dscli_scripts_project_view, name="volume-scripts-project"),
     path("volume-scripts/project/<int:project_id>/storage/<int:storage_id>/", volume_dscli_scripts_storage_view, name="volume-scripts-storage"),
+    # Volume Mapping Scripts
+    path("volume-mapping-scripts/project/<int:project_id>/", volume_mapping_scripts_project_view, name="volume-mapping-scripts-project"),
+    path("volume-mapping-scripts/project/<int:project_id>/storage/<int:storage_id>/", volume_mapping_scripts_storage_view, name="volume-mapping-scripts-storage"),
     path("ports/", port_list, name="port-list"),
     path("ports/<int:pk>/", port_detail, name="port-detail"),
     path("project/<int:project_id>/view/ports/", port_project_view, name="port-project-view"),
