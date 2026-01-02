@@ -86,6 +86,9 @@ const TanStackCRUDTable = forwardRef(({
   // Dropdown filter invalidation key - when this changes, dropdown cells re-render to pick up new filter results
   dropdownFilterKey = 0,
 
+  // Dynamic dropdown provider - function(rowIndex, colIndex, tableData) that returns options for a specific cell
+  dynamicDropdownProvider,
+
   ...otherProps
 }, ref) => {
 
@@ -1892,8 +1895,15 @@ const TanStackCRUDTable = forwardRef(({
             // Get current table data from table instance (always up-to-date, including unsaved changes)
             const tableData = table.options.data;
 
-            // Handle dynamic dropdown sources (functions)
-            if (typeof dropdownSources === 'function') {
+            // Check for dynamic dropdown provider first (row-specific options)
+            if (dynamicDropdownProvider) {
+              const dynamicOptions = dynamicDropdownProvider(rowIndex, colIndex, tableData, accessorKey);
+              if (dynamicOptions && Array.isArray(dynamicOptions) && dynamicOptions.length > 0) {
+                options = dynamicOptions;
+              }
+            }
+            // Handle dynamic dropdown sources (functions) as fallback
+            else if (typeof dropdownSources === 'function') {
               const dynamicSources = dropdownSources(tableData);
 
               // Check if this column has a dynamic function
@@ -1905,9 +1915,12 @@ const TanStackCRUDTable = forwardRef(({
             }
 
 
+            // Include options in key so dropdown re-renders when dynamic options change
+            const optionsKey = Array.isArray(options) ? options.slice(0, 5).join(',') : '';
+
             return (
               <VendorDropdownCell
-                key={`${row.original.id}-${accessorKey}-${dropdownFilterKey}`}
+                key={`${row.original.id}-${accessorKey}-${dropdownFilterKey}-${optionsKey}`}
                 value={value}
                 options={options}
                 rowIndex={rowIndex}
@@ -2927,21 +2940,27 @@ const TanStackCRUDTable = forwardRef(({
       // Apply paste data with proper data type conversion and validation
       const newInvalidCells = new Set();
 
+      // Get visible columns to properly map visual column indices to column definitions
+      // This is important when columns are hidden - visual index != columnDefs index
+      const visibleColumns = table.getVisibleLeafColumns();
+
       setEditableData(currentData => {
         const newData = [...currentData];
         const modifiedRows = new Set(); // Track which rows were modified
 
         // Iterate over the target area using data indices
         for (let targetDataRowIndex = targetStartDataRow; targetDataRowIndex <= targetEndDataRow && targetDataRowIndex < newData.length; targetDataRowIndex++) {
-          for (let targetColIndex = targetStartCol; targetColIndex <= targetEndCol && targetColIndex < columnDefs.length; targetColIndex++) {
+          for (let targetVisualColIndex = targetStartCol; targetVisualColIndex <= targetEndCol && targetVisualColIndex < visibleColumns.length; targetVisualColIndex++) {
             // Calculate which cell from paste data to use (with modulo for repeating)
             const rowOffset = (targetDataRowIndex - targetStartDataRow) % pasteRowCount;
-            const colOffset = (targetColIndex - targetStartCol) % pasteColCount;
+            const colOffset = (targetVisualColIndex - targetStartCol) % pasteColCount;
             const rowData = pasteData[rowOffset];
             const cellValue = rowData?.[colOffset] || '';
 
-            const columnKey = columnDefs[targetColIndex]?.accessorKey;
-            const columnDef = columnDefs[targetColIndex];
+            // Map visual column index to actual column definition (handles hidden columns)
+            const visibleColumn = visibleColumns[targetVisualColIndex];
+            const columnDef = columnDefs.find(def => (def.accessorKey || def.id) === visibleColumn?.id);
+            const columnKey = columnDef?.accessorKey;
 
             if (columnKey && newData[targetDataRowIndex]) {
               // Convert data types appropriately
@@ -2962,8 +2981,8 @@ const TanStackCRUDTable = forwardRef(({
                   convertedValue = cellValue;
                 }
 
-                // Validate dropdown values - use data index for cellKey
-                const cellKey = `${targetDataRowIndex}-${targetColIndex}`;
+                // Validate dropdown values - use visual column index for cellKey
+                const cellKey = `${targetDataRowIndex}-${targetVisualColIndex}`;
                 if (columnDef?.type === 'dropdown' && dropdownSources?.[columnKey]) {
                   const options = dropdownSources[columnKey];
                   const isValidOption = options.some(opt =>
@@ -2971,7 +2990,7 @@ const TanStackCRUDTable = forwardRef(({
                   );
 
                   if (!isValidOption && convertedValue && convertedValue.trim() !== '') {
-                    console.warn(`⚠️ Invalid dropdown value "${convertedValue}" for ${columnKey} at [data ${targetDataRowIndex}, col ${targetColIndex}]`);
+                    console.warn(`⚠️ Invalid dropdown value "${convertedValue}" for ${columnKey} at [data ${targetDataRowIndex}, visual col ${targetVisualColIndex}]`);
                     newInvalidCells.add(cellKey);
                   }
                 }
@@ -3011,12 +3030,15 @@ const TanStackCRUDTable = forwardRef(({
           // Collect all changes made by the paste
           const changes = [];
           for (let targetDataRowIndex = targetStartDataRow; targetDataRowIndex <= targetEndDataRow && targetDataRowIndex < editableData.length; targetDataRowIndex++) {
-            for (let targetColIndex = targetStartCol; targetColIndex <= targetEndCol && targetColIndex < columnDefs.length; targetColIndex++) {
+            for (let targetVisualColIndex = targetStartCol; targetVisualColIndex <= targetEndCol && targetVisualColIndex < visibleColumns.length; targetVisualColIndex++) {
               const rowOffset = (targetDataRowIndex - targetStartDataRow) % pasteRowCount;
-              const colOffset = (targetColIndex - targetStartCol) % pasteColCount;
+              const colOffset = (targetVisualColIndex - targetStartCol) % pasteColCount;
               const rowData = pasteData[rowOffset];
               const cellValue = rowData?.[colOffset] || '';
-              const columnKey = columnDefs[targetColIndex]?.accessorKey;
+              // Map visual column index to actual column definition
+              const visibleColumn = visibleColumns[targetVisualColIndex];
+              const columnDef = columnDefs.find(def => (def.accessorKey || def.id) === visibleColumn?.id);
+              const columnKey = columnDef?.accessorKey;
 
               if (columnKey) {
                 changes.push([targetDataRowIndex, columnKey, null, cellValue]);
@@ -3041,10 +3063,10 @@ const TanStackCRUDTable = forwardRef(({
         }, 0);
       }
 
-      // Update selection to show the pasted area (using data indices)
+      // Update selection to show the pasted area (using visual column indices)
       const pastedCells = new Set();
       for (let r = targetStartDataRow; r <= targetEndDataRow; r++) {
-        for (let c = targetStartCol; c <= Math.min(targetEndCol, columnDefs.length - 1); c++) {
+        for (let c = targetStartCol; c <= Math.min(targetEndCol, visibleColumns.length - 1); c++) {
           pastedCells.add(`${r}-${c}`);
         }
       }
@@ -3053,7 +3075,7 @@ const TanStackCRUDTable = forwardRef(({
         startRow: targetStartDataRow,
         startCol: targetStartCol,
         endRow: targetEndDataRow,
-        endCol: Math.min(targetEndCol, columnDefs.length - 1)
+        endCol: Math.min(targetEndCol, visibleColumns.length - 1)
       });
 
       setHasChanges(true);

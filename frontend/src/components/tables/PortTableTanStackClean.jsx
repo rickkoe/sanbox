@@ -117,9 +117,9 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     // Speed options based on port type
     const getSpeedOptions = useCallback((portType) => {
         if (portType === 'fc') {
-            return [8, 16, 32, 64];
+            return [2, 4, 8, 16, 32, 64];
         } else if (portType === 'ethernet') {
-            return [1, 10, 25, 100];
+            return [1, 10, 25, 40, 100];
         }
         return [];
     }, []);
@@ -288,7 +288,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             use: ["Host", "Replication"],
             storage: storageOptions.map(opt => opt.label),
             // Include all possible speed options (FC + Ethernet)
-            speed_gbps: ["1", "8", "10", "16", "25", "32", "64", "100"],
+            speed_gbps: ["1", "2", "4", "8", "10", "16", "25", "32", "40", "64", "100"],
             // Include all possible protocol options
             protocol: ["FICON", "SCSI FCP", "NVMe FCP", "TCP/IP", "iSCSI", "RDMA"]
             // fabric and alias are NOT in dropdowns - they're read-only and auto-populated
@@ -298,24 +298,24 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [storageOptions]);
 
     // Dynamic dropdown provider for speed, protocol, and aliases
-    const dynamicDropdownProvider = useCallback((row, col, data) => {
+    // Parameters: row index, col index, table data, accessorKey (column name)
+    const dynamicDropdownProvider = useCallback((row, col, data, accessorKey) => {
         const rowData = data[row];
-        const columnName = columns[col]?.data;
+        const columnName = accessorKey || columns[col]?.data;
 
         if (columnName === 'speed_gbps') {
-            // Convert display value to internal value
-            let portType = rowData?.type_value || rowData?.type || 'fc';
+            // Use type (current/edited value) first, then type_value (original saved value)
+            let portType = rowData?.type || rowData?.type_value || 'fc';
             if (portType === 'Fibre Channel') portType = 'fc';
             else if (portType === 'Ethernet') portType = 'ethernet';
 
             const speeds = getSpeedOptions(portType);
-            console.log('Speed dropdown - portType:', portType, 'speeds:', speeds);
             return speeds.map(speed => speed.toString());
         }
 
         if (columnName === 'protocol') {
-            // Convert display value to internal value
-            let portType = rowData?.type_value || rowData?.type || 'fc';
+            // Use type (current/edited value) first, then type_value (original saved value)
+            let portType = rowData?.type || rowData?.type_value || 'fc';
             if (portType === 'Fibre Channel') portType = 'fc';
             else if (portType === 'Ethernet') portType = 'ethernet';
 
@@ -326,7 +326,6 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             const storageType = storage?.storage_type || rowData?.storage_type || 'DS8000';
 
             const protocols = getProtocolOptions(portType, storageType);
-            console.log('Protocol dropdown - portType:', portType, 'storageType:', storageType, 'protocols:', protocols);
             return protocols;
         }
 
