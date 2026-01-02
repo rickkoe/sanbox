@@ -2835,15 +2835,6 @@ const TanStackCRUDTable = forwardRef(({
     const copyText = copyGrid.map(row => row.join('\t')).join('\n');
 
     navigator.clipboard.writeText(copyText);
-
-    // Show brief success feedback
-    setFillPreview({
-      operation: 'Copied',
-      sourceValue: `${dataRowIndices.length} rows × ${colIndices.length} columns`,
-      count: visibleSelectedCells.size
-    });
-
-    setTimeout(() => setFillPreview(null), 1500);
   }, [selectedCells, editableData, columnDefs, getNestedValue, buildRowIndexMaps, filterToVisibleCells]);
 
   // Enhanced Paste functionality for Excel compatibility
@@ -3079,24 +3070,6 @@ const TanStackCRUDTable = forwardRef(({
       });
 
       setHasChanges(true);
-
-      // Show success feedback with warning if invalid cells detected
-      if (newInvalidCells.size > 0) {
-        setFillPreview({
-          operation: 'Pasted (with warnings)',
-          sourceValue: `${pasteRowCount} rows × ${pasteColCount} columns, ${newInvalidCells.size} invalid dropdown value(s)`,
-          count: pasteRowCount * pasteColCount,
-          isWarning: true
-        });
-        setTimeout(() => setFillPreview(null), 4000);
-      } else {
-        setFillPreview({
-          operation: 'Pasted',
-          sourceValue: `${pasteRowCount} rows × ${pasteColCount} columns`,
-          count: pasteRowCount * pasteColCount
-        });
-        setTimeout(() => setFillPreview(null), 2000);
-      }
 
     } catch (error) {
       console.error('❌ Error pasting data:', error);

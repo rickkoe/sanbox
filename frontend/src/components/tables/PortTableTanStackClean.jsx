@@ -459,6 +459,14 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const saveTransform = useCallback((rows) => {
         return rows.map(row => {
             const payload = { ...row };
+
+            // Trim all string values to remove carriage returns and whitespace from paste operations
+            Object.keys(payload).forEach(key => {
+                if (typeof payload[key] === 'string') {
+                    payload[key] = payload[key].trim();
+                }
+            });
+
             delete payload.saved;
             delete payload.storage_type;
             delete payload.type_value;
