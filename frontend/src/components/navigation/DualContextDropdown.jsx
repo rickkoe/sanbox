@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { Dropdown } from 'react-bootstrap';
 import { Building2, FolderOpen, Plus } from 'lucide-react';
 import { ConfigContext } from '../../context/ConfigContext';
@@ -15,6 +16,7 @@ const DualContextDropdown = () => {
     const { config, updateUserConfig, refreshConfig, registerRefreshProjectsList } = useContext(ConfigContext);
     const { theme } = useTheme();
     const { setProjectFilter } = useProjectFilter();
+    const navigate = useNavigate();
 
     const [customers, setCustomers] = useState([]);
     const [projects, setProjects] = useState([]);
@@ -176,6 +178,9 @@ const DualContextDropdown = () => {
         await updateUserConfig(customer.id, null);
         await refreshConfig();
 
+        // Navigate to dashboard to avoid showing stale data
+        navigate('/');
+
         // Keep dropdown open so user can select a project
         // Dropdown stays open
     };
@@ -202,6 +207,10 @@ const DualContextDropdown = () => {
         }
 
         await refreshConfig();
+
+        // Navigate to dashboard to avoid showing stale data
+        navigate('/');
+
         // Close dropdown after project selection
         setShowDropdown(false);
     };

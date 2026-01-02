@@ -623,7 +623,7 @@ export const useProjectViewSelection = ({
                 </button>
                 {showActionsDropdown && selectedRows.size > 0 && (
                     <ul
-                        className="table-dropdown-menu"
+                        className="table-dropdown-menu table-dropdown-menu-end"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <li>

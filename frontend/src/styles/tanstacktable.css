@@ -627,6 +627,12 @@ button[data-bs-toggle="dropdown"] ~ .dropdown-menu {
   list-style: none;
 }
 
+/* Right-aligned dropdown variant - prevents overflow on right side of screen */
+.table-dropdown-menu-end {
+  left: auto;
+  right: 0;
+}
+
 .table-dropdown-menu::-webkit-scrollbar {
   width: 8px;
 }
