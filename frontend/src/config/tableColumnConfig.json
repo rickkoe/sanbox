@@ -832,6 +832,14 @@
         "width": 150
       },
       {
+        "id": "port_id",
+        "title": "Port ID",
+        "type": "text",
+        "required": true,
+        "defaultVisible": true,
+        "width": 120
+      },
+      {
         "id": "storage",
         "title": "Storage System",
         "type": "dropdown",

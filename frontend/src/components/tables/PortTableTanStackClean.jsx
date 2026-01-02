@@ -279,6 +279,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     const NEW_PORT_TEMPLATE = useMemo(() => ({
         id: null,
         name: "",
+        port_id: "",
         _selected: false,
         storage: storageId || null, // Pre-populate storage if filtering by storage system
         wwpn: "",

@@ -414,6 +414,7 @@ class Port(models.Model):
 
     storage = models.ForeignKey(Storage, related_name='ports', on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
+    port_id = models.CharField(max_length=100, blank=True, default='', help_text="Port identifier string")
     wwpn = models.CharField(max_length=23, unique=True, blank=True, null=True, help_text="World Wide Port Name (with or without colons)")
     type = models.CharField(max_length=10, choices=PORT_TYPE_CHOICES)
     speed_gbps = models.IntegerField(blank=True, null=True, help_text="Port speed in Gbps (optional)")
