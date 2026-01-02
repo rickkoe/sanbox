@@ -1872,7 +1872,7 @@ def port_list(request):
 
             # Build queryset with optimizations
             from django.db.models import Q, Count
-            ports = Port.objects.select_related('storage', 'fabric', 'alias', 'project', 'created_by_project').prefetch_related(
+            ports = Port.objects.select_related('storage', 'fabric', 'alias', 'created_by_project').prefetch_related(
                 Prefetch('project_memberships',
                          queryset=ProjectPort.objects.select_related('project'))
             ).all()
@@ -1890,15 +1890,11 @@ def port_list(request):
             if storage_id:
                 ports = ports.filter(storage_id=storage_id)
 
-            # Filter by project if provided
-            if project_id:
-                ports = ports.filter(project_id=project_id)
-
             # Customer View filtering: Show ports that are either:
             # 1. Committed (committed=True), OR
             # 2. Not referenced by any project (no junction table entries)
             ports = ports.annotate(
-                project_count=Count('project_ports')  # Correct relationship name
+                project_count=Count('project_memberships')  # related_name from Port to ProjectPort
             ).filter(
                 Q(committed=True) | Q(project_count=0)
             )
@@ -2009,6 +2005,14 @@ def port_list(request):
             data = json.loads(request.body)
             storage_id = data.get("storage")
             wwpn = data.get("wwpn")
+            active_project_id = data.get("active_project_id")
+
+            # Remove read-only fields that shouldn't be in the POST data
+            readonly_fields = ['project_memberships', 'in_active_project', 'saved',
+                              'modified_fields', 'project_action', '_selected', 'active_project_id',
+                              'storage_details', 'fabric_details', 'alias_details', 'project_details', 'storage_type']
+            for field in readonly_fields:
+                data.pop(field, None)
 
             # Check if user can modify infrastructure
             if user:
@@ -2023,24 +2027,58 @@ def port_list(request):
                 except Storage.DoesNotExist:
                     return JsonResponse({"error": "Storage system not found"}, status=404)
 
+            # Get project if creating in Project View
+            project = None
+            if active_project_id:
+                try:
+                    project = Project.objects.get(id=active_project_id)
+                except Project.DoesNotExist:
+                    return JsonResponse({"error": "Project not found"}, status=404)
+
             # Look up by WWPN if provided, otherwise create new
+            is_new = False
             if wwpn:
                 try:
                     port = Port.objects.get(wwpn=wwpn)
                     serializer = PortSerializer(port, data=data)
                 except Port.DoesNotExist:
                     serializer = PortSerializer(data=data)
+                    is_new = True
             else:
                 serializer = PortSerializer(data=data)
+                is_new = True
 
             if serializer.is_valid():
-                port_instance = serializer.save()
+                # For new port in Project View, set project-specific fields
+                if is_new and project:
+                    port_instance = serializer.save(
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project
+                    )
+                else:
+                    port_instance = serializer.save()
+
                 # Set last_modified_by
                 if user:
                     port_instance.last_modified_by = user
                     port_instance.save(update_fields=['last_modified_by'])
 
-                return JsonResponse(serializer.data, status=201)
+                # For new port in Project View, create junction table entry
+                if is_new and project:
+                    ProjectPort.objects.create(
+                        project=project,
+                        port=port_instance,
+                        action='new',
+                        added_by=user,
+                        notes='Auto-created with port'
+                    )
+                    logger.info(f"Created ProjectPort entry for port {port_instance.id} in project {project.id}")
+
+                # Re-fetch to get fresh data for serialization
+                port_instance.refresh_from_db()
+                response_serializer = PortSerializer(port_instance)
+                return JsonResponse(response_serializer.data, status=201)
             return JsonResponse(serializer.errors, status=400)
         except Exception as e:
             logger.exception("Error creating/updating port")
@@ -2056,7 +2094,7 @@ def port_detail(request, pk):
     user = request.user if request.user.is_authenticated else None
 
     try:
-        port = Port.objects.select_related('storage', 'fabric', 'alias', 'project').get(pk=pk)
+        port = Port.objects.select_related('storage', 'fabric', 'alias', 'created_by_project').get(pk=pk)
     except Port.DoesNotExist:
         return JsonResponse({"error": "Port not found"}, status=404)
 
@@ -2924,20 +2962,33 @@ def port_project_view(request, project_id):
     ).values_list('port_id', flat=True))
 
     if project_filter == 'all' and customer:
-        # Return ALL customer ports with in_active_project flag
-        # Get customer storage IDs first
-        customer_storage_ids = Storage.objects.filter(customer=customer).values_list('id', flat=True)
+        # Return customer ports with in_active_project flag
+        # Customer View filtering: Show ports that are either committed OR not in any project
+        # Get storage_id filter if provided (for Storage Detail view)
+        storage_id = request.GET.get('storage_id')
 
-        all_ports = Port.objects.filter(
-            storage_id__in=customer_storage_ids
-        ).select_related(
+        from django.db.models import Count, Q
+
+        if storage_id:
+            # Filter by specific storage
+            all_ports = Port.objects.filter(storage_id=storage_id)
+        else:
+            # Filter by all customer storages
+            customer_storage_ids = Storage.objects.filter(customer=customer).values_list('id', flat=True)
+            all_ports = Port.objects.filter(storage_id__in=customer_storage_ids)
+
+        all_ports = all_ports.select_related(
             'storage',
             'fabric',
             'alias',
-            'project'
+            'created_by_project'
         ).prefetch_related(
             Prefetch('project_memberships',
                      queryset=ProjectPort.objects.select_related('project'))
+        ).annotate(
+            project_count=Count('project_memberships')
+        ).filter(
+            Q(committed=True) | Q(project_count=0)
         )
 
         # ===== PAGINATION =====
@@ -2967,21 +3018,9 @@ def port_project_view(request, project_id):
             base_data = PortSerializer(port).data
             in_project = port.id in project_port_ids
 
-            # If in project, get overrides
-            modified_fields = []
-            if in_project:
-                try:
-                    pp = ProjectPort.objects.get(project=project, port=port)
-                    if pp.field_overrides:
-                        for field_name, override_value in pp.field_overrides.items():
-                            if field_name in base_data and base_data[field_name] != override_value:
-                                base_data[field_name] = override_value
-                                modified_fields.append(field_name)
-                    base_data['project_action'] = pp.action
-                except ProjectPort.DoesNotExist:
-                    pass
-
-            base_data['modified_fields'] = modified_fields
+            # Customer View (project_filter='all'): Show base data only, no field_overrides
+            # Just add in_active_project flag for UI purposes
+            base_data['modified_fields'] = []
             base_data['in_active_project'] = in_project
             merged_data.append(base_data)
 
@@ -3011,7 +3050,7 @@ def port_project_view(request, project_id):
         'port__storage',
         'port__fabric',
         'port__alias',
-        'port__project'
+        'port__created_by_project'
     ).prefetch_related(
         Prefetch('port__project_memberships',
                  queryset=ProjectPort.objects.select_related('project'))
@@ -5628,3 +5667,131 @@ def lss_summary_bulk_update(request, storage_id):
     except Exception as e:
         logger.error(f"Error in bulk LSS summary update: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def port_save_view(request):
+    """Save or update ports with field override support for projects."""
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        data = json.loads(request.body)
+        project_id = data.get("project_id")
+        ports_data = data.get("ports", [])
+
+        if not project_id or not ports_data:
+            return JsonResponse({"error": "Project ID and ports data are required."}, status=400)
+
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({"error": "Project not found."}, status=404)
+
+        # Check if user has permission to modify ports
+        if user:
+            from core.permissions import can_modify_project
+            if not can_modify_project(user, project):
+                return JsonResponse({"error": "Only project owners, members, and admins can modify ports. Viewers have read-only access."}, status=403)
+
+        saved_ports = []
+        errors = []
+
+        for port_data in ports_data:
+            port_id = port_data.get("id")
+
+            if port_id:
+                port = Port.objects.filter(id=port_id).first()
+                if port:
+                    # Optimistic locking - check version
+                    client_version = port_data.get('version')
+                    if client_version is not None and port.version != client_version:
+                        errors.append({
+                            "port": port_data.get("name", "Unknown"),
+                            "errors": {
+                                "version": f"Conflict: This port was modified by {port.last_modified_by.username if port.last_modified_by else 'another user'} at {port.last_modified_at}. Please refresh and try again.",
+                                "current_version": port.version,
+                                "last_modified_by": port.last_modified_by.username if port.last_modified_by else None,
+                                "last_modified_at": port.last_modified_at.isoformat() if port.last_modified_at else None
+                            }
+                        })
+                        continue
+
+                    # Validate the incoming data
+                    serializer = PortSerializer(port, data=port_data, partial=True)
+                    if serializer.is_valid():
+                        # Extract only changed fields
+                        from core.utils.field_merge import extract_changed_fields
+
+                        # Get validated data
+                        validated_data = serializer.validated_data.copy()
+
+                        # Extract only fields that actually changed
+                        changed_fields = extract_changed_fields(port, validated_data)
+
+                        if changed_fields:
+                            # Get or create ProjectPort for this project
+                            project_port, pp_created = ProjectPort.objects.get_or_create(
+                                project=project,
+                                port=port,
+                                defaults={
+                                    'action': 'reference',
+                                    'added_by': user,
+                                    'field_overrides': {}
+                                }
+                            )
+
+                            # Update field_overrides with new changes
+                            current_overrides = project_port.field_overrides or {}
+                            current_overrides.update(changed_fields)
+                            project_port.field_overrides = current_overrides
+
+                            # Update action to 'modified' unless it's already 'new'
+                            if project_port.action not in ['new', 'delete']:
+                                project_port.action = 'modified'
+
+                            project_port.added_by = user
+                            project_port.save()
+
+                            print(f"✏️ Stored field overrides for port '{port.name}' in project '{project.name}': {changed_fields}")
+
+                        # Return the base port data (not modified)
+                        saved_ports.append(PortSerializer(port).data)
+                    else:
+                        errors.append({"port": port_data.get("name", "Unknown"), "errors": serializer.errors})
+            else:
+                # Create new port
+                serializer = PortSerializer(data=port_data)
+                if serializer.is_valid():
+                    port = serializer.save(
+                        committed=False,
+                        deployed=False,
+                        created_by_project=project
+                    )
+                    if user:
+                        port.last_modified_by = user
+                        port.save(update_fields=["last_modified_by"])
+
+                    # Auto-add to current project via junction table
+                    ProjectPort.objects.create(
+                        project=project,
+                        port=port,
+                        action='new',
+                        added_by=user,
+                        notes='Auto-created with port'
+                    )
+
+                    saved_ports.append(serializer.data)
+                else:
+                    errors.append({"port": port_data.get("name", "Unknown"), "errors": serializer.errors})
+
+        if errors:
+            return JsonResponse({"error": "Some ports could not be saved.", "details": errors}, status=400)
+
+        return JsonResponse({"saved": saved_ports, "count": len(saved_ports)})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON in request body"}, status=400)
+    except Exception as e:
+        logger.exception("Error saving ports")
+        return JsonResponse({"error": str(e)}, status=500)

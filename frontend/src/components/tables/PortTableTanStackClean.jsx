@@ -528,9 +528,13 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 payload.type = "fc";
             }
 
-            // Note: Ports belong to storage systems (customer-level), not projects
-            // Remove project field if it exists (legacy)
+            // Remove legacy project field if it exists
             delete payload.project;
+
+            // Add active project ID if in Project View (for creating junction table entry)
+            if (projectFilter === 'current' && activeProjectId) {
+                payload.active_project_id = activeProjectId;
+            }
 
             // Convert empty strings to null for optional fields
             Object.keys(payload).forEach(key => {
@@ -541,7 +545,73 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
             return payload;
         });
-    }, [storageOptions, fabricOptions, aliasOptions, activeProjectId, formatWWPN]);
+    }, [storageOptions, fabricOptions, aliasOptions, activeProjectId, projectFilter, formatWWPN]);
+
+    // Custom save handler to use field overrides when in Project View
+    const handlePortSave = async (allTableData, hasChanges, deletedRows = []) => {
+        if (!hasChanges) {
+            return { success: true, message: 'No changes to save' };
+        }
+
+        try {
+            // Handle deletions first
+            if (deletedRows && deletedRows.length > 0) {
+                for (const portId of deletedRows) {
+                    try {
+                        await api.delete(`${API_URL}/api/storage/ports/${portId}/`);
+                    } catch (error) {
+                        console.error(`Failed to delete port ${portId}:`, error);
+                        if (error.response?.status === 403) {
+                            return {
+                                success: false,
+                                message: error.response?.data?.error || 'You do not have permission to delete ports.'
+                            };
+                        }
+                        return {
+                            success: false,
+                            message: `Failed to delete port: ${error.response?.data?.error || error.message}`
+                        };
+                    }
+                }
+            }
+
+            // Build payload for saving ports
+            const payload = saveTransform(allTableData)
+                .filter(port => port.id || (port.name && port.name.trim() !== ""));
+
+            // Use the bulk save endpoint with field override support
+            if (payload.length > 0) {
+                await api.post(`${API_URL}/api/storage/ports/save/`, {
+                    project_id: activeProjectId,
+                    ports: payload,
+                });
+            }
+
+            const totalOperations = payload.length + (deletedRows ? deletedRows.length : 0);
+            const operations = [];
+            if (payload.length > 0) operations.push(`saved ${payload.length} port(s)`);
+            if (deletedRows && deletedRows.length > 0) operations.push(`deleted ${deletedRows.length} port(s)`);
+
+            const message = operations.length > 0
+                ? `Successfully ${operations.join(' and ')}`
+                : 'No changes to save';
+
+            return { success: true, message };
+
+        } catch (error) {
+            console.error('❌ Port save error:', error);
+            if (error.response?.status === 403) {
+                return {
+                    success: false,
+                    message: error.response?.data?.error || 'You do not have permission to modify ports.'
+                };
+            }
+            return {
+                success: false,
+                message: `Error saving ports: ${error.response?.data?.error || error.message}`
+            };
+        }
+    };
 
     // Use ProjectViewToolbar component for table-specific actions
     // (Committed/Draft toggle, Commit, and Bulk Add/Remove are now in the navbar)
@@ -577,11 +647,12 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
                 // API Configuration
                 apiUrl={storageId
-                    ? `${API_ENDPOINTS.ports}?storage_id=${storageId}`
+                    ? `${API_ENDPOINTS.ports}${API_ENDPOINTS.ports.includes('?') ? '&' : '?'}storage_id=${storageId}`
                     : API_ENDPOINTS.ports
                 }
                 saveUrl={API_ENDPOINTS.saveUrl}
                 deleteUrl={API_ENDPOINTS.deleteUrl}
+                customSaveHandler={handlePortSave}
                 customerId={activeCustomerId}
                 tableName="ports"
                 readOnly={isReadOnly}

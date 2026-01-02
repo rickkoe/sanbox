@@ -266,10 +266,10 @@ class PortSerializer(serializers.ModelSerializer):
 
     def get_project_details(self, obj):
         """Return project name for display"""
-        if obj.project:
+        if obj.created_by_project:
             return {
-                "id": obj.project.id,
-                "name": obj.project.name
+                "id": obj.created_by_project.id,
+                "name": obj.created_by_project.name
             }
         return None
 

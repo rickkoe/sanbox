@@ -22,6 +22,7 @@ from .views import (
     port_list,
     port_detail,
     port_project_view,
+    port_save_view,
     # DS8000 Volume Range Management
     volume_ranges_list,
     volume_range_create,
@@ -90,6 +91,7 @@ urlpatterns = [
     path("mklcu-scripts/project/<int:project_id>/storage/<int:storage_id>/", mklcu_scripts_storage_view, name="mklcu-scripts-storage"),
     path("ports/", port_list, name="port-list"),
     path("ports/<int:pk>/", port_detail, name="port-detail"),
+    path("ports/save/", port_save_view, name="port-save"),
     path("project/<int:project_id>/view/ports/", port_project_view, name="port-project-view"),
     # DS8000 Volume Range Management
     path("<int:storage_id>/volume-ranges/", volume_ranges_list, name="volume-ranges-list"),
