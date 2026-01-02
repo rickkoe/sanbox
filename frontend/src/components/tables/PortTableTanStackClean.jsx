@@ -141,27 +141,35 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         return [];
     }, []);
 
-    // Fetch fabrics for dropdown
+    // Fetch fabrics for dropdown - use project endpoint to get committed + project fabrics
     useEffect(() => {
         const fetchFabrics = async () => {
             if (!activeCustomerId) return;
             try {
-                const response = await axios.get(`${API_ENDPOINTS.fabrics}?customer=${activeCustomerId}&page_size=All`);
-                const fabrics = response.data.results || [];
-                setFabricOptions(fabrics.map(f => ({ value: f.id, label: f.name })));
+                // Use project endpoint when in project view to get both committed and project fabrics
+                const fabricsUrl = activeProjectId
+                    ? `${API_URL}/api/san/fabrics/project/${activeProjectId}/view/?project_filter=all`
+                    : `${API_ENDPOINTS.fabrics}?customer_id=${activeCustomerId}`;
+                const response = await axios.get(fabricsUrl);
+                const fabrics = response.data.results || response.data || [];
+                // Sort fabrics alphabetically by name
+                const sortedFabrics = [...fabrics].sort((a, b) =>
+                    (a.name || '').localeCompare(b.name || '')
+                );
+                setFabricOptions(sortedFabrics.map(f => ({ value: f.id, label: f.name })));
             } catch (error) {
                 console.error("Failed to fetch fabrics:", error);
             }
         };
         fetchFabrics();
-    }, [activeCustomerId, API_ENDPOINTS.fabrics]);
+    }, [activeCustomerId, activeProjectId, API_ENDPOINTS.fabrics, API_URL]);
 
     // Fetch storage systems for dropdown
     useEffect(() => {
         const fetchStorageSystems = async () => {
             if (!activeCustomerId) return;
             try {
-                const response = await axios.get(`${API_ENDPOINTS.storage}?customer=${activeCustomerId}&page_size=All`);
+                const response = await axios.get(`${API_ENDPOINTS.storage}?customer=${activeCustomerId}&page_size=500`);
                 const systems = response.data.results || [];
                 setStorageOptions(systems.map(s => ({ value: s.id, label: s.name, storage_type: s.storage_type })));
             } catch (error) {
@@ -192,6 +200,13 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [activeProjectId, API_URL]);
 
     // Live/Draft toggle is now in the navbar
+
+    // Reload table data when fabricOptions loads to ensure fabric names are displayed
+    useEffect(() => {
+        if (fabricOptions.length > 0 && tableRef.current?.reloadData) {
+            tableRef.current.reloadData();
+        }
+    }, [fabricOptions]);
 
     // Track total row count from table
     useEffect(() => {
@@ -281,21 +296,21 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
         // Alias lookup happens via active project based on WWPN matching
     }), [storageId]);
 
-    // Dropdown sources with all options (fabric and alias are read-only, auto-populated from WWPN)
+    // Dropdown sources with all options
     const dropdownSources = useMemo(() => {
         const sources = {
             type: ["Fibre Channel", "Ethernet"],
-            use: ["Host", "Replication"],
+            use: ["Host", "Replication", "Both"],
             storage: storageOptions.map(opt => opt.label),
+            fabric: fabricOptions.map(opt => opt.label),
             // Include all possible speed options (FC + Ethernet)
             speed_gbps: ["1", "2", "4", "8", "10", "16", "25", "32", "40", "64", "100"],
             // Include all possible protocol options
             protocol: ["FICON", "SCSI FCP", "NVMe FCP", "TCP/IP", "iSCSI", "RDMA"]
-            // fabric and alias are NOT in dropdowns - they're read-only and auto-populated
         };
 
         return sources;
-    }, [storageOptions]);
+    }, [storageOptions, fabricOptions]);
 
     // Dynamic dropdown provider for speed, protocol, and aliases
     // Parameters: row index, col index, table data, accessorKey (column name)
@@ -379,19 +394,20 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
             // Convert use value to display value
             const useDisplay = port.use === 'host' ? 'Host' :
-                              port.use === 'replication' ? 'Replication' : port.use;
+                              port.use === 'replication' ? 'Replication' :
+                              port.use === 'both' ? 'Both' : port.use;
 
             // Get storage name
             const storageObj = storageOptions.find(s => s.value === port.storage);
             const storageDisplay = storageObj ? storageObj.label : '';
 
-            // Get fabric name (from alias lookup if available)
-            const fabricObj = fabricOptions.find(f => f.value === port.fabric);
-            const fabricDisplay = fabricObj ? fabricObj.label : '';
+            // Get fabric name - use fabric_details from API first, then fall back to fabricOptions lookup
+            const fabricDisplay = port.fabric_details?.name ||
+                (fabricOptions.find(f => f.value === port.fabric)?.label || '');
 
-            // Get alias name (from WWPN lookup if available)
-            const aliasObj = aliasOptions.find(a => a.id === port.alias);
-            const aliasDisplay = aliasObj ? aliasObj.name : '';
+            // Get alias name - use alias_details from API first, then fall back to aliasOptions lookup
+            const aliasDisplay = port.alias_details?.name ||
+                (aliasOptions.find(a => a.id === port.alias)?.name || '');
 
             // Also check if we can auto-populate from WWPN
             let autoAlias = aliasDisplay;
@@ -480,6 +496,7 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
             // Convert use display back to value
             if (payload.use === 'Host') payload.use = 'host';
             else if (payload.use === 'Replication') payload.use = 'replication';
+            else if (payload.use === 'Both') payload.use = 'both';
 
             // Use storage_id if available, otherwise convert label to ID
             if (payload.storage_id) {
@@ -490,14 +507,14 @@ const PortTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 payload.storage = storage ? storage.value : null;
             }
 
-            // Use fabric_id if available, otherwise convert label to ID
-            // (Only if not already set by WWPN lookup)
-            if (!payload.fabric && payload.fabric_id) {
-                payload.fabric = payload.fabric_id;
-                delete payload.fabric_id;
-            } else if (!payload.fabric && payload.fabric && typeof payload.fabric === 'string') {
+            // Convert fabric label to ID if it's a string (from dropdown selection)
+            if (payload.fabric && typeof payload.fabric === 'string') {
                 const fabric = fabricOptions.find(f => f.label === payload.fabric);
                 payload.fabric = fabric ? fabric.value : null;
+            }
+            // Use fabric_id as fallback if fabric wasn't set
+            if (!payload.fabric && payload.fabric_id) {
+                payload.fabric = payload.fabric_id;
             }
             delete payload.fabric_id; // Clean up
 

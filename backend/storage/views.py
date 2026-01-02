@@ -5741,21 +5741,32 @@ def port_save_view(request):
                                 }
                             )
 
-                            # Update field_overrides with new changes
-                            current_overrides = project_port.field_overrides or {}
-                            current_overrides.update(changed_fields)
-                            project_port.field_overrides = current_overrides
+                            # For 'new' ports (created by this project), update the port directly
+                            # since commit won't apply field_overrides for new entities
+                            if project_port.action == 'new':
+                                serializer.save()
+                                if user:
+                                    port.last_modified_by = user
+                                    port.version += 1
+                                    port.save(update_fields=['last_modified_by', 'version'])
+                                print(f"✏️ Updated new port '{port.name}' directly: {changed_fields}")
+                            else:
+                                # For existing ports, store changes in field_overrides
+                                current_overrides = project_port.field_overrides or {}
+                                current_overrides.update(changed_fields)
+                                project_port.field_overrides = current_overrides
 
-                            # Update action to 'modified' unless it's already 'new'
-                            if project_port.action not in ['new', 'delete']:
-                                project_port.action = 'modified'
+                                # Update action to 'modified' unless it's 'delete'
+                                if project_port.action != 'delete':
+                                    project_port.action = 'modified'
+
+                                print(f"✏️ Stored field overrides for port '{port.name}' in project '{project.name}': {changed_fields}")
 
                             project_port.added_by = user
                             project_port.save()
 
-                            print(f"✏️ Stored field overrides for port '{port.name}' in project '{project.name}': {changed_fields}")
-
-                        # Return the base port data (not modified)
+                        # Return the port data (refreshed for new ports)
+                        port.refresh_from_db()
                         saved_ports.append(PortSerializer(port).data)
                     else:
                         errors.append({"port": port_data.get("name", "Unknown"), "errors": serializer.errors})

@@ -392,6 +392,7 @@ class Port(models.Model):
     USE_CHOICES = [
         ('host', 'Host'),
         ('replication', 'Replication'),
+        ('both', 'Both'),
     ]
 
     # Speed choices - validated based on port type in the view

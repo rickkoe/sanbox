@@ -844,6 +844,7 @@
         "id": "wwpn",
         "title": "WWPN",
         "type": "text",
+        "required": true,
         "defaultVisible": true,
         "width": 180
       },
@@ -904,8 +905,8 @@
       {
         "id": "fabric",
         "title": "Fabric",
-        "type": "text",
-        "readOnly": true,
+        "type": "dropdown",
+        "dropdownSource": "fabric",
         "defaultVisible": true,
         "width": 150
       },
