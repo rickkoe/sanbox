@@ -390,17 +390,19 @@ def _generate_create_command(device_id, range_dict):
     """
     Generate a volume creation command for a range.
 
-    FB volumes: mkfbvol -dev {device} -extpool {pool} -cap {gb} {start}-{end}
-    CKD volumes: mkckdvol -dev {device} -extpool {pool} -datatype 3390 -cap {cyl} {start}-{end}
+    FB volumes: mkfbvol -dev {device} -extpool {pool} -cap {gb} -name {name} {start}-{end}
+    CKD volumes: mkckdvol -dev {device} -extpool {pool} -datatype 3390 -cap {cyl} -name {name} {start}-{end}
 
     Per IBM docs: Volume range specified by IDs separated by dash.
     The range determines which volumes are created (no -qty parameter).
+    The -name parameter sets a prefix; DS8000 appends the volume ID automatically.
     """
     fmt = range_dict.get('format', '').upper()
     pool = range_dict.get('pool_name') or 'P0'
     start = range_dict.get('start_volume', '0000')
     end = range_dict.get('end_volume', '0000')
     capacity_bytes = range_dict.get('capacity_bytes', 0)
+    name_prefix = range_dict.get('name_prefix')
 
     # Format volume range - show range if more than 1 volume
     vol_range = start if start == end else f"{start}-{end}"
@@ -408,17 +410,20 @@ def _generate_create_command(device_id, range_dict):
     # Convert capacity to GB for FB volumes
     capacity_gb = int(capacity_bytes / (1024 ** 3)) if capacity_bytes else 50
 
+    # Build -name parameter if name_prefix is available
+    name_param = f' -name {name_prefix}' if name_prefix else ''
+
     if fmt == 'FB':
-        return f"mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb} {vol_range}"
+        return f"mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb}{name_param} {vol_range}"
     elif fmt == 'CKD':
         # CKD uses cylinders with 3390 datatype
         capacity_cyl = _bytes_to_ckd_cylinders(capacity_bytes)
         # Use 3390-A for large volumes (>65520 cylinders)
         datatype = '3390-A' if capacity_cyl > 65520 else '3390'
-        return f"mkckdvol -dev {device_id} -extpool {pool} -datatype {datatype} -cap {capacity_cyl} {vol_range}"
+        return f"mkckdvol -dev {device_id} -extpool {pool} -datatype {datatype} -cap {capacity_cyl}{name_param} {vol_range}"
     else:
         # Unknown format, generate FB command with comment
-        return f"# Unknown format '{fmt}' - mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb} {vol_range}"
+        return f"# Unknown format '{fmt}' - mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb}{name_param} {vol_range}"
 
 
 def _generate_delete_command(device_id, range_dict):
@@ -436,7 +441,7 @@ def _generate_delete_command(device_id, range_dict):
         return f"rmvol -dev {device_id} {start}-{end}"
 
 
-def generate_dscli_for_new_range(storage, start_volume, end_volume, fmt, capacity_bytes, pool_name=None):
+def generate_dscli_for_new_range(storage, start_volume, end_volume, fmt, capacity_bytes, pool_name=None, name_prefix=None):
     """
     Generate DSCLI command for a new range (before volumes exist in DB).
 
@@ -447,6 +452,7 @@ def generate_dscli_for_new_range(storage, start_volume, end_volume, fmt, capacit
         fmt: 'FB' or 'CKD'
         capacity_bytes: Volume capacity in bytes
         pool_name: Optional pool name
+        name_prefix: Optional volume name prefix (DS8000 appends volume ID)
 
     Returns:
         str: DSCLI command
@@ -464,10 +470,13 @@ def generate_dscli_for_new_range(storage, start_volume, end_volume, fmt, capacit
     end = details['end_volume']
     vol_range = start if start == end else f"{start}-{end}"
 
+    # Build -name parameter if name_prefix is provided
+    name_param = f' -name {name_prefix}' if name_prefix else ''
+
     if fmt.upper() == 'FB':
-        return f"mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb} {vol_range}"
+        return f"mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb}{name_param} {vol_range}"
     elif fmt.upper() == 'CKD':
         capacity_cyl = int(capacity_bytes / (849 * 1024)) if capacity_bytes else 3339
-        return f"mkckdvol -dev {device_id} -extpool {pool} -cap {capacity_cyl} {vol_range}"
+        return f"mkckdvol -dev {device_id} -extpool {pool} -cap {capacity_cyl}{name_param} {vol_range}"
     else:
         raise ValueError(f"Invalid format '{fmt}': must be 'FB' or 'CKD'")

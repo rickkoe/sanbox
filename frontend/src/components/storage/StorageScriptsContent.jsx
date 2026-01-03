@@ -38,13 +38,7 @@ const StorageScriptsContent = ({
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadFilename, setDownloadFilename] = useState("");
   const [isDownloading, setIsDownloading] = useState(false);
-  const [selectedScriptTypes, setSelectedScriptTypes] = useState({
-    mkhost: true,
-    volume: true,
-    mapping: true,
-    mklcu: true,
-    all: false
-  });
+  const [selectedScriptTypes, setSelectedScriptTypes] = useState({});
   const [includeComments, setIncludeComments] = useState(true);
 
   // Helper function to filter out comments from commands
@@ -117,8 +111,92 @@ const StorageScriptsContent = ({
     return combined;
   }, [mkHostScripts, volumeScripts, volumeMappingScripts, mklcuScripts]);
 
+  // Get all unique storage system names across all script types
+  const allStorageSystems = React.useMemo(() => {
+    const storageMap = new Map();
+
+    // Gather storage info from all script types
+    [mkHostScripts, volumeScripts, volumeMappingScripts, mklcuScripts].forEach(scriptObj => {
+      Object.entries(scriptObj).forEach(([name, data]) => {
+        if (!storageMap.has(name)) {
+          storageMap.set(name, {
+            storage_type: data.storage_type || "Unknown",
+            host_count: data.host_count || 0,
+            volume_count: data.volume_count || 0,
+            range_count: data.range_count || 0,
+            lcu_count: data.lcu_count || 0
+          });
+        } else {
+          // Merge counts from different script types
+          const existing = storageMap.get(name);
+          storageMap.set(name, {
+            ...existing,
+            host_count: existing.host_count || data.host_count || 0,
+            volume_count: existing.volume_count || data.volume_count || 0,
+            range_count: existing.range_count || data.range_count || 0,
+            lcu_count: existing.lcu_count || data.lcu_count || 0
+          });
+        }
+      });
+    });
+
+    return storageMap;
+  }, [mkHostScripts, volumeScripts, volumeMappingScripts, mklcuScripts]);
+
   // Get the current scripts based on scriptType
   const scripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : scriptType === "mapping" ? volumeMappingScripts : scriptType === "mklcu" ? mklcuScripts : allScripts;
+
+  // Dynamic script types configuration - add new script types here
+  // Each entry automatically appears in dropdown and download modal
+  const scriptTypesConfig = React.useMemo(() => [
+    {
+      id: 'mklcu',
+      label: 'MkLCU Commands',
+      filenameSuffix: 'mklcu',
+      scripts: mklcuScripts,
+      icon: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M3 9h18"/></>,
+      getCount: (data) => `${data?.lcu_count || 0} LCUs - ${data?.commands?.length || 0} commands`
+    },
+    {
+      id: 'mkhost',
+      label: 'MkHost Commands',
+      filenameSuffix: 'mkhost',
+      scripts: mkHostScripts,
+      icon: <><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></>,
+      getCount: (data) => `${data?.host_count || 0} hosts - ${data?.commands?.length || 0} commands`
+    },
+    {
+      id: 'volume',
+      label: 'MkVol Commands',
+      filenameSuffix: 'mkvol',
+      scripts: volumeScripts,
+      icon: <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>,
+      getCount: (data) => `${data?.volume_count || 0} volumes - ${data?.commands?.length || 0} commands`
+    },
+    {
+      id: 'mapping',
+      label: 'MapVol Commands',
+      filenameSuffix: 'mapvol',
+      scripts: volumeMappingScripts,
+      icon: <><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></>,
+      getCount: (data) => `${data?.volume_count || 0} volumes - ${data?.commands?.length || 0} commands`
+    },
+    {
+      id: 'all',
+      label: 'All Commands (combined)',
+      filenameSuffix: 'all',
+      scripts: allScripts,
+      icon: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>,
+      getCount: (data) => `${data?.commands?.length || 0} total commands`,
+      isCombined: true
+    }
+  ], [mkHostScripts, volumeScripts, volumeMappingScripts, mklcuScripts, allScripts]);
+
+  // Get individual script types (excluding 'all' for dropdown)
+  const individualScriptTypes = React.useMemo(() =>
+    scriptTypesConfig.filter(st => !st.isCombined),
+    [scriptTypesConfig]
+  );
 
   useEffect(() => {
     // Wait until we actually have config loaded
@@ -190,16 +268,28 @@ const StorageScriptsContent = ({
     fetchScripts();
   }, [config, storageId]);
 
-  // Update activeTab when scriptType changes
+  // Update activeTab when scriptType changes - keep current selection if storage exists
   useEffect(() => {
-    const currentScripts = scriptType === "mkhost" ? mkHostScripts : scriptType === "volume" ? volumeScripts : scriptType === "mapping" ? volumeMappingScripts : scriptType === "mklcu" ? mklcuScripts : allScripts;
-    const scriptKeys = Object.keys(currentScripts);
-    if (scriptKeys.length > 0) {
-      setActiveTab(scriptKeys[0]);
+    // Get all storage system names
+    const allStorageNames = new Set([
+      ...Object.keys(mkHostScripts),
+      ...Object.keys(volumeScripts),
+      ...Object.keys(volumeMappingScripts),
+      ...Object.keys(mklcuScripts)
+    ]);
+
+    // If current activeTab is valid (exists in any script type), keep it
+    if (activeTab && allStorageNames.has(activeTab)) {
+      return; // Keep current selection
+    }
+
+    // Otherwise, select the first available storage
+    if (allStorageNames.size > 0) {
+      setActiveTab(Array.from(allStorageNames)[0]);
     } else {
       setActiveTab(null);
     }
-  }, [scriptType, mkHostScripts, volumeScripts, volumeMappingScripts, mklcuScripts, allScripts]);
+  }, [scriptType, mkHostScripts, volumeScripts, volumeMappingScripts, mklcuScripts]);
 
   const handleCopyToClipboard = () => {
     if (activeTab && scripts[activeTab]) {
@@ -249,21 +339,14 @@ const StorageScriptsContent = ({
   const handleOpenDownloadModal = () => {
     if (!activeTab) return;
 
-    // Reset script type selections based on what's available for this storage
-    const hasMkHost = mkHostScripts[activeTab]?.commands?.length > 0;
-    const hasVolume = volumeScripts[activeTab]?.commands?.length > 0;
-    const hasMapping = volumeMappingScripts[activeTab]?.commands?.length > 0;
-    const hasMklcu = mklcuScripts[activeTab]?.commands?.length > 0;
-    const hasAny = hasMkHost || hasVolume || hasMapping || hasMklcu;
-
-    setSelectedScriptTypes({
-      mkhost: hasMkHost,
-      volume: hasVolume,
-      mapping: hasMapping,
-      mklcu: hasMklcu,
-      all: hasAny
+    // Reset script type selections - check all types that have commands for this storage
+    const newSelections = {};
+    scriptTypesConfig.forEach(st => {
+      const hasCommands = st.scripts[activeTab]?.commands?.length > 0;
+      newSelections[st.id] = hasCommands;
     });
 
+    setSelectedScriptTypes(newSelections);
     setDownloadFilename(getDefaultFilename(activeTab));
     setShowDownloadModal(true);
   };
@@ -276,19 +359,12 @@ const StorageScriptsContent = ({
   };
 
   const handleSelectAllScriptTypes = (checked) => {
-    const hasMkHost = mkHostScripts[activeTab]?.commands?.length > 0;
-    const hasVolume = volumeScripts[activeTab]?.commands?.length > 0;
-    const hasMapping = volumeMappingScripts[activeTab]?.commands?.length > 0;
-    const hasMklcu = mklcuScripts[activeTab]?.commands?.length > 0;
-    const hasAny = hasMkHost || hasVolume || hasMapping || hasMklcu;
-
-    setSelectedScriptTypes({
-      mkhost: checked && hasMkHost,
-      volume: checked && hasVolume,
-      mapping: checked && hasMapping,
-      mklcu: checked && hasMklcu,
-      all: checked && hasAny
+    const newSelections = {};
+    scriptTypesConfig.forEach(st => {
+      const hasCommands = st.scripts[activeTab]?.commands?.length > 0;
+      newSelections[st.id] = checked && hasCommands;
     });
+    setSelectedScriptTypes(newSelections);
   };
 
   const handleDownloadSelected = async () => {
@@ -325,52 +401,17 @@ const StorageScriptsContent = ({
       const cleanStorageName = storageNameKey.replace(/[^a-zA-Z0-9-_]/g, "_");
       const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, "_");
 
-      // Add selected script types as separate files (backend already includes section headers)
-      if (selectedScriptTypes.mkhost && mkHostScripts[storageNameKey]?.commands?.length > 0) {
-        const data = mkHostScripts[storageNameKey];
-        const storageType = data.storage_type || "Unknown";
-        const filteredCommands = filterComments(data.commands);
-        const commandsText = filteredCommands.join("\n");
-        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mkhost_${timestamp}.txt`;
-        zip.file(fileName, commandsText);
-      }
-
-      if (selectedScriptTypes.volume && volumeScripts[storageNameKey]?.commands?.length > 0) {
-        const data = volumeScripts[storageNameKey];
-        const storageType = data.storage_type || "Unknown";
-        const filteredCommands = filterComments(data.commands);
-        const commandsText = filteredCommands.join("\n");
-        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mkvol_${timestamp}.txt`;
-        zip.file(fileName, commandsText);
-      }
-
-      if (selectedScriptTypes.mapping && volumeMappingScripts[storageNameKey]?.commands?.length > 0) {
-        const data = volumeMappingScripts[storageNameKey];
-        const storageType = data.storage_type || "Unknown";
-        const filteredCommands = filterComments(data.commands);
-        const commandsText = filteredCommands.join("\n");
-        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mapvol_${timestamp}.txt`;
-        zip.file(fileName, commandsText);
-      }
-
-      if (selectedScriptTypes.mklcu && mklcuScripts[storageNameKey]?.commands?.length > 0) {
-        const data = mklcuScripts[storageNameKey];
-        const storageType = data.storage_type || "Unknown";
-        const filteredCommands = filterComments(data.commands);
-        const commandsText = filteredCommands.join("\n");
-        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_mklcu_${timestamp}.txt`;
-        zip.file(fileName, commandsText);
-      }
-
-      // Add combined "all" file if selected (backend already includes section headers)
-      if (selectedScriptTypes.all && allScripts[storageNameKey]?.commands?.length > 0) {
-        const data = allScripts[storageNameKey];
-        const storageType = data.storage_type || "Unknown";
-        const filteredCommands = filterComments(data.commands);
-        const commandsText = filteredCommands.join("\n");
-        const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_all_${timestamp}.txt`;
-        zip.file(fileName, commandsText);
-      }
+      // Add selected script types as separate files (dynamically from config)
+      scriptTypesConfig.forEach(st => {
+        if (selectedScriptTypes[st.id] && st.scripts[storageNameKey]?.commands?.length > 0) {
+          const data = st.scripts[storageNameKey];
+          const storageType = data.storage_type || "Unknown";
+          const filteredCommands = filterComments(data.commands);
+          const commandsText = filteredCommands.join("\n");
+          const fileName = `${storageType}_${cleanStorageName}_${cleanProjectName}_${st.filenameSuffix}_${timestamp}.txt`;
+          zip.file(fileName, commandsText);
+        }
+      });
 
       // Generate the ZIP file
       const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -418,10 +459,6 @@ const StorageScriptsContent = ({
 
   const currentScript = activeTab && scripts[activeTab];
   const commands = currentScript ? (currentScript.commands || []) : [];
-  const storageType = currentScript ? (currentScript.storage_type || "Unknown") : "";
-  const hostCount = currentScript ? (currentScript.host_count || 0) : 0;
-  const volumeCount = currentScript ? (currentScript.volume_count || 0) : 0;
-  const rangeCount = currentScript ? (currentScript.range_count || 0) : 0;
 
   // Check if there are any scripts available
   const hasMkHostScripts = Object.keys(mkHostScripts).length > 0;
@@ -513,49 +550,20 @@ const StorageScriptsContent = ({
           <>
             {/* Script Type Toggle */}
             <div className="script-type-toggle">
-              <button
-                className={`script-type-btn ${scriptType === "mklcu" ? "active" : ""}`}
-                onClick={() => setScriptType("mklcu")}
-                title="MkLCU commands for DS8000 CKD volumes only"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <path d="M9 3v18"/>
-                  <path d="M3 9h18"/>
+              <div className="script-type-dropdown-wrapper">
+                <select
+                  className={`script-type-dropdown ${scriptType !== "all" ? "active" : ""}`}
+                  value={scriptType === "all" ? individualScriptTypes[0]?.id : scriptType}
+                  onChange={(e) => setScriptType(e.target.value)}
+                >
+                  {individualScriptTypes.map(st => (
+                    <option key={st.id} value={st.id}>{st.label}</option>
+                  ))}
+                </select>
+                <svg className="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="6,9 12,15 18,9"/>
                 </svg>
-                MkLCU Commands
-              </button>
-              <button
-                className={`script-type-btn ${scriptType === "mkhost" ? "active" : ""}`}
-                onClick={() => setScriptType("mkhost")}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                  <line x1="8" y1="21" x2="16" y2="21"/>
-                  <line x1="12" y1="17" x2="12" y2="21"/>
-                </svg>
-                MkHost Commands
-              </button>
-              <button
-                className={`script-type-btn ${scriptType === "volume" ? "active" : ""}`}
-                onClick={() => setScriptType("volume")}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                </svg>
-                MkVol Commands
-              </button>
-              <button
-                className={`script-type-btn ${scriptType === "mapping" ? "active" : ""}`}
-                onClick={() => setScriptType("mapping")}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
-                MapVol Commands
-              </button>
+              </div>
               <button
                 className={`script-type-btn ${scriptType === "all" ? "active" : ""}`}
                 onClick={() => setScriptType("all")}
@@ -570,7 +578,7 @@ const StorageScriptsContent = ({
               </button>
             </div>
 
-            {Object.keys(scripts).length > 0 ? (
+            {allStorageSystems.size > 0 ? (
               <>
                 {/* Storage Selector - only show if not hiding it */}
                 {!hideStorageSelector && (
@@ -589,17 +597,19 @@ const StorageScriptsContent = ({
                       onChange={(e) => setActiveTab(e.target.value)}
                     >
                       <option value="">Choose a storage system...</option>
-                      {Object.entries(scripts).map(([storageNameKey, storageData]) => {
+                      {Array.from(allStorageSystems.entries()).map(([storageNameKey, storageData]) => {
                         const type = storageData.storage_type || "Unknown";
                         const hosts = storageData.host_count || 0;
                         const vols = storageData.volume_count || 0;
+                        const lcus = storageData.lcu_count || 0;
 
                         let countLabel;
                         if (scriptType === "mkhost") {
                           countLabel = `(${hosts} hosts)`;
+                        } else if (scriptType === "mklcu") {
+                          countLabel = `(${lcus} LCUs)`;
                         } else if (scriptType === "all") {
-                          const totalCmds = (storageData.mkhost_command_count || 0) + (storageData.volume_command_count || 0) + (storageData.mapping_command_count || 0);
-                          countLabel = `(${totalCmds} commands)`;
+                          countLabel = "";
                         } else {
                           countLabel = `(${vols} volumes)`;
                         }
@@ -615,29 +625,44 @@ const StorageScriptsContent = ({
                 )}
 
                 {/* Script Display */}
-                {activeTab && currentScript ? (
+                {activeTab && allStorageSystems.has(activeTab) ? (
                   <div className="script-display-card">
                     <div className="script-card-header">
                       <div className="script-info">
-                        <span className={`vendor-badge vendor-badge-${storageType === "FlashSystem" ? "flashsystem" : storageType === "DS8000" ? "ds8000" : "generic"}`}>
-                          {storageType}
-                        </span>
+                        {(() => {
+                          const displayStorageType = currentScript?.storage_type || allStorageSystems.get(activeTab)?.storage_type || "Unknown";
+                          return (
+                            <span className={`vendor-badge vendor-badge-${displayStorageType === "FlashSystem" ? "flashsystem" : displayStorageType === "DS8000" ? "ds8000" : "generic"}`}>
+                              {displayStorageType}
+                            </span>
+                          );
+                        })()}
                         <h3 className="script-title">{activeTab}</h3>
                       </div>
                       <div className="script-meta">
-                        {scriptType === "mkhost" ? (
-                          <span className="command-count">{hostCount} hosts - {commands.length} commands</span>
-                        ) : scriptType === "volume" ? (
-                          <span className="command-count">{volumeCount} volumes in {rangeCount} ranges - {commands.length} commands</span>
-                        ) : scriptType === "mapping" ? (
-                          <span className="command-count">{volumeCount} volumes - {commands.length} commands</span>
-                        ) : scriptType === "mklcu" ? (
-                          <span className="command-count">{currentScript?.lcu_count || 0} LCUs - {commands.length} commands</span>
-                        ) : (
-                          <span className="command-count">
-                            {currentScript?.mklcu_command_count || 0} mklcu, {currentScript?.mkhost_command_count || 0} mkhost, {currentScript?.volume_command_count || 0} mkvol, {currentScript?.mapping_command_count || 0} mapvol
-                          </span>
-                        )}
+                        {(() => {
+                          const storageInfo = allStorageSystems.get(activeTab) || {};
+                          const displayHostCount = currentScript?.host_count ?? storageInfo.host_count ?? 0;
+                          const displayVolumeCount = currentScript?.volume_count ?? storageInfo.volume_count ?? 0;
+                          const displayRangeCount = currentScript?.range_count ?? storageInfo.range_count ?? 0;
+                          const displayLcuCount = currentScript?.lcu_count ?? storageInfo.lcu_count ?? 0;
+
+                          if (scriptType === "mkhost") {
+                            return <span className="command-count">{displayHostCount} hosts - {commands.length} commands</span>;
+                          } else if (scriptType === "volume") {
+                            return <span className="command-count">{displayVolumeCount} volumes in {displayRangeCount} ranges - {commands.length} commands</span>;
+                          } else if (scriptType === "mapping") {
+                            return <span className="command-count">{displayVolumeCount} volumes - {commands.length} commands</span>;
+                          } else if (scriptType === "mklcu") {
+                            return <span className="command-count">{displayLcuCount} LCUs - {commands.length} commands</span>;
+                          } else {
+                            return (
+                              <span className="command-count">
+                                {currentScript?.mklcu_command_count || 0} mklcu, {currentScript?.mkhost_command_count || 0} mkhost, {currentScript?.volume_command_count || 0} mkvol, {currentScript?.mapping_command_count || 0} mapvol
+                              </span>
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
 
@@ -665,6 +690,11 @@ const StorageScriptsContent = ({
                         </div>
                       ) : (
                         <div className="empty-state-inline">
+                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                          </svg>
                           <p>{scriptType === "mkhost" ? "No hosts found for this storage system" : scriptType === "volume" ? "No volumes found for this storage system" : scriptType === "mapping" ? "No volume mappings found for this storage system" : scriptType === "mklcu" ? "No CKD volumes found for this DS8000 storage system" : "No commands found for this storage system"}</p>
                         </div>
                       )}
@@ -748,13 +778,9 @@ const StorageScriptsContent = ({
                 type="checkbox"
                 id="select-all-types"
                 label="Select All"
-                checked={
-                  (mkHostScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.mkhost : true) &&
-                  (volumeScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.volume : true) &&
-                  (volumeMappingScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.mapping : true) &&
-                  (mklcuScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.mklcu : true) &&
-                  (allScripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes.all : true)
-                }
+                checked={scriptTypesConfig.every(st =>
+                  st.scripts[activeTab]?.commands?.length > 0 ? selectedScriptTypes[st.id] : true
+                )}
                 onChange={(e) => handleSelectAllScriptTypes(e.target.checked)}
                 className="select-all-checkbox"
               />
@@ -764,130 +790,36 @@ const StorageScriptsContent = ({
             </div>
 
             <div className="fabric-list">
-              {/* MkHost option */}
-              {mkHostScripts[activeTab]?.commands?.length > 0 && (
-                <div className="fabric-item">
-                  <Form.Check
-                    type="checkbox"
-                    id="type-mkhost"
-                    checked={selectedScriptTypes.mkhost}
-                    onChange={() => handleToggleScriptType('mkhost')}
-                    className="fabric-checkbox"
-                  />
-                  <label htmlFor="type-mkhost" className="fabric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                      <line x1="8" y1="21" x2="16" y2="21"/>
-                      <line x1="12" y1="17" x2="12" y2="21"/>
-                    </svg>
-                    <span className="fabric-name">MkHost Commands</span>
-                    <span className="fabric-command-count">
-                      {mkHostScripts[activeTab]?.host_count || 0} hosts - {mkHostScripts[activeTab]?.commands?.length || 0} commands
-                    </span>
-                  </label>
-                </div>
-              )}
+              {/* Dynamically render script type options */}
+              {scriptTypesConfig.map(st => {
+                const data = st.scripts[activeTab];
+                const hasCommands = data?.commands?.length > 0;
+                if (!hasCommands) return null;
 
-              {/* MkVol option */}
-              {volumeScripts[activeTab]?.commands?.length > 0 && (
-                <div className="fabric-item">
-                  <Form.Check
-                    type="checkbox"
-                    id="type-volume"
-                    checked={selectedScriptTypes.volume}
-                    onChange={() => handleToggleScriptType('volume')}
-                    className="fabric-checkbox"
-                  />
-                  <label htmlFor="type-volume" className="fabric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-                      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                    </svg>
-                    <span className="fabric-name">MkVol Commands</span>
-                    <span className="fabric-command-count">
-                      {volumeScripts[activeTab]?.volume_count || 0} volumes - {volumeScripts[activeTab]?.commands?.length || 0} commands
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              {/* MapVol option */}
-              {volumeMappingScripts[activeTab]?.commands?.length > 0 && (
-                <div className="fabric-item">
-                  <Form.Check
-                    type="checkbox"
-                    id="type-mapping"
-                    checked={selectedScriptTypes.mapping}
-                    onChange={() => handleToggleScriptType('mapping')}
-                    className="fabric-checkbox"
-                  />
-                  <label htmlFor="type-mapping" className="fabric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-                      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                      <path d="M2 17l10 5 10-5"/>
-                      <path d="M2 12l10 5 10-5"/>
-                    </svg>
-                    <span className="fabric-name">MapVol Commands</span>
-                    <span className="fabric-command-count">
-                      {volumeMappingScripts[activeTab]?.volume_count || 0} volumes - {volumeMappingScripts[activeTab]?.commands?.length || 0} commands
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              {/* MkLCU option (DS8000 CKD only) */}
-              {mklcuScripts[activeTab]?.commands?.length > 0 && (
-                <div className="fabric-item">
-                  <Form.Check
-                    type="checkbox"
-                    id="type-mklcu"
-                    checked={selectedScriptTypes.mklcu}
-                    onChange={() => handleToggleScriptType('mklcu')}
-                    className="fabric-checkbox"
-                  />
-                  <label htmlFor="type-mklcu" className="fabric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-                      <rect x="3" y="3" width="18" height="18" rx="2"/>
-                      <path d="M9 3v18"/>
-                      <path d="M3 9h18"/>
-                    </svg>
-                    <span className="fabric-name">MkLCU Commands</span>
-                    <span className="fabric-command-count">
-                      {mklcuScripts[activeTab]?.lcu_count || 0} LCUs - {mklcuScripts[activeTab]?.commands?.length || 0} commands
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              {/* All Commands option */}
-              {allScripts[activeTab]?.commands?.length > 0 && (
-                <div className="fabric-item">
-                  <Form.Check
-                    type="checkbox"
-                    id="type-all"
-                    checked={selectedScriptTypes.all}
-                    onChange={() => handleToggleScriptType('all')}
-                    className="fabric-checkbox"
-                  />
-                  <label htmlFor="type-all" className="fabric-label">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-                      <rect x="3" y="3" width="7" height="7"/>
-                      <rect x="14" y="3" width="7" height="7"/>
-                      <rect x="14" y="14" width="7" height="7"/>
-                      <rect x="3" y="14" width="7" height="7"/>
-                    </svg>
-                    <span className="fabric-name">All Commands (combined)</span>
-                    <span className="fabric-command-count">
-                      {allScripts[activeTab]?.commands?.length || 0} total commands
-                    </span>
-                  </label>
-                </div>
-              )}
+                return (
+                  <div key={st.id} className="fabric-item">
+                    <Form.Check
+                      type="checkbox"
+                      id={`type-${st.id}`}
+                      checked={selectedScriptTypes[st.id] || false}
+                      onChange={() => handleToggleScriptType(st.id)}
+                      className="fabric-checkbox"
+                    />
+                    <label htmlFor={`type-${st.id}`} className="fabric-label">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                        {st.icon}
+                      </svg>
+                      <span className="fabric-name">{st.label}</span>
+                      <span className="fabric-command-count">
+                        {st.getCount(data)}
+                      </span>
+                    </label>
+                  </div>
+                );
+              })}
 
               {/* Show message if no scripts available */}
-              {!mkHostScripts[activeTab]?.commands?.length &&
-               !volumeScripts[activeTab]?.commands?.length &&
-               !volumeMappingScripts[activeTab]?.commands?.length &&
-               !mklcuScripts[activeTab]?.commands?.length && (
+              {!scriptTypesConfig.some(st => st.scripts[activeTab]?.commands?.length > 0) && (
                 <div className="empty-state-inline">
                   <p>No scripts available for this storage system</p>
                 </div>

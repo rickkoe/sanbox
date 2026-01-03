@@ -2875,8 +2875,25 @@ const TanStackCRUDTable = forwardRef(({
 
       // Parse Excel-style tab-separated data
       const rows = clipboardText.split('\n').filter(row => row.length > 0);
-      const pasteData = rows.map(row => row.split('\t'));
+      let pasteData = rows.map(row => row.split('\t'));
 
+      // Handle single-cell paste: if there's only one cell of actual data but leading/trailing empty cells,
+      // use just the non-empty value. This fixes issues when copying from apps that add extra tabs.
+      if (pasteData.length === 1) {
+        const row = pasteData[0];
+        // Filter out empty strings from beginning and end
+        const nonEmptyValues = row.filter(cell => cell.trim() !== '');
+        if (nonEmptyValues.length === 1) {
+          // Single value paste - use just the trimmed value
+          pasteData = [[nonEmptyValues[0].trim()]];
+        } else if (row.length > 1) {
+          // Multiple values - trim leading empty cells that might come from copy formatting
+          const firstNonEmptyIndex = row.findIndex(cell => cell.trim() !== '');
+          if (firstNonEmptyIndex > 0) {
+            pasteData = [row.slice(firstNonEmptyIndex)];
+          }
+        }
+      }
 
       // Calculate paste dimensions
       const pasteRowCount = pasteData.length;

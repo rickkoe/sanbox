@@ -3905,11 +3905,11 @@ def volume_dscli_scripts_project_view(request, project_id):
         storage_scripts = {}
 
         for storage in ds8000_systems:
-            # Get volumes in this project for this storage that are uncommitted (new)
+            # Get volumes in this project for this storage that are not yet deployed
             project_volume_ids = ProjectVolume.objects.filter(
                 project=project,
                 volume__storage=storage,
-                volume__committed=False  # Only new/uncommitted volumes
+                volume__deployed=False  # Only undeployed volumes need scripts
             ).values_list('volume_id', flat=True)
 
             if not project_volume_ids:
@@ -3996,11 +3996,11 @@ def volume_dscli_scripts_storage_view(request, project_id, storage_id):
 
         storage_scripts = {}
 
-        # Get volumes in this project for this storage that are uncommitted (new)
+        # Get volumes in this project for this storage that are not yet deployed
         project_volume_ids = ProjectVolume.objects.filter(
             project=project,
             volume__storage=storage,
-            volume__committed=False  # Only new/uncommitted volumes
+            volume__deployed=False  # Only undeployed volumes need scripts
         ).values_list('volume_id', flat=True)
 
         if project_volume_ids:

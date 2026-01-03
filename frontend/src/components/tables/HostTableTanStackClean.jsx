@@ -202,7 +202,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
 
                     const response = await axios.get(`${API_ENDPOINTS.storage}?customer=${activeCustomerId}`);
                     const storageArray = response.data.results || response.data;
-                    setStorageOptions(storageArray.map(s => ({ id: s.id, name: s.name })));
+                    setStorageOptions(storageArray.map(s => ({ id: s.id, name: s.name, storage_type: s.storage_type })));
 
                     console.log('✅ Storage systems loaded successfully');
                     setLoading(false);
@@ -217,6 +217,77 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
     }, [activeCustomerId]);
 
     // Live/Draft toggle is now in the navbar
+
+    // Host type options by storage system type
+    // DS8000 uses DSCLI host types (from mkhost -type parameter)
+    // Reference: https://www.ibm.com/docs/en/ds8000/10.0.0?topic=commands-mkhost
+    const HOST_TYPES_DS8000 = [
+        "AIX",
+        "AIX with PowerSwap",
+        "HP OpenVMS",
+        "HP-UX",
+        "IBM i AS/400",
+        "iLinux",
+        "Linux RHEL",
+        "Linux SUSE",
+        "N series Gateway",
+        "Novell",
+        "pLinux",
+        "SAN Volume Controller",
+        "Solaris",
+        "VMware",
+        "Windows 2003",
+        "Windows 2008",
+        "Windows 2012",
+        "zLinux"
+    ];
+
+    const HOST_TYPES_FLASHSYSTEM = [
+        "aix",
+        "hpux",
+        "linux",
+        "openvms",
+        "tpgs",
+        "vmware",
+        "windows",
+        "generic"
+    ];
+
+    // Default host types (fallback)
+    const HOST_TYPES_DEFAULT = ["Linux", "Windows", "AIX", "VMware", "Other"];
+
+    // Get host types based on storage type
+    const getHostTypeOptions = useCallback((storageType) => {
+        if (!storageType) return HOST_TYPES_DEFAULT;
+
+        const normalizedType = storageType.toLowerCase();
+        if (normalizedType === 'ds8000') {
+            return HOST_TYPES_DS8000;
+        } else if (normalizedType === 'flashsystem') {
+            return HOST_TYPES_FLASHSYSTEM;
+        }
+        return HOST_TYPES_DEFAULT;
+    }, []);
+
+    // Dynamic dropdown provider for host_type based on storage system
+    const dynamicDropdownProvider = useCallback((rowIndex, colIndex, tableData, accessorKey) => {
+        if (accessorKey !== 'host_type') {
+            return null; // Let other columns use regular dropdown sources
+        }
+
+        const rowData = tableData[rowIndex];
+        if (!rowData) return HOST_TYPES_DEFAULT;
+
+        // Get storage system name from the row
+        const storageSystemName = rowData.storage_system;
+        if (!storageSystemName) return HOST_TYPES_DEFAULT;
+
+        // Find the storage system to get its type
+        const storage = storageOptions.find(s => s.name === storageSystemName);
+        const storageType = storage?.storage_type;
+
+        return getHostTypeOptions(storageType);
+    }, [storageOptions, getHostTypeOptions]);
 
     // Handle adding host to project
     const handleAddHostToProject = useCallback(async (hostId, action = 'unmodified') => {
@@ -357,6 +428,7 @@ const HostTableTanStackClean = ({ storageId = null, hideColumns = [] }) => {
                 columns={columns}
                 colHeaders={colHeaders}
                 dropdownSources={dropdownSources}
+                dynamicDropdownProvider={dynamicDropdownProvider}
                 newRowTemplate={NEW_HOST_TEMPLATE}
                 defaultSort={defaultSort}
 

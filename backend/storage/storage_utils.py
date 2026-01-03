@@ -22,11 +22,12 @@ def generate_mkhost_scripts(storage_systems, project=None):
 
         if project:
             # Filter hosts by project membership via junction table
-            # If a host is in the project, it should be included in scripts
+            # Only include hosts that are not yet deployed (need mkhost scripts)
             from core.models import ProjectHost
             host_ids = ProjectHost.objects.filter(
                 project=project,
-                host__storage=storage
+                host__storage=storage,
+                host__deployed=False  # Only undeployed hosts need scripts
             ).values_list('host_id', flat=True)
             hosts = Host.objects.filter(id__in=host_ids).order_by('name')
         else:
@@ -197,9 +198,11 @@ def generate_volume_mapping_scripts(storage_systems, project=None):
     for storage in storage_systems:
         if project:
             # Filter mappings by project membership via junction table
+            # Only include mappings that are not yet deployed (need mapvol scripts)
             mapping_ids = ProjectVolumeMapping.objects.filter(
                 project=project,
-                volume_mapping__volume__storage=storage
+                volume_mapping__volume__storage=storage,
+                volume_mapping__deployed=False  # Only undeployed mappings need scripts
             ).values_list('volume_mapping_id', flat=True)
             mappings = VolumeMapping.objects.filter(id__in=mapping_ids).select_related(
                 'volume', 'target_host', 'target_cluster', 'target_lpar', 'assigned_host'
@@ -386,12 +389,13 @@ def generate_mklcu_scripts(storage_systems, project=None):
 
     Args:
         storage_systems: QuerySet of Storage objects
-        project: Optional Project object (not used for filtering, but for consistency)
+        project: Project object to filter volumes by project membership
 
     Returns:
         dict: mklcu scripts organized by storage system name
     """
     from storage.models import Volume, LSSSummary
+    from core.models import ProjectVolume
     from .views import get_lss_from_volume_id
 
     storage_scripts = {}
@@ -401,11 +405,18 @@ def generate_mklcu_scripts(storage_systems, project=None):
         if storage.storage_type != 'DS8000':
             continue
 
-        # Get all CKD volumes for this storage
-        ckd_volumes = Volume.objects.filter(
-            storage=storage,
-            format='CKD'
-        )
+        # Get CKD volumes for this storage that are in the project and not deployed
+        if project:
+            volume_ids = ProjectVolume.objects.filter(
+                project=project,
+                volume__storage=storage,
+                volume__format='CKD',
+                volume__deployed=False  # Only undeployed volumes need LCU scripts
+            ).values_list('volume_id', flat=True)
+            ckd_volumes = Volume.objects.filter(id__in=volume_ids)
+        else:
+            # Without a project, return empty - scripts require project context
+            ckd_volumes = Volume.objects.none()
 
         if not ckd_volumes.exists():
             continue
