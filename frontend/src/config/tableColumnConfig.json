@@ -1279,16 +1279,33 @@
       {
         "id": "os400_type",
         "title": "OS/400 Type",
-        "type": "text",
+        "type": "dropdown",
+        "dropdownSource": "os400_type",
         "defaultVisible": false,
-        "width": 120
+        "width": 140
       },
       {
         "id": "ckd_datatype",
         "title": "CKD Datatype",
-        "type": "text",
+        "type": "dropdown",
+        "dropdownSource": "ckd_datatype",
+        "defaultVisible": false,
+        "width": 130
+      },
+      {
+        "id": "ckd_capacity_type",
+        "title": "Capacity Type",
+        "type": "dropdown",
+        "dropdownSource": "ckd_capacity_type",
         "defaultVisible": false,
         "width": 120
+      },
+      {
+        "id": "capacity_cylinders",
+        "title": "Cylinders",
+        "type": "numeric",
+        "defaultVisible": false,
+        "width": 100
       },
       {
         "id": "volume_count",

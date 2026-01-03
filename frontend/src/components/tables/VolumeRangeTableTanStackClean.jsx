@@ -14,6 +14,40 @@ import MapVolumesToHostModal from "../modals/MapVolumesToHostModal";
 import { Modal, Button } from "react-bootstrap";
 import "../../styles/storagepage.css";
 
+// OS/400 type options (for FB volumes only)
+const OS400_TYPE_OPTIONS = [
+    '',      // None (Standard FB)
+    'A01',   // Protected 8.59 GiB
+    'A02',   // Protected 17.18 GiB
+    'A04',   // Protected 35.39 GiB
+    'A05',   // Protected 70.55 GiB
+    'A06',   // Protected 141.12 GiB
+    'A07',   // Protected 282.35 GiB
+    '099',   // Protected Variable
+    'A81',   // Unprotected 8.59 GiB
+    'A82',   // Unprotected 17.18 GiB
+    'A84',   // Unprotected 35.39 GiB
+    'A85',   // Unprotected 70.55 GiB
+    'A86',   // Unprotected 141.12 GiB
+    'A87',   // Unprotected 282.35 GiB
+    '050',   // Unprotected Variable
+];
+
+// CKD datatype options (for CKD volumes only)
+const CKD_DATATYPE_OPTIONS = [
+    '',       // Auto (3390 or 3390-A)
+    '3380',   // Max 3339 cylinders
+    '3390',   // Max 65520 cylinders
+    '3390-A', // Extended
+];
+
+// CKD capacity type options (for CKD volumes only)
+const CKD_CAPACITY_TYPE_OPTIONS = [
+    'bytes',  // GiB
+    'cyl',    // Cylinders
+    'mod1',   // Mod1 (1113 cyl each)
+];
+
 /**
  * VolumeRangeTableTanStackClean - TanStack table for DS8000 Volume Ranges
  *
@@ -327,6 +361,31 @@ const VolumeRangeTableTanStackClean = ({
             }
         }
 
+        // Validate DS8000-specific field combinations
+        const format = row.format?.toUpperCase();
+        const os400Type = row.os400_type;
+        const ckdDatatype = row.ckd_datatype;
+        const ckdCapacityType = row.ckd_capacity_type;
+        const capacityCylinders = row.capacity_cylinders;
+
+        if (format === 'FB') {
+            // FB volumes cannot have CKD-specific fields
+            if (ckdDatatype) {
+                errors.ckd_datatype = 'CKD Datatype is only valid for CKD volumes';
+            }
+            if (ckdCapacityType && ckdCapacityType !== 'bytes') {
+                errors.ckd_capacity_type = 'Cylinders/Mod1 capacity only valid for CKD volumes';
+            }
+            if (capacityCylinders) {
+                errors.capacity_cylinders = 'Cylinders capacity only valid for CKD volumes';
+            }
+        } else if (format === 'CKD') {
+            // CKD volumes cannot have OS/400 type
+            if (os400Type) {
+                errors.os400_type = 'OS/400 Type is only valid for FB volumes';
+            }
+        }
+
         return errors;
     }, [isValidHex2, getLssInfo, getConflictingVolumes]);
 
@@ -347,7 +406,10 @@ const VolumeRangeTableTanStackClean = ({
     // Dropdown sources
     const dropdownSources = useMemo(() => ({
         format: ['FB', 'CKD'],
-        pool_name: poolOptions
+        pool_name: poolOptions,
+        os400_type: OS400_TYPE_OPTIONS,
+        ckd_datatype: CKD_DATATYPE_OPTIONS,
+        ckd_capacity_type: CKD_CAPACITY_TYPE_OPTIONS,
     }), [poolOptions]);
 
     // New row template
@@ -362,6 +424,11 @@ const VolumeRangeTableTanStackClean = ({
         capacity_bytes: null,
         pool_name: "",
         name_prefix: "",   // Used to derive volume names: {name_prefix}_{volume_id}
+        // DS8000-specific fields
+        os400_type: "",           // FB only: OS/400 type (A01, A02, etc.)
+        ckd_datatype: "",         // CKD only: datatype (3380, 3390, 3390-A)
+        ckd_capacity_type: "bytes", // CKD only: capacity type (bytes, cyl, mod1)
+        capacity_cylinders: null, // CKD only: capacity in cylinders
         committed: false,
         deployed: false,
         volume_ids: [],
@@ -505,6 +572,20 @@ const VolumeRangeTableTanStackClean = ({
                 }
             }
 
+            // Handle format change - clear incompatible DS8000-specific fields
+            if (columnKey === 'format' && hotInstance) {
+                const newFormat = (newValue || '').toUpperCase();
+                if (newFormat === 'FB') {
+                    // Clear CKD-specific fields when switching to FB
+                    hotInstance.setDataAtRowProp(rowIndex, 'ckd_datatype', '');
+                    hotInstance.setDataAtRowProp(rowIndex, 'ckd_capacity_type', 'bytes');
+                    hotInstance.setDataAtRowProp(rowIndex, 'capacity_cylinders', null);
+                } else if (newFormat === 'CKD') {
+                    // Clear FB-specific fields when switching to CKD
+                    hotInstance.setDataAtRowProp(rowIndex, 'os400_type', '');
+                }
+            }
+
             // Bidirectional volume count calculation
             if (hotInstance) {
                 const currentStart = columnKey === 'start_volume' ? newValue : rowData.start_volume;
@@ -641,6 +722,11 @@ const VolumeRangeTableTanStackClean = ({
                     volume_ids: range.volume_ids || [],
                     _original_start: range._original_start,
                     _original_end: range._original_end,
+                    // DS8000-specific fields
+                    os400_type: range.os400_type || '',
+                    ckd_datatype: range.ckd_datatype || '',
+                    ckd_capacity_type: range.ckd_capacity_type || 'bytes',
+                    capacity_cylinders: range.capacity_cylinders || null,
                 };
             }
         });
@@ -711,7 +797,12 @@ const VolumeRangeTableTanStackClean = ({
                             pool_name: update.pool_name,
                             name_prefix: update.name_prefix,
                             preview: false,
-                            active_project_id: activeProjectId
+                            active_project_id: activeProjectId,
+                            // DS8000-specific fields
+                            os400_type: update.os400_type || null,
+                            ckd_datatype: update.ckd_datatype || null,
+                            ckd_capacity_type: update.ckd_capacity_type || 'bytes',
+                            capacity_cylinders: update.capacity_cylinders || null,
                         }
                     );
                     results.push({ type: 'update', ...response.data });
@@ -755,7 +846,12 @@ const VolumeRangeTableTanStackClean = ({
                             capacity_bytes: capacityBytes,
                             pool_name: row.pool_name || '',
                             name_prefix: row.name_prefix || '',
-                            active_project_id: activeProjectId
+                            active_project_id: activeProjectId,
+                            // DS8000-specific fields
+                            os400_type: row.os400_type || null,
+                            ckd_datatype: row.ckd_datatype || null,
+                            ckd_capacity_type: row.ckd_capacity_type || 'bytes',
+                            capacity_cylinders: row.capacity_cylinders || null,
                         }
                     );
                     results.push({ type: 'create', ...response.data });
@@ -856,9 +952,15 @@ const VolumeRangeTableTanStackClean = ({
             const capacityChanged = capacityBytes !== original.capacity_bytes;
             const poolChanged = (row.pool_name || '') !== (original.pool_name || '');
             const namePrefixChanged = (row.name_prefix || '') !== (original.name_prefix || '');
+            // DS8000-specific field changes
+            const os400TypeChanged = (row.os400_type || '') !== (original.os400_type || '');
+            const ckdDatatypeChanged = (row.ckd_datatype || '') !== (original.ckd_datatype || '');
+            const ckdCapacityTypeChanged = (row.ckd_capacity_type || 'bytes') !== (original.ckd_capacity_type || 'bytes');
+            const capacityCylindersChanged = (row.capacity_cylinders || null) !== (original.capacity_cylinders || null);
 
             // If nothing changed, skip
-            if (!startChanged && !endChanged && !formatChanged && !capacityChanged && !poolChanged && !namePrefixChanged) {
+            if (!startChanged && !endChanged && !formatChanged && !capacityChanged && !poolChanged && !namePrefixChanged &&
+                !os400TypeChanged && !ckdDatatypeChanged && !ckdCapacityTypeChanged && !capacityCylindersChanged) {
                 continue;
             }
 
@@ -873,6 +975,11 @@ const VolumeRangeTableTanStackClean = ({
                 name_prefix: row.name_prefix || '',
                 original_start: original.start_volume,
                 original_end: original.end_volume,
+                // DS8000-specific fields
+                os400_type: row.os400_type || '',
+                ckd_datatype: row.ckd_datatype || '',
+                ckd_capacity_type: row.ckd_capacity_type || 'bytes',
+                capacity_cylinders: row.capacity_cylinders || null,
             };
 
             // If range boundaries changed, we need to check if this will delete volumes
@@ -1015,6 +1122,11 @@ const VolumeRangeTableTanStackClean = ({
         const conflictCount = errorKeys.filter(k => rowValidationErrors[k].conflicts).length;
         const formatErrors = errorKeys.filter(k => rowValidationErrors[k].format).length;
         const poolErrors = errorKeys.filter(k => rowValidationErrors[k].pool_name).length;
+        // DS8000 field validation errors
+        const os400Errors = errorKeys.filter(k => rowValidationErrors[k].os400_type).length;
+        const ckdDatatypeErrors = errorKeys.filter(k => rowValidationErrors[k].ckd_datatype).length;
+        const ckdCapacityTypeErrors = errorKeys.filter(k => rowValidationErrors[k].ckd_capacity_type).length;
+        const capacityCylindersErrors = errorKeys.filter(k => rowValidationErrors[k].capacity_cylinders).length;
 
         const messages = [];
         if (conflictCount > 0) {
@@ -1025,6 +1137,11 @@ const VolumeRangeTableTanStackClean = ({
         }
         if (poolErrors > 0) {
             messages.push(`${poolErrors} row${poolErrors > 1 ? 's' : ''} with pool mismatch`);
+        }
+        // DS8000 field validation errors
+        const ds8000Errors = os400Errors + ckdDatatypeErrors + ckdCapacityTypeErrors + capacityCylindersErrors;
+        if (ds8000Errors > 0) {
+            messages.push(`${ds8000Errors} row${ds8000Errors > 1 ? 's' : ''} with invalid format/field combination`);
         }
 
         return messages.length > 0 ? messages.join(', ') : null;

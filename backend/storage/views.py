@@ -3723,6 +3723,12 @@ def volume_range_update(request, storage_id):
         preview = data.get('preview', False)
         active_project_id = data.get('active_project_id')
 
+        # DS8000-specific fields (handle None from JSON null)
+        os400_type = (data.get('os400_type') or '').strip().upper() or None
+        ckd_datatype = (data.get('ckd_datatype') or '').strip() or None
+        ckd_capacity_type = (data.get('ckd_capacity_type') or 'bytes').strip()
+        capacity_cylinders = data.get('capacity_cylinders')
+
         if not volume_ids:
             return JsonResponse({'error': 'No volume_ids provided'}, status=400)
 
@@ -3745,6 +3751,20 @@ def volume_range_update(request, storage_id):
         # Validate format if provided
         if fmt and fmt not in ['FB', 'CKD']:
             return JsonResponse({'error': f"Invalid format '{fmt}': must be 'FB' or 'CKD'"}, status=400)
+
+        # Validate DS8000 field combinations
+        if fmt == 'FB':
+            # FB volumes cannot have CKD-specific fields
+            if ckd_datatype:
+                return JsonResponse({'error': 'CKD Datatype is only valid for CKD volumes'}, status=400)
+            if ckd_capacity_type and ckd_capacity_type != 'bytes':
+                return JsonResponse({'error': 'Cylinders/Mod1 capacity type is only valid for CKD volumes'}, status=400)
+            if capacity_cylinders:
+                return JsonResponse({'error': 'Capacity in cylinders is only valid for CKD volumes'}, status=400)
+        elif fmt == 'CKD':
+            # CKD volumes cannot have OS/400 type
+            if os400_type:
+                return JsonResponse({'error': 'OS/400 Type is only valid for FB volumes'}, status=400)
 
         # Get existing volumes
         existing_volumes = Volume.objects.filter(
@@ -3848,6 +3868,15 @@ def volume_range_update(request, storage_id):
                 update_fields['capacity_bytes'] = capacity_bytes
             if pool is not None:
                 update_fields['pool'] = pool
+            # DS8000-specific fields
+            if os400_type is not None:
+                update_fields['os400_type'] = os400_type if os400_type else None
+            if ckd_datatype is not None:
+                update_fields['ckd_datatype'] = ckd_datatype if ckd_datatype else None
+            if ckd_capacity_type:
+                update_fields['ckd_capacity_type'] = ckd_capacity_type
+            if capacity_cylinders is not None:
+                update_fields['capacity_cylinders'] = capacity_cylinders if capacity_cylinders else None
 
             # Update volume names if name_prefix is provided
             if name_prefix:
@@ -3893,6 +3922,11 @@ def volume_range_update(request, storage_id):
                             deployed=False,
                             created_by_project=project,
                             last_modified_by=user,
+                            # DS8000-specific fields
+                            os400_type=os400_type,
+                            ckd_datatype=ckd_datatype,
+                            ckd_capacity_type=ckd_capacity_type,
+                            capacity_cylinders=capacity_cylinders,
                         )
                         # Add to project if specified
                         if project:
