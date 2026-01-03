@@ -110,6 +110,41 @@ class VolumeSerializer(serializers.ModelSerializer):
             print(f"Error checking in_active_project for volume {obj.name}: {e}")
             return False
 
+    def validate(self, data):
+        """Validate DS8000-specific field combinations"""
+        format_type = data.get('format', getattr(self.instance, 'format', None))
+        os400_type = data.get('os400_type')
+        ckd_datatype = data.get('ckd_datatype')
+        ckd_capacity_type = data.get('ckd_capacity_type')
+
+        # OS/400 type only valid for FB volumes
+        if os400_type and format_type != 'FB':
+            raise serializers.ValidationError({
+                'os400_type': 'OS/400 type is only valid for FB format volumes.'
+            })
+
+        # CKD datatype only valid for CKD volumes
+        if ckd_datatype and format_type != 'CKD':
+            raise serializers.ValidationError({
+                'ckd_datatype': 'CKD datatype is only valid for CKD format volumes.'
+            })
+
+        # CKD capacity type only valid for CKD volumes
+        if ckd_capacity_type and ckd_capacity_type != 'bytes' and format_type != 'CKD':
+            raise serializers.ValidationError({
+                'ckd_capacity_type': 'Cylinder/Mod1 capacity type is only valid for CKD volumes.'
+            })
+
+        # 3380 volumes have limited cylinder counts
+        if ckd_datatype == '3380':
+            capacity_cyl = data.get('capacity_cylinders')
+            if capacity_cyl and capacity_cyl > 3339:
+                raise serializers.ValidationError({
+                    'capacity_cylinders': '3380 volumes are limited to 3339 cylinders maximum.'
+                })
+
+        return data
+
 
 class HostWwpnSerializer(serializers.ModelSerializer):
     source_alias_name = serializers.CharField(source='source_alias.name', read_only=True)

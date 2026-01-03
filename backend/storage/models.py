@@ -526,6 +526,71 @@ class Volume(models.Model):
     node = models.CharField(max_length=32, blank=True, null=True)
     block_size = models.IntegerField(blank=True, null=True)
 
+    # DS8000 OS/400 volume type for FB volumes (iSeries)
+    OS400_TYPE_CHOICES = [
+        ('', 'None'),
+        # Protected volumes (with predefined capacities)
+        ('A01', 'A01 - Protected 8.59 GiB'),
+        ('A02', 'A02 - Protected 17.18 GiB'),
+        ('A04', 'A04 - Protected 35.39 GiB'),
+        ('A05', 'A05 - Protected 70.55 GiB'),
+        ('A06', 'A06 - Protected 141.12 GiB'),
+        ('A07', 'A07 - Protected 282.35 GiB'),
+        ('099', '099 - Protected Variable'),
+        # Unprotected volumes
+        ('A81', 'A81 - Unprotected 8.59 GiB'),
+        ('A82', 'A82 - Unprotected 17.18 GiB'),
+        ('A84', 'A84 - Unprotected 35.39 GiB'),
+        ('A85', 'A85 - Unprotected 70.55 GiB'),
+        ('A86', 'A86 - Unprotected 141.12 GiB'),
+        ('A87', 'A87 - Unprotected 282.35 GiB'),
+        ('050', '050 - Unprotected Variable'),
+    ]
+    os400_type = models.CharField(
+        max_length=3,
+        choices=OS400_TYPE_CHOICES,
+        blank=True,
+        null=True,
+        help_text="OS/400 volume type for iSeries (FB only). When set, uses -os400 parameter."
+    )
+
+    # DS8000 CKD datatype
+    CKD_DATATYPE_CHOICES = [
+        ('', 'Auto (3390 or 3390-A)'),
+        ('3380', '3380 - Max 3339 cylinders'),
+        ('3390', '3390 - Max 65520 cylinders'),
+        ('3390-A', '3390-A - Extended (>65520 cylinders)'),
+    ]
+    ckd_datatype = models.CharField(
+        max_length=10,
+        choices=CKD_DATATYPE_CHOICES,
+        blank=True,
+        null=True,
+        help_text="CKD datatype. Auto selects 3390 for <=65520 cyl, 3390-A for larger."
+    )
+
+    # DS8000 CKD capacity type
+    CKD_CAPACITY_TYPE_CHOICES = [
+        ('bytes', 'Bytes/GiB'),
+        ('cyl', 'Cylinders'),
+        ('mod1', 'Mod1 units (1113 cylinders each)'),
+    ]
+    ckd_capacity_type = models.CharField(
+        max_length=10,
+        choices=CKD_CAPACITY_TYPE_CHOICES,
+        default='bytes',
+        blank=True,
+        null=True,
+        help_text="How capacity is specified for CKD volumes."
+    )
+
+    # Capacity in cylinders (for CKD when using cyl or mod1)
+    capacity_cylinders = models.IntegerField(
+        blank=True,
+        null=True,
+        help_text="Capacity in cylinders for CKD volumes."
+    )
+
     unique_id = models.CharField(max_length=64, unique=True, blank=True, null=True)
     acknowledged = models.BooleanField(blank=True, null=True)
     status_label = models.CharField(max_length=32, blank=True, null=True)

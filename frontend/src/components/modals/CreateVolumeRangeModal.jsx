@@ -4,6 +4,40 @@ import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
 import "../../styles/volume-ranges.css";
 
+// OS/400 type options with predefined capacities
+const OS400_TYPES = [
+  { value: '', label: 'None (Standard FB)' },
+  { value: 'A01', label: 'A01 - Protected 8.59 GiB', capacity: 8.59, protected: true },
+  { value: 'A02', label: 'A02 - Protected 17.18 GiB', capacity: 17.18, protected: true },
+  { value: 'A04', label: 'A04 - Protected 35.39 GiB', capacity: 35.39, protected: true },
+  { value: 'A05', label: 'A05 - Protected 70.55 GiB', capacity: 70.55, protected: true },
+  { value: 'A06', label: 'A06 - Protected 141.12 GiB', capacity: 141.12, protected: true },
+  { value: 'A07', label: 'A07 - Protected 282.35 GiB', capacity: 282.35, protected: true },
+  { value: '099', label: '099 - Protected Variable', variable: true, protected: true },
+  { value: 'A81', label: 'A81 - Unprotected 8.59 GiB', capacity: 8.59, protected: false },
+  { value: 'A82', label: 'A82 - Unprotected 17.18 GiB', capacity: 17.18, protected: false },
+  { value: 'A84', label: 'A84 - Unprotected 35.39 GiB', capacity: 35.39, protected: false },
+  { value: 'A85', label: 'A85 - Unprotected 70.55 GiB', capacity: 70.55, protected: false },
+  { value: 'A86', label: 'A86 - Unprotected 141.12 GiB', capacity: 141.12, protected: false },
+  { value: 'A87', label: 'A87 - Unprotected 282.35 GiB', capacity: 282.35, protected: false },
+  { value: '050', label: '050 - Unprotected Variable', variable: true, protected: false },
+];
+
+// CKD datatype options
+const CKD_DATATYPES = [
+  { value: '', label: 'Auto (3390 or 3390-A)' },
+  { value: '3380', label: '3380 - Max 3339 cylinders' },
+  { value: '3390', label: '3390 - Max 65520 cylinders' },
+  { value: '3390-A', label: '3390-A - Extended' },
+];
+
+// CKD capacity type options
+const CKD_CAPACITY_TYPES = [
+  { value: 'bytes', label: 'GiB' },
+  { value: 'cyl', label: 'Cylinders' },
+  { value: 'mod1', label: 'Mod1 (1113 cyl each)' },
+];
+
 const CreateVolumeRangeModal = ({
   show,
   onClose,
@@ -24,6 +58,12 @@ const CreateVolumeRangeModal = ({
     format: "FB",
     capacity_gb: "",
     pool_name: "",
+    name_prefix: "",          // Volume name prefix (DS8000 appends volume ID)
+    // DS8000-specific fields
+    os400_type: "",           // For FB volumes (iSeries)
+    ckd_datatype: "",         // For CKD volumes
+    ckd_capacity_type: "bytes", // 'bytes', 'cyl', 'mod1'
+    capacity_cylinders: "",   // When using cyl or mod1
   });
 
   // Pool selection state
@@ -63,6 +103,12 @@ const CreateVolumeRangeModal = ({
         format: "FB",
         capacity_gb: "",
         pool_name: "",
+        name_prefix: "",
+        // DS8000-specific fields
+        os400_type: "",
+        ckd_datatype: "",
+        ckd_capacity_type: "bytes",
+        capacity_cylinders: "",
       });
       setError(null);
       setPreview(null);
@@ -294,6 +340,29 @@ const CreateVolumeRangeModal = ({
 
   const volumeInfo = getVolumeCount();
 
+  // Compute if capacity should be read-only (OS/400 with predefined size)
+  const isCapacityReadOnly = useMemo(() => {
+    if (formData.format !== 'FB' || !formData.os400_type) return false;
+    const selected = OS400_TYPES.find(t => t.value === formData.os400_type);
+    return selected && !selected.variable;
+  }, [formData.format, formData.os400_type]);
+
+  // Get predefined capacity for OS/400 type
+  const predefinedCapacity = useMemo(() => {
+    if (!formData.os400_type) return null;
+    const selected = OS400_TYPES.find(t => t.value === formData.os400_type);
+    return selected?.capacity || null;
+  }, [formData.os400_type]);
+
+  // Get capacity label based on format and capacity type
+  const capacityLabel = useMemo(() => {
+    if (formData.format === 'CKD') {
+      if (formData.ckd_capacity_type === 'cyl') return 'Cylinders';
+      if (formData.ckd_capacity_type === 'mod1') return 'Mod1 Units';
+    }
+    return 'GiB';
+  }, [formData.format, formData.ckd_capacity_type]);
+
   // Handle input change
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -304,6 +373,7 @@ const CreateVolumeRangeModal = ({
       setFormData((prev) => ({ ...prev, [name]: cleanValue }));
     } else if (name === "format") {
       // When format changes, check if selected pool still matches
+      // Also reset format-specific fields
       setFormData((prev) => {
         const selectedPool = pools.find(p => p.name === prev.pool_name);
         const poolStillValid = selectedPool && selectedPool.storage_type === value;
@@ -312,8 +382,21 @@ const CreateVolumeRangeModal = ({
           format: value,
           // Clear pool selection if it doesn't match new format
           pool_name: poolStillValid ? prev.pool_name : "",
+          // Reset format-specific fields
+          os400_type: "",  // Clear OS/400 when switching formats
+          ckd_datatype: "",  // Clear CKD datatype when switching formats
+          ckd_capacity_type: "bytes",  // Reset to default
+          capacity_cylinders: "",  // Clear cylinders
         };
       });
+    } else if (name === "ckd_capacity_type") {
+      // When capacity type changes, clear the capacity values
+      setFormData((prev) => ({
+        ...prev,
+        ckd_capacity_type: value,
+        capacity_gb: "",
+        capacity_cylinders: "",
+      }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -382,7 +465,8 @@ const CreateVolumeRangeModal = ({
   const calculatePreview = () => {
     setError(null);
 
-    const { lss, start_vol, end_vol, format, capacity_gb, pool_name } = formData;
+    const { lss, start_vol, end_vol, format, capacity_gb, pool_name,
+            os400_type, ckd_datatype, ckd_capacity_type, capacity_cylinders } = formData;
 
     // Check if pool is being created but not yet saved
     if (showCreatePool) {
@@ -428,12 +512,37 @@ const CreateVolumeRangeModal = ({
       return;
     }
 
-    if (!capacity_gb || parseFloat(capacity_gb) <= 0) {
-      setError("Please enter a valid capacity in GiB");
-      return;
+    // Handle capacity validation based on format and type
+    let capacityBytes;
+    let capacityDisplay;
+
+    if (format === 'FB' && os400_type && !['050', '099'].includes(os400_type)) {
+      // OS/400 type with predefined capacity
+      capacityBytes = predefinedCapacity * 1024 * 1024 * 1024;
+      capacityDisplay = `${predefinedCapacity} GiB (OS/400 ${os400_type})`;
+    } else if (format === 'CKD' && ckd_capacity_type !== 'bytes') {
+      // CKD with cylinders or mod1
+      if (!capacity_cylinders || parseInt(capacity_cylinders) <= 0) {
+        setError(`Please enter a valid capacity in ${ckd_capacity_type === 'mod1' ? 'Mod1 units' : 'cylinders'}`);
+        return;
+      }
+      const cylValue = parseInt(capacity_cylinders);
+      // Convert to bytes for display (approximate)
+      const cylInBytes = ckd_capacity_type === 'mod1' ? cylValue * 1113 * 849960 : cylValue * 849960;
+      capacityBytes = cylInBytes;
+      capacityDisplay = ckd_capacity_type === 'mod1'
+        ? `Mod${cylValue} (${cylValue * 1113} cylinders)`
+        : `${cylValue} cylinders`;
+    } else {
+      // Standard GiB capacity
+      if (!capacity_gb || parseFloat(capacity_gb) <= 0) {
+        setError("Please enter a valid capacity in GiB");
+        return;
+      }
+      capacityBytes = parseFloat(capacity_gb) * 1024 * 1024 * 1024;
+      capacityDisplay = `${capacity_gb} GiB`;
     }
 
-    const capacityBytes = parseFloat(capacity_gb) * 1024 * 1024 * 1024;
     const totalCapacityTB = (capacityBytes * count) / (1024 ** 4);
 
     // Construct full 4-digit volume IDs
@@ -446,8 +555,11 @@ const CreateVolumeRangeModal = ({
       endVolume,
       count,
       totalCapacityTB: totalCapacityTB.toFixed(2),
+      capacityDisplay,
       format,
       poolName: pool_name || "P0",
+      os400_type,
+      ckd_datatype,
     });
 
     // Generate DSCLI preview
@@ -457,13 +569,20 @@ const CreateVolumeRangeModal = ({
   // Fetch DSCLI command preview
   const fetchDscliPreview = async (start, end, fmt, capacityBytes) => {
     try {
+      const { os400_type, ckd_datatype, ckd_capacity_type, capacity_cylinders, name_prefix } = formData;
       const response = await axios.post(`/api/storage/${storageId}/volume-ranges/dscli/`, {
         start_volume: start,
         end_volume: end,
         format: fmt,
         capacity_bytes: capacityBytes,
         pool_name: formData.pool_name || "P0",
+        name_prefix: name_prefix || null,
         command_type: "create",
+        // DS8000-specific fields
+        os400_type: os400_type || null,
+        ckd_datatype: ckd_datatype || null,
+        ckd_capacity_type: ckd_capacity_type,
+        capacity_cylinders: capacity_cylinders ? parseInt(capacity_cylinders) : null,
       });
       setDscliPreview(response.data.commands?.[0] || "");
     } catch (err) {
@@ -482,7 +601,22 @@ const CreateVolumeRangeModal = ({
     setError(null);
 
     try {
-      const capacityBytes = parseFloat(formData.capacity_gb) * 1024 * 1024 * 1024;
+      const { format, os400_type, ckd_capacity_type, capacity_cylinders } = formData;
+
+      // Calculate capacity bytes based on format and type
+      let capacityBytes;
+      if (format === 'FB' && os400_type && !['050', '099'].includes(os400_type)) {
+        // OS/400 with predefined capacity - backend will use predefined value
+        capacityBytes = predefinedCapacity * 1024 * 1024 * 1024;
+      } else if (format === 'CKD' && ckd_capacity_type !== 'bytes') {
+        // CKD with cylinders or mod1 - convert to approximate bytes
+        const cylValue = parseInt(capacity_cylinders) || 0;
+        capacityBytes = ckd_capacity_type === 'mod1'
+          ? cylValue * 1113 * 849960
+          : cylValue * 849960;
+      } else {
+        capacityBytes = parseFloat(formData.capacity_gb) * 1024 * 1024 * 1024;
+      }
 
       // Construct full 4-digit volume IDs
       const effectiveEndVol = formData.end_vol === "" ? formData.start_vol : formData.end_vol;
@@ -495,7 +629,13 @@ const CreateVolumeRangeModal = ({
         format: formData.format,
         capacity_bytes: capacityBytes,
         pool_name: formData.pool_name || null,
+        name_prefix: formData.name_prefix || null,
         active_project_id: activeProjectId,
+        // DS8000-specific fields
+        os400_type: formData.os400_type || null,
+        ckd_datatype: formData.ckd_datatype || null,
+        ckd_capacity_type: formData.ckd_capacity_type,
+        capacity_cylinders: formData.capacity_cylinders ? parseInt(formData.capacity_cylinders) : null,
       });
 
       onSuccess();
@@ -654,6 +794,25 @@ const CreateVolumeRangeModal = ({
             </div>
           )}
 
+          {/* Name Prefix Row */}
+          <div className="row">
+            <div className="col-md-6">
+              <Form.Group className="mb-3">
+                <Form.Label>Volume Name Prefix</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="name_prefix"
+                  value={formData.name_prefix}
+                  onChange={handleChange}
+                  placeholder="e.g., PROD_DB"
+                />
+                <Form.Text className="volume-range-form-hint">
+                  DS8000 appends volume ID (e.g., PROD_DB_C000)
+                </Form.Text>
+              </Form.Group>
+            </div>
+          </div>
+
           <div className="row">
             <div className="col-md-4">
               <Form.Group className="mb-3">
@@ -679,17 +838,107 @@ const CreateVolumeRangeModal = ({
                 )}
               </Form.Group>
             </div>
+
+            {/* OS/400 Type - Only for FB volumes */}
+            {formData.format === 'FB' && (
+              <div className="col-md-4">
+                <Form.Group className="mb-3">
+                  <Form.Label>OS/400 Type (iSeries)</Form.Label>
+                  <Form.Select
+                    name="os400_type"
+                    value={formData.os400_type}
+                    onChange={handleChange}
+                  >
+                    {OS400_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Text className="volume-range-form-hint">
+                    Optional. Uses -os400 parameter when set.
+                  </Form.Text>
+                </Form.Group>
+              </div>
+            )}
+
+            {/* CKD Datatype - Only for CKD volumes */}
+            {formData.format === 'CKD' && (
+              <div className="col-md-4">
+                <Form.Group className="mb-3">
+                  <Form.Label>CKD Datatype</Form.Label>
+                  <Form.Select
+                    name="ckd_datatype"
+                    value={formData.ckd_datatype}
+                    onChange={handleChange}
+                  >
+                    {CKD_DATATYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Text className="volume-range-form-hint">
+                    Auto selects based on capacity if not set.
+                  </Form.Text>
+                </Form.Group>
+              </div>
+            )}
+
+            {/* CKD Capacity Type - Only for CKD volumes */}
+            {formData.format === 'CKD' && (
+              <div className="col-md-4">
+                <Form.Group className="mb-3">
+                  <Form.Label>Capacity Type</Form.Label>
+                  <Form.Select
+                    name="ckd_capacity_type"
+                    value={formData.ckd_capacity_type}
+                    onChange={handleChange}
+                  >
+                    {CKD_CAPACITY_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </Form.Select>
+                  {formData.ckd_capacity_type === 'mod1' && (
+                    <Form.Text className="volume-range-form-hint">
+                      1 Mod1 = 1113 cylinders
+                    </Form.Text>
+                  )}
+                </Form.Group>
+              </div>
+            )}
+
             <div className="col-md-4">
               <Form.Group className="mb-3">
-                <Form.Label>Capacity (GiB)</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="capacity_gb"
-                  value={formData.capacity_gb}
-                  onChange={handleChange}
-                  placeholder="e.g., 50"
-                  min="1"
-                />
+                <Form.Label>
+                  Capacity ({capacityLabel})
+                  {isCapacityReadOnly && ' (Predefined)'}
+                </Form.Label>
+                {formData.format === 'CKD' && formData.ckd_capacity_type !== 'bytes' ? (
+                  // CKD with cylinders or mod1
+                  <Form.Control
+                    type="number"
+                    name="capacity_cylinders"
+                    value={formData.capacity_cylinders}
+                    onChange={handleChange}
+                    placeholder={formData.ckd_capacity_type === 'mod1' ? 'e.g., 3 (Mod3)' : 'e.g., 3339'}
+                    min="1"
+                  />
+                ) : (
+                  // FB or CKD with GiB
+                  <Form.Control
+                    type="number"
+                    name="capacity_gb"
+                    value={isCapacityReadOnly ? (predefinedCapacity || '') : formData.capacity_gb}
+                    onChange={handleChange}
+                    placeholder="e.g., 50"
+                    min="1"
+                    readOnly={isCapacityReadOnly}
+                    disabled={isCapacityReadOnly}
+                  />
+                )}
               </Form.Group>
             </div>
             <div className="col-md-4">

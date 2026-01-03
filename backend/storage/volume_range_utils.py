@@ -12,6 +12,28 @@ from collections import defaultdict
 from .storage_utils import generate_ds8000_device_id
 
 
+# OS/400 predefined capacities in bytes (for iSeries volumes)
+# Protected (Axx) and Unprotected (A8x) versions have the same capacities
+OS400_PREDEFINED_CAPACITIES = {
+    'A01': 9_223_372_036,      # 8.59 GiB
+    'A02': 18_446_744_073,     # 17.18 GiB
+    'A04': 38_004_022_886,     # 35.39 GiB
+    'A05': 75_771_281_817,     # 70.55 GiB
+    'A06': 151_542_563_635,    # 141.12 GiB
+    'A07': 303_085_127_270,    # 282.35 GiB
+    'A81': 9_223_372_036,      # 8.59 GiB (unprotected)
+    'A82': 18_446_744_073,     # 17.18 GiB (unprotected)
+    'A84': 38_004_022_886,     # 35.39 GiB (unprotected)
+    'A85': 75_771_281_817,     # 70.55 GiB (unprotected)
+    'A86': 151_542_563_635,    # 141.12 GiB (unprotected)
+    'A87': 303_085_127_270,    # 282.35 GiB (unprotected)
+    # 050 and 099 are variable - no predefined capacity
+}
+
+# OS/400 types that require explicit capacity (-cap parameter)
+OS400_VARIABLE_TYPES = ['050', '099']
+
+
 def get_lss_from_volume_id(volume_id):
     """
     Extract LSS (first 2 hex digits) from 4-digit volume_id.
@@ -213,6 +235,7 @@ def _extract_name_prefix(volumes):
 def _create_range_dict(start_vol, vols, lss, fmt, capacity, pool_name):
     """
     Create a range dictionary from a list of contiguous volumes.
+    Includes OS/400 and CKD options from the first volume (should be consistent across range).
     """
     end_vol = vols[-1]
 
@@ -222,6 +245,13 @@ def _create_range_dict(start_vol, vols, lss, fmt, capacity, pool_name):
 
     # Extract common name prefix from volume names
     name_prefix = _extract_name_prefix(vols)
+
+    # Extract OS/400 and CKD info from first volume (should be consistent across range)
+    first_vol = vols[0]
+    os400_type = getattr(first_vol, 'os400_type', None) or None
+    ckd_datatype = getattr(first_vol, 'ckd_datatype', None) or None
+    ckd_capacity_type = getattr(first_vol, 'ckd_capacity_type', None) or 'bytes'
+    capacity_cylinders = getattr(first_vol, 'capacity_cylinders', None)
 
     return {
         'range_id': generate_range_id(
@@ -243,6 +273,11 @@ def _create_range_dict(start_vol, vols, lss, fmt, capacity, pool_name):
         'name_prefix': name_prefix,
         'committed': all_committed,
         'deployed': all_deployed,
+        # DS8000-specific fields
+        'os400_type': os400_type,
+        'ckd_datatype': ckd_datatype,
+        'ckd_capacity_type': ckd_capacity_type,
+        'capacity_cylinders': capacity_cylinders,
     }
 
 
@@ -390,12 +425,15 @@ def _generate_create_command(device_id, range_dict):
     """
     Generate a volume creation command for a range.
 
-    FB volumes: mkfbvol -dev {device} -extpool {pool} -cap {gb} -name {name} {start}-{end}
-    CKD volumes: mkckdvol -dev {device} -extpool {pool} -datatype 3390 -cap {cyl} -name {name} {start}-{end}
+    FB volumes: mkfbvol -dev {device} -extpool {pool} [-os400 {type}] -cap {gb} -name {name} {start}-{end}
+    CKD volumes: mkckdvol -dev {device} -extpool {pool} -datatype {type} -cap {cyl} [-captype mod1] -name {name} {start}-{end}
 
-    Per IBM docs: Volume range specified by IDs separated by dash.
-    The range determines which volumes are created (no -qty parameter).
-    The -name parameter sets a prefix; DS8000 appends the volume ID automatically.
+    Per IBM docs:
+    - Volume range specified by IDs separated by dash
+    - When -os400 is specified, -type parameter is ignored
+    - OS/400 protected types (Axx) have predefined capacities (no -cap needed)
+    - Variable types (050, 099) require -cap parameter
+    - CKD datatype auto-selects 3390 for <=65520 cyl, 3390-A for larger
     """
     fmt = range_dict.get('format', '').upper()
     pool = range_dict.get('pool_name') or 'P0'
@@ -403,26 +441,67 @@ def _generate_create_command(device_id, range_dict):
     end = range_dict.get('end_volume', '0000')
     capacity_bytes = range_dict.get('capacity_bytes', 0)
     name_prefix = range_dict.get('name_prefix')
+    os400_type = range_dict.get('os400_type')
+    ckd_datatype = range_dict.get('ckd_datatype')
+    ckd_capacity_type = range_dict.get('ckd_capacity_type', 'bytes')
+    capacity_cylinders = range_dict.get('capacity_cylinders')
 
     # Format volume range - show range if more than 1 volume
     vol_range = start if start == end else f"{start}-{end}"
-
-    # Convert capacity to GB for FB volumes
-    capacity_gb = int(capacity_bytes / (1024 ** 3)) if capacity_bytes else 50
 
     # Build -name parameter if name_prefix is available
     name_param = f' -name {name_prefix}' if name_prefix else ''
 
     if fmt == 'FB':
-        return f"mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb}{name_param} {vol_range}"
+        # Check for OS/400 type (iSeries volumes)
+        if os400_type:
+            os400_param = f' -os400 {os400_type}'
+            # For variable types (050, 099), include capacity
+            if os400_type in OS400_VARIABLE_TYPES:
+                capacity_gb = int(capacity_bytes / (1024 ** 3)) if capacity_bytes else 50
+                cap_param = f' -cap {capacity_gb}'
+            else:
+                # Predefined capacity types - no -cap parameter needed
+                cap_param = ''
+            return f"mkfbvol -dev {device_id} -extpool {pool}{os400_param}{cap_param}{name_param} {vol_range}"
+        else:
+            # Standard FB volume
+            capacity_gb = int(capacity_bytes / (1024 ** 3)) if capacity_bytes else 50
+            return f"mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb}{name_param} {vol_range}"
+
     elif fmt == 'CKD':
-        # CKD uses cylinders with 3390 datatype
-        capacity_cyl = _bytes_to_ckd_cylinders(capacity_bytes)
-        # Use 3390-A for large volumes (>65520 cylinders)
-        datatype = '3390-A' if capacity_cyl > 65520 else '3390'
-        return f"mkckdvol -dev {device_id} -extpool {pool} -datatype {datatype} -cap {capacity_cyl}{name_param} {vol_range}"
+        # Determine capacity in cylinders
+        if ckd_capacity_type == 'cyl' and capacity_cylinders:
+            capacity_cyl = capacity_cylinders
+        elif ckd_capacity_type == 'mod1' and capacity_cylinders:
+            # mod1 = 1113 cylinders
+            capacity_cyl = capacity_cylinders * 1113
+        else:
+            # Convert from bytes (default behavior)
+            capacity_cyl = _bytes_to_ckd_cylinders(capacity_bytes)
+
+        # Determine datatype
+        if ckd_datatype:
+            # Manual override
+            datatype = ckd_datatype
+        else:
+            # Auto-detect based on capacity (per IBM docs)
+            datatype = '3390-A' if capacity_cyl > 65520 else '3390'
+
+        # Build capacity type parameter for mod1
+        if ckd_capacity_type == 'mod1' and capacity_cylinders:
+            # Use mod1 value directly with -captype mod1
+            cap_value = capacity_cylinders
+            captype_param = ' -captype mod1'
+        else:
+            cap_value = capacity_cyl
+            captype_param = ''
+
+        return f"mkckdvol -dev {device_id} -extpool {pool} -datatype {datatype} -cap {cap_value}{captype_param}{name_param} {vol_range}"
+
     else:
         # Unknown format, generate FB command with comment
+        capacity_gb = int(capacity_bytes / (1024 ** 3)) if capacity_bytes else 50
         return f"# Unknown format '{fmt}' - mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb}{name_param} {vol_range}"
 
 
@@ -441,7 +520,10 @@ def _generate_delete_command(device_id, range_dict):
         return f"rmvol -dev {device_id} {start}-{end}"
 
 
-def generate_dscli_for_new_range(storage, start_volume, end_volume, fmt, capacity_bytes, pool_name=None, name_prefix=None):
+def generate_dscli_for_new_range(storage, start_volume, end_volume, fmt, capacity_bytes,
+                                  pool_name=None, name_prefix=None, os400_type=None,
+                                  ckd_datatype=None, ckd_capacity_type='bytes',
+                                  capacity_cylinders=None):
     """
     Generate DSCLI command for a new range (before volumes exist in DB).
 
@@ -453,6 +535,10 @@ def generate_dscli_for_new_range(storage, start_volume, end_volume, fmt, capacit
         capacity_bytes: Volume capacity in bytes
         pool_name: Optional pool name
         name_prefix: Optional volume name prefix (DS8000 appends volume ID)
+        os400_type: Optional OS/400 type for FB volumes (A01, A02, etc.)
+        ckd_datatype: Optional CKD datatype override (3380, 3390, 3390-A)
+        ckd_capacity_type: Capacity type for CKD ('bytes', 'cyl', 'mod1')
+        capacity_cylinders: Capacity in cylinders for CKD (when using cyl or mod1)
 
     Returns:
         str: DSCLI command
@@ -461,22 +547,19 @@ def generate_dscli_for_new_range(storage, start_volume, end_volume, fmt, capacit
     if not is_valid:
         raise ValueError(error)
 
+    # Build range dict with all parameters for _generate_create_command
+    range_dict = {
+        'format': fmt.upper(),
+        'pool_name': pool_name or 'P0',
+        'start_volume': details['start_volume'],
+        'end_volume': details['end_volume'],
+        'capacity_bytes': capacity_bytes,
+        'name_prefix': name_prefix,
+        'os400_type': os400_type,
+        'ckd_datatype': ckd_datatype,
+        'ckd_capacity_type': ckd_capacity_type,
+        'capacity_cylinders': capacity_cylinders,
+    }
+
     device_id = generate_ds8000_device_id(storage)
-    pool = pool_name or 'P0'
-    capacity_gb = int(capacity_bytes / (1024 ** 3)) if capacity_bytes else 50
-
-    # Format volume range - show range if more than 1 volume
-    start = details['start_volume']
-    end = details['end_volume']
-    vol_range = start if start == end else f"{start}-{end}"
-
-    # Build -name parameter if name_prefix is provided
-    name_param = f' -name {name_prefix}' if name_prefix else ''
-
-    if fmt.upper() == 'FB':
-        return f"mkfbvol -dev {device_id} -extpool {pool} -cap {capacity_gb}{name_param} {vol_range}"
-    elif fmt.upper() == 'CKD':
-        capacity_cyl = int(capacity_bytes / (849 * 1024)) if capacity_bytes else 3339
-        return f"mkckdvol -dev {device_id} -extpool {pool} -cap {capacity_cyl}{name_param} {vol_range}"
-    else:
-        raise ValueError(f"Invalid format '{fmt}': must be 'FB' or 'CKD'")
+    return _generate_create_command(device_id, range_dict)

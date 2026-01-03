@@ -3305,8 +3305,19 @@ def volume_range_create(request, storage_id):
         fmt = data.get('format', 'FB').strip().upper()
         capacity_bytes = data.get('capacity_bytes', 0)
         pool_name = data.get('pool_name', '')
-        name_prefix = data.get('name_prefix', '').strip()
+        name_prefix = (data.get('name_prefix') or '').strip()
         active_project_id = data.get('active_project_id')
+
+        # Parse DS8000-specific fields (handle None from JSON null)
+        os400_type = (data.get('os400_type') or '').strip().upper() or None
+        ckd_datatype = (data.get('ckd_datatype') or '').strip() or None
+        ckd_capacity_type = (data.get('ckd_capacity_type') or 'bytes').strip()
+        capacity_cylinders = data.get('capacity_cylinders')
+        if capacity_cylinders is not None:
+            try:
+                capacity_cylinders = int(capacity_cylinders)
+            except (ValueError, TypeError):
+                capacity_cylinders = None
 
         # Look up Pool by name if provided
         pool = None
@@ -3323,6 +3334,23 @@ def volume_range_create(request, storage_id):
         # Validate format
         if fmt not in ['FB', 'CKD']:
             return JsonResponse({'error': f"Invalid format '{fmt}': must be 'FB' or 'CKD'"}, status=400)
+
+        # Validate OS/400 type only for FB volumes
+        if os400_type and fmt != 'FB':
+            return JsonResponse({'error': 'OS/400 type is only valid for FB format volumes.'}, status=400)
+
+        # Validate CKD options only for CKD volumes
+        if ckd_datatype and fmt != 'CKD':
+            return JsonResponse({'error': 'CKD datatype is only valid for CKD format volumes.'}, status=400)
+
+        if ckd_capacity_type != 'bytes' and fmt != 'CKD':
+            return JsonResponse({'error': 'Cylinder/Mod1 capacity type is only valid for CKD volumes.'}, status=400)
+
+        # Get predefined capacity for non-variable OS/400 types
+        if os400_type and os400_type not in ['050', '099']:
+            from .volume_range_utils import OS400_PREDEFINED_CAPACITIES
+            if os400_type in OS400_PREDEFINED_CAPACITIES:
+                capacity_bytes = OS400_PREDEFINED_CAPACITIES[os400_type]
 
         # Generate volume IDs for the range
         volume_ids = generate_volume_ids_for_range(start_volume, end_volume)
@@ -3373,6 +3401,11 @@ def volume_range_create(request, storage_id):
                 deployed=False,
                 created_by_project=project,
                 last_modified_by=user,
+                # DS8000-specific fields
+                os400_type=os400_type if fmt == 'FB' else None,
+                ckd_datatype=ckd_datatype if fmt == 'CKD' else None,
+                ckd_capacity_type=ckd_capacity_type if fmt == 'CKD' else None,
+                capacity_cylinders=capacity_cylinders if fmt == 'CKD' else None,
             )
             created_volumes.append(volume)
 
@@ -3581,6 +3614,24 @@ def volume_range_dscli(request, storage_id):
             fmt = data.get('format', 'FB').strip().upper()
             capacity_bytes = data.get('capacity_bytes', 0)
             pool_name = data.get('pool_name', 'P0')
+            name_prefix = (data.get('name_prefix') or '').strip() or None
+
+            # Parse DS8000-specific fields (handle None from JSON null)
+            os400_type = (data.get('os400_type') or '').strip().upper() or None
+            ckd_datatype = (data.get('ckd_datatype') or '').strip() or None
+            ckd_capacity_type = (data.get('ckd_capacity_type') or 'bytes').strip()
+            capacity_cylinders = data.get('capacity_cylinders')
+            if capacity_cylinders is not None:
+                try:
+                    capacity_cylinders = int(capacity_cylinders)
+                except (ValueError, TypeError):
+                    capacity_cylinders = None
+
+            # Get predefined capacity for non-variable OS/400 types
+            if os400_type and os400_type not in ['050', '099']:
+                from .volume_range_utils import OS400_PREDEFINED_CAPACITIES
+                if os400_type in OS400_PREDEFINED_CAPACITIES:
+                    capacity_bytes = OS400_PREDEFINED_CAPACITIES[os400_type]
 
             # Validate range
             is_valid, error, details = validate_volume_range(start_volume, end_volume)
@@ -3590,7 +3641,12 @@ def volume_range_dscli(request, storage_id):
             # Generate command
             try:
                 command = generate_dscli_for_new_range(
-                    storage, start_volume, end_volume, fmt, capacity_bytes, pool_name
+                    storage, start_volume, end_volume, fmt, capacity_bytes, pool_name,
+                    name_prefix=name_prefix,
+                    os400_type=os400_type,
+                    ckd_datatype=ckd_datatype,
+                    ckd_capacity_type=ckd_capacity_type,
+                    capacity_cylinders=capacity_cylinders
                 )
             except ValueError as e:
                 return JsonResponse({'error': str(e)}, status=400)
