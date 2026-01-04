@@ -1796,3 +1796,62 @@ class ProjectPPRCPath(models.Model):
 
     def __str__(self):
         return f"{self.project.name}: {self.pprc_path} ({self.action})"
+
+
+class ProjectPPRCReplicationGroup(models.Model):
+    """Track what a project intends to do with a PPRCReplicationGroup"""
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_pprc_groups'
+    )
+    pprc_group = models.ForeignKey(
+        'storage.PPRCReplicationGroup',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=PROJECT_ACTION_CHOICES,
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_pprc_groups'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'pprc_group']
+        ordering = ['project', 'pprc_group']
+        verbose_name = "Project PPRC Replication Group"
+        verbose_name_plural = "Project PPRC Replication Groups"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['pprc_group', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.pprc_group} ({self.action})"

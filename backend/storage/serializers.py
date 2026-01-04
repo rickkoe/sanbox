@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, PPRCPath
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, PPRCPath, PPRCReplicationGroup, PPRCGroupLSSMapping, LSSSummary
 from customers.serializers import CustomerSerializer
 from core.models import TableConfiguration
 
@@ -609,6 +609,10 @@ class PPRCPathSerializer(serializers.ModelSerializer):
 
     # Convenience fields
     is_same_storage = serializers.BooleanField(read_only=True)
+    is_cross_fabric = serializers.SerializerMethodField()
+
+    # Replication group details
+    replication_group_details = serializers.SerializerMethodField()
 
     # Project membership fields
     project_memberships = serializers.SerializerMethodField()
@@ -619,7 +623,7 @@ class PPRCPathSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_port1_details(self, obj):
-        """Return port1 details including storage info"""
+        """Return port1 details including storage and fabric info"""
         if obj.port1:
             return {
                 'id': obj.port1.id,
@@ -630,11 +634,13 @@ class PPRCPathSerializer(serializers.ModelSerializer):
                 'io_enclosure': obj.port1.io_enclosure,
                 'storage_id': obj.port1.storage.id,
                 'storage_name': obj.port1.storage.name,
+                'fabric_id': obj.port1.fabric_id,
+                'fabric_name': obj.port1.fabric.name if obj.port1.fabric else None,
             }
         return None
 
     def get_port2_details(self, obj):
-        """Return port2 details including storage info"""
+        """Return port2 details including storage and fabric info"""
         if obj.port2:
             return {
                 'id': obj.port2.id,
@@ -645,6 +651,29 @@ class PPRCPathSerializer(serializers.ModelSerializer):
                 'io_enclosure': obj.port2.io_enclosure,
                 'storage_id': obj.port2.storage.id,
                 'storage_name': obj.port2.storage.name,
+                'fabric_id': obj.port2.fabric_id,
+                'fabric_name': obj.port2.fabric.name if obj.port2.fabric else None,
+            }
+        return None
+
+    def get_is_cross_fabric(self, obj):
+        """Returns True if ports are in different fabrics"""
+        if obj.port1 and obj.port2:
+            fabric1 = obj.port1.fabric_id
+            fabric2 = obj.port2.fabric_id
+            # Only cross-fabric if both have fabrics and they differ
+            if fabric1 and fabric2:
+                return fabric1 != fabric2
+        return False
+
+    def get_replication_group_details(self, obj):
+        """Return replication group info if this path belongs to one"""
+        if obj.replication_group:
+            return {
+                'id': obj.replication_group.id,
+                'group_number': obj.replication_group.group_number,
+                'name': obj.replication_group.name,
+                'lss_mode': obj.replication_group.lss_mode,
             }
         return None
 
@@ -724,3 +753,151 @@ class PPRCPathSerializer(serializers.ModelSerializer):
                 })
 
         return data
+
+
+class PPRCGroupLSSMappingSerializer(serializers.ModelSerializer):
+    """Serializer for PPRCGroupLSSMapping - LSS pairs within a replication group"""
+
+    class Meta:
+        model = PPRCGroupLSSMapping
+        fields = '__all__'
+
+    def validate(self, data):
+        """Validate that source_lss is not already in another group for same storage pair"""
+        group = data.get('group') or (self.instance.group if self.instance else None)
+        source_lss = data.get('source_lss') or (self.instance.source_lss if self.instance else None)
+
+        if group and source_lss:
+            # Check if this source_lss is already assigned to another group for the same storage pair
+            existing = PPRCGroupLSSMapping.objects.filter(
+                group__source_storage=group.source_storage,
+                group__target_storage=group.target_storage,
+                source_lss=source_lss
+            )
+            if self.instance:
+                existing = existing.exclude(pk=self.instance.pk)
+
+            if existing.exists():
+                raise serializers.ValidationError({
+                    'source_lss': f"LSS {source_lss} is already assigned to Group {existing.first().group.group_number}"
+                })
+
+        return data
+
+
+class PPRCReplicationGroupSerializer(serializers.ModelSerializer):
+    """Serializer for PPRCReplicationGroup - groups of LSSs that share port-pair configuration"""
+
+    # Nested LSS mappings
+    lss_mappings = PPRCGroupLSSMappingSerializer(many=True, read_only=True)
+
+    # Computed fields
+    path_count = serializers.SerializerMethodField()
+    source_storage_name = serializers.CharField(source='source_storage.name', read_only=True)
+    target_storage_name = serializers.CharField(source='target_storage.name', read_only=True)
+    is_same_storage = serializers.BooleanField(read_only=True)
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PPRCReplicationGroup
+        fields = '__all__'
+
+    def get_path_count(self, obj):
+        return obj.paths.count()
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this group belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                action = 'delete' if pm.delete_me else pm.action
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for PPRC group {obj}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this group is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for PPRC group {obj}: {e}")
+            return False
+
+    def validate(self, data):
+        """Validate replication group constraints"""
+        source_storage = data.get('source_storage')
+        target_storage = data.get('target_storage')
+        lss_mode = data.get('lss_mode', 'all')
+        group_number = data.get('group_number', 1)
+
+        if source_storage and target_storage:
+            # Ensure both are DS8000
+            if source_storage.storage_type != 'DS8000':
+                raise serializers.ValidationError({
+                    'source_storage': 'Replication groups are only supported for DS8000 storage systems.'
+                })
+            if target_storage.storage_type != 'DS8000':
+                raise serializers.ValidationError({
+                    'target_storage': 'Replication groups are only supported for DS8000 storage systems.'
+                })
+
+            # Ensure same customer
+            if source_storage.customer_id != target_storage.customer_id:
+                raise serializers.ValidationError({
+                    'target_storage': 'Source and target storage must belong to the same customer.'
+                })
+
+            # Check if Group 1 is in "all" mode - if so, no other groups allowed
+            if group_number > 1:
+                group1 = PPRCReplicationGroup.objects.filter(
+                    source_storage=source_storage,
+                    target_storage=target_storage,
+                    group_number=1
+                ).first()
+                if group1 and group1.lss_mode == 'all':
+                    raise serializers.ValidationError({
+                        'group_number': 'Cannot create additional groups when Group 1 is set to "All LSSs" mode.'
+                    })
+
+            # If setting Group 1 to "all" mode, delete other groups
+            if group_number == 1 and lss_mode == 'all':
+                other_groups = PPRCReplicationGroup.objects.filter(
+                    source_storage=source_storage,
+                    target_storage=target_storage,
+                    group_number__gt=1
+                )
+                if other_groups.exists():
+                    raise serializers.ValidationError({
+                        'lss_mode': 'Cannot set to "All LSSs" while other groups exist. Delete other groups first.'
+                    })
+
+        return data
+
+
+class LSSSummarySerializer(serializers.ModelSerializer):
+    """Serializer for LSSSummary - per-LSS configuration for DS8000"""
+
+    # Computed fields for volume stats
+    volume_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LSSSummary
+        fields = '__all__'
+
+    def get_volume_count(self, obj):
+        """Count volumes in this LSS"""
+        return Volume.objects.filter(
+            storage=obj.storage,
+            lss_lcu__startswith=obj.lss
+        ).count()

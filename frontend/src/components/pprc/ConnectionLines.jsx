@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 /**
  * ConnectionLines - Renders SVG lines between connected ports
  */
-const ConnectionLines = ({ paths, portRefs, portRefsVersion, containerRef, onDeletePath, leftStorageId, rightStorageId }) => {
+const ConnectionLines = ({ paths, portRefs, portRefsVersion, containerRef, onDeletePath, leftStorageId, rightStorageId, showFabrics }) => {
   const [lines, setLines] = useState([]);
 
   // Calculate line positions based on port element positions
@@ -138,6 +138,14 @@ const ConnectionLines = ({ paths, portRefs, portRefsVersion, containerRef, onDel
         // Use a straight line for cleaner look
         const straight = `M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`;
 
+        // Check if this is a cross-fabric path (only show as invalid when showFabrics is enabled)
+        const isCrossFabric = showFabrics && line.path.is_cross_fabric;
+        const lineClass = isCrossFabric ? 'pprc-connection-line pprc-connection-invalid' : 'pprc-connection-line';
+        const endpointClass = isCrossFabric ? 'pprc-connection-endpoint pprc-endpoint-invalid' : 'pprc-connection-endpoint';
+        const title = isCrossFabric
+          ? `Invalid path: Ports are in different fabrics. Click to delete.`
+          : `Click to delete: ${line.path.port1_details?.name} to ${line.path.port2_details?.name}`;
+
         return (
           <g key={line.id} className="pprc-connection-group">
             {/* Invisible wider path for easier clicking */}
@@ -145,17 +153,20 @@ const ConnectionLines = ({ paths, portRefs, portRefsVersion, containerRef, onDel
               d={straight}
               className="pprc-connection-hitarea"
               onClick={() => onDeletePath(line.id)}
-              title={`Click to delete: ${line.path.port1_details?.name} to ${line.path.port2_details?.name}`}
-            />
+            >
+              <title>{title}</title>
+            </path>
             {/* Visible line */}
             <path
               d={straight}
-              className="pprc-connection-line"
+              className={lineClass}
               onClick={() => onDeletePath(line.id)}
-            />
+            >
+              <title>{title}</title>
+            </path>
             {/* Connection endpoints */}
-            <circle cx={line.x1} cy={line.y1} r="4" className="pprc-connection-endpoint" />
-            <circle cx={line.x2} cy={line.y2} r="4" className="pprc-connection-endpoint" />
+            <circle cx={line.x1} cy={line.y1} r="4" className={endpointClass} />
+            <circle cx={line.x2} cy={line.y2} r="4" className={endpointClass} />
           </g>
         );
       })}

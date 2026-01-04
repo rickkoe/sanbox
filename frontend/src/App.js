@@ -147,6 +147,7 @@ function AppContent() {
   // Check for scrollable routes including dynamic routes
   const isScrollablePage = scrollableRoutes.some(route => location.pathname === route) ||
                           location.pathname.match(/^\/storage\/\d+$/) || // Storage detail pages
+                          location.pathname.match(/^\/storage\/\d+\/pprc-paths$/) || // PPRC paths page
                           location.pathname.startsWith('/scripts/') ||
                           location.pathname.startsWith('/tools/ibm-storage-calculator') ||
                           location.pathname.startsWith('/tools/doc-builder') ||

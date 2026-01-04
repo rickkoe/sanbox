@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Storage, Host, Volume, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, PPRCPath
+from .models import Storage, Host, Volume, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, PPRCPath, PPRCReplicationGroup, PPRCGroupLSSMapping
 from core.dashboard_views import clear_dashboard_cache_for_customer
 
 
@@ -401,4 +401,100 @@ class PPRCPathAdmin(admin.ModelAdmin):
             'port1', 'port1__storage',
             'port2', 'port2__storage',
             'created_by_project', 'last_modified_by'
+        )
+
+
+@admin.register(PPRCReplicationGroup)
+class PPRCReplicationGroupAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "group_number",
+        "name",
+        "source_storage",
+        "target_storage",
+        "lss_mode",
+        "lss_count",
+        "path_count",
+        "committed",
+        "deployed",
+        "created_at",
+    )
+    search_fields = (
+        "name",
+        "source_storage__name",
+        "target_storage__name",
+    )
+    list_filter = ("lss_mode", "committed", "deployed", "source_storage", "target_storage")
+    raw_id_fields = ("source_storage", "target_storage", "created_by_project", "last_modified_by")
+    readonly_fields = ("created_at", "updated_at", "last_modified_at")
+
+    fieldsets = (
+        ("Group Configuration", {
+            'fields': ('group_number', 'name', 'lss_mode'),
+        }),
+        ("Storage Systems", {
+            'fields': ('source_storage', 'target_storage'),
+            'description': 'Source and target DS8000 systems for this replication group'
+        }),
+        ("Notes", {
+            'fields': ('notes',),
+            'classes': ('collapse',)
+        }),
+        ("Lifecycle Tracking", {
+            'fields': ('committed', 'deployed', 'created_by_project')
+        }),
+        ("Audit Information", {
+            'fields': ('last_modified_by', 'last_modified_at', 'version', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def lss_count(self, obj):
+        return obj.lss_mappings.count()
+    lss_count.short_description = "LSS Mappings"
+
+    def path_count(self, obj):
+        return obj.paths.count()
+    path_count.short_description = "Paths"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'source_storage', 'target_storage',
+            'created_by_project', 'last_modified_by'
+        ).prefetch_related('lss_mappings', 'paths')
+
+
+@admin.register(PPRCGroupLSSMapping)
+class PPRCGroupLSSMappingAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "group",
+        "source_lss",
+        "target_lss",
+        "created_at",
+    )
+    search_fields = (
+        "source_lss",
+        "target_lss",
+        "group__name",
+        "group__source_storage__name",
+    )
+    list_filter = ("group", "created_at")
+    raw_id_fields = ("group",)
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        ("LSS Mapping", {
+            'fields': ('group', 'source_lss', 'target_lss'),
+            'description': 'Map source LSS to target LSS within a replication group'
+        }),
+        ("Timestamps", {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'group', 'group__source_storage', 'group__target_storage'
         )

@@ -4,7 +4,7 @@ import PortItem from './PortItem';
 /**
  * PortColumn - Displays a list of ports for a storage system
  */
-const PortColumn = ({ ports, side, onCreatePath, registerPortRef, connectedPortIds }) => {
+const PortColumn = ({ ports, side, onCreatePath, registerPortRef, connectedPortIds, showFabric, fabricColors }) => {
   if (!ports || ports.length === 0) {
     return (
       <div className="pprc-port-list pprc-port-list-empty">
@@ -30,6 +30,8 @@ const PortColumn = ({ ports, side, onCreatePath, registerPortRef, connectedPortI
           onCreatePath={onCreatePath}
           registerPortRef={registerPortRef}
           isConnected={connectedPortIds.includes(port.id)}
+          showFabric={showFabric}
+          fabricColor={fabricColors?.[port.fabric_name]}
         />
       ))}
     </div>

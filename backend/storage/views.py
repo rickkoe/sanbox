@@ -7,11 +7,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils import timezone
-from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, LSSSummary, PPRCPath
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, LSSSummary, PPRCPath, PPRCReplicationGroup, PPRCGroupLSSMapping
 from .serializers import (
     StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer,
     StorageFieldPreferenceSerializer, PoolSerializer,
-    HostClusterSerializer, IBMiLPARSerializer, VolumeMappingSerializer, PPRCPathSerializer
+    HostClusterSerializer, IBMiLPARSerializer, VolumeMappingSerializer, PPRCPathSerializer,
+    PPRCReplicationGroupSerializer, PPRCGroupLSSMappingSerializer, LSSSummarySerializer
 )
 import logging
 from django.core.paginator import Paginator
@@ -20,7 +21,8 @@ from urllib.parse import urlencode
 from core.dashboard_views import clear_dashboard_cache_for_customer
 from core.models import (
     Project, ProjectStorage, ProjectVolume, ProjectHost, ProjectPort, ProjectPool,
-    ProjectHostCluster, ProjectIBMiLPAR, ProjectVolumeMapping, ProjectPPRCPath
+    ProjectHostCluster, ProjectIBMiLPAR, ProjectVolumeMapping, ProjectPPRCPath,
+    ProjectPPRCReplicationGroup
 )
 
 logger = logging.getLogger(__name__)
@@ -5934,8 +5936,21 @@ def pprc_path_list(request, storage_id):
             ).select_related(
                 'port1', 'port1__storage',
                 'port2', 'port2__storage',
+                'replication_group',
                 'created_by_project', 'last_modified_by'
             ).prefetch_related('project_memberships__project')
+
+            # Optional filter by target storage (for source/target pair)
+            target_storage_id = request.GET.get('target_storage')
+            if target_storage_id:
+                paths = paths.filter(
+                    Q(port1__storage_id=target_storage_id) | Q(port2__storage_id=target_storage_id)
+                )
+
+            # Optional filter by replication group
+            replication_group_id = request.GET.get('replication_group')
+            if replication_group_id:
+                paths = paths.filter(replication_group_id=replication_group_id)
 
             serializer = PPRCPathSerializer(paths, many=True)
             return JsonResponse({
@@ -5950,6 +5965,10 @@ def pprc_path_list(request, storage_id):
     elif request.method == "POST":
         try:
             data = json.loads(request.body)
+
+            # Require replication_group - all paths must belong to a group
+            if not data.get('replication_group'):
+                return JsonResponse({"error": "replication_group is required. All PPRC paths must belong to a replication group."}, status=400)
 
             # Validate using serializer
             serializer = PPRCPathSerializer(data=data)
@@ -6046,14 +6065,14 @@ def pprc_path_available_ports(request, storage_id):
                 storage__storage_type='DS8000',
                 type='fc',
                 use__in=['replication', 'both']
-            ).select_related('storage')
+            ).select_related('storage', 'fabric')
         else:
             # Just this storage system
             ports = Port.objects.filter(
                 storage=storage,
                 type='fc',
                 use__in=['replication', 'both']
-            ).select_related('storage')
+            ).select_related('storage', 'fabric')
 
         # Group by storage system
         result = {}
@@ -6073,6 +6092,8 @@ def pprc_path_available_ports(request, storage_id):
                 'use': port.use,
                 'frame': port.frame,
                 'io_enclosure': port.io_enclosure,
+                'fabric_id': port.fabric_id,
+                'fabric_name': port.fabric.name if port.fabric else None,
             })
 
         return JsonResponse({
@@ -6111,3 +6132,210 @@ def pprc_path_customer_storages(request):
     except Exception as e:
         logger.exception("Error fetching DS8000 storage systems")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+# ==========================================
+# PPRC Replication Group Views
+# ==========================================
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def pprc_group_list(request, storage_id):
+    """
+    List all replication groups for a storage system, or create a new group.
+    Groups are for source->target storage pairs where source_storage_id = storage_id.
+    """
+    try:
+        storage = Storage.objects.get(pk=storage_id)
+    except Storage.DoesNotExist:
+        return JsonResponse({"error": "Storage not found"}, status=404)
+
+    if storage.storage_type != 'DS8000':
+        return JsonResponse({"error": "Replication groups are only supported for DS8000 storage systems"}, status=400)
+
+    if request.method == "GET":
+        # Get optional target_storage filter
+        target_storage_id = request.GET.get('target_storage')
+
+        groups = PPRCReplicationGroup.objects.filter(source_storage=storage)
+        if target_storage_id:
+            groups = groups.filter(target_storage_id=target_storage_id)
+
+        groups = groups.select_related('source_storage', 'target_storage', 'created_by_project')
+        groups = groups.prefetch_related('lss_mappings', 'paths')
+
+        serializer = PPRCReplicationGroupSerializer(groups, many=True)
+        return JsonResponse({
+            "results": serializer.data,
+            "count": groups.count()
+        })
+
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        # Set source_storage to current storage
+        data['source_storage'] = storage_id
+
+        # Auto-assign group_number if not provided
+        if 'group_number' not in data:
+            target_storage_id = data.get('target_storage')
+            if target_storage_id:
+                max_group = PPRCReplicationGroup.objects.filter(
+                    source_storage=storage,
+                    target_storage_id=target_storage_id
+                ).order_by('-group_number').first()
+                data['group_number'] = (max_group.group_number + 1) if max_group else 1
+
+        serializer = PPRCReplicationGroupSerializer(data=data)
+        if serializer.is_valid():
+            group = serializer.save()
+            return JsonResponse(PPRCReplicationGroupSerializer(group).data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT", "DELETE"])
+def pprc_group_detail(request, pk):
+    """
+    Retrieve, update, or delete a replication group.
+    """
+    try:
+        group = PPRCReplicationGroup.objects.select_related(
+            'source_storage', 'target_storage'
+        ).prefetch_related('lss_mappings', 'paths').get(pk=pk)
+    except PPRCReplicationGroup.DoesNotExist:
+        return JsonResponse({"error": "Replication group not found"}, status=404)
+
+    if request.method == "GET":
+        serializer = PPRCReplicationGroupSerializer(group)
+        return JsonResponse(serializer.data)
+
+    elif request.method == "PUT":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        # Prevent changing source_storage/target_storage/group_number
+        data.pop('source_storage', None)
+        data.pop('target_storage', None)
+        data.pop('group_number', None)
+
+        serializer = PPRCReplicationGroupSerializer(group, data=data, partial=True)
+        if serializer.is_valid():
+            group = serializer.save()
+            return JsonResponse(PPRCReplicationGroupSerializer(group).data)
+        return JsonResponse(serializer.errors, status=400)
+
+    elif request.method == "DELETE":
+        # Prevent deleting group 1
+        if group.group_number == 1:
+            return JsonResponse({"error": "Cannot delete Group 1"}, status=400)
+
+        group.delete()
+        return JsonResponse({"success": True}, status=204)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def pprc_group_lss_list(request, group_id):
+    """
+    List all LSS mappings for a replication group, or add a new mapping.
+    """
+    try:
+        group = PPRCReplicationGroup.objects.get(pk=group_id)
+    except PPRCReplicationGroup.DoesNotExist:
+        return JsonResponse({"error": "Replication group not found"}, status=404)
+
+    if request.method == "GET":
+        mappings = group.lss_mappings.all()
+        serializer = PPRCGroupLSSMappingSerializer(mappings, many=True)
+        return JsonResponse({
+            "results": serializer.data,
+            "count": mappings.count()
+        })
+
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+        data['group'] = group_id
+
+        serializer = PPRCGroupLSSMappingSerializer(data=data)
+        if serializer.is_valid():
+            mapping = serializer.save()
+            return JsonResponse(PPRCGroupLSSMappingSerializer(mapping).data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def pprc_group_lss_detail(request, pk):
+    """
+    Delete an LSS mapping.
+    """
+    try:
+        mapping = PPRCGroupLSSMapping.objects.get(pk=pk)
+    except PPRCGroupLSSMapping.DoesNotExist:
+        return JsonResponse({"error": "LSS mapping not found"}, status=404)
+
+    mapping.delete()
+    return JsonResponse({"success": True}, status=204)
+
+
+@require_http_methods(["GET"])
+def pprc_group_available_lss(request, storage_id):
+    """
+    List available LSSs for a storage system with their assignment status.
+    Returns LSSs from LSSSummary with info about which group they're assigned to (if any).
+    """
+    try:
+        storage = Storage.objects.get(pk=storage_id)
+    except Storage.DoesNotExist:
+        return JsonResponse({"error": "Storage not found"}, status=404)
+
+    if storage.storage_type != 'DS8000':
+        return JsonResponse({"error": "LSS is only available for DS8000 storage systems"}, status=400)
+
+    # Get optional target_storage to check assignments
+    target_storage_id = request.GET.get('target_storage')
+
+    # Get all LSS summaries for this storage
+    lss_summaries = LSSSummary.objects.filter(storage=storage).order_by('lss')
+
+    # Get LSS assignments for this storage pair
+    assigned_lss = {}
+    if target_storage_id:
+        mappings = PPRCGroupLSSMapping.objects.filter(
+            group__source_storage=storage,
+            group__target_storage_id=target_storage_id
+        ).select_related('group')
+        for mapping in mappings:
+            assigned_lss[mapping.source_lss] = {
+                'group_id': mapping.group.id,
+                'group_number': mapping.group.group_number,
+                'target_lss': mapping.target_lss
+            }
+
+    results = []
+    for lss_summary in lss_summaries:
+        assignment = assigned_lss.get(lss_summary.lss)
+        results.append({
+            'lss': lss_summary.lss,
+            'ssid': lss_summary.ssid,
+            'storage_id': storage.id,
+            'storage_name': storage.name,
+            'assigned_to_group': assignment['group_id'] if assignment else None,
+            'assigned_group_number': assignment['group_number'] if assignment else None,
+            'target_lss': assignment['target_lss'] if assignment else None,
+        })
+
+    return JsonResponse({
+        "results": results,
+        "count": len(results)
+    })

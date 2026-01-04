@@ -6,7 +6,7 @@ const ITEM_TYPE = 'PORT';
 /**
  * PortItem - Draggable port that can be connected to other ports
  */
-const PortItem = ({ port, side, onCreatePath, registerPortRef, isConnected }) => {
+const PortItem = ({ port, side, onCreatePath, registerPortRef, isConnected, showFabric, fabricColor }) => {
   const ref = useRef(null);
 
   // Register this port's DOM element for SVG line positioning
@@ -92,10 +92,18 @@ const PortItem = ({ port, side, onCreatePath, registerPortRef, isConnected }) =>
             </span>
           )}
         </div>
-        <div className="pprc-port-use">
+        <div className="pprc-port-badges">
           <span className={`badge ${port.use === 'replication' ? 'bg-primary' : 'bg-info'}`}>
             {port.use}
           </span>
+          {showFabric && port.fabric_name && (
+            <span
+              className="badge pprc-fabric-badge"
+              style={{ backgroundColor: fabricColor || '#6c757d' }}
+            >
+              {port.fabric_name}
+            </span>
+          )}
         </div>
       </div>
     </div>

@@ -993,6 +993,16 @@ class PPRCPath(models.Model):
     # Optional metadata
     notes = models.TextField(null=True, blank=True)
 
+    # Optional FK to replication group (port pairs apply to all LSSs in the group)
+    replication_group = models.ForeignKey(
+        'PPRCReplicationGroup',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paths',
+        help_text="Replication group this path belongs to"
+    )
+
     # Lifecycle tracking (following existing patterns)
     committed = models.BooleanField(
         default=False,
@@ -1058,3 +1068,157 @@ class PPRCPath(models.Model):
     def is_same_storage(self):
         """Check if both ports belong to the same storage system"""
         return self.port1.storage_id == self.port2.storage_id
+
+
+class PPRCReplicationGroup(models.Model):
+    """
+    Replication Group for PPRC paths. Groups LSSs that share the same port-pair configuration.
+    Group 1 is always the default group. If "All LSSs" mode, no other groups can exist
+    for that storage pair.
+
+    Port pairs (PPRCPaths) are defined once per group and apply to ALL LSSs in the group.
+    """
+    LSS_MODE_CHOICES = [
+        ('all', 'All LSSs'),
+        ('custom', 'Custom LSSs'),
+        ('even', 'Even LSSs'),
+        ('odd', 'Odd LSSs'),
+    ]
+
+    # Each group belongs to a source-target storage pair
+    source_storage = models.ForeignKey(
+        Storage,
+        on_delete=models.CASCADE,
+        related_name='pprc_groups_as_source',
+        help_text="Source DS8000 storage system"
+    )
+    target_storage = models.ForeignKey(
+        Storage,
+        on_delete=models.CASCADE,
+        related_name='pprc_groups_as_target',
+        help_text="Target DS8000 storage system"
+    )
+
+    group_number = models.PositiveIntegerField(
+        default=1,
+        help_text="Group number (1 is default)"
+    )
+    name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Optional friendly name for the group"
+    )
+    lss_mode = models.CharField(
+        max_length=10,
+        choices=LSS_MODE_CHOICES,
+        default='all',
+        help_text="'all' = all LSSs; 'custom' = specific LSSs only"
+    )
+    notes = models.TextField(null=True, blank=True)
+
+    # Lifecycle tracking (following existing patterns)
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_pprc_groups',
+        help_text="Project that originally created this entity"
+    )
+
+    # Audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_pprc_groups',
+        help_text="User who last modified this replication group"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['source_storage', 'target_storage', 'group_number']
+        ordering = ['source_storage', 'target_storage', 'group_number']
+        verbose_name = "PPRC Replication Group"
+        verbose_name_plural = "PPRC Replication Groups"
+
+    def __str__(self):
+        name_part = f" ({self.name})" if self.name else ""
+        return f"Group {self.group_number}{name_part}: {self.source_storage.name} -> {self.target_storage.name}"
+
+    @property
+    def customer(self):
+        """Get customer from source storage"""
+        return self.source_storage.customer if self.source_storage else None
+
+    @property
+    def is_same_storage(self):
+        """Check if source and target are the same storage (metro mirror)"""
+        return self.source_storage_id == self.target_storage_id
+
+    @property
+    def path_count(self):
+        """Return number of paths in this group"""
+        return self.paths.count()
+
+
+class PPRCGroupLSSMapping(models.Model):
+    """
+    Maps specific LSS pairs to a replication group.
+    Source LSS and target LSS can differ (e.g., src 50 -> tgt 60).
+    Each source LSS can only belong to one group for a given storage pair.
+    """
+    group = models.ForeignKey(
+        PPRCReplicationGroup,
+        on_delete=models.CASCADE,
+        related_name='lss_mappings'
+    )
+    source_lss = models.CharField(
+        max_length=2,
+        help_text="Source LSS (2 hex digits, e.g., '50')"
+    )
+    target_lss = models.CharField(
+        max_length=2,
+        help_text="Target LSS (2 hex digits, e.g., '60')"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['group', 'source_lss']
+        ordering = ['source_lss']
+        verbose_name = "PPRC Group LSS Mapping"
+        verbose_name_plural = "PPRC Group LSS Mappings"
+
+    def __str__(self):
+        return f"{self.group.group_number}: LSS {self.source_lss} -> {self.target_lss}"
+
+    def clean(self):
+        """Validate that source_lss is not already in another group for same storage pair"""
+        from django.core.exceptions import ValidationError
+
+        if self.group_id:
+            # Check if this source_lss is already assigned to another group for the same storage pair
+            existing = PPRCGroupLSSMapping.objects.filter(
+                group__source_storage=self.group.source_storage,
+                group__target_storage=self.group.target_storage,
+                source_lss=self.source_lss
+            ).exclude(pk=self.pk)
+
+            if existing.exists():
+                raise ValidationError(
+                    f"LSS {self.source_lss} is already assigned to Group {existing.first().group.group_number}"
+                )

@@ -64,6 +64,12 @@ from .views import (
     pprc_path_detail,
     pprc_path_available_ports,
     pprc_path_customer_storages,
+    # PPRC Replication Group Management
+    pprc_group_list,
+    pprc_group_detail,
+    pprc_group_lss_list,
+    pprc_group_lss_detail,
+    pprc_group_available_lss,
 )
 
 urlpatterns = [
@@ -134,4 +140,10 @@ urlpatterns = [
     path("pprc-paths/<int:pk>/", pprc_path_detail, name="pprc-path-detail"),
     path("<int:storage_id>/pprc-paths/available-ports/", pprc_path_available_ports, name="pprc-available-ports"),
     path("pprc-paths/ds8000-storages/", pprc_path_customer_storages, name="pprc-customer-storages"),
+    # PPRC Replication Group Management (DS8000 only)
+    path("<int:storage_id>/pprc-groups/", pprc_group_list, name="pprc-group-list"),
+    path("pprc-groups/<int:pk>/", pprc_group_detail, name="pprc-group-detail"),
+    path("pprc-groups/<int:group_id>/lss-mappings/", pprc_group_lss_list, name="pprc-group-lss-list"),
+    path("pprc-groups/lss-mappings/<int:pk>/", pprc_group_lss_detail, name="pprc-group-lss-detail"),
+    path("<int:storage_id>/pprc-groups/available-lss/", pprc_group_available_lss, name="pprc-available-lss"),
 ]
