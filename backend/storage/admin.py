@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Storage, Host, Volume, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping
+from .models import Storage, Host, Volume, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, PPRCPath
 from core.dashboard_views import clear_dashboard_cache_for_customer
 
 
@@ -342,4 +342,63 @@ class VolumeMappingAdmin(admin.ModelAdmin):
             'volume', 'volume__storage',
             'target_host', 'target_cluster', 'target_lpar',
             'assigned_host'
+        )
+
+
+@admin.register(PPRCPath)
+class PPRCPathAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "port1_display",
+        "port2_display",
+        "is_same_storage",
+        "committed",
+        "deployed",
+        "created_at",
+    )
+    search_fields = (
+        "port1__name", "port1__wwpn", "port1__storage__name",
+        "port2__name", "port2__wwpn", "port2__storage__name",
+    )
+    list_filter = ("committed", "deployed", "port1__storage", "port2__storage")
+    raw_id_fields = ("port1", "port2", "created_by_project", "last_modified_by")
+    readonly_fields = ("created_at", "updated_at", "last_modified_at")
+
+    fieldsets = (
+        ("Port Connections", {
+            'fields': ('port1', 'port2'),
+            'description': 'Select two FC ports to create a PPRC path between them'
+        }),
+        ("Notes", {
+            'fields': ('notes',),
+            'classes': ('collapse',)
+        }),
+        ("Lifecycle Tracking", {
+            'fields': ('committed', 'deployed', 'created_by_project')
+        }),
+        ("Audit Information", {
+            'fields': ('last_modified_by', 'last_modified_at', 'version', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+    def port1_display(self, obj):
+        if obj.port1:
+            return f"{obj.port1.storage.name}: {obj.port1.name}"
+        return "-"
+    port1_display.short_description = "Port 1"
+    port1_display.admin_order_field = "port1__storage__name"
+
+    def port2_display(self, obj):
+        if obj.port2:
+            return f"{obj.port2.storage.name}: {obj.port2.name}"
+        return "-"
+    port2_display.short_description = "Port 2"
+    port2_display.admin_order_field = "port2__storage__name"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'port1', 'port1__storage',
+            'port2', 'port2__storage',
+            'created_by_project', 'last_modified_by'
         )

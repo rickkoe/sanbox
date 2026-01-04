@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, PPRCPath
 from customers.serializers import CustomerSerializer
 from core.models import TableConfiguration
 
@@ -598,3 +598,129 @@ class VolumeMappingSerializer(serializers.ModelSerializer):
         except Exception as e:
             print(f"Error checking in_active_project for mapping {obj}: {e}")
             return False
+
+
+class PPRCPathSerializer(serializers.ModelSerializer):
+    """Serializer for PPRCPath model - bidirectional replication connections between ports"""
+
+    # Port details for display
+    port1_details = serializers.SerializerMethodField()
+    port2_details = serializers.SerializerMethodField()
+
+    # Convenience fields
+    is_same_storage = serializers.BooleanField(read_only=True)
+
+    # Project membership fields
+    project_memberships = serializers.SerializerMethodField()
+    in_active_project = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PPRCPath
+        fields = '__all__'
+
+    def get_port1_details(self, obj):
+        """Return port1 details including storage info"""
+        if obj.port1:
+            return {
+                'id': obj.port1.id,
+                'name': obj.port1.name,
+                'wwpn': obj.port1.wwpn,
+                'port_id': obj.port1.port_id,
+                'frame': obj.port1.frame,
+                'io_enclosure': obj.port1.io_enclosure,
+                'storage_id': obj.port1.storage.id,
+                'storage_name': obj.port1.storage.name,
+            }
+        return None
+
+    def get_port2_details(self, obj):
+        """Return port2 details including storage info"""
+        if obj.port2:
+            return {
+                'id': obj.port2.id,
+                'name': obj.port2.name,
+                'wwpn': obj.port2.wwpn,
+                'port_id': obj.port2.port_id,
+                'frame': obj.port2.frame,
+                'io_enclosure': obj.port2.io_enclosure,
+                'storage_id': obj.port2.storage.id,
+                'storage_name': obj.port2.storage.name,
+            }
+        return None
+
+    def get_project_memberships(self, obj):
+        """Return list of projects this PPRC path belongs to"""
+        memberships = []
+        try:
+            for pm in obj.project_memberships.all():
+                action = 'delete' if pm.delete_me else pm.action
+                memberships.append({
+                    'project_id': pm.project.id,
+                    'project_name': pm.project.name,
+                    'action': action
+                })
+        except Exception as e:
+            print(f"Error getting project_memberships for PPRC path {obj}: {e}")
+        return memberships
+
+    def get_in_active_project(self, obj):
+        """Check if this PPRC path is in the user's active project"""
+        active_project_id = self.context.get('active_project_id')
+        if not active_project_id:
+            return False
+        try:
+            return obj.project_memberships.filter(project_id=active_project_id).exists()
+        except Exception as e:
+            print(f"Error checking in_active_project for PPRC path {obj}: {e}")
+            return False
+
+    def validate(self, data):
+        """Validate PPRC path constraints"""
+        port1 = data.get('port1')
+        port2 = data.get('port2')
+
+        if port1 and port2:
+            # Ensure both ports are from DS8000 storage systems
+            if port1.storage.storage_type != 'DS8000':
+                raise serializers.ValidationError({
+                    'port1': 'PPRC paths are only supported for DS8000 storage systems.'
+                })
+            if port2.storage.storage_type != 'DS8000':
+                raise serializers.ValidationError({
+                    'port2': 'PPRC paths are only supported for DS8000 storage systems.'
+                })
+
+            # Ensure both ports are FC type
+            if port1.type != 'fc':
+                raise serializers.ValidationError({
+                    'port1': 'PPRC paths require Fibre Channel ports.'
+                })
+            if port2.type != 'fc':
+                raise serializers.ValidationError({
+                    'port2': 'PPRC paths require Fibre Channel ports.'
+                })
+
+            # Ensure ports are replication-capable
+            valid_uses = ['replication', 'both']
+            if port1.use not in valid_uses:
+                raise serializers.ValidationError({
+                    'port1': 'Port must have use set to "replication" or "both".'
+                })
+            if port2.use not in valid_uses:
+                raise serializers.ValidationError({
+                    'port2': 'Port must have use set to "replication" or "both".'
+                })
+
+            # Ensure both ports belong to same customer
+            if port1.storage.customer_id != port2.storage.customer_id:
+                raise serializers.ValidationError({
+                    'port2': 'Both ports must belong to storage systems under the same customer.'
+                })
+
+            # Prevent self-connection (same port)
+            if port1.id == port2.id:
+                raise serializers.ValidationError({
+                    'port2': 'Cannot create a path from a port to itself.'
+                })
+
+        return data

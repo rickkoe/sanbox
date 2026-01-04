@@ -7,11 +7,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from django.utils import timezone
-from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, LSSSummary
+from .models import Storage, Volume, Host, HostWwpn, Port, Pool, HostCluster, IBMiLPAR, VolumeMapping, LSSSummary, PPRCPath
 from .serializers import (
     StorageSerializer, VolumeSerializer, HostSerializer, PortSerializer,
     StorageFieldPreferenceSerializer, PoolSerializer,
-    HostClusterSerializer, IBMiLPARSerializer, VolumeMappingSerializer
+    HostClusterSerializer, IBMiLPARSerializer, VolumeMappingSerializer, PPRCPathSerializer
 )
 import logging
 from django.core.paginator import Paginator
@@ -20,7 +20,7 @@ from urllib.parse import urlencode
 from core.dashboard_views import clear_dashboard_cache_for_customer
 from core.models import (
     Project, ProjectStorage, ProjectVolume, ProjectHost, ProjectPort, ProjectPool,
-    ProjectHostCluster, ProjectIBMiLPAR, ProjectVolumeMapping
+    ProjectHostCluster, ProjectIBMiLPAR, ProjectVolumeMapping, ProjectPPRCPath
 )
 
 logger = logging.getLogger(__name__)
@@ -3042,6 +3042,9 @@ def port_project_view(request, project_id):
         return JsonResponse(response_data)
 
     # Default: current project only
+    # Get storage_id filter if provided (for Storage Detail view)
+    storage_id = request.GET.get('storage_id')
+
     # Get all ProjectPort entries for this project
     project_ports = ProjectPort.objects.filter(
         project=project
@@ -3055,6 +3058,10 @@ def port_project_view(request, project_id):
         Prefetch('port__project_memberships',
                  queryset=ProjectPort.objects.select_related('project'))
     )
+
+    # Apply storage_id filter if provided
+    if storage_id:
+        project_ports = project_ports.filter(port__storage_id=storage_id)
 
     # Get search parameter
     search = request.GET.get('search', '').strip()
@@ -3072,8 +3079,8 @@ def port_project_view(request, project_id):
     # Frontend sends params like 'wwpn__icontains', we need to map to 'port__wwpn__icontains'
     filter_params = {}
     for param, value in request.GET.items():
-        # Skip pagination and search params
-        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter']:
+        # Skip pagination, search, and storage_id params (storage_id handled separately above)
+        if param in ['page', 'page_size', 'search', 'ordering', 'customer_id', 'project_filter', 'storage_id']:
             continue
 
         # Map frontend parameter to Django ORM lookup through junction table
@@ -5895,4 +5902,212 @@ def port_save_view(request):
         return JsonResponse({"error": "Invalid JSON in request body"}, status=400)
     except Exception as e:
         logger.exception("Error saving ports")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# ========== PPRC PATH VIEWS ==========
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def pprc_path_list(request, storage_id):
+    """
+    List PPRC paths involving a storage system, or create a new path.
+    GET: Returns all PPRC paths where either port belongs to the specified storage.
+    POST: Creates a new PPRC path.
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    # Verify storage exists and is DS8000
+    try:
+        storage = Storage.objects.get(id=storage_id)
+    except Storage.DoesNotExist:
+        return JsonResponse({"error": "Storage system not found"}, status=404)
+
+    if storage.storage_type != 'DS8000':
+        return JsonResponse({"error": "PPRC paths are only supported for DS8000 storage systems"}, status=400)
+
+    if request.method == "GET":
+        try:
+            # Get PPRC paths where either port belongs to this storage
+            paths = PPRCPath.objects.filter(
+                Q(port1__storage=storage) | Q(port2__storage=storage)
+            ).select_related(
+                'port1', 'port1__storage',
+                'port2', 'port2__storage',
+                'created_by_project', 'last_modified_by'
+            ).prefetch_related('project_memberships__project')
+
+            serializer = PPRCPathSerializer(paths, many=True)
+            return JsonResponse({
+                "results": serializer.data,
+                "count": len(serializer.data)
+            })
+
+        except Exception as e:
+            logger.exception("Error fetching PPRC paths")
+            return JsonResponse({"error": str(e)}, status=500)
+
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+
+            # Validate using serializer
+            serializer = PPRCPathSerializer(data=data)
+            if not serializer.is_valid():
+                return JsonResponse({"error": serializer.errors}, status=400)
+
+            # Save the path
+            path = serializer.save(
+                committed=False,
+                deployed=False,
+                last_modified_by=user
+            )
+
+            # Add to project if user has active project
+            if user:
+                from core.models import UserConfig
+                try:
+                    user_config = UserConfig.objects.get(user=user)
+                    if user_config.active_project:
+                        ProjectPPRCPath.objects.create(
+                            project=user_config.active_project,
+                            pprc_path=path,
+                            action='new',
+                            added_by=user,
+                            notes='Created via PPRC Paths UI'
+                        )
+                        path.created_by_project = user_config.active_project
+                        path.save(update_fields=['created_by_project'])
+                except UserConfig.DoesNotExist:
+                    pass
+
+            return JsonResponse(PPRCPathSerializer(path).data, status=201)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON in request body"}, status=400)
+        except Exception as e:
+            logger.exception("Error creating PPRC path")
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "DELETE"])
+def pprc_path_detail(request, pk):
+    """
+    Get or delete a specific PPRC path.
+    """
+    user = request.user if request.user.is_authenticated else None
+
+    try:
+        path = PPRCPath.objects.select_related(
+            'port1', 'port1__storage',
+            'port2', 'port2__storage',
+            'created_by_project', 'last_modified_by'
+        ).prefetch_related('project_memberships__project').get(id=pk)
+    except PPRCPath.DoesNotExist:
+        return JsonResponse({"error": "PPRC path not found"}, status=404)
+
+    if request.method == "GET":
+        serializer = PPRCPathSerializer(path)
+        return JsonResponse(serializer.data)
+
+    elif request.method == "DELETE":
+        try:
+            path.delete()
+            return JsonResponse({"message": "PPRC path deleted successfully"}, status=200)
+        except Exception as e:
+            logger.exception("Error deleting PPRC path")
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def pprc_path_available_ports(request, storage_id):
+    """
+    List FC ports that are available for PPRC paths (use='replication' or 'both').
+    Can optionally filter to show ports from all DS8000 systems for the same customer.
+    """
+    try:
+        storage = Storage.objects.get(id=storage_id)
+    except Storage.DoesNotExist:
+        return JsonResponse({"error": "Storage system not found"}, status=404)
+
+    if storage.storage_type != 'DS8000':
+        return JsonResponse({"error": "PPRC is only supported for DS8000 storage systems"}, status=400)
+
+    # Optional: get ports from all DS8000 systems for this customer
+    all_systems = request.GET.get('all_systems', 'false').lower() == 'true'
+
+    try:
+        if all_systems:
+            # Get all DS8000 systems for this customer
+            ports = Port.objects.filter(
+                storage__customer=storage.customer,
+                storage__storage_type='DS8000',
+                type='fc',
+                use__in=['replication', 'both']
+            ).select_related('storage')
+        else:
+            # Just this storage system
+            ports = Port.objects.filter(
+                storage=storage,
+                type='fc',
+                use__in=['replication', 'both']
+            ).select_related('storage')
+
+        # Group by storage system
+        result = {}
+        for port in ports:
+            storage_name = port.storage.name
+            if storage_name not in result:
+                result[storage_name] = {
+                    'storage_id': port.storage.id,
+                    'storage_name': storage_name,
+                    'ports': []
+                }
+            result[storage_name]['ports'].append({
+                'id': port.id,
+                'name': port.name,
+                'port_id': port.port_id,
+                'wwpn': port.wwpn,
+                'use': port.use,
+                'frame': port.frame,
+                'io_enclosure': port.io_enclosure,
+            })
+
+        return JsonResponse({
+            "storage_systems": list(result.values()),
+            "count": ports.count()
+        })
+
+    except Exception as e:
+        logger.exception("Error fetching available ports")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def pprc_path_customer_storages(request):
+    """
+    List all DS8000 storage systems for a customer.
+    Used for the storage selector dropdowns in the PPRC Paths UI.
+    """
+    customer_id = request.GET.get('customer')
+
+    if not customer_id:
+        return JsonResponse({"error": "customer parameter is required"}, status=400)
+
+    try:
+        storages = Storage.objects.filter(
+            customer_id=customer_id,
+            storage_type='DS8000'
+        ).values('id', 'name', 'location', 'serial_number')
+
+        return JsonResponse({
+            "results": list(storages),
+            "count": len(storages)
+        })
+
+    except Exception as e:
+        logger.exception("Error fetching DS8000 storage systems")
         return JsonResponse({"error": str(e)}, status=500)

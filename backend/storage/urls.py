@@ -59,6 +59,11 @@ from .views import (
     lss_summary_list,
     lss_summary_detail,
     lss_summary_bulk_update,
+    # PPRC Path Management (DS8000 only)
+    pprc_path_list,
+    pprc_path_detail,
+    pprc_path_available_ports,
+    pprc_path_customer_storages,
 )
 
 urlpatterns = [
@@ -124,4 +129,9 @@ urlpatterns = [
     path("<int:storage_id>/lss-summary/", lss_summary_list, name="lss-summary-list"),
     path("<int:storage_id>/lss-summary/<int:pk>/", lss_summary_detail, name="lss-summary-detail"),
     path("<int:storage_id>/lss-summary/bulk-update/", lss_summary_bulk_update, name="lss-summary-bulk-update"),
+    # PPRC Path Management (DS8000 only)
+    path("<int:storage_id>/pprc-paths/", pprc_path_list, name="pprc-path-list"),
+    path("pprc-paths/<int:pk>/", pprc_path_detail, name="pprc-path-detail"),
+    path("<int:storage_id>/pprc-paths/available-ports/", pprc_path_available_ports, name="pprc-available-ports"),
+    path("pprc-paths/ds8000-storages/", pprc_path_customer_storages, name="pprc-customer-storages"),
 ]

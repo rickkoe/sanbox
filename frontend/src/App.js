@@ -63,6 +63,7 @@ const StorageHostClustersPage = React.lazy(() => import("./pages/StorageHostClus
 const StorageIBMiLPARsPage = React.lazy(() => import("./pages/StorageIBMiLPARsPage"));
 const StorageVolumeMappingsPage = React.lazy(() => import("./pages/StorageVolumeMappingsPage"));
 const StorageLSSSummaryPage = React.lazy(() => import("./pages/StorageLSSSummaryPage"));
+const PPRCPathsPage = React.lazy(() => import("./pages/PPRCPathsPage"));
 const AllVolumesPage = React.lazy(() => import("./pages/AllVolumesPage"));
 const PortTable = React.lazy(() => import("./components/tables/PortTableTanStackClean"));
 const HostTable = React.lazy(() => import("./components/tables/HostTableTanStackClean"));
@@ -242,6 +243,7 @@ function AppLayoutWithTableControls({ theme, isSidebarCollapsed, setIsSidebarCol
                     <Route path="/storage/:id/ibmi-lpars" element={<StorageIBMiLPARsPage />} />
                     <Route path="/storage/:id/volume-mappings" element={<StorageVolumeMappingsPage />} />
                     <Route path="/storage/:id/lss-summary" element={<StorageLSSSummaryPage />} />
+                    <Route path="/storage/:id/pprc-paths" element={<PPRCPathsPage />} />
                     <Route path="/storage/:id/scripts" element={<StorageDetailScriptsPage />} />
                     <Route path="/san/fabrics" element={<FabricTable />} />
                     <Route path="/san/switches" element={<SwitchTable />} />

@@ -1,0 +1,375 @@
+/* PPRC Paths Styling - Theme-aware */
+
+/* Override Bootstrap for this page */
+.pprc-paths-container .bg-light,
+.pprc-paths-container .bg-white,
+.pprc-paths-container .card {
+  background-color: var(--secondary-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+.pprc-paths-container .text-muted {
+  color: var(--text-muted) !important;
+}
+
+/* CSS Variables for PPRC-specific colors */
+:root {
+  --pprc-line-color: #0d6efd;
+  --pprc-line-hover-color: #0a58ca;
+  --pprc-port-border: #dee2e6;
+  --pprc-port-connected: #198754;
+  --pprc-port-hover: rgba(13, 110, 253, 0.1);
+  --pprc-drop-target: rgba(25, 135, 84, 0.2);
+  --pprc-drop-invalid: rgba(220, 53, 69, 0.2);
+}
+
+[data-bs-theme="dark"] {
+  --pprc-line-color: #6ea8fe;
+  --pprc-line-hover-color: #9ec5fe;
+  --pprc-port-border: #495057;
+  --pprc-port-connected: #75b798;
+  --pprc-port-hover: rgba(110, 168, 254, 0.15);
+  --pprc-drop-target: rgba(117, 183, 152, 0.25);
+  --pprc-drop-invalid: rgba(234, 134, 143, 0.25);
+}
+
+/* Main Container */
+.pprc-paths-container {
+  padding: 1rem;
+  position: relative;
+  background-color: var(--primary-bg);
+  color: var(--text-primary);
+  min-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+/* Header */
+.pprc-paths-header {
+  margin-bottom: 1.5rem;
+}
+
+.pprc-paths-header h4 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.pprc-paths-header p {
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Editor Layout */
+.pprc-paths-editor {
+  display: flex;
+  gap: 2rem;
+  position: relative;
+  min-height: 500px;
+}
+
+/* Storage Columns */
+.pprc-column {
+  flex: 1;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.pprc-column-left {
+  margin-right: auto;
+}
+
+.pprc-column-right {
+  margin-left: auto;
+}
+
+/* Storage Selector */
+.pprc-storage-selector {
+  margin-bottom: 1rem;
+}
+
+.pprc-selector-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.pprc-selector-dropdown {
+  background-color: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--input-border) !important;
+}
+
+.pprc-selector-dropdown:focus {
+  border-color: var(--input-focus-border) !important;
+  box-shadow: 0 0 0 0.25rem var(--input-focus-shadow) !important;
+}
+
+.pprc-storage-fixed {
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Port List */
+.pprc-port-list {
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  min-height: 400px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.pprc-port-list-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.pprc-port-list-header {
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pprc-port-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Port Item */
+.pprc-port-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background-color: var(--primary-bg);
+  border: 1px solid var(--pprc-port-border);
+  border-radius: 0.25rem;
+  cursor: grab;
+  transition: all 0.15s ease-in-out;
+  position: relative;
+}
+
+.pprc-port-item:hover {
+  background-color: var(--pprc-port-hover);
+  border-color: var(--pprc-line-color);
+}
+
+.pprc-port-item:active {
+  cursor: grabbing;
+}
+
+/* Port connector dot */
+.pprc-port-connector {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--border-color);
+  border: 2px solid var(--pprc-port-border);
+  flex-shrink: 0;
+  transition: all 0.15s ease-in-out;
+}
+
+/* Left column: connector on the RIGHT side (facing center) */
+.pprc-port-left {
+  flex-direction: row;
+}
+
+.pprc-port-left .pprc-port-connector {
+  margin-left: 0.75rem;
+  order: 1;
+}
+
+/* Right column: connector on the LEFT side (facing center) */
+.pprc-port-right {
+  flex-direction: row;
+}
+
+.pprc-port-right .pprc-port-connector {
+  margin-right: 0.75rem;
+  order: -1;
+}
+
+.pprc-port-right .pprc-port-info {
+  text-align: right;
+}
+
+/* Port states */
+.pprc-port-dragging {
+  opacity: 0.5;
+  border-style: dashed;
+}
+
+.pprc-port-drop-target {
+  background-color: var(--pprc-drop-target);
+  border-color: var(--pprc-port-connected);
+}
+
+.pprc-port-drop-target .pprc-port-connector {
+  background-color: var(--pprc-port-connected);
+  border-color: var(--pprc-port-connected);
+  transform: scale(1.2);
+}
+
+.pprc-port-drop-invalid {
+  background-color: var(--pprc-drop-invalid);
+  border-color: #dc3545;
+}
+
+.pprc-port-connected {
+  border-color: var(--pprc-port-connected);
+}
+
+.pprc-port-left.pprc-port-connected {
+  border-right: 3px solid var(--pprc-port-connected);
+}
+
+.pprc-port-right.pprc-port-connected {
+  border-left: 3px solid var(--pprc-port-connected);
+}
+
+.pprc-port-connected .pprc-port-connector {
+  background-color: var(--pprc-port-connected);
+  border-color: var(--pprc-port-connected);
+}
+
+/* Port info */
+.pprc-port-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pprc-port-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pprc-port-id {
+  font-weight: normal;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.pprc-port-details {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.125rem;
+}
+
+.pprc-port-right .pprc-port-details {
+  justify-content: flex-end;
+}
+
+.pprc-port-wwpn {
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.pprc-port-location {
+  white-space: nowrap;
+}
+
+.pprc-port-use {
+  margin-top: 0.25rem;
+}
+
+.pprc-port-use .badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+/* Connection Lines SVG */
+.pprc-connection-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.pprc-connection-group {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.pprc-connection-hitarea {
+  stroke: transparent;
+  stroke-width: 20px;
+  fill: none;
+}
+
+.pprc-connection-line {
+  stroke: var(--pprc-line-color);
+  stroke-width: 2px;
+  fill: none;
+  transition: stroke 0.15s ease-in-out, stroke-width 0.15s ease-in-out;
+}
+
+.pprc-connection-group:hover .pprc-connection-line {
+  stroke: var(--pprc-line-hover-color);
+  stroke-width: 3px;
+}
+
+.pprc-connection-endpoint {
+  fill: var(--pprc-line-color);
+  transition: fill 0.15s ease-in-out, r 0.15s ease-in-out;
+}
+
+.pprc-connection-group:hover .pprc-connection-endpoint {
+  fill: var(--pprc-line-hover-color);
+  r: 6;
+}
+
+/* Saving indicator */
+.pprc-saving-indicator {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+/* Stats */
+.pprc-stats {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .pprc-paths-editor {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .pprc-column {
+    max-width: none;
+    margin: 0;
+  }
+
+  .pprc-connection-lines {
+    display: none;
+  }
+}

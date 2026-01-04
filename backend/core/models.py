@@ -1737,3 +1737,62 @@ class ProjectVolumeMapping(models.Model):
 
     def __str__(self):
         return f"{self.project.name}: {self.volume_mapping} ({self.action})"
+
+
+class ProjectPPRCPath(models.Model):
+    """Track what a project intends to do with a PPRCPath"""
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='project_pprc_paths'
+    )
+    pprc_path = models.ForeignKey(
+        'storage.PPRCPath',
+        on_delete=models.CASCADE,
+        related_name='project_memberships'
+    )
+    action = models.CharField(
+        max_length=10,
+        choices=PROJECT_ACTION_CHOICES,
+        default='new'
+    )
+    delete_me = models.BooleanField(
+        default=False,
+        help_text="Mark this item for deletion (overrides action for display)"
+    )
+
+    # Project-specific settings (overrides base model values)
+    field_overrides = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Project-specific field values"
+    )
+
+    # Audit fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_project_pprc_paths'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Project-specific notes"
+    )
+
+    class Meta:
+        unique_together = ['project', 'pprc_path']
+        ordering = ['project', 'pprc_path']
+        verbose_name = "Project PPRC Path"
+        verbose_name_plural = "Project PPRC Paths"
+        indexes = [
+            models.Index(fields=['project', 'action']),
+            models.Index(fields=['pprc_path', 'action']),
+        ]
+
+    def __str__(self):
+        return f"{self.project.name}: {self.pprc_path} ({self.action})"

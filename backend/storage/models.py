@@ -967,3 +967,94 @@ class LSSSummary(models.Model):
 
     def __str__(self):
         return f"{self.storage.name}: LSS {self.lss}"
+
+
+class PPRCPath(models.Model):
+    """
+    PPRC Path representing a bidirectional replication connection between two FC ports.
+    Used for DS8000 PPRC (Peer-to-Peer Remote Copy) configuration.
+    Paths are stored with port1_id < port2_id to ensure uniqueness for bidirectional connections.
+    """
+
+    # Port relationships - port1 will always have lower ID for consistent storage
+    port1 = models.ForeignKey(
+        Port,
+        on_delete=models.CASCADE,
+        related_name='pprc_paths_as_port1',
+        help_text="First port in the PPRC path (lower ID)"
+    )
+    port2 = models.ForeignKey(
+        Port,
+        on_delete=models.CASCADE,
+        related_name='pprc_paths_as_port2',
+        help_text="Second port in the PPRC path (higher ID)"
+    )
+
+    # Optional metadata
+    notes = models.TextField(null=True, blank=True)
+
+    # Lifecycle tracking (following existing patterns)
+    committed = models.BooleanField(
+        default=False,
+        help_text="Changes approved/finalized"
+    )
+    deployed = models.BooleanField(
+        default=False,
+        help_text="Actually deployed to infrastructure"
+    )
+    created_by_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_pprc_paths',
+        help_text="Project that originally created this entity"
+    )
+
+    # Audit fields
+    last_modified_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='modified_pprc_paths',
+        help_text="User who last modified this PPRC path"
+    )
+    last_modified_at = models.DateTimeField(auto_now=True, null=True)
+    version = models.IntegerField(default=0, help_text="Version number for optimistic locking")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['port1', 'port2']
+        ordering = ['port1__storage', 'port1__name', 'port2__name']
+        verbose_name = "PPRC Path"
+        verbose_name_plural = "PPRC Paths"
+        indexes = [
+            models.Index(fields=['port1', 'port2']),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Ensure consistent ordering - lower port ID always goes first
+        # This prevents duplicate entries like (A,B) and (B,A)
+        if self.port1_id and self.port2_id and self.port1_id > self.port2_id:
+            self.port1_id, self.port2_id = self.port2_id, self.port1_id
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.port1.storage.name}:{self.port1.name} <-> {self.port2.storage.name}:{self.port2.name}"
+
+    @property
+    def storage_systems(self):
+        """Return both storage systems involved in this path"""
+        return [self.port1.storage, self.port2.storage]
+
+    @property
+    def customer(self):
+        """Get customer from port1's storage (both should be same customer)"""
+        return self.port1.storage.customer if self.port1 and self.port1.storage else None
+
+    @property
+    def is_same_storage(self):
+        """Check if both ports belong to the same storage system"""
+        return self.port1.storage_id == self.port2.storage_id

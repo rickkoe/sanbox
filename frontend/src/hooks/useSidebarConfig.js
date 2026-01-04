@@ -25,6 +25,8 @@ import {
   Router,
   History,
   Database,
+  RefreshCw,
+  Link2,
 } from "lucide-react";
 
 const getSidebarLinks = (pathname, storageType) => {
@@ -112,6 +114,25 @@ const getSidebarLinks = (pathname, storageType) => {
             label: "Ports",
             icon: Cable,
           },
+          // Replication section - DS8000 only
+          ...(storageType === 'DS8000' ? [{
+            label: "Replication",
+            icon: RefreshCw,
+            expandable: true,
+            subLinks: [
+              {
+                path: `/storage/${storageIdMatch[1]}/pprc-paths`,
+                label: "PPRC Paths",
+                icon: Link2,
+              },
+              {
+                path: `/storage/${storageIdMatch[1]}/pprc-relationships`,
+                label: "PPRC Relationships",
+                icon: Layers,
+                disabled: true,
+              },
+            ],
+          }] : []),
           { divider: true },
           {
             path: `/storage/${storageIdMatch[1]}/scripts`,
